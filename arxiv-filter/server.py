@@ -257,6 +257,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
+        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
+            exp_id = m.group(1)
+            meta = read_meta(exp_id)
+            if not meta:
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            if 'title' in body:
+                meta['title'] = body['title']
+            write_meta(exp_id, meta)
+            meta['id'] = exp_id
+            self._send_json(meta)
+            return
+
         m = self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/versions/([a-zA-Z0-9_-]+)$')
         if not m:
             self._send_json({'error': 'Not found'}, 404)

@@ -323,15 +323,12 @@
           <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
           Back
         </button>
-        <h1 class="text-[1.4rem] font-semibold text-white_">Experiment Ideas</h1>
+        <h1 class="text-[1.4rem] font-semibold text-white_">Experiments</h1>
+        <button class="ml-auto px-4 py-2 rounded-md border-none bg-accent text-white text-[0.9rem] font-medium cursor-pointer hover:bg-accent-hover inline-flex items-center gap-1.5" onclick="createRandomExperiment()">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          New Experiment
+        </button>
       </div>
-    </div>
-    <div class="max-w-[900px] mx-auto px-8 pt-6">
-      <form id="idea-form" class="flex flex-col gap-2.5 bg-card border border-border-subtle rounded-[10px] p-4">
-        <input type="text" id="idea-title" placeholder="Experiment title..." required class="w-full px-3.5 py-2.5 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.95rem] focus:outline-none focus:border-accent" />
-        <textarea id="idea-desc" placeholder="Description (optional)..." class="w-full px-3.5 py-2.5 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.95rem] resize-y min-h-[60px] focus:outline-none focus:border-accent"></textarea>
-        <button type="submit" class="self-end px-5 py-2 rounded-md border-none bg-accent text-white text-[0.9rem] font-medium cursor-pointer hover:bg-accent-hover">Add Experiment</button>
-      </form>
     </div>
     <div class="max-w-[900px] mx-auto px-8 py-2 pb-16" id="ideas-list"></div>
   </div>
@@ -361,7 +358,7 @@
           <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
           Back
         </button>
-        <h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_"></h1>
+        <h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors" onclick="startRenameExperiment()" title="Click to rename"></h1>
       </div>
     </div>
     <div class="grid grid-cols-[340px_1fr] h-[calc(100vh-73px)] overflow-hidden">
@@ -964,14 +961,13 @@
         const resp = await fetch('/api/experiments');
         const experiments = await resp.json();
         if (!experiments.length) {
-          container.innerHTML = '<div class="text-center py-20 text-dimmest text-[0.95rem]">No experiments yet. Create one above.</div>';
+          container.innerHTML = '<div class="text-center py-20 text-dimmest text-[0.95rem]">No experiments yet.</div>';
           return;
         }
         container.innerHTML = experiments.map(exp => `
           <div class="border-b border-border-dim py-5 flex gap-4 items-start cursor-pointer transition-colors duration-100 -mx-2 px-2 rounded-lg hover:bg-card" onclick="openExperimentDetail('${exp.id}')">
             <div class="flex-1 min-w-0">
               <div class="text-[1.05rem] font-semibold text-white_ mb-1.5">${escapeHtml(exp.title)}</div>
-              ${exp.desc ? `<div class="text-[0.9rem] leading-relaxed text-idea-desc whitespace-pre-wrap">${escapeHtml(exp.desc)}</div>` : ''}
               <div class="text-[0.75rem] text-dimmer mt-2">${exp.versions ? exp.versions.length : 0} version(s) &middot; ${exp.created ? new Date(exp.created).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}</div>
             </div>
             <div class="flex gap-2 shrink-0 pt-0.5">
@@ -983,20 +979,25 @@
       }
     }
 
-    document.getElementById('idea-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const title = document.getElementById('idea-title').value.trim();
-      const desc = document.getElementById('idea-desc').value.trim();
-      if (!title) return;
+    const EXP_ADJECTIVES = ['bold','calm','dark','fast','keen','neat','pure','rare','soft','vast','warm','wild','able','cool','deep','fair','glad','high','kind','open'];
+    const EXP_NOUNS = ['arc','beam','core','dawn','edge','flux','grid','haze','iris','jade','knot','lens','mesa','node','orbit','peak','quark','rift','shard','tide','unit','veil','wave','apex','bolt','crest'];
+
+    function randomExpName() {
+      const adj = EXP_ADJECTIVES[Math.floor(Math.random() * EXP_ADJECTIVES.length)];
+      const noun = EXP_NOUNS[Math.floor(Math.random() * EXP_NOUNS.length)];
+      const num = Math.floor(Math.random() * 900) + 100;
+      return `${adj}-${noun}-${num}`;
+    }
+
+    async function createRandomExperiment() {
+      const title = randomExpName();
       await fetch('/api/experiments', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ title, desc, created: Date.now() })
+        body: JSON.stringify({ title, desc: '', created: Date.now() })
       });
-      document.getElementById('idea-title').value = '';
-      document.getElementById('idea-desc').value = '';
       fetchExperiments();
-    });
+    }
 
     async function deleteExperiment(id) {
       if (!confirm('Delete this experiment and all its versions?')) return;
@@ -1021,6 +1022,44 @@
         document.getElementById('version-list').innerHTML =
           `<div class="text-center py-10 text-dimmest text-[0.85rem]">Failed to load: ${err.message}</div>`;
       }
+    }
+
+    let renaming = false;
+
+    function startRenameExperiment() {
+      if (!currentExpId || !currentExp || renaming) return;
+      renaming = true;
+      const h1 = document.getElementById('exp-detail-title');
+      const current = currentExp.title;
+      h1.outerHTML = `<input id="exp-rename-input" type="text" value="${escapeHtml(current)}" class="text-[1.4rem] font-semibold text-white_ bg-transparent border-b-2 border-accent outline-none w-full max-w-[400px]" />`;
+      const input = document.getElementById('exp-rename-input');
+      input.focus();
+      input.select();
+      input.addEventListener('keydown', async e => {
+        if (e.key === 'Enter') { e.preventDefault(); await finishRename(input); }
+        if (e.key === 'Escape') { cancelRename(); }
+      });
+      input.addEventListener('blur', () => finishRename(input));
+    }
+
+    async function finishRename(input) {
+      if (!renaming) return;
+      renaming = false;
+      const newTitle = input.value.trim();
+      if (!newTitle || !currentExpId) { cancelRename(); return; }
+      await fetch(`/api/experiments/${currentExpId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ title: newTitle })
+      });
+      currentExp.title = newTitle;
+      cancelRename();
+    }
+
+    function cancelRename() {
+      const input = document.getElementById('exp-rename-input');
+      if (!input) return;
+      input.outerHTML = `<h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors" onclick="startRenameExperiment()" title="Click to rename">${escapeHtml(currentExp.title)}</h1>`;
     }
 
     function renderVersionList() {
