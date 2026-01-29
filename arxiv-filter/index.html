@@ -448,26 +448,67 @@
       margin-top: 4px;
     }
 
-    .version-detail {
-      border-top: 1px solid #1a1a1a;
-      padding: 16px;
-      overflow-y: auto;
-      max-height: 300px;
+    /* ── Version Popup ── */
+    .version-popup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .version-detail label {
+    .version-popup {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 24px;
+      width: 420px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+
+    .version-popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .version-popup-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .version-popup-close {
+      background: none;
+      border: none;
+      color: #666;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .version-popup-close:hover { color: #ccc; }
+
+    .version-popup label {
       display: block;
       font-size: 0.75rem;
       color: #666;
       margin-bottom: 4px;
-      margin-top: 12px;
+      margin-top: 14px;
     }
 
-    .version-detail label:first-child { margin-top: 0; }
+    .version-popup label:first-of-type { margin-top: 0; }
 
-    .version-detail input,
-    .version-detail textarea,
-    .version-detail select {
+    .version-popup input,
+    .version-popup textarea,
+    .version-popup select {
       width: 100%;
       padding: 8px 10px;
       border-radius: 6px;
@@ -478,17 +519,28 @@
       font-size: 0.85rem;
     }
 
-    .version-detail input:focus,
-    .version-detail textarea:focus,
-    .version-detail select:focus { outline: none; border-color: #b4451a; }
+    .version-popup input:focus,
+    .version-popup textarea:focus,
+    .version-popup select:focus { outline: none; border-color: #b4451a; }
 
-    .version-detail textarea { resize: vertical; min-height: 50px; }
+    .version-popup textarea { resize: vertical; min-height: 50px; }
 
-    .version-detail-actions {
+    .version-popup-actions {
       display: flex;
       gap: 8px;
-      margin-top: 14px;
+      margin-top: 18px;
     }
+
+    .version-popup .save-indicator {
+      font-size: 0.75rem;
+      color: #4a9;
+      margin-left: auto;
+      align-self: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .version-popup .save-indicator.visible { opacity: 1; }
 
     .btn-danger {
       padding: 6px 14px;
@@ -771,13 +823,17 @@
           <button class="btn-sm" onclick="addVersion()">Add</button>
         </div>
         <div class="version-list" id="version-list"></div>
-        <div class="version-detail" id="version-detail" style="display:none"></div>
       </div>
       <div class="exp-right">
         <svg id="tree-svg"></svg>
         <div class="canvas-hint">Scroll to zoom &middot; Drag to pan</div>
       </div>
     </div>
+  </div>
+
+  <!-- Version Popup -->
+  <div id="version-popup-overlay" class="version-popup-overlay" style="display:none" onclick="if(event.target===this)closeVersionPopup()">
+    <div class="version-popup" id="version-popup"></div>
   </div>
 
   <script>
@@ -1149,22 +1205,28 @@
             <div class="version-card-meta">${v.status || 'planned'}${v.parentId ? ' &middot; from ' + escapeHtml(v.parentId) : ' &middot; root'}</div>
           </div>`).join('');
       }
-      renderVersionDetail();
     }
 
     function selectVersion(vid) {
       selectedVersionId = vid;
       renderVersionList();
       renderTree();
+      openVersionPopup(vid);
     }
 
-    function renderVersionDetail() {
-      const panel = document.getElementById('version-detail');
-      if (!selectedVersionId) { panel.style.display = 'none'; return; }
-      const v = (currentExp.versions || []).find(x => x.id === selectedVersionId);
-      if (!v) { panel.style.display = 'none'; return; }
-      panel.style.display = 'block';
-      panel.innerHTML = `
+    // ── Version Popup ──
+    let autoSaveTimer = null;
+
+    function openVersionPopup(vid) {
+      const v = (currentExp.versions || []).find(x => x.id === vid);
+      if (!v) return;
+
+      const popup = document.getElementById('version-popup');
+      popup.innerHTML = `
+        <div class="version-popup-header">
+          <h2>${escapeHtml(v.name)}</h2>
+          <button class="version-popup-close" onclick="closeVersionPopup()">&times;</button>
+        </div>
         <label>Name</label>
         <input type="text" id="vd-name" value="${escapeHtml(v.name)}" />
         <label>Status</label>
@@ -1175,21 +1237,51 @@
           <option value="failed" ${v.status==='failed'?'selected':''}>Failed</option>
         </select>
         <label>Notes</label>
-        <textarea id="vd-notes" rows="2">${escapeHtml(v.notes || '')}</textarea>
+        <textarea id="vd-notes" rows="3">${escapeHtml(v.notes || '')}</textarea>
         <label>Results</label>
-        <textarea id="vd-results" rows="3">${escapeHtml(v.results || '')}</textarea>
-        <div class="version-detail-actions">
-          <button class="btn-sm" onclick="saveVersion()">Save</button>
-          <button class="btn-outline" onclick="branchFrom('${v.id}')">Branch from this</button>
+        <textarea id="vd-results" rows="4">${escapeHtml(v.results || '')}</textarea>
+        <div class="version-popup-actions">
+          <button class="btn-outline" onclick="branchFrom('${v.id}'); closeVersionPopup()">Branch from this</button>
           <button class="btn-danger" onclick="deleteVersion('${v.id}')">Delete</button>
+          <span class="save-indicator" id="save-indicator">Saved</span>
         </div>
       `;
+
+      document.getElementById('version-popup-overlay').style.display = 'flex';
+
+      // Auto-save on any change
+      const fields = ['vd-name', 'vd-status', 'vd-notes', 'vd-results'];
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(evt, () => scheduleAutoSave());
+        // Save immediately on status change
+        if (el.tagName === 'SELECT') {
+          el.addEventListener('change', () => doAutoSave());
+        }
+      });
     }
 
-    async function saveVersion() {
-      if (!selectedVersionId) return;
+    function closeVersionPopup() {
+      // Flush any pending save
+      if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; doAutoSave(); }
+      document.getElementById('version-popup-overlay').style.display = 'none';
+    }
+
+    function scheduleAutoSave() {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => doAutoSave(), 600);
+    }
+
+    async function doAutoSave() {
+      autoSaveTimer = null;
+      if (!selectedVersionId || !currentExpId) return;
+      const nameEl = document.getElementById('vd-name');
+      if (!nameEl) return; // popup already closed
+
       const body = {
-        name: document.getElementById('vd-name').value.trim(),
+        name: nameEl.value.trim(),
         status: document.getElementById('vd-status').value,
         notes: document.getElementById('vd-notes').value,
         results: document.getElementById('vd-results').value
@@ -1199,11 +1291,21 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body)
       });
-      await fetchExperimentDetail(currentExpId);
+
+      // Flash save indicator
+      const ind = document.getElementById('save-indicator');
+      if (ind) { ind.classList.add('visible'); setTimeout(() => ind.classList.remove('visible'), 1500); }
+
+      // Refresh data in background (without closing popup)
+      const resp = await fetch(`/api/experiments/${currentExpId}`);
+      currentExp = await resp.json();
+      renderVersionList();
+      renderTree();
     }
 
     async function deleteVersion(vid) {
       if (!confirm('Delete this version?')) return;
+      closeVersionPopup();
       await fetch(`/api/experiments/${currentExpId}/versions/${vid}`, { method: 'DELETE' });
       if (selectedVersionId === vid) selectedVersionId = null;
       await fetchExperimentDetail(currentExpId);
@@ -1215,6 +1317,13 @@
       input.focus();
       input.placeholder = `Branch from "${parentId}"...`;
     }
+
+    // Close popup on Escape
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('version-popup-overlay').style.display === 'flex') {
+        closeVersionPopup();
+      }
+    });
 
     async function addVersion() {
       const input = document.getElementById('new-version-name');
