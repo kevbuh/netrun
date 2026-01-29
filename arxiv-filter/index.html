@@ -91,25 +91,50 @@
       padding: 24px 24px 0;
     }
 
-    /* ── Home Search ── */
-    .home-search-bar {
-      max-width: 600px;
-      margin: 0 auto 24px;
+    /* ── Home Top Bar ── */
+    .home-top-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
     }
+
+    .sort-buttons {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .sort-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #888;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .sort-btn:hover { border-color: #b4451a; color: #ccc; }
+    .sort-btn.active { border-color: #b4451a; background: #1e1209; color: #e0e0e0; }
 
     .home-search-form {
       display: flex;
       gap: 10px;
+      flex: 1;
+      max-width: 500px;
     }
 
     .home-search-form input {
       flex: 1;
-      padding: 12px 20px;
+      padding: 10px 18px;
       border-radius: 24px;
       border: 1px solid #333;
       background: #151515;
       color: #e0e0e0;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
     }
 
     .home-search-form input:focus {
@@ -118,18 +143,23 @@
     }
 
     .home-search-form button {
-      padding: 12px 24px;
+      padding: 10px 20px;
       border-radius: 24px;
       border: none;
       background: #b4451a;
       color: #fff;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
       white-space: nowrap;
     }
 
     .home-search-form button:hover { background: #c9562a; }
+
+    .paper-citations span {
+      color: #b4451a;
+      font-weight: 600;
+    }
 
     #finder-results-masonry {
       columns: 4;
@@ -890,7 +920,11 @@
 
   <!-- Home Main Content -->
   <div class="home-main" id="home-main">
-    <div class="home-search-bar">
+    <div class="home-top-bar">
+        <div class="sort-buttons">
+          <button class="sort-btn active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
+          <button class="sort-btn" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
+        </div>
         <form class="home-search-form" id="finder-form">
           <input type="text" id="finder-query" placeholder="Search arXiv papers..." />
           <button type="submit">Search</button>
@@ -1058,7 +1092,19 @@
     // ── arXiv Feed (loads on startup) ──
     let allPapers = [];
     let allCategories = new Set();
+    let citationMap = {};
+    let currentSort = 'latest';
+    const PAGE_SIZE = 20;
+    let visibleCount = PAGE_SIZE;
     fetchFeed();
+
+    function setSortMode(mode) {
+      currentSort = mode;
+      document.getElementById('sort-latest').classList.toggle('active', mode === 'latest');
+      document.getElementById('sort-citations').classList.toggle('active', mode === 'citations');
+      visibleCount = PAGE_SIZE;
+      renderPapers();
+    }
 
     async function fetchFeed() {
       try {
@@ -1070,6 +1116,11 @@
           `<div class="error"><p>Failed to load feed: ${err.message}</p>
            <p style="margin-top:8px;font-size:0.85rem;color:#888">Try refreshing or check your connection.</p></div>`;
       }
+    }
+
+    function extractArxivId(link) {
+      const m = link.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
+      return m ? m[1] : null;
     }
 
     function parseFeed(xml) {
@@ -1084,11 +1135,34 @@
         categories.forEach(c => allCategories.add(c));
         const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
         const dateStr = pubDate ? new Date(pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-        return { title, link, authors, categories, description: stripHtml(description), date: dateStr };
+        const arxivId = extractArxivId(link);
+        return { title, link, authors, categories, description: stripHtml(description), date: dateStr, pubDate, arxivId };
       });
       populateCategories();
       renderTrends();
       renderPapers();
+    }
+
+    async function fetchCitationsFor(papers) {
+      const ids = papers.map(p => p.arxivId).filter(Boolean).filter(id => citationMap[id] === undefined);
+      if (!ids.length) return;
+      try {
+        const resp = await fetch('/api/citations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          Object.assign(citationMap, data);
+          for (const p of papers) {
+            if (p.arxivId && citationMap[p.arxivId] !== undefined) {
+              p.citations = citationMap[p.arxivId];
+            }
+          }
+          renderPapers();
+        }
+      } catch (e) { /* silently fail */ }
     }
 
     // ── Trends extraction ──
@@ -1223,17 +1297,7 @@
 
     function openPaper(index) {
       paperViewOrigin = 'arxiv';
-      const search = document.getElementById('search').value.toLowerCase();
-      const category = document.getElementById('category').value;
-      const filtered = allPapers.filter(p => {
-        if (category && !p.categories.includes(category)) return false;
-        if (search) {
-          const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-          return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
-        }
-        return true;
-      });
-      const paper = filtered[index];
+      const paper = lastFilteredPapers[index];
       if (!paper) return;
       showPaperView(paper, 'paper/' + index);
     }
@@ -1304,9 +1368,15 @@
           if (t && !categories.includes(t)) categories.push(t);
         }
         const dateStr = published ? new Date(published + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-        return { title, description: summary, authors, link, published, date: dateStr, categories };
+        const arxivId = extractArxivId(link);
+        return { title, description: summary, authors, link, published, date: dateStr, categories, arxivId };
       });
 
+      renderFinderResults(total);
+      fetchFinderCitations(total);
+    }
+
+    function renderFinderResults(total) {
       const container = document.getElementById('finder-results-masonry');
       if (!finderResultsCache.length) {
         container.innerHTML = '<div class="finder-status">No results found.</div>';
@@ -1318,7 +1388,7 @@
           ${r.categories.length ? `<div class="paper-categories">${r.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
           <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(r.title)}</a></div>
           ${r.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
-          ${r.date ? `<div class="paper-date">${escapeHtml(r.date)}</div>` : ''}
+          <div class="paper-date">${r.date ? escapeHtml(r.date) : ''}${r.date && r.citations !== undefined ? ' · ' : ''}${r.citations !== undefined ? `<span class="paper-citations"><span>${r.citations}</span> citations</span>` : ''}</div>
           <div class="paper-summary collapsed">${escapeHtml(r.description)}</div>
         </div>
       `).join('') + `
@@ -1328,6 +1398,30 @@
           <button ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
         </div>
       `;
+      finderLastTotal = total;
+    }
+
+    let finderLastTotal = 0;
+
+    async function fetchFinderCitations(total) {
+      const ids = finderResultsCache.map(r => r.arxivId).filter(Boolean);
+      if (!ids.length) return;
+      try {
+        const resp = await fetch('/api/citations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          for (const r of finderResultsCache) {
+            if (r.arxivId && data[r.arxivId] !== undefined) {
+              r.citations = data[r.arxivId];
+            }
+          }
+          renderFinderResults(total);
+        }
+      } catch (e) { /* silently fail */ }
     }
 
     function openFinderPaper(i) {
@@ -1365,10 +1459,12 @@
       });
     }
 
-    function renderPapers() {
+    let lastFilteredPapers = [];
+
+    function getFilteredPapers() {
       const search = document.getElementById('search').value.toLowerCase();
       const category = document.getElementById('category').value;
-      const filtered = allPapers.filter(p => {
+      let filtered = allPapers.filter(p => {
         if (category && !p.categories.includes(category)) return false;
         if (search) {
           const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
@@ -1376,18 +1472,48 @@
         }
         return true;
       });
-      document.getElementById('stats').textContent = `Showing ${filtered.length} of ${allPapers.length} papers`;
+      if (currentSort === 'citations') {
+        filtered = [...filtered].sort((a, b) => (b.citations || 0) - (a.citations || 0));
+      }
+      return filtered;
+    }
+
+    function renderPapers() {
+      const filtered = getFilteredPapers();
+      lastFilteredPapers = filtered;
+      const visible = filtered.slice(0, visibleCount);
+      document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
       const container = document.getElementById('papers');
       if (!filtered.length) { container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>'; return; }
-      container.innerHTML = filtered.map((p, i) => `
+      container.innerHTML = visible.map((p, i) => `
         <div class="paper" onclick="openPaper(${i})">
           ${p.categories.length ? `<div class="paper-categories">${p.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
           <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(p.title)}</a></div>
           ${p.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
-          ${p.date ? `<div class="paper-date">${escapeHtml(p.date)}</div>` : ''}
+          ${p.date || p.citations !== undefined ? `<div class="paper-date">${p.date ? escapeHtml(p.date) : ''}${p.date && p.citations !== undefined ? ' · ' : ''}${p.citations !== undefined ? `<span class="paper-citations"><span>${p.citations}</span> citations</span>` : ''}</div>` : ''}
           <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
         </div>`).join('');
+      // Fetch citations for the visible page
+      fetchCitationsFor(visible);
     }
+
+    // Infinite scroll
+    let scrollTicking = false;
+    window.addEventListener('scroll', () => {
+      if (scrollTicking) return;
+      scrollTicking = true;
+      requestAnimationFrame(() => {
+        scrollTicking = false;
+        if (document.getElementById('home-main').style.display === 'none') return;
+        if (visibleCount >= lastFilteredPapers.length) return;
+        const scrollBottom = window.innerHeight + window.scrollY;
+        const docHeight = document.documentElement.scrollHeight;
+        if (scrollBottom >= docHeight - 400) {
+          visibleCount += PAGE_SIZE;
+          renderPapers();
+        }
+      });
+    });
 
     function toggleSummary(i, btn) {
       const el = document.getElementById(`summary-${i}`);
@@ -1408,8 +1534,8 @@
     }
 
     let debounceTimer;
-    document.getElementById('search').addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(renderPapers, 150); });
-    document.getElementById('category').addEventListener('change', renderPapers);
+    document.getElementById('search').addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { visibleCount = PAGE_SIZE; renderPapers(); }, 150); });
+    document.getElementById('category').addEventListener('change', () => { visibleCount = PAGE_SIZE; renderPapers(); });
 
     // ── Experiments List (server-backed) ──
     async function fetchExperiments() {

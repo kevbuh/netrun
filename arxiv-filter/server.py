@@ -141,7 +141,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
-        if self.path == '/api/experiments':
+        if self.path == '/api/citations':
+            try:
+                body = self._read_body()
+                arxiv_ids = body.get('ids', [])
+                if not arxiv_ids:
+                    self._send_json({'error': 'ids required'}, 400)
+                    return
+                paper_ids = [f'ArXiv:{aid}' for aid in arxiv_ids]
+                payload = json.dumps({'ids': paper_ids}).encode()
+                req = urllib.request.Request(
+                    'https://api.semanticscholar.org/graph/v1/paper/batch?fields=citationCount,externalIds',
+                    data=payload,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'Mozilla/5.0'
+                    },
+                    method='POST'
+                )
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+                    data = json.loads(resp.read())
+                result = {}
+                for item in data:
+                    if item and item.get('externalIds', {}).get('ArXiv'):
+                        aid = item['externalIds']['ArXiv']
+                        result[aid] = item.get('citationCount', 0)
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/experiments':
             body = self._read_body()
             title = body.get('title', '').strip()
             desc = body.get('desc', '').strip()
