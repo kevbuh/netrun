@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>arXiv CS Feed Filter</title>
+  <title>alpha</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -12,6 +12,105 @@
       background: #0a0a0a;
       color: #e0e0e0;
       min-height: 100vh;
+    }
+
+    /* ── Home Grid ── */
+    #home-view {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 32px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 20px;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .grid-item {
+      aspect-ratio: 1;
+      background: #151515;
+      border: 1px solid #252525;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      text-decoration: none;
+      color: #e0e0e0;
+    }
+
+    .grid-item:hover {
+      background: #1c1c1c;
+      border-color: #333;
+      transform: translateY(-2px);
+    }
+
+    .grid-item.tbd {
+      cursor: default;
+      opacity: 0.35;
+    }
+
+    .grid-item.tbd:hover {
+      background: #151515;
+      border-color: #252525;
+      transform: none;
+    }
+
+    .grid-icon {
+      font-size: 2.4rem;
+    }
+
+    .grid-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #ccc;
+      text-align: center;
+    }
+
+    .grid-item.tbd .grid-label {
+      color: #555;
+    }
+
+    /* ── arXiv Filter View ── */
+    #arxiv-view {
+      display: none;
+    }
+
+    #arxiv-view.active {
+      display: block;
+    }
+
+    #home-view.hidden {
+      display: none;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .back-btn:hover { color: #ccc; }
+
+    .back-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
     }
 
     header {
@@ -23,10 +122,16 @@
       z-index: 10;
     }
 
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
     header h1 {
       font-size: 1.4rem;
       font-weight: 600;
-      margin-bottom: 16px;
       color: #fff;
     }
 
@@ -175,26 +280,105 @@
   </style>
 </head>
 <body>
-  <header>
-    <h1>arXiv CS Feed Filter</h1>
-    <div class="controls">
-      <input type="text" id="search" placeholder="Filter by keyword (title, authors, abstract)..." />
-      <select id="category">
-        <option value="">All Categories</option>
-      </select>
+
+  <!-- Home Grid View -->
+  <div id="home-view">
+    <div class="grid">
+      <div class="grid-item" onclick="openArxiv()">
+        <div class="grid-icon">📬</div>
+        <div class="grid-label">arXiv Feed</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
+      <div class="grid-item tbd">
+        <div class="grid-icon">📁</div>
+        <div class="grid-label">TBD</div>
+      </div>
     </div>
-  </header>
-  <div class="stats" id="stats"></div>
-  <main id="papers">
-    <div class="loading">
-      <div class="spinner"></div>
-      <div>Loading arXiv CS feed...</div>
-    </div>
-  </main>
+  </div>
+
+  <!-- arXiv Filter View -->
+  <div id="arxiv-view">
+    <header>
+      <div class="header-top">
+        <button class="back-btn" onclick="goHome()">
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          Back
+        </button>
+        <h1>arXiv CS Feed Filter</h1>
+      </div>
+      <div class="controls">
+        <input type="text" id="search" placeholder="Filter by keyword (title, authors, abstract)..." />
+        <select id="category">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+    </header>
+    <div class="stats" id="stats"></div>
+    <main id="papers">
+      <div class="loading">
+        <div class="spinner"></div>
+        <div>Loading arXiv CS feed...</div>
+      </div>
+    </main>
+  </div>
 
   <script>
     let allPapers = [];
     let allCategories = new Set();
+    let feedLoaded = false;
+
+    function openArxiv() {
+      document.getElementById('home-view').classList.add('hidden');
+      document.getElementById('arxiv-view').classList.add('active');
+      window.location.hash = 'arxiv';
+      if (!feedLoaded) {
+        feedLoaded = true;
+        fetchFeed();
+      }
+    }
+
+    function goHome() {
+      document.getElementById('arxiv-view').classList.remove('active');
+      document.getElementById('home-view').classList.remove('hidden');
+      window.location.hash = '';
+    }
+
+    // Handle back/forward navigation
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash === '#arxiv') {
+        openArxiv();
+      } else {
+        goHome();
+      }
+    });
+
+    // Handle direct navigation to #arxiv
+    if (window.location.hash === '#arxiv') {
+      openArxiv();
+    }
 
     async function fetchFeed() {
       try {
@@ -223,17 +407,14 @@
         const link = (item.querySelector('link')?.textContent || '').trim();
         const description = (item.querySelector('description')?.textContent || '').trim();
 
-        // Extract authors from dc:creator
         const creators = item.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'creator');
         const authors = Array.from(creators).map(c => c.textContent.trim()).join(', ')
           || extractAuthors(description);
 
-        // Extract categories
         const cats = item.querySelectorAll('category');
         const categories = Array.from(cats).map(c => c.textContent.trim());
         categories.forEach(c => allCategories.add(c));
 
-        // Clean up description - strip HTML
         const cleanDesc = stripHtml(description);
 
         return { title, link, authors, categories, description: cleanDesc };
@@ -244,7 +425,6 @@
     }
 
     function extractAuthors(desc) {
-      // Some feeds embed authors in the description
       const match = desc.match(/Authors?:\s*(.+?)(?:\.|<br|$)/i);
       return match ? match[1].trim() : '';
     }
@@ -274,7 +454,6 @@
         if (category && !p.categories.includes(category)) return false;
         if (search) {
           const haystack = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-          // Support multiple terms separated by spaces (AND logic)
           const terms = search.split(/\s+/).filter(Boolean);
           return terms.every(t => haystack.includes(t));
         }
@@ -321,7 +500,6 @@
       return div.innerHTML;
     }
 
-    // Debounced filtering
     let debounceTimer;
     function onFilterChange() {
       clearTimeout(debounceTimer);
@@ -330,8 +508,6 @@
 
     document.getElementById('search').addEventListener('input', onFilterChange);
     document.getElementById('category').addEventListener('change', renderPapers);
-
-    fetchFeed();
   </script>
 </body>
 </html>
