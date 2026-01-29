@@ -151,6 +151,70 @@
       border-bottom: 1px solid #1a1a1a;
     }
 
+    /* ── Trends Panel ── */
+    .trends-panel {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 32px 0;
+    }
+
+    .trends-section {
+      margin-bottom: 16px;
+    }
+
+    .trends-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    .trends-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .trend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid #252525;
+      background: #151515;
+      color: #ccc;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .trend-chip:hover {
+      background: #1e1e1e;
+      border-color: #b4451a;
+      color: #fff;
+    }
+
+    .trend-chip .chip-count {
+      font-size: 0.7rem;
+      color: #666;
+      background: #1a1a1a;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .trend-chip:hover .chip-count {
+      color: #b4451a;
+    }
+
+    .trends-divider {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      margin: 0;
+    }
+
     main {
       max-width: 900px;
       margin: 0 auto;
@@ -489,6 +553,110 @@
       color: #333;
       pointer-events: none;
     }
+
+    /* ── Paper Viewer ── */
+    .paper-viewer-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: calc(100vh - 73px);
+      overflow: hidden;
+    }
+
+    .paper-sidebar {
+      border-right: 1px solid #222;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .paper-sidebar-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.4;
+      margin-bottom: 20px;
+    }
+
+    .paper-meta-group {
+      margin-bottom: 18px;
+    }
+
+    .paper-meta-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .paper-meta-value {
+      font-size: 0.85rem;
+      color: #bbb;
+      line-height: 1.5;
+    }
+
+    .paper-meta-value a {
+      color: #d4845a;
+      text-decoration: none;
+    }
+
+    .paper-meta-value a:hover { text-decoration: underline; }
+
+    .paper-sidebar-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .paper-sidebar-categories span {
+      font-size: 0.75rem;
+      background: #1e1e1e;
+      color: #aaa;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #2a2a2a;
+    }
+
+    .paper-sidebar-abstract {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: #999;
+    }
+
+    .paper-pdf-container {
+      background: #111;
+      overflow: hidden;
+    }
+
+    .paper-pdf-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .paper-pdf-fallback {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 16px;
+      color: #555;
+      font-size: 0.95rem;
+    }
+
+    .paper-pdf-fallback a {
+      color: #d4845a;
+      text-decoration: none;
+      padding: 10px 24px;
+      border: 1px solid #d4845a;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+
+    .paper-pdf-fallback a:hover {
+      background: rgba(180,69,26,0.15);
+    }
   </style>
 </head>
 <body>
@@ -531,6 +699,17 @@
       </div>
     </div>
     <div class="stats" id="stats"></div>
+    <div class="trends-panel" id="trends-panel" style="display:none">
+      <div class="trends-section">
+        <div class="trends-section-title">Trending Keywords</div>
+        <div class="trends-chips" id="trend-keywords"></div>
+      </div>
+      <div class="trends-section">
+        <div class="trends-section-title">Top Categories</div>
+        <div class="trends-chips" id="trend-categories"></div>
+      </div>
+      <hr class="trends-divider">
+    </div>
     <main id="papers">
       <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
     </main>
@@ -555,6 +734,23 @@
       </form>
     </div>
     <div class="ideas-list" id="ideas-list"></div>
+  </div>
+
+  <!-- Paper Viewer View -->
+  <div id="paper-view" class="view">
+    <div class="view-header">
+      <div class="header-top">
+        <button class="back-btn" onclick="openArxiv()">
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          Back
+        </button>
+        <h1 id="paper-view-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h1>
+      </div>
+    </div>
+    <div class="paper-viewer-layout">
+      <div class="paper-sidebar" id="paper-sidebar"></div>
+      <div class="paper-pdf-container" id="paper-pdf-container"></div>
+    </div>
   </div>
 
   <!-- Experiment Detail View -->
@@ -627,6 +823,7 @@
       if (hash === '#arxiv') openArxiv();
       else if (hash === '#experiments') openExperiments();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
+      else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
       else goHome();
     }
 
@@ -664,7 +861,148 @@
         return { title, link, authors, categories, description: stripHtml(description) };
       });
       populateCategories();
+      renderTrends();
       renderPapers();
+    }
+
+    // ── Trends extraction ──
+    const STOP_WORDS = new Set([
+      'a','an','the','and','or','but','in','on','at','to','for','of','with','by',
+      'from','is','are','was','were','be','been','being','have','has','had','do',
+      'does','did','will','would','could','should','may','might','shall','can',
+      'this','that','these','those','it','its','we','our','they','their','he',
+      'she','his','her','you','your','i','my','me','us','them','who','which',
+      'what','where','when','how','not','no','nor','as','if','then','than',
+      'so','up','out','about','into','over','after','before','between','under',
+      'through','during','each','all','both','such','only','also','very','just',
+      'more','most','other','some','any','new','one','two','using','via','based',
+      'show','shows','shown','propose','proposed','paper','method','approach',
+      'results','achieve','use','used','uses','however','first','well','given',
+      'without','within','while','yet','across','among','along','per','non',
+    ]);
+
+    function extractKeywords(papers) {
+      const freq = {};
+      // Extract bigrams and meaningful unigrams from titles
+      papers.forEach(p => {
+        const words = p.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(w => w.length > 2);
+        // Unigrams
+        words.forEach(w => {
+          if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
+        });
+        // Bigrams from titles (more meaningful phrases)
+        for (let i = 0; i < words.length - 1; i++) {
+          if (!STOP_WORDS.has(words[i]) && !STOP_WORDS.has(words[i+1])) {
+            const bigram = words[i] + ' ' + words[i+1];
+            freq[bigram] = (freq[bigram] || 0) + 1;
+          }
+        }
+      });
+
+      // Filter: must appear in at least 2 papers, prefer bigrams
+      return Object.entries(freq)
+        .filter(([k, v]) => v >= 2)
+        .sort((a, b) => {
+          // Boost bigrams slightly
+          const aBoost = a[0].includes(' ') ? 1.5 : 1;
+          const bBoost = b[0].includes(' ') ? 1.5 : 1;
+          return (b[1] * bBoost) - (a[1] * aBoost);
+        })
+        .slice(0, 15);
+    }
+
+    function extractTopCategories(papers) {
+      const freq = {};
+      papers.forEach(p => p.categories.forEach(c => { freq[c] = (freq[c] || 0) + 1; }));
+      return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    }
+
+    function renderTrends() {
+      const panel = document.getElementById('trends-panel');
+      if (!allPapers.length) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+
+      const keywords = extractKeywords(allPapers);
+      const cats = extractTopCategories(allPapers);
+
+      document.getElementById('trend-keywords').innerHTML = keywords.map(([kw, count]) =>
+        `<span class="trend-chip" onclick="applyTrendFilter('${escapeHtml(kw)}')">${escapeHtml(kw)}<span class="chip-count">${count}</span></span>`
+      ).join('');
+
+      document.getElementById('trend-categories').innerHTML = cats.map(([cat, count]) =>
+        `<span class="trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count">${count}</span></span>`
+      ).join('');
+    }
+
+    function applyTrendFilter(keyword) {
+      const input = document.getElementById('search');
+      input.value = keyword;
+      renderPapers();
+      input.focus();
+    }
+
+    function applyTrendCategory(cat) {
+      document.getElementById('category').value = cat;
+      renderPapers();
+    }
+
+    // ── Paper Viewer ──
+    function openPaper(index) {
+      // Get the paper from the currently filtered list to match the index
+      const search = document.getElementById('search').value.toLowerCase();
+      const category = document.getElementById('category').value;
+      const filtered = allPapers.filter(p => {
+        if (category && !p.categories.includes(category)) return false;
+        if (search) {
+          const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
+          return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
+        }
+        return true;
+      });
+
+      const paper = filtered[index];
+      if (!paper) return;
+
+      hideAllViews();
+      document.getElementById('paper-view').classList.add('active');
+      window.location.hash = 'paper/' + index;
+
+      document.getElementById('paper-view-title').textContent = paper.title;
+
+      // Build sidebar
+      const sidebar = document.getElementById('paper-sidebar');
+      sidebar.innerHTML = `
+        <div class="paper-sidebar-title">${escapeHtml(paper.title)}</div>
+        ${paper.authors ? `
+          <div class="paper-meta-group">
+            <div class="paper-meta-label">Authors</div>
+            <div class="paper-meta-value">${escapeHtml(paper.authors)}</div>
+          </div>` : ''}
+        <div class="paper-meta-group">
+          <div class="paper-meta-label">Link</div>
+          <div class="paper-meta-value"><a href="${paper.link}" target="_blank" rel="noopener">${escapeHtml(paper.link)}</a></div>
+        </div>
+        ${paper.categories.length ? `
+          <div class="paper-meta-group">
+            <div class="paper-meta-label">Categories</div>
+            <div class="paper-sidebar-categories">
+              ${paper.categories.map(c => `<span>${escapeHtml(c)}</span>`).join('')}
+            </div>
+          </div>` : ''}
+        <div class="paper-meta-group">
+          <div class="paper-meta-label">Abstract</div>
+          <div class="paper-sidebar-abstract">${escapeHtml(paper.description)}</div>
+        </div>
+      `;
+
+      // Build PDF embed
+      // arXiv links: https://arxiv.org/abs/XXXX.XXXXX → PDF at https://arxiv.org/pdf/XXXX.XXXXX
+      const pdfContainer = document.getElementById('paper-pdf-container');
+      const pdfUrl = paper.link.replace('/abs/', '/pdf/');
+
+      pdfContainer.innerHTML = `
+        <iframe src="${pdfUrl}" title="PDF viewer"></iframe>
+      `;
     }
 
     function extractAuthors(desc) {
@@ -703,7 +1041,7 @@
       if (!filtered.length) { container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>'; return; }
       container.innerHTML = filtered.map((p, i) => `
         <div class="paper">
-          <div class="paper-title"><a href="${p.link}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a></div>
+          <div class="paper-title"><a href="#" onclick="event.preventDefault(); openPaper(${i})">${escapeHtml(p.title)}</a></div>
           ${p.authors ? `<div class="paper-authors">${escapeHtml(p.authors)}</div>` : ''}
           ${p.categories.length ? `<div class="paper-categories">${p.categories.map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
           <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
