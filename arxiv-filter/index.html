@@ -288,6 +288,7 @@
     <div class="w-7 h-px bg-border-subtle my-1.5"></div>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-saved" onclick="openSaved()">
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+      <span id="saved-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-white text-[0.65rem] font-semibold flex items-center justify-center leading-none px-1 pointer-events-none" style="display:none"></span>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Reading List</span>
     </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
@@ -523,6 +524,19 @@
     setTimeout(routeFromHash, 0);
 
     // ── Reading List (localStorage) ──
+    setTimeout(updateSavedBadge, 0);
+    function updateSavedBadge() {
+      const saved = getSavedPosts();
+      const unread = Object.values(saved).filter(e => !e.read).length;
+      const badge = document.getElementById('saved-badge');
+      if (unread > 0) {
+        badge.textContent = unread;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
     function getSavedPosts() {
       try { return JSON.parse(localStorage.getItem('savedPosts') || '{}'); } catch { return {}; }
     }
@@ -538,6 +552,7 @@
         saved[paper.link] = { paper, savedAt: Date.now(), read: false };
       }
       savePosts(saved);
+      updateSavedBadge();
       renderPapers();
       if (document.getElementById('saved-view').style.display === 'block') renderSavedPosts();
     }
@@ -547,6 +562,7 @@
       if (!saved[link]) return;
       saved[link].read = true;
       savePosts(saved);
+      updateSavedBadge();
     }
 
     function openSaved() {
@@ -586,7 +602,7 @@
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="var(--accent)"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
           </button>
           <div class="flex gap-1.5 flex-wrap items-center mb-2">${sourceChip}${readBadge}${catChips}</div>
-          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${escapeHtml(p.title)}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${renderTitle(p.title)}</div>
           ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
         </div>`;
       }).join('');
@@ -597,6 +613,7 @@
       if (saved[link]) {
         delete saved[link];
         savePosts(saved);
+        updateSavedBadge();
         renderSavedPosts();
         renderPapers();
       }
@@ -646,11 +663,12 @@
       try {
         const resp = await fetch('/feed');
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        parseFeed(await resp.text());
+        return parseFeed(await resp.text());
       } catch (err) {
         document.getElementById('papers').innerHTML =
           `<div class="text-center py-20 text-red-400"><p>Failed to load feed: ${err.message}</p>
            <p class="mt-2 text-[0.85rem] text-muted">Try refreshing or check your connection.</p></div>`;
+        return [];
       }
     }
 
@@ -848,8 +866,8 @@
         const cleanDesc = stripHtml(description).replace(/^arXiv:\S+\s+Announce Type:\s*\w+\s+Abstract:\s*/i, '');
         return { source: 'arxiv', title, link, authors, categories, description: cleanDesc, date: dateStr, pubDate, arxivId };
       });
-      allPapers = allPapers.concat(arxivItems);
       populateCategories();
+      return arxivItems;
     }
 
     async function fetchCitationsFor(papers) {
@@ -927,7 +945,7 @@
       if (isHN) {
         sidebar.innerHTML = `
           ${backBtn}
-          <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
+          <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
           ${paper.authors ? `
             <div class="mb-[18px]">
               <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Posted by</div>
@@ -966,7 +984,7 @@
           : '';
         sidebar.innerHTML = `
           ${backBtn}
-          <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
+          <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
           ${sourceName ? `
             <div class="mb-[18px]">
               <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Source</div>
@@ -1172,7 +1190,7 @@
       container.innerHTML = sortBar + sorted.map((r, i) => `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openFinderPaper(${i})">
           <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.arxivId ? ARXIV_LOGO_INLINE : ''}${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${r.citations} cited</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}${r.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(r.date)}</span>` : ''}</div>
-          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${escapeHtml(r.title)}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${renderTitle(r.title)}</div>
           ${r.description ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(truncate(r.description, 120))}</div>` : ''}
         </div>
       `).join('') + (total > 20 ? `
@@ -1298,7 +1316,7 @@
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
           ${bmBtn}
           <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-7">${sourceChip}${statsChips}${catChips}${dateChip}</div>
-          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${escapeHtml(p.title)}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${renderTitle(p.title)}</div>
           ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
         </div>`;
       }).join('');
@@ -1341,6 +1359,26 @@
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    function decodeHtml(str) {
+      const el = document.createElement('textarea');
+      el.innerHTML = str;
+      return el.value;
+    }
+
+    function renderTitle(rawTitle) {
+      const decoded = decodeHtml(rawTitle);
+      let html = escapeHtml(decoded);
+      if (typeof katex !== 'undefined') {
+        html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
+          try { return katex.renderToString(tex, { displayMode: true, throwOnError: false }); } catch { return _; }
+        });
+        html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
+          try { return katex.renderToString(tex, { displayMode: false, throwOnError: false }); } catch { return _; }
+        });
+      }
+      return html;
     }
 
     function escapeAttr(str) {
