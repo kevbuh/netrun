@@ -93,7 +93,8 @@
 
     /* ── Home Top Bar ── */
     .home-top-bar {
-      display: flex;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
       align-items: center;
       gap: 12px;
       margin-bottom: 24px;
@@ -104,6 +105,8 @@
       gap: 4px;
       flex-shrink: 0;
     }
+
+    .top-bar-spacer { width: 0; }
 
     .sort-btn {
       padding: 8px 14px;
@@ -120,21 +123,21 @@
     .sort-btn:hover { border-color: #b4451a; color: #ccc; }
     .sort-btn.active { border-color: #b4451a; background: #1e1209; color: #e0e0e0; }
 
+    /* ── Search Form ── */
     .home-search-form {
       display: flex;
-      gap: 10px;
-      flex: 1;
-      max-width: 500px;
+      justify-content: center;
     }
 
     .home-search-form input {
-      flex: 1;
-      padding: 10px 18px;
+      width: 100%;
+      max-width: 500px;
+      padding: 8px 18px;
       border-radius: 24px;
       border: 1px solid #333;
       background: #151515;
       color: #e0e0e0;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     .home-search-form input:focus {
@@ -142,30 +145,11 @@
       border-color: #b4451a;
     }
 
-    .home-search-form button {
-      padding: 10px 20px;
-      border-radius: 24px;
-      border: none;
-      background: #b4451a;
-      color: #fff;
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .home-search-form button:hover { background: #c9562a; }
-
-    .paper-citations span {
-      color: #b4451a;
-      font-weight: 600;
-    }
 
     #finder-results-masonry {
       columns: 4;
       column-gap: 14px;
-      padding-top: 16px;
-      padding-bottom: 24px;
+      padding-bottom: 64px;
     }
 
     @media (max-width: 1400px) { #finder-results-masonry { columns: 3; } }
@@ -206,60 +190,6 @@
       padding-top: 0;
     }
 
-    .home-feed-header {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      padding: 0 0 12px;
-    }
-
-    .feed-filter-toggle {
-      padding: 6px 16px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #888;
-      font-size: 0.82rem;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-    }
-
-    .feed-filter-toggle:hover { border-color: #b4451a; color: #ccc; }
-    .feed-filter-toggle.active { border-color: #b4451a; color: #e0e0e0; }
-
-    .feed-filter-controls {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .feed-filter-controls input[type="text"] {
-      flex: 1;
-      min-width: 200px;
-      max-width: 400px;
-      padding: 8px 14px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #e0e0e0;
-      font-size: 0.85rem;
-    }
-
-    .feed-filter-controls input[type="text"]:focus { outline: none; border-color: #b4451a; }
-
-    .feed-filter-controls select {
-      padding: 8px 14px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #e0e0e0;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-
-    .feed-filter-controls select:focus { outline: none; border-color: #b4451a; }
 
     /* ── Shared ── */
     .view { display: none; margin-left: 60px; }
@@ -406,17 +336,46 @@
     .paper-title { font-size: 0.92rem; font-weight: 600; color: #fff; margin-bottom: 6px; line-height: 1.4; }
     .paper-title a { color: #d4845a; text-decoration: none; }
     .paper-title a:hover { text-decoration: underline; }
-    .paper-authors { font-size: 0.78rem; color: #888; margin-bottom: 4px; }
-    .paper-date { font-size: 0.74rem; color: #666; margin-bottom: 8px; }
+    .paper-authors { font-size: 0.78rem; color: #888; margin-bottom: 8px; }
 
-    .paper-categories { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
-    .paper-categories span {
+    .paper-meta-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .paper-cite-count {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #b4451a;
+      background: #1e1209;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .paper-date-tag {
+      font-size: 0.68rem;
+      color: #777;
+    }
+
+    .paper-cat-tag {
       font-size: 0.68rem;
       background: #1a1a1a;
       color: #999;
       padding: 2px 7px;
       border-radius: 4px;
       border: 1px solid #252525;
+    }
+
+    .paper-source-logo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      height: 16px;
+      width: auto;
+      opacity: 0.3;
     }
 
     .paper-summary { font-size: 0.8rem; line-height: 1.55; color: #999; }
@@ -926,22 +885,15 @@
           <button class="sort-btn" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
         </div>
         <form class="home-search-form" id="finder-form">
-          <input type="text" id="finder-query" placeholder="Search arXiv papers..." />
-          <button type="submit">Search</button>
+          <input type="text" id="finder-query" placeholder="Search arXiv papers..." autocomplete="off" />
         </form>
+        <div class="top-bar-spacer"></div>
       </div>
       <div id="finder-results-masonry"></div>
 
-      <div class="home-feed-section">
-        <div class="home-feed-header">
-          <button class="feed-filter-toggle" id="feed-filter-toggle" onclick="toggleFeedFilter()">Filters</button>
-          <div class="feed-filter-controls" id="feed-filter-controls" style="display:none">
-            <input type="text" id="search" placeholder="Filter papers..." />
-            <select id="category">
-              <option value="">All Categories</option>
-            </select>
-          </div>
-        </div>
+      <div class="home-feed-section" id="home-feed-section">
+        <input type="hidden" id="search" value="" />
+        <select id="category" style="display:none"><option value="">All Categories</option></select>
         <div class="stats" id="stats"></div>
         <div class="trends-panel" id="trends-panel" style="display:none">
           <div class="trends-section">
@@ -1032,6 +984,7 @@
   <script>
     // ── View management ──
     const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
+    const ARXIV_LOGO = '<img class="paper-source-logo" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
 
     function setSidebarActive(id) {
       document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
@@ -1067,14 +1020,6 @@
       currentExpId = id;
       selectedVersionId = null;
       fetchExperimentDetail(id);
-    }
-
-    function toggleFeedFilter() {
-      const controls = document.getElementById('feed-filter-controls');
-      const btn = document.getElementById('feed-filter-toggle');
-      const visible = controls.style.display !== 'none';
-      controls.style.display = visible ? 'none' : 'flex';
-      btn.classList.toggle('active', !visible);
     }
 
     function routeFromHash() {
@@ -1314,6 +1259,16 @@
       }
     }
 
+    // ── Auto-focus search on keypress ──
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (document.getElementById('home-main').style.display === 'none') return;
+      if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+        document.getElementById('finder-query').focus();
+      }
+    });
+
     // ── Paper Finder ──
     let finderResultsCache = [];
     let finderCurrentQuery = '';
@@ -1326,7 +1281,23 @@
       if (finderCurrentQuery) doFinderSearch();
     });
 
+    document.getElementById('finder-query').addEventListener('input', () => {
+      if (!document.getElementById('finder-query').value.trim()) {
+        showFeedHideFinder();
+      }
+    });
+
+    function showFeedHideFinder() {
+      document.getElementById('finder-results-masonry').innerHTML = '';
+      document.getElementById('home-feed-section').style.display = '';
+    }
+
+    function showFinderHideFeed() {
+      document.getElementById('home-feed-section').style.display = 'none';
+    }
+
     async function doFinderSearch() {
+      showFinderHideFeed();
       const container = document.getElementById('finder-results-masonry');
       container.innerHTML = '<div class="finder-status"><div class="spinner"></div><div>Searching arXiv...</div></div>';
       try {
@@ -1385,19 +1356,19 @@
 
       container.innerHTML = finderResultsCache.map((r, i) => `
         <div class="paper" onclick="openFinderPaper(${i})">
-          ${r.categories.length ? `<div class="paper-categories">${r.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+          ${r.arxivId ? ARXIV_LOGO : ''}
+          <div class="paper-meta-row">${r.citations !== undefined ? `<span class="paper-cite-count">${r.citations} cited</span>` : ''}${r.date ? `<span class="paper-date-tag">${escapeHtml(r.date)}</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="paper-cat-tag">${escapeHtml(c)}</span>`).join('')}</div>
           <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(r.title)}</a></div>
           ${r.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
-          <div class="paper-date">${r.date ? escapeHtml(r.date) : ''}${r.date && r.citations !== undefined ? ' · ' : ''}${r.citations !== undefined ? `<span class="paper-citations"><span>${r.citations}</span> citations</span>` : ''}</div>
           <div class="paper-summary collapsed">${escapeHtml(r.description)}</div>
         </div>
-      `).join('') + `
+      `).join('') + (total > 20 ? `
         <div class="finder-pagination">
           <button ${finderCurrentStart === 0 ? 'disabled' : ''} onclick="finderPrev()">Previous</button>
           <span style="color:#555;font-size:0.8rem;align-self:center">${finderCurrentStart + 1}&ndash;${finderCurrentStart + finderResultsCache.length} of ${total}</span>
           <button ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
         </div>
-      `;
+      ` : '');
       finderLastTotal = total;
     }
 
@@ -1487,10 +1458,10 @@
       if (!filtered.length) { container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>'; return; }
       container.innerHTML = visible.map((p, i) => `
         <div class="paper" onclick="openPaper(${i})">
-          ${p.categories.length ? `<div class="paper-categories">${p.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+          ${p.arxivId ? ARXIV_LOGO : ''}
+          <div class="paper-meta-row">${p.citations !== undefined ? `<span class="paper-cite-count">${p.citations} cited</span>` : ''}${p.date ? `<span class="paper-date-tag">${escapeHtml(p.date)}</span>` : ''}${p.categories.slice(0,3).map(c => `<span class="paper-cat-tag">${escapeHtml(c)}</span>`).join('')}</div>
           <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(p.title)}</a></div>
           ${p.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
-          ${p.date || p.citations !== undefined ? `<div class="paper-date">${p.date ? escapeHtml(p.date) : ''}${p.date && p.citations !== undefined ? ' · ' : ''}${p.citations !== undefined ? `<span class="paper-citations"><span>${p.citations}</span> citations</span>` : ''}</div>` : ''}
           <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
         </div>`).join('');
       // Fetch citations for the visible page
@@ -1533,9 +1504,6 @@
       return parts[0] + ' et al.';
     }
 
-    let debounceTimer;
-    document.getElementById('search').addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { visibleCount = PAGE_SIZE; renderPapers(); }, 150); });
-    document.getElementById('category').addEventListener('change', () => { visibleCount = PAGE_SIZE; renderPapers(); });
 
     // ── Experiments List (server-backed) ──
     async function fetchExperiments() {
