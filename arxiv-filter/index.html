@@ -16,21 +16,61 @@
 
     /* ── Home Grid ── */
     #home-view {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 32px;
+      padding: 32px 20px 0;
     }
 
     .grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-      gap: 20px;
+      gap: 16px;
       max-width: 900px;
-      width: 100%;
+      margin: 0 auto 0;
     }
+
+    .home-feed-section {
+      padding-top: 24px;
+    }
+
+    .home-feed-header {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 0 0 16px;
+    }
+
+    .home-feed-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-right: auto;
+    }
+
+    .home-feed-header input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      max-width: 400px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #e0e0e0;
+      font-size: 0.85rem;
+    }
+
+    .home-feed-header input[type="text"]:focus { outline: none; border-color: #b4451a; }
+
+    .home-feed-header select {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #e0e0e0;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .home-feed-header select:focus { outline: none; border-color: #b4451a; }
 
     .grid-item {
       aspect-ratio: 1;
@@ -109,51 +149,15 @@
       color: #fff;
     }
 
-    /* ── arXiv ── */
-    .controls {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-top: 16px;
-    }
-
-    .controls input[type="text"] {
-      flex: 1;
-      min-width: 250px;
-      padding: 10px 14px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      font-size: 0.95rem;
-    }
-
-    .controls input[type="text"]:focus { outline: none; border-color: #b4451a; }
-
-    .controls select {
-      padding: 10px 14px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-
-    .controls select:focus { outline: none; border-color: #b4451a; }
-
     .stats {
-      font-size: 0.85rem;
-      color: #888;
-      padding: 8px 32px;
-      background: #0d0d0d;
-      border-bottom: 1px solid #1a1a1a;
+      font-size: 0.8rem;
+      color: #666;
+      padding: 4px 0 12px;
     }
 
     /* ── Trends Panel ── */
     .trends-panel {
-      padding: 20px 20px 0;
+      padding: 0 0 12px;
     }
 
     .trends-section {
@@ -214,7 +218,7 @@
     }
 
     main {
-      padding: 20px 20px 64px;
+      padding: 0 0 64px;
       columns: 4;
       column-gap: 14px;
     }
@@ -846,13 +850,9 @@
 </head>
 <body>
 
-  <!-- Home Grid View -->
+  <!-- Home View -->
   <div id="home-view">
     <div class="grid">
-      <div class="grid-item" onclick="openArxiv()">
-        <div class="grid-icon">📬</div>
-        <div class="grid-label">arXiv Feed</div>
-      </div>
       <div class="grid-item" onclick="openExperiments()">
         <div class="grid-icon">🧪</div>
         <div class="grid-label">Experiment Ideas</div>
@@ -866,41 +866,33 @@
       <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
       <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
       <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
     </div>
-  </div>
 
-  <!-- arXiv Filter View -->
-  <div id="arxiv-view" class="view">
-    <div class="view-header">
-      <div class="header-top">
-        <button class="back-btn" onclick="goHome()">
-          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-          Back
-        </button>
-        <h1>arXiv CS Feed Filter</h1>
-      </div>
-      <div class="controls">
-        <input type="text" id="search" placeholder="Filter by keyword (title, authors, abstract)..." />
+    <div class="home-feed-section">
+      <div class="home-feed-header">
+        <h2>arXiv CS Feed</h2>
+        <input type="text" id="search" placeholder="Filter papers..." />
         <select id="category">
           <option value="">All Categories</option>
         </select>
       </div>
-    </div>
-    <div class="stats" id="stats"></div>
-    <div class="trends-panel" id="trends-panel" style="display:none">
-      <div class="trends-section">
-        <div class="trends-section-title">Trending Keywords</div>
-        <div class="trends-chips" id="trend-keywords"></div>
+      <div class="stats" id="stats"></div>
+      <div class="trends-panel" id="trends-panel" style="display:none">
+        <div class="trends-section">
+          <div class="trends-section-title">Trending Keywords</div>
+          <div class="trends-chips" id="trend-keywords"></div>
+        </div>
+        <div class="trends-section">
+          <div class="trends-section-title">Top Categories</div>
+          <div class="trends-chips" id="trend-categories"></div>
+        </div>
+        <hr class="trends-divider">
       </div>
-      <div class="trends-section">
-        <div class="trends-section-title">Top Categories</div>
-        <div class="trends-chips" id="trend-categories"></div>
-      </div>
-      <hr class="trends-divider">
+      <main id="papers">
+        <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
+      </main>
     </div>
-    <main id="papers">
-      <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
-    </main>
   </div>
 
   <!-- Experiment Ideas List View -->
@@ -1002,16 +994,9 @@
     }
 
     function goHome() {
-      hideAllViews();
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('home-view').classList.remove('hidden');
       window.location.hash = '';
-    }
-
-    function openArxiv() {
-      hideAllViews();
-      document.getElementById('arxiv-view').classList.add('active');
-      window.location.hash = 'arxiv';
-      if (!feedLoaded) { feedLoaded = true; fetchFeed(); }
     }
 
     function openExperiments() {
@@ -1039,8 +1024,7 @@
 
     function routeFromHash() {
       const hash = window.location.hash;
-      if (hash === '#arxiv') openArxiv();
-      else if (hash === '#experiments') openExperiments();
+      if (hash === '#experiments') openExperiments();
       else if (hash === '#finder') openPaperFinder();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
       else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
@@ -1049,13 +1033,12 @@
     }
 
     window.addEventListener('hashchange', routeFromHash);
-    // defer initial route to after DOM is ready
     setTimeout(routeFromHash, 0);
 
-    // ── arXiv Feed ──
+    // ── arXiv Feed (loads on startup) ──
     let allPapers = [];
     let allCategories = new Set();
-    let feedLoaded = false;
+    fetchFeed();
 
     async function fetchFeed() {
       try {
@@ -1172,7 +1155,7 @@
 
     function paperViewGoBack() {
       if (paperViewOrigin === 'finder') openPaperFinder();
-      else openArxiv();
+      else goHome();
     }
 
     function showPaperView(paper, hashValue) {
