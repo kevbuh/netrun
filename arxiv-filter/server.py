@@ -231,6 +231,48 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path == '/polymarket-feed':
+            try:
+                html = cached_fetch('https://polymarket.com/breaking', timeout=15)
+                html_str = html.decode('utf-8', errors='replace')
+                marker = '__NEXT_DATA__" type="application/json" crossorigin="anonymous">'
+                idx = html_str.find(marker)
+                if idx == -1:
+                    self._send_json({'error': 'Could not find data'}, 502)
+                    return
+                start = idx + len(marker)
+                end = html_str.find('</script>', start)
+                next_data = json.loads(html_str[start:end])
+                queries = next_data['props']['pageProps']['dehydratedState']['queries']
+                markets = []
+                for q in queries:
+                    key = q.get('queryKey', [])
+                    if 'biggest-movers' in key:
+                        markets = q['state']['data'].get('markets', [])
+                        break
+                top5 = []
+                for m in markets[:5]:
+                    slug = m.get('slug', '')
+                    prices = m.get('outcomePrices', ['0', '0'])
+                    yes_pct = round(float(prices[0]) * 100)
+                    change = m.get('oneDayPriceChange', 0)
+                    change_pct = round(change * 100)
+                    volume = 0
+                    if m.get('events'):
+                        volume = round(m['events'][0].get('volume', 0))
+                    top5.append({
+                        'question': m.get('question', ''),
+                        'slug': slug,
+                        'url': f'https://polymarket.com/event/{m["events"][0]["slug"]}' if m.get('events') else f'https://polymarket.com/event/{slug}',
+                        'image': m.get('image', ''),
+                        'yesPct': yes_pct,
+                        'changePct': change_pct,
+                        'volume': volume
+                    })
+                self._send_json(top5)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         elif self.path.startswith('/api/check-embed'):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)

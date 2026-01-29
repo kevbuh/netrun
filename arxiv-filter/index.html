@@ -482,6 +482,8 @@
       // Ideas & Culture
       { key: 'aeon', name: 'Aeon', desc: 'Essays on science, philosophy, society', cat: 'Ideas & Culture', url: 'https://aeon.co/feed', letter: 'Æ', bg: '#1a1a2e', fg: '#e7d4b5' },
       { key: 'nautilus', name: 'Nautilus', desc: 'Science meets philosophy and culture', cat: 'Ideas & Culture', url: 'https://nautil.us/feed/', letter: 'N', bg: '#0891b2', fg: '#fff' },
+      // Prediction Markets
+      { key: 'polymarket', name: 'Polymarket', desc: 'Top 5 breaking prediction markets', cat: 'Prediction Markets', special: 'polymarket', letter: 'P', bg: '#0052ff', fg: '#fff' },
     ];
 
     function catalogLogo(entry, size) {
@@ -784,6 +786,35 @@
       }
     }
 
+    async function fetchPolymarketFeed() {
+      try {
+        const resp = await fetch('/polymarket-feed');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const markets = await resp.json();
+        if (markets.error) return [];
+        return markets.map(m => {
+          const sign = m.changePct >= 0 ? '+' : '';
+          return {
+            source: 'polymarket',
+            title: m.question,
+            link: m.url,
+            authors: '',
+            categories: ['Prediction Markets'],
+            description: `${m.yesPct}% Yes · ${sign}${m.changePct}% today · $${m.volume.toLocaleString()} volume`,
+            date: 'live',
+            pubDate: new Date().toUTCString(),
+            arxivId: null,
+            polyYesPct: m.yesPct,
+            polyChangePct: m.changePct,
+            polyVolume: m.volume,
+            polyImage: m.image
+          };
+        });
+      } catch (e) {
+        return [];
+      }
+    }
+
     const FEED_SOURCE_DEFAULTS = {};
     FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
 
@@ -913,6 +944,7 @@
 
     function openSettings() {
       const sources = getFeedSources();
+      const bypassMap = getQualityBypass();
       const container = document.getElementById('settings-builtin-sources');
       const cats = []; const catMap = {};
       FEED_CATALOG.forEach(f => {
@@ -922,13 +954,21 @@
       container.innerHTML = cats.map(cat => `
         <div class="text-[0.68rem] text-dim uppercase tracking-wider mt-3 first:mt-0">${cat}</div>
         ${catMap[cat].map(f => `
-          <label class="flex items-center justify-between cursor-pointer">
+          <div class="flex items-center justify-between">
             <span class="text-primary text-sm">${f.name}</span>
-            <span class="toggle-switch">
-              <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
-              <span class="slider"></span>
-            </span>
-          </label>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1 cursor-pointer" title="Skip AI quality filter for this source">
+                <span class="text-dimmer text-[0.65rem]">Skip filter</span>
+                <input type="checkbox" class="accent-[var(--accent)]" ${bypassMap[f.key] ? 'checked' : ''} onchange="setQualityBypass('${f.key}', this.checked)">
+              </label>
+              <label class="cursor-pointer">
+                <span class="toggle-switch">
+                  <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
+                  <span class="slider"></span>
+                </span>
+              </label>
+            </div>
+          </div>
         `).join('')}
       `).join('');
       renderCustomFeedsList();
@@ -997,6 +1037,7 @@
         if (!sources[f.key]) return;
         if (f.special === 'arxiv') { promises.push(fetchFeed()); }
         else if (f.special === 'hn') { promises.push(fetchHNFeed()); }
+        else if (f.special === 'polymarket') { promises.push(fetchPolymarketFeed()); }
         else { promises.push(fetchGenericRSS(f.url, f.key)); }
         labels.push(f.key);
       });
@@ -1310,6 +1351,18 @@
       localStorage.setItem('qualityThreshold', String(val));
       renderPapers();
     }
+    function getQualityBypass() {
+      try { return JSON.parse(localStorage.getItem('qualityBypass') || '{}'); } catch { return {}; }
+    }
+    function setQualityBypass(key, bypass) {
+      const b = getQualityBypass();
+      if (bypass) b[key] = true; else delete b[key];
+      localStorage.setItem('qualityBypass', JSON.stringify(b));
+      renderPapers();
+    }
+    function isSourceBypassed(sourceKey) {
+      return !!getQualityBypass()[sourceKey];
+    }
 
     function getPapersNeedingVerdict() {
       // Only papers that pass other filters (hidden, category, search) but lack a verdict
@@ -1317,8 +1370,10 @@
       const category = document.getElementById('category').value;
       const hidden = new Set(getHiddenPosts());
       const cache = getQualityCache();
+      const bypass = getQualityBypass();
       return allPapers.filter(p => {
         if (hidden.has(p.link)) return false;
+        if (bypass[p.source]) return false; // source bypasses quality filter
         if (p.title in cache) return false; // already has verdict
         if (category && !p.categories.includes(category)) return false;
         if (search) {
@@ -1813,10 +1868,12 @@
       const hidden = new Set(getHiddenPosts());
       const qfOn = isQualityFilterOn();
       const qCache = qfOn ? getQualityCache() : {};
+      const bypass = qfOn ? getQualityBypass() : {};
       let filtered = allPapers.filter(p => {
         if (hidden.has(p.link)) return false;
-        if (qfOn && !(p.title in qCache)) return false;
-        if (qfOn && (p.title in qCache)) {
+        const bypassed = bypass[p.source];
+        if (qfOn && !bypassed && !(p.title in qCache)) return false;
+        if (qfOn && !bypassed && (p.title in qCache)) {
           const entry = qCache[p.title];
           const verdict = entry?.v ?? entry;
           if (verdict === 'skip') return false;
@@ -1842,6 +1899,28 @@
           return db - da;
         });
       }
+      // Interleave sources so no single source dominates a run
+      const bySource = {};
+      for (const p of filtered) {
+        (bySource[p.source] || (bySource[p.source] = [])).push(p);
+      }
+      const sources = Object.keys(bySource);
+      if (sources.length > 1) {
+        const interleaved = [];
+        const indices = {};
+        sources.forEach(s => indices[s] = 0);
+        let si = 0;
+        while (interleaved.length < filtered.length) {
+          const s = sources[si % sources.length];
+          if (indices[s] < bySource[s].length) {
+            interleaved.push(bySource[s][indices[s]++]);
+          }
+          si++;
+          // Skip exhausted sources
+          if (sources.every(s => indices[s] >= bySource[s].length)) break;
+        }
+        filtered = interleaved;
+      }
       return filtered;
     }
 
@@ -1852,7 +1931,8 @@
       const qfOn = isQualityFilterOn();
       const qCache = qfOn ? getQualityCache() : {};
       const hiddenSet = new Set(getHiddenPosts());
-      const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !(p.title in qCache)).length : 0;
+      const bypass = qfOn ? getQualityBypass() : {};
+      const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && !(p.title in qCache)).length : 0;
       let statsText = `Showing ${visible.length} of ${filtered.length} papers`;
       if (pendingCount > 0) statsText += ` · Evaluating ${pendingCount}…`;
       document.getElementById('stats').textContent = statsText;
@@ -1877,12 +1957,15 @@
         const aiVerdict = aiEntry?.v || aiEntry;
         const aiScore = aiEntry?.s;
         const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore : 'scoring…'}"><span class="text-green-500">&#10003;</span>${aiScore != null ? `<span class="text-dim">${aiScore}</span>` : '<span class="text-dim animate-pulse">…</span>'}</span>` : '';
+        const isPoly = p.source === 'polymarket';
         const statsChips = isHN
-          ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span><span class="text-[0.68rem] text-dim">${p.hnComments} comments</span>`
+          ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
+          : isPoly
+          ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
           : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
-        const catChips = p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
+        const catChips = isPoly ? '' : p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
         const dateChip = p.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(p.date)}</span>` : '';
-        const snippet = p.description ? truncate(p.description, 120) : '';
+        const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
         const isSaved = isPostSaved(p.link);
         const bmFill = isSaved ? 'var(--accent)' : 'none';
         const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
