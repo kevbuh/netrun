@@ -500,10 +500,14 @@
     });
 
     function getSourceChip(source, arxivId) {
-      if (SOURCE_LOGO_INLINE[source]) return SOURCE_LOGO_INLINE[source];
-      if (source?.startsWith('custom:')) return RSS_LOGO_INLINE;
-      if (arxivId) return ARXIV_LOGO_INLINE;
-      return '';
+      const logo = SOURCE_LOGO_INLINE[source]
+        || (source?.startsWith('custom:') ? RSS_LOGO_INLINE : '')
+        || (arxivId ? ARXIV_LOGO_INLINE : '');
+      if (!logo) return '';
+      const name = SOURCE_NAMES[source]
+        || (source?.startsWith('custom:') ? source.slice(7) : '')
+        || (arxivId ? 'arXiv' : '');
+      return `<span class="inline-flex items-center gap-1">${logo}<span class="text-[0.68rem] text-dim">${name}</span></span>`;
     }
 
     function setSidebarActive(id) {
@@ -574,6 +578,18 @@
         badge.style.display = 'none';
       }
     }
+
+    function getHiddenPosts() {
+      try { return JSON.parse(localStorage.getItem('hiddenPosts') || '[]'); } catch { return []; }
+    }
+    function hidePost(link, event) {
+      if (event) event.stopPropagation();
+      const hidden = getHiddenPosts();
+      if (!hidden.includes(link)) hidden.push(link);
+      localStorage.setItem('hiddenPosts', JSON.stringify(hidden));
+      renderPapers();
+    }
+    function isPostHidden(link) { return getHiddenPosts().includes(link); }
 
     function getSavedPosts() {
       try { return JSON.parse(localStorage.getItem('savedPosts') || '{}'); } catch { return {}; }
@@ -1387,7 +1403,9 @@
     function getFilteredPapers() {
       const search = document.getElementById('search').value.toLowerCase();
       const category = document.getElementById('category').value;
+      const hidden = new Set(getHiddenPosts());
       let filtered = allPapers.filter(p => {
+        if (hidden.has(p.link)) return false;
         if (category && !p.categories.includes(category)) return false;
         if (search) {
           const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
@@ -1430,12 +1448,13 @@
         const isSaved = isPostSaved(p.link);
         const bmFill = isSaved ? 'var(--accent)' : 'none';
         const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
-        const bmBtn = `<button class="absolute top-3 right-3 bg-transparent border-none cursor-pointer p-1 z-10 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
+        const bmBtn = `<button class="absolute top-3 right-10 bg-transparent border-none cursor-pointer p-1 z-10 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
+        const hideBtn = `<button class="absolute top-3 right-3 bg-transparent border-none cursor-pointer p-1 z-10 text-dimmer hover:text-red-400 transition-colors" onclick="hidePost('${escapeAttr(p.link)}', event)" title="Hide this post"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
         return `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
-          ${bmBtn}
-          <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-7">${sourceChip}${statsChips}${catChips}${dateChip}</div>
-          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${renderTitle(p.title)}</div>
+          ${bmBtn}${hideBtn}
+          <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-14">${sourceChip}${statsChips}${catChips}${dateChip}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-10">${renderTitle(p.title)}</div>
           ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
         </div>`;
       }).join('');
