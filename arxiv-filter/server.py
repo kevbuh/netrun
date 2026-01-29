@@ -162,6 +162,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(meta)
             else:
                 self._send_json({'error': 'Not found'}, 404)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            files = [f for f in sorted(os.listdir(exp_dir)) if f.endswith('.md')]
+            self._send_json(files)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.md)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if not os.path.isfile(fpath):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            with open(fpath, 'r') as f:
+                content = f.read()
+            self._send_json({'name': fname, 'content': content})
+
         else:
             super().do_GET()
 
@@ -195,6 +216,49 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(result)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            name = body.get('name', '').strip()
+            if not name:
+                self._send_json({'error': 'Name required'}, 400)
+                return
+            if not name.endswith('.md'):
+                name += '.md'
+            fname = re.sub(r'[^\w\s.-]', '', name).strip()
+            fname = re.sub(r'\s+', '-', fname)
+            fpath = os.path.join(exp_dir, fname)
+            if os.path.exists(fpath):
+                self._send_json({'error': 'File already exists'}, 409)
+                return
+            with open(fpath, 'w') as f:
+                f.write('')
+            self._send_json({'name': fname}, 201)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/fork$'):
+            exp_id = m.group(1)
+            meta = read_meta(exp_id)
+            if not meta:
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            import copy
+            new_meta = copy.deepcopy(meta)
+            new_meta['title'] = meta['title'] + ' (fork)'
+            new_meta['created'] = self._read_body().get('created', None)
+            slug = unique_slug(slugify(new_meta['title']))
+            exp_dir = os.path.join(EXPERIMENTS_DIR, slug)
+            os.makedirs(exp_dir, exist_ok=True)
+            for v in new_meta.get('versions', []):
+                ver_dir = os.path.join(exp_dir, v['id'])
+                os.makedirs(ver_dir, exist_ok=True)
+            write_meta(slug, new_meta)
+            new_meta['id'] = slug
+            self._send_json(new_meta, 201)
 
         elif self.path == '/api/experiments':
             body = self._read_body()
@@ -257,7 +321,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
-        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
+        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.md)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            content = body.get('content', '')
+            fpath = os.path.join(exp_dir, fname)
+            with open(fpath, 'w') as f:
+                f.write(content)
+            self._send_json({'name': fname, 'ok': True})
+            return
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
             meta = read_meta(exp_id)
             if not meta:
@@ -292,7 +371,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send_json({'error': 'Version not found'}, 404)
 
     def do_DELETE(self):
-        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/versions/([a-zA-Z0-9_-]+)$'):
+        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.md)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/versions/([a-zA-Z0-9_-]+)$'):
             exp_id, vid = m.group(1), m.group(2)
             meta = read_meta(exp_id)
             if not meta:

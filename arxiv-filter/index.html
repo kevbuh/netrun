@@ -368,10 +368,17 @@
           <button class="px-3.5 py-1.5 rounded-md border-none bg-accent text-white text-[0.8rem] cursor-pointer whitespace-nowrap hover:bg-accent-hover" onclick="addVersion()">Add</button>
         </div>
         <div class="flex-1 overflow-y-auto p-2" id="version-list"></div>
+        <div class="border-t border-border-dim">
+          <div class="p-3 flex items-center justify-between">
+            <span class="text-[0.75rem] font-semibold text-dimmer uppercase tracking-wide">Files</span>
+            <button class="text-[0.75rem] text-muted hover:text-primary cursor-pointer bg-transparent border-none" onclick="createExpFile()">+ New File</button>
+          </div>
+          <div class="overflow-y-auto max-h-[200px] px-2 pb-2" id="exp-file-list"></div>
+        </div>
       </div>
-      <div class="exp-right overflow-hidden relative bg-canvas">
+      <div class="exp-right overflow-hidden relative bg-canvas" id="exp-right-panel">
         <svg id="tree-svg" class="w-full h-full"></svg>
-        <div class="absolute bottom-4 right-4 text-[0.75rem] text-tree-edge pointer-events-none">Scroll to zoom &middot; Drag to pan</div>
+        <div class="absolute bottom-4 right-4 text-[0.75rem] text-tree-edge pointer-events-none" id="tree-hint">Scroll to zoom &middot; Drag to pan</div>
       </div>
     </div>
   </div>
@@ -971,6 +978,7 @@
               <div class="text-[0.75rem] text-dimmer mt-2">${exp.versions ? exp.versions.length : 0} version(s) &middot; ${exp.created ? new Date(exp.created).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}</div>
             </div>
             <div class="flex gap-2 shrink-0 pt-0.5">
+              <button onclick="event.stopPropagation(); forkExperiment('${exp.id}')" class="bg-transparent border-none text-dimmer cursor-pointer text-[0.8rem] p-1 hover:text-primary" title="Fork">Fork</button>
               <button onclick="event.stopPropagation(); deleteExperiment('${exp.id}')" class="bg-transparent border-none text-dimmer cursor-pointer text-[0.8rem] p-1 hover:text-red-400" title="Delete">Delete</button>
             </div>
           </div>`).join('');
@@ -999,6 +1007,15 @@
       fetchExperiments();
     }
 
+    async function forkExperiment(id) {
+      await fetch(`/api/experiments/${id}/fork`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ created: Date.now() })
+      });
+      fetchExperiments();
+    }
+
     async function deleteExperiment(id) {
       if (!confirm('Delete this experiment and all its versions?')) return;
       await fetch(`/api/experiments/${id}`, { method: 'DELETE' });
@@ -1016,8 +1033,14 @@
         const resp = await fetch(`/api/experiments/${id}`);
         currentExp = await resp.json();
         document.getElementById('exp-detail-title').textContent = currentExp.title;
+        activeFileName = null;
+        const editor = document.getElementById('exp-file-editor');
+        if (editor) editor.style.display = 'none';
+        document.getElementById('tree-svg').style.display = '';
+        document.getElementById('tree-hint').style.display = '';
         renderVersionList();
         renderTree();
+        fetchExpFiles();
       } catch (err) {
         document.getElementById('version-list').innerHTML =
           `<div class="text-center py-10 text-dimmest text-[0.85rem]">Failed to load: ${err.message}</div>`;
@@ -1220,6 +1243,131 @@
       if (e.key === 'Enter') { e.preventDefault(); addVersion(); }
     });
 
+    // ── Experiment Files ──
+    let expFiles = [];
+    let activeFileName = null;
+    let fileSaveTimer = null;
+
+    async function fetchExpFiles() {
+      if (!currentExpId) return;
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/files`);
+        expFiles = await resp.json();
+      } catch (e) { expFiles = []; }
+      renderExpFiles();
+    }
+
+    function renderExpFiles() {
+      const list = document.getElementById('exp-file-list');
+      if (!expFiles.length) {
+        list.innerHTML = '<div class="text-[0.8rem] text-dimmest px-1 pb-1">No files yet.</div>';
+        return;
+      }
+      list.innerHTML = expFiles.map(f => `
+        <div class="flex items-center gap-1 group px-2 py-1.5 rounded-md cursor-pointer text-[0.85rem] transition-colors ${f === activeFileName ? 'bg-card text-white_ border border-accent' : 'text-primary hover:bg-card border border-transparent'}" onclick="openExpFile('${escapeHtml(f)}')">
+          <svg class="w-3.5 h-3.5 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span class="flex-1 truncate">${escapeHtml(f)}</span>
+          <button onclick="event.stopPropagation(); deleteExpFile('${escapeHtml(f)}')" class="opacity-0 group-hover:opacity-100 bg-transparent border-none text-dimmer hover:text-red-400 cursor-pointer text-[0.75rem] p-0.5">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    async function createExpFile() {
+      if (!currentExpId) return;
+      const name = prompt('File name:');
+      if (!name || !name.trim()) return;
+      const resp = await fetch(`/api/experiments/${currentExpId}/files`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name: name.trim() })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        await fetchExpFiles();
+        openExpFile(data.name);
+      } else {
+        const err = await resp.json();
+        alert(err.error || 'Failed to create file');
+      }
+    }
+
+    async function openExpFile(fname) {
+      if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; await saveActiveFile(); }
+      activeFileName = fname;
+      renderExpFiles();
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/files/${encodeURIComponent(fname)}`);
+        const data = await resp.json();
+        showFileEditor(data.name, data.content);
+      } catch (e) {
+        showFileEditor(fname, '');
+      }
+    }
+
+    function showFileEditor(fname, content) {
+      const panel = document.getElementById('exp-right-panel');
+      document.getElementById('tree-svg').style.display = 'none';
+      document.getElementById('tree-hint').style.display = 'none';
+
+      let editor = document.getElementById('exp-file-editor');
+      if (!editor) {
+        editor = document.createElement('div');
+        editor.id = 'exp-file-editor';
+        editor.className = 'absolute inset-0 flex flex-col';
+        panel.appendChild(editor);
+      }
+      editor.style.display = 'flex';
+      editor.innerHTML = `
+        <div class="flex items-center gap-3 px-4 py-2.5 border-b border-border-dim bg-header shrink-0">
+          <svg class="w-4 h-4 text-dimmer shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span class="text-[0.9rem] font-medium text-white_ flex-1">${escapeHtml(fname)}</span>
+          <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity duration-300" id="file-save-indicator">Saved</span>
+          <button onclick="closeFileEditor()" class="text-dim hover:text-primary bg-transparent border-none cursor-pointer text-[0.85rem]">Back to tree</button>
+        </div>
+        <textarea id="exp-file-textarea" class="flex-1 w-full p-5 bg-canvas text-primary font-mono text-[0.9rem] leading-relaxed resize-none border-none outline-none" spellcheck="false" placeholder="Write markdown here...">${escapeHtml(content)}</textarea>
+      `;
+      const ta = document.getElementById('exp-file-textarea');
+      ta.addEventListener('input', () => scheduleFileSave());
+      ta.focus();
+    }
+
+    function closeFileEditor() {
+      if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; saveActiveFile(); }
+      activeFileName = null;
+      renderExpFiles();
+      const editor = document.getElementById('exp-file-editor');
+      if (editor) editor.style.display = 'none';
+      document.getElementById('tree-svg').style.display = '';
+      document.getElementById('tree-hint').style.display = '';
+      renderTree();
+    }
+
+    function scheduleFileSave() {
+      clearTimeout(fileSaveTimer);
+      fileSaveTimer = setTimeout(() => saveActiveFile(), 600);
+    }
+
+    async function saveActiveFile() {
+      fileSaveTimer = null;
+      if (!activeFileName || !currentExpId) return;
+      const ta = document.getElementById('exp-file-textarea');
+      if (!ta) return;
+      await fetch(`/api/experiments/${currentExpId}/files/${encodeURIComponent(activeFileName)}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ content: ta.value })
+      });
+      const ind = document.getElementById('file-save-indicator');
+      if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
+    }
+
+    async function deleteExpFile(fname) {
+      if (!confirm(`Delete ${fname}?`)) return;
+      await fetch(`/api/experiments/${currentExpId}/files/${encodeURIComponent(fname)}`, { method: 'DELETE' });
+      if (activeFileName === fname) closeFileEditor();
+      await fetchExpFiles();
+    }
+
     // ── SVG Tree Rendering ──
     const NODE_W = 140;
     const NODE_H = 44;
@@ -1235,8 +1383,8 @@
       const svg = document.getElementById('tree-svg');
       const versions = currentExp?.versions || [];
 
-      if (!versions.length) {
-        svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#333" font-size="14" font-family="inherit">Add a version to see the tree</text>`;
+      if (!versions.length && !expFiles.length) {
+        svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#333" font-size="14" font-family="inherit">Add a version or file to see the map</text>`;
         return;
       }
 
@@ -1251,6 +1399,14 @@
           roots.push(byId[v.id]);
         }
       });
+
+      // Add file nodes as leaves attached to a virtual file group
+      const fileNodes = expFiles.map((f, i) => ({
+        _isFile: true,
+        _fileName: f,
+        id: '__file__' + f,
+        children: []
+      }));
 
       let nextX = 0;
 
@@ -1271,8 +1427,22 @@
 
       roots.forEach(r => layoutNode(r, 0));
 
-      const allNodes = Object.values(byId);
+      // Find the max depth used by version nodes
+      const allVersionNodes = Object.values(byId);
+      let maxDepth = 0;
+      allVersionNodes.forEach(n => { if (n._y > maxDepth) maxDepth = n._y; });
+
+      // Layout file nodes on a row below all version nodes
+      const fileDepth = versions.length ? maxDepth + 1 : 0;
+      fileNodes.forEach(fn => {
+        fn._x = nextX;
+        fn._y = fileDepth;
+        fn._depth = fileDepth;
+        nextX++;
+      });
+
       const padding = 60;
+      const allNodes = [...allVersionNodes, ...fileNodes];
 
       allNodes.forEach(n => {
         n._px = padding + n._x * (NODE_W + H_GAP) + NODE_W / 2;
@@ -1287,7 +1457,7 @@
       };
 
       let edges = '';
-      allNodes.forEach(n => {
+      allVersionNodes.forEach(n => {
         if (n.parentId && byId[n.parentId]) {
           const p = byId[n.parentId];
           const x1 = p._px, y1 = p._py + NODE_H / 2;
@@ -1298,7 +1468,7 @@
       });
 
       let nodes = '';
-      allNodes.forEach(n => {
+      allVersionNodes.forEach(n => {
         const x = n._px - NODE_W / 2;
         const y = n._py - NODE_H / 2;
         const color = statusColor[n.status] || '#555';
@@ -1308,8 +1478,26 @@
             <rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}"
                   fill="#181818" stroke="${color}" stroke-opacity="${isSelected ? 1 : 0.5}" />
             <circle cx="${x + 14}" cy="${n._py}" r="4" fill="${color}" />
-            <text x="${x + 24}" y="${n._py + 4}" font-size="12" clip-path="url(#node-clip-${n.id})">
+            <text x="${x + 24}" y="${n._py + 4}" font-size="12">
               ${escapeHtml(n.name.length > 12 ? n.name.slice(0, 12) + '...' : n.name)}
+            </text>
+          </g>`;
+      });
+
+      // Render file nodes with a distinct style
+      const FILE_COLOR = '#b4451a';
+      fileNodes.forEach(fn => {
+        const x = fn._px - NODE_W / 2;
+        const y = fn._py - NODE_H / 2;
+        const isActive = fn._fileName === activeFileName;
+        const label = fn._fileName.length > 14 ? fn._fileName.slice(0, 14) + '...' : fn._fileName;
+        nodes += `
+          <g class="tree-node" onclick="openExpFile('${escapeHtml(fn._fileName)}')">
+            <rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}"
+                  fill="#181210" stroke="${FILE_COLOR}" stroke-opacity="${isActive ? 1 : 0.4}" stroke-dasharray="${isActive ? '' : '4 2'}" />
+            <path d="M${x + 8},${fn._py - 7} h8 l4,4 v10 h-12 z" fill="none" stroke="${FILE_COLOR}" stroke-width="1.5" stroke-opacity="0.6"/>
+            <text x="${x + 26}" y="${fn._py + 4}" font-size="12">
+              ${escapeHtml(label)}
             </text>
           </g>`;
       });
