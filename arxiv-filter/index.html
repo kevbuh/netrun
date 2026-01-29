@@ -161,6 +161,21 @@
       box-shadow: inset 3px 0 0 var(--accent);
     }
 
+    /* ── Toggle switch ── */
+    .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch .slider {
+      position: absolute; inset: 0; background: #333; border-radius: 20px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .toggle-switch .slider::before {
+      content: ''; position: absolute; left: 2px; top: 2px;
+      width: 16px; height: 16px; background: #999; border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle-switch input:checked + .slider { background: var(--accent); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(16px); background: #fff; }
+
     /* ── CSS columns masonry ── */
     main {
       columns: 4;
@@ -279,6 +294,11 @@
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">TBD</span>
     </button>
+    <div class="mt-auto"></div>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" onclick="openSettings()">
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Settings</span>
+    </button>
   </nav>
 
   <!-- Home Main Content -->
@@ -369,6 +389,51 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div id="settings-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeSettings()">
+    <div class="bg-popup border border-border-input rounded-xl p-6 w-[380px] max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-popup">
+      <h2 class="text-white_ text-lg font-semibold mb-4">Feed Sources</h2>
+      <div class="flex flex-col gap-3" id="settings-builtin-sources">
+        <label class="flex items-center justify-between cursor-pointer">
+          <span class="text-primary text-sm">arXiv</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-arxiv" onchange="toggleFeedSource('arxiv', this.checked)">
+            <span class="slider"></span>
+          </span>
+        </label>
+        <label class="flex items-center justify-between cursor-pointer">
+          <span class="text-primary text-sm">Hacker News</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-hn" onchange="toggleFeedSource('hn', this.checked)">
+            <span class="slider"></span>
+          </span>
+        </label>
+        <label class="flex items-center justify-between cursor-pointer">
+          <span class="text-primary text-sm">The Verge</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-verge" onchange="toggleFeedSource('verge', this.checked)">
+            <span class="slider"></span>
+          </span>
+        </label>
+        <label class="flex items-center justify-between cursor-pointer">
+          <span class="text-primary text-sm">Nature</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-nature" onchange="toggleFeedSource('nature', this.checked)">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <div class="mt-5 pt-4 border-t border-border-subtle">
+        <h3 class="text-white_ text-sm font-semibold mb-3">Custom RSS Feeds</h3>
+        <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
+        <div class="flex gap-2">
+          <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomFeed()}">
+          <button onclick="addCustomFeed()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Version Popup -->
   <div id="version-popup-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeVersionPopup()">
     <div class="bg-popup border border-border-input rounded-xl p-6 w-[420px] max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-popup" id="version-popup"></div>
@@ -381,6 +446,11 @@
     const ARXIV_LOGO_INLINE = '<img class="h-3.5 w-auto opacity-50 inline-block" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
     const HN_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
     const HN_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
+    const VERGE_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#000" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fa4b2a" font-size="180" font-weight="bold" font-family="Georgia,serif">V</text></svg>';
+    const VERGE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#000" stroke="#333" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fa4b2a" font-size="180" font-weight="bold" font-family="Georgia,serif">V</text></svg>';
+    const NATURE_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
+    const NATURE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
+    const RSS_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f90" width="256" height="256" rx="24"/><circle cx="68" cy="189" r="28" fill="#fff"/><path d="M40 120a108 108 0 01108 108h-36a72 72 0 00-72-72v-36z" fill="#fff"/><path d="M40 56a172 172 0 01172 172h-36A136 136 0 0076 92V56h-36z" fill="#fff"/></svg>';
 
     function setSidebarActive(id) {
       document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
@@ -495,13 +565,147 @@
       }
     }
 
+    const FEED_SOURCE_DEFAULTS = { arxiv: true, hn: true, verge: false, nature: false };
+
+    function getFeedSources() {
+      try { return { ...FEED_SOURCE_DEFAULTS, ...JSON.parse(localStorage.getItem('feedSources')) }; }
+      catch { return { ...FEED_SOURCE_DEFAULTS }; }
+    }
+
+    function getCustomFeeds() {
+      try { return JSON.parse(localStorage.getItem('customFeeds')) || []; }
+      catch { return []; }
+    }
+
+    function renderCustomFeedsList() {
+      const list = document.getElementById('custom-feeds-list');
+      const feeds = getCustomFeeds();
+      if (!feeds.length) { list.innerHTML = '<div class="text-dim text-[0.78rem]">No custom feeds added.</div>'; return; }
+      list.innerHTML = feeds.map((f, i) => `
+        <div class="flex items-center justify-between gap-2 bg-input rounded-md px-3 py-2">
+          <span class="text-primary text-[0.78rem] truncate flex-1" title="${escapeHtml(f.url)}">${escapeHtml(f.name || f.url)}</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="toggle-switch">
+              <input type="checkbox" ${f.enabled !== false ? 'checked' : ''} onchange="toggleCustomFeed(${i}, this.checked)">
+              <span class="slider"></span>
+            </span>
+            <button onclick="removeCustomFeed(${i})" class="text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none" title="Remove">&times;</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addCustomFeed() {
+      const input = document.getElementById('custom-feed-url');
+      const url = input.value.trim();
+      if (!url) return;
+      const feeds = getCustomFeeds();
+      if (feeds.some(f => f.url === url)) return;
+      let name = url;
+      try { name = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+      feeds.push({ url, name, enabled: true });
+      localStorage.setItem('customFeeds', JSON.stringify(feeds));
+      input.value = '';
+      renderCustomFeedsList();
+      allPapers = [];
+      loadAllFeeds();
+    }
+
+    function removeCustomFeed(index) {
+      const feeds = getCustomFeeds();
+      feeds.splice(index, 1);
+      localStorage.setItem('customFeeds', JSON.stringify(feeds));
+      renderCustomFeedsList();
+      allPapers = [];
+      loadAllFeeds();
+    }
+
+    function toggleCustomFeed(index, enabled) {
+      const feeds = getCustomFeeds();
+      feeds[index].enabled = enabled;
+      localStorage.setItem('customFeeds', JSON.stringify(feeds));
+      allPapers = [];
+      loadAllFeeds();
+    }
+
+    function openSettings() {
+      const sources = getFeedSources();
+      document.getElementById('toggle-arxiv').checked = sources.arxiv !== false;
+      document.getElementById('toggle-hn').checked = sources.hn !== false;
+      document.getElementById('toggle-verge').checked = sources.verge !== false;
+      document.getElementById('toggle-nature').checked = sources.nature !== false;
+      renderCustomFeedsList();
+      document.getElementById('settings-overlay').style.display = 'flex';
+    }
+
+    function closeSettings() {
+      document.getElementById('settings-overlay').style.display = 'none';
+    }
+
+    function toggleFeedSource(key, value) {
+      const sources = getFeedSources();
+      sources[key] = value;
+      localStorage.setItem('feedSources', JSON.stringify(sources));
+      allPapers = [];
+      loadAllFeeds();
+    }
+
+    async function fetchGenericRSS(feedUrl, sourceName) {
+      try {
+        const resp = await fetch(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
+        if (!resp.ok) return [];
+        const xml = await resp.text();
+        const doc = new DOMParser().parseFromString(xml, 'text/xml');
+        const items = doc.querySelectorAll('item, entry');
+        return Array.from(items).map(item => {
+          const title = (item.querySelector('title')?.textContent || '').trim();
+          const link = item.querySelector('link')?.getAttribute('href')
+            || (item.querySelector('link')?.textContent || '').trim();
+          const desc = item.querySelector('description, summary, content')?.textContent || '';
+          const author = item.querySelector('author, dc\\:creator')?.textContent?.trim() || '';
+          const pubStr = item.querySelector('pubDate, published, updated')?.textContent?.trim() || '';
+          const ts = pubStr ? new Date(pubStr) : null;
+          return {
+            source: sourceName,
+            title,
+            link,
+            authors: author,
+            categories: [],
+            description: stripHtml(desc).slice(0, 300),
+            date: ts ? formatDate(ts) : '',
+            pubDate: ts ? ts.toUTCString() : '',
+            arxivId: null,
+          };
+        });
+      } catch { return []; }
+    }
+
     async function loadAllFeeds() {
-      const [, hnItems] = await Promise.all([fetchFeed(), fetchHNFeed()]);
-      if (hnItems.length) {
-        allPapers = allPapers.concat(hnItems);
-        renderTrends();
-        renderPapers();
+      const sources = getFeedSources();
+      allPapers = [];
+      const promises = [];
+      const labels = [];
+
+      if (sources.arxiv !== false) { promises.push(fetchFeed()); labels.push('arxiv'); }
+      if (sources.hn !== false) { promises.push(fetchHNFeed()); labels.push('hn'); }
+      if (sources.verge !== false) { promises.push(fetchGenericRSS('https://www.theverge.com/rss/index.xml', 'verge')); labels.push('verge'); }
+      if (sources.nature !== false) { promises.push(fetchGenericRSS('https://www.nature.com/nature.rss', 'nature')); labels.push('nature'); }
+
+      const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
+      for (const cf of customFeeds) {
+        promises.push(fetchGenericRSS(cf.url, 'custom:' + cf.name));
+        labels.push('custom');
       }
+
+      const results = await Promise.all(promises);
+      for (let i = 0; i < results.length; i++) {
+        const items = results[i];
+        if (Array.isArray(items) && items.length) {
+          allPapers = allPapers.concat(items);
+        }
+      }
+      renderTrends();
+      renderPapers();
     }
 
     function extractArxivId(link) {
@@ -511,7 +715,7 @@
 
     function parseFeed(xml) {
       const doc = new DOMParser().parseFromString(xml, 'text/xml');
-      allPapers = Array.from(doc.querySelectorAll('item')).map(item => {
+      const arxivItems = Array.from(doc.querySelectorAll('item')).map(item => {
         const title = (item.querySelector('title')?.textContent || '').trim();
         const link = (item.querySelector('link')?.textContent || '').trim();
         const description = (item.querySelector('description')?.textContent || '').trim();
@@ -525,9 +729,8 @@
         const cleanDesc = stripHtml(description).replace(/^arXiv:\S+\s+Announce Type:\s*\w+\s+Abstract:\s*/i, '');
         return { source: 'arxiv', title, link, authors, categories, description: cleanDesc, date: dateStr, pubDate, arxivId };
       });
+      allPapers = allPapers.concat(arxivItems);
       populateCategories();
-      renderTrends();
-      renderPapers();
     }
 
     async function fetchCitationsFor(papers) {
@@ -596,6 +799,7 @@
 
       const sidebar = document.getElementById('paper-sidebar');
       const isHN = paper.source === 'hn';
+      const isArxiv = paper.source === 'arxiv';
       const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
       const backBtn = `<button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary mb-4" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button>`;
 
@@ -635,9 +839,18 @@
           </div>
         `;
       } else {
+        const sourceName = paper.source === 'verge' ? 'The Verge'
+          : paper.source === 'nature' ? 'Nature'
+          : paper.source?.startsWith('custom:') ? paper.source.slice(7)
+          : '';
         sidebar.innerHTML = `
           ${backBtn}
           <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
+          ${sourceName ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Source</div>
+              <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(sourceName)}</div>
+            </div>` : ''}
           ${paper.authors ? `
             <div class="mb-[18px]">
               <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Authors</div>
@@ -659,21 +872,26 @@
                 ${paper.categories.map(c => `<span class="text-[0.75rem] bg-sidebar-cat text-sidebar-cat-color px-2 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
               </div>
             </div>` : ''}
+          ${paper.description ? `
           <div class="mb-[18px]">
-            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Abstract</div>
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">${isArxiv ? 'Abstract' : 'Summary'}</div>
             <div class="text-[0.85rem] leading-relaxed text-summary" id="paper-abstract">${escapeHtml(paper.description)}</div>
-          </div>
+          </div>` : ''}
+          ${!isArxiv ? `
+          <div class="mt-4">
+            <a href="${paper.link}" target="_blank" rel="noopener" class="inline-block px-4 py-2 rounded-md bg-accent text-white text-[0.85rem] no-underline hover:bg-accent-hover">Open in new tab</a>
+          </div>` : ''}
         `;
       }
 
       renderLatexIn('paper-abstract');
 
       const pdfContainer = document.getElementById('paper-pdf-container');
-      if (isHN) {
-        pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
-      } else {
+      if (isArxiv) {
         const pdfUrl = paper.link.replace('/abs/', '/pdf/');
         pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer" class="w-full h-full border-none"></iframe>`;
+      } else {
+        pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
       }
     }
 
@@ -681,7 +899,22 @@
       paperViewOrigin = 'arxiv';
       const paper = lastFilteredPapers[index];
       if (!paper) return;
-      showPaperView(paper, 'paper/' + index);
+      if (paper.source === 'arxiv') {
+        showPaperView(paper, 'paper/' + index);
+      } else {
+        fetch(`/api/check-embed?url=${encodeURIComponent(paper.link)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.embeddable) {
+              showPaperView(paper, 'paper/' + index);
+            } else {
+              window.open(paper.link, '_blank');
+            }
+          })
+          .catch(() => {
+            window.open(paper.link, '_blank');
+          });
+      }
     }
 
     function openPaperByUrl(url) {
@@ -925,7 +1158,11 @@
       if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
       container.innerHTML = visible.map((p, i) => {
         const isHN = p.source === 'hn';
-        const sourceChip = isHN ? HN_LOGO_INLINE : (p.arxivId ? ARXIV_LOGO_INLINE : '');
+        const sourceChip = p.source === 'hn' ? HN_LOGO_INLINE
+          : p.source === 'verge' ? VERGE_LOGO_INLINE
+          : p.source === 'nature' ? NATURE_LOGO_INLINE
+          : p.source?.startsWith('custom:') ? RSS_LOGO_INLINE
+          : (p.arxivId ? ARXIV_LOGO_INLINE : '');
         const statsChips = isHN
           ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span><span class="text-[0.68rem] text-dim">${p.hnComments} comments</span>`
           : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
@@ -1297,7 +1534,9 @@
 
     // Close popup on Escape
     window.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && document.getElementById('version-popup-overlay').style.display === 'flex') {
+      if (e.key === 'Escape' && document.getElementById('settings-overlay').style.display === 'flex') {
+        closeSettings();
+      } else if (e.key === 'Escape' && document.getElementById('version-popup-overlay').style.display === 'flex') {
         closeVersionPopup();
       }
     });

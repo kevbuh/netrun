@@ -111,6 +111,52 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path.startswith('/api/check-embed'):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            url = qs.get('url', [''])[0].strip()
+            if not url:
+                self._send_json({'embeddable': False})
+                return
+            try:
+                req = urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'Mozilla/5.0'})
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    xfo = (resp.headers.get('X-Frame-Options') or '').upper()
+                    csp = resp.headers.get('Content-Security-Policy') or ''
+                    blocked = bool(xfo) or 'frame-ancestors' in csp
+                    self._send_json({'embeddable': not blocked})
+            except Exception:
+                self._send_json({'embeddable': False})
+
+        elif self.path.startswith('/api/rss-proxy'):
+            try:
+                from urllib.parse import urlparse, parse_qs, unquote
+                qs = parse_qs(urlparse(self.path).query)
+                feed_url = qs.get('url', [''])[0].strip()
+                if not feed_url:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(b'url parameter required')
+                    return
+                req = urllib.request.Request(
+                    feed_url,
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                    data = resp.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/xml')
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                self.send_response(502)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+
         elif self.path.startswith('/api/arxiv-search'):
             try:
                 from urllib.parse import urlparse, parse_qs
