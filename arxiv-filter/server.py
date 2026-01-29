@@ -6,6 +6,7 @@ import os
 import json
 import re
 import shutil
+import concurrent.futures
 
 PORT = 8000
 DIR = os.path.dirname(os.path.abspath(__file__))
@@ -85,6 +86,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-Type', 'text/plain')
                 self.end_headers()
                 self.wfile.write(str(e).encode())
+
+        elif self.path == '/hn-feed':
+            try:
+                ctx = ssl._create_unverified_context()
+                req = urllib.request.Request(
+                    'https://hacker-news.firebaseio.com/v0/beststories.json',
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                    ids = json.loads(resp.read())[:30]
+
+                def fetch_hn_item(item_id):
+                    url = f'https://hacker-news.firebaseio.com/v0/item/{item_id}.json'
+                    r = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(r, timeout=10, context=ctx) as resp:
+                        return json.loads(resp.read())
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+                    items = list(pool.map(fetch_hn_item, ids))
+
+                stories = [it for it in items if it and it.get('type') == 'story']
+                self._send_json(stories)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
 
         elif self.path.startswith('/api/arxiv-search'):
             try:

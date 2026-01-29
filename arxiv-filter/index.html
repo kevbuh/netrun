@@ -390,6 +390,7 @@
     // ── View management ──
     const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
     const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
+    const HN_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
 
     function setSidebarActive(id) {
       document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
@@ -450,7 +451,7 @@
     let currentSort = 'latest';
     const PAGE_SIZE = 20;
     let visibleCount = PAGE_SIZE;
-    fetchFeed();
+    loadAllFeeds();
 
     function setSortMode(mode) {
       currentSort = mode;
@@ -472,6 +473,45 @@
       }
     }
 
+    async function fetchHNFeed() {
+      try {
+        const resp = await fetch('/hn-feed');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const stories = await resp.json();
+        return stories.map(s => {
+          const url = s.url || `https://news.ycombinator.com/item?id=${s.id}`;
+          const ts = s.time ? new Date(s.time * 1000) : null;
+          const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          const pubDate = ts ? ts.toUTCString() : '';
+          return {
+            source: 'hn',
+            title: s.title || '',
+            link: url,
+            authors: s.by || '',
+            categories: [],
+            description: '',
+            date: dateStr,
+            pubDate,
+            arxivId: null,
+            hnScore: s.score || 0,
+            hnComments: s.descendants || 0,
+            hnId: s.id
+          };
+        });
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function loadAllFeeds() {
+      const [, hnItems] = await Promise.all([fetchFeed(), fetchHNFeed()]);
+      if (hnItems.length) {
+        allPapers = allPapers.concat(hnItems);
+        renderTrends();
+        renderPapers();
+      }
+    }
+
     function extractArxivId(link) {
       const m = link.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
       return m ? m[1] : null;
@@ -490,7 +530,7 @@
         const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
         const dateStr = pubDate ? new Date(pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
         const arxivId = extractArxivId(link);
-        return { title, link, authors, categories, description: stripHtml(description), date: dateStr, pubDate, arxivId };
+        return { source: 'arxiv', title, link, authors, categories, description: stripHtml(description), date: dateStr, pubDate, arxivId };
       });
       populateCategories();
       renderTrends();
@@ -612,38 +652,81 @@
       document.getElementById('paper-view-title').textContent = paper.title;
 
       const sidebar = document.getElementById('paper-sidebar');
-      sidebar.innerHTML = `
-        <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
-        ${paper.authors ? `
+      const isHN = paper.source === 'hn';
+      const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
+
+      if (isHN) {
+        sidebar.innerHTML = `
+          <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
+          ${paper.authors ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Posted by</div>
+              <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(paper.authors)}</div>
+            </div>` : ''}
           <div class="mb-[18px]">
-            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Authors</div>
-            <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(paper.authors)}</div>
-          </div>` : ''}
-        ${paper.published ? `
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Score</div>
+            <div class="text-[0.85rem] text-[#f60] font-semibold">${paper.hnScore} points</div>
+          </div>
           <div class="mb-[18px]">
-            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Published</div>
-            <div class="text-[0.85rem] text-meta-value leading-normal">${paper.published}</div>
-          </div>` : ''}
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Link</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
-        </div>
-        ${paper.categories && paper.categories.length ? `
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Comments</div>
+            <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a></div>
+          </div>
+          ${paper.date ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Date</div>
+              <div class="text-[0.85rem] text-meta-value leading-normal">${paper.date}</div>
+            </div>` : ''}
           <div class="mb-[18px]">
-            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Categories</div>
-            <div class="flex flex-wrap gap-1.5">
-              ${paper.categories.map(c => `<span class="text-[0.75rem] bg-sidebar-cat text-sidebar-cat-color px-2 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
-            </div>
-          </div>` : ''}
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Abstract</div>
-          <div class="text-[0.85rem] leading-relaxed text-summary">${escapeHtml(paper.description)}</div>
-        </div>
-      `;
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Link</div>
+            <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
+          </div>
+          ${hnDiscussionUrl ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Discussion</div>
+              <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">View on Hacker News</a></div>
+            </div>` : ''}
+          <div class="mt-4">
+            <a href="${paper.link}" target="_blank" rel="noopener" class="inline-block px-4 py-2 rounded-md bg-accent text-white text-[0.85rem] no-underline hover:bg-accent-hover">Open in new tab</a>
+          </div>
+        `;
+      } else {
+        sidebar.innerHTML = `
+          <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
+          ${paper.authors ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Authors</div>
+              <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(paper.authors)}</div>
+            </div>` : ''}
+          ${paper.published ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Published</div>
+              <div class="text-[0.85rem] text-meta-value leading-normal">${paper.published}</div>
+            </div>` : ''}
+          <div class="mb-[18px]">
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Link</div>
+            <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
+          </div>
+          ${paper.categories && paper.categories.length ? `
+            <div class="mb-[18px]">
+              <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Categories</div>
+              <div class="flex flex-wrap gap-1.5">
+                ${paper.categories.map(c => `<span class="text-[0.75rem] bg-sidebar-cat text-sidebar-cat-color px-2 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
+              </div>
+            </div>` : ''}
+          <div class="mb-[18px]">
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Abstract</div>
+            <div class="text-[0.85rem] leading-relaxed text-summary">${escapeHtml(paper.description)}</div>
+          </div>
+        `;
+      }
 
       const pdfContainer = document.getElementById('paper-pdf-container');
-      const pdfUrl = paper.link.replace('/abs/', '/pdf/');
-      pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer" class="w-full h-full border-none"></iframe>`;
+      if (isHN) {
+        pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
+      } else {
+        const pdfUrl = paper.link.replace('/abs/', '/pdf/');
+        pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer" class="w-full h-full border-none"></iframe>`;
+      }
     }
 
     function openPaper(index) {
@@ -848,7 +931,17 @@
         return true;
       });
       if (currentSort === 'citations') {
-        filtered = [...filtered].sort((a, b) => (b.citations || 0) - (a.citations || 0));
+        filtered = [...filtered].sort((a, b) => {
+          const aScore = a.source === 'hn' ? (a.hnScore || 0) : (a.citations || 0);
+          const bScore = b.source === 'hn' ? (b.hnScore || 0) : (b.citations || 0);
+          return bScore - aScore;
+        });
+      } else {
+        filtered = [...filtered].sort((a, b) => {
+          const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+          const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+          return db - da;
+        });
       }
       return filtered;
     }
@@ -860,14 +953,23 @@
       document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
       const container = document.getElementById('papers');
       if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
-      container.innerHTML = visible.map((p, i) => `
+      container.innerHTML = visible.map((p, i) => {
+        const isHN = p.source === 'hn';
+        const logo = isHN ? HN_LOGO : (p.arxivId ? ARXIV_LOGO : '');
+        const chips = isHN
+          ? `<span class="text-[0.68rem] font-semibold text-[#f60] bg-[#1e1209] px-2 py-0.5 rounded">${p.hnScore} pts</span><span class="text-[0.68rem] font-semibold text-dim bg-chip-count px-2 py-0.5 rounded">${p.hnComments} comments</span>`
+          : (p.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${p.citations} cited</span>` : '');
+        const catChips = p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
+        const summaryDiv = p.description ? `<div class="paper-summary collapsed text-[0.8rem] leading-relaxed text-summary" id="summary-${i}">${escapeHtml(p.description)}</div>` : '';
+        return `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
-          ${p.arxivId ? ARXIV_LOGO : ''}
-          <div class="flex gap-1.5 flex-wrap items-center mb-2">${p.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${p.citations} cited</span>` : ''}${p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : ''}${p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}</div>
+          ${logo}
+          <div class="flex gap-1.5 flex-wrap items-center mb-2">${chips}${p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : ''}${catChips}</div>
           <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(p.title)}</a></div>
-          ${p.authors ? `<div class="text-[0.78rem] text-authors mb-2">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
-          <div class="paper-summary collapsed text-[0.8rem] leading-relaxed text-summary" id="summary-${i}">${escapeHtml(p.description)}</div>
-        </div>`).join('');
+          ${p.authors ? `<div class="text-[0.78rem] text-authors mb-2">${escapeHtml(isHN ? p.authors : formatFirstAuthor(p.authors))}</div>` : ''}
+          ${summaryDiv}
+        </div>`;
+      }).join('');
       fetchCitationsFor(visible);
     }
 
