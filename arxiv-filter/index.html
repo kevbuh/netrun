@@ -699,7 +699,6 @@
     let currentSort = 'latest';
     const PAGE_SIZE = 20;
     let visibleCount = PAGE_SIZE;
-    loadAllFeeds();
 
     function setSortMode(mode) {
       currentSort = mode;
@@ -985,6 +984,8 @@
       renderTrends();
       renderPapers();
     }
+
+    loadAllFeeds();
 
     function extractArxivId(link) {
       const m = link.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
