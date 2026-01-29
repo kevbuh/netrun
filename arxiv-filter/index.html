@@ -387,7 +387,9 @@
     // ── View management ──
     const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
     const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
+    const ARXIV_LOGO_INLINE = '<img class="h-3.5 w-auto opacity-50 inline-block" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
     const HN_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
+    const HN_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
 
     function setSidebarActive(id) {
       document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
@@ -405,6 +407,8 @@
       document.getElementById('home-main').style.display = '';
       window.location.hash = '';
       setSidebarActive('sb-home');
+      document.getElementById('finder-query').value = '';
+      showFeedHideFinder();
     }
 
     function openExperiments() {
@@ -478,7 +482,7 @@
         return stories.map(s => {
           const url = s.url || `https://news.ycombinator.com/item?id=${s.id}`;
           const ts = s.time ? new Date(s.time * 1000) : null;
-          const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          const dateStr = ts ? formatDate(ts) : '';
           const pubDate = ts ? ts.toUTCString() : '';
           return {
             source: 'hn',
@@ -525,7 +529,7 @@
         const categories = Array.from(item.querySelectorAll('category')).map(c => c.textContent.trim());
         categories.forEach(c => allCategories.add(c));
         const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
-        const dateStr = pubDate ? new Date(pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        const dateStr = pubDate ? formatDate(new Date(pubDate)) : '';
         const arxivId = extractArxivId(link);
         return { source: 'arxiv', title, link, authors, categories, description: stripHtml(description), date: dateStr, pubDate, arxivId };
       });
@@ -570,13 +574,17 @@
 
       const cats = extractTopCategories(allPapers);
 
-      document.getElementById('trend-categories').innerHTML = cats.map(([cat, count]) =>
-        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border-subtle bg-card text-primary text-[0.8rem] cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count text-[0.7rem] text-dim bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`
-      ).join('');
+      const activeCat = document.getElementById('category').value;
+      document.getElementById('trend-categories').innerHTML = cats.map(([cat, count]) => {
+        const isActive = cat === activeCat;
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${isActive ? 'border-accent bg-accent/15 text-accent' : 'border-border-subtle bg-card text-primary'} text-[0.8rem] cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count text-[0.7rem] ${isActive ? 'text-accent/70' : 'text-dim'} bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`;
+      }).join('');
     }
 
     function applyTrendCategory(cat) {
-      document.getElementById('category').value = cat;
+      const el = document.getElementById('category');
+      el.value = el.value === cat ? '' : cat;
+      renderTrends();
       renderPapers();
     }
 
@@ -712,6 +720,7 @@
     document.getElementById('finder-form').addEventListener('submit', e => {
       e.preventDefault();
       finderCurrentStart = 0;
+      finderSort = 'relevance';
       finderCurrentQuery = document.getElementById('finder-query').value.trim();
       if (finderCurrentQuery) doFinderSearch();
     });
@@ -773,13 +782,21 @@
           const t = c.getAttribute('term');
           if (t && !categories.includes(t)) categories.push(t);
         }
-        const dateStr = published ? new Date(published + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        const dateStr = published ? formatDate(new Date(published + 'T00:00:00')) : '';
         const arxivId = extractArxivId(link);
         return { title, description: summary, authors, link, published, date: dateStr, categories, arxivId };
       });
 
       renderFinderResults(total);
       fetchFinderCitations(total);
+    }
+
+    let finderSort = 'relevance';
+    let finderLastTotal = 0;
+
+    function setFinderSort(mode) {
+      finderSort = mode;
+      renderFinderResults(finderLastTotal);
     }
 
     function renderFinderResults(total) {
@@ -789,11 +806,27 @@
         return;
       }
 
-      container.innerHTML = finderResultsCache.map((r, i) => `
+      let sorted = [...finderResultsCache];
+      if (finderSort === 'citations') {
+        sorted.sort((a, b) => (b.citations || 0) - (a.citations || 0));
+      } else if (finderSort === 'latest') {
+        sorted.sort((a, b) => {
+          const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+          const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+          return db - da;
+        });
+      }
+
+      const sortBar = `<div class="flex gap-1 mb-4">
+        <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${finderSort === 'relevance' ? 'active' : ''}" onclick="setFinderSort('relevance')">Relevance</button>
+        <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${finderSort === 'latest' ? 'active' : ''}" onclick="setFinderSort('latest')">Latest</button>
+        <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${finderSort === 'citations' ? 'active' : ''}" onclick="setFinderSort('citations')">Most Cited</button>
+      </div>`;
+
+      container.innerHTML = sortBar + sorted.map((r, i) => `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openFinderPaper(${i})" ${r.description ? `data-abstract="${escapeAttr(r.description)}"` : ''}>
-          ${r.arxivId ? ARXIV_LOGO : ''}
-          <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${r.citations} cited</span>` : ''}${r.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(r.date)}</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}</div>
-          <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(r.title)}</a></div>
+          <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.arxivId ? ARXIV_LOGO_INLINE : ''}${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${r.citations} cited</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}${r.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(r.date)}</span>` : ''}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${escapeHtml(r.title)}</div>
           ${r.authors ? `<div class="text-[0.78rem] text-authors">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
         </div>
       `).join('') + (total > 20 ? `
@@ -805,8 +838,6 @@
       ` : '');
       finderLastTotal = total;
     }
-
-    let finderLastTotal = 0;
 
     async function fetchFinderCitations(total) {
       const ids = finderResultsCache.map(r => r.arxivId).filter(Boolean);
@@ -902,17 +933,17 @@
       if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
       container.innerHTML = visible.map((p, i) => {
         const isHN = p.source === 'hn';
-        const logo = isHN ? HN_LOGO : (p.arxivId ? ARXIV_LOGO : '');
-        const chips = isHN
-          ? `<span class="text-[0.68rem] font-semibold text-[#f60] bg-[#1e1209] px-2 py-0.5 rounded">${p.hnScore} pts</span><span class="text-[0.68rem] font-semibold text-dim bg-chip-count px-2 py-0.5 rounded">${p.hnComments} comments</span>`
-          : (p.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${p.citations} cited</span>` : '');
+        const sourceChip = isHN ? HN_LOGO_INLINE : (p.arxivId ? ARXIV_LOGO_INLINE : '');
+        const statsChips = isHN
+          ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span><span class="text-[0.68rem] text-dim">${p.hnComments} comments</span>`
+          : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
         const catChips = p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
+        const dateChip = p.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(p.date)}</span>` : '';
         return `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})" ${p.description ? `data-abstract="${escapeAttr(p.description)}"` : ''}>
-          ${logo}
-          <div class="flex gap-1.5 flex-wrap items-center mb-2">${chips}${p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : ''}${catChips}</div>
-          <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(p.title)}</a></div>
-          ${p.authors ? `<div class="text-[0.78rem] text-authors">${escapeHtml(isHN ? p.authors : formatFirstAuthor(p.authors))}</div>` : ''}
+          <div class="flex gap-1.5 flex-wrap items-center mb-2">${sourceChip}${statsChips}${catChips}${dateChip}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${escapeHtml(p.title)}</div>
+          ${!isHN && p.authors ? `<div class="text-[0.78rem] text-authors">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
         </div>`;
       }).join('');
       fetchCitationsFor(visible);
@@ -935,6 +966,20 @@
         }
       });
     });
+
+    function formatDate(d) {
+      if (!d) return '';
+      const now = new Date();
+      const diffMs = now - d;
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return 'just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      const diffHrs = Math.floor(diffMins / 60);
+      if (d.toDateString() === now.toDateString()) return `${diffHrs}h ago`;
+      const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) return 'yesterday';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
 
     function escapeHtml(str) {
       const div = document.createElement('div');
