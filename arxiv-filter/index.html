@@ -308,7 +308,19 @@
 
   <!-- Home Main Content -->
   <div class="flex-1 ml-[60px] px-6 pt-6" id="home-main">
-    <div class="mb-5">
+    <!-- Onboarding View -->
+    <div id="onboard-view" style="display:none" class="py-12 overflow-y-auto">
+      <div class="text-center max-w-[640px] mx-auto px-4">
+        <h1 class="text-white_ text-[1.8rem] font-semibold mb-2">What do you want to read?</h1>
+        <p class="text-muted text-[0.95rem] mb-8">Pick your sources. You can change these anytime in settings.</p>
+        <div id="onboard-grid"></div>
+        <div class="mt-8">
+          <button id="onboard-start-btn" disabled onclick="completeOnboarding()" class="px-8 py-3 rounded-xl border-none bg-accent text-white text-[0.95rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="finder-section" class="mb-5" style="display:none">
         <form id="finder-form">
           <div class="relative max-w-[680px] mx-auto">
             <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -318,7 +330,7 @@
       </div>
       <div id="finder-results-masonry" class="pb-16"></div>
 
-      <div id="home-feed-section">
+      <div id="home-feed-section" style="display:none">
         <input type="hidden" id="search" value="" />
         <select id="category" style="display:none"><option value="">All Categories</option></select>
         <div class="text-[0.8rem] text-dim py-1 pb-3" id="stats"></div>
@@ -329,7 +341,7 @@
           <div class="flex gap-1.5 shrink-0" id="trend-categories"></div>
         </div>
         <main id="papers" class="pb-16">
-          <div class="text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
+          <div class="text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading feed...</div></div>
         </main>
       </div>
   </div>
@@ -409,36 +421,7 @@
   <div id="settings-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeSettings()">
     <div class="bg-popup border border-border-input rounded-xl p-6 w-[380px] max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-popup">
       <h2 class="text-white_ text-lg font-semibold mb-4">Feed Sources</h2>
-      <div class="flex flex-col gap-3" id="settings-builtin-sources">
-        <label class="flex items-center justify-between cursor-pointer">
-          <span class="text-primary text-sm">arXiv</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-arxiv" onchange="toggleFeedSource('arxiv', this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-        <label class="flex items-center justify-between cursor-pointer">
-          <span class="text-primary text-sm">Hacker News</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-hn" onchange="toggleFeedSource('hn', this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-        <label class="flex items-center justify-between cursor-pointer">
-          <span class="text-primary text-sm">The Verge</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-verge" onchange="toggleFeedSource('verge', this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-        <label class="flex items-center justify-between cursor-pointer">
-          <span class="text-primary text-sm">Nature</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-nature" onchange="toggleFeedSource('nature', this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
+      <div class="flex flex-col gap-3" id="settings-builtin-sources"></div>
       <div class="mt-5 pt-4 border-t border-border-subtle">
         <h3 class="text-white_ text-sm font-semibold mb-3">Custom RSS Feeds</h3>
         <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
@@ -467,6 +450,61 @@
     const NATURE_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
     const NATURE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
     const RSS_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f90" width="256" height="256" rx="24"/><circle cx="68" cy="189" r="28" fill="#fff"/><path d="M40 120a108 108 0 01108 108h-36a72 72 0 00-72-72v-36z" fill="#fff"/><path d="M40 56a172 172 0 01172 172h-36A136 136 0 0076 92V56h-36z" fill="#fff"/></svg>';
+
+    // ── Feed catalog ──
+    const FEED_CATALOG = [
+      // Research & Science
+      { key: 'arxiv', name: 'arXiv', desc: 'Latest CS research papers', cat: 'Research & Science', special: 'arxiv', img: '/arxiv-logomark-small@2x.png' },
+      { key: 'nature', name: 'Nature', desc: 'Scientific research and discoveries', cat: 'Research & Science', url: 'https://www.nature.com/nature.rss', letter: 'N', bg: '#c00', fg: '#fff' },
+      { key: 'science', name: 'Science', desc: 'Peer-reviewed research from AAAS', cat: 'Research & Science', url: 'https://www.science.org/rss/news_current.xml', letter: 'S', bg: '#1a5276', fg: '#fff' },
+      { key: 'quanta', name: 'Quanta Magazine', desc: 'In-depth math and science journalism', cat: 'Research & Science', url: 'https://www.quantamagazine.org/feed/', letter: 'Q', bg: '#000', fg: '#f5c518' },
+      // Tech & News
+      { key: 'hn', name: 'Hacker News', desc: 'Top stories from the tech community', cat: 'Tech & News', special: 'hn', letter: 'Y', bg: '#f60', fg: '#fff', font: 'Verdana,sans-serif' },
+      { key: 'verge', name: 'The Verge', desc: 'Technology news and culture', cat: 'Tech & News', url: 'https://www.theverge.com/rss/index.xml', letter: 'V', bg: '#000', fg: '#fa4b2a', stroke: '#333' },
+      { key: 'arstechnica', name: 'Ars Technica', desc: 'In-depth technology reporting', cat: 'Tech & News', url: 'https://feeds.arstechnica.com/arstechnica/index', letter: 'a', bg: '#ff4e00', fg: '#fff' },
+      { key: 'techcrunch', name: 'TechCrunch', desc: 'Startup and technology news', cat: 'Tech & News', url: 'https://techcrunch.com/feed/', letter: 'T', bg: '#0a9e01', fg: '#fff' },
+      { key: 'wired', name: 'Wired', desc: 'Future trends in tech and culture', cat: 'Tech & News', url: 'https://www.wired.com/feed/rss', letter: 'W', bg: '#000', fg: '#fff' },
+      { key: 'mittr', name: 'MIT Tech Review', desc: 'Emerging technology analysis', cat: 'Tech & News', url: 'https://www.technologyreview.com/feed/', letter: 'M', bg: '#a31c44', fg: '#fff' },
+      // Programming
+      { key: 'lobsters', name: 'Lobsters', desc: 'Community-curated programming links', cat: 'Programming', url: 'https://lobste.rs/rss', letter: 'L', bg: '#ac130d', fg: '#fff' },
+      // AI & Machine Learning
+      { key: 'gradient', name: 'The Gradient', desc: 'AI research perspectives', cat: 'AI & Machine Learning', url: 'https://thegradient.pub/rss/', letter: 'G', bg: '#6b21a8', fg: '#fff' },
+      // Security
+      { key: 'krebs', name: 'Krebs on Security', desc: 'Cybersecurity news and investigations', cat: 'Security', url: 'https://krebsonsecurity.com/feed/', letter: 'K', bg: '#2d3436', fg: '#00b894' },
+      // Ideas & Culture
+      { key: 'aeon', name: 'Aeon', desc: 'Essays on science, philosophy, society', cat: 'Ideas & Culture', url: 'https://aeon.co/feed', letter: 'Æ', bg: '#1a1a2e', fg: '#e7d4b5' },
+      { key: 'nautilus', name: 'Nautilus', desc: 'Science meets philosophy and culture', cat: 'Ideas & Culture', url: 'https://nautil.us/feed/', letter: 'N', bg: '#0891b2', fg: '#fff' },
+    ];
+
+    function catalogLogo(entry, size) {
+      if (entry.img) {
+        const cls = size === 'onboard' ? 'h-7 w-auto opacity-70'
+          : size === 'inline' ? 'h-3.5 w-auto opacity-50 inline-block'
+          : 'absolute top-2.5 right-2.5 h-4 w-auto opacity-30';
+        return `<img class="${cls}" src="${entry.img}" alt="${entry.name}" />`;
+      }
+      const cls = size === 'onboard' ? 'h-7 w-auto opacity-70'
+        : size === 'inline' ? 'h-3.5 w-auto opacity-50 inline-block'
+        : 'absolute top-2.5 right-2.5 h-4 w-auto opacity-40';
+      const stroke = entry.stroke ? ` stroke="${entry.stroke}"` : '';
+      const font = entry.font || 'Georgia,serif';
+      const fs = (entry.letter || '').length > 1 ? 140 : 170;
+      return `<svg class="${cls}" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="${entry.bg}"${stroke} width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="${entry.fg}" font-size="${fs}" font-weight="bold" font-family="${font}">${entry.letter}</text></svg>`;
+    }
+
+    const SOURCE_LOGO_INLINE = {};
+    const SOURCE_NAMES = {};
+    FEED_CATALOG.forEach(f => {
+      SOURCE_LOGO_INLINE[f.key] = catalogLogo(f, 'inline');
+      SOURCE_NAMES[f.key] = f.name;
+    });
+
+    function getSourceChip(source, arxivId) {
+      if (SOURCE_LOGO_INLINE[source]) return SOURCE_LOGO_INLINE[source];
+      if (source?.startsWith('custom:')) return RSS_LOGO_INLINE;
+      if (arxivId) return ARXIV_LOGO_INLINE;
+      return '';
+    }
 
     function setSidebarActive(id) {
       document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
@@ -589,11 +627,7 @@
         const p = entry.paper;
         const readClass = entry.read ? ' read-card' : '';
         const readBadge = entry.read ? '<span class="text-[0.68rem] text-dim bg-border-card px-1.5 py-0.5 rounded">Read</span>' : '';
-        const sourceChip = p.source === 'hn' ? HN_LOGO_INLINE
-          : p.source === 'verge' ? VERGE_LOGO_INLINE
-          : p.source === 'nature' ? NATURE_LOGO_INLINE
-          : p.source?.startsWith('custom:') ? RSS_LOGO_INLINE
-          : (p.arxivId ? ARXIV_LOGO_INLINE : '');
+        const sourceChip = getSourceChip(p.source, p.arxivId);
         const catChips = (p.categories || []).slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
         const snippet = p.description ? truncate(p.description, 120) : '';
         return `
@@ -702,7 +736,71 @@
       }
     }
 
-    const FEED_SOURCE_DEFAULTS = { arxiv: true, hn: true, verge: false, nature: false };
+    const FEED_SOURCE_DEFAULTS = {};
+    FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
+
+    function hasOnboarded() { return localStorage.getItem('feedSources') !== null; }
+
+    const onboardSelected = new Set();
+
+    function renderOnboardGrid() {
+      const grid = document.getElementById('onboard-grid');
+      const cats = []; const catMap = {};
+      FEED_CATALOG.forEach(f => {
+        if (!catMap[f.cat]) { catMap[f.cat] = []; cats.push(f.cat); }
+        catMap[f.cat].push(f);
+      });
+      grid.innerHTML = cats.map(cat => `
+        <div class="text-left mt-6">
+          <div class="text-[0.7rem] text-dim uppercase tracking-wider mb-2 pl-1">${cat}</div>
+          <div class="grid grid-cols-2 gap-3">
+            ${catMap[cat].map(f => `
+              <div class="onboard-card cursor-pointer rounded-xl border-2 border-border-card bg-card p-5 transition-all duration-150 hover:border-dimmer" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
+                <div class="flex items-center justify-center mb-3">${catalogLogo(f, 'onboard')}</div>
+                <div class="text-white_ text-[0.95rem] font-medium mb-1">${f.name}</div>
+                <div class="text-muted text-[0.78rem]">${f.desc}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleOnboardSource(key) {
+      if (onboardSelected.has(key)) onboardSelected.delete(key);
+      else onboardSelected.add(key);
+      document.querySelectorAll('.onboard-card').forEach(card => {
+        const selected = onboardSelected.has(card.dataset.source);
+        card.style.borderColor = selected ? 'var(--accent)' : '';
+      });
+      document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
+    }
+
+    function showOnboarding() {
+      renderOnboardGrid();
+      // restore any previously-selected toggles
+      if (hasOnboarded()) {
+        const sources = getFeedSources();
+        FEED_CATALOG.forEach(f => { if (sources[f.key]) onboardSelected.add(f.key); });
+        document.querySelectorAll('.onboard-card').forEach(card => {
+          if (onboardSelected.has(card.dataset.source)) card.style.borderColor = 'var(--accent)';
+        });
+        document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
+      }
+      document.getElementById('onboard-view').style.display = '';
+      document.getElementById('finder-section').style.display = 'none';
+      document.getElementById('home-feed-section').style.display = 'none';
+    }
+
+    function completeOnboarding() {
+      const sources = {};
+      FEED_CATALOG.forEach(f => { sources[f.key] = onboardSelected.has(f.key); });
+      localStorage.setItem('feedSources', JSON.stringify(sources));
+      document.getElementById('onboard-view').style.display = 'none';
+      document.getElementById('finder-section').style.display = '';
+      document.getElementById('home-feed-section').style.display = '';
+      loadAllFeeds();
+    }
 
     function getFeedSources() {
       try { return { ...FEED_SOURCE_DEFAULTS, ...JSON.parse(localStorage.getItem('feedSources')) }; }
@@ -767,10 +865,24 @@
 
     function openSettings() {
       const sources = getFeedSources();
-      document.getElementById('toggle-arxiv').checked = sources.arxiv !== false;
-      document.getElementById('toggle-hn').checked = sources.hn !== false;
-      document.getElementById('toggle-verge').checked = sources.verge !== false;
-      document.getElementById('toggle-nature').checked = sources.nature !== false;
+      const container = document.getElementById('settings-builtin-sources');
+      const cats = []; const catMap = {};
+      FEED_CATALOG.forEach(f => {
+        if (!catMap[f.cat]) { catMap[f.cat] = []; cats.push(f.cat); }
+        catMap[f.cat].push(f);
+      });
+      container.innerHTML = cats.map(cat => `
+        <div class="text-[0.68rem] text-dim uppercase tracking-wider mt-3 first:mt-0">${cat}</div>
+        ${catMap[cat].map(f => `
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-primary text-sm">${f.name}</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
+              <span class="slider"></span>
+            </span>
+          </label>
+        `).join('')}
+      `).join('');
       renderCustomFeedsList();
       document.getElementById('settings-overlay').style.display = 'flex';
     }
@@ -817,16 +929,29 @@
       } catch { return []; }
     }
 
+    function allSourcesOff() {
+      const s = getFeedSources();
+      const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
+      return !FEED_CATALOG.some(f => s[f.key]) && customFeeds.length === 0;
+    }
+
     async function loadAllFeeds() {
+      if (!hasOnboarded() || allSourcesOff()) { showOnboarding(); return; }
+      document.getElementById('onboard-view').style.display = 'none';
+      document.getElementById('finder-section').style.display = '';
+      document.getElementById('home-feed-section').style.display = '';
       const sources = getFeedSources();
       allPapers = [];
       const promises = [];
       const labels = [];
 
-      if (sources.arxiv !== false) { promises.push(fetchFeed()); labels.push('arxiv'); }
-      if (sources.hn !== false) { promises.push(fetchHNFeed()); labels.push('hn'); }
-      if (sources.verge !== false) { promises.push(fetchGenericRSS('https://www.theverge.com/rss/index.xml', 'verge')); labels.push('verge'); }
-      if (sources.nature !== false) { promises.push(fetchGenericRSS('https://www.nature.com/nature.rss', 'nature')); labels.push('nature'); }
+      FEED_CATALOG.forEach(f => {
+        if (!sources[f.key]) return;
+        if (f.special === 'arxiv') { promises.push(fetchFeed()); }
+        else if (f.special === 'hn') { promises.push(fetchHNFeed()); }
+        else { promises.push(fetchGenericRSS(f.url, f.key)); }
+        labels.push(f.key);
+      });
 
       const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
       for (const cf of customFeeds) {
@@ -978,10 +1103,8 @@
           </div>
         `;
       } else {
-        const sourceName = paper.source === 'verge' ? 'The Verge'
-          : paper.source === 'nature' ? 'Nature'
-          : paper.source?.startsWith('custom:') ? paper.source.slice(7)
-          : '';
+        const sourceName = SOURCE_NAMES[paper.source]
+          || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
         sidebar.innerHTML = `
           ${backBtn}
           <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
@@ -1297,11 +1420,7 @@
       if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
       container.innerHTML = visible.map((p, i) => {
         const isHN = p.source === 'hn';
-        const sourceChip = p.source === 'hn' ? HN_LOGO_INLINE
-          : p.source === 'verge' ? VERGE_LOGO_INLINE
-          : p.source === 'nature' ? NATURE_LOGO_INLINE
-          : p.source?.startsWith('custom:') ? RSS_LOGO_INLINE
-          : (p.arxivId ? ARXIV_LOGO_INLINE : '');
+        const sourceChip = getSourceChip(p.source, p.arxivId);
         const statsChips = isHN
           ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span><span class="text-[0.68rem] text-dim">${p.hnComments} comments</span>`
           : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
