@@ -14,21 +14,166 @@
       min-height: 100vh;
     }
 
-    /* ── Home Grid ── */
-    #home-view {
-      padding: 32px 20px 0;
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 60px;
+      background: #111;
+      border-right: 1px solid #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      gap: 4px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 20;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      max-width: 900px;
-      margin: 0 auto 0;
+    .sidebar-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+      border: none;
+      background: none;
+      color: #e0e0e0;
     }
+
+    .sidebar-icon:hover {
+      background: #1e1e1e;
+    }
+
+    .sidebar-icon.active {
+      background: #1e1e1e;
+      box-shadow: inset 3px 0 0 #b4451a;
+    }
+
+    .sidebar-icon .sidebar-tooltip {
+      display: none;
+      position: absolute;
+      left: 56px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #222;
+      color: #e0e0e0;
+      font-size: 0.78rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 30;
+      border: 1px solid #333;
+    }
+
+    .sidebar-icon:hover .sidebar-tooltip {
+      display: block;
+    }
+
+    .sidebar-divider {
+      width: 28px;
+      height: 1px;
+      background: #252525;
+      margin: 6px 0;
+    }
+
+    /* ── Main Content ── */
+    .home-main {
+      flex: 1;
+      margin-left: 60px;
+      padding: 24px 24px 0;
+    }
+
+    /* ── Home Search ── */
+    .home-search-bar {
+      max-width: 600px;
+      margin: 0 auto 24px;
+    }
+
+    .home-search-form {
+      display: flex;
+      gap: 10px;
+    }
+
+    .home-search-form input {
+      flex: 1;
+      padding: 12px 20px;
+      border-radius: 24px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #e0e0e0;
+      font-size: 0.95rem;
+    }
+
+    .home-search-form input:focus {
+      outline: none;
+      border-color: #b4451a;
+    }
+
+    .home-search-form button {
+      padding: 12px 24px;
+      border-radius: 24px;
+      border: none;
+      background: #b4451a;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .home-search-form button:hover { background: #c9562a; }
+
+    #finder-results-masonry {
+      columns: 4;
+      column-gap: 14px;
+      padding-top: 16px;
+      padding-bottom: 24px;
+    }
+
+    @media (max-width: 1400px) { #finder-results-masonry { columns: 3; } }
+    @media (max-width: 1000px) { #finder-results-masonry { columns: 2; } }
+    @media (max-width: 600px) { #finder-results-masonry { columns: 1; } }
+
+    #finder-results-masonry:empty { display: none; }
+
+    .finder-status {
+      text-align: center;
+      padding: 32px 0;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .finder-pagination {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px 0 0;
+      column-span: all;
+    }
+
+    .finder-pagination button {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #aaa;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .finder-pagination button:hover { border-color: #b4451a; color: #fff; }
+    .finder-pagination button:disabled { opacity: 0.3; cursor: default; border-color: #333; color: #aaa; }
 
     .home-feed-section {
-      padding-top: 24px;
+      padding-top: 0;
     }
 
     .home-feed-header {
@@ -36,17 +181,31 @@
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
-      padding: 0 0 16px;
+      padding: 0 0 12px;
     }
 
-    .home-feed-header h2 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #fff;
-      margin-right: auto;
+    .feed-filter-toggle {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #888;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
     }
 
-    .home-feed-header input[type="text"] {
+    .feed-filter-toggle:hover { border-color: #b4451a; color: #ccc; }
+    .feed-filter-toggle.active { border-color: #b4451a; color: #e0e0e0; }
+
+    .feed-filter-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .feed-filter-controls input[type="text"] {
       flex: 1;
       min-width: 200px;
       max-width: 400px;
@@ -58,9 +217,9 @@
       font-size: 0.85rem;
     }
 
-    .home-feed-header input[type="text"]:focus { outline: none; border-color: #b4451a; }
+    .feed-filter-controls input[type="text"]:focus { outline: none; border-color: #b4451a; }
 
-    .home-feed-header select {
+    .feed-filter-controls select {
       padding: 8px 14px;
       border-radius: 6px;
       border: 1px solid #333;
@@ -70,48 +229,11 @@
       cursor: pointer;
     }
 
-    .home-feed-header select:focus { outline: none; border-color: #b4451a; }
-
-    .grid-item {
-      aspect-ratio: 1;
-      background: #151515;
-      border: 1px solid #252525;
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s, transform 0.15s;
-      text-decoration: none;
-      color: #e0e0e0;
-    }
-
-    .grid-item:hover {
-      background: #1c1c1c;
-      border-color: #333;
-      transform: translateY(-2px);
-    }
-
-    .grid-item.tbd { cursor: default; opacity: 0.35; }
-    .grid-item.tbd:hover { background: #151515; border-color: #252525; transform: none; }
-
-    .grid-icon { font-size: 2.4rem; }
-
-    .grid-label {
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: #ccc;
-      text-align: center;
-    }
-
-    .grid-item.tbd .grid-label { color: #555; }
+    .feed-filter-controls select:focus { outline: none; border-color: #b4451a; }
 
     /* ── Shared ── */
-    .view { display: none; }
+    .view { display: none; margin-left: 60px; }
     .view.active { display: block; }
-    #home-view.hidden { display: none; }
 
     .back-btn {
       background: none;
@@ -254,7 +376,8 @@
     .paper-title { font-size: 0.92rem; font-weight: 600; color: #fff; margin-bottom: 6px; line-height: 1.4; }
     .paper-title a { color: #d4845a; text-decoration: none; }
     .paper-title a:hover { text-decoration: underline; }
-    .paper-authors { font-size: 0.78rem; color: #888; margin-bottom: 8px; }
+    .paper-authors { font-size: 0.78rem; color: #888; margin-bottom: 4px; }
+    .paper-date { font-size: 0.74rem; color: #666; margin-bottom: 8px; }
 
     .paper-categories { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
     .paper-categories span {
@@ -737,162 +860,70 @@
       background: rgba(180,69,26,0.15);
     }
 
-    /* ── Paper Finder ── */
-    .search-bar-wrap {
-      max-width: 700px;
-      margin: 0 auto;
-      padding: 40px 32px 0;
-    }
-
-    .search-bar-form {
-      display: flex;
-      gap: 10px;
-    }
-
-    .search-bar-form input {
-      flex: 1;
-      padding: 12px 18px;
-      border-radius: 10px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #e0e0e0;
-      font-size: 1rem;
-    }
-
-    .search-bar-form input:focus {
-      outline: none;
-      border-color: #b4451a;
-    }
-
-    .search-bar-form button {
-      padding: 12px 24px;
-      border-radius: 10px;
-      border: none;
-      background: #b4451a;
-      color: #fff;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .search-bar-form button:hover { background: #c9562a; }
-
-    .search-results {
-      max-width: 700px;
-      margin: 0 auto;
-      padding: 8px 32px 64px;
-    }
-
-    .search-result-item {
-      padding: 18px 0;
-      border-bottom: 1px solid #1a1a1a;
-      cursor: pointer;
-      transition: background 0.1s;
-      margin: 0 -8px;
-      padding-left: 8px;
-      padding-right: 8px;
-      border-radius: 6px;
-    }
-
-    .search-result-item:hover { background: #151515; }
-
-    .search-result-title {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #d4845a;
-      margin-bottom: 4px;
-      line-height: 1.4;
-    }
-
-    .search-result-authors {
-      font-size: 0.8rem;
-      color: #888;
-      margin-bottom: 6px;
-    }
-
-    .search-result-snippet {
-      font-size: 0.83rem;
-      color: #777;
-      line-height: 1.5;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .search-result-meta {
-      font-size: 0.72rem;
-      color: #444;
-      margin-top: 6px;
-    }
-
-    .search-pagination {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      padding: 24px 0;
-    }
-
-    .search-pagination button {
-      padding: 8px 20px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #aaa;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-
-    .search-pagination button:hover { border-color: #b4451a; color: #fff; }
-    .search-pagination button:disabled { opacity: 0.3; cursor: default; border-color: #333; color: #aaa; }
   </style>
 </head>
 <body>
 
-  <!-- Home View -->
-  <div id="home-view">
-    <div class="grid">
-      <div class="grid-item" onclick="openExperiments()">
-        <div class="grid-icon">🧪</div>
-        <div class="grid-label">Experiment Ideas</div>
-      </div>
-      <div class="grid-item" onclick="openPaperFinder()">
-        <div class="grid-icon">🔍</div>
-        <div class="grid-label">Paper Finder</div>
-      </div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
-    </div>
+  <nav class="sidebar">
+    <button class="sidebar-icon active" id="sb-home" onclick="goHome()">
+      <span>📄</span>
+      <span class="sidebar-tooltip">Latest Papers</span>
+    </button>
+    <button class="sidebar-icon" id="sb-experiments" onclick="openExperiments()">
+      <span>🧪</span>
+      <span class="sidebar-tooltip">Experiments</span>
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="sidebar-icon" disabled style="opacity:0.3;cursor:default">
+      <span>📁</span>
+      <span class="sidebar-tooltip">TBD</span>
+    </button>
+    <button class="sidebar-icon" disabled style="opacity:0.3;cursor:default">
+      <span>📁</span>
+      <span class="sidebar-tooltip">TBD</span>
+    </button>
+    <button class="sidebar-icon" disabled style="opacity:0.3;cursor:default">
+      <span>📁</span>
+      <span class="sidebar-tooltip">TBD</span>
+    </button>
+  </nav>
 
-    <div class="home-feed-section">
-      <div class="home-feed-header">
-        <h2>arXiv CS Feed</h2>
-        <input type="text" id="search" placeholder="Filter papers..." />
-        <select id="category">
-          <option value="">All Categories</option>
-        </select>
+  <!-- Home Main Content -->
+  <div class="home-main" id="home-main">
+    <div class="home-search-bar">
+        <form class="home-search-form" id="finder-form">
+          <input type="text" id="finder-query" placeholder="Search arXiv papers..." />
+          <button type="submit">Search</button>
+        </form>
       </div>
-      <div class="stats" id="stats"></div>
-      <div class="trends-panel" id="trends-panel" style="display:none">
-        <div class="trends-section">
-          <div class="trends-section-title">Trending Keywords</div>
-          <div class="trends-chips" id="trend-keywords"></div>
+      <div id="finder-results-masonry"></div>
+
+      <div class="home-feed-section">
+        <div class="home-feed-header">
+          <button class="feed-filter-toggle" id="feed-filter-toggle" onclick="toggleFeedFilter()">Filters</button>
+          <div class="feed-filter-controls" id="feed-filter-controls" style="display:none">
+            <input type="text" id="search" placeholder="Filter papers..." />
+            <select id="category">
+              <option value="">All Categories</option>
+            </select>
+          </div>
         </div>
-        <div class="trends-section">
-          <div class="trends-section-title">Top Categories</div>
-          <div class="trends-chips" id="trend-categories"></div>
+        <div class="stats" id="stats"></div>
+        <div class="trends-panel" id="trends-panel" style="display:none">
+          <div class="trends-section">
+            <div class="trends-section-title">Top Categories</div>
+            <div class="trends-chips" id="trend-categories"></div>
+          </div>
+          <div class="trends-section">
+            <div class="trends-section-title">Trending Keywords</div>
+            <div class="trends-chips" id="trend-keywords"></div>
+          </div>
+          <hr class="trends-divider">
         </div>
-        <hr class="trends-divider">
+        <main id="papers">
+          <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
+        </main>
       </div>
-      <main id="papers">
-        <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
-      </main>
-    </div>
   </div>
 
   <!-- Experiment Ideas List View -->
@@ -914,26 +945,6 @@
       </form>
     </div>
     <div class="ideas-list" id="ideas-list"></div>
-  </div>
-
-  <!-- Paper Finder View -->
-  <div id="finder-view" class="view">
-    <div class="view-header">
-      <div class="header-top">
-        <button class="back-btn" onclick="goHome()">
-          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-          Back
-        </button>
-        <h1>Paper Finder</h1>
-      </div>
-    </div>
-    <div class="search-bar-wrap">
-      <form class="search-bar-form" id="finder-form">
-        <input type="text" id="finder-query" placeholder="Search arXiv papers..." autofocus />
-        <button type="submit">Search</button>
-      </form>
-    </div>
-    <div class="search-results" id="finder-results"></div>
   </div>
 
   <!-- Paper Viewer View -->
@@ -988,21 +999,29 @@
     // ── View management ──
     const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
 
+    function setSidebarActive(id) {
+      document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    }
+
     function hideAllViews() {
-      document.getElementById('home-view').classList.add('hidden');
+      document.getElementById('home-main').style.display = 'none';
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     }
 
     function goHome() {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById('home-view').classList.remove('hidden');
+      document.getElementById('home-main').style.display = '';
       window.location.hash = '';
+      setSidebarActive('sb-home');
     }
 
     function openExperiments() {
       hideAllViews();
       document.getElementById('experiments-view').classList.add('active');
       window.location.hash = 'experiments';
+      setSidebarActive('sb-experiments');
       fetchExperiments();
     }
 
@@ -1010,22 +1029,23 @@
       hideAllViews();
       document.getElementById('exp-detail-view').classList.add('active');
       window.location.hash = 'experiment/' + id;
+      setSidebarActive('sb-experiments');
       currentExpId = id;
       selectedVersionId = null;
       fetchExperimentDetail(id);
     }
 
-    function openPaperFinder() {
-      hideAllViews();
-      document.getElementById('finder-view').classList.add('active');
-      window.location.hash = 'finder';
-      document.getElementById('finder-query').focus();
+    function toggleFeedFilter() {
+      const controls = document.getElementById('feed-filter-controls');
+      const btn = document.getElementById('feed-filter-toggle');
+      const visible = controls.style.display !== 'none';
+      controls.style.display = visible ? 'none' : 'flex';
+      btn.classList.toggle('active', !visible);
     }
 
     function routeFromHash() {
       const hash = window.location.hash;
       if (hash === '#experiments') openExperiments();
-      else if (hash === '#finder') openPaperFinder();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
       else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
       else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
@@ -1062,7 +1082,9 @@
         const authors = Array.from(creators).map(c => c.textContent.trim()).join(', ') || extractAuthors(description);
         const categories = Array.from(item.querySelectorAll('category')).map(c => c.textContent.trim());
         categories.forEach(c => allCategories.add(c));
-        return { title, link, authors, categories, description: stripHtml(description) };
+        const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
+        const dateStr = pubDate ? new Date(pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        return { title, link, authors, categories, description: stripHtml(description), date: dateStr };
       });
       populateCategories();
       renderTrends();
@@ -1154,8 +1176,7 @@
     let paperViewOrigin = 'arxiv'; // tracks where we came from
 
     function paperViewGoBack() {
-      if (paperViewOrigin === 'finder') openPaperFinder();
-      else goHome();
+      goHome();
     }
 
     function showPaperView(paper, hashValue) {
@@ -1242,15 +1263,15 @@
     });
 
     async function doFinderSearch() {
-      const container = document.getElementById('finder-results');
-      container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Searching arXiv...</div></div>';
+      const container = document.getElementById('finder-results-masonry');
+      container.innerHTML = '<div class="finder-status"><div class="spinner"></div><div>Searching arXiv...</div></div>';
       try {
         const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(finderCurrentQuery)}&start=${finderCurrentStart}&max_results=20`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const xml = await resp.text();
         parseFinderResults(xml);
       } catch (err) {
-        container.innerHTML = `<div class="error"><p>Search failed: ${err.message}</p></div>`;
+        container.innerHTML = `<div class="finder-status">Search failed: ${err.message}</div>`;
       }
     }
 
@@ -1277,35 +1298,41 @@
         if (!link) link = entry.getElementsByTagNameNS(ns, 'id')[0]?.textContent || '';
         const categories = Array.from(entry.getElementsByTagNameNS(ns, 'category'))
           .map(c => c.getAttribute('term')).filter(Boolean);
-        // Also check arxiv namespace categories
         const arxivCats = entry.querySelectorAll('category');
         for (const c of arxivCats) {
           const t = c.getAttribute('term');
           if (t && !categories.includes(t)) categories.push(t);
         }
-        return { title, description: summary, authors, link, published, categories };
+        const dateStr = published ? new Date(published + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        return { title, description: summary, authors, link, published, date: dateStr, categories };
       });
 
-      const container = document.getElementById('finder-results');
+      const container = document.getElementById('finder-results-masonry');
       if (!finderResultsCache.length) {
-        container.innerHTML = '<div class="empty-state">No results found.</div>';
+        container.innerHTML = '<div class="finder-status">No results found.</div>';
         return;
       }
 
-      container.innerHTML = finderResultsCache.map(r => `
-        <div class="search-result-item" onclick="openPaperByUrl('${r.link}')">
-          <div class="search-result-title">${escapeHtml(r.title)}</div>
-          <div class="search-result-authors">${escapeHtml(r.authors)}</div>
-          <div class="search-result-snippet">${escapeHtml(r.description)}</div>
-          <div class="search-result-meta">${r.published}${r.categories.length ? ' &middot; ' + r.categories.slice(0,3).join(', ') : ''}</div>
+      container.innerHTML = finderResultsCache.map((r, i) => `
+        <div class="paper" onclick="openFinderPaper(${i})">
+          ${r.categories.length ? `<div class="paper-categories">${r.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+          <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(r.title)}</a></div>
+          ${r.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
+          ${r.date ? `<div class="paper-date">${escapeHtml(r.date)}</div>` : ''}
+          <div class="paper-summary collapsed">${escapeHtml(r.description)}</div>
         </div>
       `).join('') + `
-        <div class="search-pagination">
+        <div class="finder-pagination">
           <button ${finderCurrentStart === 0 ? 'disabled' : ''} onclick="finderPrev()">Previous</button>
           <span style="color:#555;font-size:0.8rem;align-self:center">${finderCurrentStart + 1}&ndash;${finderCurrentStart + finderResultsCache.length} of ${total}</span>
           <button ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
         </div>
       `;
+    }
+
+    function openFinderPaper(i) {
+      const r = finderResultsCache[i];
+      if (r && r.link) openPaperByUrl(r.link);
     }
 
     function finderPrev() {
@@ -1357,6 +1384,7 @@
           ${p.categories.length ? `<div class="paper-categories">${p.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
           <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(p.title)}</a></div>
           ${p.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
+          ${p.date ? `<div class="paper-date">${escapeHtml(p.date)}</div>` : ''}
           <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
         </div>`).join('');
     }
