@@ -522,7 +522,8 @@
         const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
         const dateStr = pubDate ? formatDate(new Date(pubDate)) : '';
         const arxivId = extractArxivId(link);
-        return { source: 'arxiv', title, link, authors, categories, description: stripHtml(description), date: dateStr, pubDate, arxivId };
+        const cleanDesc = stripHtml(description).replace(/^arXiv:\S+\s+Announce Type:\s*\w+\s+Abstract:\s*/i, '');
+        return { source: 'arxiv', title, link, authors, categories, description: cleanDesc, date: dateStr, pubDate, arxivId };
       });
       populateCategories();
       renderTrends();
