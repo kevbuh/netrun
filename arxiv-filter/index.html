@@ -4,381 +4,180 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>alpha</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          body: 'var(--bg-body)',
+          primary: 'var(--text-primary)',
+          white_: 'var(--text-white)',
+          muted: 'var(--text-muted)',
+          dim: 'var(--text-dim)',
+          dimmer: 'var(--text-dimmer)',
+          dimmest: 'var(--text-dimmest)',
+          sidebar: 'var(--bg-sidebar)',
+          'border-sidebar': 'var(--border-sidebar)',
+          hover: 'var(--bg-hover)',
+          card: 'var(--bg-card)',
+          input: 'var(--bg-input)',
+          'input-alt': 'var(--bg-input-alt)',
+          'border-card': 'var(--border-card)',
+          'border-input': 'var(--border-input)',
+          'border-subtle': 'var(--border-subtle)',
+          'border-dim': 'var(--border-dim)',
+          header: 'var(--bg-header)',
+          canvas: 'var(--bg-canvas)',
+          popup: 'var(--bg-popup)',
+          'chip-count': 'var(--bg-chip-count)',
+          'cat-tag': 'var(--bg-cat-tag)',
+          'cat-tag-color': 'var(--bg-cat-tag-color)',
+          cite: 'var(--bg-cite)',
+          'sidebar-cat': 'var(--bg-sidebar-cat)',
+          'sidebar-cat-border': 'var(--sidebar-cat-border)',
+          'sidebar-cat-color': 'var(--sidebar-cat-color)',
+          link: 'var(--text-link)',
+          accent: 'var(--accent)',
+          'accent-hover': 'var(--accent-hover)',
+          summary: 'var(--text-summary)',
+          authors: 'var(--text-authors)',
+          'meta-value': 'var(--text-meta-value)',
+          'idea-desc': 'var(--text-idea-desc)',
+          'tree-edge': 'var(--tree-edge)',
+          'spinner-border': 'var(--spinner-border)',
+          tooltip: 'var(--tooltip-bg)',
+          'tooltip-border': 'var(--tooltip-border)',
+          overlay: 'var(--overlay-bg)',
+        },
+        boxShadow: {
+          card: '0 6px 20px var(--shadow-card)',
+          popup: '0 16px 48px var(--shadow-popup)',
+        },
+      }
+    }
+  }
+  </script>
   <style>
+    :root {
+      --bg-body: #0a0a0a;
+      --text-primary: #e0e0e0;
+      --text-white: #fff;
+      --text-muted: #888;
+      --text-dim: #666;
+      --text-dimmer: #555;
+      --text-dimmest: #444;
+      --bg-sidebar: #111;
+      --border-sidebar: #1a1a1a;
+      --bg-hover: #1e1e1e;
+      --bg-card: #151515;
+      --bg-input: #1a1a1a;
+      --bg-input-alt: #151515;
+      --border-card: #222;
+      --border-input: #333;
+      --border-subtle: #252525;
+      --border-dim: #1a1a1a;
+      --bg-header: #111;
+      --bg-canvas: #0d0d0d;
+      --bg-popup: #181818;
+      --bg-chip-count: #1a1a1a;
+      --bg-cat-tag: #1a1a1a;
+      --bg-cat-tag-color: #999;
+      --bg-cite: #1e1209;
+      --bg-sidebar-cat: #1e1e1e;
+      --sidebar-cat-border: #2a2a2a;
+      --sidebar-cat-color: #aaa;
+      --text-link: #d4845a;
+      --accent: #b4451a;
+      --accent-hover: #c9562a;
+      --text-summary: #999;
+      --text-authors: #888;
+      --text-meta-value: #bbb;
+      --text-idea-desc: #bbb;
+      --shadow-card: rgba(0,0,0,0.3);
+      --shadow-popup: rgba(0,0,0,0.5);
+      --overlay-bg: rgba(0,0,0,0.5);
+      --tree-edge: #333;
+      --spinner-border: #333;
+      --tooltip-bg: #222;
+      --tooltip-border: #333;
+    }
+
+    [data-theme="light"] {
+      --bg-body: #f5f5f5;
+      --text-primary: #333;
+      --text-white: #111;
+      --text-muted: #666;
+      --text-dim: #888;
+      --text-dimmer: #999;
+      --text-dimmest: #aaa;
+      --bg-sidebar: #fff;
+      --border-sidebar: #e0e0e0;
+      --bg-hover: #f0f0f0;
+      --bg-card: #fff;
+      --bg-input: #f8f8f8;
+      --bg-input-alt: #fff;
+      --border-card: #e0e0e0;
+      --border-input: #ccc;
+      --border-subtle: #e0e0e0;
+      --border-dim: #eee;
+      --bg-header: #fff;
+      --bg-canvas: #fafafa;
+      --bg-popup: #fff;
+      --bg-chip-count: #f0f0f0;
+      --bg-cat-tag: #f0f0f0;
+      --bg-cat-tag-color: #666;
+      --bg-cite: #fef3ec;
+      --bg-sidebar-cat: #f5f5f5;
+      --sidebar-cat-border: #e0e0e0;
+      --sidebar-cat-color: #666;
+      --text-link: #b4451a;
+      --accent: #b4451a;
+      --accent-hover: #c9562a;
+      --text-summary: #666;
+      --text-authors: #777;
+      --text-meta-value: #555;
+      --text-idea-desc: #555;
+      --shadow-card: rgba(0,0,0,0.08);
+      --shadow-popup: rgba(0,0,0,0.15);
+      --overlay-bg: rgba(0,0,0,0.3);
+      --tree-edge: #ccc;
+      --spinner-border: #ccc;
+      --tooltip-bg: #fff;
+      --tooltip-border: #ddd;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0a0a;
-      color: #e0e0e0;
-      min-height: 100vh;
-    }
+    /* ── Sidebar tooltip (parent-hover child reveal) ── */
+    .sidebar-icon .sidebar-tooltip { display: none; }
+    .sidebar-icon:hover .sidebar-tooltip { display: block; }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      width: 60px;
-      background: #111;
-      border-right: 1px solid #1a1a1a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 16px 0;
-      gap: 4px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      z-index: 20;
-    }
-
-    .sidebar-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-      cursor: pointer;
-      transition: background 0.15s;
-      position: relative;
-      border: none;
-      background: none;
-      color: #e0e0e0;
-    }
-
-    .sidebar-icon:hover {
-      background: #1e1e1e;
-    }
-
+    /* ── Sidebar active inset shadow ── */
     .sidebar-icon.active {
-      background: #1e1e1e;
-      box-shadow: inset 3px 0 0 #b4451a;
+      background: var(--bg-hover);
+      box-shadow: inset 3px 0 0 var(--accent);
     }
 
-    .sidebar-icon .sidebar-tooltip {
-      display: none;
-      position: absolute;
-      left: 56px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: #222;
-      color: #e0e0e0;
-      font-size: 0.78rem;
-      padding: 5px 10px;
-      border-radius: 6px;
-      white-space: nowrap;
-      pointer-events: none;
-      z-index: 30;
-      border: 1px solid #333;
-    }
-
-    .sidebar-icon:hover .sidebar-tooltip {
-      display: block;
-    }
-
-    .sidebar-divider {
-      width: 28px;
-      height: 1px;
-      background: #252525;
-      margin: 6px 0;
-    }
-
-    /* ── Main Content ── */
-    .home-main {
-      flex: 1;
-      margin-left: 60px;
-      padding: 24px 24px 0;
-    }
-
-    /* ── Home Top Bar ── */
-    .home-top-bar {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .sort-buttons {
-      display: flex;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-
-    .top-bar-spacer { width: 0; }
-
-    .sort-btn {
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #888;
-      font-size: 0.82rem;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s, background 0.15s;
-      white-space: nowrap;
-    }
-
-    .sort-btn:hover { border-color: #b4451a; color: #ccc; }
-    .sort-btn.active { border-color: #b4451a; background: #1e1209; color: #e0e0e0; }
-
-    /* ── Search Form ── */
-    .home-search-form {
-      display: flex;
-      justify-content: center;
-    }
-
-    .home-search-form input {
-      width: 100%;
-      max-width: 500px;
-      padding: 8px 18px;
-      border-radius: 24px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #e0e0e0;
-      font-size: 0.85rem;
-    }
-
-    .home-search-form input:focus {
-      outline: none;
-      border-color: #b4451a;
-    }
-
-
-    #finder-results-masonry {
-      columns: 4;
-      column-gap: 14px;
-      padding-bottom: 64px;
-    }
-
-    @media (max-width: 1400px) { #finder-results-masonry { columns: 3; } }
-    @media (max-width: 1000px) { #finder-results-masonry { columns: 2; } }
-    @media (max-width: 600px) { #finder-results-masonry { columns: 1; } }
-
-    #finder-results-masonry:empty { display: none; }
-
-    .finder-status {
-      text-align: center;
-      padding: 32px 0;
-      color: #666;
-      font-size: 0.9rem;
-    }
-
-    .finder-pagination {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      padding: 24px 0 0;
-      column-span: all;
-    }
-
-    .finder-pagination button {
-      padding: 8px 20px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #151515;
-      color: #aaa;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-
-    .finder-pagination button:hover { border-color: #b4451a; color: #fff; }
-    .finder-pagination button:disabled { opacity: 0.3; cursor: default; border-color: #333; color: #aaa; }
-
-    .home-feed-section {
-      padding-top: 0;
-    }
-
-
-    /* ── Shared ── */
-    .view { display: none; margin-left: 60px; }
-    .view.active { display: block; }
-
-    .back-btn {
-      background: none;
-      border: none;
-      color: #888;
-      font-size: 0.9rem;
-      cursor: pointer;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .back-btn:hover { color: #ccc; }
-    .back-btn svg { width: 16px; height: 16px; fill: currentColor; }
-
-    .view-header {
-      padding: 24px 32px;
-      border-bottom: 1px solid #222;
-      background: #111;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .header-top {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .view-header h1 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .stats {
-      font-size: 0.8rem;
-      color: #666;
-      padding: 4px 0 12px;
-    }
-
-    /* ── Trends Panel ── */
-    .trends-panel {
-      padding: 0 0 12px;
-    }
-
-    .trends-section {
-      margin-bottom: 16px;
-    }
-
-    .trends-section-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: #555;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 10px;
-    }
-
-    .trends-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .trend-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 12px;
-      border-radius: 20px;
-      border: 1px solid #252525;
-      background: #151515;
-      color: #ccc;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .trend-chip:hover {
-      background: #1e1e1e;
-      border-color: #b4451a;
-      color: #fff;
-    }
-
-    .trend-chip .chip-count {
-      font-size: 0.7rem;
-      color: #666;
-      background: #1a1a1a;
-      padding: 1px 6px;
-      border-radius: 10px;
-    }
-
-    .trend-chip:hover .chip-count {
-      color: #b4451a;
-    }
-
-    .trends-divider {
-      border: none;
-      border-top: 1px solid #1a1a1a;
-      margin: 0;
-    }
-
+    /* ── CSS columns masonry ── */
     main {
-      padding: 0 0 64px;
       columns: 4;
       column-gap: 14px;
     }
-
     @media (max-width: 1400px) { main { columns: 3; } }
     @media (max-width: 900px) { main { columns: 2; } }
     @media (max-width: 560px) { main { columns: 1; } }
 
-    .paper {
-      break-inside: avoid;
-      background: #151515;
-      border: 1px solid #222;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 14px;
-      cursor: pointer;
-      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
-      position: relative;
+    #finder-results-masonry {
+      columns: 4;
+      column-gap: 14px;
     }
+    @media (max-width: 1400px) { #finder-results-masonry { columns: 3; } }
+    @media (max-width: 1000px) { #finder-results-masonry { columns: 2; } }
+    @media (max-width: 600px) { #finder-results-masonry { columns: 1; } }
+    #finder-results-masonry:empty { display: none; }
 
-    .paper:hover {
-      border-color: #333;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-    }
-
-    .paper:hover .paper-summary.collapsed {
-      display: block;
-      -webkit-line-clamp: unset;
-      overflow: visible;
-    }
-
-    .paper-title { font-size: 0.92rem; font-weight: 600; color: #fff; margin-bottom: 6px; line-height: 1.4; }
-    .paper-title a { color: #d4845a; text-decoration: none; }
-    .paper-title a:hover { text-decoration: underline; }
-    .paper-authors { font-size: 0.78rem; color: #888; margin-bottom: 8px; }
-
-    .paper-meta-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .paper-cite-count {
-      font-size: 0.68rem;
-      font-weight: 600;
-      color: #b4451a;
-      background: #1e1209;
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
-
-    .paper-date-tag {
-      font-size: 0.68rem;
-      color: #777;
-    }
-
-    .paper-cat-tag {
-      font-size: 0.68rem;
-      background: #1a1a1a;
-      color: #999;
-      padding: 2px 7px;
-      border-radius: 4px;
-      border: 1px solid #252525;
-    }
-
-    .paper-source-logo {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      height: 16px;
-      width: auto;
-      opacity: 0.3;
-    }
-
-    .paper-summary { font-size: 0.8rem; line-height: 1.55; color: #999; }
+    /* ── Line clamp truncation ── */
     .paper-summary.collapsed {
       display: -webkit-box;
       -webkit-line-clamp: 3;
@@ -386,605 +185,211 @@
       overflow: hidden;
     }
 
-    .toggle-summary {
-      background: none; border: none; color: #d4845a;
-      cursor: pointer; font-size: 0.75rem; margin-top: 6px; padding: 0;
+    /* ── Parent-hover child reveal ── */
+    .paper:hover .paper-summary.collapsed {
+      display: block;
+      -webkit-line-clamp: unset;
+      overflow: visible;
     }
-    .toggle-summary:hover { text-decoration: underline; }
 
-    .loading { text-align: center; padding: 80px 0; color: #666; font-size: 1rem; }
-    .loading .spinner {
+    /* ── Spinner animation ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
       display: inline-block; width: 28px; height: 28px;
-      border: 3px solid #333; border-top-color: #b4451a;
+      border: 3px solid var(--spinner-border); border-top-color: var(--accent);
       border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error { text-align: center; padding: 80px 0; color: #e55; }
 
-    /* ── Experiments List ── */
-    .add-idea-bar {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 24px 32px 0;
+    /* ── SVG Tree ── */
+    .tree-node { cursor: pointer; }
+    .tree-node rect {
+      rx: 8; ry: 8; stroke-width: 2;
+      transition: stroke-opacity 0.15s;
+    }
+    .tree-node:hover rect { stroke-opacity: 1; }
+    .tree-node text {
+      fill: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .tree-edge {
+      fill: none;
+      stroke: var(--tree-edge);
+      stroke-width: 2;
     }
 
-    .add-idea-bar form {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      background: #151515;
-      border: 1px solid #252525;
-      border-radius: 10px;
-      padding: 16px;
+    /* ── Finder pagination column span ── */
+    .finder-pagination {
+      column-span: all;
     }
 
-    .add-idea-bar input,
-    .add-idea-bar textarea {
-      width: 100%;
-      padding: 10px 14px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      font-family: inherit;
-      font-size: 0.95rem;
-      resize: vertical;
+    /* ── Paper card hover effects ── */
+    .paper:hover {
+      border-color: var(--border-input);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px var(--shadow-card);
     }
 
-    .add-idea-bar input:focus,
-    .add-idea-bar textarea:focus { outline: none; border-color: #b4451a; }
-
-    .add-idea-bar textarea { min-height: 60px; }
-
-    .btn-primary {
-      padding: 8px 20px;
-      border-radius: 6px;
-      border: none;
-      background: #b4451a;
-      color: #fff;
-      font-size: 0.9rem;
-      font-weight: 500;
-      cursor: pointer;
-    }
-    .btn-primary:hover { background: #c9562a; }
-
-    .ideas-list {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 8px 32px 64px;
-    }
-
-    .idea-card {
-      border-bottom: 1px solid #1a1a1a;
-      padding: 20px 0;
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
-      cursor: pointer;
-      transition: background 0.1s;
-      margin: 0 -8px;
-      padding-left: 8px;
-      padding-right: 8px;
-      border-radius: 8px;
-    }
-
-    .idea-card:hover { background: #151515; }
-    .idea-card:last-child { border-bottom: none; }
-
-    .idea-content { flex: 1; min-width: 0; }
-    .idea-title { font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
-    .idea-desc { font-size: 0.9rem; line-height: 1.6; color: #bbb; white-space: pre-wrap; }
-    .idea-meta { font-size: 0.75rem; color: #555; margin-top: 8px; }
-
-    .idea-actions { display: flex; gap: 8px; flex-shrink: 0; padding-top: 2px; }
-    .idea-actions button {
-      background: none; border: none; color: #555;
-      cursor: pointer; font-size: 0.8rem; padding: 4px;
-    }
-    .idea-actions button:hover { color: #ccc; }
-    .idea-actions button.delete-btn:hover { color: #e55; }
-
-    .empty-state { text-align: center; padding: 80px 0; color: #444; font-size: 0.95rem; }
-
-    /* ── Experiment Detail ── */
-    .exp-detail-layout {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      height: calc(100vh - 73px);
-      overflow: hidden;
-    }
-
-    .exp-left {
-      border-right: 1px solid #222;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .exp-left-top {
-      padding: 16px;
-      border-bottom: 1px solid #1a1a1a;
-      display: flex;
-      gap: 8px;
-    }
-
-    .exp-left-top input {
-      flex: 1;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      font-size: 0.85rem;
-    }
-
-    .exp-left-top input:focus { outline: none; border-color: #b4451a; }
-
-    .btn-sm {
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: none;
-      background: #b4451a;
-      color: #fff;
-      font-size: 0.8rem;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .btn-sm:hover { background: #c9562a; }
-
-    .version-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-    }
-
-    .version-card {
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      cursor: pointer;
-      margin-bottom: 4px;
-      transition: background 0.1s;
-    }
-
-    .version-card:hover { background: #151515; }
-    .version-card.selected { background: #1a1a1a; border-color: #b4451a; }
-
-    .version-card-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-      flex-shrink: 0;
-    }
-
+    /* ── Status dot colors ── */
     .status-dot.planned { background: #555; }
     .status-dot.running { background: #4a9eff; }
     .status-dot.completed { background: #4a9; }
     .status-dot.failed { background: #e55; }
 
-    .version-card-notes {
-      font-size: 0.8rem;
-      color: #888;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    /* ── Version card selected state ── */
+    .version-card.selected {
+      background: var(--bg-input);
+      border-color: var(--accent);
     }
 
-    .version-card-meta {
-      font-size: 0.7rem;
-      color: #444;
-      margin-top: 4px;
+    /* ── Trend chip hover effects ── */
+    .trend-chip:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
+      color: var(--text-white);
+    }
+    .trend-chip:hover .chip-count {
+      color: var(--accent);
     }
 
-    /* ── Version Popup ── */
-    .version-popup-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .version-popup {
-      background: #181818;
-      border: 1px solid #333;
-      border-radius: 12px;
-      padding: 24px;
-      width: 420px;
-      max-width: 90vw;
-      max-height: 85vh;
-      overflow-y: auto;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-    }
-
-    .version-popup-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-    }
-
-    .version-popup-header h2 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .version-popup-close {
-      background: none;
-      border: none;
-      color: #666;
-      font-size: 1.2rem;
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-    }
-
-    .version-popup-close:hover { color: #ccc; }
-
-    .version-popup label {
-      display: block;
-      font-size: 0.75rem;
-      color: #666;
-      margin-bottom: 4px;
-      margin-top: 14px;
-    }
-
-    .version-popup label:first-of-type { margin-top: 0; }
-
-    .version-popup input,
-    .version-popup textarea,
-    .version-popup select {
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      font-family: inherit;
-      font-size: 0.85rem;
-    }
-
-    .version-popup input:focus,
-    .version-popup textarea:focus,
-    .version-popup select:focus { outline: none; border-color: #b4451a; }
-
-    .version-popup textarea { resize: vertical; min-height: 50px; }
-
-    .version-popup-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 18px;
-    }
-
-    .version-popup .save-indicator {
-      font-size: 0.75rem;
-      color: #4a9;
-      margin-left: auto;
-      align-self: center;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .version-popup .save-indicator.visible { opacity: 1; }
-
-    .btn-danger {
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: 1px solid #e55;
-      background: none;
-      color: #e55;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .btn-danger:hover { background: #e55; color: #fff; }
-
-    .btn-outline {
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: 1px solid #444;
-      background: none;
-      color: #aaa;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .btn-outline:hover { border-color: #888; color: #fff; }
-
-    /* ── SVG Tree Canvas ── */
-    .exp-right {
-      overflow: hidden;
-      position: relative;
-      background: #0d0d0d;
-    }
-
-    .exp-right svg {
-      width: 100%;
-      height: 100%;
-      cursor: grab;
-    }
-
+    /* ── SVG cursor states ── */
+    .exp-right svg { cursor: grab; }
     .exp-right svg:active { cursor: grabbing; }
-
-    .tree-node { cursor: pointer; }
-    .tree-node rect {
-      rx: 8;
-      ry: 8;
-      stroke-width: 2;
-      transition: stroke-opacity 0.15s;
-    }
-    .tree-node:hover rect { stroke-opacity: 1; }
-    .tree-node text {
-      fill: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-    .tree-edge {
-      fill: none;
-      stroke: #333;
-      stroke-width: 2;
-    }
-
-    .canvas-hint {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      font-size: 0.75rem;
-      color: #333;
-      pointer-events: none;
-    }
-
-    /* ── Paper Viewer ── */
-    .paper-viewer-layout {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      height: calc(100vh - 73px);
-      overflow: hidden;
-    }
-
-    .paper-sidebar {
-      border-right: 1px solid #222;
-      padding: 24px;
-      overflow-y: auto;
-    }
-
-    .paper-sidebar-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #fff;
-      line-height: 1.4;
-      margin-bottom: 20px;
-    }
-
-    .paper-meta-group {
-      margin-bottom: 18px;
-    }
-
-    .paper-meta-label {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: #555;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-    }
-
-    .paper-meta-value {
-      font-size: 0.85rem;
-      color: #bbb;
-      line-height: 1.5;
-    }
-
-    .paper-meta-value a {
-      color: #d4845a;
-      text-decoration: none;
-    }
-
-    .paper-meta-value a:hover { text-decoration: underline; }
-
-    .paper-sidebar-categories {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .paper-sidebar-categories span {
-      font-size: 0.75rem;
-      background: #1e1e1e;
-      color: #aaa;
-      padding: 2px 8px;
-      border-radius: 4px;
-      border: 1px solid #2a2a2a;
-    }
-
-    .paper-sidebar-abstract {
-      font-size: 0.85rem;
-      line-height: 1.7;
-      color: #999;
-    }
-
-    .paper-pdf-container {
-      background: #111;
-      overflow: hidden;
-    }
-
-    .paper-pdf-container iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    .paper-pdf-fallback {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      gap: 16px;
-      color: #555;
-      font-size: 0.95rem;
-    }
-
-    .paper-pdf-fallback a {
-      color: #d4845a;
-      text-decoration: none;
-      padding: 10px 24px;
-      border: 1px solid #d4845a;
-      border-radius: 8px;
-      transition: background 0.15s;
-    }
-
-    .paper-pdf-fallback a:hover {
-      background: rgba(180,69,26,0.15);
-    }
-
   </style>
 </head>
-<body>
+<body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] bg-body text-primary min-h-screen">
 
-  <nav class="sidebar">
-    <button class="sidebar-icon active" id="sb-home" onclick="goHome()">
-      <span>📄</span>
-      <span class="sidebar-tooltip">Latest Papers</span>
+  <nav class="w-[60px] bg-sidebar border-r border-border-sidebar flex flex-col items-center py-4 gap-1 fixed top-0 left-0 bottom-0 z-20">
+    <button class="sidebar-icon active w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-home" onclick="goHome()">
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h5v7h7v9H6z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Latest Papers</span>
     </button>
-    <button class="sidebar-icon" id="sb-experiments" onclick="openExperiments()">
-      <span>🧪</span>
-      <span class="sidebar-tooltip">Experiments</span>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-experiments" onclick="openExperiments()">
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Experiments</span>
     </button>
-    <div class="sidebar-divider"></div>
-    <button class="sidebar-icon" disabled style="opacity:0.3;cursor:default">
-      <span>📁</span>
-      <span class="sidebar-tooltip">TBD</span>
+    <div class="w-7 h-px bg-border-subtle my-1.5"></div>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">TBD</span>
     </button>
-    <button class="sidebar-icon" disabled style="opacity:0.3;cursor:default">
-      <span>📁</span>
-      <span class="sidebar-tooltip">TBD</span>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">TBD</span>
     </button>
-    <button class="sidebar-icon" disabled style="opacity:0.3;cursor:default">
-      <span>📁</span>
-      <span class="sidebar-tooltip">TBD</span>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">TBD</span>
     </button>
   </nav>
 
   <!-- Home Main Content -->
-  <div class="home-main" id="home-main">
-    <div class="home-top-bar">
-        <div class="sort-buttons">
-          <button class="sort-btn active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
-          <button class="sort-btn" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
+  <div class="flex-1 ml-[60px] px-6 pt-6" id="home-main">
+    <div class="grid grid-cols-[auto_1fr_auto] items-center gap-3 mb-6">
+        <div class="flex gap-1 shrink-0">
+          <button class="sort-btn px-3.5 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
+          <button class="sort-btn px-3.5 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
         </div>
-        <form class="home-search-form" id="finder-form">
-          <input type="text" id="finder-query" placeholder="Search arXiv papers..." autocomplete="off" />
+        <form class="flex justify-center" id="finder-form">
+          <input type="text" id="finder-query" placeholder="Search arXiv papers..." autocomplete="off" class="w-full max-w-[500px] px-[18px] py-2 rounded-3xl border border-border-input bg-input-alt text-primary text-[0.85rem] focus:outline-none focus:border-accent" />
         </form>
-        <div class="top-bar-spacer"></div>
+        <div class="w-0"></div>
       </div>
-      <div id="finder-results-masonry"></div>
+      <div id="finder-results-masonry" class="pb-16"></div>
 
-      <div class="home-feed-section" id="home-feed-section">
+      <div id="home-feed-section">
         <input type="hidden" id="search" value="" />
         <select id="category" style="display:none"><option value="">All Categories</option></select>
-        <div class="stats" id="stats"></div>
-        <div class="trends-panel" id="trends-panel" style="display:none">
-          <div class="trends-section">
-            <div class="trends-section-title">Top Categories</div>
-            <div class="trends-chips" id="trend-categories"></div>
+        <div class="text-[0.8rem] text-dim py-1 pb-3" id="stats"></div>
+        <div id="trends-panel" style="display:none" class="pb-3">
+          <div class="mb-4">
+            <div class="text-[0.75rem] font-semibold text-dimmer uppercase tracking-wide mb-2.5">Top Categories</div>
+            <div class="flex flex-wrap gap-2" id="trend-categories"></div>
           </div>
-          <div class="trends-section">
-            <div class="trends-section-title">Trending Keywords</div>
-            <div class="trends-chips" id="trend-keywords"></div>
+          <div class="mb-4">
+            <div class="text-[0.75rem] font-semibold text-dimmer uppercase tracking-wide mb-2.5">Trending Keywords</div>
+            <div class="flex flex-wrap gap-2" id="trend-keywords"></div>
           </div>
-          <hr class="trends-divider">
+          <hr class="border-none border-t border-border-dim">
         </div>
-        <main id="papers">
-          <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
+        <main id="papers" class="pb-16">
+          <div class="text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
         </main>
       </div>
   </div>
 
   <!-- Experiment Ideas List View -->
-  <div id="experiments-view" class="view">
-    <div class="view-header">
-      <div class="header-top">
-        <button class="back-btn" onclick="goHome()">
-          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+  <div id="experiments-view" class="hidden ml-[60px] view">
+    <div class="px-8 py-6 border-b border-border-card bg-header sticky top-0 z-10">
+      <div class="flex items-center gap-4">
+        <button class="bg-transparent border-none text-muted text-[0.9rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="goHome()">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
           Back
         </button>
-        <h1>Experiment Ideas</h1>
+        <h1 class="text-[1.4rem] font-semibold text-white_">Experiment Ideas</h1>
       </div>
     </div>
-    <div class="add-idea-bar">
-      <form id="idea-form">
-        <input type="text" id="idea-title" placeholder="Experiment title..." required />
-        <textarea id="idea-desc" placeholder="Description (optional)..."></textarea>
-        <button type="submit" class="btn-primary" style="align-self:flex-end">Add Experiment</button>
+    <div class="max-w-[900px] mx-auto px-8 pt-6">
+      <form id="idea-form" class="flex flex-col gap-2.5 bg-card border border-border-subtle rounded-[10px] p-4">
+        <input type="text" id="idea-title" placeholder="Experiment title..." required class="w-full px-3.5 py-2.5 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.95rem] focus:outline-none focus:border-accent" />
+        <textarea id="idea-desc" placeholder="Description (optional)..." class="w-full px-3.5 py-2.5 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.95rem] resize-y min-h-[60px] focus:outline-none focus:border-accent"></textarea>
+        <button type="submit" class="self-end px-5 py-2 rounded-md border-none bg-accent text-white text-[0.9rem] font-medium cursor-pointer hover:bg-accent-hover">Add Experiment</button>
       </form>
     </div>
-    <div class="ideas-list" id="ideas-list"></div>
+    <div class="max-w-[900px] mx-auto px-8 py-2 pb-16" id="ideas-list"></div>
   </div>
 
   <!-- Paper Viewer View -->
-  <div id="paper-view" class="view">
-    <div class="view-header">
-      <div class="header-top">
-        <button class="back-btn" id="paper-view-back" onclick="paperViewGoBack()">
-          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+  <div id="paper-view" class="hidden ml-[60px] view">
+    <div class="px-8 py-6 border-b border-border-card bg-header sticky top-0 z-10">
+      <div class="flex items-center gap-4">
+        <button class="bg-transparent border-none text-muted text-[0.9rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" id="paper-view-back" onclick="paperViewGoBack()">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
           Back
         </button>
-        <h1 id="paper-view-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h1>
+        <h1 id="paper-view-title" class="text-[1.4rem] font-semibold text-white_ whitespace-nowrap overflow-hidden text-ellipsis"></h1>
       </div>
     </div>
-    <div class="paper-viewer-layout">
-      <div class="paper-sidebar" id="paper-sidebar"></div>
-      <div class="paper-pdf-container" id="paper-pdf-container"></div>
+    <div class="grid grid-cols-[320px_1fr] h-[calc(100vh-73px)] overflow-hidden">
+      <div class="border-r border-border-card p-6 overflow-y-auto" id="paper-sidebar"></div>
+      <div class="bg-header overflow-hidden" id="paper-pdf-container"></div>
     </div>
   </div>
 
   <!-- Experiment Detail View -->
-  <div id="exp-detail-view" class="view">
-    <div class="view-header">
-      <div class="header-top">
-        <button class="back-btn" onclick="openExperiments()">
-          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+  <div id="exp-detail-view" class="hidden ml-[60px] view">
+    <div class="px-8 py-6 border-b border-border-card bg-header sticky top-0 z-10">
+      <div class="flex items-center gap-4">
+        <button class="bg-transparent border-none text-muted text-[0.9rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="openExperiments()">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
           Back
         </button>
-        <h1 id="exp-detail-title"></h1>
+        <h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_"></h1>
       </div>
     </div>
-    <div class="exp-detail-layout">
-      <div class="exp-left">
-        <div class="exp-left-top">
-          <input type="text" id="new-version-name" placeholder="New version name..." />
-          <button class="btn-sm" onclick="addVersion()">Add</button>
+    <div class="grid grid-cols-[340px_1fr] h-[calc(100vh-73px)] overflow-hidden">
+      <div class="border-r border-border-card flex flex-col overflow-hidden">
+        <div class="p-4 border-b border-border-dim flex gap-2">
+          <input type="text" id="new-version-name" placeholder="New version name..." class="flex-1 px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" />
+          <button class="px-3.5 py-1.5 rounded-md border-none bg-accent text-white text-[0.8rem] cursor-pointer whitespace-nowrap hover:bg-accent-hover" onclick="addVersion()">Add</button>
         </div>
-        <div class="version-list" id="version-list"></div>
+        <div class="flex-1 overflow-y-auto p-2" id="version-list"></div>
       </div>
-      <div class="exp-right">
-        <svg id="tree-svg"></svg>
-        <div class="canvas-hint">Scroll to zoom &middot; Drag to pan</div>
+      <div class="exp-right overflow-hidden relative bg-canvas">
+        <svg id="tree-svg" class="w-full h-full"></svg>
+        <div class="absolute bottom-4 right-4 text-[0.75rem] text-tree-edge pointer-events-none">Scroll to zoom &middot; Drag to pan</div>
       </div>
     </div>
   </div>
 
   <!-- Version Popup -->
-  <div id="version-popup-overlay" class="version-popup-overlay" style="display:none" onclick="if(event.target===this)closeVersionPopup()">
-    <div class="version-popup" id="version-popup"></div>
+  <div id="version-popup-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeVersionPopup()">
+    <div class="bg-popup border border-border-input rounded-xl p-6 w-[420px] max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-popup" id="version-popup"></div>
   </div>
 
   <script>
     // ── View management ──
     const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
-    const ARXIV_LOGO = '<img class="paper-source-logo" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
+    const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
 
     function setSidebarActive(id) {
       document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
@@ -994,11 +399,11 @@
 
     function hideAllViews() {
       document.getElementById('home-main').style.display = 'none';
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
     }
 
     function goHome() {
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
       document.getElementById('home-main').style.display = '';
       window.location.hash = '';
       setSidebarActive('sb-home');
@@ -1006,7 +411,9 @@
 
     function openExperiments() {
       hideAllViews();
-      document.getElementById('experiments-view').classList.add('active');
+      const view = document.getElementById('experiments-view');
+      view.classList.add('active');
+      view.style.display = 'block';
       window.location.hash = 'experiments';
       setSidebarActive('sb-experiments');
       fetchExperiments();
@@ -1014,7 +421,9 @@
 
     function openExperimentDetail(id) {
       hideAllViews();
-      document.getElementById('exp-detail-view').classList.add('active');
+      const view = document.getElementById('exp-detail-view');
+      view.classList.add('active');
+      view.style.display = 'block';
       window.location.hash = 'experiment/' + id;
       setSidebarActive('sb-experiments');
       currentExpId = id;
@@ -1058,8 +467,8 @@
         parseFeed(await resp.text());
       } catch (err) {
         document.getElementById('papers').innerHTML =
-          `<div class="error"><p>Failed to load feed: ${err.message}</p>
-           <p style="margin-top:8px;font-size:0.85rem;color:#888">Try refreshing or check your connection.</p></div>`;
+          `<div class="text-center py-20 text-red-400"><p>Failed to load feed: ${err.message}</p>
+           <p class="mt-2 text-[0.85rem] text-muted">Try refreshing or check your connection.</p></div>`;
       }
     }
 
@@ -1128,14 +537,11 @@
 
     function extractKeywords(papers) {
       const freq = {};
-      // Extract bigrams and meaningful unigrams from titles
       papers.forEach(p => {
         const words = p.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(w => w.length > 2);
-        // Unigrams
         words.forEach(w => {
           if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
         });
-        // Bigrams from titles (more meaningful phrases)
         for (let i = 0; i < words.length - 1; i++) {
           if (!STOP_WORDS.has(words[i]) && !STOP_WORDS.has(words[i+1])) {
             const bigram = words[i] + ' ' + words[i+1];
@@ -1144,11 +550,9 @@
         }
       });
 
-      // Filter: must appear in at least 2 papers, prefer bigrams
       return Object.entries(freq)
         .filter(([k, v]) => v >= 2)
         .sort((a, b) => {
-          // Boost bigrams slightly
           const aBoost = a[0].includes(' ') ? 1.5 : 1;
           const bBoost = b[0].includes(' ') ? 1.5 : 1;
           return (b[1] * bBoost) - (a[1] * aBoost);
@@ -1171,11 +575,11 @@
       const cats = extractTopCategories(allPapers);
 
       document.getElementById('trend-keywords').innerHTML = keywords.map(([kw, count]) =>
-        `<span class="trend-chip" onclick="applyTrendFilter('${escapeHtml(kw)}')">${escapeHtml(kw)}<span class="chip-count">${count}</span></span>`
+        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border-subtle bg-card text-primary text-[0.8rem] cursor-pointer transition-all duration-150 trend-chip" onclick="applyTrendFilter('${escapeHtml(kw)}')">${escapeHtml(kw)}<span class="chip-count text-[0.7rem] text-dim bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`
       ).join('');
 
       document.getElementById('trend-categories').innerHTML = cats.map(([cat, count]) =>
-        `<span class="trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count">${count}</span></span>`
+        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border-subtle bg-card text-primary text-[0.8rem] cursor-pointer transition-all duration-150 trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count text-[0.7rem] text-dim bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`
       ).join('');
     }
 
@@ -1192,7 +596,7 @@
     }
 
     // ── Paper Viewer (shared) ──
-    let paperViewOrigin = 'arxiv'; // tracks where we came from
+    let paperViewOrigin = 'arxiv';
 
     function paperViewGoBack() {
       goHome();
@@ -1200,44 +604,46 @@
 
     function showPaperView(paper, hashValue) {
       hideAllViews();
-      document.getElementById('paper-view').classList.add('active');
+      const view = document.getElementById('paper-view');
+      view.classList.add('active');
+      view.style.display = 'block';
       window.location.hash = hashValue;
 
       document.getElementById('paper-view-title').textContent = paper.title;
 
       const sidebar = document.getElementById('paper-sidebar');
       sidebar.innerHTML = `
-        <div class="paper-sidebar-title">${escapeHtml(paper.title)}</div>
+        <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
         ${paper.authors ? `
-          <div class="paper-meta-group">
-            <div class="paper-meta-label">Authors</div>
-            <div class="paper-meta-value">${escapeHtml(paper.authors)}</div>
+          <div class="mb-[18px]">
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Authors</div>
+            <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(paper.authors)}</div>
           </div>` : ''}
         ${paper.published ? `
-          <div class="paper-meta-group">
-            <div class="paper-meta-label">Published</div>
-            <div class="paper-meta-value">${paper.published}</div>
+          <div class="mb-[18px]">
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Published</div>
+            <div class="text-[0.85rem] text-meta-value leading-normal">${paper.published}</div>
           </div>` : ''}
-        <div class="paper-meta-group">
-          <div class="paper-meta-label">Link</div>
-          <div class="paper-meta-value"><a href="${paper.link}" target="_blank" rel="noopener">${escapeHtml(paper.link)}</a></div>
+        <div class="mb-[18px]">
+          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Link</div>
+          <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
         </div>
         ${paper.categories && paper.categories.length ? `
-          <div class="paper-meta-group">
-            <div class="paper-meta-label">Categories</div>
-            <div class="paper-sidebar-categories">
-              ${paper.categories.map(c => `<span>${escapeHtml(c)}</span>`).join('')}
+          <div class="mb-[18px]">
+            <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Categories</div>
+            <div class="flex flex-wrap gap-1.5">
+              ${paper.categories.map(c => `<span class="text-[0.75rem] bg-sidebar-cat text-sidebar-cat-color px-2 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
             </div>
           </div>` : ''}
-        <div class="paper-meta-group">
-          <div class="paper-meta-label">Abstract</div>
-          <div class="paper-sidebar-abstract">${escapeHtml(paper.description)}</div>
+        <div class="mb-[18px]">
+          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Abstract</div>
+          <div class="text-[0.85rem] leading-relaxed text-summary">${escapeHtml(paper.description)}</div>
         </div>
       `;
 
       const pdfContainer = document.getElementById('paper-pdf-container');
       const pdfUrl = paper.link.replace('/abs/', '/pdf/');
-      pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer"></iframe>`;
+      pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer" class="w-full h-full border-none"></iframe>`;
     }
 
     function openPaper(index) {
@@ -1248,13 +654,11 @@
     }
 
     function openPaperByUrl(url) {
-      // Used by paper finder — we may not have full metadata yet, show what we have
       paperViewOrigin = 'finder';
       const cached = finderResultsCache.find(r => r.link === url);
       if (cached) {
         showPaperView(cached, 'view/' + encodeURIComponent(url));
       } else {
-        // Minimal fallback
         showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [] }, 'view/' + encodeURIComponent(url));
       }
     }
@@ -1299,14 +703,14 @@
     async function doFinderSearch() {
       showFinderHideFeed();
       const container = document.getElementById('finder-results-masonry');
-      container.innerHTML = '<div class="finder-status"><div class="spinner"></div><div>Searching arXiv...</div></div>';
+      container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Searching arXiv...</div></div>';
       try {
         const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(finderCurrentQuery)}&start=${finderCurrentStart}&max_results=20`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const xml = await resp.text();
         parseFinderResults(xml);
       } catch (err) {
-        container.innerHTML = `<div class="finder-status">Search failed: ${err.message}</div>`;
+        container.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">Search failed: ${err.message}</div>`;
       }
     }
 
@@ -1350,23 +754,23 @@
     function renderFinderResults(total) {
       const container = document.getElementById('finder-results-masonry');
       if (!finderResultsCache.length) {
-        container.innerHTML = '<div class="finder-status">No results found.</div>';
+        container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No results found.</div>';
         return;
       }
 
       container.innerHTML = finderResultsCache.map((r, i) => `
-        <div class="paper" onclick="openFinderPaper(${i})">
+        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openFinderPaper(${i})">
           ${r.arxivId ? ARXIV_LOGO : ''}
-          <div class="paper-meta-row">${r.citations !== undefined ? `<span class="paper-cite-count">${r.citations} cited</span>` : ''}${r.date ? `<span class="paper-date-tag">${escapeHtml(r.date)}</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="paper-cat-tag">${escapeHtml(c)}</span>`).join('')}</div>
-          <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(r.title)}</a></div>
-          ${r.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
-          <div class="paper-summary collapsed">${escapeHtml(r.description)}</div>
+          <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${r.citations} cited</span>` : ''}${r.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(r.date)}</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}</div>
+          <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(r.title)}</a></div>
+          ${r.authors ? `<div class="text-[0.78rem] text-authors mb-2">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
+          <div class="paper-summary collapsed text-[0.8rem] leading-relaxed text-summary">${escapeHtml(r.description)}</div>
         </div>
       `).join('') + (total > 20 ? `
-        <div class="finder-pagination">
-          <button ${finderCurrentStart === 0 ? 'disabled' : ''} onclick="finderPrev()">Previous</button>
-          <span style="color:#555;font-size:0.8rem;align-self:center">${finderCurrentStart + 1}&ndash;${finderCurrentStart + finderResultsCache.length} of ${total}</span>
-          <button ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
+        <div class="finder-pagination flex justify-center gap-3 pt-6">
+          <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${finderCurrentStart === 0 ? 'disabled' : ''} onclick="finderPrev()">Previous</button>
+          <span class="text-dimmer text-[0.8rem] self-center">${finderCurrentStart + 1}&ndash;${finderCurrentStart + finderResultsCache.length} of ${total}</span>
+          <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
         </div>
       ` : '');
       finderLastTotal = total;
@@ -1455,16 +859,15 @@
       const visible = filtered.slice(0, visibleCount);
       document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
       const container = document.getElementById('papers');
-      if (!filtered.length) { container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>'; return; }
+      if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
       container.innerHTML = visible.map((p, i) => `
-        <div class="paper" onclick="openPaper(${i})">
+        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
           ${p.arxivId ? ARXIV_LOGO : ''}
-          <div class="paper-meta-row">${p.citations !== undefined ? `<span class="paper-cite-count">${p.citations} cited</span>` : ''}${p.date ? `<span class="paper-date-tag">${escapeHtml(p.date)}</span>` : ''}${p.categories.slice(0,3).map(c => `<span class="paper-cat-tag">${escapeHtml(c)}</span>`).join('')}</div>
-          <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(p.title)}</a></div>
-          ${p.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
-          <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
+          <div class="flex gap-1.5 flex-wrap items-center mb-2">${p.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${p.citations} cited</span>` : ''}${p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : ''}${p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}</div>
+          <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(p.title)}</a></div>
+          ${p.authors ? `<div class="text-[0.78rem] text-authors mb-2">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
+          <div class="paper-summary collapsed text-[0.8rem] leading-relaxed text-summary" id="summary-${i}">${escapeHtml(p.description)}</div>
         </div>`).join('');
-      // Fetch citations for the visible page
       fetchCitationsFor(visible);
     }
 
@@ -1508,27 +911,27 @@
     // ── Experiments List (server-backed) ──
     async function fetchExperiments() {
       const container = document.getElementById('ideas-list');
-      container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading...</div></div>';
+      container.innerHTML = '<div class="text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading...</div></div>';
       try {
         const resp = await fetch('/api/experiments');
         const experiments = await resp.json();
         if (!experiments.length) {
-          container.innerHTML = '<div class="empty-state">No experiments yet. Create one above.</div>';
+          container.innerHTML = '<div class="text-center py-20 text-dimmest text-[0.95rem]">No experiments yet. Create one above.</div>';
           return;
         }
         container.innerHTML = experiments.map(exp => `
-          <div class="idea-card" onclick="openExperimentDetail('${exp.id}')">
-            <div class="idea-content">
-              <div class="idea-title">${escapeHtml(exp.title)}</div>
-              ${exp.desc ? `<div class="idea-desc">${escapeHtml(exp.desc)}</div>` : ''}
-              <div class="idea-meta">${exp.versions ? exp.versions.length : 0} version(s) &middot; ${exp.created ? new Date(exp.created).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}</div>
+          <div class="border-b border-border-dim py-5 flex gap-4 items-start cursor-pointer transition-colors duration-100 -mx-2 px-2 rounded-lg hover:bg-card" onclick="openExperimentDetail('${exp.id}')">
+            <div class="flex-1 min-w-0">
+              <div class="text-[1.05rem] font-semibold text-white_ mb-1.5">${escapeHtml(exp.title)}</div>
+              ${exp.desc ? `<div class="text-[0.9rem] leading-relaxed text-idea-desc whitespace-pre-wrap">${escapeHtml(exp.desc)}</div>` : ''}
+              <div class="text-[0.75rem] text-dimmer mt-2">${exp.versions ? exp.versions.length : 0} version(s) &middot; ${exp.created ? new Date(exp.created).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}</div>
             </div>
-            <div class="idea-actions">
-              <button onclick="event.stopPropagation(); deleteExperiment('${exp.id}')" class="delete-btn" title="Delete">Delete</button>
+            <div class="flex gap-2 shrink-0 pt-0.5">
+              <button onclick="event.stopPropagation(); deleteExperiment('${exp.id}')" class="bg-transparent border-none text-dimmer cursor-pointer text-[0.8rem] p-1 hover:text-red-400" title="Delete">Delete</button>
             </div>
           </div>`).join('');
       } catch (err) {
-        container.innerHTML = `<div class="error"><p>Failed to load experiments: ${err.message}</p></div>`;
+        container.innerHTML = `<div class="text-center py-20 text-red-400"><p>Failed to load experiments: ${err.message}</p></div>`;
       }
     }
 
@@ -1557,7 +960,7 @@
     let currentExpId = null;
     let currentExp = null;
     let selectedVersionId = null;
-    let branchFromId = null; // when branching, set this to parent version id
+    let branchFromId = null;
 
     async function fetchExperimentDetail(id) {
       try {
@@ -1568,7 +971,7 @@
         renderTree();
       } catch (err) {
         document.getElementById('version-list').innerHTML =
-          `<div class="empty-state">Failed to load: ${err.message}</div>`;
+          `<div class="text-center py-10 text-dimmest text-[0.85rem]">Failed to load: ${err.message}</div>`;
       }
     }
 
@@ -1576,17 +979,17 @@
       const list = document.getElementById('version-list');
       const versions = currentExp.versions || [];
       if (!versions.length) {
-        list.innerHTML = '<div class="empty-state" style="padding:40px 0;font-size:0.85rem">No versions yet.<br>Add one above.</div>';
+        list.innerHTML = '<div class="text-center py-10 text-dimmest text-[0.85rem]">No versions yet.<br>Add one above.</div>';
       } else {
         list.innerHTML = versions.map(v => `
-          <div class="version-card ${v.id === selectedVersionId ? 'selected' : ''}"
+          <div class="version-card p-3 rounded-lg border border-transparent cursor-pointer mb-1 transition-colors duration-100 hover:bg-card ${v.id === selectedVersionId ? 'selected' : ''}"
                onclick="selectVersion('${v.id}')">
-            <div class="version-card-name">
-              <span class="status-dot ${v.status || 'planned'}"></span>
+            <div class="text-[0.9rem] font-semibold text-white_ mb-1 flex items-center gap-2">
+              <span class="status-dot w-2 h-2 rounded-full inline-block shrink-0 ${v.status || 'planned'}"></span>
               ${escapeHtml(v.name)}
             </div>
-            ${v.notes ? `<div class="version-card-notes">${escapeHtml(v.notes)}</div>` : ''}
-            <div class="version-card-meta">${v.status || 'planned'}${v.parentId ? ' &middot; from ' + escapeHtml(v.parentId) : ' &middot; root'}</div>
+            ${v.notes ? `<div class="text-[0.8rem] text-muted whitespace-nowrap overflow-hidden text-ellipsis">${escapeHtml(v.notes)}</div>` : ''}
+            <div class="text-[0.7rem] text-dimmest mt-1">${v.status || 'planned'}${v.parentId ? ' &middot; from ' + escapeHtml(v.parentId) : ' &middot; root'}</div>
           </div>`).join('');
       }
     }
@@ -1607,40 +1010,38 @@
 
       const popup = document.getElementById('version-popup');
       popup.innerHTML = `
-        <div class="version-popup-header">
-          <h2>${escapeHtml(v.name)}</h2>
-          <button class="version-popup-close" onclick="closeVersionPopup()">&times;</button>
+        <div class="flex items-center justify-between mb-[18px]">
+          <h2 class="text-[1.1rem] font-semibold text-white_">${escapeHtml(v.name)}</h2>
+          <button class="bg-transparent border-none text-dim text-[1.2rem] cursor-pointer p-1 leading-none hover:text-primary" onclick="closeVersionPopup()">&times;</button>
         </div>
-        <label>Name</label>
-        <input type="text" id="vd-name" value="${escapeHtml(v.name)}" />
-        <label>Status</label>
-        <select id="vd-status">
+        <label class="block text-[0.75rem] text-dim mb-1">Name</label>
+        <input type="text" id="vd-name" value="${escapeHtml(v.name)}" class="w-full px-2.5 py-2 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.85rem] focus:outline-none focus:border-accent" />
+        <label class="block text-[0.75rem] text-dim mb-1 mt-3.5">Status</label>
+        <select id="vd-status" class="w-full px-2.5 py-2 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.85rem] focus:outline-none focus:border-accent">
           <option value="planned" ${v.status==='planned'?'selected':''}>Planned</option>
           <option value="running" ${v.status==='running'?'selected':''}>Running</option>
           <option value="completed" ${v.status==='completed'?'selected':''}>Completed</option>
           <option value="failed" ${v.status==='failed'?'selected':''}>Failed</option>
         </select>
-        <label>Notes</label>
-        <textarea id="vd-notes" rows="3">${escapeHtml(v.notes || '')}</textarea>
-        <label>Results</label>
-        <textarea id="vd-results" rows="4">${escapeHtml(v.results || '')}</textarea>
-        <div class="version-popup-actions">
-          <button class="btn-outline" onclick="branchFrom('${v.id}'); closeVersionPopup()">Branch from this</button>
-          <button class="btn-danger" onclick="deleteVersion('${v.id}')">Delete</button>
-          <span class="save-indicator" id="save-indicator">Saved</span>
+        <label class="block text-[0.75rem] text-dim mb-1 mt-3.5">Notes</label>
+        <textarea id="vd-notes" rows="3" class="w-full px-2.5 py-2 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.85rem] resize-y min-h-[50px] focus:outline-none focus:border-accent">${escapeHtml(v.notes || '')}</textarea>
+        <label class="block text-[0.75rem] text-dim mb-1 mt-3.5">Results</label>
+        <textarea id="vd-results" rows="4" class="w-full px-2.5 py-2 rounded-md border border-border-input bg-input text-primary font-[inherit] text-[0.85rem] resize-y min-h-[50px] focus:outline-none focus:border-accent">${escapeHtml(v.results || '')}</textarea>
+        <div class="flex gap-2 mt-[18px]">
+          <button class="px-3.5 py-1.5 rounded-md border border-dimmest bg-transparent text-muted text-[0.8rem] cursor-pointer hover:border-muted hover:text-white_" onclick="branchFrom('${v.id}'); closeVersionPopup()">Branch from this</button>
+          <button class="px-3.5 py-1.5 rounded-md border border-red-400 bg-transparent text-red-400 text-[0.8rem] cursor-pointer hover:bg-red-400 hover:text-white" onclick="deleteVersion('${v.id}')">Delete</button>
+          <span class="text-[0.75rem] text-emerald-400 ml-auto self-center opacity-0 transition-opacity duration-300" id="save-indicator">Saved</span>
         </div>
       `;
 
       document.getElementById('version-popup-overlay').style.display = 'flex';
 
-      // Auto-save on any change
       const fields = ['vd-name', 'vd-status', 'vd-notes', 'vd-results'];
       fields.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const evt = el.tagName === 'SELECT' ? 'change' : 'input';
         el.addEventListener(evt, () => scheduleAutoSave());
-        // Save immediately on status change
         if (el.tagName === 'SELECT') {
           el.addEventListener('change', () => doAutoSave());
         }
@@ -1648,7 +1049,6 @@
     }
 
     function closeVersionPopup() {
-      // Flush any pending save
       if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; doAutoSave(); }
       document.getElementById('version-popup-overlay').style.display = 'none';
     }
@@ -1662,7 +1062,7 @@
       autoSaveTimer = null;
       if (!selectedVersionId || !currentExpId) return;
       const nameEl = document.getElementById('vd-name');
-      if (!nameEl) return; // popup already closed
+      if (!nameEl) return;
 
       const body = {
         name: nameEl.value.trim(),
@@ -1676,11 +1076,9 @@
         body: JSON.stringify(body)
       });
 
-      // Flash save indicator
       const ind = document.getElementById('save-indicator');
-      if (ind) { ind.classList.add('visible'); setTimeout(() => ind.classList.remove('visible'), 1500); }
+      if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
 
-      // Refresh data in background (without closing popup)
       const resp = await fetch(`/api/experiments/${currentExpId}`);
       currentExp = await resp.json();
       renderVersionList();
@@ -1755,7 +1153,6 @@
         return;
       }
 
-      // Build tree structure
       const byId = {};
       versions.forEach(v => { byId[v.id] = { ...v, children: [] }; });
 
@@ -1768,7 +1165,6 @@
         }
       });
 
-      // Layout: assign x,y to each node using a simple recursive algorithm
       let nextX = 0;
 
       function layoutNode(node, depth) {
@@ -1788,7 +1184,6 @@
 
       roots.forEach(r => layoutNode(r, 0));
 
-      // Convert to pixel coords
       const allNodes = Object.values(byId);
       const padding = 60;
 
@@ -1804,7 +1199,6 @@
         failed: '#e55'
       };
 
-      // Build SVG content
       let edges = '';
       allNodes.forEach(n => {
         if (n.parentId && byId[n.parentId]) {
@@ -1862,7 +1256,6 @@
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
         const newZoom = Math.min(3, Math.max(0.2, svgZoom * delta));
 
-        // Zoom towards mouse position
         const rect = svg.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
