@@ -357,12 +357,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not titles:
                     self._send_json({'error': 'titles required'}, 400)
                     return
-                prompt_tpl = (
+                default_prompt = (
                     "Classify as KEEP or SKIP. One word only.\n\n"
                     "KEEP = research, engineering, science, deep analysis, novel projects, thoughtful essays\n"
-                    "SKIP = listicles, ragebait, marketing, job posts, fluff, vague announcements\n\n"
+                    "SKIP = listicles, ragebait, marketing, job posts, fluff, vague announcements, politics\n\n"
                     "Title: \"{title}\"\nAnswer:"
                 )
+                prompt_tpl = body.get('prompt', default_prompt)
+                if '{title}' not in prompt_tpl:
+                    prompt_tpl = default_prompt
                 results = {}
                 # Process titles in parallel with ThreadPoolExecutor
                 def classify(title):
