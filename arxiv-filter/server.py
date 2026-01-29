@@ -151,6 +151,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     meta = read_meta(name)
                     if meta:
                         meta['id'] = name
+                        exp_dir = os.path.join(EXPERIMENTS_DIR, name)
+                        files = [f for f in os.listdir(exp_dir) if f.endswith('.md') or f.endswith('.ipynb')] if os.path.isdir(exp_dir) else []
+                        meta['fileCount'] = len(files)
+                        meta['mdCount'] = sum(1 for f in files if f.endswith('.md'))
+                        meta['nbCount'] = sum(1 for f in files if f.endswith('.ipynb'))
                         experiments.append(meta)
             self._send_json(experiments)
 
