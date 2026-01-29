@@ -86,6 +86,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(str(e).encode())
 
+        elif self.path.startswith('/api/arxiv-search'):
+            try:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                query = qs.get('q', [''])[0].strip()
+                start = int(qs.get('start', ['0'])[0])
+                max_results = int(qs.get('max_results', ['20'])[0])
+                if not query:
+                    self._send_json({'error': 'Query required'}, 400)
+                    return
+                search_url = (
+                    f'https://export.arxiv.org/api/query?'
+                    f'search_query=all:{urllib.request.quote(query)}'
+                    f'&start={start}&max_results={max_results}'
+                    f'&sortBy=relevance&sortOrder=descending'
+                )
+                req = urllib.request.Request(
+                    search_url,
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                    data = resp.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/xml')
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                self.send_response(502)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+
         elif self.path == '/api/experiments':
             experiments = []
             if os.path.isdir(EXPERIMENTS_DIR):

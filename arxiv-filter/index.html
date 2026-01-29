@@ -709,6 +709,116 @@
     .paper-pdf-fallback a:hover {
       background: rgba(180,69,26,0.15);
     }
+
+    /* ── Paper Finder ── */
+    .search-bar-wrap {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 40px 32px 0;
+    }
+
+    .search-bar-form {
+      display: flex;
+      gap: 10px;
+    }
+
+    .search-bar-form input {
+      flex: 1;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #e0e0e0;
+      font-size: 1rem;
+    }
+
+    .search-bar-form input:focus {
+      outline: none;
+      border-color: #b4451a;
+    }
+
+    .search-bar-form button {
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      background: #b4451a;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .search-bar-form button:hover { background: #c9562a; }
+
+    .search-results {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 8px 32px 64px;
+    }
+
+    .search-result-item {
+      padding: 18px 0;
+      border-bottom: 1px solid #1a1a1a;
+      cursor: pointer;
+      transition: background 0.1s;
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 6px;
+    }
+
+    .search-result-item:hover { background: #151515; }
+
+    .search-result-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #d4845a;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    .search-result-authors {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    .search-result-snippet {
+      font-size: 0.83rem;
+      color: #777;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .search-result-meta {
+      font-size: 0.72rem;
+      color: #444;
+      margin-top: 6px;
+    }
+
+    .search-pagination {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px 0;
+    }
+
+    .search-pagination button {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #151515;
+      color: #aaa;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .search-pagination button:hover { border-color: #b4451a; color: #fff; }
+    .search-pagination button:disabled { opacity: 0.3; cursor: default; border-color: #333; color: #aaa; }
   </style>
 </head>
 <body>
@@ -724,7 +834,10 @@
         <div class="grid-icon">🧪</div>
         <div class="grid-label">Experiment Ideas</div>
       </div>
-      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item" onclick="openPaperFinder()">
+        <div class="grid-icon">🔍</div>
+        <div class="grid-label">Paper Finder</div>
+      </div>
       <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
       <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
       <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
@@ -788,11 +901,31 @@
     <div class="ideas-list" id="ideas-list"></div>
   </div>
 
+  <!-- Paper Finder View -->
+  <div id="finder-view" class="view">
+    <div class="view-header">
+      <div class="header-top">
+        <button class="back-btn" onclick="goHome()">
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          Back
+        </button>
+        <h1>Paper Finder</h1>
+      </div>
+    </div>
+    <div class="search-bar-wrap">
+      <form class="search-bar-form" id="finder-form">
+        <input type="text" id="finder-query" placeholder="Search arXiv papers..." autofocus />
+        <button type="submit">Search</button>
+      </form>
+    </div>
+    <div class="search-results" id="finder-results"></div>
+  </div>
+
   <!-- Paper Viewer View -->
   <div id="paper-view" class="view">
     <div class="view-header">
       <div class="header-top">
-        <button class="back-btn" onclick="openArxiv()">
+        <button class="back-btn" id="paper-view-back" onclick="paperViewGoBack()">
           <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
           Back
         </button>
@@ -874,12 +1007,21 @@
       fetchExperimentDetail(id);
     }
 
+    function openPaperFinder() {
+      hideAllViews();
+      document.getElementById('finder-view').classList.add('active');
+      window.location.hash = 'finder';
+      document.getElementById('finder-query').focus();
+    }
+
     function routeFromHash() {
       const hash = window.location.hash;
       if (hash === '#arxiv') openArxiv();
       else if (hash === '#experiments') openExperiments();
+      else if (hash === '#finder') openPaperFinder();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
       else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
+      else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
       else goHome();
     }
 
@@ -1002,30 +1144,21 @@
       renderPapers();
     }
 
-    // ── Paper Viewer ──
-    function openPaper(index) {
-      // Get the paper from the currently filtered list to match the index
-      const search = document.getElementById('search').value.toLowerCase();
-      const category = document.getElementById('category').value;
-      const filtered = allPapers.filter(p => {
-        if (category && !p.categories.includes(category)) return false;
-        if (search) {
-          const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-          return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
-        }
-        return true;
-      });
+    // ── Paper Viewer (shared) ──
+    let paperViewOrigin = 'arxiv'; // tracks where we came from
 
-      const paper = filtered[index];
-      if (!paper) return;
+    function paperViewGoBack() {
+      if (paperViewOrigin === 'finder') openPaperFinder();
+      else openArxiv();
+    }
 
+    function showPaperView(paper, hashValue) {
       hideAllViews();
       document.getElementById('paper-view').classList.add('active');
-      window.location.hash = 'paper/' + index;
+      window.location.hash = hashValue;
 
       document.getElementById('paper-view-title').textContent = paper.title;
 
-      // Build sidebar
       const sidebar = document.getElementById('paper-sidebar');
       sidebar.innerHTML = `
         <div class="paper-sidebar-title">${escapeHtml(paper.title)}</div>
@@ -1034,11 +1167,16 @@
             <div class="paper-meta-label">Authors</div>
             <div class="paper-meta-value">${escapeHtml(paper.authors)}</div>
           </div>` : ''}
+        ${paper.published ? `
+          <div class="paper-meta-group">
+            <div class="paper-meta-label">Published</div>
+            <div class="paper-meta-value">${paper.published}</div>
+          </div>` : ''}
         <div class="paper-meta-group">
           <div class="paper-meta-label">Link</div>
           <div class="paper-meta-value"><a href="${paper.link}" target="_blank" rel="noopener">${escapeHtml(paper.link)}</a></div>
         </div>
-        ${paper.categories.length ? `
+        ${paper.categories && paper.categories.length ? `
           <div class="paper-meta-group">
             <div class="paper-meta-label">Categories</div>
             <div class="paper-sidebar-categories">
@@ -1051,14 +1189,127 @@
         </div>
       `;
 
-      // Build PDF embed
-      // arXiv links: https://arxiv.org/abs/XXXX.XXXXX → PDF at https://arxiv.org/pdf/XXXX.XXXXX
       const pdfContainer = document.getElementById('paper-pdf-container');
       const pdfUrl = paper.link.replace('/abs/', '/pdf/');
+      pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer"></iframe>`;
+    }
 
-      pdfContainer.innerHTML = `
-        <iframe src="${pdfUrl}" title="PDF viewer"></iframe>
+    function openPaper(index) {
+      paperViewOrigin = 'arxiv';
+      const search = document.getElementById('search').value.toLowerCase();
+      const category = document.getElementById('category').value;
+      const filtered = allPapers.filter(p => {
+        if (category && !p.categories.includes(category)) return false;
+        if (search) {
+          const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
+          return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
+        }
+        return true;
+      });
+      const paper = filtered[index];
+      if (!paper) return;
+      showPaperView(paper, 'paper/' + index);
+    }
+
+    function openPaperByUrl(url) {
+      // Used by paper finder — we may not have full metadata yet, show what we have
+      paperViewOrigin = 'finder';
+      const cached = finderResultsCache.find(r => r.link === url);
+      if (cached) {
+        showPaperView(cached, 'view/' + encodeURIComponent(url));
+      } else {
+        // Minimal fallback
+        showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [] }, 'view/' + encodeURIComponent(url));
+      }
+    }
+
+    // ── Paper Finder ──
+    let finderResultsCache = [];
+    let finderCurrentQuery = '';
+    let finderCurrentStart = 0;
+
+    document.getElementById('finder-form').addEventListener('submit', e => {
+      e.preventDefault();
+      finderCurrentStart = 0;
+      finderCurrentQuery = document.getElementById('finder-query').value.trim();
+      if (finderCurrentQuery) doFinderSearch();
+    });
+
+    async function doFinderSearch() {
+      const container = document.getElementById('finder-results');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Searching arXiv...</div></div>';
+      try {
+        const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(finderCurrentQuery)}&start=${finderCurrentStart}&max_results=20`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const xml = await resp.text();
+        parseFinderResults(xml);
+      } catch (err) {
+        container.innerHTML = `<div class="error"><p>Search failed: ${err.message}</p></div>`;
+      }
+    }
+
+    function parseFinderResults(xml) {
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      const ns = 'http://www.w3.org/2005/Atom';
+      const entries = doc.getElementsByTagNameNS(ns, 'entry');
+      const totalStr = doc.getElementsByTagNameNS('http://a9.com/-/spec/opensearch/1.1/', 'totalResults')[0]?.textContent || '0';
+      const total = parseInt(totalStr, 10);
+
+      finderResultsCache = Array.from(entries).map(entry => {
+        const title = (entry.getElementsByTagNameNS(ns, 'title')[0]?.textContent || '').trim().replace(/\s+/g, ' ');
+        const summary = (entry.getElementsByTagNameNS(ns, 'summary')[0]?.textContent || '').trim().replace(/\s+/g, ' ');
+        const published = (entry.getElementsByTagNameNS(ns, 'published')[0]?.textContent || '').slice(0, 10);
+        const authors = Array.from(entry.getElementsByTagNameNS(ns, 'author'))
+          .map(a => a.getElementsByTagNameNS(ns, 'name')[0]?.textContent?.trim() || '').join(', ');
+        const links = entry.getElementsByTagNameNS(ns, 'link');
+        let link = '';
+        for (const l of links) {
+          if (l.getAttribute('type') === 'text/html' || (!link && l.getAttribute('rel') === 'alternate')) {
+            link = l.getAttribute('href') || '';
+          }
+        }
+        if (!link) link = entry.getElementsByTagNameNS(ns, 'id')[0]?.textContent || '';
+        const categories = Array.from(entry.getElementsByTagNameNS(ns, 'category'))
+          .map(c => c.getAttribute('term')).filter(Boolean);
+        // Also check arxiv namespace categories
+        const arxivCats = entry.querySelectorAll('category');
+        for (const c of arxivCats) {
+          const t = c.getAttribute('term');
+          if (t && !categories.includes(t)) categories.push(t);
+        }
+        return { title, description: summary, authors, link, published, categories };
+      });
+
+      const container = document.getElementById('finder-results');
+      if (!finderResultsCache.length) {
+        container.innerHTML = '<div class="empty-state">No results found.</div>';
+        return;
+      }
+
+      container.innerHTML = finderResultsCache.map(r => `
+        <div class="search-result-item" onclick="openPaperByUrl('${r.link}')">
+          <div class="search-result-title">${escapeHtml(r.title)}</div>
+          <div class="search-result-authors">${escapeHtml(r.authors)}</div>
+          <div class="search-result-snippet">${escapeHtml(r.description)}</div>
+          <div class="search-result-meta">${r.published}${r.categories.length ? ' &middot; ' + r.categories.slice(0,3).join(', ') : ''}</div>
+        </div>
+      `).join('') + `
+        <div class="search-pagination">
+          <button ${finderCurrentStart === 0 ? 'disabled' : ''} onclick="finderPrev()">Previous</button>
+          <span style="color:#555;font-size:0.8rem;align-self:center">${finderCurrentStart + 1}&ndash;${finderCurrentStart + finderResultsCache.length} of ${total}</span>
+          <button ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
+        </div>
       `;
+    }
+
+    function finderPrev() {
+      finderCurrentStart = Math.max(0, finderCurrentStart - 20);
+      doFinderSearch();
+    }
+
+    function finderNext() {
+      finderCurrentStart += 20;
+      doFinderSearch();
     }
 
     function extractAuthors(desc) {
