@@ -179,19 +179,21 @@
     @media (max-width: 600px) { #finder-results-masonry { columns: 1; } }
     #finder-results-masonry:empty { display: none; }
 
-    /* ── Line clamp truncation ── */
-    .paper-summary.collapsed {
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    /* ── Parent-hover child reveal ── */
-    .paper:hover .paper-summary.collapsed {
-      display: block;
-      -webkit-line-clamp: unset;
-      overflow: visible;
+    /* ── Abstract hover tooltip ── */
+    #abstract-tooltip {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-input);
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+      max-width: 400px;
+      pointer-events: none;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: var(--text-summary);
     }
 
     /* ── Spinner animation ── */
@@ -260,6 +262,8 @@
 </head>
 <body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] bg-body text-primary min-h-screen">
 
+  <div id="abstract-tooltip"></div>
+
   <nav class="w-[60px] bg-sidebar border-r border-border-sidebar flex flex-col items-center py-4 gap-1 fixed top-0 left-0 bottom-0 z-20">
     <button class="sidebar-icon active w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-home" onclick="goHome()">
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h5v7h7v9H6z"/></svg>
@@ -294,22 +298,17 @@
           </div>
         </form>
       </div>
-      <div class="flex gap-1 mb-4">
-        <button class="sort-btn px-3.5 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
-        <button class="sort-btn px-3.5 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
-      </div>
       <div id="finder-results-masonry" class="pb-16"></div>
 
       <div id="home-feed-section">
         <input type="hidden" id="search" value="" />
         <select id="category" style="display:none"><option value="">All Categories</option></select>
         <div class="text-[0.8rem] text-dim py-1 pb-3" id="stats"></div>
-        <div id="trends-panel" style="display:none" class="pb-3">
-          <div class="mb-4">
-            <div class="text-[0.75rem] font-semibold text-dimmer uppercase tracking-wide mb-2.5">Top Categories</div>
-            <div class="flex flex-wrap gap-2" id="trend-categories"></div>
-          </div>
-          <hr class="border-none border-t border-border-dim">
+        <div id="trends-panel" style="display:none" class="pb-3 flex items-center gap-2 overflow-x-auto">
+          <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
+          <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
+          <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>
+          <div class="flex gap-1.5 shrink-0" id="trend-categories"></div>
         </div>
         <main id="papers" class="pb-16">
           <div class="text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
@@ -337,16 +336,7 @@
 
   <!-- Paper Viewer View -->
   <div id="paper-view" class="hidden ml-[60px] view">
-    <div class="px-8 py-6 border-b border-border-card bg-header sticky top-0 z-10">
-      <div class="flex items-center gap-4">
-        <button class="bg-transparent border-none text-muted text-[0.9rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" id="paper-view-back" onclick="paperViewGoBack()">
-          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-          Back
-        </button>
-        <h1 id="paper-view-title" class="text-[1.4rem] font-semibold text-white_ whitespace-nowrap overflow-hidden text-ellipsis"></h1>
-      </div>
-    </div>
-    <div class="grid grid-cols-[320px_1fr] h-[calc(100vh-73px)] overflow-hidden">
+    <div class="grid grid-cols-[320px_1fr] h-screen overflow-hidden">
       <div class="border-r border-border-card p-6 overflow-y-auto" id="paper-sidebar"></div>
       <div class="bg-header overflow-hidden" id="paper-pdf-container"></div>
     </div>
@@ -576,12 +566,12 @@
     function renderTrends() {
       const panel = document.getElementById('trends-panel');
       if (!allPapers.length) { panel.style.display = 'none'; return; }
-      panel.style.display = 'block';
+      panel.style.display = 'flex';
 
       const cats = extractTopCategories(allPapers);
 
       document.getElementById('trend-categories').innerHTML = cats.map(([cat, count]) =>
-        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border-subtle bg-card text-primary text-[0.8rem] cursor-pointer transition-all duration-150 trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count text-[0.7rem] text-dim bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`
+        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border-subtle bg-card text-primary text-[0.8rem] cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count text-[0.7rem] text-dim bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`
       ).join('');
     }
 
@@ -604,14 +594,14 @@
       view.style.display = 'block';
       window.location.hash = hashValue;
 
-      document.getElementById('paper-view-title').textContent = paper.title;
-
       const sidebar = document.getElementById('paper-sidebar');
       const isHN = paper.source === 'hn';
       const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
+      const backBtn = `<button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary mb-4" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button>`;
 
       if (isHN) {
         sidebar.innerHTML = `
+          ${backBtn}
           <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
           ${paper.authors ? `
             <div class="mb-[18px]">
@@ -646,6 +636,7 @@
         `;
       } else {
         sidebar.innerHTML = `
+          ${backBtn}
           <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${escapeHtml(paper.title)}</div>
           ${paper.authors ? `
             <div class="mb-[18px]">
@@ -799,12 +790,11 @@
       }
 
       container.innerHTML = finderResultsCache.map((r, i) => `
-        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openFinderPaper(${i})">
+        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openFinderPaper(${i})" ${r.description ? `data-abstract="${escapeAttr(r.description)}"` : ''}>
           ${r.arxivId ? ARXIV_LOGO : ''}
           <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${r.citations} cited</span>` : ''}${r.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(r.date)}</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}</div>
           <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(r.title)}</a></div>
-          ${r.authors ? `<div class="text-[0.78rem] text-authors mb-2">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
-          <div class="paper-summary collapsed text-[0.8rem] leading-relaxed text-summary">${escapeHtml(r.description)}</div>
+          ${r.authors ? `<div class="text-[0.78rem] text-authors">${escapeHtml(formatFirstAuthor(r.authors))}</div>` : ''}
         </div>
       `).join('') + (total > 20 ? `
         <div class="finder-pagination flex justify-center gap-3 pt-6">
@@ -917,14 +907,12 @@
           ? `<span class="text-[0.68rem] font-semibold text-[#f60] bg-[#1e1209] px-2 py-0.5 rounded">${p.hnScore} pts</span><span class="text-[0.68rem] font-semibold text-dim bg-chip-count px-2 py-0.5 rounded">${p.hnComments} comments</span>`
           : (p.citations !== undefined ? `<span class="text-[0.68rem] font-semibold text-accent bg-cite px-2 py-0.5 rounded">${p.citations} cited</span>` : '');
         const catChips = p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
-        const summaryDiv = p.description ? `<div class="paper-summary collapsed text-[0.8rem] leading-relaxed text-summary" id="summary-${i}">${escapeHtml(p.description)}</div>` : '';
         return `
-        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
+        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})" ${p.description ? `data-abstract="${escapeAttr(p.description)}"` : ''}>
           ${logo}
           <div class="flex gap-1.5 flex-wrap items-center mb-2">${chips}${p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : ''}${catChips}</div>
           <div class="text-[0.92rem] font-semibold text-white_ mb-1.5 leading-snug"><a href="#" onclick="event.preventDefault()" class="text-link no-underline hover:underline">${escapeHtml(p.title)}</a></div>
-          ${p.authors ? `<div class="text-[0.78rem] text-authors mb-2">${escapeHtml(isHN ? p.authors : formatFirstAuthor(p.authors))}</div>` : ''}
-          ${summaryDiv}
+          ${p.authors ? `<div class="text-[0.78rem] text-authors">${escapeHtml(isHN ? p.authors : formatFirstAuthor(p.authors))}</div>` : ''}
         </div>`;
       }).join('');
       fetchCitationsFor(visible);
@@ -948,17 +936,59 @@
       });
     });
 
-    function toggleSummary(i, btn) {
-      const el = document.getElementById(`summary-${i}`);
-      const collapsed = el.classList.toggle('collapsed');
-      btn.textContent = collapsed ? 'Show more' : 'Show less';
-    }
-
     function escapeHtml(str) {
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
     }
+
+    function escapeAttr(str) {
+      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Abstract tooltip on hover ──
+    (function setupAbstractTooltip() {
+      const tip = document.getElementById('abstract-tooltip');
+      let currentCard = null;
+
+      document.addEventListener('mouseover', e => {
+        const card = e.target.closest('.paper[data-abstract]');
+        if (!card || card === currentCard) return;
+        currentCard = card;
+        tip.textContent = card.dataset.abstract;
+        tip.style.display = 'block';
+
+        // Position once, anchored near the card
+        const rect = card.getBoundingClientRect();
+        const pad = 8;
+
+        // Try to place to the right of the card
+        let x = rect.right + pad;
+        let y = rect.top;
+
+        // Measure after content is set
+        const tw = tip.offsetWidth;
+        const th = tip.offsetHeight;
+
+        // If it overflows right, place to the left
+        if (x + tw > window.innerWidth - pad) x = rect.left - tw - pad;
+        // If it overflows bottom, shift up
+        if (y + th > window.innerHeight - pad) y = window.innerHeight - th - pad;
+        if (y < pad) y = pad;
+
+        tip.style.left = x + 'px';
+        tip.style.top = y + 'px';
+      });
+
+      document.addEventListener('mouseout', e => {
+        const card = e.target.closest('.paper[data-abstract]');
+        if (!card) return;
+        if (!card.contains(e.relatedTarget)) {
+          currentCard = null;
+          tip.style.display = 'none';
+        }
+      });
+    })();
 
     function renderLatexIn(elementId) {
       const el = document.getElementById(elementId);
