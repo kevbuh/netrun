@@ -153,9 +153,7 @@
 
     /* ── Trends Panel ── */
     .trends-panel {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 20px 32px 0;
+      padding: 20px 20px 0;
     }
 
     .trends-section {
@@ -216,30 +214,55 @@
     }
 
     main {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 16px 32px 64px;
+      padding: 20px 20px 64px;
+      columns: 4;
+      column-gap: 14px;
     }
 
-    .paper { border-bottom: 1px solid #1a1a1a; padding: 20px 0; }
-    .paper:last-child { border-bottom: none; }
+    @media (max-width: 1400px) { main { columns: 3; } }
+    @media (max-width: 900px) { main { columns: 2; } }
+    @media (max-width: 560px) { main { columns: 1; } }
 
-    .paper-title { font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
+    .paper {
+      break-inside: avoid;
+      background: #151515;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+
+    .paper:hover {
+      border-color: #333;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .paper:hover .paper-summary.collapsed {
+      display: block;
+      -webkit-line-clamp: unset;
+      overflow: visible;
+    }
+
+    .paper-title { font-size: 0.92rem; font-weight: 600; color: #fff; margin-bottom: 6px; line-height: 1.4; }
     .paper-title a { color: #d4845a; text-decoration: none; }
     .paper-title a:hover { text-decoration: underline; }
-    .paper-authors { font-size: 0.85rem; color: #999; margin-bottom: 8px; }
+    .paper-authors { font-size: 0.78rem; color: #888; margin-bottom: 8px; }
 
-    .paper-categories { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .paper-categories { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
     .paper-categories span {
-      font-size: 0.75rem;
-      background: #1e1e1e;
-      color: #aaa;
-      padding: 2px 8px;
+      font-size: 0.68rem;
+      background: #1a1a1a;
+      color: #999;
+      padding: 2px 7px;
       border-radius: 4px;
-      border: 1px solid #2a2a2a;
+      border: 1px solid #252525;
     }
 
-    .paper-summary { font-size: 0.9rem; line-height: 1.6; color: #bbb; }
+    .paper-summary { font-size: 0.8rem; line-height: 1.55; color: #999; }
     .paper-summary.collapsed {
       display: -webkit-box;
       -webkit-line-clamp: 3;
@@ -249,7 +272,7 @@
 
     .toggle-summary {
       background: none; border: none; color: #d4845a;
-      cursor: pointer; font-size: 0.8rem; margin-top: 4px; padding: 0;
+      cursor: pointer; font-size: 0.75rem; margin-top: 6px; padding: 0;
     }
     .toggle-summary:hover { text-decoration: underline; }
 
@@ -1347,12 +1370,11 @@
       const container = document.getElementById('papers');
       if (!filtered.length) { container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>'; return; }
       container.innerHTML = filtered.map((p, i) => `
-        <div class="paper">
-          <div class="paper-title"><a href="#" onclick="event.preventDefault(); openPaper(${i})">${escapeHtml(p.title)}</a></div>
-          ${p.authors ? `<div class="paper-authors">${escapeHtml(p.authors)}</div>` : ''}
-          ${p.categories.length ? `<div class="paper-categories">${p.categories.map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+        <div class="paper" onclick="openPaper(${i})">
+          ${p.categories.length ? `<div class="paper-categories">${p.categories.slice(0,3).map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+          <div class="paper-title"><a href="#" onclick="event.preventDefault()">${escapeHtml(p.title)}</a></div>
+          ${p.authors ? `<div class="paper-authors">${escapeHtml(formatFirstAuthor(p.authors))}</div>` : ''}
           <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
-          ${p.description.length > 200 ? `<button class="toggle-summary" onclick="toggleSummary(${i}, this)">Show more</button>` : ''}
         </div>`).join('');
     }
 
@@ -1366,6 +1388,12 @@
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    function formatFirstAuthor(authors) {
+      const parts = authors.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length <= 1) return authors;
+      return parts[0] + ' et al.';
     }
 
     let debounceTimer;
