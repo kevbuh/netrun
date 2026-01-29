@@ -169,10 +169,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            files = [f for f in sorted(os.listdir(exp_dir)) if f.endswith('.md')]
+            files = [f for f in sorted(os.listdir(exp_dir)) if f.endswith('.md') or f.endswith('.ipynb')]
             self._send_json(files)
 
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.md)$'):
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
             exp_id = m.group(1)
             fname = m.group(2)
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
@@ -228,7 +228,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not name:
                 self._send_json({'error': 'Name required'}, 400)
                 return
-            if not name.endswith('.md'):
+            if not name.endswith('.md') and not name.endswith('.ipynb'):
                 name += '.md'
             fname = re.sub(r'[^\w\s.-]', '', name).strip()
             fname = re.sub(r'\s+', '-', fname)
@@ -237,7 +237,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': 'File already exists'}, 409)
                 return
             with open(fpath, 'w') as f:
-                f.write('')
+                if fname.endswith('.ipynb'):
+                    empty_nb = {
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                        "metadata": {
+                            "kernelspec": {
+                                "display_name": "Python 3",
+                                "language": "python",
+                                "name": "python3"
+                            },
+                            "language_info": {"name": "python", "version": "3.10.0"}
+                        },
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "source": "",
+                                "metadata": {},
+                                "outputs": [],
+                                "execution_count": None
+                            }
+                        ]
+                    }
+                    json.dump(empty_nb, f, indent=2)
+                else:
+                    f.write('')
             self._send_json({'name': fname}, 201)
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/fork$'):
@@ -321,7 +345,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
-        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.md)$'):
+        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
             exp_id = m.group(1)
             fname = m.group(2)
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
@@ -371,7 +395,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send_json({'error': 'Version not found'}, 404)
 
     def do_DELETE(self):
-        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.md)$'):
+        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
             exp_id = m.group(1)
             fname = m.group(2)
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
