@@ -54,20 +54,10 @@
       transform: translateY(-2px);
     }
 
-    .grid-item.tbd {
-      cursor: default;
-      opacity: 0.35;
-    }
+    .grid-item.tbd { cursor: default; opacity: 0.35; }
+    .grid-item.tbd:hover { background: #151515; border-color: #252525; transform: none; }
 
-    .grid-item.tbd:hover {
-      background: #151515;
-      border-color: #252525;
-      transform: none;
-    }
-
-    .grid-icon {
-      font-size: 2.4rem;
-    }
+    .grid-icon { font-size: 2.4rem; }
 
     .grid-label {
       font-size: 0.9rem;
@@ -76,22 +66,12 @@
       text-align: center;
     }
 
-    .grid-item.tbd .grid-label {
-      color: #555;
-    }
+    .grid-item.tbd .grid-label { color: #555; }
 
-    /* ── arXiv Filter View ── */
-    #arxiv-view {
-      display: none;
-    }
-
-    #arxiv-view.active {
-      display: block;
-    }
-
-    #home-view.hidden {
-      display: none;
-    }
+    /* ── Shared ── */
+    .view { display: none; }
+    .view.active { display: block; }
+    #home-view.hidden { display: none; }
 
     .back-btn {
       background: none;
@@ -106,14 +86,9 @@
     }
 
     .back-btn:hover { color: #ccc; }
+    .back-btn svg { width: 16px; height: 16px; fill: currentColor; }
 
-    .back-btn svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
-    }
-
-    header {
+    .view-header {
       padding: 24px 32px;
       border-bottom: 1px solid #222;
       background: #111;
@@ -126,20 +101,21 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      margin-bottom: 16px;
     }
 
-    header h1 {
+    .view-header h1 {
       font-size: 1.4rem;
       font-weight: 600;
       color: #fff;
     }
 
+    /* ── arXiv ── */
     .controls {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
+      margin-top: 16px;
     }
 
     .controls input[type="text"] {
@@ -153,10 +129,7 @@
       font-size: 0.95rem;
     }
 
-    .controls input[type="text"]:focus {
-      outline: none;
-      border-color: #b4451a;
-    }
+    .controls input[type="text"]:focus { outline: none; border-color: #b4451a; }
 
     .controls select {
       padding: 10px 14px;
@@ -184,40 +157,15 @@
       padding: 16px 32px 64px;
     }
 
-    .paper {
-      border-bottom: 1px solid #1a1a1a;
-      padding: 20px 0;
-    }
-
+    .paper { border-bottom: 1px solid #1a1a1a; padding: 20px 0; }
     .paper:last-child { border-bottom: none; }
 
-    .paper-title {
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 6px;
-    }
-
-    .paper-title a {
-      color: #d4845a;
-      text-decoration: none;
-    }
-
+    .paper-title { font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
+    .paper-title a { color: #d4845a; text-decoration: none; }
     .paper-title a:hover { text-decoration: underline; }
+    .paper-authors { font-size: 0.85rem; color: #999; margin-bottom: 8px; }
 
-    .paper-authors {
-      font-size: 0.85rem;
-      color: #999;
-      margin-bottom: 8px;
-    }
-
-    .paper-categories {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-
+    .paper-categories { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .paper-categories span {
       font-size: 0.75rem;
       background: #1e1e1e;
@@ -227,12 +175,7 @@
       border: 1px solid #2a2a2a;
     }
 
-    .paper-summary {
-      font-size: 0.9rem;
-      line-height: 1.6;
-      color: #bbb;
-    }
-
+    .paper-summary { font-size: 0.9rem; line-height: 1.6; color: #bbb; }
     .paper-summary.collapsed {
       display: -webkit-box;
       -webkit-line-clamp: 3;
@@ -241,41 +184,310 @@
     }
 
     .toggle-summary {
-      background: none;
-      border: none;
-      color: #d4845a;
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-top: 4px;
-      padding: 0;
+      background: none; border: none; color: #d4845a;
+      cursor: pointer; font-size: 0.8rem; margin-top: 4px; padding: 0;
     }
-
     .toggle-summary:hover { text-decoration: underline; }
 
-    .loading {
-      text-align: center;
-      padding: 80px 0;
-      color: #666;
-      font-size: 1rem;
-    }
-
+    .loading { text-align: center; padding: 80px 0; color: #666; font-size: 1rem; }
     .loading .spinner {
-      display: inline-block;
-      width: 28px;
-      height: 28px;
-      border: 3px solid #333;
-      border-top-color: #b4451a;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 12px;
+      display: inline-block; width: 28px; height: 28px;
+      border: 3px solid #333; border-top-color: #b4451a;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { text-align: center; padding: 80px 0; color: #e55; }
+
+    /* ── Experiments List ── */
+    .add-idea-bar {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 32px 0;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .add-idea-bar form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #151515;
+      border: 1px solid #252525;
+      border-radius: 10px;
+      padding: 16px;
+    }
 
-    .error {
-      text-align: center;
-      padding: 80px 0;
+    .add-idea-bar input,
+    .add-idea-bar textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: vertical;
+    }
+
+    .add-idea-bar input:focus,
+    .add-idea-bar textarea:focus { outline: none; border-color: #b4451a; }
+
+    .add-idea-bar textarea { min-height: 60px; }
+
+    .btn-primary {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: none;
+      background: #b4451a;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: #c9562a; }
+
+    .ideas-list {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 8px 32px 64px;
+    }
+
+    .idea-card {
+      border-bottom: 1px solid #1a1a1a;
+      padding: 20px 0;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: background 0.1s;
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+    }
+
+    .idea-card:hover { background: #151515; }
+    .idea-card:last-child { border-bottom: none; }
+
+    .idea-content { flex: 1; min-width: 0; }
+    .idea-title { font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
+    .idea-desc { font-size: 0.9rem; line-height: 1.6; color: #bbb; white-space: pre-wrap; }
+    .idea-meta { font-size: 0.75rem; color: #555; margin-top: 8px; }
+
+    .idea-actions { display: flex; gap: 8px; flex-shrink: 0; padding-top: 2px; }
+    .idea-actions button {
+      background: none; border: none; color: #555;
+      cursor: pointer; font-size: 0.8rem; padding: 4px;
+    }
+    .idea-actions button:hover { color: #ccc; }
+    .idea-actions button.delete-btn:hover { color: #e55; }
+
+    .empty-state { text-align: center; padding: 80px 0; color: #444; font-size: 0.95rem; }
+
+    /* ── Experiment Detail ── */
+    .exp-detail-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: calc(100vh - 73px);
+      overflow: hidden;
+    }
+
+    .exp-left {
+      border-right: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .exp-left-top {
+      padding: 16px;
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      gap: 8px;
+    }
+
+    .exp-left-top input {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-size: 0.85rem;
+    }
+
+    .exp-left-top input:focus { outline: none; border-color: #b4451a; }
+
+    .btn-sm {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      background: #b4451a;
+      color: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-sm:hover { background: #c9562a; }
+
+    .version-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .version-card {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: background 0.1s;
+    }
+
+    .version-card:hover { background: #151515; }
+    .version-card.selected { background: #1a1a1a; border-color: #b4451a; }
+
+    .version-card-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .status-dot.planned { background: #555; }
+    .status-dot.running { background: #4a9eff; }
+    .status-dot.completed { background: #4a9; }
+    .status-dot.failed { background: #e55; }
+
+    .version-card-notes {
+      font-size: 0.8rem;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .version-card-meta {
+      font-size: 0.7rem;
+      color: #444;
+      margin-top: 4px;
+    }
+
+    .version-detail {
+      border-top: 1px solid #1a1a1a;
+      padding: 16px;
+      overflow-y: auto;
+      max-height: 300px;
+    }
+
+    .version-detail label {
+      display: block;
+      font-size: 0.75rem;
+      color: #666;
+      margin-bottom: 4px;
+      margin-top: 12px;
+    }
+
+    .version-detail label:first-child { margin-top: 0; }
+
+    .version-detail input,
+    .version-detail textarea,
+    .version-detail select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+
+    .version-detail input:focus,
+    .version-detail textarea:focus,
+    .version-detail select:focus { outline: none; border-color: #b4451a; }
+
+    .version-detail textarea { resize: vertical; min-height: 50px; }
+
+    .version-detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .btn-danger {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #e55;
+      background: none;
       color: #e55;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .btn-danger:hover { background: #e55; color: #fff; }
+
+    .btn-outline {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: none;
+      color: #aaa;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .btn-outline:hover { border-color: #888; color: #fff; }
+
+    /* ── SVG Tree Canvas ── */
+    .exp-right {
+      overflow: hidden;
+      position: relative;
+      background: #0d0d0d;
+    }
+
+    .exp-right svg {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    .exp-right svg:active { cursor: grabbing; }
+
+    .tree-node { cursor: pointer; }
+    .tree-node rect {
+      rx: 8;
+      ry: 8;
+      stroke-width: 2;
+      transition: stroke-opacity 0.15s;
+    }
+    .tree-node:hover rect { stroke-opacity: 1; }
+    .tree-node text {
+      fill: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .tree-edge {
+      fill: none;
+      stroke: #333;
+      stroke-width: 2;
+    }
+
+    .canvas-hint {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      font-size: 0.75rem;
+      color: #333;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -288,40 +500,22 @@
         <div class="grid-icon">📬</div>
         <div class="grid-label">arXiv Feed</div>
       </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
+      <div class="grid-item" onclick="openExperiments()">
+        <div class="grid-icon">🧪</div>
+        <div class="grid-label">Experiment Ideas</div>
       </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
-      </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
-      </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
-      </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
-      </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
-      </div>
-      <div class="grid-item tbd">
-        <div class="grid-icon">📁</div>
-        <div class="grid-label">TBD</div>
-      </div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
+      <div class="grid-item tbd"><div class="grid-icon">📁</div><div class="grid-label">TBD</div></div>
     </div>
   </div>
 
   <!-- arXiv Filter View -->
-  <div id="arxiv-view">
-    <header>
+  <div id="arxiv-view" class="view">
+    <div class="view-header">
       <div class="header-top">
         <button class="back-btn" onclick="goHome()">
           <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
@@ -335,98 +529,147 @@
           <option value="">All Categories</option>
         </select>
       </div>
-    </header>
+    </div>
     <div class="stats" id="stats"></div>
     <main id="papers">
-      <div class="loading">
-        <div class="spinner"></div>
-        <div>Loading arXiv CS feed...</div>
-      </div>
+      <div class="loading"><div class="spinner"></div><div>Loading arXiv CS feed...</div></div>
     </main>
   </div>
 
-  <script>
-    let allPapers = [];
-    let allCategories = new Set();
-    let feedLoaded = false;
+  <!-- Experiment Ideas List View -->
+  <div id="experiments-view" class="view">
+    <div class="view-header">
+      <div class="header-top">
+        <button class="back-btn" onclick="goHome()">
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          Back
+        </button>
+        <h1>Experiment Ideas</h1>
+      </div>
+    </div>
+    <div class="add-idea-bar">
+      <form id="idea-form">
+        <input type="text" id="idea-title" placeholder="Experiment title..." required />
+        <textarea id="idea-desc" placeholder="Description (optional)..."></textarea>
+        <button type="submit" class="btn-primary" style="align-self:flex-end">Add Experiment</button>
+      </form>
+    </div>
+    <div class="ideas-list" id="ideas-list"></div>
+  </div>
 
-    function openArxiv() {
+  <!-- Experiment Detail View -->
+  <div id="exp-detail-view" class="view">
+    <div class="view-header">
+      <div class="header-top">
+        <button class="back-btn" onclick="openExperiments()">
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          Back
+        </button>
+        <h1 id="exp-detail-title"></h1>
+      </div>
+    </div>
+    <div class="exp-detail-layout">
+      <div class="exp-left">
+        <div class="exp-left-top">
+          <input type="text" id="new-version-name" placeholder="New version name..." />
+          <button class="btn-sm" onclick="addVersion()">Add</button>
+        </div>
+        <div class="version-list" id="version-list"></div>
+        <div class="version-detail" id="version-detail" style="display:none"></div>
+      </div>
+      <div class="exp-right">
+        <svg id="tree-svg"></svg>
+        <div class="canvas-hint">Scroll to zoom &middot; Drag to pan</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── View management ──
+    const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
+
+    function hideAllViews() {
       document.getElementById('home-view').classList.add('hidden');
-      document.getElementById('arxiv-view').classList.add('active');
-      window.location.hash = 'arxiv';
-      if (!feedLoaded) {
-        feedLoaded = true;
-        fetchFeed();
-      }
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     }
 
     function goHome() {
-      document.getElementById('arxiv-view').classList.remove('active');
+      hideAllViews();
       document.getElementById('home-view').classList.remove('hidden');
       window.location.hash = '';
     }
 
-    // Handle back/forward navigation
-    window.addEventListener('hashchange', () => {
-      if (window.location.hash === '#arxiv') {
-        openArxiv();
-      } else {
-        goHome();
-      }
-    });
-
-    // Handle direct navigation to #arxiv
-    if (window.location.hash === '#arxiv') {
-      openArxiv();
+    function openArxiv() {
+      hideAllViews();
+      document.getElementById('arxiv-view').classList.add('active');
+      window.location.hash = 'arxiv';
+      if (!feedLoaded) { feedLoaded = true; fetchFeed(); }
     }
+
+    function openExperiments() {
+      hideAllViews();
+      document.getElementById('experiments-view').classList.add('active');
+      window.location.hash = 'experiments';
+      fetchExperiments();
+    }
+
+    function openExperimentDetail(id) {
+      hideAllViews();
+      document.getElementById('exp-detail-view').classList.add('active');
+      window.location.hash = 'experiment/' + id;
+      currentExpId = id;
+      selectedVersionId = null;
+      fetchExperimentDetail(id);
+    }
+
+    function routeFromHash() {
+      const hash = window.location.hash;
+      if (hash === '#arxiv') openArxiv();
+      else if (hash === '#experiments') openExperiments();
+      else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
+      else goHome();
+    }
+
+    window.addEventListener('hashchange', routeFromHash);
+    // defer initial route to after DOM is ready
+    setTimeout(routeFromHash, 0);
+
+    // ── arXiv Feed ──
+    let allPapers = [];
+    let allCategories = new Set();
+    let feedLoaded = false;
 
     async function fetchFeed() {
       try {
         const resp = await fetch('/feed');
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const text = await resp.text();
-        parseFeed(text);
+        parseFeed(await resp.text());
       } catch (err) {
         document.getElementById('papers').innerHTML =
-          `<div class="error">
-            <p>Failed to load feed: ${err.message}</p>
-            <p style="margin-top:8px;font-size:0.85rem;color:#888">
-              Try refreshing or check your connection.
-            </p>
-          </div>`;
+          `<div class="error"><p>Failed to load feed: ${err.message}</p>
+           <p style="margin-top:8px;font-size:0.85rem;color:#888">Try refreshing or check your connection.</p></div>`;
       }
     }
 
     function parseFeed(xml) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xml, 'text/xml');
-      const items = doc.querySelectorAll('item');
-
-      allPapers = Array.from(items).map(item => {
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      allPapers = Array.from(doc.querySelectorAll('item')).map(item => {
         const title = (item.querySelector('title')?.textContent || '').trim();
         const link = (item.querySelector('link')?.textContent || '').trim();
         const description = (item.querySelector('description')?.textContent || '').trim();
-
         const creators = item.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'creator');
-        const authors = Array.from(creators).map(c => c.textContent.trim()).join(', ')
-          || extractAuthors(description);
-
-        const cats = item.querySelectorAll('category');
-        const categories = Array.from(cats).map(c => c.textContent.trim());
+        const authors = Array.from(creators).map(c => c.textContent.trim()).join(', ') || extractAuthors(description);
+        const categories = Array.from(item.querySelectorAll('category')).map(c => c.textContent.trim());
         categories.forEach(c => allCategories.add(c));
-
-        const cleanDesc = stripHtml(description);
-
-        return { title, link, authors, categories, description: cleanDesc };
+        return { title, link, authors, categories, description: stripHtml(description) };
       });
-
       populateCategories();
       renderPapers();
     }
 
     function extractAuthors(desc) {
-      const match = desc.match(/Authors?:\s*(.+?)(?:\.|<br|$)/i);
-      return match ? match[1].trim() : '';
+      const m = desc.match(/Authors?:\s*(.+?)(?:\.|<br|$)/i);
+      return m ? m[1].trim() : '';
     }
 
     function stripHtml(html) {
@@ -437,11 +680,9 @@
 
     function populateCategories() {
       const select = document.getElementById('category');
-      const sorted = Array.from(allCategories).sort();
-      sorted.forEach(cat => {
+      Array.from(allCategories).sort().forEach(cat => {
         const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
+        opt.value = cat; opt.textContent = cat;
         select.appendChild(opt);
       });
     }
@@ -449,43 +690,25 @@
     function renderPapers() {
       const search = document.getElementById('search').value.toLowerCase();
       const category = document.getElementById('category').value;
-
       const filtered = allPapers.filter(p => {
         if (category && !p.categories.includes(category)) return false;
         if (search) {
-          const haystack = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-          const terms = search.split(/\s+/).filter(Boolean);
-          return terms.every(t => haystack.includes(t));
+          const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
+          return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
         }
         return true;
       });
-
-      document.getElementById('stats').textContent =
-        `Showing ${filtered.length} of ${allPapers.length} papers`;
-
+      document.getElementById('stats').textContent = `Showing ${filtered.length} of ${allPapers.length} papers`;
       const container = document.getElementById('papers');
-
-      if (filtered.length === 0) {
-        container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>';
-        return;
-      }
-
+      if (!filtered.length) { container.innerHTML = '<div class="loading" style="color:#666">No papers match your filter.</div>'; return; }
       container.innerHTML = filtered.map((p, i) => `
         <div class="paper">
-          <div class="paper-title">
-            <a href="${p.link}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a>
-          </div>
+          <div class="paper-title"><a href="${p.link}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a></div>
           ${p.authors ? `<div class="paper-authors">${escapeHtml(p.authors)}</div>` : ''}
-          ${p.categories.length ? `
-            <div class="paper-categories">
-              ${p.categories.map(c => `<span>${escapeHtml(c)}</span>`).join('')}
-            </div>` : ''}
+          ${p.categories.length ? `<div class="paper-categories">${p.categories.map(c => `<span>${escapeHtml(c)}</span>`).join('')}</div>` : ''}
           <div class="paper-summary collapsed" id="summary-${i}">${escapeHtml(p.description)}</div>
-          ${p.description.length > 200 ? `
-            <button class="toggle-summary" onclick="toggleSummary(${i}, this)">Show more</button>
-          ` : ''}
-        </div>
-      `).join('');
+          ${p.description.length > 200 ? `<button class="toggle-summary" onclick="toggleSummary(${i}, this)">Show more</button>` : ''}
+        </div>`).join('');
     }
 
     function toggleSummary(i, btn) {
@@ -501,13 +724,326 @@
     }
 
     let debounceTimer;
-    function onFilterChange() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(renderPapers, 150);
+    document.getElementById('search').addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(renderPapers, 150); });
+    document.getElementById('category').addEventListener('change', renderPapers);
+
+    // ── Experiments List (server-backed) ──
+    async function fetchExperiments() {
+      const container = document.getElementById('ideas-list');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading...</div></div>';
+      try {
+        const resp = await fetch('/api/experiments');
+        const experiments = await resp.json();
+        if (!experiments.length) {
+          container.innerHTML = '<div class="empty-state">No experiments yet. Create one above.</div>';
+          return;
+        }
+        container.innerHTML = experiments.map(exp => `
+          <div class="idea-card" onclick="openExperimentDetail('${exp.id}')">
+            <div class="idea-content">
+              <div class="idea-title">${escapeHtml(exp.title)}</div>
+              ${exp.desc ? `<div class="idea-desc">${escapeHtml(exp.desc)}</div>` : ''}
+              <div class="idea-meta">${exp.versions ? exp.versions.length : 0} version(s) &middot; ${exp.created ? new Date(exp.created).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}</div>
+            </div>
+            <div class="idea-actions">
+              <button onclick="event.stopPropagation(); deleteExperiment('${exp.id}')" class="delete-btn" title="Delete">Delete</button>
+            </div>
+          </div>`).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="error"><p>Failed to load experiments: ${err.message}</p></div>`;
+      }
     }
 
-    document.getElementById('search').addEventListener('input', onFilterChange);
-    document.getElementById('category').addEventListener('change', renderPapers);
+    document.getElementById('idea-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const title = document.getElementById('idea-title').value.trim();
+      const desc = document.getElementById('idea-desc').value.trim();
+      if (!title) return;
+      await fetch('/api/experiments', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ title, desc, created: Date.now() })
+      });
+      document.getElementById('idea-title').value = '';
+      document.getElementById('idea-desc').value = '';
+      fetchExperiments();
+    });
+
+    async function deleteExperiment(id) {
+      if (!confirm('Delete this experiment and all its versions?')) return;
+      await fetch(`/api/experiments/${id}`, { method: 'DELETE' });
+      fetchExperiments();
+    }
+
+    // ── Experiment Detail ──
+    let currentExpId = null;
+    let currentExp = null;
+    let selectedVersionId = null;
+    let branchFromId = null; // when branching, set this to parent version id
+
+    async function fetchExperimentDetail(id) {
+      try {
+        const resp = await fetch(`/api/experiments/${id}`);
+        currentExp = await resp.json();
+        document.getElementById('exp-detail-title').textContent = currentExp.title;
+        renderVersionList();
+        renderTree();
+      } catch (err) {
+        document.getElementById('version-list').innerHTML =
+          `<div class="empty-state">Failed to load: ${err.message}</div>`;
+      }
+    }
+
+    function renderVersionList() {
+      const list = document.getElementById('version-list');
+      const versions = currentExp.versions || [];
+      if (!versions.length) {
+        list.innerHTML = '<div class="empty-state" style="padding:40px 0;font-size:0.85rem">No versions yet.<br>Add one above.</div>';
+      } else {
+        list.innerHTML = versions.map(v => `
+          <div class="version-card ${v.id === selectedVersionId ? 'selected' : ''}"
+               onclick="selectVersion('${v.id}')">
+            <div class="version-card-name">
+              <span class="status-dot ${v.status || 'planned'}"></span>
+              ${escapeHtml(v.name)}
+            </div>
+            ${v.notes ? `<div class="version-card-notes">${escapeHtml(v.notes)}</div>` : ''}
+            <div class="version-card-meta">${v.status || 'planned'}${v.parentId ? ' &middot; from ' + escapeHtml(v.parentId) : ' &middot; root'}</div>
+          </div>`).join('');
+      }
+      renderVersionDetail();
+    }
+
+    function selectVersion(vid) {
+      selectedVersionId = vid;
+      renderVersionList();
+      renderTree();
+    }
+
+    function renderVersionDetail() {
+      const panel = document.getElementById('version-detail');
+      if (!selectedVersionId) { panel.style.display = 'none'; return; }
+      const v = (currentExp.versions || []).find(x => x.id === selectedVersionId);
+      if (!v) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <label>Name</label>
+        <input type="text" id="vd-name" value="${escapeHtml(v.name)}" />
+        <label>Status</label>
+        <select id="vd-status">
+          <option value="planned" ${v.status==='planned'?'selected':''}>Planned</option>
+          <option value="running" ${v.status==='running'?'selected':''}>Running</option>
+          <option value="completed" ${v.status==='completed'?'selected':''}>Completed</option>
+          <option value="failed" ${v.status==='failed'?'selected':''}>Failed</option>
+        </select>
+        <label>Notes</label>
+        <textarea id="vd-notes" rows="2">${escapeHtml(v.notes || '')}</textarea>
+        <label>Results</label>
+        <textarea id="vd-results" rows="3">${escapeHtml(v.results || '')}</textarea>
+        <div class="version-detail-actions">
+          <button class="btn-sm" onclick="saveVersion()">Save</button>
+          <button class="btn-outline" onclick="branchFrom('${v.id}')">Branch from this</button>
+          <button class="btn-danger" onclick="deleteVersion('${v.id}')">Delete</button>
+        </div>
+      `;
+    }
+
+    async function saveVersion() {
+      if (!selectedVersionId) return;
+      const body = {
+        name: document.getElementById('vd-name').value.trim(),
+        status: document.getElementById('vd-status').value,
+        notes: document.getElementById('vd-notes').value,
+        results: document.getElementById('vd-results').value
+      };
+      await fetch(`/api/experiments/${currentExpId}/versions/${selectedVersionId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      await fetchExperimentDetail(currentExpId);
+    }
+
+    async function deleteVersion(vid) {
+      if (!confirm('Delete this version?')) return;
+      await fetch(`/api/experiments/${currentExpId}/versions/${vid}`, { method: 'DELETE' });
+      if (selectedVersionId === vid) selectedVersionId = null;
+      await fetchExperimentDetail(currentExpId);
+    }
+
+    function branchFrom(parentId) {
+      branchFromId = parentId;
+      const input = document.getElementById('new-version-name');
+      input.focus();
+      input.placeholder = `Branch from "${parentId}"...`;
+    }
+
+    async function addVersion() {
+      const input = document.getElementById('new-version-name');
+      const name = input.value.trim();
+      if (!name) return;
+      const body = {
+        name,
+        parentId: branchFromId || null,
+        status: 'planned',
+        created: Date.now()
+      };
+      await fetch(`/api/experiments/${currentExpId}/versions`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      input.value = '';
+      input.placeholder = 'New version name...';
+      branchFromId = null;
+      await fetchExperimentDetail(currentExpId);
+    }
+
+    // Allow Enter key in new version input
+    document.getElementById('new-version-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addVersion(); }
+    });
+
+    // ── SVG Tree Rendering ──
+    const NODE_W = 140;
+    const NODE_H = 44;
+    const H_GAP = 30;
+    const V_GAP = 70;
+
+    let svgPan = { x: 0, y: 0 };
+    let svgZoom = 1;
+    let dragging = false;
+    let dragStart = { x: 0, y: 0 };
+
+    function renderTree() {
+      const svg = document.getElementById('tree-svg');
+      const versions = currentExp?.versions || [];
+
+      if (!versions.length) {
+        svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#333" font-size="14" font-family="inherit">Add a version to see the tree</text>`;
+        return;
+      }
+
+      // Build tree structure
+      const byId = {};
+      versions.forEach(v => { byId[v.id] = { ...v, children: [] }; });
+
+      const roots = [];
+      versions.forEach(v => {
+        if (v.parentId && byId[v.parentId]) {
+          byId[v.parentId].children.push(byId[v.id]);
+        } else {
+          roots.push(byId[v.id]);
+        }
+      });
+
+      // Layout: assign x,y to each node using a simple recursive algorithm
+      let nextX = 0;
+
+      function layoutNode(node, depth) {
+        node._depth = depth;
+        if (node.children.length === 0) {
+          node._x = nextX;
+          node._y = depth;
+          nextX++;
+        } else {
+          node.children.forEach(c => layoutNode(c, depth + 1));
+          const first = node.children[0]._x;
+          const last = node.children[node.children.length - 1]._x;
+          node._x = (first + last) / 2;
+          node._y = depth;
+        }
+      }
+
+      roots.forEach(r => layoutNode(r, 0));
+
+      // Convert to pixel coords
+      const allNodes = Object.values(byId);
+      const padding = 60;
+
+      allNodes.forEach(n => {
+        n._px = padding + n._x * (NODE_W + H_GAP) + NODE_W / 2;
+        n._py = padding + n._y * (NODE_H + V_GAP) + NODE_H / 2;
+      });
+
+      const statusColor = {
+        planned: '#555',
+        running: '#4a9eff',
+        completed: '#4a9',
+        failed: '#e55'
+      };
+
+      // Build SVG content
+      let edges = '';
+      allNodes.forEach(n => {
+        if (n.parentId && byId[n.parentId]) {
+          const p = byId[n.parentId];
+          const x1 = p._px, y1 = p._py + NODE_H / 2;
+          const x2 = n._px, y2 = n._py - NODE_H / 2;
+          const midY = (y1 + y2) / 2;
+          edges += `<path class="tree-edge" d="M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}" />`;
+        }
+      });
+
+      let nodes = '';
+      allNodes.forEach(n => {
+        const x = n._px - NODE_W / 2;
+        const y = n._py - NODE_H / 2;
+        const color = statusColor[n.status] || '#555';
+        const isSelected = n.id === selectedVersionId;
+        nodes += `
+          <g class="tree-node" onclick="selectVersion('${n.id}')">
+            <rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}"
+                  fill="#181818" stroke="${color}" stroke-opacity="${isSelected ? 1 : 0.5}" />
+            <circle cx="${x + 14}" cy="${n._py}" r="4" fill="${color}" />
+            <text x="${x + 24}" y="${n._py + 4}" font-size="12" clip-path="url(#node-clip-${n.id})">
+              ${escapeHtml(n.name.length > 12 ? n.name.slice(0, 12) + '...' : n.name)}
+            </text>
+          </g>`;
+      });
+
+      const transform = `translate(${svgPan.x},${svgPan.y}) scale(${svgZoom})`;
+      svg.innerHTML = `<g id="tree-root" transform="${transform}">${edges}${nodes}</g>`;
+    }
+
+    // Pan & zoom
+    (function setupPanZoom() {
+      const svg = document.getElementById('tree-svg');
+
+      svg.addEventListener('mousedown', e => {
+        if (e.target.closest('.tree-node')) return;
+        dragging = true;
+        dragStart = { x: e.clientX - svgPan.x, y: e.clientY - svgPan.y };
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        svgPan.x = e.clientX - dragStart.x;
+        svgPan.y = e.clientY - dragStart.y;
+        const root = document.getElementById('tree-root');
+        if (root) root.setAttribute('transform', `translate(${svgPan.x},${svgPan.y}) scale(${svgZoom})`);
+      });
+
+      window.addEventListener('mouseup', () => { dragging = false; });
+
+      svg.addEventListener('wheel', e => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.min(3, Math.max(0.2, svgZoom * delta));
+
+        // Zoom towards mouse position
+        const rect = svg.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        svgPan.x = mx - (mx - svgPan.x) * (newZoom / svgZoom);
+        svgPan.y = my - (my - svgPan.y) * (newZoom / svgZoom);
+        svgZoom = newZoom;
+
+        const root = document.getElementById('tree-root');
+        if (root) root.setAttribute('transform', `translate(${svgPan.x},${svgPan.y}) scale(${svgZoom})`);
+      }, { passive: false });
+    })();
   </script>
 </body>
 </html>
