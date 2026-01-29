@@ -350,6 +350,51 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             new_meta['id'] = slug
             self._send_json(new_meta, 201)
 
+        elif self.path == '/api/quality-filter':
+            try:
+                body = self._read_body()
+                titles = body.get('titles', [])
+                if not titles:
+                    self._send_json({'error': 'titles required'}, 400)
+                    return
+                prompt_tpl = (
+                    "Classify as KEEP or SKIP. One word only.\n\n"
+                    "KEEP = research, engineering, science, deep analysis, novel projects, thoughtful essays\n"
+                    "SKIP = listicles, ragebait, marketing, job posts, fluff, vague announcements\n\n"
+                    "Title: \"{title}\"\nAnswer:"
+                )
+                results = {}
+                # Process titles in parallel with ThreadPoolExecutor
+                def classify(title):
+                    payload = json.dumps({
+                        "model": "qwen2.5:0.5b",
+                        "prompt": prompt_tpl.format(title=title.replace('"', '\\"')),
+                        "stream": False,
+                        "options": {"temperature": 0, "num_predict": 3}
+                    }).encode()
+                    req = urllib.request.Request(
+                        "http://localhost:11434/api/generate",
+                        data=payload,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        resp_data = json.loads(resp.read())
+                    answer = resp_data.get("response", "").strip().upper()
+                    return "keep" if answer.startswith("KEEP") else "skip"
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    futures = {pool.submit(classify, t): t for t in titles}
+                    for fut in concurrent.futures.as_completed(futures):
+                        t = futures[fut]
+                        try:
+                            results[t] = fut.result()
+                        except Exception:
+                            results[t] = "keep"  # default to keep on error
+
+                self._send_json(results)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         elif self.path == '/api/experiments':
             body = self._read_body()
             title = body.get('title', '').strip()
