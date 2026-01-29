@@ -82,11 +82,13 @@ In the feed, posts classified as `skip` are hidden. A green checkmark (✓) appe
 
 The filter toggle state is stored in `localStorage.qualityFilter` (`'on'`/`'off'`).
 
+**Prompt test suite:** Titles hidden via ✕ are collected in `localStorage.qualityTestTitles` as a "must-SKIP" test set. In settings, users can run these titles against the current prompt to verify all are classified as SKIP. The "Save prompt" button runs the test first — if any title is classified as KEEP, the save is blocked and failures are shown. Saving also clears the quality cache so existing posts get re-evaluated.
+
 ### Post Actions
 
 Each feed card has two action buttons (top-right corner):
 - **Bookmark** — saves to Reading List (`localStorage.savedPosts`)
-- **Hide (✕)** — permanently hides the post from the feed (`localStorage.hiddenPosts`)
+- **Hide (✕)** — permanently hides the post from the feed (`localStorage.hiddenPosts`) and adds its title to the prompt test suite (`localStorage.qualityTestTitles`)
 
 ### External APIs
 
@@ -106,6 +108,7 @@ Each feed card has two action buttons (top-right corner):
 | `qualityCache` | `{ title: 'keep'|'skip' }` — cached LLM verdicts |
 | `hiddenPosts` | Array of post URLs permanently hidden by user |
 | `savedPosts` | `{ url: { paper, savedAt, read } }` — reading list |
+| `qualityTestTitles` | Array of strings — titles that must be classified as SKIP (prompt test suite) |
 
 ## Key Conventions
 

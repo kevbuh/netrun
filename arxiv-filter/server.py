@@ -16,8 +16,22 @@ CACHE_TTL = 600  # 10 minutes
 _cache = {}
 DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
+BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
+PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
+
+
+def read_blocked_titles():
+    if not os.path.exists(BLOCKED_TITLES_FILE):
+        return []
+    with open(BLOCKED_TITLES_FILE, 'r') as f:
+        return json.load(f)
+
+
+def write_blocked_titles(titles):
+    with open(BLOCKED_TITLES_FILE, 'w') as f:
+        json.dump(titles, f, indent=2)
 
 
 def slugify(text):
@@ -49,6 +63,91 @@ def write_meta(exp_id, data):
     path = os.path.join(EXPERIMENTS_DIR, exp_id, 'meta.json')
     with open(path, 'w') as f:
         json.dump(data, f, indent=2)
+
+
+def read_prompt():
+    """Read the custom prompt from disk, or return None if not set."""
+    if os.path.exists(PROMPT_FILE):
+        with open(PROMPT_FILE, 'r') as f:
+            text = f.read().strip()
+            return text if text else None
+    return None
+
+
+def write_prompt(prompt):
+    """Write a custom prompt to disk. Pass None/empty to delete."""
+    if not prompt or not prompt.strip():
+        if os.path.exists(PROMPT_FILE):
+            os.remove(PROMPT_FILE)
+    else:
+        with open(PROMPT_FILE, 'w') as f:
+            f.write(prompt.strip())
+
+
+def get_active_prompt():
+    """Return the custom prompt if set, otherwise the default."""
+    return read_prompt() or DEFAULT_VERDICT_PROMPT
+
+
+DEFAULT_VERDICT_PROMPT = (
+    "You are a strict topic filter for a CS/science/tech reader.\n\n"
+    "KEEP only if the title is clearly about: computer science, programming, software engineering, "
+    "math, physics, AI/ML research, systems, algorithms, scientific discoveries, hardware engineering, "
+    "databases, networking, security research, open-source projects, developer tools, novel technology.\n\n"
+    "SKIP everything else, including: politics, law, lawsuits, courts, government, policy, regulation, "
+    "elections, immigration, social issues, business deals, mergers, acquisitions, opinion pieces, "
+    "culture war, hiring/jobs, celebrity news, sports, entertainment, lifestyle, marketing, "
+    "product reviews, buyer's guides, 'best X' roundups, deals, discounts, coupons, promo codes, "
+    "gift guides, gadget reviews, price comparisons, sales, VPN reviews, sleep/health products, "
+    "TV/movie/show recommendations, recipes, fashion, travel, real estate, automotive news, "
+    "military, war, crime, accidents, weather, animals/wildlife, food/drink.\n\n"
+    "When in doubt, SKIP.\n\n"
+    "Reply ONLY with KEEP or SKIP."
+)
+
+
+DEFAULT_SCORING_PROMPT = (
+    "You are a strict relevance scorer for a CS/science reader.\n\n"
+    "10: groundbreaking CS/science research, novel algorithms, breakthrough discoveries.\n"
+    "9: significant open-source releases, deep technical write-ups, important papers.\n"
+    "8: solid technical content — programming tutorials, developer tools, software architecture, "
+    "engineering blog posts, science news reporting.\n"
+    "6-7: tangentially technical — tech industry news, startup announcements, conference talks.\n"
+    "4-5: barely related — tech business, funding rounds, industry opinions, CEO statements.\n"
+    "2-3: off-topic — product reviews, buyer's guides, 'best X' roundups, deals, discounts, "
+    "coupons, promo codes, gift guides, gadget comparisons, politics, law, government, "
+    "immigration, military, crime, entertainment, lifestyle, sports, celebrity, fashion, "
+    "food, travel, health products, VPN/sleep/mattress reviews.\n"
+    "1: rage bait, clickbait, outrage headlines, inflammatory takes, culture war, "
+    "sensationalized news, misleading titles, engagement farming.\n"
+    "0: spam, SEO garbage, auto-generated content, completely irrelevant.\n\n"
+    "Be strict. Most general news should score 5 or below.\n\n"
+    "Reply with ONLY a number 0-10."
+)
+
+
+def classify_title(title, system_msg=None):
+    """Classify a single title as 'keep' or 'skip' via Ollama."""
+    if system_msg is None:
+        system_msg = DEFAULT_VERDICT_PROMPT
+    payload = json.dumps({
+        "model": "qwen2.5:1.5b",
+        "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": title}
+        ],
+        "stream": False,
+        "options": {"temperature": 0, "num_predict": 3}
+    }).encode()
+    req = urllib.request.Request(
+        "http://localhost:11434/api/chat",
+        data=payload,
+        headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        resp_data = json.loads(resp.read())
+    raw = resp_data.get("message", {}).get("content", "").strip()
+    return "keep" if raw.upper().startswith("KEEP") else "skip"
 
 
 def cached_fetch(url, timeout=15):
@@ -249,6 +348,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 content = f.read()
             self._send_json({'name': fname, 'content': content})
 
+        elif self.path == '/api/blocked-titles':
+            self._send_json(read_blocked_titles())
+
+        elif self.path == '/api/quality-prompt':
+            self._send_json({
+                'prompt': read_prompt(),
+                'default': DEFAULT_VERDICT_PROMPT,
+                'scoringPrompt': DEFAULT_SCORING_PROMPT
+            })
+
         else:
             super().do_GET()
 
@@ -354,47 +463,61 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 body = self._read_body()
                 titles = body.get('titles', [])
+                mode = body.get('mode', 'verdict')  # 'verdict' or 'score'
                 if not titles:
                     self._send_json({'error': 'titles required'}, 400)
                     return
-                default_prompt = (
-                    "Classify as KEEP or SKIP. One word only.\n\n"
-                    "KEEP = research, engineering, science, deep analysis, novel projects, thoughtful essays\n"
-                    "SKIP = listicles, ragebait, marketing, job posts, fluff, vague announcements, politics\n\n"
-                    "Title: \"{title}\"\nAnswer:"
-                )
-                prompt_tpl = body.get('prompt', default_prompt)
-                if '{title}' not in prompt_tpl:
-                    prompt_tpl = default_prompt
-                results = {}
-                # Process titles in parallel with ThreadPoolExecutor
-                def classify(title):
-                    payload = json.dumps({
-                        "model": "qwen2.5:0.5b",
-                        "prompt": prompt_tpl.format(title=title.replace('"', '\\"')),
-                        "stream": False,
-                        "options": {"temperature": 0, "num_predict": 3}
-                    }).encode()
-                    req = urllib.request.Request(
-                        "http://localhost:11434/api/generate",
-                        data=payload,
-                        headers={"Content-Type": "application/json"}
-                    )
-                    with urllib.request.urlopen(req, timeout=30) as resp:
-                        resp_data = json.loads(resp.read())
-                    answer = resp_data.get("response", "").strip().upper()
-                    return "keep" if answer.startswith("KEEP") else "skip"
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                    futures = {pool.submit(classify, t): t for t in titles}
-                    for fut in concurrent.futures.as_completed(futures):
-                        t = futures[fut]
-                        try:
-                            results[t] = fut.result()
-                        except Exception:
-                            results[t] = "keep"  # default to keep on error
+                if mode == 'score':
+                    # Phase 2: score only (called for kept titles)
+                    score_system = DEFAULT_SCORING_PROMPT
+                    def score_title(title):
+                        payload = json.dumps({
+                            "model": "qwen2.5:1.5b",
+                            "messages": [
+                                {"role": "system", "content": score_system},
+                                {"role": "user", "content": title}
+                            ],
+                            "stream": False,
+                            "options": {"temperature": 0, "num_predict": 6}
+                        }).encode()
+                        req = urllib.request.Request(
+                            "http://localhost:11434/api/chat",
+                            data=payload,
+                            headers={"Content-Type": "application/json"}
+                        )
+                        with urllib.request.urlopen(req, timeout=30) as resp:
+                            resp_data = json.loads(resp.read())
+                        raw = resp_data.get("message", {}).get("content", "").strip()
+                        score_match = re.search(r'\d+', raw)
+                        score = int(score_match.group()) if score_match else 5
+                        return max(0, min(10, score))
 
-                self._send_json(results)
+                    results = {}
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                        futures = {pool.submit(score_title, t): t for t in titles}
+                        for fut in concurrent.futures.as_completed(futures):
+                            t = futures[fut]
+                            try:
+                                results[t] = fut.result()
+                            except Exception:
+                                results[t] = 70
+                    self._send_json(results)
+                else:
+                    # Phase 1: verdict only (KEEP or SKIP)
+                    custom_prompt = body.get('prompt', '')
+                    system_msg = custom_prompt.strip() if custom_prompt.strip() else None
+
+                    results = {}
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                        futures = {pool.submit(classify_title, t, system_msg): t for t in titles}
+                        for fut in concurrent.futures.as_completed(futures):
+                            t = futures[fut]
+                            try:
+                                results[t] = fut.result()
+                            except Exception:
+                                results[t] = "keep"
+                    self._send_json(results)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
@@ -455,10 +578,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             os.makedirs(ver_dir, exist_ok=True)
 
             self._send_json(version, 201)
+
+        elif self.path == '/api/blocked-titles':
+            body = self._read_body()
+            title = body.get('title', '').strip()
+            if not title:
+                self._send_json({'error': 'title required'}, 400)
+                return
+            titles = read_blocked_titles()
+            if title not in titles:
+                titles.append(title)
+                write_blocked_titles(titles)
+            self._send_json({'ok': True})
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
+        if self.path == '/api/quality-prompt':
+            body = self._read_body()
+            prompt = body.get('prompt', '')
+            write_prompt(prompt)
+            self._send_json({'ok': True, 'prompt': read_prompt()})
+            return
+
         if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
             exp_id = m.group(1)
             fname = m.group(2)
@@ -540,6 +683,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not found'}, 404)
+
+        elif self.path == '/api/blocked-titles':
+            write_blocked_titles([])
+            self._send_json({'ok': True})
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 

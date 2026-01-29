@@ -291,9 +291,9 @@
       <span id="saved-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-white text-[0.65rem] font-semibold flex items-center justify-center leading-none px-1 pointer-events-none" style="display:none"></span>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Reading List</span>
     </button>
-    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
-      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">TBD</span>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-quality" onclick="openQualityFilter()">
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Quality Filter</span>
     </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
@@ -337,6 +337,7 @@
         <div id="trends-panel" style="display:none" class="pb-3 flex items-center gap-2 overflow-x-auto">
           <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
           <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
+          <span id="eval-indicator" class="shrink-0 text-[0.78rem] text-dim animate-pulse hidden">● Evaluating <span id="eval-count">0</span>…</span>
           <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>
           <div class="flex gap-1.5 shrink-0" id="trend-categories"></div>
         </div>
@@ -417,37 +418,18 @@
     </div>
   </div>
 
+  <!-- Quality Filter View -->
+  <div id="quality-view" class="hidden ml-[60px] view">
+    <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
+      <div id="quality-view-content"></div>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div id="settings-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeSettings()">
     <div class="bg-popup border border-border-input rounded-xl p-6 w-[560px] max-w-[90vw] max-h-[90vh] overflow-y-auto shadow-popup">
       <h2 class="text-white_ text-lg font-semibold mb-4">Feed Sources</h2>
       <div class="flex flex-col gap-3" id="settings-builtin-sources"></div>
-      <div class="mt-5 pt-4 border-t border-border-subtle">
-        <h3 class="text-white_ text-sm font-semibold mb-3">AI Quality Filter</h3>
-        <p class="text-dim text-[0.75rem] mb-2">Uses a local LLM (Ollama) to hide low-quality posts based on their title.</p>
-        <label class="flex items-center justify-between cursor-pointer mb-3">
-          <span class="text-primary text-sm">Enable quality filter</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-quality-filter" onchange="setQualityFilter(this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-        <div id="quality-prompt-section">
-          <label class="text-dim text-[0.72rem] uppercase tracking-wider block mb-1.5">LLM Prompt</label>
-          <textarea id="quality-prompt-input" rows="5" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.8rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false"></textarea>
-          <div class="flex items-center justify-between mt-2">
-            <button onclick="resetQualityPrompt()" class="text-dim text-[0.75rem] hover:text-primary bg-transparent border-none cursor-pointer">Reset to default</button>
-            <div class="flex gap-2">
-              <button onclick="clearQualityCache()" class="text-dim text-[0.75rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear cache</button>
-              <button onclick="saveQualityPrompt()" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save prompt</button>
-            </div>
-          </div>
-        </div>
-        <div class="mt-3" id="quality-blocked-section">
-          <label class="text-dim text-[0.72rem] uppercase tracking-wider block mb-1.5">Recently blocked</label>
-          <div id="quality-blocked-list" class="text-[0.78rem] text-muted"></div>
-        </div>
-      </div>
       <div class="mt-5 pt-4 border-t border-border-subtle">
         <h3 class="text-white_ text-sm font-semibold mb-3">Custom RSS Feeds</h3>
         <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
@@ -581,6 +563,7 @@
     function routeFromHash() {
       const hash = window.location.hash;
       if (hash === '#experiments') openExperiments();
+      else if (hash === '#quality') openQualityFilter();
       else if (hash === '#saved') openSaved();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
       else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
@@ -608,12 +591,36 @@
     function getHiddenPosts() {
       try { return JSON.parse(localStorage.getItem('hiddenPosts') || '[]'); } catch { return []; }
     }
-    function hidePost(link, event) {
+    function hidePost(link, title, event) {
       if (event) event.stopPropagation();
       const hidden = getHiddenPosts();
       if (!hidden.includes(link)) hidden.push(link);
       localStorage.setItem('hiddenPosts', JSON.stringify(hidden));
+      if (title) addTestTitle(title);
       renderPapers();
+    }
+    function getTestTitles() {
+      try { return JSON.parse(localStorage.getItem('qualityTestTitles') || '[]'); } catch { return []; }
+    }
+    async function fetchTestTitlesFromServer() {
+      try {
+        const resp = await fetch('/api/blocked-titles');
+        if (resp.ok) {
+          const titles = await resp.json();
+          localStorage.setItem('qualityTestTitles', JSON.stringify(titles));
+          return titles;
+        }
+      } catch {}
+      return getTestTitles();
+    }
+    function addTestTitle(title) {
+      const titles = getTestTitles();
+      if (!titles.includes(title)) { titles.push(title); localStorage.setItem('qualityTestTitles', JSON.stringify(titles)); }
+      fetch('/api/blocked-titles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      }).catch(() => {});
     }
     function isPostHidden(link) { return getHiddenPosts().includes(link); }
 
@@ -925,9 +932,6 @@
         `).join('')}
       `).join('');
       renderCustomFeedsList();
-      document.getElementById('toggle-quality-filter').checked = isQualityFilterOn();
-      document.getElementById('quality-prompt-input').value = getQualityPrompt();
-      renderBlockedList();
       document.getElementById('settings-overlay').style.display = 'flex';
     }
 
@@ -1016,42 +1020,273 @@
     }
 
     // ── AI Quality Filter (local Ollama) ──
+    function openQualityFilter() {
+      hideAllViews();
+      const view = document.getElementById('quality-view');
+      view.classList.add('active');
+      view.style.display = 'block';
+      window.location.hash = 'quality';
+      setSidebarActive('sb-quality');
+      renderQualityFilterView();
+    }
+
+    function renderQualityFilterView() {
+      const container = document.getElementById('quality-view-content');
+      const cache = getQualityCache();
+      const cacheEntries = Object.entries(cache);
+      const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
+      const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
+      const testTitles = getTestTitles();
+
+      container.innerHTML = `
+        <div class="flex items-center gap-3 mb-1">
+          <h2 class="text-[1.3rem] font-semibold text-white_">AI Quality Filter</h2>
+          <label class="flex items-center gap-2 cursor-pointer ml-auto">
+            <span class="text-primary text-sm">Enable</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
+              <span class="slider"></span>
+            </span>
+          </label>
+        </div>
+        <p class="text-dim text-[0.8rem] mb-6">Uses a local LLM (Ollama) to hide low-quality posts based on their title. Posts go through two phases: verdict (KEEP/SKIP), then scoring for kept posts.</p>
+
+        <div class="mb-6">
+          <h3 class="text-white_ text-sm font-semibold mb-2">Phase 1: Verdict Prompt</h3>
+          <p class="text-dimmer text-[0.75rem] mb-2">Classifies each post title as KEEP or SKIP. Only kept posts proceed to scoring.</p>
+          <textarea id="quality-prompt-input" rows="7" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.8rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false">${escapeHtml(getQualityPrompt())}</textarea>
+          <div class="flex items-center justify-end mt-2">
+            <button onclick="saveQualityPrompt()" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save prompt</button>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-white_ text-sm font-semibold mb-2">Phase 2: Scoring Prompt</h3>
+          <p class="text-dimmer text-[0.75rem] mb-2">Scoring is only run for posts that pass the verdict phase. Posts with a relevance score at or above the threshold are shown.</p>
+          <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.8rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading…</div>
+          <div class="flex items-center gap-3">
+            <input type="range" id="quality-threshold-slider" min="0" max="10" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
+            <span id="quality-threshold-value" class="text-primary text-sm font-mono w-7 text-right">${getQualityThreshold()}</span>
+          </div>
+          <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0 = show all kept, 10 = strictest)</p>
+        </div>
+
+        <div class="mb-6 pt-4 border-t border-border-subtle">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-white_ text-sm font-semibold">Prompt Test Suite <span class="text-dim font-normal">(<span id="test-title-count">${testTitles.length}</span> titles)</span></h3>
+            <button onclick="clearTestTitles()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear tests</button>
+          </div>
+          <p class="text-dimmer text-[0.75rem] mb-2">Titles hidden with ✕ are collected here. All should be classified as SKIP.</p>
+          <button onclick="runPromptTest()" class="bg-input border border-border-input text-primary text-[0.78rem] px-3 py-1.5 rounded-md cursor-pointer hover:border-accent mb-2">Run test</button>
+          <div id="prompt-test-results"></div>
+        </div>
+
+        <div class="mb-6 pt-4 border-t border-border-subtle">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-white_ text-sm font-semibold">Blocked Posts</h3>
+            <button onclick="clearAllBlockedPosts()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear manual blocks</button>
+          </div>
+          <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[400px] overflow-y-auto"></div>
+        </div>
+
+        <div class="pt-4 border-t border-border-subtle">
+          <div class="flex items-center justify-between">
+            <div class="text-dim text-[0.78rem]">
+              Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
+            </div>
+            <button onclick="resetEverything()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
+          </div>
+        </div>
+      `;
+
+      renderBlockedList();
+      fetchTestTitlesFromServer().then(() => updateTestTitleCount());
+      // Sync prompt from server (may have been updated)
+      fetch('/api/quality-prompt').then(r => r.json()).then(data => {
+        if (data.prompt) {
+          localStorage.setItem('qualityPrompt', data.prompt);
+          const el = document.getElementById('quality-prompt-input');
+          if (el) el.value = data.prompt;
+        }
+        const scoringEl = document.getElementById('scoring-prompt-display');
+        if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
+      }).catch(() => {});
+    }
+
+    function clearAllBlockedPosts() {
+      localStorage.removeItem('hiddenPosts');
+      clearTestTitles();
+      renderPapers();
+      if (document.getElementById('quality-view').style.display === 'block') renderQualityFilterView();
+    }
+
     const DEFAULT_QUALITY_PROMPT =
-      'Classify as KEEP or SKIP. One word only.\n\n' +
-      'KEEP = research, engineering, science, deep analysis, novel projects, thoughtful essays\n' +
-      'SKIP = listicles, ragebait, marketing, job posts, fluff, vague announcements, politics\n\n' +
-      'Title: "{title}"\nAnswer:';
+      'You are a strict topic filter for a CS/science/tech reader.\n\n' +
+      'KEEP only if the title is clearly about: computer science, programming, software engineering, ' +
+      'math, physics, AI/ML research, systems, algorithms, scientific discoveries, hardware engineering, ' +
+      'databases, networking, security research, open-source projects, developer tools, novel technology.\n\n' +
+      'SKIP everything else, including: politics, law, lawsuits, courts, government, policy, regulation, ' +
+      'elections, immigration, social issues, business deals, mergers, acquisitions, opinion pieces, ' +
+      'culture war, hiring/jobs, celebrity news, sports, entertainment, lifestyle, marketing, ' +
+      'product reviews, buyer\'s guides, \'best X\' roundups, deals, discounts, coupons, promo codes, ' +
+      'gift guides, gadget reviews, price comparisons, sales, VPN reviews, sleep/health products, ' +
+      'TV/movie/show recommendations, recipes, fashion, travel, real estate, automotive news, ' +
+      'military, war, crime, accidents, weather, animals/wildlife, food/drink.\n\n' +
+      'When in doubt, SKIP.\n\n' +
+      'Reply ONLY with KEEP or SKIP.';
 
     function getQualityPrompt() {
       return localStorage.getItem('qualityPrompt') || DEFAULT_QUALITY_PROMPT;
     }
-    function saveQualityPrompt() {
+    async function fetchServerPrompt() {
+      try {
+        const resp = await fetch('/api/quality-prompt');
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        if (data.prompt) {
+          localStorage.setItem('qualityPrompt', data.prompt);
+          return data.prompt;
+        }
+      } catch {}
+      return null;
+    }
+    async function saveQualityPrompt() {
+      const testTitles = getTestTitles();
+      if (testTitles.length) {
+        const failures = await runPromptTestInternal();
+        if (failures.length) return; // test UI already shows failures
+      }
       const val = document.getElementById('quality-prompt-input').value.trim();
       if (val && val !== DEFAULT_QUALITY_PROMPT) {
         localStorage.setItem('qualityPrompt', val);
       } else {
         localStorage.removeItem('qualityPrompt');
       }
+      // Sync to server
+      try {
+        await fetch('/api/quality-prompt', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: val === DEFAULT_QUALITY_PROMPT ? '' : val })
+        });
+      } catch {}
+      localStorage.removeItem('qualityCache');
+      renderPapers();
+      if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
+      const resultsEl = document.getElementById('prompt-test-results');
+      if (resultsEl) resultsEl.innerHTML = '<div class="text-green-400 text-[0.75rem]">Prompt saved &amp; cache cleared.</div>';
     }
     function resetQualityPrompt() {
       localStorage.removeItem('qualityPrompt');
-      document.getElementById('quality-prompt-input').value = DEFAULT_QUALITY_PROMPT;
+      fetch('/api/quality-prompt', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: '' })
+      }).catch(() => {});
+      const el = document.getElementById('quality-prompt-input');
+      if (el) el.value = DEFAULT_QUALITY_PROMPT;
+      runPromptTest(); // informational
+    }
+    function clearTestTitles() {
+      localStorage.removeItem('qualityTestTitles');
+      updateTestTitleCount();
+      const resultsEl = document.getElementById('prompt-test-results');
+      if (resultsEl) resultsEl.innerHTML = '';
+      fetch('/api/blocked-titles', { method: 'DELETE' }).catch(() => {});
+    }
+    function updateTestTitleCount() {
+      const el = document.getElementById('test-title-count');
+      if (el) el.textContent = getTestTitles().length;
+    }
+    async function runPromptTestInternal() {
+      const titles = getTestTitles();
+      const resultsEl = document.getElementById('prompt-test-results');
+      if (!titles.length) {
+        resultsEl.innerHTML = '<div class="text-dim text-[0.75rem]">No test titles collected yet. Hide posts with ✕ to add them.</div>';
+        return [];
+      }
+      resultsEl.innerHTML = '<div class="text-dim text-[0.75rem]">Testing…</div>';
+      const prompt = document.getElementById('quality-prompt-input').value.trim();
+      const failures = [];
+      try {
+        for (let i = 0; i < titles.length; i += 10) {
+          const batch = titles.slice(i, i + 10);
+          const resp = await fetch('/api/quality-filter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titles: batch, prompt, mode: 'verdict' })
+          });
+          if (!resp.ok) { resultsEl.innerHTML = '<div class="text-red-400 text-[0.75rem]">API error — is Ollama running?</div>'; return []; }
+          const results = await resp.json();
+          for (const t of batch) {
+            const verdict = results[t] || 'unknown';
+            if (verdict !== 'skip') failures.push(t);
+          }
+        }
+      } catch {
+        resultsEl.innerHTML = '<div class="text-red-400 text-[0.75rem]">Network error — is Ollama running?</div>';
+        return [];
+      }
+      const passed = titles.length - failures.length;
+      let html = `<div class="text-[0.75rem] mb-1 ${failures.length ? 'text-red-400' : 'text-green-400'}">${passed}/${titles.length} passed</div>`;
+      if (failures.length) {
+        html += failures.map(t => `<div class="text-red-400/80 text-[0.73rem] py-0.5 border-b border-border-subtle last:border-0">✗ ${escapeHtml(t)}</div>`).join('');
+      }
+      resultsEl.innerHTML = html;
+      return failures;
+    }
+    async function runPromptTest() {
+      await runPromptTestInternal();
     }
     function clearQualityCache() {
       localStorage.removeItem('qualityCache');
       renderPapers();
       if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
     }
+    function resetEverything() {
+      // Reset prompts to default
+      localStorage.removeItem('qualityPrompt');
+      localStorage.removeItem('qualityThreshold');
+      fetch('/api/quality-prompt', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: '' })
+      }).catch(() => {});
+      // Clear cache
+      localStorage.removeItem('qualityCache');
+      renderPapers();
+      if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
+      // Show feedback then re-render
+      const btn = document.querySelector('[onclick="resetEverything()"]');
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.textContent = 'Cleared';
+        btn.classList.remove('text-red-400/80');
+        btn.classList.add('text-green-400');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.remove('text-green-400');
+          btn.classList.add('text-red-400/80');
+          if (document.getElementById('quality-view').style.display === 'block') renderQualityFilterView();
+        }, 1500);
+      }
+    }
     function renderBlockedList() {
       const cache = getQualityCache();
-      const blocked = Object.entries(cache).filter(([, v]) => v === 'skip').map(([t]) => t);
+      const aiBlocked = Object.entries(cache).filter(([, v]) => (v?.v || v) === 'skip').map(([t, v]) => ({ title: t, score: v?.s, source: 'ai' }));
+      const manualBlocked = getTestTitles().map(t => ({ title: t, score: null, source: 'manual' }));
+      const seen = new Set();
+      const all = [];
+      for (const b of aiBlocked) { seen.add(b.title); all.push(b); }
+      for (const b of manualBlocked) { if (!seen.has(b.title)) all.push(b); }
       const el = document.getElementById('quality-blocked-list');
-      if (!blocked.length) {
+      if (!el) return;
+      if (!all.length) {
         el.innerHTML = '<div class="text-dim text-[0.75rem]">No posts blocked yet.</div>';
         return;
       }
-      const last5 = blocked.slice(-5).reverse();
-      el.innerHTML = last5.map(t => `<div class="py-1 border-b border-border-subtle last:border-0 text-red-400/70">${escapeHtml(t)}</div>`).join('');
+      const items = all.reverse();
+      el.innerHTML = items.map(b => `<div class="py-1 border-b border-border-subtle last:border-0 flex items-center gap-2"><span class="${b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70'} flex-1 min-w-0 truncate">${escapeHtml(b.title)}</span>${b.source === 'manual' ? '<span class="text-dimmer text-[0.68rem] shrink-0">✕</span>' : ''}${b.score != null ? `<span class="text-dimmer text-[0.68rem] shrink-0">${b.score}</span>` : ''}</div>`).join('');
     }
     function getQualityCache() {
       try { return JSON.parse(localStorage.getItem('qualityCache') || '{}'); } catch { return {}; }
@@ -1060,35 +1295,99 @@
       localStorage.setItem('qualityCache', JSON.stringify(cache));
     }
     function isQualityFilterOn() {
-      return localStorage.getItem('qualityFilter') === 'on';
+      return localStorage.getItem('qualityFilter') !== 'off';
     }
     function setQualityFilter(on) {
       localStorage.setItem('qualityFilter', on ? 'on' : 'off');
       if (on && allPapers.length) qualityFilterPapers();
       renderPapers();
     }
+    function getQualityThreshold() {
+      const v = parseInt(localStorage.getItem('qualityThreshold'), 10);
+      return isNaN(v) ? 8 : Math.min(v, 10);
+    }
+    function setQualityThreshold(val) {
+      localStorage.setItem('qualityThreshold', String(val));
+      renderPapers();
+    }
 
-    async function qualityFilterPapers() {
+    function getPapersNeedingVerdict() {
+      // Only papers that pass other filters (hidden, category, search) but lack a verdict
+      const search = document.getElementById('search').value.toLowerCase();
+      const category = document.getElementById('category').value;
+      const hidden = new Set(getHiddenPosts());
       const cache = getQualityCache();
-      const uncached = allPapers.filter(p => !(p.title in cache)).map(p => p.title);
-      if (!uncached.length) return; // all cached already
+      return allPapers.filter(p => {
+        if (hidden.has(p.link)) return false;
+        if (p.title in cache) return false; // already has verdict
+        if (category && !p.categories.includes(category)) return false;
+        if (search) {
+          const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
+          return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
+        }
+        return true;
+      });
+    }
 
-      // Process in batches of 10
-      for (let i = 0; i < uncached.length; i += 10) {
-        const batch = uncached.slice(i, i + 10);
-        try {
-          const resp = await fetch('/api/quality-filter', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ titles: batch, prompt: getQualityPrompt() })
-          });
-          if (!resp.ok) continue;
-          const results = await resp.json();
-          const updated = getQualityCache();
-          Object.assign(updated, results);
-          saveQualityCacheData(updated);
-          renderPapers(); // re-render as results come in
-        } catch { /* Ollama may be offline — just skip filtering */ }
+    let _qfRunning = false;
+    let _qfQueued = false;
+    async function qualityFilterPapers() {
+      if (_qfRunning) { _qfQueued = true; return; }
+      _qfRunning = true;
+      try { await _qualityFilterPapersInner(); }
+      finally {
+        _qfRunning = false;
+        if (_qfQueued) { _qfQueued = false; qualityFilterPapers(); }
+      }
+    }
+    async function _qualityFilterPapersInner() {
+      // Phase 1: verdict (KEEP/SKIP) for papers needing it
+      const needVerdict = getPapersNeedingVerdict().map(p => p.title);
+      if (needVerdict.length) {
+        for (let i = 0; i < needVerdict.length; i += 10) {
+          const batch = needVerdict.slice(i, i + 10);
+          try {
+            const resp = await fetch('/api/quality-filter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ titles: batch, prompt: getQualityPrompt(), mode: 'verdict' })
+            });
+            if (!resp.ok) continue;
+            const verdicts = await resp.json();
+            const updated = getQualityCache();
+            for (const [title, v] of Object.entries(verdicts)) {
+              updated[title] = { v };
+            }
+            saveQualityCacheData(updated);
+            renderPapers();
+          } catch { /* Ollama may be offline */ }
+        }
+      }
+
+      // Phase 2: score only for kept papers that lack a score
+      const cache = getQualityCache();
+      const needScore = allPapers
+        .filter(p => cache[p.title]?.v === 'keep' && cache[p.title]?.s == null)
+        .map(p => p.title);
+      if (needScore.length) {
+        for (let i = 0; i < needScore.length; i += 10) {
+          const batch = needScore.slice(i, i + 10);
+          try {
+            const resp = await fetch('/api/quality-filter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ titles: batch, mode: 'score' })
+            });
+            if (!resp.ok) continue;
+            const scores = await resp.json();
+            const updated = getQualityCache();
+            for (const [title, s] of Object.entries(scores)) {
+              if (updated[title]) updated[title].s = s;
+            }
+            saveQualityCacheData(updated);
+            renderPapers();
+          } catch { /* Ollama may be offline */ }
+        }
       }
     }
 
@@ -1516,7 +1815,13 @@
       const qCache = qfOn ? getQualityCache() : {};
       let filtered = allPapers.filter(p => {
         if (hidden.has(p.link)) return false;
-        if (qfOn && qCache[p.title] === 'skip') return false;
+        if (qfOn && !(p.title in qCache)) return false;
+        if (qfOn && (p.title in qCache)) {
+          const entry = qCache[p.title];
+          const verdict = entry?.v ?? entry;
+          if (verdict === 'skip') return false;
+          if (verdict === 'keep' && entry?.s != null && entry.s < getQualityThreshold()) return false;
+        }
         if (category && !p.categories.includes(category)) return false;
         if (search) {
           const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
@@ -1544,15 +1849,34 @@
       const filtered = getFilteredPapers();
       lastFilteredPapers = filtered;
       const visible = filtered.slice(0, visibleCount);
-      document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
-      const container = document.getElementById('papers');
-      if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
       const qfOn = isQualityFilterOn();
       const qCache = qfOn ? getQualityCache() : {};
+      const hiddenSet = new Set(getHiddenPosts());
+      const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !(p.title in qCache)).length : 0;
+      let statsText = `Showing ${visible.length} of ${filtered.length} papers`;
+      if (pendingCount > 0) statsText += ` · Evaluating ${pendingCount}…`;
+      document.getElementById('stats').textContent = statsText;
+      // Inline eval indicator next to sort buttons
+      const evalEl = document.getElementById('eval-indicator');
+      const evalCountEl = document.getElementById('eval-count');
+      if (evalEl) {
+        if (pendingCount > 0) {
+          evalCountEl.textContent = pendingCount;
+          evalEl.classList.remove('hidden');
+        } else {
+          evalEl.classList.add('hidden');
+        }
+      }
+      const container = document.getElementById('papers');
+      if (!filtered.length && pendingCount > 0) { container.innerHTML = '<div class="text-center py-20 text-dim text-[0.85rem]"><span class="animate-pulse">●</span> Evaluating posts…</div>'; return; }
+      if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
       container.innerHTML = visible.map((p, i) => {
         const isHN = p.source === 'hn';
         const sourceChip = getSourceChip(p.source, p.arxivId);
-        const aiChip = qfOn ? (qCache[p.title] === 'keep' ? '<span class="text-green-500 text-[0.7rem]" title="AI verified">&#10003;</span>' : qCache[p.title] ? '' : '<span class="text-dimmer text-[0.65rem]" title="Checking...">&#9679;</span>') : '';
+        const aiEntry = qfOn ? qCache[p.title] : null;
+        const aiVerdict = aiEntry?.v || aiEntry;
+        const aiScore = aiEntry?.s;
+        const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore : 'scoring…'}"><span class="text-green-500">&#10003;</span>${aiScore != null ? `<span class="text-dim">${aiScore}</span>` : '<span class="text-dim animate-pulse">…</span>'}</span>` : '';
         const statsChips = isHN
           ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span><span class="text-[0.68rem] text-dim">${p.hnComments} comments</span>`
           : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
@@ -1562,7 +1886,7 @@
         const isSaved = isPostSaved(p.link);
         const bmFill = isSaved ? 'var(--accent)' : 'none';
         const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
-        const actionBtns = `<div class="absolute top-3 right-3 flex items-center gap-0.5 z-10"><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-red-400 transition-colors" onclick="hidePost('${escapeAttr(p.link)}', event)" title="Hide this post"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
+        const actionBtns = `<div class="absolute top-3 right-3 flex items-center gap-0.5 z-10"><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-red-400 transition-colors" onclick="hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}', event)" title="Hide this post"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
         return `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
           ${actionBtns}
