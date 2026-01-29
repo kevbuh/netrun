@@ -194,6 +194,10 @@
     @media (max-width: 600px) { #finder-results-masonry { columns: 1; } }
     #finder-results-masonry:empty { display: none; }
 
+    /* ── Reading list: read cards dim, hover restores ── */
+    #saved-list > div.read-card { opacity: 0.4; }
+    #saved-list > div.read-card:hover { opacity: 1 !important; }
+
 
     /* ── ASCII braille loader ── */
     @keyframes braille {
@@ -282,9 +286,9 @@
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Experiments</span>
     </button>
     <div class="w-7 h-px bg-border-subtle my-1.5"></div>
-    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
-      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">TBD</span>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-saved" onclick="openSaved()">
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Reading List</span>
     </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center relative border-none bg-transparent text-primary opacity-30 cursor-default" disabled>
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
@@ -342,6 +346,17 @@
         </button>
       </div>
       <div id="ideas-list"></div>
+    </div>
+  </div>
+
+  <!-- Reading List View -->
+  <div id="saved-view" class="hidden ml-[60px] view">
+    <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
+      <div class="flex items-center gap-3 mb-5">
+        <h2 class="text-[1.3rem] font-semibold text-white_">Reading List</h2>
+        <span id="saved-stats" class="text-[0.8rem] text-dim"></span>
+      </div>
+      <div id="saved-list"></div>
     </div>
   </div>
 
@@ -497,6 +512,7 @@
     function routeFromHash() {
       const hash = window.location.hash;
       if (hash === '#experiments') openExperiments();
+      else if (hash === '#saved') openSaved();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
       else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
       else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
@@ -505,6 +521,109 @@
 
     window.addEventListener('hashchange', routeFromHash);
     setTimeout(routeFromHash, 0);
+
+    // ── Reading List (localStorage) ──
+    function getSavedPosts() {
+      try { return JSON.parse(localStorage.getItem('savedPosts') || '{}'); } catch { return {}; }
+    }
+    function savePosts(data) { localStorage.setItem('savedPosts', JSON.stringify(data)); }
+    function isPostSaved(link) { return !!getSavedPosts()[link]; }
+
+    function toggleSavePost(paper, event) {
+      if (event) event.stopPropagation();
+      const saved = getSavedPosts();
+      if (saved[paper.link]) {
+        delete saved[paper.link];
+      } else {
+        saved[paper.link] = { paper, savedAt: Date.now(), read: false };
+      }
+      savePosts(saved);
+      renderPapers();
+      if (document.getElementById('saved-view').style.display === 'block') renderSavedPosts();
+    }
+
+    function markPostRead(link) {
+      const saved = getSavedPosts();
+      if (!saved[link]) return;
+      saved[link].read = true;
+      savePosts(saved);
+    }
+
+    function openSaved() {
+      hideAllViews();
+      const view = document.getElementById('saved-view');
+      view.classList.add('active');
+      view.style.display = 'block';
+      window.location.hash = 'saved';
+      setSidebarActive('sb-saved');
+      renderSavedPosts();
+    }
+
+    function renderSavedPosts() {
+      const saved = getSavedPosts();
+      const entries = Object.values(saved).sort((a, b) => b.savedAt - a.savedAt);
+      const readCount = entries.filter(e => e.read).length;
+      document.getElementById('saved-stats').textContent = entries.length ? `${entries.length} saved, ${readCount} read` : '';
+      const container = document.getElementById('saved-list');
+      if (!entries.length) {
+        container.innerHTML = '<div class="text-center py-20 text-dim text-[0.9rem]">No saved papers yet. Bookmark papers from the feed to see them here.</div>';
+        return;
+      }
+      container.innerHTML = entries.map(entry => {
+        const p = entry.paper;
+        const readClass = entry.read ? ' read-card' : '';
+        const readBadge = entry.read ? '<span class="text-[0.68rem] text-dim bg-border-card px-1.5 py-0.5 rounded">Read</span>' : '';
+        const sourceChip = p.source === 'hn' ? HN_LOGO_INLINE
+          : p.source === 'verge' ? VERGE_LOGO_INLINE
+          : p.source === 'nature' ? NATURE_LOGO_INLINE
+          : p.source?.startsWith('custom:') ? RSS_LOGO_INLINE
+          : (p.arxivId ? ARXIV_LOGO_INLINE : '');
+        const catChips = (p.categories || []).slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
+        const snippet = p.description ? truncate(p.description, 120) : '';
+        return `
+        <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative${readClass}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+          <button class="absolute top-3 right-3 bg-transparent border-none cursor-pointer p-1 z-10" onclick="event.stopPropagation(); toggleSavePostByLink('${escapeAttr(p.link)}')" title="Remove from Reading List">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="var(--accent)"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+          </button>
+          <div class="flex gap-1.5 flex-wrap items-center mb-2">${sourceChip}${readBadge}${catChips}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${escapeHtml(p.title)}</div>
+          ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    function toggleSavePostByLink(link) {
+      const saved = getSavedPosts();
+      if (saved[link]) {
+        delete saved[link];
+        savePosts(saved);
+        renderSavedPosts();
+        renderPapers();
+      }
+    }
+
+    function openSavedPaper(link) {
+      markPostRead(link);
+      const saved = getSavedPosts();
+      const entry = saved[link];
+      if (!entry) return;
+      const paper = entry.paper;
+      paperViewOrigin = 'saved';
+      if (paper.source === 'arxiv') {
+        showPaperView(paper, 'view/' + encodeURIComponent(link));
+      } else {
+        fetch(`/api/check-embed?url=${encodeURIComponent(link)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.embeddable) {
+              showPaperView(paper, 'view/' + encodeURIComponent(link));
+            } else {
+              window.open(link, '_blank');
+            }
+          })
+          .catch(() => { window.open(link, '_blank'); });
+      }
+    }
 
     // ── arXiv Feed (loads on startup) ──
     let allPapers = [];
@@ -787,10 +906,12 @@
     let paperViewOrigin = 'arxiv';
 
     function paperViewGoBack() {
+      if (paperViewOrigin === 'saved') { openSaved(); return; }
       goHome();
     }
 
     function showPaperView(paper, hashValue) {
+      markPostRead(paper.link);
       hideAllViews();
       const view = document.getElementById('paper-view');
       view.classList.add('active');
@@ -1169,10 +1290,15 @@
         const catChips = p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
         const dateChip = p.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(p.date)}</span>` : '';
         const snippet = p.description ? truncate(p.description, 120) : '';
+        const isSaved = isPostSaved(p.link);
+        const bmFill = isSaved ? 'var(--accent)' : 'none';
+        const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+        const bmBtn = `<button class="absolute top-3 right-3 bg-transparent border-none cursor-pointer p-1 z-10 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
         return `
         <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
-          <div class="flex gap-1.5 flex-wrap items-center mb-2">${sourceChip}${statsChips}${catChips}${dateChip}</div>
-          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${escapeHtml(p.title)}</div>
+          ${bmBtn}
+          <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-7">${sourceChip}${statsChips}${catChips}${dateChip}</div>
+          <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${escapeHtml(p.title)}</div>
           ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
         </div>`;
       }).join('');
