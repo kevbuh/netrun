@@ -341,7 +341,7 @@
     <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16">
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-[1.3rem] font-semibold text-white_">Projects</h2>
-        <button class="px-4 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors" onclick="openNewProjectModal()">+ New Project</button>
+        <button class="px-4 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors" onclick="createQuickProject()">+ New Project</button>
       </div>
       <div class="relative mb-5">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -381,11 +381,24 @@
         <h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors" onclick="startRenameExperiment()" title="Click to rename"></h1>
       </div>
       <p id="exp-detail-desc" class="text-[0.85rem] text-muted mb-5 ml-[52px] cursor-pointer hover:text-primary transition-colors" onclick="startEditDesc()" title="Click to edit description"></p>
-      <div class="flex items-center justify-between mb-4 ml-[52px]">
+      <div id="exp-runs-header" class="flex items-center justify-between mb-4 ml-[52px]">
         <span id="exp-run-count" class="text-[0.8rem] text-dim"></span>
         <button class="px-4 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors" onclick="openNewRunModal()">+ New Run</button>
       </div>
       <div id="runs-table-container" class="ml-[52px]"></div>
+      <!-- Files Section -->
+      <div id="exp-files-section" class="ml-[52px] mt-8">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-[0.8rem] text-dim">Files</span>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.md')">+ Markdown</button>
+            <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.ipynb')">+ Notebook</button>
+          </div>
+        </div>
+        <div id="exp-files-list"></div>
+      </div>
+      <!-- File Editor (replaces runs section when active) -->
+      <div id="exp-file-editor" class="ml-[52px]" style="display:none"></div>
     </div>
   </div>
 
@@ -426,20 +439,6 @@
     </div>
   </div>
 
-  <!-- New Project Modal -->
-  <div id="new-project-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeNewProjectModal()">
-    <div class="bg-popup border border-border-input rounded-xl p-6 w-[420px] max-w-[90vw] shadow-popup">
-      <h2 class="text-[1.1rem] font-semibold text-white_ mb-4">New Project</h2>
-      <label class="block text-[0.75rem] text-dim mb-1">Name</label>
-      <input type="text" id="np-name" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent mb-3" placeholder="e.g. CartPole PPO Sweep" />
-      <label class="block text-[0.75rem] text-dim mb-1">Description</label>
-      <textarea id="np-desc" rows="3" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] resize-y min-h-[50px] focus:outline-none focus:border-accent" placeholder="What is this project about?"></textarea>
-      <div class="flex justify-end gap-2 mt-4">
-        <button class="px-4 py-2 rounded-md border border-border-input bg-transparent text-muted text-[0.85rem] cursor-pointer hover:text-primary" onclick="closeNewProjectModal()">Cancel</button>
-        <button class="px-4 py-2 rounded-md border-none bg-accent text-white text-[0.85rem] cursor-pointer hover:bg-accent-hover" onclick="createProject()">Create</button>
-      </div>
-    </div>
-  </div>
 
   <!-- New Run Modal -->
   <div id="new-run-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeNewRunModal()">
@@ -2632,30 +2631,23 @@
     }
 
     // ── New Project Modal ──
-    function openNewProjectModal() {
-      document.getElementById('np-name').value = '';
-      document.getElementById('np-desc').value = '';
-      document.getElementById('new-project-overlay').style.display = 'flex';
-      setTimeout(() => document.getElementById('np-name').focus(), 50);
-    }
-    function closeNewProjectModal() {
-      document.getElementById('new-project-overlay').style.display = 'none';
-    }
-    async function createProject() {
-      const title = document.getElementById('np-name').value.trim();
-      if (!title) return;
-      const desc = document.getElementById('np-desc').value.trim();
-      await fetch('/api/experiments', {
+    async function createQuickProject() {
+      const adjectives = ['red','blue','green','swift','bold','calm','dark','bright','wild','cold','warm','sharp','soft','deep','fast'];
+      const nouns = ['fox','oak','river','stone','moon','sun','hawk','wolf','pine','star','wave','flame','cloud','peak','reef'];
+      const adj = adjectives[Math.floor(Math.random()*adjectives.length)];
+      const noun = nouns[Math.floor(Math.random()*nouns.length)];
+      const num = Math.floor(Math.random()*900)+100;
+      const title = `${adj}-${noun}-${num}`;
+      const resp = await fetch('/api/experiments', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ title, desc, created: Date.now() })
+        body: JSON.stringify({ title, desc: '', created: Date.now() })
       });
-      closeNewProjectModal();
-      fetchExperiments();
+      if (resp.ok) {
+        const exp = await resp.json();
+        openExperimentDetail(exp.id);
+      }
     }
-    document.getElementById('np-name').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); createProject(); }
-    });
 
     async function deleteExperiment(id) {
       if (!confirm('Delete this project and all its runs?')) return;
@@ -2678,7 +2670,14 @@
         descEl.textContent = currentExp.desc || 'No description. Click to add one.';
         descEl.classList.toggle('text-dimmest', !currentExp.desc);
         descEl.classList.toggle('text-muted', !!currentExp.desc);
+        // Reset file editor state
+        document.getElementById('exp-file-editor').style.display = 'none';
+        document.getElementById('exp-file-editor').innerHTML = '';
+        document.getElementById('runs-table-container').style.display = '';
+        document.getElementById('exp-files-section').style.display = '';
+        currentFile = null;
         renderRunsTable();
+        fetchExpFiles();
       } catch (err) {
         document.getElementById('runs-table-container').innerHTML =
           `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
@@ -2976,6 +2975,320 @@
       renderRunsTable();
     }
 
+    // ── Files ──
+    let currentFile = null;
+    let fileSaveTimer = null;
+
+    async function fetchExpFiles() {
+      if (!currentExpId) return;
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/files`);
+        const files = await resp.json();
+        renderFilesList(files);
+      } catch(e) {
+        document.getElementById('exp-files-list').innerHTML = '';
+      }
+    }
+
+    function renderFilesList(files) {
+      const el = document.getElementById('exp-files-list');
+      if (!files.length) {
+        el.innerHTML = '<div class="text-dimmest text-[0.8rem] py-4">No files yet.</div>';
+        return;
+      }
+      el.innerHTML = files.map(f => `
+        <div class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-card/50 cursor-pointer group transition-colors" onclick="openFile('${escapeHtml(f)}')">
+          <div class="flex items-center gap-2">
+            <span class="text-[0.75rem] px-1.5 py-0.5 rounded ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : 'md'}</span>
+            <span class="text-[0.85rem] text-primary">${escapeHtml(f)}</span>
+          </div>
+          <button onclick="event.stopPropagation(); deleteExpFile('${escapeHtml(f)}')" class="w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>`).join('');
+    }
+
+    async function createExpFile(ext) {
+      const base = ext === '.ipynb' ? 'notebook' : 'notes';
+      let name = `${base}${ext}`;
+      let i = 2;
+      // Try to find unique name
+      const resp = await fetch(`/api/experiments/${currentExpId}/files`);
+      const existing = await resp.json();
+      while (existing.includes(name)) { name = `${base}-${i}${ext}`; i++; }
+      await fetch(`/api/experiments/${currentExpId}/files`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({name})
+      });
+      fetchExpFiles();
+    }
+
+    async function deleteExpFile(fname) {
+      if (!confirm(`Delete ${fname}?`)) return;
+      await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {method:'DELETE'});
+      if (currentFile === fname) closeFileEditor();
+      fetchExpFiles();
+    }
+
+    async function openFile(fname) {
+      currentFile = fname;
+      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
+      const data = await resp.json();
+
+      // Hide runs section, show editor
+      document.getElementById('runs-table-container').style.display = 'none';
+      document.getElementById('exp-files-section').style.display = 'none';
+      document.getElementById('exp-runs-header').style.display = 'none';
+      const editor = document.getElementById('exp-file-editor');
+      editor.style.display = 'block';
+
+      if (fname.endsWith('.ipynb')) {
+        renderNotebookEditor(fname, data.content);
+      } else {
+        renderMarkdownEditor(fname, data.content);
+      }
+    }
+
+    function closeFileEditor() {
+      if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; }
+      currentFile = null;
+      document.getElementById('exp-file-editor').style.display = 'none';
+      document.getElementById('exp-file-editor').innerHTML = '';
+      document.getElementById('runs-table-container').style.display = '';
+      document.getElementById('exp-files-section').style.display = '';
+      document.getElementById('exp-runs-header').style.display = '';
+      fetchExpFiles();
+    }
+
+    // ── Markdown Editor ──
+    function renderMarkdownEditor(fname, content) {
+      const editor = document.getElementById('exp-file-editor');
+      editor.innerHTML = `
+        <div class="flex items-center gap-3 mb-4">
+          <button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="closeFileEditor()">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Back
+          </button>
+          <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">md</span>
+          <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+          <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="md-save-ind">Saved</span>
+        </div>
+        <textarea id="md-editor-textarea" class="w-full min-h-[500px] px-4 py-3 rounded-lg border border-border-input bg-input text-primary text-[0.85rem] font-mono resize-y focus:outline-none focus:border-accent" spellcheck="false">${escapeHtml(content)}</textarea>`;
+      const ta = document.getElementById('md-editor-textarea');
+      ta.addEventListener('input', () => {
+        clearTimeout(fileSaveTimer);
+        fileSaveTimer = setTimeout(() => saveMarkdown(), 600);
+      });
+      ta.focus();
+    }
+
+    async function saveMarkdown() {
+      fileSaveTimer = null;
+      if (!currentFile || !currentExpId) return;
+      const content = document.getElementById('md-editor-textarea').value;
+      await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({content})
+      });
+      const ind = document.getElementById('md-save-ind');
+      if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+    }
+
+    // ── Notebook Editor ──
+    let nbData = null;
+    let kernelStatus = 'idle'; // idle, busy, dead
+
+    function renderNotebookEditor(fname, contentStr) {
+      try { nbData = JSON.parse(contentStr); } catch(e) {
+        nbData = { cells: [{cell_type:'code',source:'',outputs:[]}], metadata:{}, nbformat:4, nbformat_minor:5 };
+      }
+      const editor = document.getElementById('exp-file-editor');
+      const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
+      editor.innerHTML = `
+        <div class="flex items-center gap-3 mb-4 flex-wrap">
+          <button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="closeFileEditor()">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Back
+          </button>
+          <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">nb</span>
+          <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+          <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="nb-save-ind">Saved</span>
+          <div class="ml-auto flex items-center gap-3">
+            <span class="flex items-center gap-1.5 text-[0.75rem] text-dim">
+              <span id="kernel-dot" class="w-2 h-2 rounded-full bg-gray-500 inline-block"></span>
+              <span id="kernel-status-text">idle</span>
+            </span>
+            <button class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart kernel</button>
+            <label class="text-[0.75rem] text-dim flex items-center gap-1.5">
+              Python:
+              <input type="text" id="nb-python-path" value="${escapeHtml(pythonPath)}" class="px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.75rem] w-[140px] focus:outline-none focus:border-accent" />
+            </label>
+          </div>
+        </div>
+        <div id="nb-cells"></div>
+        <div class="flex gap-2 mt-3">
+          <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('code')">+ Code</button>
+          <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('markdown')">+ Markdown</button>
+        </div>`;
+      renderNbCells();
+      // Python path change
+      document.getElementById('nb-python-path').addEventListener('change', async function() {
+        const newPath = this.value.trim() || 'python3';
+        await fetch(`/api/experiments/${currentExpId}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({pythonPath: newPath})
+        });
+        if (currentExp) currentExp.pythonPath = newPath;
+        updateKernelStatus('dead');
+      });
+    }
+
+    function renderNbCells() {
+      const container = document.getElementById('nb-cells');
+      if (!container || !nbData) return;
+      container.innerHTML = nbData.cells.map((cell, i) => {
+        const isCode = cell.cell_type === 'code';
+        const src = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+        const outputs = (cell.outputs || []).map(o => {
+          if (o.text) return escapeHtml(Array.isArray(o.text) ? o.text.join('') : o.text);
+          if (o.data && o.data['text/plain']) {
+            const t = o.data['text/plain'];
+            return escapeHtml(Array.isArray(t) ? t.join('') : t);
+          }
+          if (o.ename) return `<span class="text-red-400">${escapeHtml(o.ename)}: ${escapeHtml(o.evalue || '')}</span>`;
+          return '';
+        }).filter(Boolean).join('\n');
+
+        return `<div class="mb-3 rounded-lg border border-border-dim overflow-hidden" data-cell="${i}">
+          <div class="flex items-center gap-2 px-3 py-1.5 bg-card/30 border-b border-border-dim">
+            <span class="text-[0.7rem] ${isCode ? 'text-emerald-400' : 'text-blue-400'} font-medium">${isCode ? 'Code' : 'Markdown'}</span>
+            <span class="text-[0.65rem] text-dimmer">[${i+1}]</span>
+            <div class="ml-auto flex gap-1">
+              ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell">Run</button>` : ''}
+              ${i > 0 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},-1)" title="Move up">&uarr;</button>` : ''}
+              ${i < nbData.cells.length-1 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},1)" title="Move down">&darr;</button>` : ''}
+              <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
+            </div>
+          </div>
+          <textarea class="w-full px-4 py-2 bg-transparent text-primary text-[0.8rem] font-mono border-none resize-y focus:outline-none min-h-[40px]" rows="${Math.max(1, src.split('\n').length)}" oninput="updateNbCellSource(${i}, this.value); autoResizeTextarea(this)" data-cell-input="${i}">${escapeHtml(src)}</textarea>
+          ${outputs ? `<div class="px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs}</div>` : `<div class="hidden" data-cell-output="${i}"></div>`}
+        </div>`;
+      }).join('');
+
+      // Auto-resize textareas
+      container.querySelectorAll('textarea').forEach(ta => autoResizeTextarea(ta));
+    }
+
+    function autoResizeTextarea(ta) {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+
+    function updateNbCellSource(i, val) {
+      if (!nbData || !nbData.cells[i]) return;
+      nbData.cells[i].source = val;
+      scheduleNbSave();
+    }
+
+    function scheduleNbSave() {
+      clearTimeout(fileSaveTimer);
+      fileSaveTimer = setTimeout(() => saveNotebook(), 600);
+    }
+
+    async function saveNotebook() {
+      fileSaveTimer = null;
+      if (!currentFile || !currentExpId || !nbData) return;
+      await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({content: JSON.stringify(nbData, null, 2)})
+      });
+      const ind = document.getElementById('nb-save-ind');
+      if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+    }
+
+    function addNbCell(type) {
+      if (!nbData) return;
+      nbData.cells.push({cell_type: type, source: '', outputs: []});
+      renderNbCells();
+      scheduleNbSave();
+      // Focus new cell
+      setTimeout(() => {
+        const ta = document.querySelector(`[data-cell-input="${nbData.cells.length-1}"]`);
+        if (ta) ta.focus();
+      }, 50);
+    }
+
+    function deleteNbCell(i) {
+      if (!nbData || nbData.cells.length <= 1) return;
+      nbData.cells.splice(i, 1);
+      renderNbCells();
+      scheduleNbSave();
+    }
+
+    function moveNbCell(i, dir) {
+      if (!nbData) return;
+      const j = i + dir;
+      if (j < 0 || j >= nbData.cells.length) return;
+      [nbData.cells[i], nbData.cells[j]] = [nbData.cells[j], nbData.cells[i]];
+      renderNbCells();
+      scheduleNbSave();
+    }
+
+    async function runNbCell(i) {
+      if (!nbData || !nbData.cells[i] || nbData.cells[i].cell_type !== 'code') return;
+      const src = Array.isArray(nbData.cells[i].source) ? nbData.cells[i].source.join('') : nbData.cells[i].source;
+      if (!src.trim()) return;
+
+      updateKernelStatus('busy');
+      const outEl = document.querySelector(`[data-cell-output="${i}"]`);
+      if (outEl) { outEl.classList.remove('hidden'); outEl.textContent = 'Running...'; outEl.className = outEl.className.replace('hidden',''); }
+
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/execute`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({code: src})
+        });
+        const result = await resp.json();
+        let display = '';
+        if (result.output) display += result.output;
+        if (result.error) display += (display ? '\n' : '') + result.error;
+
+        nbData.cells[i].outputs = [];
+        if (result.output) nbData.cells[i].outputs.push({output_type:'stream', name:'stdout', text: result.output});
+        if (result.error) nbData.cells[i].outputs.push({output_type:'stream', name:'stderr', text: result.error});
+
+        if (outEl) {
+          if (display) {
+            outEl.classList.remove('hidden');
+            outEl.style.display = '';
+            outEl.innerHTML = escapeHtml(display);
+            if (result.error && !result.output) outEl.innerHTML = `<span class="text-red-400">${escapeHtml(result.error)}</span>`;
+          } else {
+            outEl.classList.add('hidden');
+          }
+        }
+        updateKernelStatus('idle');
+        scheduleNbSave();
+      } catch(e) {
+        if (outEl) { outEl.classList.remove('hidden'); outEl.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`; }
+        updateKernelStatus('dead');
+      }
+    }
+
+    function updateKernelStatus(status) {
+      kernelStatus = status;
+      const dot = document.getElementById('kernel-dot');
+      const text = document.getElementById('kernel-status-text');
+      if (!dot || !text) return;
+      const colors = {idle:'bg-emerald-500', busy:'bg-amber-500', dead:'bg-red-500'};
+      dot.className = `w-2 h-2 rounded-full inline-block ${colors[status]||'bg-gray-500'}`;
+      text.textContent = status;
+    }
+
+    async function restartKernel() {
+      updateKernelStatus('dead');
+      await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
+      updateKernelStatus('idle');
+    }
+
     // ── New Run Modal ──
     function openNewRunModal() {
       document.getElementById('nr-name').value = '';
@@ -3057,7 +3370,6 @@
     window.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         if (document.getElementById('new-run-overlay').style.display === 'flex') closeNewRunModal();
-        else if (document.getElementById('new-project-overlay').style.display === 'flex') closeNewProjectModal();
         else if (document.getElementById('settings-overlay').style.display === 'flex') closeSettings();
       }
     });

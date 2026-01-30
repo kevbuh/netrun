@@ -9,6 +9,9 @@ import shutil
 import time
 import uuid
 import concurrent.futures
+import subprocess
+import threading
+import select
 
 PORT = 8000
 CACHE_TTL = 600  # 10 minutes
@@ -23,6 +26,102 @@ CALENDAR_FILE = os.path.join(DIR, 'calendar.json')
 TODOS_FILE = os.path.join(DIR, 'todos.json')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
+
+# Persistent Python kernels: exp_id -> { "proc": Popen, "lock": Lock }
+_kernels = {}
+_kernels_lock = threading.Lock()
+
+
+def _get_kernel(exp_id):
+    """Get or start a persistent Python kernel for an experiment."""
+    with _kernels_lock:
+        entry = _kernels.get(exp_id)
+        if entry and entry['proc'].poll() is None:
+            return entry
+        # Read pythonPath from meta
+        meta = read_meta(exp_id)
+        python_path = (meta or {}).get('pythonPath', 'python3')
+        proc = subprocess.Popen(
+            [python_path, '-u', '-i'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=0
+        )
+        entry = {'proc': proc, 'lock': threading.Lock()}
+        _kernels[exp_id] = entry
+        # Drain the initial Python banner from stderr
+        while select.select([proc.stderr], [], [], 0.3)[0]:
+            proc.stderr.read(1)
+        return entry
+
+
+def _kill_kernel(exp_id):
+    """Kill a kernel if it exists."""
+    with _kernels_lock:
+        entry = _kernels.pop(exp_id, None)
+    if entry and entry['proc'].poll() is None:
+        entry['proc'].terminate()
+        try:
+            entry['proc'].wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            entry['proc'].kill()
+
+
+def _execute_code(exp_id, code):
+    """Execute code in the persistent kernel, return (output, error)."""
+    entry = _get_kernel(exp_id)
+    with entry['lock']:
+        proc = entry['proc']
+        if proc.poll() is not None:
+            # Kernel died, restart
+            with _kernels_lock:
+                _kernels.pop(exp_id, None)
+            entry = _get_kernel(exp_id)
+            proc = entry['proc']
+
+        sentinel = '__SENTINEL_DONE_a7f3b2__'
+        full_code = code.rstrip('\n') + f'\nprint("{sentinel}")\n'
+        try:
+            proc.stdin.write(full_code)
+            proc.stdin.flush()
+        except (BrokenPipeError, OSError):
+            return ('', 'Kernel process died')
+
+        stdout_lines = []
+        stderr_lines = []
+        deadline = time.time() + 30
+
+        while time.time() < deadline:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            ready_out, _, _ = select.select([proc.stdout], [], [], min(0.1, remaining))
+            if ready_out:
+                line = proc.stdout.readline()
+                if sentinel in line:
+                    break
+                stdout_lines.append(line)
+            # Drain stderr non-blocking
+            while select.select([proc.stderr], [], [], 0)[0]:
+                ch = proc.stderr.read(1)
+                if ch:
+                    stderr_lines.append(ch)
+
+        # Final stderr drain
+        while select.select([proc.stderr], [], [], 0.05)[0]:
+            ch = proc.stderr.read(1)
+            if ch:
+                stderr_lines.append(ch)
+
+        output = ''.join(stdout_lines).rstrip('\n')
+        error = ''.join(stderr_lines).strip()
+        # Filter out Python prompt artifacts
+        error_lines = [l for l in error.split('\n') if not re.match(r'^(>>>|\.\.\.) ', l)]
+        error = '\n'.join(error_lines).strip()
+
+        return (output, error)
 
 
 def read_blocked_titles():
@@ -387,6 +486,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         experiments.append(meta)
             self._send_json(experiments)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb')) and f != 'meta.json']
+            files.sort()
+            self._send_json(files)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if not os.path.isfile(fpath):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            with open(fpath, 'r') as f:
+                content = f.read()
+            self._send_json({'name': fname, 'content': content})
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
             meta = read_meta(exp_id)
@@ -536,6 +656,49 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            name = body.get('name', '').strip()
+            if not name or not (name.endswith('.md') or name.endswith('.ipynb')):
+                self._send_json({'error': 'Name must end with .md or .ipynb'}, 400)
+                return
+            fpath = os.path.join(exp_dir, name)
+            if os.path.exists(fpath):
+                self._send_json({'error': 'File already exists'}, 409)
+                return
+            if name.endswith('.ipynb'):
+                content = json.dumps({
+                    "cells": [{"cell_type": "code", "source": "", "outputs": []}],
+                    "metadata": {},
+                    "nbformat": 4, "nbformat_minor": 5
+                }, indent=2)
+            else:
+                content = ''
+            with open(fpath, 'w') as f:
+                f.write(content)
+            self._send_json({'name': name}, 201)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/execute$'):
+            exp_id = m.group(1)
+            if not read_meta(exp_id):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            code = body.get('code', '')
+            output, error = _execute_code(exp_id, code)
+            self._send_json({'output': output, 'error': error})
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel/restart$'):
+            exp_id = m.group(1)
+            _kill_kernel(exp_id)
+            _get_kernel(exp_id)
+            self._send_json({'ok': True})
+
         elif self.path == '/api/experiments':
             body = self._read_body()
             title = body.get('title', '').strip()
@@ -665,6 +828,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'error': 'Run not found'}, 404)
             return
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if not os.path.isfile(fpath):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            with open(fpath, 'w') as f:
+                f.write(body.get('content', ''))
+            self._send_json({'ok': True})
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
             meta = read_meta(exp_id)
@@ -676,6 +851,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 meta['title'] = body['title']
             if 'desc' in body:
                 meta['desc'] = body['desc']
+            if 'pythonPath' in body:
+                meta['pythonPath'] = body['pythonPath']
+                _kill_kernel(exp_id)
             write_meta(exp_id, meta)
             meta['id'] = exp_id
             self._send_json(meta)
@@ -716,10 +894,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             write_meta(exp_id, meta)
             self._send_json({'ok': True})
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel$'):
+            exp_id = m.group(1)
+            _kill_kernel(exp_id)
+            self._send_json({'ok': True})
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
             if os.path.isdir(exp_dir):
+                _kill_kernel(exp_id)
                 shutil.rmtree(exp_dir)
                 self._send_json({'ok': True})
             else:
