@@ -51,9 +51,9 @@ Experiments are stored on disk as `experiments/{slug}/meta.json`.
 - `quality_prompt.txt` — custom verdict prompt (created when user saves a non-default prompt; deleted on reset)
 - `blocked_titles.json` — titles that must be classified as SKIP (prompt test suite)
 
-### Frontend — `arxiv-filter/index.html`
+### Frontend — `arxiv-filter/index.html` + `js/` + `styles.css`
 
-Single-file SPA with embedded CSS and JS. Views managed by client-side hash routing:
+Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.css`, JS split across 6 files in `js/`. Views managed by client-side hash routing:
 
 1. **Onboarding** (`#`) — shown on first visit (no `feedSources` in localStorage) or when all sources are off. 2×N grid of source cards grouped by category, user picks sources, clicks "Start reading"
 2. **Home** (`#`) — multi-source feed with masonry grid, sorting (latest/most cited), trend panels, infinite scroll, search
@@ -63,15 +63,32 @@ Single-file SPA with embedded CSS and JS. Views managed by client-side hash rout
 6. **Experiment Detail** (`#experiment/{id}`) — version tree with SVG visualization, interactive version cards, auto-save (600ms debounce), branching
 7. **Quality Filter** (`#quality`) — dedicated sidebar tab for AI filter management: prompts, scoring threshold, blocked posts, test suite, cache stats
 
+### File Structure
+
+```
+arxiv-filter/
+  index.html       — HTML skeleton, Tailwind config, <link>/<script> tags
+  styles.css       — CSS variables, dark/light themes, toggle switch, masonry, CodeMirror overrides
+  js/
+    core.js        — globals, constants, FEED_CATALOG, utilities, routing, view management
+    feed.js        — feed loading/parsing/rendering, reading list, settings, citations, trends
+    quality.js     — AI quality filter (Ollama integration, prompts, scoring, test suite)
+    views.js       — paper viewer, finder/search, calendar, todos
+    experiments.js — experiment list/detail, rename, description, exp todos, file sidebar
+    editors.js     — markdown/python/notebook editors + all notebook helpers
+```
+
+**Script load order** (bottom of `<body>`): `core.js` → `feed.js` → `quality.js` → `views.js` → `experiments.js` → `editors.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then views/experiments/editors. All functions are global (no modules).
+
 ### Sidebar
 
-The left sidebar (`60px` wide) has buttons for: Home, Experiments, Reading List (with unread badge), Quality Filter, one TBD placeholder, and Settings (gear icon, opens modal overlay).
+The left sidebar (`60px` wide) has buttons for: Home, Experiments, Reading List (with unread badge), Calendar, Todos, and Settings (gear icon).
 
 ### Feed System
 
 All available feeds are defined in `FEED_CATALOG` (JS array). Each entry has: `key`, `name`, `desc`, `cat` (category), `url` (RSS URL or null for special fetchers), `special` (`'arxiv'` or `'hn'` for custom fetch functions), and logo properties (`letter`, `bg`, `fg`, or `img`).
 
-Adding a new feed source requires only appending to `FEED_CATALOG` — the onboarding grid, settings toggles, `loadAllFeeds()`, source chip rendering, and paper viewer source names all derive from it.
+Adding a new feed source requires only appending to `FEED_CATALOG` in `js/core.js` — the onboarding grid, settings toggles, `loadAllFeeds()`, source chip rendering, and paper viewer source names all derive from it.
 
 **Built-in sources (15):**
 - Research & Science: arXiv, Nature, Science, Quanta Magazine
@@ -138,4 +155,4 @@ Each feed card has two action buttons (top-right corner):
 - Experiment slugs are generated via `slugify()` in `server.py`
 - All feed-related rendering is data-driven from `FEED_CATALOG`
 - `getSourceChip(source, arxivId)` resolves any source key to its inline logo + name
-- Quality filter prompts are defined as constants in `server.py` (`DEFAULT_VERDICT_PROMPT`, `DEFAULT_SCORING_PROMPT`) and mirrored in `index.html` (`DEFAULT_QUALITY_PROMPT`)
+- Quality filter prompts are defined as constants in `server.py` (`DEFAULT_VERDICT_PROMPT`, `DEFAULT_SCORING_PROMPT`) and mirrored in `js/quality.js` (`DEFAULT_QUALITY_PROMPT`)
