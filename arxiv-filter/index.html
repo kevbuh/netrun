@@ -69,6 +69,20 @@
   }
   </script>
   <link rel="stylesheet" href="/styles.css">
+  <script>
+    // Apply theme + accent before paint to prevent flash
+    (function() {
+      var t = localStorage.getItem('theme');
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      var a = localStorage.getItem('accentColor');
+      if (a) {
+        var r = parseInt(a.slice(1,3),16), g = parseInt(a.slice(3,5),16), b = parseInt(a.slice(5,7),16);
+        var h = '#' + [Math.min(255,r+20),Math.min(255,g+20),Math.min(255,b+20)].map(function(v){return v.toString(16).padStart(2,'0')}).join('');
+        document.documentElement.style.setProperty('--accent', a);
+        document.documentElement.style.setProperty('--accent-hover', h);
+      }
+    })();
+  </script>
 </head>
 <body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] bg-body text-primary min-h-screen">
 
@@ -134,8 +148,7 @@
           <span id="refresh-countdown" class="tabular-nums text-dim ml-auto"></span>
         </div>
         <div id="trends-panel" style="display:none" class="pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
-          <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
+          <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode(currentSort === 'citations' ? 'latest' : 'citations')">Most Cited</button>
           <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>
           <select id="category" onchange="renderPapers()" class="shrink-0 px-2.5 py-1 rounded-lg border border-border-input bg-card text-muted text-[0.75rem] cursor-pointer outline-none focus:border-accent transition-all"><option value="">All Categories</option></select>
           <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>

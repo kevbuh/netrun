@@ -257,8 +257,8 @@ function renderSourceBubbles() {
 
 function setSortMode(mode) {
   currentSort = mode;
-  document.getElementById('sort-latest').classList.toggle('active', mode === 'latest');
-  document.getElementById('sort-citations').classList.toggle('active', mode === 'citations');
+  const citBtn = document.getElementById('sort-citations');
+  if (citBtn) citBtn.classList.toggle('active', mode === 'citations');
   visibleCount = PAGE_SIZE;
   renderPapers();
 }
@@ -488,11 +488,44 @@ function renderSettingsView() {
     catMap[f.cat].push(f);
   });
 
+  const currentTheme = localStorage.getItem('theme') || 'dark';
+  const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
+  const accentColors = [
+    { color: '#b4451a', name: 'Orange' },
+    { color: '#e53e3e', name: 'Red' },
+    { color: '#d69e2e', name: 'Gold' },
+    { color: '#38a169', name: 'Green' },
+    { color: '#3182ce', name: 'Blue' },
+    { color: '#805ad5', name: 'Purple' },
+    { color: '#d53f8c', name: 'Pink' },
+    { color: '#718096', name: 'Gray' },
+  ];
+
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
 
-    <!-- FEED SOURCES -->
+    <!-- APPEARANCE -->
     <div class="mb-8">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Appearance</h3>
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-primary text-sm">Theme</span>
+        <div class="flex gap-1.5">
+          <button onclick="setTheme('dark')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'dark' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-dark">Dark</button>
+          <button onclick="setTheme('light')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-light">Light</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-primary text-sm">Accent Color</span>
+        <div class="flex gap-2">
+          ${accentColors.map(a => `
+            <button onclick="setAccentColor('${a.color}')" class="w-6 h-6 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 ${currentAccent === a.color ? 'border-white_ scale-110' : 'border-transparent'}" style="background:${a.color}" title="${a.name}"></button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- FEED SOURCES -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Feed Sources</h3>
       <div class="flex flex-col gap-2" id="settings-builtin-sources">
         ${cats.map(cat => `
@@ -615,6 +648,49 @@ function renderSettingsView() {
     if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
   }).catch(() => {});
 }
+
+function setTheme(theme) {
+  localStorage.setItem('theme', theme);
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  const darkBtn = document.getElementById('theme-btn-dark');
+  const lightBtn = document.getElementById('theme-btn-light');
+  if (darkBtn) darkBtn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === 'dark' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
+  if (lightBtn) lightBtn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
+}
+
+function setAccentColor(color) {
+  localStorage.setItem('accentColor', color);
+  applyAccentColor(color);
+  // Update swatch borders
+  document.querySelectorAll('[onclick^="setAccentColor"]').forEach(btn => {
+    const btnColor = btn.style.background;
+    const el = btn;
+    // Compare by checking if this button's onclick matches
+    const isActive = btn.getAttribute('onclick') === `setAccentColor('${color}')`;
+    el.className = `w-6 h-6 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 ${isActive ? 'border-white_ scale-110' : 'border-transparent'}`;
+  });
+}
+
+function applyAccentColor(color) {
+  // Compute a lighter hover variant
+  const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
+  const hover = '#' + [Math.min(255, r + 20), Math.min(255, g + 20), Math.min(255, b + 20)].map(v => v.toString(16).padStart(2, '0')).join('');
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-hover', hover);
+}
+
+function applyStoredAppearance() {
+  const theme = localStorage.getItem('theme') || 'dark';
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  const accent = localStorage.getItem('accentColor');
+  if (accent) applyAccentColor(accent);
+}
+
+applyStoredAppearance();
 
 function toggleFeedSource(key, value) {
   const sources = getFeedSources();
