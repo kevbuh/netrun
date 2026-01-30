@@ -526,7 +526,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb', '.py')) and f != 'meta.json']
+            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb', '.py', '.png', '.svg')) and f != 'meta.json']
             files.sort()
             self._send_json(files)
 
@@ -537,9 +537,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isfile(fpath):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            with open(fpath, 'r') as f:
-                content = f.read()
-            self._send_json({'name': fname, 'content': content})
+            if fname.endswith(('.png', '.svg')):
+                import base64
+                with open(fpath, 'rb') as f:
+                    data = base64.b64encode(f.read()).decode()
+                mime = 'image/png' if fname.endswith('.png') else 'image/svg+xml'
+                self._send_json({'name': fname, 'content': f'data:{mime};base64,{data}', 'image': True})
+            else:
+                with open(fpath, 'r') as f:
+                    content = f.read()
+                self._send_json({'name': fname, 'content': content})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/packages$'):
             exp_id = m.group(1)
@@ -725,26 +732,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             name = body.get('name', '').strip()
-            if not name or not (name.endswith('.md') or name.endswith('.ipynb') or name.endswith('.py')):
-                self._send_json({'error': 'Name must end with .md, .ipynb, or .py'}, 400)
+            allowed_ext = ('.md', '.ipynb', '.py', '.png', '.svg')
+            if not name or not any(name.endswith(e) for e in allowed_ext):
+                self._send_json({'error': f'Name must end with {", ".join(allowed_ext)}'}, 400)
                 return
             fpath = os.path.join(exp_dir, name)
             if os.path.exists(fpath):
                 self._send_json({'error': 'File already exists'}, 409)
                 return
             initial = body.get('content', None)
-            if initial is not None:
-                content = initial
+            if name.endswith(('.png', '.svg')) and initial:
+                import base64
+                # Strip data URI prefix if present
+                if ',' in initial:
+                    initial = initial.split(',', 1)[1]
+                with open(fpath, 'wb') as f:
+                    f.write(base64.b64decode(initial))
+            elif initial is not None:
+                with open(fpath, 'w') as f:
+                    f.write(initial)
             elif name.endswith('.ipynb'):
-                content = json.dumps({
-                    "cells": [{"cell_type": "code", "source": "", "outputs": []}],
-                    "metadata": {},
-                    "nbformat": 4, "nbformat_minor": 5
-                }, indent=2)
+                with open(fpath, 'w') as f:
+                    f.write(json.dumps({
+                        "cells": [{"cell_type": "code", "source": "", "outputs": []}],
+                        "metadata": {},
+                        "nbformat": 4, "nbformat_minor": 5
+                    }, indent=2))
             else:
-                content = ''
-            with open(fpath, 'w') as f:
-                f.write(content)
+                with open(fpath, 'w') as f:
+                    f.write('')
             self._send_json({'name': name}, 201)
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/execute$'):

@@ -223,13 +223,24 @@ function getPapersNeedingVerdict() {
 
 let _qfRunning = false;
 let _qfQueued = false;
+let _qfAborted = false;
+
+function stopFeedLoading() {
+  // Abort in-flight feed fetches
+  if (typeof _feedAbort !== 'undefined' && _feedAbort) { _feedAbort.abort(); _feedAbort = null; }
+  // Stop quality filter
+  _qfAborted = true;
+  _qfQueued = false;
+}
+
 async function qualityFilterPapers() {
   if (_qfRunning) { _qfQueued = true; return; }
   _qfRunning = true;
+  _qfAborted = false;
   try { await _qualityFilterPapersInner(); }
   finally {
     _qfRunning = false;
-    if (_qfQueued) { _qfQueued = false; qualityFilterPapers(); }
+    if (!_qfAborted && _qfQueued) { _qfQueued = false; qualityFilterPapers(); }
   }
 }
 async function _qualityFilterPapersInner() {
@@ -237,6 +248,7 @@ async function _qualityFilterPapersInner() {
   const needVerdict = getPapersNeedingVerdict().map(p => p.title);
   if (needVerdict.length) {
     for (let i = 0; i < needVerdict.length; i += 10) {
+      if (_qfAborted) return;
       const batch = needVerdict.slice(i, i + 10);
       try {
         const resp = await fetch('/api/quality-filter', {
@@ -244,6 +256,7 @@ async function _qualityFilterPapersInner() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ titles: batch, prompt: getQualityPrompt(), mode: 'verdict' })
         });
+        if (_qfAborted) return;
         if (!resp.ok) continue;
         const verdicts = await resp.json();
         const updated = getQualityCache();
@@ -263,6 +276,7 @@ async function _qualityFilterPapersInner() {
     .map(p => p.title);
   if (needScore.length) {
     for (let i = 0; i < needScore.length; i += 10) {
+      if (_qfAborted) return;
       const batch = needScore.slice(i, i + 10);
       try {
         const resp = await fetch('/api/quality-filter', {
@@ -270,6 +284,7 @@ async function _qualityFilterPapersInner() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ titles: batch, mode: 'score' })
         });
+        if (_qfAborted) return;
         if (!resp.ok) continue;
         const scores = await resp.json();
         const updated = getQualityCache();

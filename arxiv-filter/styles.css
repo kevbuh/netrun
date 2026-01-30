@@ -1,3 +1,7 @@
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .nb-img-wrap:hover .nb-img-btns { opacity: 1; }
+
     :root {
       --bg-body: #0a0a0a;
       --text-primary: #e0e0e0;

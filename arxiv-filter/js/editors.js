@@ -285,11 +285,12 @@ function renderCellOutputs(outputs) {
       const data = o.data || {};
       const parts = [];
       if (data['image/png']) {
-        parts.push(`<img src="data:image/png;base64,${data['image/png']}" class="max-w-full rounded" />`);
+        const imgSrc = `data:image/png;base64,${data['image/png']}`;
+        parts.push(`<div class="relative nb-img-wrap inline-block"><img src="${imgSrc}" class="max-w-full rounded" /><div class="absolute top-2 right-2 flex gap-1 opacity-0 nb-img-btns transition-opacity"><button onclick="saveOutputImage(this.closest('.nb-img-wrap').querySelector('img').src, 'png')" class="px-2 py-1 rounded bg-black/70 text-white text-[0.7rem] border-none cursor-pointer hover:bg-black/90">Download</button><button onclick="saveOutputToProject(this.closest('.nb-img-wrap').querySelector('img').src, 'png', this)" class="px-2 py-1 rounded bg-black/70 text-white text-[0.7rem] border-none cursor-pointer hover:bg-black/90">Save to project</button></div></div>`);
       }
       if (data['image/svg+xml']) {
         const svg = Array.isArray(data['image/svg+xml']) ? data['image/svg+xml'].join('') : data['image/svg+xml'];
-        parts.push(`<div class="max-w-full">${svg}</div>`);
+        parts.push(`<div class="relative nb-img-wrap inline-block max-w-full"><div class="nb-svg-output">${svg}</div><div class="absolute top-2 right-2 flex gap-1 opacity-0 nb-img-btns transition-opacity"><button onclick="saveOutputSvg(this.closest('.nb-img-wrap').querySelector('.nb-svg-output').innerHTML)" class="px-2 py-1 rounded bg-black/70 text-white text-[0.7rem] border-none cursor-pointer hover:bg-black/90">Download</button><button onclick="saveOutputSvgToProject(this.closest('.nb-img-wrap').querySelector('.nb-svg-output').innerHTML, this)" class="px-2 py-1 rounded bg-black/70 text-white text-[0.7rem] border-none cursor-pointer hover:bg-black/90">Save to project</button></div></div>`);
       }
       if (data['text/html']) {
         const html = Array.isArray(data['text/html']) ? data['text/html'].join('') : data['text/html'];
@@ -307,6 +308,53 @@ function renderCellOutputs(outputs) {
     }
     return '';
   }).filter(Boolean).join('');
+}
+
+function saveOutputImage(dataUrl, ext) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `output.${ext}`;
+  a.click();
+}
+
+function saveOutputSvg(svgHtml) {
+  const blob = new Blob([svgHtml], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'output.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function saveOutputToProject(dataUrl, ext, btn) {
+  if (!currentExpId) return;
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/files`);
+    const existing = await resp.json();
+    let name = `output.${ext}`, i = 2;
+    while (existing.includes(name)) { name = `output-${i}.${ext}`; i++; }
+    const saveResp = await fetch(`/api/experiments/${currentExpId}/files`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, content: dataUrl })
+    });
+    if (saveResp.ok) {
+      if (btn) btn.textContent = 'Saved ✓';
+      fetchExpFiles();
+    } else {
+      if (btn) btn.textContent = 'Failed';
+    }
+  } catch {
+    if (btn) btn.textContent = 'Failed';
+  }
+  if (btn) setTimeout(() => { btn.textContent = 'Save to project'; btn.disabled = false; }, 2000);
+}
+
+async function saveOutputSvgToProject(svgHtml, btn) {
+  if (!currentExpId) return;
+  const b64 = btoa(unescape(encodeURIComponent(svgHtml)));
+  const dataUrl = `data:image/svg+xml;base64,${b64}`;
+  await saveOutputToProject(dataUrl, 'svg', btn);
 }
 
 function renderNbCells() {

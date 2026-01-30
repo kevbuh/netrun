@@ -660,8 +660,14 @@ function allSourcesOff() {
   return !FEED_CATALOG.some(f => s[f.key]) && customFeeds.length === 0;
 }
 
+let _feedAbort = null;
+
 async function loadAllFeeds() {
   if (!hasOnboarded() || allSourcesOff()) { showOnboarding(); return; }
+  // Abort any in-flight feed load
+  if (_feedAbort) _feedAbort.abort();
+  const abort = _feedAbort = new AbortController();
+
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('finder-section').style.display = '';
   document.getElementById('home-feed-section').style.display = '';
@@ -689,6 +695,7 @@ async function loadAllFeeds() {
   }
 
   const results = await Promise.all(promises);
+  if (abort.signal.aborted) return;
   for (let i = 0; i < results.length; i++) {
     const items = results[i];
     if (Array.isArray(items) && items.length) {
@@ -928,4 +935,4 @@ window.addEventListener('scroll', () => {
   });
 });
 
-loadAllFeeds();
+// Feed loading is triggered by goHome() via routing

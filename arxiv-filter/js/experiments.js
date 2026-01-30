@@ -39,8 +39,8 @@ function renderExperimentList() {
       </div>` : '';
     return `
     <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')">
-      <div class="text-[0.95rem] font-semibold text-white_ mb-1 truncate">${escapeHtml(exp.title)}</div>
-      ${exp.desc ? `<div class="text-[0.8rem] text-muted line-clamp-2 mb-2">${escapeHtml(exp.desc)}</div>` : '<div class="mb-2"></div>'}
+      <div class="text-[0.95rem] font-semibold text-white_ mb-1 truncate nb-rendered-md" data-latex>${marked.parseInline(exp.title)}</div>
+      ${exp.desc ? `<div class="text-[0.8rem] text-muted line-clamp-2 mb-2 nb-rendered-md" data-latex>${marked.parse(exp.desc)}</div>` : '<div class="mb-2"></div>'}
       <div class="flex items-center gap-3 text-[0.75rem] text-dimmer">
         <span>${runCount} run${runCount !== 1 ? 's' : ''}</span>
         ${lastUpdated ? `<span>${lastUpdated}</span>` : ''}
@@ -51,6 +51,15 @@ function renderExperimentList() {
       </button>
     </div>`;
   }).join('');
+  container.querySelectorAll('[data-latex]').forEach(el => {
+    if (typeof katex !== 'undefined') {
+      function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
+      let html = el.innerHTML;
+      html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => { try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); } catch { return _; } });
+      html = html.replace(/\$([^$]+?)\$/g, (_, tex) => { try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); } catch { return _; } });
+      el.innerHTML = html;
+    }
+  });
 }
 
 function filterExperiments() {
@@ -91,11 +100,13 @@ async function fetchExperimentDetail(id) {
     const resp = await fetch(`/api/experiments/${id}`);
     currentExp = await resp.json();
     document.getElementById('exp-detail-title').innerHTML = marked.parseInline(currentExp.title);
+    renderLatexIn('exp-detail-title');
     const descEl = document.getElementById('exp-detail-desc');
     if (currentExp.desc) {
       descEl.innerHTML = marked.parse(currentExp.desc);
       descEl.classList.remove('text-dimmest');
       descEl.classList.add('text-muted');
+      renderLatexIn('exp-detail-desc');
     } else {
       descEl.textContent = 'No description. Double-click to add one.';
       descEl.classList.add('text-dimmest');
@@ -145,6 +156,7 @@ function cancelRename() {
   const input = document.getElementById('exp-rename-input');
   if (!input) return;
   input.outerHTML = `<div id="exp-detail-title" class="text-[1.1rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors nb-rendered-md mb-3" onclick="startRenameExperiment()" title="Click to rename">${marked.parseInline(currentExp.title)}</div>`;
+  renderLatexIn('exp-detail-title');
 }
 
 // ── Edit Description (markdown) ──
@@ -179,6 +191,7 @@ function cancelEditDesc() {
   const desc = currentExp.desc || '';
   const content = desc ? marked.parse(desc) : escapeHtml('No description. Double-click to add one.');
   textarea.outerHTML = `<div id="exp-detail-desc" class="text-[0.85rem] ${desc ? 'text-muted' : 'text-dimmest'} mb-5 cursor-pointer hover:text-primary transition-colors nb-rendered-md" ondblclick="startEditDesc()" title="Double-click to edit description">${content}</div>`;
+  if (desc) renderLatexIn('exp-detail-desc');
 }
 
 // ── Experiment Todos ──
@@ -322,7 +335,7 @@ function renderFilesList(files) {
     return `
     <div class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" onclick="openFile('${escapeHtml(f)}')">
       <div class="flex items-center gap-1.5 min-w-0">
-        <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : f.endsWith('.py') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : f.endsWith('.py') ? 'py' : 'md'}</span>
+        <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : f.endsWith('.py') ? 'bg-emerald-500/20 text-emerald-400' : f.endsWith('.png') || f.endsWith('.svg') ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : f.endsWith('.py') ? 'py' : f.endsWith('.png') ? 'png' : f.endsWith('.svg') ? 'svg' : 'md'}</span>
         <span class="text-[0.8rem] text-primary truncate">${escapeHtml(f)}</span>
       </div>
       <button onclick="event.stopPropagation(); deleteExpFile('${escapeHtml(f)}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
@@ -379,7 +392,9 @@ async function openFile(fname) {
   const editor = document.getElementById('exp-file-editor');
   editor.style.display = 'block';
 
-  if (fname.endsWith('.ipynb')) {
+  if (fname.endsWith('.png') || fname.endsWith('.svg')) {
+    renderImageViewer(fname, data.content);
+  } else if (fname.endsWith('.ipynb')) {
     renderNotebookEditor(fname, data.content);
   } else if (fname.endsWith('.py')) {
     renderPythonEditor(fname, data.content);
@@ -387,6 +402,21 @@ async function openFile(fname) {
     renderMarkdownEditor(fname, data.content);
   }
   fetchExpFiles();
+}
+
+function renderImageViewer(fname, dataUrl) {
+  const editor = document.getElementById('exp-file-editor');
+  editor.innerHTML = `
+    <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
+      <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
+      <div class="flex gap-2">
+        <a href="${dataUrl}" download="${escapeHtml(fname)}" class="px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline">Download</a>
+        <button onclick="closeFileEditor()" class="px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Close</button>
+      </div>
+    </div>
+    <div class="flex items-center justify-center p-8 min-h-[300px]">
+      <img src="${dataUrl}" class="max-w-full max-h-[70vh] rounded shadow-lg" alt="${escapeHtml(fname)}" />
+    </div>`;
 }
 
 function closeFileEditor() {

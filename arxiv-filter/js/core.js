@@ -88,6 +88,12 @@ function setSidebarActive(id) {
 function hideAllViews() {
   document.getElementById('home-main').style.display = 'none';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
+  // Stop feed refresh timer and any in-flight loading when leaving home
+  if (typeof _refreshTimer !== 'undefined' && _refreshTimer) {
+    clearInterval(_refreshTimer);
+    _refreshTimer = null;
+  }
+  if (typeof stopFeedLoading === 'function') stopFeedLoading();
 }
 
 function goHome() {
@@ -97,6 +103,7 @@ function goHome() {
   setSidebarActive('sb-home');
   document.getElementById('finder-query').value = '';
   showFeedHideFinder();
+  if (!allPapers.length) loadAllFeeds();
 }
 
 function openExperiments() {
@@ -134,7 +141,11 @@ function routeFromHash() {
 }
 
 window.addEventListener('hashchange', routeFromHash);
-setTimeout(routeFromHash, 0);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', routeFromHash);
+} else {
+  setTimeout(routeFromHash, 0);
+}
 
 // ── Utilities ──
 function formatDate(d) {
