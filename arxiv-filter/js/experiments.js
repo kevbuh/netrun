@@ -13,6 +13,33 @@ async function fetchExperiments() {
   }
 }
 
+function _pixelArt(seed) {
+  // Deterministic hash from string
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  // Use hash to seed a simple PRNG
+  let s = Math.abs(h);
+  function rand() { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }
+  // Pick two colors: one for the shape, one lighter variant for accents
+  const hue = Math.floor(rand() * 360);
+  const sat = 50 + Math.floor(rand() * 30);
+  const col1 = `hsl(${hue},${sat}%,55%)`;
+  const col2 = `hsl(${(hue + 40) % 360},${sat}%,70%)`;
+  // Generate 5x5 grid, mirror left half to right for symmetry (only need cols 0-2)
+  const size = 5, px = 4;
+  let rects = '';
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < 3; x++) {
+      if (rand() > 0.45) {
+        const c = rand() > 0.5 ? col1 : col2;
+        rects += `<rect x="${x*px}" y="${y*px}" width="${px}" height="${px}" fill="${c}"/>`;
+        if (x < 2) rects += `<rect x="${(size-1-x)*px}" y="${y*px}" width="${px}" height="${px}" fill="${c}"/>`;
+      }
+    }
+  }
+  return `<svg width="${size*px}" height="${size*px}" viewBox="0 0 ${size*px} ${size*px}" class="shrink-0" style="image-rendering:pixelated">${rects}</svg>`;
+}
+
 function renderExperimentList() {
   const container = document.getElementById('ideas-list');
   const query = (document.getElementById('exp-search')?.value || '').toLowerCase().trim();
@@ -39,8 +66,11 @@ function renderExperimentList() {
       </div>` : '';
     return `
     <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')">
-      <div class="text-[0.95rem] font-semibold text-white_ mb-1 truncate nb-rendered-md" data-latex>${marked.parseInline(exp.title)}</div>
-      ${exp.desc ? `<div class="text-[0.8rem] text-muted line-clamp-2 mb-2 nb-rendered-md" data-latex>${marked.parse(exp.desc)}</div>` : '<div class="mb-2"></div>'}
+      <div class="flex items-center gap-2.5 mb-1">
+        ${_pixelArt(exp.id)}
+        <div class="text-[0.95rem] font-semibold text-white_ truncate">${escapeHtml(exp.title)}</div>
+      </div>
+      <div class="mb-2"></div>
       <div class="flex items-center gap-3 text-[0.75rem] text-dimmer">
         <span>${runCount} run${runCount !== 1 ? 's' : ''}</span>
         ${lastUpdated ? `<span>${lastUpdated}</span>` : ''}
@@ -51,15 +81,6 @@ function renderExperimentList() {
       </button>
     </div>`;
   }).join('');
-  container.querySelectorAll('[data-latex]').forEach(el => {
-    if (typeof katex !== 'undefined') {
-      function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
-      let html = el.innerHTML;
-      html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => { try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); } catch { return _; } });
-      html = html.replace(/\$([^$]+?)\$/g, (_, tex) => { try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); } catch { return _; } });
-      el.innerHTML = html;
-    }
-  });
 }
 
 function filterExperiments() {
