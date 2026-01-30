@@ -532,14 +532,28 @@ function renderCustomFeedsList() {
   `).join('');
 }
 
-function addCustomFeed() {
+async function addCustomFeed() {
   const input = document.getElementById('custom-feed-url');
-  const url = input.value.trim();
+  let url = input.value.trim();
   if (!url) return;
+  // Auto-detect Substack: convert blog URL to RSS feed URL
+  if (/^https?:\/\/[\w-]+\.substack\.com\/?$/.test(url)) {
+    url = url.replace(/\/?$/, '/feed');
+  }
   const feeds = getCustomFeeds();
   if (feeds.some(f => f.url === url)) return;
+  // Try to fetch the feed title
   let name = url;
-  try { name = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+  try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch {}
+  try {
+    const resp = await fetch(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
+    if (resp.ok) {
+      const xml = await resp.text();
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
+      if (feedTitle) name = feedTitle;
+    }
+  } catch {}
   feeds.push({ url, name, enabled: true });
   localStorage.setItem('customFeeds', JSON.stringify(feeds));
   input.value = '';
@@ -827,8 +841,8 @@ async function fetchGenericRSS(feedUrl, sourceName) {
       const title = (item.querySelector('title')?.textContent || '').trim();
       const link = item.querySelector('link')?.getAttribute('href')
         || (item.querySelector('link')?.textContent || '').trim();
-      const desc = item.querySelector('description, summary, content')?.textContent || '';
-      const author = item.querySelector('author, dc\\:creator')?.textContent?.trim() || '';
+      const desc = item.querySelector('description, summary, content, content\\:encoded')?.textContent || '';
+      const author = item.querySelector('author, dc\\:creator, itunes\\:author')?.textContent?.trim() || '';
       const pubStr = item.querySelector('pubDate, published, updated')?.textContent?.trim() || '';
       const ts = pubStr ? new Date(pubStr) : null;
       return {

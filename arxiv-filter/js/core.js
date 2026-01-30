@@ -9,6 +9,7 @@ const VERGE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" vie
 const NATURE_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
 const NATURE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
 const RSS_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f90" width="256" height="256" rx="24"/><circle cx="68" cy="189" r="28" fill="#fff"/><path d="M40 120a108 108 0 01108 108h-36a72 72 0 00-72-72v-36z" fill="#fff"/><path d="M40 56a172 172 0 01172 172h-36A136 136 0 0076 92V56h-36z" fill="#fff"/></svg>';
+const SUBSTACK_LOGO_INLINE = '<svg class="h-3.5 w-auto inline-block" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.54 6.42H1.46V4.2h21.08v2.22zM1.46 9.26h21.08V7.04H1.46v2.22zM22.54 12.1H1.46v9.52l10.54-5.87 10.54 5.87V12.1z" fill="#FF6719"/></svg>';
 
 // ── Feed catalog ──
 const FEED_CATALOG = [
@@ -98,8 +99,17 @@ FEED_CATALOG.forEach(f => {
   SOURCE_NAMES[f.key] = f.name;
 });
 
+function _isSubstackSource(source) {
+  if (!source?.startsWith('custom:')) return false;
+  const feeds = typeof getCustomFeeds === 'function' ? getCustomFeeds() : [];
+  const name = source.slice(7);
+  return feeds.some(f => f.name === name && /substack\.com/i.test(f.url));
+}
+
 function getSourceChip(source, arxivId) {
+  const isSubstack = _isSubstackSource(source);
   const logo = SOURCE_LOGO_INLINE[source]
+    || (isSubstack ? SUBSTACK_LOGO_INLINE : '')
     || (source?.startsWith('custom:') ? RSS_LOGO_INLINE : '')
     || (arxivId ? ARXIV_LOGO_INLINE : '');
   if (!logo) return '';
