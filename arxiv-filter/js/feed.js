@@ -200,6 +200,32 @@ let citationMap = {};
 let currentSort = 'latest';
 const PAGE_SIZE = 20;
 let visibleCount = PAGE_SIZE;
+let hiddenSourceFilters = new Set();
+
+function toggleSourceBubble(key) {
+  if (hiddenSourceFilters.has(key)) hiddenSourceFilters.delete(key);
+  else hiddenSourceFilters.add(key);
+  renderSourceBubbles();
+  renderPapers();
+}
+
+function renderSourceBubbles() {
+  const el = document.getElementById('source-bubbles');
+  if (!el) return;
+  const sourceCounts = {};
+  for (const p of allPapers) {
+    sourceCounts[p.source] = (sourceCounts[p.source] || 0) + 1;
+  }
+  const sources = Object.keys(sourceCounts);
+  el.innerHTML = sources.map(key => {
+    const entry = FEED_CATALOG.find(f => f.key === key);
+    const name = entry ? entry.name : (key.startsWith('custom:') ? key.slice(7) : key);
+    const logo = SOURCE_LOGO_INLINE[key] || '';
+    const count = sourceCounts[key];
+    const dimmed = hiddenSourceFilters.has(key);
+    return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border ${dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15'} text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none" onclick="toggleSourceBubble('${escapeHtml(key)}')">${logo}<span class="${dimmed ? 'text-dim' : 'text-primary'}">${escapeHtml(name)}</span><span class="text-[0.68rem] ${dimmed ? 'text-dimmer' : 'text-dim'}">${count}</span></span>`;
+  }).join('');
+}
 
 function setSortMode(mode) {
   currentSort = mode;
@@ -663,7 +689,6 @@ function parseFeed(xml) {
     const cleanDesc = stripHtml(description).replace(/^arXiv:\S+\s+Announce Type:\s*\w+\s+Abstract:\s*/i, '');
     return { source: 'arxiv', title, link, authors, categories, description: cleanDesc, date: dateStr, pubDate, arxivId };
   });
-  populateCategories();
   return arxivItems;
 }
 
@@ -700,21 +725,8 @@ function renderTrends() {
   const panel = document.getElementById('trends-panel');
   if (!allPapers.length) { panel.style.display = 'none'; return; }
   panel.style.display = 'flex';
-
-  const cats = extractTopCategories(allPapers);
-
-  const activeCat = document.getElementById('category').value;
-  document.getElementById('trend-categories').innerHTML = cats.map(([cat, count]) => {
-    const isActive = cat === activeCat;
-    return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${isActive ? 'border-accent bg-accent/15 text-accent' : 'border-border-subtle bg-card text-primary'} text-[0.8rem] cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 trend-chip" onclick="applyTrendCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}<span class="chip-count text-[0.7rem] ${isActive ? 'text-accent/70' : 'text-dim'} bg-chip-count px-1.5 py-px rounded-full">${count}</span></span>`;
-  }).join('');
-}
-
-function applyTrendCategory(cat) {
-  const el = document.getElementById('category');
-  el.value = el.value === cat ? '' : cat;
-  renderTrends();
-  renderPapers();
+  populateCategories();
+  renderSourceBubbles();
 }
 
 function extractAuthors(desc) {
@@ -724,11 +736,18 @@ function extractAuthors(desc) {
 
 function populateCategories() {
   const select = document.getElementById('category');
-  Array.from(allCategories).sort().forEach(cat => {
+  const current = select.value;
+  const freq = {};
+  allPapers.forEach(p => p.categories.forEach(c => { freq[c] = (freq[c] || 0) + 1; }));
+  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+  select.innerHTML = '<option value="">All Categories</option>';
+  sorted.forEach(([cat, count]) => {
     const opt = document.createElement('option');
-    opt.value = cat; opt.textContent = cat;
+    opt.value = cat;
+    opt.textContent = `${cat} (${count})`;
     select.appendChild(opt);
   });
+  select.value = current;
 }
 
 let lastFilteredPapers = [];
@@ -742,6 +761,7 @@ function getFilteredPapers() {
   const qCache = qfOn ? getQualityCache() : {};
   const bypass = qfOn ? getQualityBypass() : {};
   let filtered = allPapers.filter(p => {
+    if (hiddenSourceFilters.has(p.source)) return false;
     if (hidden.has(p.link)) return false;
     if (_blockedWordsSet.size > 0) {
       const titleLower = p.title.toLowerCase();
