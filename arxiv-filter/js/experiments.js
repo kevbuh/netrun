@@ -343,7 +343,7 @@ function renderFilesList(files) {
     return `
     <div class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" onclick="openFile('${escapeHtml(f)}')">
       <div class="flex items-center gap-1.5 min-w-0">
-        <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : f.endsWith('.py') ? 'bg-emerald-500/20 text-emerald-400' : f.endsWith('.png') || f.endsWith('.svg') ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : f.endsWith('.py') ? 'py' : f.endsWith('.png') ? 'png' : f.endsWith('.svg') ? 'svg' : 'md'}</span>
+        <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : f.endsWith('.py') ? 'bg-emerald-500/20 text-emerald-400' : f.endsWith('.tex') ? 'bg-red-500/20 text-red-400' : f.endsWith('.png') || f.endsWith('.svg') ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : f.endsWith('.py') ? 'py' : f.endsWith('.tex') ? 'tex' : f.endsWith('.png') ? 'png' : f.endsWith('.svg') ? 'svg' : 'md'}</span>
         <span class="text-[0.8rem] text-primary truncate">${escapeHtml(f)}</span>
       </div>
       <button onclick="event.stopPropagation(); deleteExpFile('${escapeHtml(f)}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
@@ -405,7 +405,7 @@ function hideExpFileMenuOnClick(e) {
 }
 
 async function createExpFile(ext, content) {
-  const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : 'notes';
+  const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
   const resp = await fetch(`/api/experiments/${currentExpId}/files`);
@@ -457,6 +457,8 @@ async function openFile(fname) {
     renderNotebookEditor(fname, data.content);
   } else if (fname.endsWith('.py')) {
     renderPythonEditor(fname, data.content);
+  } else if (fname.endsWith('.tex')) {
+    renderLatexEditor(fname, data.content);
   } else {
     renderMarkdownEditor(fname, data.content);
   }

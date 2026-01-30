@@ -28,6 +28,87 @@ async function saveMarkdown() {
   if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
 }
 
+// ── LaTeX Editor ──
+const NEURIPS_TEMPLATE = `\\documentclass{article}
+
+% NeurIPS style
+\\usepackage[final]{neurips_2024}
+
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{hyperref}
+\\usepackage{url}
+\\usepackage{booktabs}
+\\usepackage{amsfonts}
+\\usepackage{amsmath}
+\\usepackage{nicefrac}
+\\usepackage{microtype}
+\\usepackage{graphicx}
+
+\\title{Paper Title}
+
+\\author{
+  Author Name \\\\
+  Department \\\\
+  Institution \\\\
+  \\texttt{email@example.com}
+}
+
+\\begin{document}
+
+\\maketitle
+
+\\begin{abstract}
+  Abstract text goes here.
+\\end{abstract}
+
+\\section{Introduction}
+
+\\section{Related Work}
+
+\\section{Method}
+
+\\section{Experiments}
+
+\\section{Results}
+
+\\section{Conclusion}
+
+\\bibliographystyle{plain}
+\\bibliography{references}
+
+\\end{document}
+`;
+
+function renderLatexEditor(fname, content) {
+  const editor = document.getElementById('exp-file-editor');
+  editor.innerHTML =
+    '<div class="flex items-center gap-3 mb-4">' +
+      '<span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">tex</span>' +
+      '<span class="text-[0.9rem] text-white_ font-medium">' + escapeHtml(fname) + '</span>' +
+      '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="tex-save-ind">Saved</span>' +
+    '</div>' +
+    '<textarea id="tex-editor-textarea" class="w-full min-h-[500px] px-4 py-3 rounded-lg border border-border-input bg-input text-primary text-[0.85rem] font-mono resize-y focus:outline-none focus:border-accent" spellcheck="false">' + escapeHtml(content) + '</textarea>';
+  const ta = document.getElementById('tex-editor-textarea');
+  ta.addEventListener('input', () => {
+    clearTimeout(fileSaveTimer);
+    fileSaveTimer = setTimeout(() => saveLatex(), 600);
+  });
+  ta.focus();
+}
+
+async function saveLatex() {
+  fileSaveTimer = null;
+  if (!currentFile || !currentExpId) return;
+  const content = document.getElementById('tex-editor-textarea').value;
+  await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({content})
+  });
+  const ind = document.getElementById('tex-save-ind');
+  if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+}
+
 // ── Python File Editor ──
 let pyEditorCm = null;
 

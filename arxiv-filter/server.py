@@ -651,7 +651,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb', '.py', '.png', '.svg')) and f != 'meta.json']
+            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb', '.py', '.tex', '.png', '.svg')) and f != 'meta.json']
             files.sort()
             self._send_json(files)
 
@@ -1025,7 +1025,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             name = body.get('name', '').strip()
-            allowed_ext = ('.md', '.ipynb', '.py', '.png', '.svg')
+            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg')
             if not name or not any(name.endswith(e) for e in allowed_ext):
                 self._send_json({'error': f'Name must end with {", ".join(allowed_ext)}'}, 400)
                 return
