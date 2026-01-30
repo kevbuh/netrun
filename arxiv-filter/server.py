@@ -20,6 +20,7 @@ EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 CALENDAR_FILE = os.path.join(DIR, 'calendar.json')
+TODOS_FILE = os.path.join(DIR, 'todos.json')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 
@@ -46,6 +47,18 @@ def read_calendar():
 def write_calendar(events):
     with open(CALENDAR_FILE, 'w') as f:
         json.dump(events, f, indent=2)
+
+
+def read_todos():
+    if not os.path.exists(TODOS_FILE):
+        return []
+    with open(TODOS_FILE, 'r') as f:
+        return json.load(f)
+
+
+def write_todos(todos):
+    with open(TODOS_FILE, 'w') as f:
+        json.dump(todos, f, indent=2)
 
 
 def slugify(text):
@@ -404,6 +417,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 content = f.read()
             self._send_json({'name': fname, 'content': content})
 
+        elif self.path == '/api/todos':
+            self._send_json(read_todos())
+
         elif self.path == '/api/calendar':
             self._send_json(read_calendar())
 
@@ -638,6 +654,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             self._send_json(version, 201)
 
+        elif self.path == '/api/todos':
+            body = self._read_body()
+            title = body.get('title', '').strip()
+            if not title:
+                self._send_json({'error': 'title required'}, 400)
+                return
+            todo = {
+                'id': str(uuid.uuid4()),
+                'title': title,
+                'done': False,
+                'date': body.get('date', ''),
+                'description': body.get('description', ''),
+                'color': body.get('color', '#b4451a')
+            }
+            todos = read_todos()
+            todos.append(todo)
+            write_todos(todos)
+            self._send_json(todo, 201)
+
         elif self.path == '/api/calendar':
             body = self._read_body()
             title = body.get('title', '').strip()
@@ -672,6 +707,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
+        if m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
+            tid = m.group(1)
+            body = self._read_body()
+            todos = read_todos()
+            for todo in todos:
+                if todo['id'] == tid:
+                    for key in ('title', 'done', 'date', 'description', 'color'):
+                        if key in body:
+                            todo[key] = body[key]
+                    write_todos(todos)
+                    self._send_json(todo)
+                    return
+            self._send_json({'error': 'Not found'}, 404)
+            return
+
         if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
             eid = m.group(1)
             body = self._read_body()
@@ -744,7 +794,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send_json({'error': 'Version not found'}, 404)
 
     def do_DELETE(self):
-        if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
+        if m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
+            tid = m.group(1)
+            todos = read_todos()
+            new_todos = [t for t in todos if t['id'] != tid]
+            if len(new_todos) == len(todos):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            write_todos(new_todos)
+            self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
             eid = m.group(1)
             events = read_calendar()
             new_events = [e for e in events if e['id'] != eid]

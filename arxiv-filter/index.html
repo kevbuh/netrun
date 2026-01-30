@@ -299,6 +299,10 @@
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Calendar</span>
     </button>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-todos" onclick="openTodos()">
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M22 8c0-.55-.45-1-1-1h-7c-.55 0-1 .45-1 1s.45 1 1 1h7c.55 0 1-.45 1-1zm0 8c0-.55-.45-1-1-1h-7c-.55 0-1 .45-1 1s.45 1 1 1h7c.55 0 1-.45 1-1zm-10.29-3.29l-3.3 3.29L7 14.59a.996.996 0 10-1.41 1.41l2.12 2.12a.996.996 0 001.41 0l4-4a.996.996 0 10-1.41-1.41zM10.12 8.71l-3.3 3.29L5.41 10.59a.996.996 0 10-1.41 1.41l2.12 2.12a.996.996 0 001.41 0l4-4a.996.996 0 10-1.41-1.41z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Todos</span>
+    </button>
     <div class="mt-auto"></div>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" onclick="openSettings()">
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
@@ -429,6 +433,13 @@
   <div id="calendar-view" class="hidden ml-[60px] view">
     <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
       <div id="calendar-view-content"></div>
+    </div>
+  </div>
+
+  <!-- Todos View -->
+  <div id="todos-view" class="hidden ml-[60px] view">
+    <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
+      <div id="todos-view-content"></div>
     </div>
   </div>
 
@@ -574,6 +585,7 @@
       if (hash === '#experiments') openExperiments();
       else if (hash === '#quality') openQualityFilter();
       else if (hash === '#calendar') openCalendar();
+      else if (hash === '#todos') openTodos();
       else if (hash === '#saved') openSaved();
       else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
       else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
@@ -1531,6 +1543,202 @@
       renderPapers();
     }
 
+    // ── Todos ──
+    let todos = [];
+    let todosShowForm = false;
+    let todosShowCompleted = false;
+
+    function openTodos() {
+      hideAllViews();
+      const view = document.getElementById('todos-view');
+      view.classList.add('active');
+      view.style.display = 'block';
+      window.location.hash = 'todos';
+      setSidebarActive('sb-todos');
+      fetchTodos();
+    }
+
+    async function fetchTodos() {
+      try {
+        const resp = await fetch('/api/todos');
+        todos = await resp.json();
+      } catch (e) { todos = []; }
+      renderTodosView();
+    }
+
+    async function addTodo(todo) {
+      try {
+        const resp = await fetch('/api/todos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(todo)
+        });
+        const created = await resp.json();
+        todos.push(created);
+        todosShowForm = false;
+        renderTodosView();
+      } catch (e) { /* silently fail */ }
+    }
+
+    async function toggleTodo(id) {
+      const todo = todos.find(t => t.id === id);
+      if (!todo) return;
+      try {
+        const resp = await fetch('/api/todos/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ done: !todo.done })
+        });
+        const updated = await resp.json();
+        const idx = todos.findIndex(t => t.id === id);
+        if (idx !== -1) todos[idx] = updated;
+        renderTodosView();
+        // Also re-render calendar if it has content loaded
+        if (document.getElementById('calendar-view-content').innerHTML) renderCalendarView();
+      } catch (e) { /* silently fail */ }
+    }
+
+    async function deleteTodo(id) {
+      try {
+        await fetch('/api/todos/' + id, { method: 'DELETE' });
+        todos = todos.filter(t => t.id !== id);
+        renderTodosView();
+        if (document.getElementById('calendar-view-content').innerHTML) renderCalendarView();
+      } catch (e) { /* silently fail */ }
+    }
+
+    function todosToggleForm() {
+      todosShowForm = !todosShowForm;
+      renderTodosView();
+    }
+
+    function todosSubmitForm() {
+      const title = document.getElementById('todo-title').value.trim();
+      if (!title) return;
+      const desc = document.getElementById('todo-desc').value.trim();
+      const date = document.getElementById('todo-date').value;
+      const colorEl = document.querySelector('input[name="todo-color"]:checked');
+      const color = colorEl ? colorEl.value : '#b4451a';
+      addTodo({ title, description: desc, date: date || '', color });
+    }
+
+    function renderTodosView() {
+      const container = document.getElementById('todos-view-content');
+      const presetColors = [
+        { value: '#b4451a', label: 'Accent' },
+        { value: '#3b82f6', label: 'Blue' },
+        { value: '#22c55e', label: 'Green' },
+        { value: '#a855f7', label: 'Purple' },
+        { value: '#eab308', label: 'Yellow' },
+        { value: '#ef4444', label: 'Red' }
+      ];
+
+      const activeTodos = todos.filter(t => !t.done);
+      const completedTodos = todos.filter(t => t.done);
+
+      // Sort active: dated first (by date asc), then undated
+      activeTodos.sort((a, b) => {
+        if (a.date && b.date) return a.date.localeCompare(b.date);
+        if (a.date && !b.date) return -1;
+        if (!a.date && b.date) return 1;
+        return 0;
+      });
+
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${months[m - 1]} ${d}`;
+      };
+
+      let html = `
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-[1.3rem] font-semibold text-white_">Todos</h2>
+          <button onclick="todosToggleForm()" class="px-3 py-1.5 rounded-lg bg-accent text-white text-[0.8rem] font-medium cursor-pointer hover:opacity-90 transition-opacity border-none">${todosShowForm ? 'Cancel' : '+ Add Todo'}</button>
+        </div>
+      `;
+
+      if (todosShowForm) {
+        html += `
+          <div class="mb-6 p-4 bg-card rounded-xl border border-border-card">
+            <input type="text" id="todo-title" placeholder="Todo title..." class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] mb-3 focus:outline-none focus:border-accent" />
+            <textarea id="todo-desc" placeholder="Description (optional)" rows="2" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] mb-3 resize-none focus:outline-none focus:border-accent"></textarea>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-[0.8rem] text-dimmer">Due date:</span>
+              <input type="date" id="todo-date" class="px-3 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" />
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-[0.8rem] text-dimmer">Color:</span>
+              ${presetColors.map((c, i) => `
+                <label class="cursor-pointer">
+                  <input type="radio" name="todo-color" value="${c.value}" ${i === 0 ? 'checked' : ''} class="sr-only peer" />
+                  <span class="w-6 h-6 rounded-full inline-block border-2 border-transparent peer-checked:border-white transition-colors" style="background:${c.value}" title="${c.label}"></span>
+                </label>
+              `).join('')}
+            </div>
+            <div class="flex gap-2">
+              <button onclick="todosSubmitForm()" class="px-4 py-1.5 rounded-lg bg-accent text-white text-[0.8rem] font-medium cursor-pointer hover:opacity-90 transition-opacity border-none">Save</button>
+              <button onclick="todosToggleForm()" class="px-4 py-1.5 rounded-lg bg-card border border-border-card text-primary text-[0.8rem] cursor-pointer hover:bg-hover transition-colors">Cancel</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // Active todos
+      if (activeTodos.length === 0 && !todosShowForm) {
+        html += `<p class="text-[0.85rem] text-dimmer">No active todos.</p>`;
+      } else {
+        activeTodos.forEach(todo => {
+          html += `
+            <div class="flex items-start gap-3 py-3 border-b border-border-dim">
+              <input type="checkbox" onchange="toggleTodo('${todo.id}')" class="mt-1 w-4 h-4 cursor-pointer accent-accent" />
+              <span class="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style="background:${todo.color}"></span>
+              <div class="flex-1 min-w-0">
+                <div class="text-[0.9rem] font-medium text-white_">${escapeHtml(todo.title)}</div>
+                ${todo.description ? `<div class="text-[0.8rem] text-dimmer mt-0.5">${escapeHtml(todo.description)}</div>` : ''}
+              </div>
+              ${todo.date ? `<span class="text-[0.75rem] text-dimmer bg-card border border-border-card px-2 py-0.5 rounded mt-0.5 flex-shrink-0">${formatDate(todo.date)}</span>` : ''}
+              <button onclick="deleteTodo('${todo.id}')" class="text-dimmer hover:text-red-400 transition-colors cursor-pointer bg-transparent border-none p-1 mt-0.5" title="Delete todo">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+          `;
+        });
+      }
+
+      // Completed section
+      if (completedTodos.length > 0) {
+        html += `
+          <div class="mt-6">
+            <button onclick="todosShowCompleted=!todosShowCompleted;renderTodosView()" class="flex items-center gap-2 text-[0.85rem] text-dimmer cursor-pointer bg-transparent border-none p-0 hover:text-primary transition-colors">
+              <svg class="w-4 h-4 fill-current transition-transform ${todosShowCompleted ? 'rotate-90' : ''}" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+              Completed (${completedTodos.length})
+            </button>
+        `;
+        if (todosShowCompleted) {
+          completedTodos.forEach(todo => {
+            html += `
+              <div class="flex items-start gap-3 py-3 border-b border-border-dim opacity-60">
+                <input type="checkbox" checked onchange="toggleTodo('${todo.id}')" class="mt-1 w-4 h-4 cursor-pointer accent-accent" />
+                <span class="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style="background:${todo.color}"></span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[0.9rem] font-medium text-white_ line-through">${escapeHtml(todo.title)}</div>
+                  ${todo.description ? `<div class="text-[0.8rem] text-dimmer mt-0.5">${escapeHtml(todo.description)}</div>` : ''}
+                </div>
+                ${todo.date ? `<span class="text-[0.75rem] text-dimmer bg-card border border-border-card px-2 py-0.5 rounded mt-0.5 flex-shrink-0">${formatDate(todo.date)}</span>` : ''}
+                <button onclick="deleteTodo('${todo.id}')" class="text-dimmer hover:text-red-400 transition-colors cursor-pointer bg-transparent border-none p-1 mt-0.5" title="Delete todo">
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+            `;
+          });
+        }
+        html += `</div>`;
+      }
+
+      container.innerHTML = html;
+    }
+
     // ── Calendar ──
     let calendarEvents = [];
     let calendarYear, calendarMonth; // 0-indexed month
@@ -1555,8 +1763,9 @@
 
     async function fetchCalendarEvents() {
       try {
-        const resp = await fetch('/api/calendar');
-        calendarEvents = await resp.json();
+        const [evResp, tdResp] = await Promise.all([fetch('/api/calendar'), fetch('/api/todos')]);
+        calendarEvents = await evResp.json();
+        todos = await tdResp.json();
       } catch (e) { calendarEvents = []; }
       renderCalendarView();
     }
@@ -1631,6 +1840,17 @@
         }
       });
 
+      // Todos for this month indexed by day
+      const todosByDay = {};
+      todos.forEach(todo => {
+        if (!todo.date) return;
+        const [y, m, d] = todo.date.split('-').map(Number);
+        if (y === calendarYear && m === calendarMonth + 1) {
+          if (!todosByDay[d]) todosByDay[d] = [];
+          todosByDay[d].push(todo);
+        }
+      });
+
       const presetColors = [
         { value: '#b4451a', label: 'Accent' },
         { value: '#3b82f6', label: 'Blue' },
@@ -1673,12 +1893,14 @@
         const isToday = isCurrentMonth && d === todayDate;
         const isSelected = d === calendarSelectedDay;
         const evs = eventsByDay[d] || [];
+        const tds = todosByDay[d] || [];
         const borderClass = isToday ? 'border-2 border-accent' : '';
         const selectedClass = isSelected ? 'bg-hover' : 'bg-card';
         html += `<div class="${selectedClass} ${borderClass} px-2 py-1.5 min-h-[70px] cursor-pointer hover:bg-hover transition-colors" onclick="calendarSelectDay(${d})">
           <span class="text-[0.8rem] ${isToday ? 'text-accent font-bold' : 'text-primary'}">${d}</span>
           <div class="flex flex-wrap gap-1 mt-1">
             ${evs.map(ev => `<span class="w-2 h-2 rounded-full inline-block" style="background:${ev.color}" title="${ev.title.replace(/"/g, '&quot;')}"></span>`).join('')}
+            ${tds.map(td => `<span class="w-2 h-2 rounded-full inline-block border border-current" style="color:${td.color}${td.done ? ';opacity:0.4' : ''}" title="${td.title.replace(/"/g, '&quot;')}"></span>`).join('')}
           </div>
         </div>`;
       }
@@ -1695,6 +1917,7 @@
       // Selected day panel
       if (calendarSelectedDay !== null) {
         const evs = eventsByDay[calendarSelectedDay] || [];
+        const dayTodos = todosByDay[calendarSelectedDay] || [];
         const dateStr = `${monthNames[calendarMonth]} ${calendarSelectedDay}, ${calendarYear}`;
         html += `
           <div class="mt-6 p-5 bg-card rounded-xl border border-border-card">
@@ -1726,8 +1949,8 @@
           `;
         }
 
-        if (evs.length === 0 && !calendarShowForm) {
-          html += `<p class="text-[0.85rem] text-dimmer">No events on this day.</p>`;
+        if (evs.length === 0 && dayTodos.length === 0 && !calendarShowForm) {
+          html += `<p class="text-[0.85rem] text-dimmer">No events or todos on this day.</p>`;
         } else {
           evs.forEach(ev => {
             html += `
@@ -1743,6 +1966,24 @@
               </div>
             `;
           });
+
+          if (dayTodos.length > 0) {
+            html += `<div class="mt-3 pt-3 ${evs.length ? 'border-t border-border-dim' : ''}">
+              <div class="text-[0.75rem] font-semibold text-dimmer uppercase tracking-wide mb-2">Todos</div>`;
+            dayTodos.forEach(td => {
+              html += `
+                <div class="flex items-start gap-3 py-2 ${td.done ? 'opacity-50' : ''}">
+                  <input type="checkbox" ${td.done ? 'checked' : ''} onchange="toggleTodo('${td.id}')" class="mt-0.5 w-4 h-4 cursor-pointer accent-accent" />
+                  <span class="w-3 h-3 rounded-full mt-1 flex-shrink-0 border-2" style="border-color:${td.color}"></span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[0.9rem] font-medium text-white_ ${td.done ? 'line-through' : ''}">${escapeHtml(td.title)}</div>
+                    ${td.description ? `<div class="text-[0.8rem] text-dimmer mt-0.5">${escapeHtml(td.description)}</div>` : ''}
+                  </div>
+                </div>
+              `;
+            });
+            html += `</div>`;
+          }
         }
 
         html += `</div>`;
