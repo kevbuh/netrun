@@ -1465,3 +1465,169 @@ function renderCalendarView() {
 
   container.innerHTML = html;
 }
+
+// ── Whiteboard ──
+let _wbStrokes = [];
+let _wbRedoStack = [];
+let _wbDrawing = false;
+let _wbCurrent = null;
+let _wbCtx = null;
+let _wbCanvas = null;
+let _wbEraser = false;
+let _wbInited = false;
+let _wbResizeObs = null;
+
+function openWhiteboard() {
+  hideAllViews();
+  const view = document.getElementById('whiteboard-view');
+  view.classList.add('active');
+  view.style.display = 'flex';
+  view.style.flexDirection = 'column';
+  window.location.hash = 'whiteboard';
+  setSidebarActive('sb-whiteboard');
+  initWhiteboard();
+}
+
+function initWhiteboard() {
+  _wbCanvas = document.getElementById('wb-canvas');
+  _wbCtx = _wbCanvas.getContext('2d');
+
+  // Load strokes from localStorage
+  try {
+    const saved = localStorage.getItem('whiteboardStrokes');
+    if (saved) _wbStrokes = JSON.parse(saved);
+  } catch {}
+  _wbRedoStack = [];
+
+  _sizeWbCanvas();
+  _redrawWb();
+
+  if (_wbInited) return;
+  _wbInited = true;
+
+  // Pointer events
+  _wbCanvas.addEventListener('pointerdown', _wbPointerDown);
+  _wbCanvas.addEventListener('pointermove', _wbPointerMove);
+  _wbCanvas.addEventListener('pointerup', _wbPointerUp);
+  _wbCanvas.addEventListener('pointerleave', _wbPointerUp);
+
+  // Toolbar
+  document.getElementById('wb-eraser').addEventListener('click', () => {
+    _wbEraser = !_wbEraser;
+    document.getElementById('wb-eraser').classList.toggle('active', _wbEraser);
+  });
+  document.getElementById('wb-undo').addEventListener('click', _wbUndo);
+  document.getElementById('wb-redo').addEventListener('click', _wbRedo);
+  document.getElementById('wb-clear').addEventListener('click', _wbClear);
+  document.getElementById('wb-size').addEventListener('input', (e) => {
+    document.getElementById('wb-size-label').textContent = e.target.value;
+  });
+
+  // Resize
+  _wbResizeObs = new ResizeObserver(() => {
+    _sizeWbCanvas();
+    _redrawWb();
+  });
+  _wbResizeObs.observe(_wbCanvas.parentElement);
+}
+
+function _sizeWbCanvas() {
+  const toolbar = _wbCanvas.parentElement.querySelector('.wb-toolbar');
+  const toolbarH = toolbar ? toolbar.offsetHeight : 0;
+  const parent = _wbCanvas.parentElement;
+  _wbCanvas.width = parent.clientWidth;
+  _wbCanvas.height = parent.clientHeight - toolbarH;
+}
+
+function _getWbBgColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--bg-body').trim() || '#0a0a0a';
+}
+
+function _wbPointerDown(e) {
+  _wbDrawing = true;
+  _wbCanvas.setPointerCapture(e.pointerId);
+  const rect = _wbCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const color = _wbEraser ? _getWbBgColor() : document.getElementById('wb-color').value;
+  const size = parseInt(document.getElementById('wb-size').value, 10);
+  _wbCurrent = { points: [{ x, y }], color, size, eraser: _wbEraser };
+  _wbCtx.lineCap = 'round';
+  _wbCtx.lineJoin = 'round';
+  _wbCtx.strokeStyle = color;
+  _wbCtx.lineWidth = size;
+  _wbCtx.beginPath();
+  _wbCtx.moveTo(x, y);
+}
+
+function _wbPointerMove(e) {
+  if (!_wbDrawing || !_wbCurrent) return;
+  const rect = _wbCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  _wbCurrent.points.push({ x, y });
+  _wbCtx.lineTo(x, y);
+  _wbCtx.stroke();
+  _wbCtx.beginPath();
+  _wbCtx.moveTo(x, y);
+}
+
+function _wbPointerUp() {
+  if (!_wbDrawing) return;
+  _wbDrawing = false;
+  if (_wbCurrent && _wbCurrent.points.length > 0) {
+    _wbStrokes.push(_wbCurrent);
+    _wbRedoStack = [];
+    _saveWbStrokes();
+  }
+  _wbCurrent = null;
+}
+
+function _redrawWb() {
+  const ctx = _wbCtx;
+  ctx.clearRect(0, 0, _wbCanvas.width, _wbCanvas.height);
+  // Fill with background color
+  ctx.fillStyle = _getWbBgColor();
+  ctx.fillRect(0, 0, _wbCanvas.width, _wbCanvas.height);
+  for (const stroke of _wbStrokes) {
+    if (stroke.points.length === 0) continue;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.size;
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    for (let i = 1; i < stroke.points.length; i++) {
+      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+    }
+    ctx.stroke();
+  }
+}
+
+function _wbUndo() {
+  if (!_wbStrokes.length) return;
+  _wbRedoStack.push(_wbStrokes.pop());
+  _redrawWb();
+  _saveWbStrokes();
+}
+
+function _wbRedo() {
+  if (!_wbRedoStack.length) return;
+  _wbStrokes.push(_wbRedoStack.pop());
+  _redrawWb();
+  _saveWbStrokes();
+}
+
+function _wbClear() {
+  if (!_wbStrokes.length) return;
+  _wbRedoStack = [];
+  _wbStrokes = [];
+  _redrawWb();
+  _saveWbStrokes();
+}
+
+function _saveWbStrokes() {
+  try {
+    localStorage.setItem('whiteboardStrokes', JSON.stringify(_wbStrokes));
+  } catch {}
+}

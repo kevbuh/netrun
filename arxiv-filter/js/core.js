@@ -197,6 +197,7 @@ function routeFromHash() {
   else if (hash === '#todos') openTodos();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#search') openSearch();
+  else if (hash === '#whiteboard') openWhiteboard();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
   else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
