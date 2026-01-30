@@ -541,6 +541,7 @@ function closeFileEditor() {
   currentFile = null;
   pyEditorCm = null;
   cmInstances = [];
+  if (typeof _texCm !== 'undefined') _texCm = null;
   const el = document.getElementById('exp-file-editor');
   el.style.display = 'none';
   el.style.flexDirection = '';

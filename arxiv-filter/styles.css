@@ -332,6 +332,8 @@
       padding: 0.5rem 0 !important;
     }
     .CodeMirror-scroll { min-height: 40px; }
+    #tex-cm-wrap .CodeMirror { height: 100% !important; padding: 0 !important; }
+    #tex-cm-wrap .CodeMirror-scroll { min-height: 100%; }
     .CodeMirror-gutters {
       background: transparent !important;
       border-right: none !important;
@@ -362,6 +364,64 @@
     .cm-s-default .cm-attribute { color: #9cdcfe !important; }
     .cm-s-default .cm-header { color: #569cd6 !important; }
     .cm-s-default .cm-link { color: #9cdcfe !important; }
+
+    /* Light / Sepia CodeMirror overrides */
+    [data-theme="light"] .CodeMirror,
+    [data-theme="sepia"] .CodeMirror {
+      color: var(--text-primary) !important;
+    }
+    [data-theme="light"] .CodeMirror-cursor,
+    [data-theme="sepia"] .CodeMirror-cursor {
+      border-left-color: var(--text-primary) !important;
+    }
+    [data-theme="light"] .CodeMirror-linenumber,
+    [data-theme="sepia"] .CodeMirror-linenumber {
+      color: var(--text-dimmest) !important;
+    }
+    [data-theme="light"] .cm-s-default .cm-keyword,
+    [data-theme="sepia"] .cm-s-default .cm-keyword { color: #7928a1 !important; }
+    [data-theme="light"] .cm-s-default .cm-def,
+    [data-theme="sepia"] .cm-s-default .cm-def { color: #6f42c1 !important; }
+    [data-theme="light"] .cm-s-default .cm-variable,
+    [data-theme="sepia"] .cm-s-default .cm-variable { color: #24292e !important; }
+    [data-theme="light"] .cm-s-default .cm-variable-2,
+    [data-theme="sepia"] .cm-s-default .cm-variable-2 { color: #005cc5 !important; }
+    [data-theme="light"] .cm-s-default .cm-variable-3,
+    [data-theme="sepia"] .cm-s-default .cm-variable-3,
+    [data-theme="light"] .cm-s-default .cm-type,
+    [data-theme="sepia"] .cm-s-default .cm-type { color: #22863a !important; }
+    [data-theme="light"] .cm-s-default .cm-property,
+    [data-theme="sepia"] .cm-s-default .cm-property { color: #005cc5 !important; }
+    [data-theme="light"] .cm-s-default .cm-operator,
+    [data-theme="sepia"] .cm-s-default .cm-operator { color: #24292e !important; }
+    [data-theme="light"] .cm-s-default .cm-number,
+    [data-theme="sepia"] .cm-s-default .cm-number { color: #005cc5 !important; }
+    [data-theme="light"] .cm-s-default .cm-string,
+    [data-theme="sepia"] .cm-s-default .cm-string,
+    [data-theme="light"] .cm-s-default .cm-string-2,
+    [data-theme="sepia"] .cm-s-default .cm-string-2 { color: #b45309 !important; }
+    [data-theme="light"] .cm-s-default .cm-comment,
+    [data-theme="sepia"] .cm-s-default .cm-comment { color: #6a737d !important; }
+    [data-theme="light"] .cm-s-default .cm-builtin,
+    [data-theme="sepia"] .cm-s-default .cm-builtin { color: #22863a !important; }
+    [data-theme="light"] .cm-s-default .cm-meta,
+    [data-theme="sepia"] .cm-s-default .cm-meta { color: #e36209 !important; }
+    [data-theme="light"] .cm-s-default .cm-atom,
+    [data-theme="sepia"] .cm-s-default .cm-atom,
+    [data-theme="light"] .cm-s-default .cm-tag,
+    [data-theme="sepia"] .cm-s-default .cm-tag { color: #22863a !important; }
+    [data-theme="light"] .cm-s-default .cm-attribute,
+    [data-theme="sepia"] .cm-s-default .cm-attribute { color: #005cc5 !important; }
+    [data-theme="light"] .cm-s-default .cm-header,
+    [data-theme="sepia"] .cm-s-default .cm-header { color: #005cc5 !important; }
+    [data-theme="light"] .cm-s-default .cm-link,
+    [data-theme="sepia"] .cm-s-default .cm-link { color: #005cc5 !important; }
+    [data-theme="light"] .CodeMirror-selected,
+    [data-theme="sepia"] .CodeMirror-selected { background: rgba(180,69,26,0.15) !important; }
+    [data-theme="light"] .CodeMirror-focused .CodeMirror-selected,
+    [data-theme="sepia"] .CodeMirror-focused .CodeMirror-selected { background: rgba(180,69,26,0.25) !important; }
+    [data-theme="light"] .CodeMirror-matchingbracket,
+    [data-theme="sepia"] .CodeMirror-matchingbracket { color: #24292e !important; background: rgba(180,69,26,0.2) !important; }
 
     /* ── Cell output truncation ── */
     .cell-output-wrap { position: relative; max-height: 300px; overflow: hidden; }

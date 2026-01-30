@@ -31,10 +31,12 @@ async function saveMarkdown() {
 // ── LaTeX Editor ──
 let _texMode = 'code'; // 'code' or 'preview'
 let _texPdfUrl = null;
+let _texCm = null;
 
 function renderLatexEditor(fname, content) {
   _texMode = 'code';
   _texPdfUrl = null;
+  _texCm = null;
   const editor = document.getElementById('exp-file-editor');
   // Stretch editor to fill the content pane by negating parent p-8 padding
   var pane = document.getElementById('exp-content-pane');
@@ -46,49 +48,63 @@ function renderLatexEditor(fname, content) {
   editor.innerHTML =
     '<div class="flex items-center gap-3 px-4 py-2 shrink-0">' +
       '<span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">tex</span>' +
-      '<span class="text-[0.9rem] text-white_ font-medium">' + escapeHtml(fname) + '</span>' +
+      '<span id="tex-editor-fname" class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameTexFile(\'' + escapeHtml(fname) + '\')" title="Click to rename">' + escapeHtml(fname) + '</span>' +
       '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="tex-save-ind">Saved</span>' +
       '<div class="ml-auto flex items-center gap-2">' +
         '<span id="tex-compile-status" class="text-[0.75rem] text-dimmer"></span>' +
         '<button onclick="toggleTexMode()" id="tex-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Preview</button>' +
-        '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-red-500/20 text-red-400 border border-red-500/30 cursor-pointer hover:bg-red-500/30 transition-colors">Compile PDF</button>' +
+        '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Compile PDF</button>' +
       '</div>' +
     '</div>' +
-    '<textarea id="tex-editor-textarea" class="flex-1 px-4 py-3 border-0 border-t border-border-input bg-input text-primary text-[0.85rem] font-mono resize-none focus:outline-none" spellcheck="false">' + escapeHtml(content) + '</textarea>' +
+    '<div id="tex-cm-wrap" class="flex-1 overflow-hidden border-t border-border-input">' +
+      '<textarea id="tex-editor-textarea">' + escapeHtml(content) + '</textarea>' +
+    '</div>' +
     '<div id="tex-preview-pane" class="hidden flex-1 bg-input items-center justify-center">' +
       '<span class="text-dimmer text-[0.85rem]">Click "Compile PDF" to build the preview</span>' +
     '</div>' +
     '<div id="tex-error-log" class="hidden p-3 shrink-0 bg-red-500/10 border-t border-red-500/20 text-red-400 text-[0.75rem] font-mono whitespace-pre-wrap max-h-[200px] overflow-auto"></div>';
-  const ta = document.getElementById('tex-editor-textarea');
-  ta.addEventListener('input', () => {
-    clearTimeout(fileSaveTimer);
-    fileSaveTimer = setTimeout(() => saveLatex(), 600);
+  var ta = document.getElementById('tex-editor-textarea');
+  _texCm = CodeMirror.fromTextArea(ta, {
+    mode: 'stex',
+    lineNumbers: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    indentUnit: 2,
+    tabSize: 2,
+    indentWithTabs: false,
+    lineWrapping: true,
+    viewportMargin: Infinity
   });
-  ta.focus();
+  _texCm.on('change', function() {
+    clearTimeout(fileSaveTimer);
+    fileSaveTimer = setTimeout(function() { saveLatex(); }, 600);
+  });
+  _texCm.focus();
 }
 
 function toggleTexMode() {
-  var ta = document.getElementById('tex-editor-textarea');
+  var wrap = document.getElementById('tex-cm-wrap');
   var pane = document.getElementById('tex-preview-pane');
   var btn = document.getElementById('tex-toggle-btn');
   if (_texMode === 'code') {
     _texMode = 'preview';
-    ta.style.display = 'none';
+    wrap.style.display = 'none';
     pane.style.display = 'flex';
     pane.classList.remove('hidden');
     btn.textContent = 'Code';
   } else {
     _texMode = 'code';
-    ta.style.display = '';
+    wrap.style.display = '';
     pane.style.display = 'none';
     btn.textContent = 'Preview';
+    if (_texCm) _texCm.refresh();
   }
 }
 
 async function saveLatex() {
   fileSaveTimer = null;
-  if (!currentFile || !currentExpId) return;
-  const content = document.getElementById('tex-editor-textarea').value;
+  if (!currentFile || !currentExpId || !_texCm) return;
+  var content = _texCm.getValue();
   await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({content})
@@ -98,9 +114,9 @@ async function saveLatex() {
 }
 
 async function compileLatex() {
-  if (!currentFile || !currentExpId) return;
+  if (!currentFile || !currentExpId || !_texCm) return;
   // Save first
-  const content = document.getElementById('tex-editor-textarea').value;
+  var content = _texCm.getValue();
   await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({content})
@@ -139,6 +155,46 @@ async function compileLatex() {
     btn.disabled = false;
     btn.textContent = 'Compile PDF';
   }
+}
+
+function startRenameTexFile(fname) {
+  var span = document.getElementById('tex-editor-fname');
+  if (!span) return;
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = fname;
+  input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent';
+  span.replaceWith(input);
+  input.focus();
+  var dotIdx = fname.lastIndexOf('.');
+  input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
+
+  async function commit() {
+    var newName = input.value.trim();
+    if (newName && newName !== fname) {
+      var resp = await fetch('/api/experiments/' + currentExpId + '/files/' + fname, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rename: newName })
+      });
+      if (resp.ok) {
+        currentFile = newName;
+        fname = newName;
+      }
+    }
+    var newSpan = document.createElement('span');
+    newSpan.id = 'tex-editor-fname';
+    newSpan.className = 'text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
+    newSpan.title = 'Click to rename';
+    newSpan.textContent = fname;
+    newSpan.onclick = function() { startRenameTexFile(fname); };
+    input.replaceWith(newSpan);
+    fetchExpFiles();
+  }
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { commit(); }
+  });
+  input.addEventListener('blur', function() { commit(); });
 }
 
 // ── Python File Editor ──
