@@ -33,15 +33,31 @@ let pyEditorCm = null;
 
 function renderPythonEditor(fname, content) {
   const editor = document.getElementById('exp-file-editor');
+  const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
   editor.innerHTML = `
     <div class="flex items-center gap-3 mb-4">
       <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
       <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
       <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
+      <div class="ml-auto flex items-center gap-2">
+        <span class="flex items-center gap-1.5 text-[0.75rem] text-dimmer"><span id="py-kernel-dot" class="w-2 h-2 rounded-full inline-block bg-emerald-500"></span><span id="py-kernel-text">idle</span></span>
+        <select id="py-venv-select" onchange="switchVenv(this.value)" class="px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.75rem] cursor-pointer focus:outline-none focus:border-accent">
+          <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
+        </select>
+        <button onclick="runPythonFile()" class="px-3 py-1 rounded text-[0.78rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium" id="py-run-btn" title="Run file (Shift+Enter)">Run</button>
+      </div>
     </div>
     <div class="rounded-lg border border-border-input overflow-hidden">
       <textarea id="py-editor-textarea">${escapeHtml(content)}</textarea>
-    </div>`;
+    </div>
+    <div id="py-output" class="hidden mt-3 rounded-lg border border-border-dim overflow-hidden">
+      <div class="flex items-center justify-between px-3 py-1.5 bg-card/30 border-b border-border-dim">
+        <span class="text-[0.7rem] text-muted font-medium">Output</span>
+        <button onclick="document.getElementById('py-output').classList.add('hidden')" class="text-dimmer hover:text-primary text-[0.8rem] bg-transparent border-none cursor-pointer">&times;</button>
+      </div>
+      <div id="py-output-content" class="px-4 py-2 bg-body/50 text-[0.8rem] font-mono text-muted whitespace-pre-wrap"></div>
+    </div>
+    <div class="pb-40"></div>`;
   const ta = document.getElementById('py-editor-textarea');
   pyEditorCm = CodeMirror.fromTextArea(ta, {
     mode: 'python',
@@ -54,6 +70,7 @@ function renderPythonEditor(fname, content) {
     lineWrapping: true,
     viewportMargin: Infinity,
     extraKeys: {
+      'Shift-Enter': function() { runPythonFile(); },
       'Cmd-/': function(cm) { cm.toggleComment(); },
       'Ctrl-/': function(cm) { cm.toggleComment(); },
       'Tab': function(cm) {
@@ -68,6 +85,44 @@ function renderPythonEditor(fname, content) {
     fileSaveTimer = setTimeout(() => savePythonFile(), 600);
   });
   pyEditorCm.focus();
+  loadVenvDropdown(pythonPath);
+}
+
+async function runPythonFile() {
+  if (!currentExpId || !pyEditorCm) return;
+  const code = pyEditorCm.getValue();
+  if (!code.trim()) return;
+
+  const btn = document.getElementById('py-run-btn');
+  const dot = document.getElementById('py-kernel-dot');
+  const text = document.getElementById('py-kernel-text');
+  if (btn) { btn.textContent = 'Running…'; btn.disabled = true; }
+  if (dot) dot.className = 'w-2 h-2 rounded-full inline-block bg-amber-500';
+  if (text) text.textContent = 'busy';
+
+  const outPanel = document.getElementById('py-output');
+  const outContent = document.getElementById('py-output-content');
+  outPanel.classList.remove('hidden');
+  outContent.textContent = 'Running…';
+
+  try {
+    // Save first
+    await savePythonFile();
+    const resp = await fetch(`/api/experiments/${currentExpId}/execute`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ code })
+    });
+    const result = await resp.json();
+    const rendered = renderCellOutputs(result.outputs || []);
+    outContent.innerHTML = rendered || '<span class="text-dim">No output</span>';
+    if (dot) dot.className = 'w-2 h-2 rounded-full inline-block bg-emerald-500';
+    if (text) text.textContent = 'idle';
+  } catch(e) {
+    outContent.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`;
+    if (dot) dot.className = 'w-2 h-2 rounded-full inline-block bg-red-500';
+    if (text) text.textContent = 'dead';
+  }
+  if (btn) { btn.textContent = 'Run'; btn.disabled = false; }
 }
 
 async function savePythonFile() {
@@ -130,7 +185,7 @@ function renderNotebookEditor(fname, contentStr) {
 }
 
 async function loadVenvDropdown(currentPath) {
-  const select = document.getElementById('nb-venv-select');
+  const select = document.getElementById('nb-venv-select') || document.getElementById('py-venv-select');
   if (!select) return;
   try {
     const resp = await fetch('/api/venvs');
