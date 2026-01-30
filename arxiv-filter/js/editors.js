@@ -121,7 +121,7 @@ function renderNotebookEditor(fname, contentStr) {
       <div id="pkg-list" class="text-[0.8rem] text-muted">Loading...</div>
     </div>
     <div id="nb-cells"></div>
-    <div class="flex gap-2 mt-3">
+    <div class="flex gap-2 mt-3 pb-40">
       <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('code')">+ Code</button>
       <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('markdown')">+ Markdown</button>
     </div>`;
@@ -379,9 +379,9 @@ function renderNbCells() {
           <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
         </div>
       </div>
-      <div data-cell-editor="${i}"><textarea data-cell-input="${i}">${escapeHtml(src)}</textarea></div>
+      <div data-cell-editor="${i}"><textarea data-cell-input="${i}" class="w-full bg-[var(--bg-body)] text-[var(--text-primary)] border-none outline-none resize-none p-3 font-mono text-[0.85rem]" rows="3">${escapeHtml(src)}</textarea></div>
       <div data-cell-rendered="${i}" class="hidden px-4 py-3 nb-rendered-md text-[0.85rem] cursor-pointer" onclick="editMdCell(${i})" title="Click to edit"></div>
-      ${outputs ? `<div class="px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs}</div>` : `<div class="hidden" data-cell-output="${i}"></div>`}
+      <div class="${outputs ? '' : 'hidden '}px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs || ''}</div>
     </div>`;
   }).join('');
 
@@ -389,6 +389,7 @@ function renderNbCells() {
     const ta = container.querySelector(`[data-cell-input="${i}"]`);
     if (!ta) { cmInstances.push(null); return; }
     const isCode = cell.cell_type === 'code';
+    const cellSrc = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
     const cm = CodeMirror.fromTextArea(ta, {
       mode: isCode ? 'python' : 'markdown',
       lineNumbers: true,
@@ -416,7 +417,7 @@ function renderNbCells() {
     });
     cmInstances.push(cm);
     // Auto-render markdown cells that have content
-    if (!isCode && src.trim()) {
+    if (!isCode && cellSrc.trim()) {
       renderMdCell(i);
     }
   });
