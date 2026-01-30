@@ -346,10 +346,6 @@
       <span id="saved-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-white text-[0.65rem] font-semibold flex items-center justify-center leading-none px-1 pointer-events-none" style="display:none"></span>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Reading List</span>
     </button>
-    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-quality" onclick="openQualityFilter()">
-      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
-      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Quality Filter</span>
-    </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-calendar" onclick="openCalendar()">
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Calendar</span>
@@ -359,7 +355,7 @@
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Todos</span>
     </button>
     <div class="mt-auto"></div>
-    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" onclick="openSettings()">
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-settings" onclick="openSettings()">
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Settings</span>
     </button>
@@ -473,10 +469,10 @@
     </div>
   </div>
 
-  <!-- Quality Filter View -->
-  <div id="quality-view" class="hidden ml-[60px] view">
+  <!-- Settings View (replaces old quality-view and settings modal) -->
+  <div id="settings-view" class="hidden ml-[60px] view">
     <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
-      <div id="quality-view-content"></div>
+      <div id="settings-view-content"></div>
     </div>
   </div>
 
@@ -494,21 +490,6 @@
     </div>
   </div>
 
-  <!-- Settings Modal -->
-  <div id="settings-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeSettings()">
-    <div class="bg-popup border border-border-input rounded-xl p-6 w-[560px] max-w-[90vw] max-h-[90vh] overflow-y-auto shadow-popup">
-      <h2 class="text-white_ text-lg font-semibold mb-4">Feed Sources</h2>
-      <div class="flex flex-col gap-3" id="settings-builtin-sources"></div>
-      <div class="mt-5 pt-4 border-t border-border-subtle">
-        <h3 class="text-white_ text-sm font-semibold mb-3">Custom RSS Feeds</h3>
-        <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
-        <div class="flex gap-2">
-          <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomFeed()}">
-          <button onclick="addCustomFeed()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
 
   <!-- New Run Modal -->
@@ -677,7 +658,7 @@
     function routeFromHash() {
       const hash = window.location.hash;
       if (hash === '#experiments') openExperiments();
-      else if (hash === '#quality') openQualityFilter();
+      else if (hash === '#settings' || hash === '#quality') openSettings();
       else if (hash === '#calendar') openCalendar();
       else if (hash === '#todos') openTodos();
       else if (hash === '#saved') openSaved();
@@ -739,6 +720,50 @@
       }).catch(() => {});
     }
     function isPostHidden(link) { return getHiddenPosts().includes(link); }
+
+    // ── Blocked Words ──
+    function getBlockedWords() {
+      try { return JSON.parse(localStorage.getItem('blockedWords') || '[]'); } catch { return []; }
+    }
+    function setBlockedWords(words) {
+      localStorage.setItem('blockedWords', JSON.stringify(words));
+    }
+    function addBlockedWord() {
+      const input = document.getElementById('blocked-word-input');
+      if (!input) return;
+      const raw = input.value.trim().toLowerCase();
+      if (!raw) return;
+      const newWords = raw.split(/,\s*/).map(w => w.trim()).filter(Boolean);
+      const words = getBlockedWords();
+      let changed = false;
+      for (const w of newWords) {
+        if (!words.includes(w)) { words.push(w); changed = true; }
+      }
+      if (changed) {
+        setBlockedWords(words);
+        renderBlockedWordsList();
+        renderPapers();
+      }
+      input.value = '';
+    }
+    function removeBlockedWord(word) {
+      const words = getBlockedWords().filter(w => w !== word);
+      setBlockedWords(words);
+      renderBlockedWordsList();
+      renderPapers();
+    }
+    function renderBlockedWordsList() {
+      const el = document.getElementById('blocked-words-list');
+      if (!el) return;
+      const words = getBlockedWords();
+      if (!words.length) {
+        el.innerHTML = '<span class="text-dimmer text-[0.75rem]">No blocked words yet.</span>';
+        return;
+      }
+      el.innerHTML = words.map(w =>
+        `<span class="inline-flex items-center gap-1 bg-input border border-border-input rounded-full px-2.5 py-0.5 text-primary text-[0.78rem]">${escapeHtml(w)}<button onclick="removeBlockedWord('${escapeHtml(w.replace(/'/g, "\\'"))}')" class="text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5">&times;</button></span>`
+      ).join('');
+    }
 
     function getSavedPosts() {
       try { return JSON.parse(localStorage.getItem('savedPosts') || '{}'); } catch { return {}; }
@@ -1057,40 +1082,157 @@
     }
 
     function openSettings() {
+      hideAllViews();
+      const view = document.getElementById('settings-view');
+      view.classList.add('active');
+      view.style.display = 'block';
+      window.location.hash = 'settings';
+      setSidebarActive('sb-settings');
+      renderSettingsView();
+    }
+
+    function renderSettingsView() {
+      const container = document.getElementById('settings-view-content');
       const sources = getFeedSources();
       const bypassMap = getQualityBypass();
-      const container = document.getElementById('settings-builtin-sources');
+      const cache = getQualityCache();
+      const cacheEntries = Object.entries(cache);
+      const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
+      const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
+      const testTitles = getTestTitles();
+      const blockedWords = getBlockedWords();
+
       const cats = []; const catMap = {};
       FEED_CATALOG.forEach(f => {
         if (!catMap[f.cat]) { catMap[f.cat] = []; cats.push(f.cat); }
         catMap[f.cat].push(f);
       });
-      container.innerHTML = cats.map(cat => `
-        <div class="text-[0.68rem] text-dim uppercase tracking-wider mt-3 first:mt-0">${cat}</div>
-        ${catMap[cat].map(f => `
-          <div class="flex items-center justify-between">
-            <span class="text-primary text-sm">${f.name}</span>
-            <div class="flex items-center gap-3">
-              <label class="flex items-center gap-1 cursor-pointer" title="Skip AI quality filter for this source">
-                <span class="text-dimmer text-[0.65rem]">Skip filter</span>
-                <input type="checkbox" class="accent-[var(--accent)]" ${bypassMap[f.key] ? 'checked' : ''} onchange="setQualityBypass('${f.key}', this.checked)">
-              </label>
-              <label class="cursor-pointer">
-                <span class="toggle-switch">
-                  <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
-                  <span class="slider"></span>
-                </span>
-              </label>
+
+      container.innerHTML = `
+        <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
+
+        <!-- FEED SOURCES -->
+        <div class="mb-8">
+          <h3 class="text-white_ text-sm font-semibold mb-3">Feed Sources</h3>
+          <div class="flex flex-col gap-2" id="settings-builtin-sources">
+            ${cats.map(cat => `
+              <div class="text-[0.68rem] text-dim uppercase tracking-wider mt-3 first:mt-0">${cat}</div>
+              ${catMap[cat].map(f => `
+                <div class="flex items-center justify-between">
+                  <span class="text-primary text-sm">${f.name}</span>
+                  <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1 cursor-pointer" title="Skip AI quality filter for this source">
+                      <span class="text-dimmer text-[0.65rem]">Skip filter</span>
+                      <input type="checkbox" class="accent-[var(--accent)]" ${bypassMap[f.key] ? 'checked' : ''} onchange="setQualityBypass('${f.key}', this.checked)">
+                    </label>
+                    <label class="cursor-pointer">
+                      <span class="toggle-switch">
+                        <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
+                        <span class="slider"></span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              `).join('')}
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- CUSTOM RSS FEEDS -->
+        <div class="mb-8 pt-5 border-t border-border-subtle">
+          <h3 class="text-white_ text-sm font-semibold mb-3">Custom RSS Feeds</h3>
+          <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
+          <div class="flex gap-2">
+            <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomFeed()}">
+            <button onclick="addCustomFeed()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
+          </div>
+        </div>
+
+        <!-- BLOCKED WORDS -->
+        <div class="mb-8 pt-5 border-t border-border-subtle">
+          <h3 class="text-white_ text-sm font-semibold mb-2">Blocked Words</h3>
+          <p class="text-dimmer text-[0.75rem] mb-3">Posts with titles containing any of these words will be automatically hidden.</p>
+          <div class="flex gap-2 mb-3">
+            <input type="text" id="blocked-word-input" placeholder="e.g. politics, lawsuit, review" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addBlockedWord()}">
+            <button onclick="addBlockedWord()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
+          </div>
+          <div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- AI QUALITY FILTER -->
+        <div class="mb-8 pt-5 border-t border-border-subtle">
+          <div class="flex items-center gap-3 mb-1">
+            <h3 class="text-white_ text-sm font-semibold">AI Quality Filter</h3>
+            <label class="flex items-center gap-2 cursor-pointer ml-auto">
+              <span class="text-primary text-sm">Enable</span>
+              <span class="toggle-switch">
+                <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
+                <span class="slider"></span>
+              </span>
+            </label>
+          </div>
+          <p class="text-dim text-[0.8rem] mb-4">Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.</p>
+
+          <div class="mb-5">
+            <h4 class="text-muted text-[0.8rem] font-medium mb-2">Verdict Prompt</h4>
+            <p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>
+            <textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false">${escapeHtml(getQualityPrompt())}</textarea>
+            <div class="flex items-center justify-end mt-2">
+              <button onclick="saveQualityPrompt()" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save prompt</button>
             </div>
           </div>
-        `).join('')}
-      `).join('');
-      renderCustomFeedsList();
-      document.getElementById('settings-overlay').style.display = 'flex';
-    }
 
-    function closeSettings() {
-      document.getElementById('settings-overlay').style.display = 'none';
+          <div class="mb-5">
+            <h4 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Prompt & Threshold</h4>
+            <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0-10. Below threshold = hidden.</p>
+            <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading…</div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="quality-threshold-slider" min="0" max="10" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
+              <span id="quality-threshold-value" class="text-primary text-sm font-mono w-7 text-right">${getQualityThreshold()}</span>
+            </div>
+            <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0 = show all kept, 10 = strictest)</p>
+          </div>
+
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-muted text-[0.8rem] font-medium">Prompt Test Suite <span class="text-dim font-normal">(<span id="test-title-count">${testTitles.length}</span> titles)</span></h4>
+              <button onclick="clearTestTitles()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear tests</button>
+            </div>
+            <p class="text-dimmer text-[0.72rem] mb-2">Titles hidden with ✕ are collected here. All should be classified as SKIP.</p>
+            <button onclick="runPromptTest()" class="bg-input border border-border-input text-primary text-[0.78rem] px-3 py-1.5 rounded-md cursor-pointer hover:border-accent mb-2">Run test</button>
+            <div id="prompt-test-results"></div>
+          </div>
+
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-muted text-[0.8rem] font-medium">Blocked Posts</h4>
+              <button onclick="clearAllBlockedPosts()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear manual blocks</button>
+            </div>
+            <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto"></div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div class="text-dim text-[0.78rem]">
+              Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
+            </div>
+            <button onclick="resetEverything()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
+          </div>
+        </div>
+      `;
+
+      renderCustomFeedsList();
+      renderBlockedWordsList();
+      renderBlockedList();
+      fetchTestTitlesFromServer().then(() => updateTestTitleCount());
+      fetch('/api/quality-prompt').then(r => r.json()).then(data => {
+        if (data.prompt) {
+          localStorage.setItem('qualityPrompt', data.prompt);
+          const el = document.getElementById('quality-prompt-input');
+          if (el) el.value = data.prompt;
+        }
+        const scoringEl = document.getElementById('scoring-prompt-display');
+        if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
+      }).catch(() => {});
     }
 
     function toggleFeedSource(key, value) {
@@ -1175,104 +1317,12 @@
     }
 
     // ── AI Quality Filter (local Ollama) ──
-    function openQualityFilter() {
-      hideAllViews();
-      const view = document.getElementById('quality-view');
-      view.classList.add('active');
-      view.style.display = 'block';
-      window.location.hash = 'quality';
-      setSidebarActive('sb-quality');
-      renderQualityFilterView();
-    }
-
-    function renderQualityFilterView() {
-      const container = document.getElementById('quality-view-content');
-      const cache = getQualityCache();
-      const cacheEntries = Object.entries(cache);
-      const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
-      const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
-      const testTitles = getTestTitles();
-
-      container.innerHTML = `
-        <div class="flex items-center gap-3 mb-1">
-          <h2 class="text-[1.3rem] font-semibold text-white_">AI Quality Filter</h2>
-          <label class="flex items-center gap-2 cursor-pointer ml-auto">
-            <span class="text-primary text-sm">Enable</span>
-            <span class="toggle-switch">
-              <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
-              <span class="slider"></span>
-            </span>
-          </label>
-        </div>
-        <p class="text-dim text-[0.8rem] mb-6">Uses a local LLM (Ollama) to hide low-quality posts based on their title. Posts go through two phases: verdict (KEEP/SKIP), then scoring for kept posts.</p>
-
-        <div class="mb-6">
-          <h3 class="text-white_ text-sm font-semibold mb-2">Phase 1: Verdict Prompt</h3>
-          <p class="text-dimmer text-[0.75rem] mb-2">Classifies each post title as KEEP or SKIP. Only kept posts proceed to scoring.</p>
-          <textarea id="quality-prompt-input" rows="7" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.8rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false">${escapeHtml(getQualityPrompt())}</textarea>
-          <div class="flex items-center justify-end mt-2">
-            <button onclick="saveQualityPrompt()" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save prompt</button>
-          </div>
-        </div>
-
-        <div class="mb-6">
-          <h3 class="text-white_ text-sm font-semibold mb-2">Phase 2: Scoring Prompt</h3>
-          <p class="text-dimmer text-[0.75rem] mb-2">Scoring is only run for posts that pass the verdict phase. Posts with a relevance score at or above the threshold are shown.</p>
-          <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.8rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading…</div>
-          <div class="flex items-center gap-3">
-            <input type="range" id="quality-threshold-slider" min="0" max="10" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
-            <span id="quality-threshold-value" class="text-primary text-sm font-mono w-7 text-right">${getQualityThreshold()}</span>
-          </div>
-          <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0 = show all kept, 10 = strictest)</p>
-        </div>
-
-        <div class="mb-6 pt-4 border-t border-border-subtle">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-white_ text-sm font-semibold">Prompt Test Suite <span class="text-dim font-normal">(<span id="test-title-count">${testTitles.length}</span> titles)</span></h3>
-            <button onclick="clearTestTitles()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear tests</button>
-          </div>
-          <p class="text-dimmer text-[0.75rem] mb-2">Titles hidden with ✕ are collected here. All should be classified as SKIP.</p>
-          <button onclick="runPromptTest()" class="bg-input border border-border-input text-primary text-[0.78rem] px-3 py-1.5 rounded-md cursor-pointer hover:border-accent mb-2">Run test</button>
-          <div id="prompt-test-results"></div>
-        </div>
-
-        <div class="mb-6 pt-4 border-t border-border-subtle">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-white_ text-sm font-semibold">Blocked Posts</h3>
-            <button onclick="clearAllBlockedPosts()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear manual blocks</button>
-          </div>
-          <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[400px] overflow-y-auto"></div>
-        </div>
-
-        <div class="pt-4 border-t border-border-subtle">
-          <div class="flex items-center justify-between">
-            <div class="text-dim text-[0.78rem]">
-              Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
-            </div>
-            <button onclick="resetEverything()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
-          </div>
-        </div>
-      `;
-
-      renderBlockedList();
-      fetchTestTitlesFromServer().then(() => updateTestTitleCount());
-      // Sync prompt from server (may have been updated)
-      fetch('/api/quality-prompt').then(r => r.json()).then(data => {
-        if (data.prompt) {
-          localStorage.setItem('qualityPrompt', data.prompt);
-          const el = document.getElementById('quality-prompt-input');
-          if (el) el.value = data.prompt;
-        }
-        const scoringEl = document.getElementById('scoring-prompt-display');
-        if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-      }).catch(() => {});
-    }
 
     function clearAllBlockedPosts() {
       localStorage.removeItem('hiddenPosts');
       clearTestTitles();
       renderPapers();
-      if (document.getElementById('quality-view').style.display === 'block') renderQualityFilterView();
+      if (document.getElementById('settings-view').style.display === 'block') renderSettingsView();
     }
 
     const DEFAULT_QUALITY_PROMPT =
@@ -1422,7 +1472,7 @@
           btn.innerHTML = orig;
           btn.classList.remove('text-green-400');
           btn.classList.add('text-red-400/80');
-          if (document.getElementById('quality-view').style.display === 'block') renderQualityFilterView();
+          if (document.getElementById('settings-view').style.display === 'block') renderSettingsView();
         }, 1500);
       }
     }
@@ -2429,11 +2479,18 @@
       const search = document.getElementById('search').value.toLowerCase();
       const category = document.getElementById('category').value;
       const hidden = new Set(getHiddenPosts());
+      const _blockedWordsSet = new Set(getBlockedWords());
       const qfOn = isQualityFilterOn();
       const qCache = qfOn ? getQualityCache() : {};
       const bypass = qfOn ? getQualityBypass() : {};
       let filtered = allPapers.filter(p => {
         if (hidden.has(p.link)) return false;
+        if (_blockedWordsSet.size > 0) {
+          const titleLower = p.title.toLowerCase();
+          for (const w of _blockedWordsSet) {
+            if (titleLower.includes(w)) return false;
+          }
+        }
         const bypassed = bypass[p.source];
         if (qfOn && !bypassed && !(p.title in qCache)) return false;
         if (qfOn && !bypassed && (p.title in qCache)) {
