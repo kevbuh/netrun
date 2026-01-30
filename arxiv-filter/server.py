@@ -64,7 +64,7 @@ def _get_kernel(exp_id):
             km = jupyter_client.KernelManager(kernel_name='venv', kernel_spec_manager=ksm)
         else:
             km = jupyter_client.KernelManager(kernel_name='python3')
-        km.start_kernel()
+        km.start_kernel(cwd=os.path.join(EXPERIMENTS_DIR, exp_id))
         kc = km.client()
         kc.start_channels()
         kc.wait_for_ready(timeout=30)

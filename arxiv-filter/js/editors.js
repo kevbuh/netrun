@@ -4,7 +4,7 @@ function renderMarkdownEditor(fname, content) {
   editor.innerHTML = `
     <div class="flex items-center gap-3 mb-4">
       <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">md</span>
-      <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+      <span class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
       <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="md-save-ind">Saved</span>
     </div>
     <textarea id="md-editor-textarea" class="w-full min-h-[500px] px-4 py-3 rounded-lg border border-border-input bg-input text-primary text-[0.85rem] font-mono resize-y focus:outline-none focus:border-accent" spellcheck="false">${escapeHtml(content)}</textarea>`;
@@ -206,7 +206,7 @@ function renderPythonEditor(fname, content) {
   editor.innerHTML = `
     <div class="flex items-center gap-2 mb-2">
       <span class="text-[0.7rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
-      <span class="text-[0.85rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+      <span class="text-[0.85rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
       <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
     </div>
     <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -393,7 +393,7 @@ function renderNotebookEditor(fname, contentStr) {
   editor.innerHTML = `
     <div class="flex items-center gap-2 mb-2">
       <span class="text-[0.7rem] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">nb</span>
-      <span class="text-[0.85rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+      <span class="text-[0.85rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
       <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="nb-save-ind">Saved</span>
     </div>
     <div class="flex items-center gap-2 mb-3 flex-wrap">

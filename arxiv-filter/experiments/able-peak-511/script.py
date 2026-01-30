@@ -1,2 +1,3 @@
-while True:
-    print("Hello")
+from script2 import helper
+
+helper(5)

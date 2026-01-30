@@ -418,6 +418,53 @@ function renderFilesList(files, emptyDirs) {
   el.innerHTML = html;
 }
 
+function startRenameFileInEditor(fname) {
+  // Find the clickable filename span in the editor header by searching for matching text
+  const editor = document.getElementById('exp-file-editor');
+  const spans = editor.querySelectorAll('span');
+  let spanEl = null;
+  for (const s of spans) {
+    if (s.textContent === fname && s.onclick) { spanEl = s; break; }
+  }
+  if (!spanEl) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = fname;
+  input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.85rem] text-primary font-medium outline-none focus:border-accent';
+  input.onclick = e => e.stopPropagation();
+  spanEl.replaceWith(input);
+  input.focus();
+  const dotIdx = fname.lastIndexOf('.');
+  input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
+
+  async function commit() {
+    const newName = input.value.trim();
+    if (newName && newName !== fname) {
+      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rename: newName })
+      });
+      if (resp.ok) {
+        currentFile = newName;
+        openFile(newName);
+        return;
+      }
+    }
+    // Revert: put back the clickable span
+    const newSpan = document.createElement('span');
+    newSpan.className = spanEl ? spanEl.className : 'text-[0.85rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
+    newSpan.textContent = fname;
+    newSpan.title = 'Click to rename';
+    newSpan.onclick = () => startRenameFileInEditor(fname);
+    input.replaceWith(newSpan);
+  }
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { commit(); }
+  });
+  input.addEventListener('blur', () => commit());
+}
+
 function startRenameFile(fname, spanEl) {
   const input = document.createElement('input');
   input.type = 'text';
@@ -476,7 +523,8 @@ async function createExpFile(ext, content) {
   const resp = await fetch(`/api/experiments/${currentExpId}/files`);
   const data = await resp.json();
   const existing = Array.isArray(data) ? data : data.files || [];
-  while (existing.includes(name)) { name = `${base}-${i}${ext}`; i++; }
+  const sep = ext === '.py' ? '_' : '-';
+  while (existing.includes(name)) { name = `${base}${sep}${i}${ext}`; i++; }
   const payload = {name};
   if (content !== undefined) payload.content = content;
   await fetch(`/api/experiments/${currentExpId}/files`, {
