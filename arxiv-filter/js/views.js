@@ -172,9 +172,10 @@ async function renderDashboard() {
 
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Home</h2>
-    <div class="grid grid-cols-[320px_1fr] gap-8 overflow-hidden">
-      <div class="min-w-0">
-        <div class="mb-6">
+    <div class="flex gap-5 items-start">
+      <!-- Left column: Calendar, Reading List -->
+      <div class="flex-1 min-w-0">
+        <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">${monthName}</h3>
             <div class="flex gap-1">
@@ -188,7 +189,25 @@ async function renderDashboard() {
           </div>
         </div>
 
-        <div class="mb-6">
+        <div class="mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
+          </div>
+          ${readingHtml}
+        </div>
+      </div>
+
+      <!-- Right column: Recent Experiments, Notes, Todos -->
+      <div class="flex-1 min-w-0">
+        <div class="mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
+            <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          <div class="flex flex-col gap-2">${expsHtml}</div>
+        </div>
+
+        <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Notes</h3>
             <button onclick="openTodos()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
@@ -196,17 +215,7 @@ async function renderDashboard() {
           ${notesHtml}
         </div>
 
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
-            <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
-          </div>
-          <div class="flex flex-col gap-2">${expsHtml}</div>
-        </div>
-      </div>
-
-      <div class="min-w-0">
-        <div class="mb-6">
+        <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Todos</h3>
             <button onclick="dashShowTodoInput()" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary text-[1rem] leading-none p-0" title="New todo">+</button>
@@ -218,13 +227,6 @@ async function renderDashboard() {
             </form>
           </div>
           ${todosHtml}
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
-          </div>
-          ${readingHtml}
         </div>
       </div>
     </div>
