@@ -450,6 +450,11 @@ async function openFile(fname) {
   document.getElementById('exp-default-content').style.display = 'none';
   const editor = document.getElementById('exp-file-editor');
   editor.style.display = 'block';
+  editor.style.flexDirection = '';
+  editor.style.height = '';
+  var cp = document.getElementById('exp-content-pane');
+  cp.style.overflow = '';
+  cp.style.padding = '';
 
   if (fname.endsWith('.png') || fname.endsWith('.svg')) {
     renderImageViewer(fname, data.content);
@@ -536,8 +541,14 @@ function closeFileEditor() {
   currentFile = null;
   pyEditorCm = null;
   cmInstances = [];
-  document.getElementById('exp-file-editor').style.display = 'none';
-  document.getElementById('exp-file-editor').innerHTML = '';
+  const el = document.getElementById('exp-file-editor');
+  el.style.display = 'none';
+  el.style.flexDirection = '';
+  el.style.height = '';
+  var cp = document.getElementById('exp-content-pane');
+  cp.style.overflow = '';
+  cp.style.padding = '';
+  el.innerHTML = '';
   document.getElementById('exp-default-content').style.display = '';
   fetchExpFiles();
 }

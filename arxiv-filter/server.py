@@ -655,6 +655,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             files.sort()
             self._send_json(files)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/compile-tex/(.+)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if not os.path.isfile(fpath) or not fname.endswith('.tex'):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            import tempfile, shutil, subprocess as sp
+            tmp = tempfile.mkdtemp()
+            try:
+                shutil.copy(fpath, os.path.join(tmp, fname))
+                # Copy neurips_2023.sty so pdflatex can find it
+                sty_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.sty')
+                if os.path.isfile(sty_path):
+                    shutil.copy(sty_path, tmp)
+                result = sp.run(
+                    ['pdflatex', '-interaction=nonstopmode', '-halt-on-error', fname],
+                    cwd=tmp, capture_output=True, text=True, timeout=30
+                )
+                pdf_path = os.path.join(tmp, fname.rsplit('.', 1)[0] + '.pdf')
+                if result.returncode != 0 or not os.path.isfile(pdf_path):
+                    log = result.stdout + '\n' + result.stderr
+                    self._send_json({'error': 'Compilation failed', 'log': log}, 400)
+                    return
+                with open(pdf_path, 'rb') as f:
+                    pdf_data = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/pdf')
+                self.send_header('Content-Length', str(len(pdf_data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(pdf_data)
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
             fname = m.group(2)
@@ -1050,6 +1085,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         "metadata": {},
                         "nbformat": 4, "nbformat_minor": 5
                     }, indent=2))
+            elif name.endswith('.tex'):
+                template_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.tex')
+                if os.path.isfile(template_path):
+                    import shutil
+                    shutil.copy(template_path, fpath)
+                else:
+                    with open(fpath, 'w') as f:
+                        f.write('')
             else:
                 with open(fpath, 'w') as f:
                     f.write('')

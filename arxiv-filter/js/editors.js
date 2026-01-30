@@ -29,72 +29,60 @@ async function saveMarkdown() {
 }
 
 // ── LaTeX Editor ──
-const NEURIPS_TEMPLATE = `\\documentclass{article}
-
-% NeurIPS style
-\\usepackage[final]{neurips_2024}
-
-\\usepackage[utf8]{inputenc}
-\\usepackage[T1]{fontenc}
-\\usepackage{hyperref}
-\\usepackage{url}
-\\usepackage{booktabs}
-\\usepackage{amsfonts}
-\\usepackage{amsmath}
-\\usepackage{nicefrac}
-\\usepackage{microtype}
-\\usepackage{graphicx}
-
-\\title{Paper Title}
-
-\\author{
-  Author Name \\\\
-  Department \\\\
-  Institution \\\\
-  \\texttt{email@example.com}
-}
-
-\\begin{document}
-
-\\maketitle
-
-\\begin{abstract}
-  Abstract text goes here.
-\\end{abstract}
-
-\\section{Introduction}
-
-\\section{Related Work}
-
-\\section{Method}
-
-\\section{Experiments}
-
-\\section{Results}
-
-\\section{Conclusion}
-
-\\bibliographystyle{plain}
-\\bibliography{references}
-
-\\end{document}
-`;
+let _texMode = 'code'; // 'code' or 'preview'
+let _texPdfUrl = null;
 
 function renderLatexEditor(fname, content) {
+  _texMode = 'code';
+  _texPdfUrl = null;
   const editor = document.getElementById('exp-file-editor');
+  // Stretch editor to fill the content pane by negating parent p-8 padding
+  var pane = document.getElementById('exp-content-pane');
+  pane.style.overflow = 'hidden';
+  pane.style.padding = '0';
+  editor.style.display = 'flex';
+  editor.style.flexDirection = 'column';
+  editor.style.height = '100vh';
   editor.innerHTML =
-    '<div class="flex items-center gap-3 mb-4">' +
+    '<div class="flex items-center gap-3 px-4 py-2 shrink-0">' +
       '<span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">tex</span>' +
       '<span class="text-[0.9rem] text-white_ font-medium">' + escapeHtml(fname) + '</span>' +
       '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="tex-save-ind">Saved</span>' +
+      '<div class="ml-auto flex items-center gap-2">' +
+        '<span id="tex-compile-status" class="text-[0.75rem] text-dimmer"></span>' +
+        '<button onclick="toggleTexMode()" id="tex-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Preview</button>' +
+        '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-red-500/20 text-red-400 border border-red-500/30 cursor-pointer hover:bg-red-500/30 transition-colors">Compile PDF</button>' +
+      '</div>' +
     '</div>' +
-    '<textarea id="tex-editor-textarea" class="w-full min-h-[500px] px-4 py-3 rounded-lg border border-border-input bg-input text-primary text-[0.85rem] font-mono resize-y focus:outline-none focus:border-accent" spellcheck="false">' + escapeHtml(content) + '</textarea>';
+    '<textarea id="tex-editor-textarea" class="flex-1 px-4 py-3 border-0 border-t border-border-input bg-input text-primary text-[0.85rem] font-mono resize-none focus:outline-none" spellcheck="false">' + escapeHtml(content) + '</textarea>' +
+    '<div id="tex-preview-pane" class="hidden flex-1 bg-input items-center justify-center">' +
+      '<span class="text-dimmer text-[0.85rem]">Click "Compile PDF" to build the preview</span>' +
+    '</div>' +
+    '<div id="tex-error-log" class="hidden p-3 shrink-0 bg-red-500/10 border-t border-red-500/20 text-red-400 text-[0.75rem] font-mono whitespace-pre-wrap max-h-[200px] overflow-auto"></div>';
   const ta = document.getElementById('tex-editor-textarea');
   ta.addEventListener('input', () => {
     clearTimeout(fileSaveTimer);
     fileSaveTimer = setTimeout(() => saveLatex(), 600);
   });
   ta.focus();
+}
+
+function toggleTexMode() {
+  var ta = document.getElementById('tex-editor-textarea');
+  var pane = document.getElementById('tex-preview-pane');
+  var btn = document.getElementById('tex-toggle-btn');
+  if (_texMode === 'code') {
+    _texMode = 'preview';
+    ta.style.display = 'none';
+    pane.style.display = 'flex';
+    pane.classList.remove('hidden');
+    btn.textContent = 'Code';
+  } else {
+    _texMode = 'code';
+    ta.style.display = '';
+    pane.style.display = 'none';
+    btn.textContent = 'Preview';
+  }
 }
 
 async function saveLatex() {
@@ -107,6 +95,50 @@ async function saveLatex() {
   });
   const ind = document.getElementById('tex-save-ind');
   if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+}
+
+async function compileLatex() {
+  if (!currentFile || !currentExpId) return;
+  // Save first
+  const content = document.getElementById('tex-editor-textarea').value;
+  await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({content})
+  });
+  const btn = document.getElementById('tex-compile-btn');
+  const status = document.getElementById('tex-compile-status');
+  const errLog = document.getElementById('tex-error-log');
+  btn.disabled = true;
+  btn.textContent = 'Compiling...';
+  status.textContent = '';
+  errLog.classList.add('hidden');
+  try {
+    const resp = await fetch('/api/experiments/' + currentExpId + '/compile-tex/' + currentFile);
+    if (!resp.ok) {
+      const err = await resp.json();
+      status.textContent = 'Failed';
+      status.className = 'text-[0.75rem] text-red-400';
+      errLog.textContent = err.log || err.error || 'Compilation failed';
+      errLog.classList.remove('hidden');
+      return;
+    }
+    const blob = await resp.blob();
+    if (_texPdfUrl) URL.revokeObjectURL(_texPdfUrl);
+    _texPdfUrl = URL.createObjectURL(blob);
+    var pane = document.getElementById('tex-preview-pane');
+    pane.innerHTML = '<iframe src="' + _texPdfUrl + '" class="w-full h-full rounded-lg" style="border:none"></iframe>';
+    // Switch to preview mode
+    if (_texMode === 'code') toggleTexMode();
+    status.textContent = 'Compiled';
+    status.className = 'text-[0.75rem] text-emerald-400';
+    setTimeout(function() { status.textContent = ''; }, 3000);
+  } catch(e) {
+    status.textContent = 'Error';
+    status.className = 'text-[0.75rem] text-red-400';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Compile PDF';
+  }
 }
 
 // ── Python File Editor ──
