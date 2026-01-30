@@ -345,6 +345,40 @@ function renderFilesList(files) {
   }).join('');
 }
 
+function startRenameFile(fname, spanEl) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = fname;
+  input.className = 'bg-input border border-border-input rounded px-1 py-0.5 text-[0.8rem] text-primary outline-none focus:border-accent w-full';
+  input.onclick = e => e.stopPropagation();
+  spanEl.replaceWith(input);
+  input.focus();
+  // Select name without extension
+  const dotIdx = fname.lastIndexOf('.');
+  input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
+
+  async function commit() {
+    const newName = input.value.trim();
+    if (newName && newName !== fname) {
+      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rename: newName })
+      });
+      if (resp.ok) {
+        if (currentFile === fname) currentFile = newName;
+        fetchExpFiles();
+        return;
+      }
+    }
+    fetchExpFiles();
+  }
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { fetchExpFiles(); }
+  });
+  input.addEventListener('blur', () => commit());
+}
+
 async function createExpFile(ext, content) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : 'notes';
   let name = `${base}${ext}`;
@@ -378,7 +412,7 @@ async function deleteExpFile(fname) {
 }
 
 async function openFile(fname) {
-  if (currentFile === fname) return;
+  if (currentFile === fname) { closeFileEditor(); return; }
   if (currentFile) {
     if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; }
     pyEditorCm = null;
@@ -408,15 +442,66 @@ function renderImageViewer(fname, dataUrl) {
   const editor = document.getElementById('exp-file-editor');
   editor.innerHTML = `
     <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
-      <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
-      <div class="flex gap-2">
-        <a href="${dataUrl}" download="${escapeHtml(fname)}" class="px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline">Download</a>
-        <button onclick="closeFileEditor()" class="px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Close</button>
-      </div>
+      <span id="img-viewer-fname" class="text-[0.85rem] text-primary font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInViewer('${escapeHtml(fname)}')" title="Click to rename">${escapeHtml(fname)}</span>
+      <a href="${dataUrl}" download="${escapeHtml(fname)}" id="img-viewer-download" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline" title="Download">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
     </div>
     <div class="flex items-center justify-center p-8 min-h-[300px]">
       <img src="${dataUrl}" class="max-w-full max-h-[70vh] rounded shadow-lg" alt="${escapeHtml(fname)}" />
     </div>`;
+}
+
+function startRenameFileInViewer(fname) {
+  const span = document.getElementById('img-viewer-fname');
+  if (!span) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = fname;
+  input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.85rem] text-primary font-medium outline-none focus:border-accent';
+  span.replaceWith(input);
+  input.focus();
+  const dotIdx = fname.lastIndexOf('.');
+  input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
+
+  async function commit() {
+    const newName = input.value.trim();
+    if (newName && newName !== fname) {
+      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rename: newName })
+      });
+      if (resp.ok) {
+        currentFile = newName;
+        // Update the header and download link in place
+        const newSpan = document.createElement('span');
+        newSpan.id = 'img-viewer-fname';
+        newSpan.className = 'text-[0.85rem] text-primary font-medium cursor-pointer hover:text-accent transition-colors';
+        newSpan.title = 'Click to rename';
+        newSpan.textContent = newName;
+        newSpan.onclick = () => startRenameFileInViewer(newName);
+        input.replaceWith(newSpan);
+        const dl = document.getElementById('img-viewer-download');
+        if (dl) dl.download = newName;
+        fetchExpFiles();
+        return;
+      }
+    }
+    // Revert
+    const newSpan = document.createElement('span');
+    newSpan.id = 'img-viewer-fname';
+    newSpan.className = 'text-[0.85rem] text-primary font-medium cursor-pointer hover:text-accent transition-colors';
+    newSpan.title = 'Click to rename';
+    newSpan.textContent = fname;
+    newSpan.onclick = () => startRenameFileInViewer(fname);
+    input.replaceWith(newSpan);
+  }
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { commit(); }
+  });
+  input.addEventListener('blur', () => commit());
 }
 
 function closeFileEditor() {

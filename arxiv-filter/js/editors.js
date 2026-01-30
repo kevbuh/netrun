@@ -415,6 +415,10 @@ function renderNbCells() {
       scheduleNbSave();
     });
     cmInstances.push(cm);
+    // Auto-render markdown cells that have content
+    if (!isCode && src.trim()) {
+      renderMdCell(i);
+    }
   });
 }
 

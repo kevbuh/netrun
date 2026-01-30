@@ -956,9 +956,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': 'Not found'}, 404)
                 return
             body = self._read_body()
-            with open(fpath, 'w') as f:
-                f.write(body.get('content', ''))
-            self._send_json({'ok': True})
+            # Rename if 'rename' field is provided
+            if 'rename' in body:
+                new_name = body['rename'].strip()
+                if not new_name:
+                    self._send_json({'error': 'Name required'}, 400)
+                    return
+                new_path = os.path.join(EXPERIMENTS_DIR, exp_id, new_name)
+                if os.path.exists(new_path):
+                    self._send_json({'error': 'File already exists'}, 409)
+                    return
+                os.rename(fpath, new_path)
+                self._send_json({'ok': True, 'name': new_name})
+            else:
+                with open(fpath, 'w') as f:
+                    f.write(body.get('content', ''))
+                self._send_json({'ok': True})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
