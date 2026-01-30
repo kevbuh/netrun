@@ -647,23 +647,22 @@ function renderSettingsView() {
     <!-- FEED SOURCES -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Feed Sources</h3>
-      <div class="flex flex-wrap gap-x-12 gap-y-4" id="settings-builtin-sources">
-        ${cats.map(cat => `
-          <div class="min-w-[160px]">
-            <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-2">${cat}</div>
-            ${catMap[cat].map(f => `
-              <div class="flex items-center gap-3 py-1">
-                <label class="cursor-pointer">
-                  <span class="toggle-switch">
-                    <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
-                    <span class="slider"></span>
-                  </span>
-                </label>
-                <span class="text-primary text-sm">${f.name}</span>
-              </div>
-            `).join('')}
-          </div>
-        `).join('')}
+      <div class="flex flex-wrap gap-2.5">
+        ${FEED_CATALOG.map(f => {
+          const on = sources[f.key];
+          const logo = f.img
+            ? `<img src="${f.img}" class="h-5 w-auto" alt="${f.name}">`
+            : (() => {
+                const stroke = f.stroke ? ` stroke="${f.stroke}"` : '';
+                const font = f.font || 'Georgia,serif';
+                const fs = (f.letter || '').length > 1 ? 140 : 170;
+                return `<svg class="h-6 w-auto" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="${f.bg}"${stroke} width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="${f.fg}" font-size="${fs}" font-weight="bold" font-family="${font}">${f.letter}</text></svg>`;
+              })();
+          return `<button onclick="toggleFeedSource('${f.key}', ${!on}); renderSettingsView()" class="flex flex-col items-center justify-center w-[72px] h-[80px] rounded-xl border cursor-pointer transition-all duration-150 ${on ? 'border-accent bg-accent/10 shadow-sm' : 'border-border-card bg-card opacity-40 hover:opacity-70'}" title="${f.name}">
+            <div class="mb-1.5">${logo}</div>
+            <div class="text-[0.65rem] ${on ? 'text-primary' : 'text-dimmer'} leading-tight text-center px-1 truncate w-full">${f.name}</div>
+          </button>`;
+        }).join('')}
       </div>
     </div>
 
