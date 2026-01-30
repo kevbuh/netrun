@@ -164,7 +164,7 @@ function openDashboard() {
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = '';
-  setSidebarActive('sb-home');
+  setSidebarActive('sb-dashboard');
   renderDashboard();
 }
 
@@ -201,7 +201,7 @@ function routeFromHash() {
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
   else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
-  else goHome();
+  else openDashboard();
 }
 
 window.addEventListener('hashchange', routeFromHash);

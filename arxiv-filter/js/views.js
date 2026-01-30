@@ -140,7 +140,10 @@ async function renderDashboard() {
     const p = entry.paper;
     const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
     const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
-    const faviconImg = favicon ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.style.display='none'">` : '';
+    const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title || p.link) : '';
+    const faviconImg = favicon
+      ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
+      : pixelFallback;
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
       <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
