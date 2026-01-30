@@ -142,9 +142,20 @@ function goHome() {
   document.getElementById('home-main').style.display = '';
   window.location.hash = 'feed';
   setSidebarActive('sb-home');
-  document.getElementById('finder-query').value = '';
-  showFeedHideFinder();
   if (!allPapers.length) loadAllFeeds();
+}
+
+function openSearch() {
+  hideAllViews();
+  const view = document.getElementById('search-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  window.location.hash = 'search';
+  setSidebarActive('sb-search');
+  setTimeout(() => {
+    const input = document.getElementById('search-query');
+    if (input) input.focus();
+  }, 50);
 }
 
 function openDashboard() {
@@ -185,6 +196,7 @@ function routeFromHash() {
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#todos') openTodos();
   else if (hash === '#saved') openDashboard();
+  else if (hash === '#search') openSearch();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
   else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
@@ -278,16 +290,6 @@ function formatFirstAuthor(authors) {
   if (parts.length <= 1) return authors;
   return parts[0] + ' et al.';
 }
-
-// ── Auto-focus search on keypress ──
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (document.getElementById('home-main').style.display === 'none') return;
-  if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
-    document.getElementById('finder-query').focus();
-  }
-});
 
 // Close settings on Escape
 window.addEventListener('keydown', e => {

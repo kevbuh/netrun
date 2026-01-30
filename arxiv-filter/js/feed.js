@@ -490,7 +490,6 @@ function showOnboarding() {
     document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
   }
   document.getElementById('onboard-view').style.display = '';
-  document.getElementById('finder-section').style.display = 'none';
   document.getElementById('home-feed-section').style.display = 'none';
 }
 
@@ -499,7 +498,6 @@ function completeOnboarding() {
   FEED_CATALOG.forEach(f => { sources[f.key] = onboardSelected.has(f.key); });
   localStorage.setItem('feedSources', JSON.stringify(sources));
   document.getElementById('onboard-view').style.display = 'none';
-  document.getElementById('finder-section').style.display = '';
   document.getElementById('home-feed-section').style.display = '';
   loadAllFeeds();
 }
@@ -874,7 +872,6 @@ async function loadAllFeeds() {
   const abort = _feedAbort = new AbortController();
 
   document.getElementById('onboard-view').style.display = 'none';
-  document.getElementById('finder-section').style.display = '';
   document.getElementById('home-feed-section').style.display = '';
   const sources = getFeedSources();
   if (allPapers.length > 0) {
@@ -1009,14 +1006,44 @@ function populateCategories() {
 
 let lastFilteredPapers = [];
 
+function getSearchHistory() {
+  try { return JSON.parse(localStorage.getItem('searchHistory') || '[]'); } catch { return []; }
+}
+function saveSearchHistory(query) {
+  const q = query.trim();
+  if (!q) return;
+  let hist = getSearchHistory().filter(h => h !== q);
+  hist.unshift(q);
+  if (hist.length > 5) hist = hist.slice(0, 5);
+  localStorage.setItem('searchHistory', JSON.stringify(hist));
+}
+function removeSearchHistory(index) {
+  const hist = getSearchHistory();
+  hist.splice(index, 1);
+  localStorage.setItem('searchHistory', JSON.stringify(hist));
+  showSearchHistoryView();
+}
+
 function getFilteredPapers() {
-  const search = document.getElementById('search').value.toLowerCase();
+  const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
   const hidden = new Set(getHiddenPosts());
   const _blockedWordsSet = new Set(getBlockedWords());
   const qfOn = isQualityFilterOn();
   const qCache = qfOn ? getQualityCache() : {};
   const bypass = qfOn ? getQualityBypass() : {};
+
+  // Parse structured search prefixes
+  const tokens = rawSearch.split(/\s+/).filter(Boolean);
+  let authorFilter = null, sourceFilter = null, sortOverride = null;
+  const textTokens = [];
+  for (const t of tokens) {
+    if (t.startsWith('by:')) authorFilter = t.slice(3).toLowerCase();
+    else if (t.startsWith('source:')) sourceFilter = t.slice(7).toLowerCase();
+    else if (t.startsWith('sort:')) sortOverride = t.slice(5).toLowerCase();
+    else textTokens.push(t);
+  }
+
   let filtered = allPapers.filter(p => {
     if (hiddenSourceFilters.has(p.source)) return false;
     if (hidden.has(p.link)) return false;
@@ -1035,13 +1062,17 @@ function getFilteredPapers() {
       if (verdict === 'keep' && entry?.s != null && entry.s < getQualityThreshold()) return false;
     }
     if (category && !p.categories.includes(category)) return false;
-    if (search) {
+    if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
+    if (sourceFilter && !p.source.toLowerCase().includes(sourceFilter) && !(SOURCE_NAMES[p.source] || '').toLowerCase().includes(sourceFilter)) return false;
+    if (textTokens.length) {
       const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-      return search.split(/\s+/).filter(Boolean).every(t => h.includes(t));
+      return textTokens.every(t => h.includes(t));
     }
     return true;
   });
-  if (currentSort === 'citations') {
+
+  const effectiveSort = sortOverride === 'cited' || sortOverride === 'popular' ? 'citations' : sortOverride === 'latest' ? 'latest' : currentSort;
+  if (effectiveSort === 'citations') {
     filtered = [...filtered].sort((a, b) => {
       const aScore = a.source === 'hn' ? (a.hnScore || 0) : (a.citations || 0);
       const bScore = b.source === 'hn' ? (b.hnScore || 0) : (b.citations || 0);

@@ -256,6 +256,7 @@ let paperViewOrigin = 'arxiv';
 
 function paperViewGoBack() {
   if (paperViewOrigin === 'saved') { openDashboard(); return; }
+  if (paperViewOrigin === 'search') { openSearch(); return; }
   goHome();
 }
 
@@ -355,8 +356,8 @@ function showPaperView(paper, hashValue) {
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   if (isArxiv) {
-    const pdfUrl = paper.link.replace('/abs/', '/pdf/');
-    pdfContainer.innerHTML = `<iframe src="${pdfUrl}" title="PDF viewer" class="w-full h-full border-none"></iframe>`;
+    const htmlUrl = paper.link.replace('arxiv.org', 'ar5iv.org');
+    pdfContainer.innerHTML = `<iframe src="${htmlUrl}" title="Paper viewer" class="w-full h-full border-none"></iframe>`;
   } else {
     pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
   }
@@ -738,9 +739,9 @@ function openPaper(index) {
 }
 
 function openPaperByUrl(url) {
-  paperViewOrigin = 'finder';
+  paperViewOrigin = 'search';
   const hashVal = 'view/' + encodeURIComponent(url);
-  const cached = finderResultsCache.find(r => r.link === url);
+  const cached = (searchResultsCache || []).find(r => r && r.link === url);
   if (cached) { showPaperView(cached, hashVal); return; }
   const savedEntry = getSavedPosts()[url];
   if (savedEntry?.paper) { paperViewOrigin = 'saved'; showPaperView(savedEntry.paper, hashVal); return; }
@@ -749,56 +750,107 @@ function openPaperByUrl(url) {
   showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' }, hashVal);
 }
 
-// ── Paper Finder ──
-let finderResultsCache = [];
-let finderCurrentQuery = '';
-let finderCurrentStart = 0;
+// ── Search View ──
+let searchResultsCache = [];
+let searchCurrentQuery = '';
+let searchCurrentStart = 0;
+let searchSort = 'relevance';
+let searchLastTotal = 0;
 
-document.getElementById('finder-form').addEventListener('submit', e => {
-  e.preventDefault();
-  finderCurrentStart = 0;
-  finderSort = 'relevance';
-  finderCurrentQuery = document.getElementById('finder-query').value.trim();
-  if (finderCurrentQuery) doFinderSearch();
-});
+function onSearchInput() {
+  const query = (document.getElementById('search-query')?.value || '').trim();
+  renderSearchFeedResults(query);
+}
 
-document.getElementById('finder-query').addEventListener('input', () => {
-  if (!document.getElementById('finder-query').value.trim()) {
-    showFeedHideFinder();
+function submitSearch() {
+  const query = (document.getElementById('search-query')?.value || '').trim();
+  if (!query) return;
+  if (typeof saveSearchHistory === 'function') saveSearchHistory(query);
+  hideSearchHistoryView();
+  // Filter feed results
+  renderSearchFeedResults(query);
+  // Skip arXiv search for structured queries
+  const hasPrefix = /\b(by|source|sort):/.test(query);
+  if (hasPrefix) return;
+  searchCurrentStart = 0;
+  searchSort = 'relevance';
+  searchCurrentQuery = query;
+  doSearchArxiv();
+}
+
+function renderSearchFeedResults(query) {
+  const container = document.getElementById('search-feed-results');
+  if (!container) return;
+  if (!query) { container.innerHTML = ''; return; }
+  const lq = query.toLowerCase();
+  const tokens = lq.split(/\s+/).filter(Boolean);
+  let authorFilter = null, sourceFilter = null;
+  const textTokens = [];
+  for (const t of tokens) {
+    if (t.startsWith('by:')) authorFilter = t.slice(3);
+    else if (t.startsWith('source:')) sourceFilter = t.slice(7);
+    else if (t.startsWith('sort:')) { /* ignore for filtering */ }
+    else textTokens.push(t);
   }
-});
+  const matches = allPapers.filter(p => {
+    if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
+    if (sourceFilter && !p.source.toLowerCase().includes(sourceFilter) && !(SOURCE_NAMES[p.source] || '').toLowerCase().includes(sourceFilter)) return false;
+    if (textTokens.length) {
+      const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
+      return textTokens.every(t => h.includes(t));
+    }
+    return !!(authorFilter || sourceFilter);
+  }).slice(0, 30);
 
-function showFeedHideFinder() {
-  document.getElementById('finder-results-masonry').innerHTML = '';
-  document.getElementById('home-feed-section').style.display = '';
+  if (!matches.length) {
+    container.innerHTML = textTokens.length || authorFilter || sourceFilter
+      ? '<div class="text-dim text-[0.82rem] py-3">No feed matches.</div>'
+      : '';
+    return;
+  }
+  container.innerHTML = `<div class="mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">Feed (${matches.length})</div>` +
+    matches.map((p, i) => {
+      const sourceChip = getSourceChip(p.source, p.arxivId);
+      const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
+      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchFeedPaper(${i})">
+        ${sourceChip}
+        <span class="text-[0.82rem] text-primary truncate">${renderTitle(p.title)}</span>
+        <span class="ml-auto shrink-0">${date}</span>
+      </div>`;
+    }).join('');
+
+  // Stash matches for click handling
+  searchResultsCache._feedMatches = matches;
 }
 
-function showFinderHideFeed() {
-  document.getElementById('home-feed-section').style.display = 'none';
+function openSearchFeedPaper(i) {
+  const matches = searchResultsCache._feedMatches;
+  if (!matches || !matches[i]) return;
+  openPaperByUrl(matches[i].link);
 }
 
-async function doFinderSearch() {
-  showFinderHideFeed();
-  const container = document.getElementById('finder-results-masonry');
+async function doSearchArxiv() {
+  const container = document.getElementById('search-arxiv-results');
+  if (!container) return;
   container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Searching arXiv...</div></div>';
   try {
-    const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(finderCurrentQuery)}&start=${finderCurrentStart}&max_results=20`);
+    const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=20`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const xml = await resp.text();
-    parseFinderResults(xml);
+    parseSearchArxivResults(xml);
   } catch (err) {
     container.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">Search failed: ${err.message}</div>`;
   }
 }
 
-function parseFinderResults(xml) {
+function parseSearchArxivResults(xml) {
   const doc = new DOMParser().parseFromString(xml, 'text/xml');
   const ns = 'http://www.w3.org/2005/Atom';
   const entries = doc.getElementsByTagNameNS(ns, 'entry');
   const totalStr = doc.getElementsByTagNameNS('http://a9.com/-/spec/opensearch/1.1/', 'totalResults')[0]?.textContent || '0';
   const total = parseInt(totalStr, 10);
 
-  finderResultsCache = Array.from(entries).map(entry => {
+  searchResultsCache = Array.from(entries).map(entry => {
     const title = (entry.getElementsByTagNameNS(ns, 'title')[0]?.textContent || '').trim().replace(/\s+/g, ' ');
     const summary = (entry.getElementsByTagNameNS(ns, 'summary')[0]?.textContent || '').trim().replace(/\s+/g, ' ');
     const published = (entry.getElementsByTagNameNS(ns, 'published')[0]?.textContent || '').slice(0, 10);
@@ -824,29 +876,30 @@ function parseFinderResults(xml) {
     return { title, description: summary, authors, link, published, date: dateStr, categories, arxivId };
   });
 
-  renderFinderResults(total);
-  fetchFinderCitations(total);
+  renderSearchArxivResults(total);
+  fetchSearchCitations(total);
 }
 
-let finderSort = 'relevance';
-let finderLastTotal = 0;
-
-function setFinderSort(mode) {
-  finderSort = mode;
-  renderFinderResults(finderLastTotal);
+function setSearchSort(mode) {
+  searchSort = mode;
+  renderSearchArxivResults(searchLastTotal);
 }
 
-function renderFinderResults(total) {
-  const container = document.getElementById('finder-results-masonry');
-  if (!finderResultsCache.length) {
-    container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No results found.</div>';
-    return;
+function renderSearchArxivResults(total) {
+  const container = document.getElementById('search-arxiv-results');
+  if (!container) return;
+  if (!searchResultsCache.length || typeof searchResultsCache[0] === 'undefined') {
+    // If _feedMatches is the only property, no arxiv results
+    if (!Array.isArray(searchResultsCache) || !searchResultsCache.length) {
+      container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No arXiv results found.</div>';
+      return;
+    }
   }
 
-  let sorted = [...finderResultsCache];
-  if (finderSort === 'citations') {
+  let sorted = [...searchResultsCache].filter(r => r && r.title);
+  if (searchSort === 'citations') {
     sorted.sort((a, b) => (b.citations || 0) - (a.citations || 0));
-  } else if (finderSort === 'latest') {
+  } else if (searchSort === 'latest') {
     sorted.sort((a, b) => {
       const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
       const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
@@ -854,30 +907,32 @@ function renderFinderResults(total) {
     });
   }
 
-  const sortBar = `<div class="flex gap-1 mb-4">
-    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${finderSort === 'relevance' ? 'active' : ''}" onclick="setFinderSort('relevance')">Relevance</button>
-    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${finderSort === 'latest' ? 'active' : ''}" onclick="setFinderSort('latest')">Latest</button>
-    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${finderSort === 'citations' ? 'active' : ''}" onclick="setFinderSort('citations')">Most Cited</button>
+  const sortBar = `<div class="flex gap-1 mb-4 mt-4">
+    <span class="text-[0.75rem] text-dimmer uppercase tracking-wide self-center mr-2">arXiv</span>
+    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${searchSort === 'relevance' ? 'active' : ''}" onclick="setSearchSort('relevance')">Relevance</button>
+    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${searchSort === 'latest' ? 'active' : ''}" onclick="setSearchSort('latest')">Latest</button>
+    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${searchSort === 'citations' ? 'active' : ''}" onclick="setSearchSort('citations')">Most Cited</button>
   </div>`;
 
   container.innerHTML = sortBar + sorted.map((r, i) => `
-    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openFinderPaper(${i})">
+    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openSearchArxivPaper(${i})">
       <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.arxivId ? ARXIV_LOGO_INLINE : ''}${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${r.citations} cited</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}${r.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(r.date)}</span>` : ''}</div>
       <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${renderTitle(r.title)}</div>
       ${r.description ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(truncate(r.description, 120))}</div>` : ''}
     </div>
   `).join('') + (total > 20 ? `
     <div class="finder-pagination flex justify-center gap-3 pt-6">
-      <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${finderCurrentStart === 0 ? 'disabled' : ''} onclick="finderPrev()">Previous</button>
-      <span class="text-dimmer text-[0.8rem] self-center">${finderCurrentStart + 1}&ndash;${finderCurrentStart + finderResultsCache.length} of ${total}</span>
-      <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${finderCurrentStart + 20 >= total ? 'disabled' : ''} onclick="finderNext()">Next</button>
+      <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${searchCurrentStart === 0 ? 'disabled' : ''} onclick="searchPrev()">Previous</button>
+      <span class="text-dimmer text-[0.8rem] self-center">${searchCurrentStart + 1}&ndash;${searchCurrentStart + sorted.length} of ${total}</span>
+      <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${searchCurrentStart + 20 >= total ? 'disabled' : ''} onclick="searchNext()">Next</button>
     </div>
   ` : '');
-  finderLastTotal = total;
+  searchLastTotal = total;
 }
 
-async function fetchFinderCitations(total) {
-  const ids = finderResultsCache.map(r => r.arxivId).filter(Boolean);
+async function fetchSearchCitations(total) {
+  const results = searchResultsCache.filter(r => r && r.arxivId);
+  const ids = results.map(r => r.arxivId);
   if (!ids.length) return;
   try {
     const resp = await fetch('/api/citations', {
@@ -887,29 +942,49 @@ async function fetchFinderCitations(total) {
     });
     if (resp.ok) {
       const data = await resp.json();
-      for (const r of finderResultsCache) {
-        if (r.arxivId && data[r.arxivId] !== undefined) {
+      for (const r of searchResultsCache) {
+        if (r && r.arxivId && data[r.arxivId] !== undefined) {
           r.citations = data[r.arxivId];
         }
       }
-      renderFinderResults(total);
+      renderSearchArxivResults(total);
     }
   } catch (e) { /* silently fail */ }
 }
 
-function openFinderPaper(i) {
-  const r = finderResultsCache[i];
+function openSearchArxivPaper(i) {
+  const r = searchResultsCache[i];
   if (r && r.link) openPaperByUrl(r.link);
 }
 
-function finderPrev() {
-  finderCurrentStart = Math.max(0, finderCurrentStart - 20);
-  doFinderSearch();
+function searchPrev() {
+  searchCurrentStart = Math.max(0, searchCurrentStart - 20);
+  doSearchArxiv();
 }
 
-function finderNext() {
-  finderCurrentStart += 20;
-  doFinderSearch();
+function searchNext() {
+  searchCurrentStart += 20;
+  doSearchArxiv();
+}
+
+// ── Search History (for search view) ──
+function showSearchHistoryView() {
+  const input = document.getElementById('search-query');
+  const dd = document.getElementById('search-history-dropdown-view');
+  if (!dd || !input) return;
+  if (input.value.trim()) { dd.classList.add('hidden'); return; }
+  const hist = getSearchHistory();
+  if (!hist.length) { dd.classList.add('hidden'); return; }
+  dd.innerHTML = hist.map((h, i) => `<div class="flex items-center gap-2 px-3 py-1.5 hover:bg-hover cursor-pointer text-[0.82rem] text-primary" onmousedown="event.preventDefault(); document.getElementById('search-query').value=${JSON.stringify(h)}; hideSearchHistoryView(); submitSearch();">
+    <span class="truncate flex-1">${escapeHtml(h)}</span>
+    <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary" onmousedown="event.preventDefault(); event.stopPropagation(); removeSearchHistory(${i});">×</button>
+  </div>`).join('');
+  dd.classList.remove('hidden');
+}
+
+function hideSearchHistoryView() {
+  const dd = document.getElementById('search-history-dropdown-view');
+  if (dd) dd.classList.add('hidden');
 }
 
 // ── Todos ──
