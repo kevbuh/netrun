@@ -35,17 +35,31 @@ function renderPythonEditor(fname, content) {
   const editor = document.getElementById('exp-file-editor');
   const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
   editor.innerHTML = `
-    <div class="flex items-center gap-3 mb-4">
-      <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
-      <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
-      <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
-      <div class="ml-auto flex items-center gap-2">
-        <span class="flex items-center gap-1.5 text-[0.75rem] text-dimmer"><span id="py-kernel-dot" class="w-2 h-2 rounded-full inline-block bg-emerald-500"></span><span id="py-kernel-text">idle</span></span>
-        <select id="py-venv-select" onchange="switchVenv(this.value)" class="px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.75rem] cursor-pointer focus:outline-none focus:border-accent">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-[0.7rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
+      <span class="text-[0.85rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+      <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
+    </div>
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <span class="flex items-center gap-1 text-[0.7rem] text-dimmer"><span id="py-kernel-dot" class="w-1.5 h-1.5 rounded-full inline-block bg-emerald-500"></span><span id="py-kernel-text">idle</span></span>
+      <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
+      <div class="ml-auto flex items-center gap-1.5">
+        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart</button>
+        <select id="py-venv-select" onchange="switchVenv(this.value)" class="px-1.5 py-0.5 rounded border border-border-input bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent">
           <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
         </select>
-        <button onclick="runPythonFile()" class="px-3 py-1 rounded text-[0.78rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium" id="py-run-btn" title="Run file (Shift+Enter)">Run</button>
+        <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
+        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
+        <button onclick="runPythonFile()" class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium" id="py-run-btn" title="Run file (Shift+Enter)">Run</button>
       </div>
+    </div>
+    <div id="packages-panel" class="hidden mb-4 rounded-lg border border-border-input bg-surface-secondary p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <input type="text" id="pkg-install-input" placeholder="Package names (e.g. numpy pandas)" class="flex-1 px-2 py-1.5 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" onkeydown="if(event.key==='Enter')installPackages()" />
+        <button class="px-3 py-1.5 rounded bg-accent text-white text-[0.8rem] cursor-pointer hover:opacity-90" onclick="installPackages()">Install</button>
+      </div>
+      <div id="pkg-install-status" class="text-[0.75rem] mb-2 hidden"></div>
+      <div id="pkg-list" class="text-[0.8rem] text-muted">Loading...</div>
     </div>
     <div class="rounded-lg border border-border-input overflow-hidden">
       <textarea id="py-editor-textarea">${escapeHtml(content)}</textarea>
@@ -97,7 +111,7 @@ async function runPythonFile() {
   const dot = document.getElementById('py-kernel-dot');
   const text = document.getElementById('py-kernel-text');
   if (btn) { btn.textContent = 'Running…'; btn.disabled = true; }
-  if (dot) dot.className = 'w-2 h-2 rounded-full inline-block bg-amber-500';
+  if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-amber-500';
   if (text) text.textContent = 'busy';
 
   const outPanel = document.getElementById('py-output');
@@ -115,11 +129,11 @@ async function runPythonFile() {
     const result = await resp.json();
     const rendered = renderCellOutputs(result.outputs || []);
     outContent.innerHTML = rendered || '<span class="text-dim">No output</span>';
-    if (dot) dot.className = 'w-2 h-2 rounded-full inline-block bg-emerald-500';
+    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-emerald-500';
     if (text) text.textContent = 'idle';
   } catch(e) {
     outContent.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`;
-    if (dot) dot.className = 'w-2 h-2 rounded-full inline-block bg-red-500';
+    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-red-500';
     if (text) text.textContent = 'dead';
   }
   if (btn) { btn.textContent = 'Run'; btn.disabled = false; }
@@ -150,21 +164,24 @@ function renderNotebookEditor(fname, contentStr) {
   const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
   const hasVenv = pythonPath.includes('/venv/');
   editor.innerHTML = `
-    <div class="flex items-center gap-3 mb-4 flex-wrap">
-      <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">nb</span>
-      <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
-      <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="nb-save-ind">Saved</span>
-      <div class="ml-auto flex items-center gap-3">
-        <span class="flex items-center gap-1.5 text-[0.75rem] text-dim">
-          <span id="kernel-dot" class="w-2 h-2 rounded-full bg-gray-500 inline-block"></span>
-          <span id="kernel-status-text">idle</span>
-        </span>
-        <button class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart kernel</button>
-        <select id="nb-venv-select" class="px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.75rem] cursor-pointer focus:outline-none focus:border-accent" onchange="switchVenv(this.value)">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-[0.7rem] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">nb</span>
+      <span class="text-[0.85rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+      <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="nb-save-ind">Saved</span>
+    </div>
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <span class="flex items-center gap-1 text-[0.7rem] text-dim">
+        <span id="kernel-dot" class="w-1.5 h-1.5 rounded-full bg-gray-500 inline-block"></span>
+        <span id="kernel-status-text">idle</span>
+      </span>
+      <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
+      <div class="ml-auto flex items-center gap-1.5">
+        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart</button>
+        <select id="nb-venv-select" class="px-1.5 py-0.5 rounded border border-border-input bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent" onchange="switchVenv(this.value)">
           <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
         </select>
-        <button id="btn-create-venv" class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
-        <button class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
+        <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
+        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
       </div>
     </div>
     <div id="packages-panel" class="hidden mb-4 rounded-lg border border-border-input bg-surface-secondary p-4">
@@ -197,6 +214,27 @@ async function loadVenvDropdown(currentPath) {
     });
     select.innerHTML = html;
   } catch(e) { /* keep default */ }
+  loadVenvInfo();
+}
+
+async function loadVenvInfo() {
+  const el = document.getElementById('venv-info');
+  if (!el || !currentExpId) return;
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/venv-info`);
+    const info = await resp.json();
+    if (!info.hasVenv) {
+      el.innerHTML = '<span class="text-dimmer">No venv</span>';
+      return;
+    }
+    el.innerHTML = `<span title="${escapeHtml(info.venvPath || '')}">${escapeHtml(info.pythonVersion || 'Python')}</span>`
+      + `<span class="text-border-input">·</span>`
+      + `<span>${info.packageCount || 0} pkg${info.packageCount !== 1 ? 's' : ''}</span>`
+      + `<span class="text-border-input">·</span>`
+      + `<span>${escapeHtml(info.diskSize || '?')}</span>`;
+  } catch(e) {
+    el.innerHTML = '';
+  }
 }
 
 async function switchVenv(pythonPath) {
@@ -210,6 +248,7 @@ async function switchVenv(pythonPath) {
     await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
     updateKernelStatus('idle');
   } catch(e) { /* will restart on next run */ }
+  loadVenvInfo();
 }
 
 async function createVenv() {
@@ -230,6 +269,7 @@ async function createVenv() {
         await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
         updateKernelStatus('idle');
       } catch(e) { /* will restart on next run */ }
+      loadVenvInfo();
     } else {
       btn.textContent = 'Failed';
       btn.disabled = false;
@@ -416,12 +456,20 @@ function renderNbCells() {
   const container = document.getElementById('nb-cells');
   if (!container || !nbData) return;
   cmInstances = [];
+  const cellDivider = (idx) => `<div class="nb-cell-divider group/div flex items-center justify-center h-2 -my-0.5 relative z-10">
+      <div class="hidden group-hover/div:flex items-center gap-1 absolute bg-[var(--bg-body)] px-2 z-10">
+        <button onclick="insertNbCell(${idx},'code')" class="px-2 py-0.5 rounded text-[0.65rem] border border-border-dim bg-card/50 text-dimmer cursor-pointer hover:text-emerald-400 hover:border-emerald-400/40 transition-colors">+ Code</button>
+        <button onclick="insertNbCell(${idx},'markdown')" class="px-2 py-0.5 rounded text-[0.65rem] border border-border-dim bg-card/50 text-dimmer cursor-pointer hover:text-blue-400 hover:border-blue-400/40 transition-colors">+ Markdown</button>
+      </div>
+      <div class="hidden group-hover/div:block absolute inset-x-0 top-1/2 border-t border-border-dim -z-0"></div>
+    </div>`;
+
   container.innerHTML = nbData.cells.map((cell, i) => {
     const isCode = cell.cell_type === 'code';
     const src = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
     const outputs = renderCellOutputs(cell.outputs || []);
 
-    return `<div class="mb-3 rounded-lg border border-border-dim overflow-hidden" data-cell="${i}">
+    return (i === 0 ? cellDivider(0) : '') + `<div class="mb-0 rounded-lg border border-border-dim overflow-hidden" data-cell="${i}">
       <div class="flex items-center gap-2 px-3 py-1.5 bg-card/30 border-b border-border-dim">
         <span class="text-[0.7rem] ${isCode ? 'text-emerald-400' : 'text-blue-400'} font-medium">${isCode ? 'Code' : 'Markdown'}</span>
         <span class="text-[0.65rem] text-dimmer">[${i+1}]</span>
@@ -437,7 +485,7 @@ function renderNbCells() {
       <div data-cell-editor="${i}"><textarea data-cell-input="${i}" class="w-full bg-[var(--bg-body)] text-[var(--text-primary)] border-none outline-none resize-none p-3 font-mono text-[0.85rem]" rows="3">${escapeHtml(src)}</textarea></div>
       <div data-cell-rendered="${i}" class="hidden px-4 py-3 nb-rendered-md text-[0.85rem] cursor-pointer" onclick="editMdCell(${i})" title="Click to edit"></div>
       <div class="${outputs ? '' : 'hidden '}px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs || ''}</div>
-    </div>`;
+    </div>` + cellDivider(i + 1);
   }).join('');
 
   nbData.cells.forEach((cell, i) => {
@@ -507,6 +555,17 @@ function addNbCell(type) {
   scheduleNbSave();
   setTimeout(() => {
     const cm = cmInstances[nbData.cells.length - 1];
+    if (cm) cm.focus();
+  }, 50);
+}
+
+function insertNbCell(atIndex, type) {
+  if (!nbData) return;
+  nbData.cells.splice(atIndex, 0, {cell_type: type, source: '', outputs: []});
+  renderNbCells();
+  scheduleNbSave();
+  setTimeout(() => {
+    const cm = cmInstances[atIndex];
     if (cm) cm.focus();
   }, 50);
 }
@@ -607,7 +666,7 @@ function updateKernelStatus(status) {
   const text = document.getElementById('kernel-status-text');
   if (!dot || !text) return;
   const colors = {idle:'bg-emerald-500', busy:'bg-amber-500', dead:'bg-red-500'};
-  dot.className = `w-2 h-2 rounded-full inline-block ${colors[status]||'bg-gray-500'}`;
+  dot.className = `w-1.5 h-1.5 rounded-full inline-block ${colors[status]||'bg-gray-500'}`;
   text.textContent = status;
 }
 

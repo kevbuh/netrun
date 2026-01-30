@@ -584,6 +584,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         venvs.append({'id': name, 'title': title, 'pythonPath': venv_python})
             self._send_json(venvs)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/venv-info$'):
+            exp_id = m.group(1)
+            meta = read_meta(exp_id)
+            if not meta:
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            python_path = _get_python_path(exp_id)
+            venv_dir = os.path.join(EXPERIMENTS_DIR, exp_id, 'venv')
+            has_venv = os.path.isdir(venv_dir)
+            info = {'hasVenv': has_venv, 'pythonPath': python_path}
+            try:
+                result = subprocess.run(
+                    [python_path, '--version'],
+                    capture_output=True, text=True, timeout=10
+                )
+                info['pythonVersion'] = result.stdout.strip() if result.returncode == 0 else 'Unknown'
+            except Exception:
+                info['pythonVersion'] = 'Unknown'
+            if has_venv:
+                info['venvPath'] = venv_dir
+                try:
+                    total = sum(
+                        os.path.getsize(os.path.join(dp, f))
+                        for dp, _, fnames in os.walk(venv_dir)
+                        for f in fnames
+                    )
+                    if total < 1024 * 1024:
+                        info['diskSize'] = f'{total / 1024:.0f} KB'
+                    elif total < 1024 * 1024 * 1024:
+                        info['diskSize'] = f'{total / (1024*1024):.1f} MB'
+                    else:
+                        info['diskSize'] = f'{total / (1024*1024*1024):.2f} GB'
+                except Exception:
+                    info['diskSize'] = 'Unknown'
+                try:
+                    result = subprocess.run(
+                        [python_path, '-m', 'pip', 'list', '--format=json'],
+                        capture_output=True, text=True, timeout=15
+                    )
+                    pkgs = json.loads(result.stdout) if result.returncode == 0 else []
+                    info['packageCount'] = len(pkgs)
+                    info['packages'] = [p['name'] for p in pkgs[:20]]
+                except Exception:
+                    info['packageCount'] = 0
+                    info['packages'] = []
+            self._send_json(info)
+
         elif self.path == '/api/todos':
             self._send_json(read_todos())
 
