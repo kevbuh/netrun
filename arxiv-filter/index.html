@@ -92,7 +92,7 @@
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Home</span>
     </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-home" onclick="goHome()">
-      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h5v7h7v9H6z"/></svg>
+      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Feed</span>
     </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-experiments" onclick="openExperiments()">
@@ -112,8 +112,8 @@
   </nav>
 
   <!-- Dashboard View -->
-  <div id="dashboard-view" class="hidden ml-[60px] view">
-    <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16">
+  <div id="dashboard-view" class="hidden ml-[60px] view overflow-x-hidden">
+    <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16 overflow-hidden">
       <div id="dashboard-content"></div>
     </div>
   </div>
@@ -178,16 +178,6 @@
   </div>
 
   <!-- Reading List View -->
-  <div id="saved-view" class="hidden ml-[60px] view">
-    <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
-      <div class="flex items-center gap-3 mb-5">
-        <h2 class="text-[1.3rem] font-semibold text-white_">Reading List</h2>
-        <span id="saved-stats" class="text-[0.8rem] text-dim"></span>
-      </div>
-      <div id="saved-list"></div>
-    </div>
-  </div>
-
   <!-- Paper Viewer View -->
   <div id="paper-view" class="hidden ml-[60px] view">
     <div class="grid grid-cols-[320px_1fr] h-screen overflow-hidden">

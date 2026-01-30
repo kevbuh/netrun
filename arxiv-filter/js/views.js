@@ -7,6 +7,29 @@ let _dashYear, _dashMonth;
   _dashMonth = _n.getMonth();
 }
 
+async function dashToggleTodo(id) {
+  try {
+    await fetch('/api/todos/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: true })
+    });
+    renderDashboard();
+  } catch {}
+}
+
+async function dashDeleteTodo(id) {
+  try {
+    await fetch('/api/todos/' + id, { method: 'DELETE' });
+    renderDashboard();
+  } catch {}
+}
+
+function dashRemoveSaved(link) {
+  toggleSavePostByLink(link);
+  renderDashboard();
+}
+
 function dashCalNav(dir) {
   _dashMonth += dir;
   if (_dashMonth > 11) { _dashMonth = 0; _dashYear++; }
@@ -85,9 +108,11 @@ async function renderDashboard() {
   const notes = allNotes.filter(n => !n.experimentId);
   const notesHtml = notes.length ? notes.slice(0, 6).map(n => {
     const preview = (n.content || '').split('\n')[0] || '';
-    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors" onclick="openTodos(); setTimeout(()=>selectTodo('${n.id}'),100)">
+    const paperTag = n.paperLink ? `<span class="text-[0.65rem] text-accent bg-accent/10 px-1 rounded">paper</span>` : '';
+    const clickAction = n.paperLink ? `openPaperByUrl('${escapeAttr(n.paperLink)}')` : `openTodos(); setTimeout(()=>selectTodo('${n.id}'),100)`;
+    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors" onclick="${clickAction}">
       <div class="flex-1 min-w-0">
-        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(n.title)}</div>
+        <div class="text-[0.82rem] text-primary truncate flex items-center gap-1.5">${escapeHtml(n.title)}${paperTag}</div>
         ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
       </div>
     </div>`;
@@ -99,28 +124,30 @@ async function renderDashboard() {
   experiments.forEach(e => { expMap[e.id] = e.title; });
   const todosHtml = activeTodos.length ? activeTodos.slice(0, 10).map(t => {
     const expName = t.experimentId ? (expMap[t.experimentId] || '') : '';
-    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors">
-      <span class="w-2 h-2 rounded-full shrink-0" style="background:${t.color || 'var(--accent)'}"></span>
-      <div class="flex-1 min-w-0">
+    return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors">
+      <button class="w-4 h-4 rounded border shrink-0 bg-transparent cursor-pointer flex items-center justify-center p-0" style="border-color:var(--text-dimmer)" onclick="dashToggleTodo('${t.id}')" title="Mark done"></button>
+      <div class="flex-1 min-w-0 cursor-pointer" onclick="openTodos(); setTimeout(()=>selectTodo('${t.id}'),100)">
         <div class="text-[0.82rem] text-primary truncate">${escapeHtml(t.title)}</div>
-        ${expName ? `<div class="text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary" onclick="openExperimentDetail('${t.experimentId}')">${escapeHtml(expName)}</div>` : ''}
+        ${expName ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(expName)}</div>` : ''}
       </div>
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="dashDeleteTodo('${t.id}')" title="Delete">&times;</button>
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No todos</div>';
 
   // ── Reading list ──
-  const savedEntries = Object.values(mergedSaved).sort((a, b) => b.savedAt - a.savedAt).slice(0, 6);
+  const savedEntries = Object.values(mergedSaved).sort((a, b) => b.savedAt - a.savedAt);
   const readingHtml = savedEntries.length ? savedEntries.map(entry => {
     const p = entry.paper;
     const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
     const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
     const faviconImg = favicon ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.style.display='none'">` : '';
-    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+    return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
-      <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
         <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
         ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
       </div>
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="dashRemoveSaved('${escapeAttr(p.link)}')" title="Remove">&times;</button>
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
 
@@ -137,8 +164,8 @@ async function renderDashboard() {
 
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Home</h2>
-    <div class="grid grid-cols-[320px_1fr] gap-8">
-      <div>
+    <div class="grid grid-cols-[320px_1fr] gap-8 overflow-hidden">
+      <div class="min-w-0">
         <div class="mb-6">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">${monthName}</h3>
@@ -170,7 +197,7 @@ async function renderDashboard() {
         </div>
       </div>
 
-      <div>
+      <div class="min-w-0">
         <div class="mb-6">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Todos</h3>
@@ -188,7 +215,6 @@ async function renderDashboard() {
         <div>
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
-            <button onclick="openSaved()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
           </div>
           ${readingHtml}
         </div>
@@ -224,7 +250,7 @@ async function dashAddTodo(form) {
 let paperViewOrigin = 'arxiv';
 
 function paperViewGoBack() {
-  if (paperViewOrigin === 'saved') { openSaved(); return; }
+  if (paperViewOrigin === 'saved') { openDashboard(); return; }
   goHome();
 }
 
@@ -255,6 +281,15 @@ function showPaperView(paper, hashValue) {
   _currentPaperViewPaper = paper;
   const isSaved = isPostSaved(paper.link);
   const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${isSaved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}" onclick="togglePaperViewBookmark()"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${isSaved ? 'Saved' : 'Bookmark'}</button>`;
+
+  const notesPanel = `
+    <div class="pt-4 border-t border-border-card" id="paper-notes-section">
+      <div id="paper-note-editor" class="hidden">
+        <div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div>
+        <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
+      </div>
+    </div>
+  `;
 
   const chatPanel = `
     <div class="mt-auto pt-4 border-t border-border-card flex flex-col" id="doc-chat-section" style="min-height:0">
@@ -287,6 +322,7 @@ function showPaperView(paper, hashValue) {
       </div>
       <div class="text-[0.78rem] text-dim mb-3 truncate"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
       ${hnDiscussionUrl ? `<div class="text-[0.78rem] mb-3"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">View on Hacker News</a></div>` : ''}
+      ${notesPanel}
       ${chatPanel}
     `;
   } else {
@@ -307,6 +343,7 @@ function showPaperView(paper, hashValue) {
           ${paper.categories.map(c => `<span class="text-[0.7rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
         </div>` : ''}
       ${!isArxiv ? `<div class="mb-3"><a href="${paper.link}" target="_blank" rel="noopener" class="text-[0.82rem] text-link no-underline hover:underline">Open in new tab</a></div>` : ''}
+      ${notesPanel}
       ${chatPanel}
     `;
   }
@@ -327,8 +364,123 @@ function showPaperView(paper, hashValue) {
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _docChatPaperUrl = paper.link;
 
+  // Load paper notes
+  _paperNoteSelected = null;
+  _paperNoteLink = paper.link;
+  fetchPaperNotes();
+
   // Start scroll progress tracking
   _startScrollTracker(paper.link);
+}
+
+// ── Paper Notes ──
+let _paperNoteSelected = null;
+let _paperNoteLink = '';
+let _paperNotes = [];
+let _paperNoteSaveTimer = null;
+
+async function fetchPaperNotes() {
+  try {
+    const resp = await fetch('/api/todos');
+    const all = await resp.json();
+    let note = (all || []).find(n => n.paperLink === _paperNoteLink);
+    if (!note) {
+      // Auto-create a note for this paper
+      note = await _createPaperNote();
+    }
+    if (note) {
+      _paperNotes = [note];
+      _paperNoteSelected = note.id;
+      renderPaperNoteEditor();
+    }
+  } catch (e) {
+    _paperNotes = [];
+  }
+}
+
+async function _createPaperNote() {
+  // Auto-bookmark the paper
+  if (_currentPaperViewPaper && !isPostSaved(_currentPaperViewPaper.link)) {
+    toggleSavePost(_currentPaperViewPaper);
+    const btn = document.getElementById('paper-view-bookmark');
+    if (btn) {
+      btn.className = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors bg-accent/15 border-accent text-accent`;
+      btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="var(--accent)" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>Saved`;
+    }
+  }
+  const resp = await fetch('/api/todos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Untitled', content: '', paperLink: _paperNoteLink })
+  });
+  return await resp.json();
+}
+
+let _paperNoteEditing = false;
+
+function renderPaperNoteEditor() {
+  const editor = document.getElementById('paper-note-editor');
+  const rendered = document.getElementById('paper-note-rendered');
+  const textarea = document.getElementById('paper-note-textarea');
+  if (!editor || !rendered || !textarea) return;
+  const note = _paperNotes.find(n => n.id === _paperNoteSelected);
+  if (!note) { editor.classList.add('hidden'); return; }
+  editor.classList.remove('hidden');
+  if (_paperNoteEditing) {
+    rendered.classList.add('hidden');
+    textarea.classList.remove('hidden');
+    textarea.value = note.content || '';
+    textarea.focus();
+    textarea.oninput = () => {
+      if (_paperNoteSaveTimer) clearTimeout(_paperNoteSaveTimer);
+      _paperNoteSaveTimer = setTimeout(() => savePaperNote(note.id, textarea.value), 600);
+    };
+    textarea.onblur = () => {
+      setTimeout(() => {
+        _paperNoteEditing = false;
+        savePaperNote(note.id, textarea.value);
+        renderPaperNoteEditor();
+      }, 150);
+    };
+  } else {
+    textarea.classList.add('hidden');
+    rendered.classList.remove('hidden');
+    const content = note.content || '';
+    if (content.trim()) {
+      rendered.innerHTML = typeof marked !== 'undefined' ? marked.parse(content) : escapeHtml(content).replace(/\n/g, '<br>');
+      // Render LaTeX
+      if (typeof katex !== 'undefined') {
+        function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
+        let html = rendered.innerHTML;
+        html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
+          try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); } catch { return _; }
+        });
+        html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
+          try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); } catch { return _; }
+        });
+        rendered.innerHTML = html;
+      }
+    } else {
+      rendered.innerHTML = '<span class="text-dimmer">Start taking notes...</span>';
+    }
+  }
+}
+
+function startPaperNoteEdit() {
+  _paperNoteEditing = true;
+  renderPaperNoteEditor();
+}
+
+async function savePaperNote(id, content) {
+  try {
+    await fetch(`/api/todos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const note = _paperNotes.find(n => n.id === id);
+    if (note) note.content = content;
+  } catch (e) { /* silent */ }
 }
 
 // ── Read Progress Tracking ──
@@ -821,6 +973,11 @@ async function deleteTodo(id) {
 }
 
 function selectTodo(id) {
+  const todo = todos.find(t => t.id === id);
+  if (todo && todo.paperLink) {
+    openPaperByUrl(todo.paperLink);
+    return;
+  }
   selectedTodoId = id;
   _todoEditing = false;
   renderTodosList();
@@ -879,7 +1036,7 @@ function renderTodosList() {
     return `
     <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${sel ? 'bg-accent/15' : 'hover:bg-hover'}" onclick="selectTodo('${todo.id}')">
       <div class="flex-1 min-w-0">
-        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(todo.title)}</div>
+        <div class="text-[0.82rem] text-primary truncate flex items-center gap-1.5">${escapeHtml(todo.title)}${todo.paperLink ? `<span class="text-[0.65rem] text-accent bg-accent/10 px-1 rounded shrink-0">paper</span>` : ''}</div>
         ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
       </div>
       <button onclick="event.stopPropagation(); deleteTodo('${todo.id}')" class="shrink-0 bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">

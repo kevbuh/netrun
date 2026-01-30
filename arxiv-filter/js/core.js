@@ -174,7 +174,7 @@ function routeFromHash() {
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#todos') openTodos();
-  else if (hash === '#saved') openSaved();
+  else if (hash === '#saved') openDashboard();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
   else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));

@@ -8,6 +8,8 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--text-dimmer); }
     * { scrollbar-width: thin; scrollbar-color: var(--text-dimmest) transparent; }
     .nb-img-wrap:hover .nb-img-btns { opacity: 1; }
+    .dash-del { opacity: 0; transition: opacity 0.15s; }
+    .dash-row:hover > .dash-del { opacity: 1; }
 
     :root {
       --bg-body: #0a0a0a;

@@ -199,7 +199,6 @@ async function syncSavedPosts() {
     if (changed) {
       savePosts(localPosts);
       updateSavedBadge();
-      if (document.getElementById('saved-view')?.style.display === 'block') renderSavedPosts();
     }
   } catch {}
 }
@@ -226,7 +225,6 @@ function toggleSavePost(paper, event) {
   savePosts(saved);
   updateSavedBadge();
   renderPapers();
-  if (document.getElementById('saved-view').style.display === 'block') renderSavedPosts();
 }
 
 function markPostRead(link) {
@@ -238,44 +236,11 @@ function markPostRead(link) {
 }
 
 function openSaved() {
-  hideAllViews();
-  const view = document.getElementById('saved-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'saved';
-  setSidebarActive('sb-dashboard');
-  renderSavedPosts();
+  openDashboard();
 }
 
 function renderSavedPosts() {
-  const saved = getSavedPosts();
-  const entries = Object.values(saved).sort((a, b) => b.savedAt - a.savedAt);
-  const readCount = entries.filter(e => e.read).length;
-  document.getElementById('saved-stats').textContent = entries.length ? `${entries.length} saved, ${readCount} read` : '';
-  const container = document.getElementById('saved-list');
-  if (!entries.length) {
-    container.innerHTML = '<div class="text-center py-20 text-dim text-[0.9rem]">No saved papers yet. Bookmark papers from the feed to see them here.</div>';
-    return;
-  }
-  container.innerHTML = entries.map(entry => {
-    const p = entry.paper;
-    const readClass = entry.read ? ' opacity-60' : '';
-    const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
-    const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
-    const faviconImg = favicon ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.style.display='none'">` : '';
-    const hostLabel = hostname ? `<span class="text-[0.72rem] text-dim shrink-0">${escapeHtml(hostname)}</span>` : '';
-    return `
-    <div class="flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer hover:bg-hover transition-colors group${readClass}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
-      <div class="shrink-0">${faviconImg}</div>
-      <div class="flex-1 min-w-0">
-        <div class="text-[0.85rem] text-primary truncate leading-snug">${renderTitle(p.title)}</div>
-        <div class="text-[0.72rem] text-dimmer truncate">${hostLabel}</div>
-      </div>
-      <button class="shrink-0 bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onclick="event.stopPropagation(); toggleSavePostByLink('${escapeAttr(p.link)}')" title="Remove">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>`;
-  }).join('');
+  // Reading list is now part of the dashboard — no-op
 }
 
 function toggleSavePostByLink(link) {
