@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import time
+import uuid
 import concurrent.futures
 
 PORT = 8000
@@ -18,6 +19,7 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
+CALENDAR_FILE = os.path.join(DIR, 'calendar.json')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 
@@ -32,6 +34,18 @@ def read_blocked_titles():
 def write_blocked_titles(titles):
     with open(BLOCKED_TITLES_FILE, 'w') as f:
         json.dump(titles, f, indent=2)
+
+
+def read_calendar():
+    if not os.path.exists(CALENDAR_FILE):
+        return []
+    with open(CALENDAR_FILE, 'r') as f:
+        return json.load(f)
+
+
+def write_calendar(events):
+    with open(CALENDAR_FILE, 'w') as f:
+        json.dump(events, f, indent=2)
 
 
 def slugify(text):
@@ -390,6 +404,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 content = f.read()
             self._send_json({'name': fname, 'content': content})
 
+        elif self.path == '/api/calendar':
+            self._send_json(read_calendar())
+
         elif self.path == '/api/blocked-titles':
             self._send_json(read_blocked_titles())
 
@@ -621,6 +638,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             self._send_json(version, 201)
 
+        elif self.path == '/api/calendar':
+            body = self._read_body()
+            title = body.get('title', '').strip()
+            if not title:
+                self._send_json({'error': 'title required'}, 400)
+                return
+            event = {
+                'id': str(uuid.uuid4()),
+                'title': title,
+                'date': body.get('date', ''),
+                'description': body.get('description', ''),
+                'color': body.get('color', '#b4451a')
+            }
+            events = read_calendar()
+            events.append(event)
+            write_calendar(events)
+            self._send_json(event, 201)
+
         elif self.path == '/api/blocked-titles':
             body = self._read_body()
             title = body.get('title', '').strip()
@@ -637,6 +672,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
+        if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
+            eid = m.group(1)
+            body = self._read_body()
+            events = read_calendar()
+            for ev in events:
+                if ev['id'] == eid:
+                    for key in ('title', 'date', 'description', 'color'):
+                        if key in body:
+                            ev[key] = body[key]
+                    write_calendar(events)
+                    self._send_json(ev)
+                    return
+            self._send_json({'error': 'Not found'}, 404)
+            return
+
         if self.path == '/api/quality-prompt':
             body = self._read_body()
             prompt = body.get('prompt', '')
@@ -694,7 +744,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send_json({'error': 'Version not found'}, 404)
 
     def do_DELETE(self):
-        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
+        if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
+            eid = m.group(1)
+            events = read_calendar()
+            new_events = [e for e in events if e['id'] != eid]
+            if len(new_events) == len(events):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            write_calendar(new_events)
+            self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
             exp_id = m.group(1)
             fname = m.group(2)
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
