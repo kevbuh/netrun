@@ -28,6 +28,8 @@ BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 CALENDAR_FILE = os.path.join(DIR, 'calendar.json')
 TODOS_FILE = os.path.join(DIR, 'todos.json')
+SAVED_POSTS_FILE = os.path.join(DIR, 'saved_posts.json')
+SETTINGS_FILE = os.path.join(DIR, 'settings.json')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 
@@ -289,6 +291,35 @@ def write_todos(todos):
         json.dump(todos, f, indent=2)
 
 
+def read_saved_posts():
+    if not os.path.exists(SAVED_POSTS_FILE):
+        return {}
+    try:
+        with open(SAVED_POSTS_FILE, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
+
+def write_saved_posts(data):
+    tmp = SAVED_POSTS_FILE + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, SAVED_POSTS_FILE)
+
+
+def read_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        return {}
+    with open(SETTINGS_FILE, 'r') as f:
+        return json.load(f)
+
+
+def write_settings(data):
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
 def slugify(text):
     s = text.lower().strip()
     s = re.sub(r'[^\w\s-]', '', s)
@@ -420,8 +451,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
 
     def _read_body(self):
         length = int(self.headers.get('Content-Length', 0))
@@ -732,6 +771,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'default': DEFAULT_VERDICT_PROMPT,
                 'scoringPrompt': DEFAULT_SCORING_PROMPT
             })
+
+        elif self.path == '/api/saved-posts':
+            self._send_json(read_saved_posts())
+
+        elif self.path == '/api/settings':
+            self._send_json(read_settings())
 
         else:
             super().do_GET()
@@ -1164,6 +1209,36 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 write_blocked_titles(titles)
             self._send_json({'ok': True})
 
+        elif self.path == '/api/saved-posts':
+            body = self._read_body()
+            url = body.get('url', '').strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            saved = read_saved_posts()
+            if url in saved:
+                self._send_json({'ok': True, 'exists': True})
+                return
+            paper = {
+                'link': url,
+                'title': body.get('title', url),
+                'source': body.get('source', 'web'),
+                'description': body.get('description', ''),
+                'favicon': body.get('favicon', ''),
+                'hostname': body.get('hostname', ''),
+                'authors': '',
+                'categories': [],
+                'arxivId': None,
+                'date': ''
+            }
+            saved[url] = {
+                'paper': paper,
+                'savedAt': int(time.time() * 1000),
+                'read': False
+            }
+            write_saved_posts(saved)
+            self._send_json({'ok': True})
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 
@@ -1203,6 +1278,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             prompt = body.get('prompt', '')
             write_prompt(prompt)
             self._send_json({'ok': True, 'prompt': read_prompt()})
+            return
+
+        if self.path == '/api/settings':
+            body = self._read_body()
+            settings = read_settings()
+            settings.update(body)
+            write_settings(settings)
+            self._send_json(settings)
             return
 
         if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/runs/([a-zA-Z0-9_-]+)$'):
@@ -1350,6 +1433,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/blocked-titles':
             write_blocked_titles([])
+            self._send_json({'ok': True})
+
+        elif self.path == '/api/saved-posts':
+            body = self._read_body()
+            url = body.get('url', '').strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            saved = read_saved_posts()
+            if url in saved:
+                del saved[url]
+                write_saved_posts(saved)
             self._send_json({'ok': True})
 
         else:

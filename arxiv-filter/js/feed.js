@@ -171,13 +171,56 @@ function getSavedPosts() {
 function savePosts(data) { localStorage.setItem('savedPosts', JSON.stringify(data)); }
 function isPostSaved(link) { return !!getSavedPosts()[link]; }
 
+async function syncSavedPosts() {
+  try {
+    const resp = await fetch('/api/saved-posts');
+    if (!resp.ok) return;
+    const serverPosts = await resp.json();
+    const localPosts = getSavedPosts();
+    let changed = false;
+    // Merge: server wins for new items not in local
+    for (const [url, entry] of Object.entries(serverPosts)) {
+      if (!localPosts[url]) {
+        localPosts[url] = entry;
+        changed = true;
+      }
+    }
+    // Push local-only items to server
+    for (const [url, entry] of Object.entries(localPosts)) {
+      if (!serverPosts[url]) {
+        fetch('/api/saved-posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, title: entry.paper?.title || '', source: entry.paper?.source || 'web', description: entry.paper?.description || '' })
+        }).catch(() => {});
+      }
+    }
+    if (changed) {
+      savePosts(localPosts);
+      updateSavedBadge();
+      if (document.getElementById('saved-view')?.style.display === 'block') renderSavedPosts();
+    }
+  } catch {}
+}
+syncSavedPosts();
+
 function toggleSavePost(paper, event) {
   if (event) event.stopPropagation();
   const saved = getSavedPosts();
   if (saved[paper.link]) {
     delete saved[paper.link];
+    fetch('/api/saved-posts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: paper.link })
+    }).catch(() => {});
   } else {
     saved[paper.link] = { paper, savedAt: Date.now(), read: false };
+    fetch('/api/saved-posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: paper.link, title: paper.title, source: paper.source, description: paper.description || '' })
+    }).catch(() => {});
   }
   savePosts(saved);
   updateSavedBadge();
@@ -215,23 +258,21 @@ function renderSavedPosts() {
   }
   container.innerHTML = entries.map(entry => {
     const p = entry.paper;
-    const readClass = entry.read ? ' read-card' : '';
-    const readBadge = entry.read ? '<span class="text-[0.68rem] text-dim bg-border-card px-1.5 py-0.5 rounded">Read</span>' : '';
-    const sourceChip = getSourceChip(p.source, p.arxivId);
-    const catChips = (p.categories || []).slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
-    const snippet = p.description ? truncate(p.description, 120) : '';
-    const progress = entry.readProgress || 0;
-    const progressBar = progress > 0 ? `<div class="read-progress-bar"><div class="read-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : '';
+    const readClass = entry.read ? ' opacity-60' : '';
+    const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+    const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
+    const faviconImg = favicon ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.style.display='none'">` : '';
+    const hostLabel = hostname ? `<span class="text-[0.72rem] text-dim shrink-0">${escapeHtml(hostname)}</span>` : '';
     return `
-    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 pb-0 mb-3.5 cursor-pointer transition-all duration-150 relative overflow-hidden${readClass}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
-      <button class="absolute top-3 right-3 bg-transparent border-none cursor-pointer p-1 z-10" onclick="event.stopPropagation(); toggleSavePostByLink('${escapeAttr(p.link)}')" title="Remove from Reading List">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="var(--accent)"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+    <div class="flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer hover:bg-hover transition-colors group${readClass}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+      <div class="shrink-0">${faviconImg}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.85rem] text-primary truncate leading-snug">${renderTitle(p.title)}</div>
+        <div class="text-[0.72rem] text-dimmer truncate">${hostLabel}</div>
+      </div>
+      <button class="shrink-0 bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onclick="event.stopPropagation(); toggleSavePostByLink('${escapeAttr(p.link)}')" title="Remove">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
-      <div class="flex gap-1.5 flex-wrap items-center mb-2">${sourceChip}${readBadge}${catChips}</div>
-      <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${renderTitle(p.title)}</div>
-      ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
-      <div class="pb-4"></div>
-      ${progressBar}
     </div>`;
   }).join('');
 }
@@ -244,6 +285,11 @@ function toggleSavePostByLink(link) {
     updateSavedBadge();
     renderSavedPosts();
     renderPapers();
+    fetch('/api/saved-posts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: link })
+    }).catch(() => {});
   }
 }
 
@@ -744,6 +790,11 @@ function renderSettingsView() {
 
 function setTheme(theme) {
   localStorage.setItem('theme', theme);
+  fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ theme })
+  }).catch(() => {});
   if (theme === 'dark') {
     document.documentElement.removeAttribute('data-theme');
   } else {
@@ -758,6 +809,11 @@ function setTheme(theme) {
 function setAccentColor(color) {
   localStorage.setItem('accentColor', color);
   applyAccentColor(color);
+  fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accentColor: color })
+  }).catch(() => {});
   // Update swatch borders
   document.querySelectorAll('[onclick^="setAccentColor"]').forEach(btn => {
     const btnColor = btn.style.background;
