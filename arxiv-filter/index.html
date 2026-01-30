@@ -2144,6 +2144,18 @@
       goHome();
     }
 
+    let _currentPaperViewPaper = null;
+    function togglePaperViewBookmark() {
+      if (!_currentPaperViewPaper) return;
+      toggleSavePost(_currentPaperViewPaper);
+      // Update the button in-place
+      const btn = document.getElementById('paper-view-bookmark');
+      if (!btn) return;
+      const saved = isPostSaved(_currentPaperViewPaper.link);
+      btn.className = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${saved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}`;
+      btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${saved ? 'Saved' : 'Bookmark'}`;
+    }
+
     function showPaperView(paper, hashValue) {
       markPostRead(paper.link);
       hideAllViews();
@@ -2157,10 +2169,14 @@
       const isArxiv = paper.source === 'arxiv';
       const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
       const backBtn = `<button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary mb-4" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button>`;
+      _currentPaperViewPaper = paper;
+      const isSaved = isPostSaved(paper.link);
+      const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${isSaved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}" onclick="togglePaperViewBookmark()"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${isSaved ? 'Saved' : 'Bookmark'}</button>`;
 
       if (isHN) {
         sidebar.innerHTML = `
           ${backBtn}
+          <div class="mb-4">${bookmarkBtn}</div>
           <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
           ${paper.authors ? `
             <div class="mb-[18px]">
@@ -2198,6 +2214,7 @@
           || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
         sidebar.innerHTML = `
           ${backBtn}
+          <div class="mb-4">${bookmarkBtn}</div>
           <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
           ${sourceName ? `
             <div class="mb-[18px]">
@@ -2272,12 +2289,15 @@
 
     function openPaperByUrl(url) {
       paperViewOrigin = 'finder';
+      const hashVal = 'view/' + encodeURIComponent(url);
+      // Check multiple sources for paper data
       const cached = finderResultsCache.find(r => r.link === url);
-      if (cached) {
-        showPaperView(cached, 'view/' + encodeURIComponent(url));
-      } else {
-        showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [] }, 'view/' + encodeURIComponent(url));
-      }
+      if (cached) { showPaperView(cached, hashVal); return; }
+      const savedEntry = getSavedPosts()[url];
+      if (savedEntry?.paper) { paperViewOrigin = 'saved'; showPaperView(savedEntry.paper, hashVal); return; }
+      const feedPaper = allPapers.find(p => p.link === url);
+      if (feedPaper) { showPaperView(feedPaper, hashVal); return; }
+      showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' }, hashVal);
     }
 
     // ── Auto-focus search on keypress ──
