@@ -380,11 +380,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     meta = read_meta(name)
                     if meta:
                         meta['id'] = name
-                        exp_dir = os.path.join(EXPERIMENTS_DIR, name)
-                        files = [f for f in os.listdir(exp_dir) if f.endswith('.md') or f.endswith('.ipynb')] if os.path.isdir(exp_dir) else []
-                        meta['fileCount'] = len(files)
-                        meta['mdCount'] = sum(1 for f in files if f.endswith('.md'))
-                        meta['nbCount'] = sum(1 for f in files if f.endswith('.ipynb'))
+                        runs = meta.get('runs', [])
+                        meta['runCount'] = len(runs)
+                        ts = [r.get('created', 0) for r in runs] + [meta.get('created', 0) or 0]
+                        meta['lastUpdated'] = max(ts) if ts else 0
                         experiments.append(meta)
             self._send_json(experiments)
 
@@ -396,26 +395,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(meta)
             else:
                 self._send_json({'error': 'Not found'}, 404)
-
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
-            exp_id = m.group(1)
-            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
-            if not os.path.isdir(exp_dir):
-                self._send_json({'error': 'Not found'}, 404)
-                return
-            files = [f for f in sorted(os.listdir(exp_dir)) if f.endswith('.md') or f.endswith('.ipynb')]
-            self._send_json(files)
-
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
-            exp_id = m.group(1)
-            fname = m.group(2)
-            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
-            if not os.path.isfile(fpath):
-                self._send_json({'error': 'Not found'}, 404)
-                return
-            with open(fpath, 'r') as f:
-                content = f.read()
-            self._send_json({'name': fname, 'content': content})
 
         elif self.path == '/api/todos':
             self._send_json(read_todos())
@@ -467,10 +446,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/runs$'):
             exp_id = m.group(1)
-            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
-            if not os.path.isdir(exp_dir):
+            meta = read_meta(exp_id)
+            if not meta:
                 self._send_json({'error': 'Not found'}, 404)
                 return
             body = self._read_body()
@@ -478,61 +457,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not name:
                 self._send_json({'error': 'Name required'}, 400)
                 return
-            if not name.endswith('.md') and not name.endswith('.ipynb'):
-                name += '.md'
-            fname = re.sub(r'[^\w\s.-]', '', name).strip()
-            fname = re.sub(r'\s+', '-', fname)
-            fpath = os.path.join(exp_dir, fname)
-            if os.path.exists(fpath):
-                self._send_json({'error': 'File already exists'}, 409)
-                return
-            with open(fpath, 'w') as f:
-                if fname.endswith('.ipynb'):
-                    empty_nb = {
-                        "nbformat": 4,
-                        "nbformat_minor": 5,
-                        "metadata": {
-                            "kernelspec": {
-                                "display_name": "Python 3",
-                                "language": "python",
-                                "name": "python3"
-                            },
-                            "language_info": {"name": "python", "version": "3.10.0"}
-                        },
-                        "cells": [
-                            {
-                                "cell_type": "code",
-                                "source": "",
-                                "metadata": {},
-                                "outputs": [],
-                                "execution_count": None
-                            }
-                        ]
-                    }
-                    json.dump(empty_nb, f, indent=2)
-                else:
-                    f.write('')
-            self._send_json({'name': fname}, 201)
-
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/fork$'):
-            exp_id = m.group(1)
-            meta = read_meta(exp_id)
-            if not meta:
-                self._send_json({'error': 'Not found'}, 404)
-                return
-            import copy
-            new_meta = copy.deepcopy(meta)
-            new_meta['title'] = meta['title'] + ' (fork)'
-            new_meta['created'] = self._read_body().get('created', None)
-            slug = unique_slug(slugify(new_meta['title']))
-            exp_dir = os.path.join(EXPERIMENTS_DIR, slug)
-            os.makedirs(exp_dir, exist_ok=True)
-            for v in new_meta.get('versions', []):
-                ver_dir = os.path.join(exp_dir, v['id'])
-                os.makedirs(ver_dir, exist_ok=True)
-            write_meta(slug, new_meta)
-            new_meta['id'] = slug
-            self._send_json(new_meta, 201)
+            run = {
+                'id': str(uuid.uuid4()),
+                'name': name,
+                'status': body.get('status', 'running'),
+                'notes': body.get('notes', ''),
+                'results': body.get('results', ''),
+                'created': body.get('created', int(time.time() * 1000)),
+                'algorithm': body.get('algorithm', ''),
+                'environment': body.get('environment', ''),
+                'hyperparameters': body.get('hyperparameters', {}),
+                'reward': body.get('reward', None),
+                'episodes': body.get('episodes', None)
+            }
+            meta.setdefault('runs', []).append(run)
+            write_meta(exp_id, meta)
+            self._send_json(run, 201)
 
         elif self.path == '/api/quality-filter':
             try:
@@ -610,49 +550,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'title': title,
                 'desc': desc,
                 'created': body.get('created', None),
-                'versions': []
+                'runs': []
             }
             write_meta(slug, meta)
             meta['id'] = slug
             self._send_json(meta, 201)
-
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/versions$'):
-            exp_id = m.group(1)
-            meta = read_meta(exp_id)
-            if not meta:
-                self._send_json({'error': 'Not found'}, 404)
-                return
-            body = self._read_body()
-            name = body.get('name', '').strip()
-            if not name:
-                self._send_json({'error': 'Name required'}, 400)
-                return
-
-            vid = slugify(name)
-            existing_ids = {v['id'] for v in meta.get('versions', [])}
-            base_vid = vid
-            counter = 2
-            while vid in existing_ids:
-                vid = f'{base_vid}-{counter}'
-                counter += 1
-
-            version = {
-                'id': vid,
-                'name': name,
-                'notes': body.get('notes', ''),
-                'status': body.get('status', 'planned'),
-                'results': body.get('results', ''),
-                'parentId': body.get('parentId', None),
-                'created': body.get('created', None)
-            }
-            meta.setdefault('versions', []).append(version)
-            write_meta(exp_id, meta)
-
-            # Create version directory
-            ver_dir = os.path.join(EXPERIMENTS_DIR, exp_id, vid)
-            os.makedirs(ver_dir, exist_ok=True)
-
-            self._send_json(version, 201)
 
         elif self.path == '/api/todos':
             body = self._read_body()
@@ -744,19 +646,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({'ok': True, 'prompt': read_prompt()})
             return
 
-        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
+        if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/runs/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
-            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
-            if not os.path.isdir(exp_dir):
+            rid = m.group(2)
+            meta = read_meta(exp_id)
+            if not meta:
                 self._send_json({'error': 'Not found'}, 404)
                 return
             body = self._read_body()
-            content = body.get('content', '')
-            fpath = os.path.join(exp_dir, fname)
-            with open(fpath, 'w') as f:
-                f.write(content)
-            self._send_json({'name': fname, 'ok': True})
+            for r in meta.get('runs', []):
+                if r['id'] == rid:
+                    for key in ('name', 'status', 'notes', 'results', 'algorithm', 'environment', 'reward', 'episodes', 'hyperparameters'):
+                        if key in body:
+                            r[key] = body[key]
+                    write_meta(exp_id, meta)
+                    self._send_json(r)
+                    return
+            self._send_json({'error': 'Run not found'}, 404)
             return
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
@@ -768,30 +674,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = self._read_body()
             if 'title' in body:
                 meta['title'] = body['title']
+            if 'desc' in body:
+                meta['desc'] = body['desc']
             write_meta(exp_id, meta)
             meta['id'] = exp_id
             self._send_json(meta)
             return
 
-        m = self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/versions/([a-zA-Z0-9_-]+)$')
-        if not m:
+        else:
             self._send_json({'error': 'Not found'}, 404)
-            return
-        exp_id, vid = m.group(1), m.group(2)
-        meta = read_meta(exp_id)
-        if not meta:
-            self._send_json({'error': 'Not found'}, 404)
-            return
-        body = self._read_body()
-        for v in meta.get('versions', []):
-            if v['id'] == vid:
-                for key in ('name', 'notes', 'status', 'results'):
-                    if key in body:
-                        v[key] = body[key]
-                write_meta(exp_id, meta)
-                self._send_json(v)
-                return
-        self._send_json({'error': 'Version not found'}, 404)
 
     def do_DELETE(self):
         if m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
@@ -814,27 +705,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             write_calendar(new_events)
             self._send_json({'ok': True})
 
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+\.(?:md|ipynb))$'):
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/runs/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
-            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
-            if os.path.isfile(fpath):
-                os.remove(fpath)
-                self._send_json({'ok': True})
-            else:
-                self._send_json({'error': 'Not found'}, 404)
-
-        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/versions/([a-zA-Z0-9_-]+)$'):
-            exp_id, vid = m.group(1), m.group(2)
+            rid = m.group(2)
             meta = read_meta(exp_id)
             if not meta:
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            meta['versions'] = [v for v in meta.get('versions', []) if v['id'] != vid]
+            meta['runs'] = [r for r in meta.get('runs', []) if r['id'] != rid]
             write_meta(exp_id, meta)
-            ver_dir = os.path.join(EXPERIMENTS_DIR, exp_id, vid)
-            if os.path.isdir(ver_dir):
-                shutil.rmtree(ver_dir)
             self._send_json({'ok': True})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):

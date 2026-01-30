@@ -12,5 +12,20 @@
       "parentId": null,
       "created": 1769732283934
     }
+  ],
+  "runs": [
+    {
+      "id": "4de4e63b-b177-4091-baf6-17f014f8c14c",
+      "name": "ppo-lr",
+      "status": "completed",
+      "notes": "",
+      "results": "",
+      "created": 1769734257493,
+      "algorithm": "",
+      "environment": "",
+      "hyperparameters": {},
+      "reward": null,
+      "episodes": null
+    }
   ]
 }
