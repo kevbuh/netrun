@@ -13,6 +13,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
   tailwind.config = {
@@ -263,6 +264,27 @@
     .trend-chip:hover .chip-count {
       color: var(--accent);
     }
+
+    /* Rendered markdown in notebook cells */
+    .nb-rendered-md { color: var(--text-primary); line-height: 1.7; }
+    .nb-rendered-md h1 { font-size: 1.5rem; font-weight: 700; margin: 0.8em 0 0.4em; border-bottom: 1px solid var(--border-dim); padding-bottom: 0.3em; }
+    .nb-rendered-md h2 { font-size: 1.25rem; font-weight: 600; margin: 0.7em 0 0.3em; }
+    .nb-rendered-md h3 { font-size: 1.1rem; font-weight: 600; margin: 0.6em 0 0.3em; }
+    .nb-rendered-md p { margin: 0.5em 0; }
+    .nb-rendered-md ul, .nb-rendered-md ol { margin: 0.5em 0; padding-left: 1.5em; }
+    .nb-rendered-md li { margin: 0.2em 0; }
+    .nb-rendered-md code { background: rgba(255,255,255,0.06); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.9em; }
+    .nb-rendered-md pre { background: rgba(255,255,255,0.04); padding: 0.8em 1em; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; }
+    .nb-rendered-md pre code { background: none; padding: 0; }
+    .nb-rendered-md blockquote { border-left: 3px solid var(--accent); padding-left: 1em; margin: 0.5em 0; color: var(--text-muted); }
+    .nb-rendered-md a { color: var(--text-link, #6ea8fe); text-decoration: underline; }
+    .nb-rendered-md table { border-collapse: collapse; margin: 0.5em 0; }
+    .nb-rendered-md th, .nb-rendered-md td { border: 1px solid var(--border-dim); padding: 0.4em 0.8em; text-align: left; }
+    .nb-rendered-md th { background: rgba(255,255,255,0.04); font-weight: 600; }
+    .nb-rendered-md img { max-width: 100%; border-radius: 4px; }
+    .nb-rendered-md hr { border: none; border-top: 1px solid var(--border-dim); margin: 1em 0; }
+    .nb-rendered-md strong { font-weight: 700; }
+    .nb-rendered-md em { font-style: italic; }
 
     /* CodeMirror notebook theme */
     .CodeMirror {
@@ -3462,13 +3484,15 @@
             <span class="text-[0.65rem] text-dimmer">[${i+1}]</span>
             <div class="ml-auto flex gap-1">
               ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>` : ''}
+              ${!isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/20 text-blue-400 border-none cursor-pointer hover:bg-blue-500/30" onclick="renderMdCell(${i})" title="Render (Shift+Enter)">Render</button>` : ''}
               ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/10 text-blue-400 border-none cursor-pointer hover:bg-blue-500/20" onclick="exportCellToPy(${i})" title="Export to .py file">.py</button>` : ''}
               ${i > 0 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},-1)" title="Move up">&uarr;</button>` : ''}
               ${i < nbData.cells.length-1 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},1)" title="Move down">&darr;</button>` : ''}
               <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
             </div>
           </div>
-          <textarea data-cell-input="${i}">${escapeHtml(src)}</textarea>
+          <div data-cell-editor="${i}"><textarea data-cell-input="${i}">${escapeHtml(src)}</textarea></div>
+          <div data-cell-rendered="${i}" class="hidden px-4 py-3 nb-rendered-md text-[0.85rem] cursor-pointer" onclick="editMdCell(${i})" title="Click to edit"></div>
           ${outputs ? `<div class="px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs}</div>` : `<div class="hidden" data-cell-output="${i}"></div>`}
         </div>`;
       }).join('');
@@ -3489,7 +3513,7 @@
           lineWrapping: true,
           viewportMargin: Infinity,
           extraKeys: {
-            'Shift-Enter': function() { if (isCode) runNbCell(i); },
+            'Shift-Enter': function() { if (isCode) runNbCell(i); else renderMdCell(i); },
             'Cmd-/': function(cm) { cm.toggleComment(); },
             'Ctrl-/': function(cm) { cm.toggleComment(); },
             'Tab': function(cm) {
@@ -3602,6 +3626,37 @@
         if (outEl) { outEl.classList.remove('hidden'); outEl.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`; }
         updateKernelStatus('dead');
       }
+    }
+
+    function renderMdCell(i) {
+      if (!nbData || !nbData.cells[i] || nbData.cells[i].cell_type !== 'markdown') return;
+      const src = Array.isArray(nbData.cells[i].source) ? nbData.cells[i].source.join('') : nbData.cells[i].source;
+      if (!src.trim()) return;
+      const editorEl = document.querySelector(`[data-cell-editor="${i}"]`);
+      const renderedEl = document.querySelector(`[data-cell-rendered="${i}"]`);
+      if (!editorEl || !renderedEl) return;
+      // Render markdown
+      renderedEl.innerHTML = marked.parse(src);
+      // Render KaTeX in the output if available
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(renderedEl, {delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
+      } else if (typeof katex !== 'undefined') {
+        renderedEl.querySelectorAll('code.language-math').forEach(el => {
+          try { katex.render(el.textContent, el, {throwOnError:false}); } catch(e) {}
+        });
+      }
+      editorEl.classList.add('hidden');
+      renderedEl.classList.remove('hidden');
+    }
+
+    function editMdCell(i) {
+      const editorEl = document.querySelector(`[data-cell-editor="${i}"]`);
+      const renderedEl = document.querySelector(`[data-cell-rendered="${i}"]`);
+      if (!editorEl || !renderedEl) return;
+      renderedEl.classList.add('hidden');
+      editorEl.classList.remove('hidden');
+      // Re-focus CodeMirror
+      if (cmInstances[i]) cmInstances[i].focus();
     }
 
     function updateKernelStatus(status) {
