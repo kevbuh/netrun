@@ -1123,7 +1123,7 @@ function renderTodosView() {
       <div class="w-[200px] shrink-0 border-r border-border-dim pr-0 flex flex-col">
         <div class="flex items-center justify-between mb-2 px-2">
           <h2 class="text-[1rem] font-semibold text-white_">Notes</h2>
-          <button onclick="addTodo({title:'Untitled',content:''})" class="w-6 h-6 rounded-md bg-accent text-white text-[0.9rem] font-bold cursor-pointer hover:opacity-90 transition-opacity border-none flex items-center justify-center leading-none">+</button>
+          <button onclick="addTodo({title:'Untitled',content:''})" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors flex items-center justify-center" title="New note"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14" stroke-linecap="round"/></svg></button>
         </div>
         <div id="todos-list" class="flex-1 overflow-y-auto px-1"></div>
       </div>
