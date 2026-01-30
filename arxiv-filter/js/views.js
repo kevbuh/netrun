@@ -535,8 +535,8 @@ function finderNext() {
 
 // ── Todos ──
 let todos = [];
-let todosShowForm = false;
-let todosShowCompleted = false;
+let selectedTodoId = null;
+let _todoSaveTimer = null;
 
 function openTodos() {
   hideAllViews();
@@ -566,7 +566,7 @@ async function addTodo(todo) {
     });
     const created = await resp.json();
     todos.push(created);
-    todosShowForm = false;
+    selectedTodoId = created.id;
     renderTodosView();
   } catch (e) { /* silently fail */ }
 }
@@ -592,150 +592,162 @@ async function deleteTodo(id) {
   try {
     await fetch('/api/todos/' + id, { method: 'DELETE' });
     todos = todos.filter(t => t.id !== id);
+    if (selectedTodoId === id) selectedTodoId = null;
     renderTodosView();
     if (document.getElementById('calendar-view-content').innerHTML) renderCalendarView();
   } catch (e) { /* silently fail */ }
 }
 
-function todosToggleForm() {
-  todosShowForm = !todosShowForm;
-  renderTodosView();
+function selectTodo(id) {
+  selectedTodoId = id;
+  _todoEditing = false;
+  renderTodosList();
+  renderTodoEditor();
 }
 
-function todosSubmitForm() {
-  const title = document.getElementById('todo-title').value.trim();
+function todoEditorInput() {
+  if (_todoSaveTimer) clearTimeout(_todoSaveTimer);
+  _todoSaveTimer = setTimeout(saveTodoContent, 600);
+}
+
+async function saveTodoContent() {
+  const todo = todos.find(t => t.id === selectedTodoId);
+  if (!todo) return;
+  const editor = document.getElementById('todo-editor');
+  if (!editor) return;
+  const content = editor.value;
+  todo.content = content;
+  try {
+    await fetch('/api/todos/' + todo.id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+  } catch {}
+}
+
+async function saveTodoTitle(id) {
+  const input = document.getElementById('todo-title-input');
+  if (!input) return;
+  const title = input.value.trim();
   if (!title) return;
-  const desc = document.getElementById('todo-desc').value.trim();
-  const date = document.getElementById('todo-date').value;
-  const colorEl = document.querySelector('input[name="todo-color"]:checked');
-  const color = colorEl ? colorEl.value : '#b4451a';
-  addTodo({ title, description: desc, date: date || '', color });
+  const todo = todos.find(t => t.id === id);
+  if (!todo) return;
+  todo.title = title;
+  try {
+    await fetch('/api/todos/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title })
+    });
+  } catch {}
+  renderTodosList();
+}
+
+function renderTodosList() {
+  const list = document.getElementById('todos-list');
+  if (!list) return;
+  const sorted = [...todos].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return 0;
+  });
+  list.innerHTML = sorted.map(todo => {
+    const sel = todo.id === selectedTodoId;
+    const preview = (todo.content || '').split('\n')[0] || '';
+    return `
+    <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${sel ? 'bg-accent/15' : 'hover:bg-hover'}" onclick="selectTodo('${todo.id}')">
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(todo.title)}</div>
+        ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
+      </div>
+      <button onclick="event.stopPropagation(); deleteTodo('${todo.id}')" class="shrink-0 bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+let _todoEditing = false;
+
+function renderTodoEditor() {
+  const pane = document.getElementById('todos-editor-pane');
+  if (!pane) return;
+  const todo = todos.find(t => t.id === selectedTodoId);
+  if (!todo) {
+    pane.innerHTML = `<div class="flex items-center justify-center h-full text-dimmer text-[0.9rem]">Select or create a note</div>`;
+    return;
+  }
+  if (_todoEditing) {
+    // Show raw editor
+    pane.innerHTML = `
+      <input id="todo-title-input" value="${escapeAttr(todo.title)}" class="w-full text-[1.1rem] font-semibold text-primary bg-transparent border-none outline-none mb-2 px-0" onblur="saveTodoTitle('${todo.id}')" onkeydown="if(event.key==='Enter'){this.blur()}" />
+      <textarea id="todo-editor" class="w-full flex-1 bg-transparent border-none outline-none text-[0.86rem] text-primary leading-relaxed resize-none font-mono" placeholder="Write markdown, LaTeX ($...$), or plain text..." oninput="todoEditorInput()" onblur="todoEditorBlur()">${escapeHtml(todo.content || '')}</textarea>
+    `;
+  } else {
+    // Show rendered preview
+    const content = todo.content || '';
+    let rendered = '';
+    if (content.trim()) {
+      rendered = typeof marked !== 'undefined' ? marked.parse(content) : escapeHtml(content).replace(/\n/g, '<br>');
+    } else {
+      rendered = '<span class="text-dimmer">Click to edit...</span>';
+    }
+    pane.innerHTML = `
+      <div class="text-[1.1rem] font-semibold text-primary mb-2">${escapeHtml(todo.title)}</div>
+      <div id="todo-rendered" class="flex-1 text-[0.86rem] text-primary leading-relaxed overflow-y-auto cursor-text nb-rendered-md" data-latex onclick="startTodoEdit()">${rendered}</div>
+    `;
+    // Render LaTeX in preview
+    const el = document.getElementById('todo-rendered');
+    if (el && typeof katex !== 'undefined') {
+      function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
+      let html = el.innerHTML;
+      html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
+        try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); } catch { return _; }
+      });
+      html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
+        try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); } catch { return _; }
+      });
+      el.innerHTML = html;
+    }
+  }
+}
+
+function startTodoEdit() {
+  _todoEditing = true;
+  renderTodoEditor();
+  setTimeout(() => {
+    const editor = document.getElementById('todo-editor');
+    if (editor) editor.focus();
+  }, 30);
+}
+
+function todoEditorBlur() {
+  // Small delay to allow clicking title input without triggering blur render
+  setTimeout(() => {
+    const active = document.activeElement;
+    if (active && (active.id === 'todo-editor' || active.id === 'todo-title-input')) return;
+    _todoEditing = false;
+    saveTodoContent();
+    renderTodoEditor();
+  }, 150);
 }
 
 function renderTodosView() {
   const container = document.getElementById('todos-view-content');
-  const presetColors = [
-    { value: '#b4451a', label: 'Accent' },
-    { value: '#3b82f6', label: 'Blue' },
-    { value: '#22c55e', label: 'Green' },
-    { value: '#a855f7', label: 'Purple' },
-    { value: '#eab308', label: 'Yellow' },
-    { value: '#ef4444', label: 'Red' }
-  ];
-
-  const activeTodos = todos.filter(t => !t.done);
-  const completedTodos = todos.filter(t => t.done);
-
-  activeTodos.sort((a, b) => {
-    if (a.date && b.date) return a.date.localeCompare(b.date);
-    if (a.date && !b.date) return -1;
-    if (!a.date && b.date) return 1;
-    return 0;
-  });
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${months[m - 1]} ${d}`;
-  };
-
-  const getExpName = (experimentId) => {
-    if (!experimentId || typeof allExperiments === 'undefined') return '';
-    const exp = allExperiments.find(e => e.id === experimentId);
-    return exp ? exp.title : '';
-  };
-
-  let html = `
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-[1.3rem] font-semibold text-white_">Todos</h2>
-      <button onclick="todosToggleForm()" class="px-3 py-1.5 rounded-lg bg-accent text-white text-[0.8rem] font-medium cursor-pointer hover:opacity-90 transition-opacity border-none">${todosShowForm ? 'Cancel' : '+ Add Todo'}</button>
+  container.innerHTML = `
+    <div class="flex h-[calc(100vh-80px)]">
+      <div class="w-[200px] shrink-0 border-r border-border-dim pr-0 flex flex-col">
+        <div class="flex items-center justify-between mb-2 px-2">
+          <h2 class="text-[1rem] font-semibold text-white_">Notes</h2>
+          <button onclick="addTodo({title:'Untitled',content:''})" class="w-6 h-6 rounded-md bg-accent text-white text-[0.9rem] font-bold cursor-pointer hover:opacity-90 transition-opacity border-none flex items-center justify-center leading-none">+</button>
+        </div>
+        <div id="todos-list" class="flex-1 overflow-y-auto px-1"></div>
+      </div>
+      <div id="todos-editor-pane" class="flex-1 flex flex-col px-5 pt-1 min-w-0"></div>
     </div>
   `;
-
-  if (todosShowForm) {
-    html += `
-      <div class="mb-6 p-4 bg-card rounded-xl border border-border-card">
-        <input type="text" id="todo-title" placeholder="Todo title..." class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] mb-3 focus:outline-none focus:border-accent" />
-        <textarea id="todo-desc" placeholder="Description (optional)" rows="2" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] mb-3 resize-none focus:outline-none focus:border-accent"></textarea>
-        <div class="flex items-center gap-3 mb-3">
-          <span class="text-[0.8rem] text-dimmer">Due date:</span>
-          <input type="date" id="todo-date" class="px-3 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" />
-        </div>
-        <div class="flex items-center gap-3 mb-3">
-          <span class="text-[0.8rem] text-dimmer">Color:</span>
-          ${presetColors.map((c, i) => `
-            <label class="cursor-pointer">
-              <input type="radio" name="todo-color" value="${c.value}" ${i === 0 ? 'checked' : ''} class="sr-only peer" />
-              <span class="w-6 h-6 rounded-full inline-block border-2 border-transparent peer-checked:border-white transition-colors" style="background:${c.value}" title="${c.label}"></span>
-            </label>
-          `).join('')}
-        </div>
-        <div class="flex gap-2">
-          <button onclick="todosSubmitForm()" class="px-4 py-1.5 rounded-lg bg-accent text-white text-[0.8rem] font-medium cursor-pointer hover:opacity-90 transition-opacity border-none">Save</button>
-          <button onclick="todosToggleForm()" class="px-4 py-1.5 rounded-lg bg-card border border-border-card text-primary text-[0.8rem] cursor-pointer hover:bg-hover transition-colors">Cancel</button>
-        </div>
-      </div>
-    `;
-  }
-
-  if (activeTodos.length === 0 && !todosShowForm) {
-    html += `<p class="text-[0.85rem] text-dimmer">No active todos.</p>`;
-  } else {
-    activeTodos.forEach(todo => {
-      const expName = getExpName(todo.experimentId);
-      const expBadge = expName ? `<span class="text-[0.7rem] text-dimmer bg-card border border-border-card px-2 py-0.5 rounded cursor-pointer hover:text-primary transition-colors" onclick="openExperimentDetail('${todo.experimentId}')" title="Open project">${escapeHtml(expName)}</span>` : '';
-      html += `
-        <div class="flex items-start gap-3 py-3 border-b border-border-dim">
-          <input type="checkbox" onchange="toggleTodo('${todo.id}')" class="mt-1 w-4 h-4 cursor-pointer accent-accent" />
-          <span class="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style="background:${todo.color}"></span>
-          <div class="flex-1 min-w-0">
-            <div class="text-[0.9rem] font-medium text-white_">${escapeHtml(todo.title)}</div>
-            ${todo.description ? `<div class="text-[0.8rem] text-dimmer mt-0.5">${escapeHtml(todo.description)}</div>` : ''}
-          </div>
-          ${expBadge}
-          ${todo.date ? `<span class="text-[0.75rem] text-dimmer bg-card border border-border-card px-2 py-0.5 rounded mt-0.5 flex-shrink-0">${formatDate(todo.date)}</span>` : ''}
-          <button onclick="deleteTodo('${todo.id}')" class="text-dimmer hover:text-red-400 transition-colors cursor-pointer bg-transparent border-none p-1 mt-0.5" title="Delete todo">
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-          </button>
-        </div>
-      `;
-    });
-  }
-
-  if (completedTodos.length > 0) {
-    html += `
-      <div class="mt-6">
-        <button onclick="todosShowCompleted=!todosShowCompleted;renderTodosView()" class="flex items-center gap-2 text-[0.85rem] text-dimmer cursor-pointer bg-transparent border-none p-0 hover:text-primary transition-colors">
-          <svg class="w-4 h-4 fill-current transition-transform ${todosShowCompleted ? 'rotate-90' : ''}" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-          Completed (${completedTodos.length})
-        </button>
-    `;
-    if (todosShowCompleted) {
-      completedTodos.forEach(todo => {
-        const expName = getExpName(todo.experimentId);
-        const expBadge = expName ? `<span class="text-[0.7rem] text-dimmer bg-card border border-border-card px-2 py-0.5 rounded cursor-pointer hover:text-primary transition-colors" onclick="openExperimentDetail('${todo.experimentId}')" title="Open project">${escapeHtml(expName)}</span>` : '';
-        html += `
-          <div class="flex items-start gap-3 py-3 border-b border-border-dim opacity-60">
-            <input type="checkbox" checked onchange="toggleTodo('${todo.id}')" class="mt-1 w-4 h-4 cursor-pointer accent-accent" />
-            <span class="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style="background:${todo.color}"></span>
-            <div class="flex-1 min-w-0">
-              <div class="text-[0.9rem] font-medium text-white_ line-through">${escapeHtml(todo.title)}</div>
-              ${todo.description ? `<div class="text-[0.8rem] text-dimmer mt-0.5">${escapeHtml(todo.description)}</div>` : ''}
-            </div>
-            ${expBadge}
-            ${todo.date ? `<span class="text-[0.75rem] text-dimmer bg-card border border-border-card px-2 py-0.5 rounded mt-0.5 flex-shrink-0">${formatDate(todo.date)}</span>` : ''}
-            <button onclick="deleteTodo('${todo.id}')" class="text-dimmer hover:text-red-400 transition-colors cursor-pointer bg-transparent border-none p-1 mt-0.5" title="Delete todo">
-              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-            </button>
-          </div>
-        `;
-      });
-    }
-    html += `</div>`;
-  }
-
-  container.innerHTML = html;
+  renderTodosList();
+  renderTodoEditor();
 }
 
 // ── Calendar ──

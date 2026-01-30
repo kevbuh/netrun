@@ -1171,6 +1171,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'done': False,
                 'date': body.get('date', ''),
                 'description': body.get('description', ''),
+                'content': body.get('content', ''),
                 'color': body.get('color', '#b4451a'),
                 'experimentId': body.get('experimentId', None)
             }
@@ -1249,7 +1250,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             todos = read_todos()
             for todo in todos:
                 if todo['id'] == tid:
-                    for key in ('title', 'done', 'date', 'description', 'color', 'experimentId'):
+                    for key in ('title', 'done', 'date', 'description', 'color', 'experimentId', 'content'):
                         if key in body:
                             todo[key] = body[key]
                     write_todos(todos)
