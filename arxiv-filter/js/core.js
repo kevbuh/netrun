@@ -94,6 +94,7 @@ function hideAllViews() {
     _refreshTimer = null;
   }
   if (typeof stopFeedLoading === 'function') stopFeedLoading();
+  if (typeof _stopScrollTracker === 'function') _stopScrollTracker();
 }
 
 function goHome() {

@@ -175,14 +175,18 @@ function renderSavedPosts() {
     const sourceChip = getSourceChip(p.source, p.arxivId);
     const catChips = (p.categories || []).slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
     const snippet = p.description ? truncate(p.description, 120) : '';
+    const progress = entry.readProgress || 0;
+    const progressBar = progress > 0 ? `<div class="read-progress-bar"><div class="read-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : '';
     return `
-    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative${readClass}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 pb-0 mb-3.5 cursor-pointer transition-all duration-150 relative overflow-hidden${readClass}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
       <button class="absolute top-3 right-3 bg-transparent border-none cursor-pointer p-1 z-10" onclick="event.stopPropagation(); toggleSavePostByLink('${escapeAttr(p.link)}')" title="Remove from Reading List">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="var(--accent)"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
       </button>
       <div class="flex gap-1.5 flex-wrap items-center mb-2">${sourceChip}${readBadge}${catChips}</div>
       <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-6">${renderTitle(p.title)}</div>
       ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
+      <div class="pb-4"></div>
+      ${progressBar}
     </div>`;
   }).join('');
 }

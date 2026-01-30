@@ -1,5 +1,12 @@
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+    /* Transparent scrollbar track */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--text-dimmest); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dimmer); }
+    * { scrollbar-width: thin; scrollbar-color: var(--text-dimmest) transparent; }
     .nb-img-wrap:hover .nb-img-btns { opacity: 1; }
 
     :root {
@@ -178,6 +185,22 @@
     /* ── Reading list: read cards dim, hover restores ── */
     #saved-list > div.read-card { opacity: 0.4; }
     #saved-list > div.read-card:hover { opacity: 1 !important; }
+
+    /* ── Read progress bar (YouTube-style) ── */
+    .read-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--border-card);
+    }
+    .read-progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 0 2px 2px 0;
+      transition: width 0.3s ease;
+    }
 
 
     /* ── ASCII braille loader ── */

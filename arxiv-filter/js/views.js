@@ -104,6 +104,46 @@ function showPaperView(paper, hashValue) {
   _docChatExpanded = false;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _docChatPaperUrl = paper.link;
+
+  // Start scroll progress tracking
+  _startScrollTracker(paper.link);
+}
+
+// ── Read Progress Tracking ──
+let _scrollTrackerInterval = null;
+
+function _startScrollTracker(link) {
+  if (_scrollTrackerInterval) clearInterval(_scrollTrackerInterval);
+  _scrollTrackerInterval = setInterval(() => {
+    try {
+      const iframe = document.querySelector('#paper-pdf-container iframe');
+      if (!iframe || !iframe.contentWindow) return;
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      if (!doc || !doc.documentElement) return;
+      const scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop || 0;
+      const scrollHeight = doc.documentElement.scrollHeight || doc.body.scrollHeight || 0;
+      const clientHeight = doc.documentElement.clientHeight || doc.body.clientHeight || 0;
+      if (scrollHeight <= clientHeight) return;
+      const progress = Math.min(1, scrollTop / (scrollHeight - clientHeight));
+      _saveReadProgress(link, progress);
+    } catch (e) {
+      // Cross-origin — silently ignore
+    }
+  }, 2000);
+}
+
+function _stopScrollTracker() {
+  if (_scrollTrackerInterval) { clearInterval(_scrollTrackerInterval); _scrollTrackerInterval = null; }
+}
+
+function _saveReadProgress(link, progress) {
+  const saved = getSavedPosts();
+  if (!saved[link]) return;
+  const prev = saved[link].readProgress || 0;
+  if (progress > prev) {
+    saved[link].readProgress = Math.round(progress * 100) / 100;
+    savePosts(saved);
+  }
 }
 
 // ── Document Chat ──
