@@ -377,7 +377,7 @@ def classify_title(title, system_msg=None):
     if system_msg is None:
         system_msg = DEFAULT_VERDICT_PROMPT
     payload = json.dumps({
-        "model": "qwen2.5:3b",
+        "model": "qwen2.5:7b",
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": title}
@@ -924,7 +924,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     score_system = DEFAULT_SCORING_PROMPT
                     def score_title(title):
                         payload = json.dumps({
-                            "model": "qwen2.5:3b",
+                            "model": "qwen2.5:7b",
                             "messages": [
                                 {"role": "system", "content": score_system},
                                 {"role": "user", "content": title}

@@ -669,7 +669,7 @@ function renderSettingsView() {
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center gap-3 mb-1">
         <h3 class="text-white_ text-sm font-semibold">AI Quality Filter</h3>
-        <span class="text-dimmer text-[0.68rem]">qwen2.5:3b</span>
+        <span class="text-dimmer text-[0.68rem]">qwen2.5:7b</span>
         <label class="flex items-center gap-2 cursor-pointer ml-auto">
           <span class="text-primary text-sm">Enable</span>
           <span class="toggle-switch">
