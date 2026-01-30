@@ -446,12 +446,15 @@
         </button>
         <h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors" onclick="startRenameExperiment()" title="Click to rename"></h1>
       </div>
-      <p id="exp-detail-desc" class="text-[0.85rem] text-muted mb-5 ml-[52px] cursor-pointer hover:text-primary transition-colors" onclick="startEditDesc()" title="Click to edit description"></p>
-      <div id="exp-runs-header" class="flex items-center justify-between mb-4 ml-[52px]">
-        <span id="exp-run-count" class="text-[0.8rem] text-dim"></span>
-        <button class="px-4 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors" onclick="openNewRunModal()">+ New Run</button>
+      <div id="exp-detail-desc" class="text-[0.85rem] text-muted mb-5 ml-[52px] cursor-pointer hover:text-primary transition-colors nb-rendered-md" ondblclick="startEditDesc()" title="Double-click to edit description"></div>
+      <div id="exp-todos-section" class="ml-[52px] mt-4">
+        <div class="flex items-center justify-between mb-4">
+          <span id="exp-todo-count" class="text-[0.8rem] text-dim"></span>
+          <button onclick="addExpTodo()" class="px-4 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors">+ Add Todo</button>
+        </div>
+        <div id="exp-todo-input-area"></div>
+        <div id="exp-todos-list"></div>
       </div>
-      <div id="runs-table-container" class="ml-[52px]"></div>
       <!-- Files Section -->
       <div id="exp-files-section" class="ml-[52px] mt-8">
         <div class="flex items-center justify-between mb-4">
@@ -493,51 +496,6 @@
 
 
   <!-- New Run Modal -->
-  <div id="new-run-overlay" class="fixed inset-0 bg-overlay z-[100] flex items-center justify-center" style="display:none" onclick="if(event.target===this)closeNewRunModal()">
-    <div class="bg-popup border border-border-input rounded-xl p-6 w-[480px] max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-popup">
-      <h2 class="text-[1.1rem] font-semibold text-white_ mb-4">New Run</h2>
-      <label class="block text-[0.75rem] text-dim mb-1">Name <span class="text-red-400">*</span></label>
-      <input type="text" id="nr-name" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent mb-3" placeholder="e.g. ppo-lr-0.001" />
-      <label class="block text-[0.75rem] text-dim mb-1">Status</label>
-      <select id="nr-status" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent mb-3">
-        <option value="running" selected>Running</option>
-        <option value="completed">Completed</option>
-        <option value="killed">Killed</option>
-        <option value="crashed">Crashed</option>
-      </select>
-      <button class="text-[0.8rem] text-muted hover:text-primary cursor-pointer bg-transparent border-none mb-3 flex items-center gap-1" onclick="toggleRLConfig()" id="rl-config-toggle">
-        <svg class="w-3 h-3 fill-current transition-transform" id="rl-config-arrow" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        RL Configuration
-      </button>
-      <div id="rl-config-section" style="display:none">
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label class="block text-[0.75rem] text-dim mb-1">Algorithm</label>
-            <input type="text" id="nr-algorithm" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="e.g. PPO" />
-          </div>
-          <div>
-            <label class="block text-[0.75rem] text-dim mb-1">Environment</label>
-            <input type="text" id="nr-environment" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="e.g. CartPole-v1" />
-          </div>
-          <div>
-            <label class="block text-[0.75rem] text-dim mb-1">Reward</label>
-            <input type="number" id="nr-reward" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="e.g. 500" step="any" />
-          </div>
-          <div>
-            <label class="block text-[0.75rem] text-dim mb-1">Episodes</label>
-            <input type="number" id="nr-episodes" class="w-full px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="e.g. 1000" />
-          </div>
-        </div>
-        <label class="block text-[0.75rem] text-dim mb-1">Hyperparameters</label>
-        <div id="nr-hp-list" class="flex flex-col gap-1 mb-2"></div>
-        <button class="text-[0.8rem] text-accent hover:text-accent-hover cursor-pointer bg-transparent border-none" onclick="addNewRunHP()">+ Add parameter</button>
-      </div>
-      <div class="flex justify-end gap-2 mt-4">
-        <button class="px-4 py-2 rounded-md border border-border-input bg-transparent text-muted text-[0.85rem] cursor-pointer hover:text-primary" onclick="closeNewRunModal()">Cancel</button>
-        <button class="px-4 py-2 rounded-md border-none bg-accent text-white text-[0.85rem] cursor-pointer hover:bg-accent-hover" onclick="createRun()">Create</button>
-      </div>
-    </div>
-  </div>
 
   <script>
     // ── View management ──
@@ -651,7 +609,6 @@
       window.location.hash = 'experiment/' + id;
       setSidebarActive('sb-experiments');
       currentExpId = id;
-      expandedRunId = null;
       fetchExperimentDetail(id);
     }
 
@@ -2806,8 +2763,6 @@
     // ── Project Detail ──
     let currentExpId = null;
     let currentExp = null;
-    let expandedRunId = null;
-    let autoSaveTimer = null;
 
     async function fetchExperimentDetail(id) {
       try {
@@ -2815,19 +2770,25 @@
         currentExp = await resp.json();
         document.getElementById('exp-detail-title').textContent = currentExp.title;
         const descEl = document.getElementById('exp-detail-desc');
-        descEl.textContent = currentExp.desc || 'No description. Click to add one.';
-        descEl.classList.toggle('text-dimmest', !currentExp.desc);
-        descEl.classList.toggle('text-muted', !!currentExp.desc);
+        if (currentExp.desc) {
+          descEl.innerHTML = marked.parse(currentExp.desc);
+          descEl.classList.remove('text-dimmest');
+          descEl.classList.add('text-muted');
+        } else {
+          descEl.textContent = 'No description. Double-click to add one.';
+          descEl.classList.add('text-dimmest');
+          descEl.classList.remove('text-muted');
+        }
         // Reset file editor state
         document.getElementById('exp-file-editor').style.display = 'none';
         document.getElementById('exp-file-editor').innerHTML = '';
-        document.getElementById('runs-table-container').style.display = '';
+        document.getElementById('exp-todos-section').style.display = '';
         document.getElementById('exp-files-section').style.display = '';
         currentFile = null;
-        renderRunsTable();
+        fetchExpTodos();
         fetchExpFiles();
       } catch (err) {
-        document.getElementById('runs-table-container').innerHTML =
+        document.getElementById('exp-todos-list').innerHTML =
           `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
       }
     }
@@ -2866,25 +2827,25 @@
       input.outerHTML = `<h1 id="exp-detail-title" class="text-[1.4rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors" onclick="startRenameExperiment()" title="Click to rename">${escapeHtml(currentExp.title)}</h1>`;
     }
 
-    // ── Edit Description ──
+    // ── Edit Description (markdown) ──
     let editingDesc = false;
     function startEditDesc() {
       if (!currentExpId || !currentExp || editingDesc) return;
       editingDesc = true;
       const el = document.getElementById('exp-detail-desc');
-      el.outerHTML = `<input id="exp-desc-input" type="text" value="${escapeHtml(currentExp.desc || '')}" class="text-[0.85rem] text-primary bg-transparent border-b-2 border-accent outline-none w-full max-w-[500px] mb-5 ml-[52px]" placeholder="Add a description..." />`;
-      const input = document.getElementById('exp-desc-input');
-      input.focus();
-      input.addEventListener('keydown', async e => {
-        if (e.key === 'Enter') { e.preventDefault(); await finishEditDesc(input); }
+      el.outerHTML = `<textarea id="exp-desc-input" class="text-[0.85rem] text-primary bg-input border border-border-input rounded-md outline-none w-full mb-5 ml-[52px] p-3 resize-y focus:border-accent" rows="6" placeholder="Add a description (markdown supported)...">${escapeHtml(currentExp.desc || '')}</textarea>`;
+      const textarea = document.getElementById('exp-desc-input');
+      textarea.focus();
+      textarea.addEventListener('keydown', async e => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); await finishEditDesc(textarea); }
         if (e.key === 'Escape') { cancelEditDesc(); }
       });
-      input.addEventListener('blur', () => finishEditDesc(input));
+      textarea.addEventListener('blur', () => finishEditDesc(textarea));
     }
-    async function finishEditDesc(input) {
+    async function finishEditDesc(textarea) {
       if (!editingDesc) return;
       editingDesc = false;
-      const newDesc = input.value.trim();
+      const newDesc = textarea.value.trim();
       await fetch(`/api/experiments/${currentExpId}`, {
         method: 'PUT', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ desc: newDesc })
@@ -2893,234 +2854,128 @@
       cancelEditDesc();
     }
     function cancelEditDesc() {
-      const input = document.getElementById('exp-desc-input');
-      if (!input) return;
+      const textarea = document.getElementById('exp-desc-input');
+      if (!textarea) return;
       const desc = currentExp.desc || '';
-      input.outerHTML = `<p id="exp-detail-desc" class="text-[0.85rem] ${desc ? 'text-muted' : 'text-dimmest'} mb-5 ml-[52px] cursor-pointer hover:text-primary transition-colors" onclick="startEditDesc()" title="Click to edit description">${escapeHtml(desc || 'No description. Click to add one.')}</p>`;
+      const content = desc ? marked.parse(desc) : escapeHtml('No description. Double-click to add one.');
+      textarea.outerHTML = `<div id="exp-detail-desc" class="text-[0.85rem] ${desc ? 'text-muted' : 'text-dimmest'} mb-5 ml-[52px] cursor-pointer hover:text-primary transition-colors nb-rendered-md" ondblclick="startEditDesc()" title="Double-click to edit description">${content}</div>`;
     }
 
-    // ── Runs Table ──
-    const STATUS_COLORS = { running: 'bg-blue-500', completed: 'bg-emerald-500', killed: 'bg-amber-500', crashed: 'bg-red-500' };
-    const STATUS_TEXT = { running: 'text-blue-400', completed: 'text-emerald-400', killed: 'text-amber-400', crashed: 'text-red-400' };
+    // ── Experiment Todos ──
+    let expTodos = [];
 
-    function renderRunsTable() {
-      const container = document.getElementById('runs-table-container');
-      const runs = currentExp.runs || [];
-      const countEl = document.getElementById('exp-run-count');
-      countEl.textContent = `${runs.length} run${runs.length !== 1 ? 's' : ''}`;
+    async function fetchExpTodos() {
+      try {
+        const resp = await fetch('/api/todos');
+        const allTodos = await resp.json();
+        expTodos = allTodos.filter(t => t.experimentId === currentExpId);
+      } catch (e) { expTodos = []; }
+      renderExpTodos();
+    }
 
-      if (!runs.length) {
-        container.innerHTML = '<div class="text-center py-16 text-dimmest text-[0.9rem]">No runs yet. Click "+ New Run" to create one.</div>';
+    function renderExpTodos() {
+      const list = document.getElementById('exp-todos-list');
+      const countEl = document.getElementById('exp-todo-count');
+      const active = expTodos.filter(t => !t.done);
+      const done = expTodos.filter(t => t.done);
+      countEl.textContent = `${active.length} todo${active.length !== 1 ? 's' : ''}${done.length ? ` · ${done.length} done` : ''}`;
+
+      if (!expTodos.length) {
+        list.innerHTML = '<div class="text-center py-12 text-dimmest text-[0.9rem]">No todos yet. Click "+ Add Todo" to create one.</div>';
         return;
       }
 
-      // Determine which RL columns to show
-      const hasAlgo = runs.some(r => r.algorithm);
-      const hasEnv = runs.some(r => r.environment);
-      const hasReward = runs.some(r => r.reward != null);
-      const hasEpisodes = runs.some(r => r.episodes != null);
-
-      let headerCols = `
-        <th class="text-left py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide w-[90px]">Status</th>
-        <th class="text-left py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide">Name</th>`;
-      if (hasAlgo) headerCols += `<th class="text-left py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide">Algorithm</th>`;
-      if (hasEnv) headerCols += `<th class="text-left py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide">Environment</th>`;
-      if (hasReward) headerCols += `<th class="text-right py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide">Reward</th>`;
-      if (hasEpisodes) headerCols += `<th class="text-right py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide">Episodes</th>`;
-      headerCols += `<th class="text-right py-2 px-3 text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide">Created</th>`;
-      headerCols += `<th class="w-10"></th>`;
-
-      const rows = runs.map(r => {
-        const isExpanded = r.id === expandedRunId;
-        const created = r.created ? new Date(r.created).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
-        let cols = `
-          <td class="py-2.5 px-3"><span class="inline-flex items-center gap-1.5 text-[0.8rem] ${STATUS_TEXT[r.status] || 'text-dim'}"><span class="w-2 h-2 rounded-full ${STATUS_COLORS[r.status] || 'bg-gray-500'} inline-block"></span>${r.status}</span></td>
-          <td class="py-2.5 px-3 text-[0.85rem] text-white_ font-medium">${escapeHtml(r.name)}</td>`;
-        if (hasAlgo) cols += `<td class="py-2.5 px-3 text-[0.8rem] text-muted">${escapeHtml(r.algorithm || '')}</td>`;
-        if (hasEnv) cols += `<td class="py-2.5 px-3 text-[0.8rem] text-muted">${escapeHtml(r.environment || '')}</td>`;
-        if (hasReward) cols += `<td class="py-2.5 px-3 text-[0.8rem] text-muted text-right">${r.reward != null ? r.reward : ''}</td>`;
-        if (hasEpisodes) cols += `<td class="py-2.5 px-3 text-[0.8rem] text-muted text-right">${r.episodes != null ? r.episodes : ''}</td>`;
-        cols += `<td class="py-2.5 px-3 text-[0.75rem] text-dimmer text-right">${created}</td>`;
-        cols += `<td class="py-2.5 px-1"><button onclick="event.stopPropagation(); deleteRun('${r.id}')" class="w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg></button></td>`;
-
-        let expandRow = '';
-        if (isExpanded) {
-          const hp = r.hyperparameters || {};
-          const hpRows = Object.entries(hp).map(([k,v], i) =>
-            `<div class="flex gap-2 mb-1">
-              <input type="text" value="${escapeHtml(k)}" data-hp-key="${i}" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" />
-              <input type="text" value="${escapeHtml(String(v))}" data-hp-val="${i}" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" />
-              <button onclick="removeHP(${i})" class="text-dimmer hover:text-red-400 bg-transparent border-none cursor-pointer text-sm">&times;</button>
-            </div>`
-          ).join('');
-          const totalCols = 3 + (hasAlgo?1:0) + (hasEnv?1:0) + (hasReward?1:0) + (hasEpisodes?1:0) + 1;
-          expandRow = `<tr><td colspan="${totalCols}" class="p-0"><div class="p-4 bg-body border-t border-b border-border-dim">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="flex flex-col gap-3">
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Name</label>
-                  <input type="text" id="rd-name" value="${escapeHtml(r.name)}" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" />
-                </div>
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Status</label>
-                  <select id="rd-status" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent">
-                    <option value="running" ${r.status==='running'?'selected':''}>Running</option>
-                    <option value="completed" ${r.status==='completed'?'selected':''}>Completed</option>
-                    <option value="killed" ${r.status==='killed'?'selected':''}>Killed</option>
-                    <option value="crashed" ${r.status==='crashed'?'selected':''}>Crashed</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Notes</label>
-                  <textarea id="rd-notes" rows="3" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] resize-y focus:outline-none focus:border-accent">${escapeHtml(r.notes || '')}</textarea>
-                </div>
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Results</label>
-                  <textarea id="rd-results" rows="3" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-[0.85rem] resize-y focus:outline-none focus:border-accent">${escapeHtml(r.results || '')}</textarea>
-                </div>
-              </div>
-              <div class="flex flex-col gap-3">
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Algorithm</label>
-                  <input type="text" id="rd-algorithm" value="${escapeHtml(r.algorithm || '')}" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="e.g. PPO" />
-                </div>
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Environment</label>
-                  <input type="text" id="rd-environment" value="${escapeHtml(r.environment || '')}" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="e.g. CartPole-v1" />
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-[0.7rem] text-dim mb-1">Reward</label>
-                    <input type="number" id="rd-reward" value="${r.reward != null ? r.reward : ''}" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" step="any" />
-                  </div>
-                  <div>
-                    <label class="block text-[0.7rem] text-dim mb-1">Episodes</label>
-                    <input type="number" id="rd-episodes" value="${r.episodes != null ? r.episodes : ''}" class="w-full px-2.5 py-1.5 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" />
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-[0.7rem] text-dim mb-1">Hyperparameters</label>
-                  <div id="rd-hp-list">${hpRows}</div>
-                  <button class="text-[0.8rem] text-accent hover:text-accent-hover cursor-pointer bg-transparent border-none mt-1" onclick="addHP()">+ Add parameter</button>
-                </div>
-              </div>
-            </div>
-            <div class="flex items-center mt-3">
-              <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity duration-300" id="run-save-indicator">Saved</span>
-            </div>
-          </div></td></tr>`;
-        }
-
-        return `<tr class="group cursor-pointer hover:bg-card/50 transition-colors ${isExpanded ? 'bg-card/30' : ''}" onclick="toggleRunExpand('${r.id}')">${cols}</tr>${expandRow}`;
-      }).join('');
-
-      container.innerHTML = `<table class="w-full border-collapse"><thead><tr class="border-b border-border-dim">${headerCols}</tr></thead><tbody>${rows}</tbody></table>`;
-
-      // Attach auto-save listeners if a run is expanded
-      if (expandedRunId) {
-        setTimeout(() => attachRunAutoSave(), 0);
-      }
-    }
-
-    function toggleRunExpand(rid) {
-      if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; doRunAutoSave(); }
-      expandedRunId = expandedRunId === rid ? null : rid;
-      renderRunsTable();
-    }
-
-    function attachRunAutoSave() {
-      const fields = ['rd-name','rd-status','rd-notes','rd-results','rd-algorithm','rd-environment','rd-reward','rd-episodes'];
-      fields.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-        el.addEventListener(evt, () => scheduleRunAutoSave());
-      });
-      // HP fields
-      document.querySelectorAll('[data-hp-key],[data-hp-val]').forEach(el => {
-        el.addEventListener('input', () => scheduleRunAutoSave());
-      });
-    }
-
-    function scheduleRunAutoSave() {
-      clearTimeout(autoSaveTimer);
-      autoSaveTimer = setTimeout(() => doRunAutoSave(), 600);
-    }
-
-    async function doRunAutoSave() {
-      autoSaveTimer = null;
-      if (!expandedRunId || !currentExpId) return;
-      const nameEl = document.getElementById('rd-name');
-      if (!nameEl) return;
-
-      // Collect hyperparameters
-      const hp = {};
-      document.querySelectorAll('[data-hp-key]').forEach(keyEl => {
-        const i = keyEl.dataset.hpKey;
-        const valEl = document.querySelector(`[data-hp-val="${i}"]`);
-        const k = keyEl.value.trim();
-        if (k && valEl) {
-          const v = valEl.value.trim();
-          const num = Number(v);
-          hp[k] = v !== '' && !isNaN(num) ? num : v;
-        }
-      });
-
-      const rewardVal = document.getElementById('rd-reward').value;
-      const episodesVal = document.getElementById('rd-episodes').value;
-
-      const body = {
-        name: nameEl.value.trim(),
-        status: document.getElementById('rd-status').value,
-        notes: document.getElementById('rd-notes').value,
-        results: document.getElementById('rd-results').value,
-        algorithm: document.getElementById('rd-algorithm').value,
-        environment: document.getElementById('rd-environment').value,
-        reward: rewardVal !== '' ? Number(rewardVal) : null,
-        episodes: episodesVal !== '' ? Number(episodesVal) : null,
-        hyperparameters: hp
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${months[m - 1]} ${d}`;
       };
 
-      await fetch(`/api/experiments/${currentExpId}/runs/${expandedRunId}`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
+      const renderItem = (t) => {
+        const dateTag = t.date ? `<span class="text-[0.7rem] text-dimmer bg-body px-2 py-0.5 rounded-full">${formatDate(t.date)}</span>` : '';
+        return `<div class="flex items-center gap-3 py-2.5 px-1 group border-b border-border-dim/50">
+          <button onclick="toggleExpTodo('${t.id}')" class="w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center cursor-pointer bg-transparent transition-colors ${t.done ? 'border-emerald-500 bg-emerald-500/20' : 'border-border-input hover:border-accent'}">
+            ${t.done ? '<svg class="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
+          </button>
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${t.color || '#b4451a'}"></span>
+          <span class="flex-1 text-[0.85rem] ${t.done ? 'line-through text-dimmer' : 'text-primary'}">${escapeHtml(t.title)}</span>
+          ${dateTag}
+          <button onclick="deleteExpTodo('${t.id}')" class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>`;
+      };
+
+      list.innerHTML = active.map(renderItem).join('') + done.map(renderItem).join('');
+    }
+
+    function addExpTodo() {
+      const area = document.getElementById('exp-todo-input-area');
+      if (area.querySelector('input')) { area.querySelector('input').focus(); return; }
+      area.innerHTML = `<div class="flex items-center gap-2 mb-4">
+        <input id="exp-todo-input" type="text" class="flex-1 px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="Todo title..." autofocus />
+        <button onclick="submitExpTodo()" class="px-3 py-2 rounded-md border-none bg-accent text-white text-[0.85rem] cursor-pointer hover:bg-accent-hover">Add</button>
+        <button onclick="document.getElementById('exp-todo-input-area').innerHTML=''" class="px-3 py-2 rounded-md border border-border-input bg-transparent text-muted text-[0.85rem] cursor-pointer hover:text-primary">Cancel</button>
+      </div>`;
+      const input = document.getElementById('exp-todo-input');
+      input.focus();
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); submitExpTodo(); }
+        if (e.key === 'Escape') { area.innerHTML = ''; }
       });
-
-      const ind = document.getElementById('run-save-indicator');
-      if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
-
-      // Update local data
-      const run = (currentExp.runs || []).find(r => r.id === expandedRunId);
-      if (run) Object.assign(run, body);
     }
 
-    function addHP() {
-      const list = document.getElementById('rd-hp-list');
-      if (!list) return;
-      const i = list.children.length;
-      const div = document.createElement('div');
-      div.className = 'flex gap-2 mb-1';
-      div.innerHTML = `
-        <input type="text" value="" data-hp-key="${i}" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" placeholder="key" />
-        <input type="text" value="" data-hp-val="${i}" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" placeholder="value" />
-        <button onclick="this.parentElement.remove(); scheduleRunAutoSave()" class="text-dimmer hover:text-red-400 bg-transparent border-none cursor-pointer text-sm">&times;</button>`;
-      list.appendChild(div);
-      div.querySelectorAll('input').forEach(el => el.addEventListener('input', () => scheduleRunAutoSave()));
-      div.querySelector('[data-hp-key]').focus();
+    async function submitExpTodo() {
+      const input = document.getElementById('exp-todo-input');
+      if (!input) return;
+      const title = input.value.trim();
+      if (!title) return;
+      try {
+        const resp = await fetch('/api/todos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, experimentId: currentExpId })
+        });
+        const created = await resp.json();
+        expTodos.push(created);
+        // Also update global todos array if loaded
+        if (typeof todos !== 'undefined') todos.push(created);
+        document.getElementById('exp-todo-input-area').innerHTML = '';
+        renderExpTodos();
+      } catch (e) { /* silently fail */ }
     }
 
-    function removeHP(i) {
-      const keyEl = document.querySelector(`[data-hp-key="${i}"]`);
-      if (keyEl) keyEl.closest('.flex').remove();
-      scheduleRunAutoSave();
+    async function toggleExpTodo(id) {
+      const todo = expTodos.find(t => t.id === id);
+      if (!todo) return;
+      try {
+        const resp = await fetch('/api/todos/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ done: !todo.done })
+        });
+        const updated = await resp.json();
+        const idx = expTodos.findIndex(t => t.id === id);
+        if (idx !== -1) expTodos[idx] = updated;
+        // Update global todos too
+        if (typeof todos !== 'undefined') {
+          const gi = todos.findIndex(t => t.id === id);
+          if (gi !== -1) todos[gi] = updated;
+        }
+        renderExpTodos();
+      } catch (e) { /* silently fail */ }
     }
 
-    async function deleteRun(rid) {
-      if (!confirm('Delete this run?')) return;
-      await fetch(`/api/experiments/${currentExpId}/runs/${rid}`, { method: 'DELETE' });
-      if (expandedRunId === rid) expandedRunId = null;
-      currentExp.runs = (currentExp.runs || []).filter(r => r.id !== rid);
-      renderRunsTable();
+    async function deleteExpTodo(id) {
+      if (!confirm('Delete this todo?')) return;
+      try {
+        await fetch('/api/todos/' + id, { method: 'DELETE' });
+        expTodos = expTodos.filter(t => t.id !== id);
+        // Update global todos too
+        if (typeof todos !== 'undefined') todos = todos.filter(t => t.id !== id);
+        renderExpTodos();
+      } catch (e) { /* silently fail */ }
     }
 
     // ── Files ──
@@ -3185,10 +3040,9 @@
       const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
       const data = await resp.json();
 
-      // Hide runs section, show editor
-      document.getElementById('runs-table-container').style.display = 'none';
+      // Hide todos section, show editor
+      document.getElementById('exp-todos-section').style.display = 'none';
       document.getElementById('exp-files-section').style.display = 'none';
-      document.getElementById('exp-runs-header').style.display = 'none';
       const editor = document.getElementById('exp-file-editor');
       editor.style.display = 'block';
 
@@ -3208,9 +3062,8 @@
       cmInstances = [];
       document.getElementById('exp-file-editor').style.display = 'none';
       document.getElementById('exp-file-editor').innerHTML = '';
-      document.getElementById('runs-table-container').style.display = '';
+      document.getElementById('exp-todos-section').style.display = '';
       document.getElementById('exp-files-section').style.display = '';
-      document.getElementById('exp-runs-header').style.display = '';
       fetchExpFiles();
     }
 
@@ -3752,88 +3605,10 @@
       updateKernelStatus('idle');
     }
 
-    // ── New Run Modal ──
-    function openNewRunModal() {
-      document.getElementById('nr-name').value = '';
-      document.getElementById('nr-status').value = 'running';
-      document.getElementById('nr-algorithm').value = '';
-      document.getElementById('nr-environment').value = '';
-      document.getElementById('nr-reward').value = '';
-      document.getElementById('nr-episodes').value = '';
-      document.getElementById('nr-hp-list').innerHTML = '';
-      document.getElementById('rl-config-section').style.display = 'none';
-      document.getElementById('rl-config-arrow').style.transform = '';
-      document.getElementById('new-run-overlay').style.display = 'flex';
-      setTimeout(() => document.getElementById('nr-name').focus(), 50);
-    }
-    function closeNewRunModal() {
-      document.getElementById('new-run-overlay').style.display = 'none';
-    }
-    function toggleRLConfig() {
-      const section = document.getElementById('rl-config-section');
-      const arrow = document.getElementById('rl-config-arrow');
-      const show = section.style.display === 'none';
-      section.style.display = show ? '' : 'none';
-      arrow.style.transform = show ? 'rotate(90deg)' : '';
-    }
-    function addNewRunHP() {
-      const list = document.getElementById('nr-hp-list');
-      const i = list.children.length;
-      const div = document.createElement('div');
-      div.className = 'flex gap-2 mb-1';
-      div.innerHTML = `
-        <input type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" placeholder="key" />
-        <input type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" placeholder="value" />
-        <button onclick="this.parentElement.remove()" class="text-dimmer hover:text-red-400 bg-transparent border-none cursor-pointer text-sm">&times;</button>`;
-      list.appendChild(div);
-      div.querySelector('input').focus();
-    }
-    async function createRun() {
-      const name = document.getElementById('nr-name').value.trim();
-      if (!name) return;
-      const hp = {};
-      document.querySelectorAll('#nr-hp-list > div').forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        const k = inputs[0].value.trim();
-        const v = inputs[1].value.trim();
-        if (k) {
-          const num = Number(v);
-          hp[k] = v !== '' && !isNaN(num) ? num : v;
-        }
-      });
-      const rewardVal = document.getElementById('nr-reward').value;
-      const episodesVal = document.getElementById('nr-episodes').value;
-      const body = {
-        name,
-        status: document.getElementById('nr-status').value,
-        algorithm: document.getElementById('nr-algorithm').value.trim(),
-        environment: document.getElementById('nr-environment').value.trim(),
-        reward: rewardVal !== '' ? Number(rewardVal) : null,
-        episodes: episodesVal !== '' ? Number(episodesVal) : null,
-        hyperparameters: hp,
-        created: Date.now()
-      };
-      const resp = await fetch(`/api/experiments/${currentExpId}/runs`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-      });
-      if (resp.ok) {
-        const run = await resp.json();
-        currentExp.runs = currentExp.runs || [];
-        currentExp.runs.push(run);
-        closeNewRunModal();
-        renderRunsTable();
-      }
-    }
-    document.getElementById('nr-name').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); createRun(); }
-    });
-
     // Close modals on Escape
     window.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
-        if (document.getElementById('new-run-overlay').style.display === 'flex') closeNewRunModal();
-        else if (document.getElementById('settings-overlay').style.display === 'flex') closeSettings();
+        if (document.getElementById('settings-overlay').style.display === 'flex') closeSettings();
       }
     });
   </script>
