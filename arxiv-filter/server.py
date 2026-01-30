@@ -359,15 +359,15 @@ DEFAULT_VERDICT_PROMPT = (
 
 DEFAULT_SCORING_PROMPT = (
     "You are a relevance scorer for a general-interest reader who likes science, tech, ideas, and news.\n\n"
-    "10: groundbreaking research, major discoveries, novel algorithms, important papers.\n"
-    "9: significant releases, deep technical write-ups, compelling long-form journalism.\n"
-    "8: solid content — interesting news, thoughtful analysis, useful tutorials, good discussions.\n"
-    "7: decent content — general tech/science news, industry updates, opinion pieces with substance.\n"
-    "5-6: mediocre — routine announcements, surface-level reporting, mildly interesting.\n"
-    "3-4: low quality — listicles, rehashed takes, thin content.\n"
-    "1-2: junk — product roundups, deals, SEO content, clickbait, engagement farming.\n"
+    "90-100: groundbreaking research, major discoveries, novel algorithms, important papers.\n"
+    "80-89: significant releases, deep technical write-ups, compelling long-form journalism.\n"
+    "70-79: solid content — interesting news, thoughtful analysis, useful tutorials, good discussions.\n"
+    "60-69: decent content — general tech/science news, industry updates, opinion pieces with substance.\n"
+    "40-59: mediocre — routine announcements, surface-level reporting, mildly interesting.\n"
+    "20-39: low quality — listicles, rehashed takes, thin content.\n"
+    "1-19: junk — product roundups, deals, SEO content, clickbait, engagement farming.\n"
     "0: spam.\n\n"
-    "Be generous with interesting content. Most substantive articles should score 7+.\n\n"
+    "Be generous with interesting content. Most substantive articles should score 70+.\n\n"
     "Reply with ONLY a number 0-100."
 )
 

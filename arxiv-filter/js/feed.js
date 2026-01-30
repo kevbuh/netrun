@@ -814,7 +814,7 @@ async function fetchGenericRSS(feedUrl, sourceName) {
         link,
         authors: author,
         categories: [],
-        description: stripHtml(desc).slice(0, 300),
+        description: stripHtml(desc).replace(/^\s*Comments\s*$/i, '').slice(0, 300),
         date: ts ? formatDate(ts) : '',
         pubDate: ts ? ts.toUTCString() : '',
         arxivId: null,
