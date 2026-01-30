@@ -100,11 +100,21 @@ function hideAllViews() {
 function goHome() {
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
   document.getElementById('home-main').style.display = '';
-  window.location.hash = '';
+  window.location.hash = 'feed';
   setSidebarActive('sb-home');
   document.getElementById('finder-query').value = '';
   showFeedHideFinder();
   if (!allPapers.length) loadAllFeeds();
+}
+
+function openDashboard() {
+  hideAllViews();
+  const view = document.getElementById('dashboard-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  window.location.hash = '';
+  setSidebarActive('sb-dashboard');
+  renderDashboard();
 }
 
 function openExperiments() {
@@ -135,10 +145,11 @@ function routeFromHash() {
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#todos') openTodos();
   else if (hash === '#saved') openSaved();
+  else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
   else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
-  else goHome();
+  else openDashboard();
 }
 
 window.addEventListener('hashchange', routeFromHash);

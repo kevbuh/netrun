@@ -1,3 +1,120 @@
+// ── Dashboard ──
+
+async function renderDashboard() {
+  // If first visit (no feed sources), redirect to feed for onboarding
+  if (!localStorage.getItem('feedSources')) { goHome(); return; }
+  const container = document.getElementById('dashboard-content');
+  container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
+
+  // Fetch all data in parallel
+  const [todosResp, expResp, calResp] = await Promise.all([
+    fetch('/api/todos').then(r => r.json()).catch(() => []),
+    fetch('/api/experiments').then(r => r.json()).catch(() => []),
+    fetch('/api/calendar').then(r => r.json()).catch(() => [])
+  ]);
+
+  const notes = todosResp || [];
+  const experiments = expResp || [];
+  const events = calResp || [];
+
+  // ── Mini calendar (current month) ──
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const today = now.getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Group events by day
+  const eventsByDay = {};
+  events.forEach(ev => {
+    if (!ev.date) return;
+    const [ey, em, ed] = ev.date.split('-').map(Number);
+    if (ey === year && em === month + 1) {
+      if (!eventsByDay[ed]) eventsByDay[ed] = [];
+      eventsByDay[ed].push(ev);
+    }
+  });
+
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  let calHtml = `<div class="grid grid-cols-7 text-center text-[0.7rem] text-dimmer mb-1">${dayNames.map(d => `<div>${d}</div>`).join('')}</div>`;
+  calHtml += '<div class="grid grid-cols-7 text-center text-[0.75rem]">';
+  for (let i = 0; i < firstDay; i++) calHtml += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = d === today;
+    const hasEvent = eventsByDay[d];
+    calHtml += `<div class="py-1 rounded-md ${isToday ? 'bg-accent text-white font-bold' : 'text-primary'} ${hasEvent ? 'font-medium' : ''} cursor-pointer hover:bg-hover" onclick="openCalendar()">${d}${hasEvent ? '<div class="w-1 h-1 rounded-full bg-accent mx-auto mt-0.5"></div>' : ''}</div>`;
+  }
+  calHtml += '</div>';
+
+  // ── Recent notes ──
+  const recentNotes = notes.slice(0, 5);
+  let notesHtml = '';
+  if (recentNotes.length) {
+    notesHtml = recentNotes.map(n => {
+      const preview = (n.content || '').split('\n')[0] || '';
+      return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors" onclick="openTodos(); setTimeout(()=>selectTodo('${n.id}'),100)">
+        <div class="flex-1 min-w-0">
+          <div class="text-[0.82rem] text-primary truncate">${escapeHtml(n.title)}</div>
+          ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    notesHtml = '<div class="text-[0.82rem] text-dimmer px-2">No notes yet</div>';
+  }
+
+  // ── Recent experiments ──
+  const recentExps = experiments.slice(0, 4);
+  let expsHtml = '';
+  if (recentExps.length) {
+    expsHtml = recentExps.map(exp => {
+      const runCount = exp.runCount || 0;
+      const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+      return `<div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openExperimentDetail('${exp.id}')">
+        <div class="text-[0.85rem] font-medium text-primary truncate">${escapeHtml(exp.title)}</div>
+        <div class="text-[0.72rem] text-dimmer mt-1">${runCount} run${runCount !== 1 ? 's' : ''}${lastUpdated ? ' · ' + lastUpdated : ''}</div>
+      </div>`;
+    }).join('');
+  } else {
+    expsHtml = '<div class="text-[0.82rem] text-dimmer">No experiments yet</div>';
+  }
+
+  container.innerHTML = `
+    <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Home</h2>
+    <div class="grid grid-cols-[1fr_1fr] gap-6">
+      <div>
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-[0.9rem] font-semibold text-primary">${monthName}</h3>
+            <button onclick="openCalendar()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          <div class="bg-card border border-border-card rounded-xl p-3">
+            ${calHtml}
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Notes</h3>
+            <button onclick="openTodos()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          ${notesHtml}
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
+          <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          ${expsHtml}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── Paper Viewer (shared) ──
 let paperViewOrigin = 'arxiv';
 
