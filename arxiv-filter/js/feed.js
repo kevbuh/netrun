@@ -512,6 +512,7 @@ function renderSettingsView() {
         <div class="flex gap-1.5">
           <button onclick="setTheme('dark')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'dark' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-dark">Dark</button>
           <button onclick="setTheme('light')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-light">Light</button>
+          <button onclick="setTheme('sepia')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'sepia' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-sepia">Sepia</button>
         </div>
       </div>
       <div class="flex items-center justify-between">
@@ -651,15 +652,15 @@ function renderSettingsView() {
 
 function setTheme(theme) {
   localStorage.setItem('theme', theme);
-  if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-  } else {
+  if (theme === 'dark') {
     document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
   }
-  const darkBtn = document.getElementById('theme-btn-dark');
-  const lightBtn = document.getElementById('theme-btn-light');
-  if (darkBtn) darkBtn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === 'dark' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
-  if (lightBtn) lightBtn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
+  ['dark', 'light', 'sepia'].forEach(t => {
+    const btn = document.getElementById('theme-btn-' + t);
+    if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
+  });
 }
 
 function setAccentColor(color) {
@@ -685,7 +686,7 @@ function applyAccentColor(color) {
 
 function applyStoredAppearance() {
   const theme = localStorage.getItem('theme') || 'dark';
-  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  if (theme !== 'dark') document.documentElement.setAttribute('data-theme', theme);
   const accent = localStorage.getItem('accentColor');
   if (accent) applyAccentColor(accent);
 }

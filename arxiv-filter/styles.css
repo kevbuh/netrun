@@ -88,6 +88,48 @@
       --tooltip-border: #ddd;
     }
 
+    [data-theme="sepia"] {
+      --bg-body: #f4f0e8;
+      --text-primary: #3b3530;
+      --text-white: #2a2520;
+      --text-muted: #6b6052;
+      --text-dim: #8a7e6e;
+      --text-dimmer: #9e9282;
+      --text-dimmest: #b0a494;
+      --bg-sidebar: #ede8de;
+      --border-sidebar: #ddd5c5;
+      --bg-hover: #e8e2d6;
+      --bg-card: #ede8de;
+      --bg-input: #e8e2d6;
+      --bg-input-alt: #ede8de;
+      --border-card: #d8d0c0;
+      --border-input: #c8bfad;
+      --border-subtle: #ddd5c5;
+      --border-dim: #e4ddd0;
+      --bg-header: #ede8de;
+      --bg-canvas: #f0ece4;
+      --bg-popup: #ede8de;
+      --bg-chip-count: #e4ddd0;
+      --bg-cat-tag: #e4ddd0;
+      --bg-cat-tag-color: #6b6052;
+      --bg-cite: #f5ede0;
+      --bg-sidebar-cat: #e8e2d6;
+      --sidebar-cat-border: #d8d0c0;
+      --sidebar-cat-color: #6b6052;
+      --text-link: var(--accent);
+      --text-summary: #6b6052;
+      --text-authors: #7a6e5e;
+      --text-meta-value: #5a5040;
+      --text-idea-desc: #5a5040;
+      --shadow-card: rgba(60,50,30,0.1);
+      --shadow-popup: rgba(60,50,30,0.18);
+      --overlay-bg: rgba(60,50,30,0.3);
+      --tree-edge: #c8bfad;
+      --spinner-border: #c8bfad;
+      --tooltip-bg: #ede8de;
+      --tooltip-border: #d8d0c0;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     /* ── Sidebar tooltip (parent-hover child reveal) ── */
