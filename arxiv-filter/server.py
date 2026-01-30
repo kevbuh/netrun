@@ -259,39 +259,30 @@ def get_active_prompt():
 
 
 DEFAULT_VERDICT_PROMPT = (
-    "You are a strict topic filter for a CS/science/tech reader.\n\n"
-    "KEEP only if the title is clearly about: computer science, programming, software engineering, "
-    "math, physics, AI/ML research, systems, algorithms, scientific discoveries, hardware engineering, "
-    "databases, networking, security research, open-source projects, developer tools, novel technology.\n\n"
-    "SKIP everything else, including: politics, law, lawsuits, courts, government, policy, regulation, "
-    "elections, immigration, social issues, business deals, mergers, acquisitions, opinion pieces, "
-    "culture war, hiring/jobs, celebrity news, entertainment, lifestyle, marketing, "
-    "product reviews, buyer's guides, 'best X' roundups, deals, discounts, coupons, promo codes, "
-    "gift guides, gadget reviews, price comparisons, sales, VPN reviews, sleep/health products, "
-    "TV/movie/show recommendations, recipes, fashion, travel, real estate, automotive news, "
-    "military, war, crime, accidents, weather, animals/wildlife, food/drink.\n\n"
-    "When in doubt, SKIP.\n\n"
+    "You are a topic filter. Your job is to remove obvious junk from a feed reader.\n\n"
+    "SKIP only if the title is clearly about: product reviews, buyer's guides, 'best X' roundups, "
+    "deals, discounts, coupons, promo codes, gift guides, price comparisons, sales, "
+    "VPN/mattress/sleep product reviews, TV/movie recommendations, recipes, fashion, "
+    "celebrity gossip, rage bait, clickbait, SEO spam.\n\n"
+    "KEEP everything else — science, technology, programming, news, culture, ideas, sports, "
+    "politics, business, and anything that could be genuinely interesting to read.\n\n"
+    "When in doubt, KEEP.\n\n"
     "Reply ONLY with KEEP or SKIP."
 )
 
 
 DEFAULT_SCORING_PROMPT = (
-    "You are a strict relevance scorer for a CS/science reader.\n\n"
-    "10: groundbreaking CS/science research, novel algorithms, breakthrough discoveries.\n"
-    "9: significant open-source releases, deep technical write-ups, important papers.\n"
-    "8: solid technical content — programming tutorials, developer tools, software architecture, "
-    "engineering blog posts, science news reporting.\n"
-    "6-7: tangentially technical — tech industry news, startup announcements, conference talks.\n"
-    "4-5: barely related — tech business, funding rounds, industry opinions, CEO statements.\n"
-    "2-3: off-topic — product reviews, buyer's guides, 'best X' roundups, deals, discounts, "
-    "coupons, promo codes, gift guides, gadget comparisons, politics, law, government, "
-    "immigration, military, crime, entertainment, lifestyle, sports, celebrity, fashion, "
-    "food, travel, health products, VPN/sleep/mattress reviews.\n"
-    "1: rage bait, clickbait, outrage headlines, inflammatory takes, culture war, "
-    "sensationalized news, misleading titles, engagement farming.\n"
-    "0: spam, SEO garbage, auto-generated content, completely irrelevant.\n\n"
-    "Be strict. Most general news should score 5 or below.\n\n"
-    "Reply with ONLY a number 0-10."
+    "You are a relevance scorer for a general-interest reader who likes science, tech, ideas, and news.\n\n"
+    "10: groundbreaking research, major discoveries, novel algorithms, important papers.\n"
+    "9: significant releases, deep technical write-ups, compelling long-form journalism.\n"
+    "8: solid content — interesting news, thoughtful analysis, useful tutorials, good discussions.\n"
+    "7: decent content — general tech/science news, industry updates, opinion pieces with substance.\n"
+    "5-6: mediocre — routine announcements, surface-level reporting, mildly interesting.\n"
+    "3-4: low quality — listicles, rehashed takes, thin content.\n"
+    "1-2: junk — product roundups, deals, SEO content, clickbait, engagement farming.\n"
+    "0: spam.\n\n"
+    "Be generous with interesting content. Most substantive articles should score 7+.\n\n"
+    "Reply with ONLY a number 0-100."
 )
 
 
@@ -300,7 +291,7 @@ def classify_title(title, system_msg=None):
     if system_msg is None:
         system_msg = DEFAULT_VERDICT_PROMPT
     payload = json.dumps({
-        "model": "qwen2.5:1.5b",
+        "model": "qwen2.5:3b",
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": title}
@@ -678,13 +669,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     score_system = DEFAULT_SCORING_PROMPT
                     def score_title(title):
                         payload = json.dumps({
-                            "model": "qwen2.5:1.5b",
+                            "model": "qwen2.5:3b",
                             "messages": [
                                 {"role": "system", "content": score_system},
                                 {"role": "user", "content": title}
                             ],
                             "stream": False,
-                            "options": {"temperature": 0, "num_predict": 6}
+                            "options": {"temperature": 0, "num_predict": 8}
                         }).encode()
                         req = urllib.request.Request(
                             "http://localhost:11434/api/chat",
@@ -696,7 +687,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         raw = resp_data.get("message", {}).get("content", "").strip()
                         score_match = re.search(r'\d+', raw)
                         score = int(score_match.group()) if score_match else 5
-                        return max(0, min(10, score))
+                        return max(0, min(100, score))
 
                     results = {}
                     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -706,7 +697,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             try:
                                 results[t] = fut.result()
                             except Exception:
-                                results[t] = 70
+                                results[t] = 50
                     self._send_json(results)
                 else:
                     # Phase 1: verdict only (KEEP or SKIP)

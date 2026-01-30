@@ -128,17 +128,18 @@
 
       <div id="home-feed-section" style="display:none">
         <input type="hidden" id="search" value="" />
-        <div class="text-[0.8rem] text-dim py-1 pb-3" id="stats"></div>
+        <div class="text-[0.8rem] text-dim py-1 pb-3 flex items-center gap-2" id="stats-row">
+          <span id="stats"></span>
+          <span id="eval-indicator" class="text-dim animate-pulse hidden">● Evaluating <span id="eval-count">0</span>…</span>
+          <span id="refresh-countdown" class="tabular-nums text-dim ml-auto"></span>
+        </div>
         <div id="trends-panel" style="display:none" class="pb-3 flex items-center gap-2 overflow-x-auto">
           <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary active" id="sort-latest" onclick="setSortMode('latest')">Latest</button>
           <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary" id="sort-citations" onclick="setSortMode('citations')">Most Cited</button>
-          <span id="eval-indicator" class="shrink-0 text-[0.78rem] text-dim animate-pulse hidden">● Evaluating <span id="eval-count">0</span>…</span>
           <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>
-          <select id="category" onchange="renderPapers()" class="shrink-0 px-3 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer outline-none focus:border-accent transition-all"><option value="">All Categories</option></select>
+          <select id="category" onchange="renderPapers()" class="shrink-0 px-2.5 py-1 rounded-lg border border-border-input bg-card text-muted text-[0.75rem] cursor-pointer outline-none focus:border-accent transition-all"><option value="">All Categories</option></select>
           <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>
           <div id="source-bubbles" class="flex gap-1.5 shrink-0"></div>
-          <span class="w-px h-5 bg-border-dim mx-1 shrink-0"></span>
-          <span id="refresh-countdown" class="shrink-0 text-[0.78rem] text-dim tabular-nums ml-auto"></span>
         </div>
         <main id="papers" class="pb-16">
           <div class="text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading feed...</div></div>

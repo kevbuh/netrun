@@ -8,18 +8,14 @@ function clearAllBlockedPosts() {
 }
 
 const DEFAULT_QUALITY_PROMPT =
-  'You are a strict topic filter for a CS/science/tech reader.\n\n' +
-  'KEEP only if the title is clearly about: computer science, programming, software engineering, ' +
-  'math, physics, AI/ML research, systems, algorithms, scientific discoveries, hardware engineering, ' +
-  'databases, networking, security research, open-source projects, developer tools, novel technology.\n\n' +
-  'SKIP everything else, including: politics, law, lawsuits, courts, government, policy, regulation, ' +
-  'elections, immigration, social issues, business deals, mergers, acquisitions, opinion pieces, ' +
-  'culture war, hiring/jobs, celebrity news, entertainment, lifestyle, marketing, ' +
-  'product reviews, buyer\'s guides, \'best X\' roundups, deals, discounts, coupons, promo codes, ' +
-  'gift guides, gadget reviews, price comparisons, sales, VPN reviews, sleep/health products, ' +
-  'TV/movie/show recommendations, recipes, fashion, travel, real estate, automotive news, ' +
-  'military, war, crime, accidents, weather, animals/wildlife, food/drink.\n\n' +
-  'When in doubt, SKIP.\n\n' +
+  'You are a topic filter. Your job is to remove obvious junk from a feed reader.\n\n' +
+  'SKIP only if the title is clearly about: product reviews, buyer\'s guides, \'best X\' roundups, ' +
+  'deals, discounts, coupons, promo codes, gift guides, price comparisons, sales, ' +
+  'VPN/mattress/sleep product reviews, TV/movie recommendations, recipes, fashion, ' +
+  'celebrity gossip, rage bait, clickbait, SEO spam.\n\n' +
+  'KEEP everything else — science, technology, programming, news, culture, ideas, sports, ' +
+  'politics, business, and anything that could be genuinely interesting to read.\n\n' +
+  'When in doubt, KEEP.\n\n' +
   'Reply ONLY with KEEP or SKIP.';
 
 function getQualityPrompt() {
@@ -131,7 +127,7 @@ function clearQualityCache() {
 }
 function resetEverything() {
   localStorage.removeItem('qualityPrompt');
-  localStorage.removeItem('qualityThreshold');
+  localStorage.setItem('qualityThreshold', '80');
   fetch('/api/quality-prompt', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -187,7 +183,7 @@ function setQualityFilter(on) {
 }
 function getQualityThreshold() {
   const v = parseInt(localStorage.getItem('qualityThreshold'), 10);
-  return isNaN(v) ? 8 : Math.min(v, 10);
+  return isNaN(v) ? 80 : Math.min(v, 100);
 }
 function setQualityThreshold(val) {
   localStorage.setItem('qualityThreshold', String(val));

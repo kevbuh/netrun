@@ -543,6 +543,7 @@ function renderSettingsView() {
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center gap-3 mb-1">
         <h3 class="text-white_ text-sm font-semibold">AI Quality Filter</h3>
+        <span class="text-dimmer text-[0.68rem]">qwen2.5:3b</span>
         <label class="flex items-center gap-2 cursor-pointer ml-auto">
           <span class="text-primary text-sm">Enable</span>
           <span class="toggle-switch">
@@ -564,13 +565,13 @@ function renderSettingsView() {
 
       <div class="mb-5">
         <h4 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Prompt & Threshold</h4>
-        <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0-10. Below threshold = hidden.</p>
+        <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0–100%. Below threshold = hidden.</p>
         <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading…</div>
         <div class="flex items-center gap-3">
-          <input type="range" id="quality-threshold-slider" min="0" max="10" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
-          <span id="quality-threshold-value" class="text-primary text-sm font-mono w-7 text-right">${getQualityThreshold()}</span>
+          <input type="range" id="quality-threshold-slider" min="0" max="100" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
+          <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${getQualityThreshold()}%</span>
         </div>
-        <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0 = show all kept, 10 = strictest)</p>
+        <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
       </div>
 
       <div class="mb-5">
@@ -862,9 +863,7 @@ function renderPapers() {
   const hiddenSet = new Set(getHiddenPosts());
   const bypass = qfOn ? getQualityBypass() : {};
   const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && !(p.title in qCache)).length : 0;
-  let statsText = `Showing ${visible.length} of ${filtered.length} papers`;
-  if (pendingCount > 0) statsText += ` · Evaluating ${pendingCount}…`;
-  document.getElementById('stats').textContent = statsText;
+  document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
   const evalEl = document.getElementById('eval-indicator');
   const evalCountEl = document.getElementById('eval-count');
   if (evalEl) {
@@ -884,7 +883,7 @@ function renderPapers() {
     const aiEntry = qfOn ? qCache[p.title] : null;
     const aiVerdict = aiEntry?.v || aiEntry;
     const aiScore = aiEntry?.s;
-    const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore : 'scoring…'}"><span class="text-green-500">&#10003;</span>${aiScore != null ? `<span class="text-dim">${aiScore}</span>` : '<span class="text-dim animate-pulse">…</span>'}</span>` : '';
+    const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
     const isPoly = p.source === 'polymarket';
     const statsChips = isHN
       ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
