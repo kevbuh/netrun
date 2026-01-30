@@ -654,14 +654,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg')
             skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
             files = []
+            dirs_with_files = set()
+            all_dirs = set()
             for dirpath, dirnames, filenames in os.walk(exp_dir):
                 dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+                rel_dir = os.path.relpath(dirpath, exp_dir)
+                if rel_dir != '.':
+                    # Track top-level folder name
+                    top = rel_dir.split(os.sep)[0]
+                    all_dirs.add(top)
                 for f in filenames:
                     if f.endswith(allowed_ext) and f != 'meta.json':
                         rel = os.path.relpath(os.path.join(dirpath, f), exp_dir)
                         files.append(rel)
+                        if '/' in rel or os.sep in rel:
+                            dirs_with_files.add(rel.split('/')[0].split(os.sep)[0])
+            # Also check immediate subdirectories for empty folders
+            for d in os.listdir(exp_dir):
+                if d not in skip_dirs and os.path.isdir(os.path.join(exp_dir, d)):
+                    all_dirs.add(d)
             files.sort()
-            self._send_json(files)
+            empty_dirs = sorted(all_dirs - dirs_with_files)
+            self._send_json({'files': files, 'emptyDirs': empty_dirs})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/compile-tex/(.+)$'):
             exp_id = m.group(1)
@@ -670,7 +684,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isfile(fpath) or not fname.endswith('.tex'):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            import tempfile, shutil, subprocess as sp
+            import subprocess as sp
             tmp = tempfile.mkdtemp()
             try:
                 shutil.copy(fpath, os.path.join(tmp, fname))
@@ -1063,6 +1077,92 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/create-folder$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            name = body.get('name', '').strip()
+            if not name or '..' in name or '/' in name:
+                self._send_json({'error': 'Invalid folder name'}, 400)
+                return
+            folder_path = os.path.join(exp_dir, name)
+            if os.path.exists(folder_path):
+                self._send_json({'error': 'Folder already exists'}, 409)
+                return
+            os.makedirs(folder_path)
+            self._send_json({'ok': True, 'name': name}, 201)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/delete-folder$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            folder = body.get('folder', '').strip()
+            if not folder or '..' in folder or '/' in folder:
+                self._send_json({'error': 'Invalid folder name'}, 400)
+                return
+            folder_path = os.path.join(exp_dir, folder)
+            if not os.path.isdir(folder_path):
+                self._send_json({'error': 'Folder not found'}, 404)
+                return
+            shutil.rmtree(folder_path)
+            self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/rename-folder$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            old_name = body.get('oldName', '').strip()
+            new_name = body.get('newName', '').strip()
+            if not old_name or '..' in old_name or '/' in old_name:
+                self._send_json({'error': 'Invalid old folder name'}, 400)
+                return
+            if not new_name or '..' in new_name or '/' in new_name:
+                self._send_json({'error': 'Invalid new folder name'}, 400)
+                return
+            old_path = os.path.join(exp_dir, old_name)
+            new_path = os.path.join(exp_dir, new_name)
+            if not os.path.isdir(old_path):
+                self._send_json({'error': 'Folder not found'}, 404)
+                return
+            if os.path.exists(new_path):
+                self._send_json({'error': 'A folder with that name already exists'}, 409)
+                return
+            os.rename(old_path, new_path)
+            self._send_json({'ok': True, 'name': new_name})
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/move-file$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            old_path = body.get('oldPath', '').strip()
+            new_path = body.get('newPath', '').strip()
+            if not old_path or '..' in old_path or not new_path or '..' in new_path:
+                self._send_json({'error': 'Invalid path'}, 400)
+                return
+            src = os.path.join(exp_dir, old_path)
+            dst = os.path.join(exp_dir, new_path)
+            if not os.path.isfile(src):
+                self._send_json({'error': 'Source file not found'}, 404)
+                return
+            if os.path.exists(dst):
+                self._send_json({'error': 'Destination already exists'}, 409)
+                return
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            os.rename(src, dst)
+            self._send_json({'ok': True, 'name': new_path})
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/clone-repo$'):
             exp_id = m.group(1)
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
@@ -1071,8 +1171,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             url = body.get('url', '').strip()
-            if not url.startswith('https://github.com/'):
-                self._send_json({'error': 'URL must start with https://github.com/'}, 400)
+            github_re = re.compile(r'^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$')
+            if not github_re.match(url):
+                self._send_json({'error': 'Invalid GitHub URL. Expected: https://github.com/user/repo'}, 400)
                 return
             # Derive folder name from URL
             folder = url.rstrip('/').split('/')[-1]
@@ -1146,7 +1247,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             elif name.endswith('.tex'):
                 template_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.tex')
                 if os.path.isfile(template_path):
-                    import shutil
                     shutil.copy(template_path, fpath)
                 else:
                     with open(fpath, 'w') as f:

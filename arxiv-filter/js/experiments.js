@@ -324,8 +324,11 @@ async function fetchExpFiles() {
   if (!currentExpId) return;
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/files`);
-    const files = await resp.json();
-    renderFilesList(files);
+    const data = await resp.json();
+    // Support both old (array) and new ({ files, emptyDirs }) response shapes
+    const files = Array.isArray(data) ? data : data.files || [];
+    const emptyDirs = Array.isArray(data) ? [] : data.emptyDirs || [];
+    renderFilesList(files, emptyDirs);
   } catch(e) {
     document.getElementById('exp-sidebar-files').innerHTML = '';
   }
@@ -340,9 +343,12 @@ function _fileExtBadge(f) {
   return ['md', 'bg-blue-500/20 text-blue-400'];
 }
 
-function renderFilesList(files) {
+let _draggedFile = null;
+
+function renderFilesList(files, emptyDirs) {
+  emptyDirs = emptyDirs || [];
   const el = document.getElementById('exp-sidebar-files');
-  if (!files.length) {
+  if (!files.length && !emptyDirs.length) {
     el.innerHTML = '<div class="text-dimmest text-[0.75rem] py-2">No files yet.</div>';
     return;
   }
@@ -359,6 +365,8 @@ function renderFilesList(files) {
       folders[folder].push(f);
     }
   });
+  // Add empty dirs
+  emptyDirs.forEach(d => { if (!folders[d]) folders[d] = []; });
 
   function fileRow(f) {
     const isActive = currentFile === f;
@@ -367,30 +375,43 @@ function renderFilesList(files) {
     const [badge, badgeCls] = _fileExtBadge(f);
     const escapedF = escapeHtml(f).replace(/'/g, "\\'");
     return `
-    <div class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" onclick="openFile('${escapedF}')" title="${escapeHtml(f)}">
+    <div class="exp-file-row flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" draggable="true" data-filepath="${escapeHtml(f)}" onclick="openFile('${escapedF}')" title="${escapeHtml(f)}"
+         ondragstart="_draggedFile='${escapedF}'; this.style.opacity='0.5'"
+         ondragend="_draggedFile=null; this.style.opacity=''">
       <div class="flex items-center gap-1.5 min-w-0">
         <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
         <span class="text-[0.8rem] text-primary truncate">${escapeHtml(displayName)}</span>
       </div>
-      <button onclick="event.stopPropagation(); deleteExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
+      <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); deleteExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>`;
   }
 
-  let html = topLevel.map(fileRow).join('');
+  // Root drop zone for moving files to top level
+  let html = `<div class="exp-root-drop" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '')">`;
+  html += topLevel.map(fileRow).join('');
+  html += `</div>`;
+
   for (const folder of Object.keys(folders).sort()) {
     const folderId = 'folder-' + folder.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const escapedFolder = escapeHtml(folder).replace(/'/g, "\\'");
+    const count = folders[folder].length;
     html += `
-    <div class="mt-1">
-      <button onclick="document.getElementById('${folderId}').classList.toggle('hidden'); this.querySelector('svg').style.transform = document.getElementById('${folderId}').classList.contains('hidden') ? '' : 'rotate(90deg)'" class="flex items-center gap-1 w-full text-left bg-transparent border-none p-0 px-1 py-1 cursor-pointer text-dim hover:text-primary transition-colors">
-        <svg class="w-3 h-3 fill-current transition-transform" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
-        <svg class="w-3.5 h-3.5 text-amber-400/70" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-        <span class="text-[0.78rem]">${escapeHtml(folder)}</span>
-        <span class="text-[0.65rem] text-dimmer ml-auto">${folders[folder].length}</span>
-      </button>
+    <div class="mt-1" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '${escapedFolder}')">
+      <div class="flex items-center gap-1 w-full px-1 py-1 group">
+        <button onclick="document.getElementById('${folderId}').classList.toggle('hidden'); this.querySelector('svg').style.transform = document.getElementById('${folderId}').classList.contains('hidden') ? '' : 'rotate(90deg)'" class="flex items-center gap-1 flex-1 text-left bg-transparent border-none p-0 cursor-pointer text-dim hover:text-primary transition-colors min-w-0">
+          <svg class="w-3 h-3 fill-current transition-transform shrink-0" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          <svg class="w-3.5 h-3.5 text-amber-400/70 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+          <span class="text-[0.78rem] truncate folder-name-span" ondblclick="event.stopPropagation(); startRenameFolder('${escapedFolder}', this)">${escapeHtml(folder)}</span>
+        </button>
+        <span class="text-[0.65rem] text-dimmer shrink-0">${count}</span>
+        <button onclick="event.stopPropagation(); deleteExpFolder('${escapedFolder}')" class="w-5 h-5 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete folder">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
       <div id="${folderId}" class="pl-3">
-        ${folders[folder].map(fileRow).join('')}
+        ${count ? folders[folder].map(fileRow).join('') : '<div class="text-dimmest text-[0.7rem] py-1 px-2">Empty</div>'}
       </div>
     </div>`;
   }
@@ -453,7 +474,8 @@ async function createExpFile(ext, content) {
   let name = `${base}${ext}`;
   let i = 2;
   const resp = await fetch(`/api/experiments/${currentExpId}/files`);
-  const existing = await resp.json();
+  const data = await resp.json();
+  const existing = Array.isArray(data) ? data : data.files || [];
   while (existing.includes(name)) { name = `${base}-${i}${ext}`; i++; }
   const payload = {name};
   if (content !== undefined) payload.content = content;
@@ -501,7 +523,8 @@ async function submitCloneRepo() {
     const resp = await fetch(`/api/experiments/${currentExpId}/clone-repo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(120000)
     });
     const data = await resp.json();
     if (!resp.ok) {
@@ -516,12 +539,160 @@ async function submitCloneRepo() {
     if (bar) bar.remove();
     fetchExpFiles();
   } catch (e) {
+    // Clone may have succeeded even if the connection dropped
+    const bar = document.getElementById('clone-repo-bar');
+    if (bar) bar.remove();
+    fetchExpFiles();
+  }
+}
+
+// ── Folder Management ──
+function promptCreateFolder() {
+  const filesEl = document.getElementById('exp-sidebar-files');
+  const existing = document.getElementById('create-folder-bar');
+  if (existing) { existing.querySelector('input').focus(); return; }
+  const bar = document.createElement('div');
+  bar.id = 'create-folder-bar';
+  bar.className = 'mb-2';
+  bar.innerHTML = `<div class="flex items-center gap-1.5">
+    <input id="create-folder-name" type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.78rem] focus:outline-none focus:border-accent" placeholder="Folder name" autofocus />
+    <button id="create-folder-btn" onmousedown="event.preventDefault(); submitCreateFolder()" class="px-2 py-1 rounded border-none bg-accent text-white text-[0.75rem] cursor-pointer hover:bg-accent-hover whitespace-nowrap">Create</button>
+  </div>
+  <div id="create-folder-error" class="text-red-400 text-[0.72rem] mt-1 hidden"></div>`;
+  filesEl.parentNode.insertBefore(bar, filesEl);
+  const input = document.getElementById('create-folder-name');
+  input.focus();
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); submitCreateFolder(); }
+    if (e.key === 'Escape') { bar.remove(); }
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => { if (document.getElementById('create-folder-bar')) document.getElementById('create-folder-bar').remove(); }, 150);
+  });
+}
+
+async function submitCreateFolder() {
+  const input = document.getElementById('create-folder-name');
+  const errEl = document.getElementById('create-folder-error');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) return;
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/create-folder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = data.error || 'Failed';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const bar = document.getElementById('create-folder-bar');
+    if (bar) bar.remove();
+    fetchExpFiles();
+  } catch (e) {
     errEl.textContent = e.message;
     errEl.classList.remove('hidden');
-    btn.textContent = 'Clone';
-    btn.disabled = false;
-    input.disabled = false;
   }
+}
+
+async function deleteExpFolder(folder) {
+  if (!confirm(`Delete folder "${folder}" and all its contents?`)) return;
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/delete-folder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder })
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.error || 'Failed to delete folder');
+      return;
+    }
+    // Close editor if current file was inside this folder
+    if (currentFile && currentFile.startsWith(folder + '/')) {
+      if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; }
+      currentFile = null;
+      pyEditorCm = null;
+      cmInstances = [];
+      document.getElementById('exp-file-editor').style.display = 'none';
+      document.getElementById('exp-file-editor').innerHTML = '';
+      document.getElementById('exp-default-content').style.display = '';
+    }
+    fetchExpFiles();
+  } catch (e) { alert('Delete folder error: ' + e.message); }
+}
+
+function startRenameFolder(folderName, spanEl) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = folderName;
+  input.className = 'bg-input border border-border-input rounded px-1 py-0.5 text-[0.78rem] text-primary outline-none focus:border-accent w-full';
+  input.onclick = e => { e.stopPropagation(); e.preventDefault(); };
+  spanEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  async function commit() {
+    const newName = input.value.trim();
+    if (newName && newName !== folderName) {
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/rename-folder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName: folderName, newName })
+        });
+        if (resp.ok) {
+          // Update currentFile if it was inside the renamed folder
+          if (currentFile && currentFile.startsWith(folderName + '/')) {
+            currentFile = newName + currentFile.substring(folderName.length);
+          }
+        }
+      } catch (e) { /* silently fail */ }
+    }
+    fetchExpFiles();
+  }
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { fetchExpFiles(); }
+  });
+  input.addEventListener('blur', () => commit());
+}
+
+// ── Drag-and-drop file moving ──
+function _onFolderDragOver(e) {
+  if (!_draggedFile) return;
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over-highlight');
+}
+function _onFolderDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over-highlight');
+}
+async function _onFolderDrop(e, targetFolder) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over-highlight');
+  if (!_draggedFile || !currentExpId) return;
+  const oldPath = _draggedFile;
+  const fileName = oldPath.includes('/') ? oldPath.split('/').pop() : oldPath;
+  const newPath = targetFolder ? (targetFolder + '/' + fileName) : fileName;
+  if (oldPath === newPath) return; // no-op: same location
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/move-file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPath, newPath })
+    });
+    if (resp.ok) {
+      if (currentFile === oldPath) currentFile = newPath;
+      fetchExpFiles();
+    } else {
+      const data = await resp.json();
+      if (data.error) alert(data.error);
+    }
+  } catch (e) { /* silently fail */ }
+  _draggedFile = null;
 }
 
 async function deleteExpFile(fname) {
