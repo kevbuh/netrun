@@ -331,26 +331,70 @@ async function fetchExpFiles() {
   }
 }
 
+function _fileExtBadge(f) {
+  const name = f.includes('/') ? f.split('/').pop() : f;
+  if (name.endsWith('.ipynb')) return ['nb', 'bg-orange-500/20 text-orange-400'];
+  if (name.endsWith('.py')) return ['py', 'bg-emerald-500/20 text-emerald-400'];
+  if (name.endsWith('.tex')) return ['tex', 'bg-red-500/20 text-red-400'];
+  if (name.endsWith('.png') || name.endsWith('.svg')) return [name.endsWith('.png') ? 'png' : 'svg', 'bg-purple-500/20 text-purple-400'];
+  return ['md', 'bg-blue-500/20 text-blue-400'];
+}
+
 function renderFilesList(files) {
   const el = document.getElementById('exp-sidebar-files');
   if (!files.length) {
     el.innerHTML = '<div class="text-dimmest text-[0.75rem] py-2">No files yet.</div>';
     return;
   }
-  el.innerHTML = files.map(f => {
+  // Group files: top-level first, then by folder
+  const topLevel = [];
+  const folders = {};
+  files.forEach(f => {
+    const slashIdx = f.indexOf('/');
+    if (slashIdx === -1) {
+      topLevel.push(f);
+    } else {
+      const folder = f.substring(0, slashIdx);
+      if (!folders[folder]) folders[folder] = [];
+      folders[folder].push(f);
+    }
+  });
+
+  function fileRow(f) {
     const isActive = currentFile === f;
     const activeCls = isActive ? 'bg-accent/10 border-l-2 border-accent' : 'border-l-2 border-transparent';
+    const displayName = f.includes('/') ? f.split('/').pop() : f;
+    const [badge, badgeCls] = _fileExtBadge(f);
+    const escapedF = escapeHtml(f).replace(/'/g, "\\'");
     return `
-    <div class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" onclick="openFile('${escapeHtml(f)}')">
+    <div class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" onclick="openFile('${escapedF}')" title="${escapeHtml(f)}">
       <div class="flex items-center gap-1.5 min-w-0">
-        <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : f.endsWith('.py') ? 'bg-emerald-500/20 text-emerald-400' : f.endsWith('.tex') ? 'bg-red-500/20 text-red-400' : f.endsWith('.png') || f.endsWith('.svg') ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : f.endsWith('.py') ? 'py' : f.endsWith('.tex') ? 'tex' : f.endsWith('.png') ? 'png' : f.endsWith('.svg') ? 'svg' : 'md'}</span>
-        <span class="text-[0.8rem] text-primary truncate">${escapeHtml(f)}</span>
+        <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
+        <span class="text-[0.8rem] text-primary truncate">${escapeHtml(displayName)}</span>
       </div>
-      <button onclick="event.stopPropagation(); deleteExpFile('${escapeHtml(f)}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
+      <button onclick="event.stopPropagation(); deleteExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>`;
-  }).join('');
+  }
+
+  let html = topLevel.map(fileRow).join('');
+  for (const folder of Object.keys(folders).sort()) {
+    const folderId = 'folder-' + folder.replace(/[^a-zA-Z0-9_-]/g, '_');
+    html += `
+    <div class="mt-1">
+      <button onclick="document.getElementById('${folderId}').classList.toggle('hidden'); this.querySelector('svg').style.transform = document.getElementById('${folderId}').classList.contains('hidden') ? '' : 'rotate(90deg)'" class="flex items-center gap-1 w-full text-left bg-transparent border-none p-0 px-1 py-1 cursor-pointer text-dim hover:text-primary transition-colors">
+        <svg class="w-3 h-3 fill-current transition-transform" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+        <svg class="w-3.5 h-3.5 text-amber-400/70" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+        <span class="text-[0.78rem]">${escapeHtml(folder)}</span>
+        <span class="text-[0.65rem] text-dimmer ml-auto">${folders[folder].length}</span>
+      </button>
+      <div id="${folderId}" class="pl-3">
+        ${folders[folder].map(fileRow).join('')}
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
 }
 
 function startRenameFile(fname, spanEl) {
@@ -419,6 +463,65 @@ async function createExpFile(ext, content) {
   });
   fetchExpFiles();
   return name;
+}
+
+function promptCloneRepo() {
+  const filesEl = document.getElementById('exp-sidebar-files');
+  const existing = document.getElementById('clone-repo-bar');
+  if (existing) { existing.querySelector('input').focus(); return; }
+  const bar = document.createElement('div');
+  bar.id = 'clone-repo-bar';
+  bar.className = 'mb-2';
+  bar.innerHTML = `<div class="flex items-center gap-1.5">
+    <input id="clone-repo-url" type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.78rem] focus:outline-none focus:border-accent" placeholder="https://github.com/user/repo" autofocus />
+    <button id="clone-repo-btn" onmousedown="event.preventDefault(); submitCloneRepo()" class="px-2 py-1 rounded border-none bg-accent text-white text-[0.75rem] cursor-pointer hover:bg-accent-hover whitespace-nowrap">Clone</button>
+  </div>
+  <div id="clone-repo-error" class="text-red-400 text-[0.72rem] mt-1 hidden"></div>`;
+  filesEl.parentNode.insertBefore(bar, filesEl);
+  const input = document.getElementById('clone-repo-url');
+  input.focus();
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); submitCloneRepo(); }
+    if (e.key === 'Escape') { bar.remove(); }
+  });
+}
+
+async function submitCloneRepo() {
+  const input = document.getElementById('clone-repo-url');
+  const btn = document.getElementById('clone-repo-btn');
+  const errEl = document.getElementById('clone-repo-error');
+  if (!input || !btn) return;
+  const url = input.value.trim();
+  if (!url) return;
+  btn.textContent = 'Cloning...';
+  btn.disabled = true;
+  input.disabled = true;
+  errEl.classList.add('hidden');
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/clone-repo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = data.error || 'Clone failed';
+      errEl.classList.remove('hidden');
+      btn.textContent = 'Clone';
+      btn.disabled = false;
+      input.disabled = false;
+      return;
+    }
+    const bar = document.getElementById('clone-repo-bar');
+    if (bar) bar.remove();
+    fetchExpFiles();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+    btn.textContent = 'Clone';
+    btn.disabled = false;
+    input.disabled = false;
+  }
 }
 
 async function deleteExpFile(fname) {

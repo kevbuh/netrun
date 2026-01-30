@@ -651,7 +651,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb', '.py', '.tex', '.png', '.svg')) and f != 'meta.json']
+            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg')
+            skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
+            files = []
+            for dirpath, dirnames, filenames in os.walk(exp_dir):
+                dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+                for f in filenames:
+                    if f.endswith(allowed_ext) and f != 'meta.json':
+                        rel = os.path.relpath(os.path.join(dirpath, f), exp_dir)
+                        files.append(rel)
             files.sort()
             self._send_json(files)
 
@@ -693,6 +701,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
             fname = m.group(2)
+            if '..' in fname:
+                self._send_json({'error': 'Invalid path'}, 400)
+                return
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
             if not os.path.isfile(fpath):
                 self._send_json({'error': 'Not found'}, 404)
@@ -1052,6 +1063,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/clone-repo$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            url = body.get('url', '').strip()
+            if not url.startswith('https://github.com/'):
+                self._send_json({'error': 'URL must start with https://github.com/'}, 400)
+                return
+            # Derive folder name from URL
+            folder = url.rstrip('/').split('/')[-1]
+            if folder.endswith('.git'):
+                folder = folder[:-4]
+            if not folder or '..' in folder:
+                self._send_json({'error': 'Invalid repository URL'}, 400)
+                return
+            clone_dir = os.path.join(exp_dir, folder)
+            if os.path.exists(clone_dir):
+                self._send_json({'error': f'Folder "{folder}" already exists'}, 409)
+                return
+            try:
+                result = subprocess.run(
+                    ['git', 'clone', '--depth', '1', url, folder],
+                    cwd=exp_dir, capture_output=True, text=True, timeout=60
+                )
+                if result.returncode != 0:
+                    # Clean up partial clone
+                    if os.path.exists(clone_dir):
+                        shutil.rmtree(clone_dir, ignore_errors=True)
+                    self._send_json({'error': result.stderr.strip() or 'Clone failed'}, 500)
+                    return
+                # Remove .git directory — we just want the files
+                git_dir = os.path.join(clone_dir, '.git')
+                if os.path.isdir(git_dir):
+                    shutil.rmtree(git_dir, ignore_errors=True)
+                self._send_json({'folder': folder}, 201)
+            except subprocess.TimeoutExpired:
+                if os.path.exists(clone_dir):
+                    shutil.rmtree(clone_dir, ignore_errors=True)
+                self._send_json({'error': 'Clone timed out'}, 504)
+            except Exception as e:
+                if os.path.exists(clone_dir):
+                    shutil.rmtree(clone_dir, ignore_errors=True)
+                self._send_json({'error': str(e)}, 500)
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
             exp_id = m.group(1)
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
@@ -1355,6 +1413,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
             fname = m.group(2)
+            if '..' in fname:
+                self._send_json({'error': 'Invalid path'}, 400)
+                return
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
             if not os.path.isfile(fpath):
                 self._send_json({'error': 'Not found'}, 404)
@@ -1434,6 +1495,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
             fname = m.group(2)
+            if '..' in fname:
+                self._send_json({'error': 'Invalid path'}, 400)
+                return
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
             if os.path.isfile(fpath):
                 os.remove(fpath)
