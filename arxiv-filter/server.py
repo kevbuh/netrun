@@ -265,7 +265,7 @@ DEFAULT_VERDICT_PROMPT = (
     "databases, networking, security research, open-source projects, developer tools, novel technology.\n\n"
     "SKIP everything else, including: politics, law, lawsuits, courts, government, policy, regulation, "
     "elections, immigration, social issues, business deals, mergers, acquisitions, opinion pieces, "
-    "culture war, hiring/jobs, celebrity news, sports, entertainment, lifestyle, marketing, "
+    "culture war, hiring/jobs, celebrity news, entertainment, lifestyle, marketing, "
     "product reviews, buyer's guides, 'best X' roundups, deals, discounts, coupons, promo codes, "
     "gift guides, gadget reviews, price comparisons, sales, VPN reviews, sleep/health products, "
     "TV/movie/show recommendations, recipes, fashion, travel, real estate, automotive news, "

@@ -1,3 +1,31 @@
+// ── Auto-refresh timer ──
+let _refreshTimer = null;
+let _refreshSecondsLeft = 300;
+let _previousPostLinks = new Set();
+
+function startRefreshTimer() {
+  if (_refreshTimer) clearInterval(_refreshTimer);
+  _refreshSecondsLeft = 300;
+  renderRefreshCountdown();
+  _refreshTimer = setInterval(() => {
+    _refreshSecondsLeft--;
+    renderRefreshCountdown();
+    if (_refreshSecondsLeft <= 0) {
+      clearInterval(_refreshTimer);
+      _refreshTimer = null;
+      loadAllFeeds();
+    }
+  }, 1000);
+}
+
+function renderRefreshCountdown() {
+  const el = document.getElementById('refresh-countdown');
+  if (!el) return;
+  const m = Math.floor(_refreshSecondsLeft / 60);
+  const s = _refreshSecondsLeft % 60;
+  el.textContent = m + ':' + String(s).padStart(2, '0');
+}
+
 // ── Reading List (localStorage) ──
 setTimeout(updateSavedBadge, 0);
 function updateSavedBadge() {
@@ -637,6 +665,9 @@ async function loadAllFeeds() {
   document.getElementById('finder-section').style.display = '';
   document.getElementById('home-feed-section').style.display = '';
   const sources = getFeedSources();
+  if (allPapers.length > 0) {
+    _previousPostLinks = new Set(allPapers.map(p => p.link));
+  }
   allPapers = [];
   const promises = [];
   const labels = [];
@@ -666,6 +697,7 @@ async function loadAllFeeds() {
   renderTrends();
   renderPapers();
   if (isQualityFilterOn()) qualityFilterPapers();
+  startRefreshTimer();
 }
 
 function extractArxivId(link) {
@@ -866,10 +898,12 @@ function renderPapers() {
     const bmFill = isSaved ? 'var(--accent)' : 'none';
     const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
     const actionBtns = `<div class="absolute top-3 right-3 flex items-center gap-0.5 z-10"><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-red-400 transition-colors" onclick="hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}', event)" title="Hide this post"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
+    const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+    const newDot = isNew ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-1 shrink-0" title="New"></span>' : '';
     return `
     <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
       ${actionBtns}
-      <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-16">${sourceChip}${aiChip}${statsChips}${catChips}${dateChip}</div>
+      <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-16">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}${dateChip}</div>
       <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
       ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
     </div>`;

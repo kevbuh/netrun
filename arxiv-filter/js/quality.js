@@ -14,7 +14,7 @@ const DEFAULT_QUALITY_PROMPT =
   'databases, networking, security research, open-source projects, developer tools, novel technology.\n\n' +
   'SKIP everything else, including: politics, law, lawsuits, courts, government, policy, regulation, ' +
   'elections, immigration, social issues, business deals, mergers, acquisitions, opinion pieces, ' +
-  'culture war, hiring/jobs, celebrity news, sports, entertainment, lifestyle, marketing, ' +
+  'culture war, hiring/jobs, celebrity news, entertainment, lifestyle, marketing, ' +
   'product reviews, buyer\'s guides, \'best X\' roundups, deals, discounts, coupons, promo codes, ' +
   'gift guides, gadget reviews, price comparisons, sales, VPN reviews, sleep/health products, ' +
   'TV/movie/show recommendations, recipes, fashion, travel, real estate, automotive news, ' +
@@ -169,7 +169,7 @@ function renderBlockedList() {
     return;
   }
   const items = all.reverse();
-  el.innerHTML = items.map(b => `<div class="py-1 border-b border-border-subtle last:border-0 flex items-center gap-2"><span class="${b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70'} flex-1 min-w-0 truncate">${escapeHtml(b.title)}</span>${b.source === 'manual' ? '<span class="text-dimmer text-[0.68rem] shrink-0">✕</span>' : ''}${b.score != null ? `<span class="text-dimmer text-[0.68rem] shrink-0">${b.score}</span>` : ''}</div>`).join('');
+  el.innerHTML = items.map(b => `<div class="py-1 border-b border-border-subtle last:border-0 flex items-center gap-2"><a href="https://www.google.com/search?q=${encodeURIComponent(b.title)}" target="_blank" rel="noopener" class="${b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70'} flex-1 min-w-0 truncate hover:underline cursor-pointer" title="Search for this post">${escapeHtml(b.title)}</a>${b.source === 'manual' ? '<span class="text-dimmer text-[0.68rem] shrink-0">✕</span>' : ''}${b.score != null ? `<span class="text-dimmer text-[0.68rem] shrink-0">${b.score}</span>` : ''}</div>`).join('');
 }
 function getQualityCache() {
   try { return JSON.parse(localStorage.getItem('qualityCache') || '{}'); } catch { return {}; }
