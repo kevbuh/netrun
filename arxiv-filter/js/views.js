@@ -1,33 +1,55 @@
 // ── Dashboard ──
 
+let _dashYear, _dashMonth;
+{
+  const _n = new Date();
+  _dashYear = _n.getFullYear();
+  _dashMonth = _n.getMonth();
+}
+
+function dashCalNav(dir) {
+  _dashMonth += dir;
+  if (_dashMonth > 11) { _dashMonth = 0; _dashYear++; }
+  if (_dashMonth < 0) { _dashMonth = 11; _dashYear--; }
+  renderDashboard();
+}
+
 async function renderDashboard() {
-  // If first visit (no feed sources), redirect to feed for onboarding
   if (!localStorage.getItem('feedSources')) { goHome(); return; }
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
-  // Fetch all data in parallel
-  const [todosResp, expResp, calResp] = await Promise.all([
+  const [todosResp, expResp, calResp, savedResp] = await Promise.all([
     fetch('/api/todos').then(r => r.json()).catch(() => []),
     fetch('/api/experiments').then(r => r.json()).catch(() => []),
-    fetch('/api/calendar').then(r => r.json()).catch(() => [])
+    fetch('/api/calendar').then(r => r.json()).catch(() => []),
+    fetch('/api/saved-posts').then(r => r.json()).catch(() => ({}))
   ]);
 
-  const notes = todosResp || [];
+  const allNotes = todosResp || [];
   const experiments = expResp || [];
   const events = calResp || [];
+  const savedPosts = savedResp || {};
 
-  // ── Mini calendar (current month) ──
+  // Merge server saved posts into localStorage
+  const localSaved = getSavedPosts();
+  let mergedSaved = { ...localSaved };
+  for (const [url, entry] of Object.entries(savedPosts)) {
+    if (!mergedSaved[url]) mergedSaved[url] = entry;
+  }
+
+  // ── Calendar ──
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const today = now.getDate();
+  const year = _dashYear;
+  const month = _dashMonth;
+  const todayDate = now.getDate();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
-  const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-  // Group events by day
   const eventsByDay = {};
+  const todosByDay = {};
   events.forEach(ev => {
     if (!ev.date) return;
     const [ey, em, ed] = ev.date.split('-').map(Number);
@@ -36,79 +58,132 @@ async function renderDashboard() {
       eventsByDay[ed].push(ev);
     }
   });
+  allNotes.forEach(t => {
+    if (!t.date) return;
+    const [ty, tm, td] = t.date.split('-').map(Number);
+    if (ty === year && tm === month + 1) {
+      if (!todosByDay[td]) todosByDay[td] = [];
+      todosByDay[td].push(t);
+    }
+  });
 
   const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  let calHtml = `<div class="grid grid-cols-7 text-center text-[0.7rem] text-dimmer mb-1">${dayNames.map(d => `<div>${d}</div>`).join('')}</div>`;
-  calHtml += '<div class="grid grid-cols-7 text-center text-[0.75rem]">';
-  for (let i = 0; i < firstDay; i++) calHtml += '<div></div>';
+  let calGrid = '';
+  for (let i = 0; i < firstDay; i++) calGrid += '<div></div>';
   for (let d = 1; d <= daysInMonth; d++) {
-    const isToday = d === today;
-    const hasEvent = eventsByDay[d];
-    calHtml += `<div class="py-1 rounded-md ${isToday ? 'bg-accent text-white font-bold' : 'text-primary'} ${hasEvent ? 'font-medium' : ''} cursor-pointer hover:bg-hover" onclick="openCalendar()">${d}${hasEvent ? '<div class="w-1 h-1 rounded-full bg-accent mx-auto mt-0.5"></div>' : ''}</div>`;
+    const isToday = isCurrentMonth && d === todayDate;
+    const evts = eventsByDay[d] || [];
+    const tds = todosByDay[d] || [];
+    const dots = evts.map(e => `<span class="w-1.5 h-1.5 rounded-full" style="background:${e.color || 'var(--accent)'}"></span>`).join('') +
+      tds.map(t => `<span class="w-1.5 h-1.5 rounded-full border" style="border-color:${t.color || 'var(--accent)'}; ${t.done ? 'opacity:0.4' : ''}"></span>`).join('');
+    calGrid += `<div class="py-1 rounded-md text-center ${isToday ? 'bg-accent text-white font-bold' : 'text-primary'} hover:bg-hover cursor-default">
+      ${d}${dots ? `<div class="flex justify-center gap-0.5 mt-0.5">${dots}</div>` : ''}
+    </div>`;
   }
-  calHtml += '</div>';
 
-  // ── Recent notes ──
-  const recentNotes = notes.slice(0, 5);
-  let notesHtml = '';
-  if (recentNotes.length) {
-    notesHtml = recentNotes.map(n => {
-      const preview = (n.content || '').split('\n')[0] || '';
-      return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors" onclick="openTodos(); setTimeout(()=>selectTodo('${n.id}'),100)">
-        <div class="flex-1 min-w-0">
-          <div class="text-[0.82rem] text-primary truncate">${escapeHtml(n.title)}</div>
-          ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
-  } else {
-    notesHtml = '<div class="text-[0.82rem] text-dimmer px-2">No notes yet</div>';
-  }
+  // ── Notes (non-experiment) ──
+  const notes = allNotes.filter(n => !n.experimentId);
+  const notesHtml = notes.length ? notes.slice(0, 6).map(n => {
+    const preview = (n.content || '').split('\n')[0] || '';
+    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors" onclick="openTodos(); setTimeout(()=>selectTodo('${n.id}'),100)">
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(n.title)}</div>
+        ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No notes yet</div>';
+
+  // ── Experiment todos ──
+  const expTodos = allNotes.filter(n => n.experimentId && !n.done);
+  const expMap = {};
+  experiments.forEach(e => { expMap[e.id] = e.title; });
+  const expTodosHtml = expTodos.length ? expTodos.slice(0, 6).map(t => {
+    const expName = expMap[t.experimentId] || '';
+    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors">
+      <span class="w-2 h-2 rounded-full shrink-0" style="background:${t.color || 'var(--accent)'}"></span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(t.title)}</div>
+        ${expName ? `<div class="text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary" onclick="openExperimentDetail('${t.experimentId}')">${escapeHtml(expName)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No experiment todos</div>';
+
+  // ── Reading list ──
+  const savedEntries = Object.values(mergedSaved).sort((a, b) => b.savedAt - a.savedAt).slice(0, 6);
+  const readingHtml = savedEntries.length ? savedEntries.map(entry => {
+    const p = entry.paper;
+    const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+    const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
+    const faviconImg = favicon ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.style.display='none'">` : '';
+    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+      ${faviconImg}
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
+        ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
 
   // ── Recent experiments ──
   const recentExps = experiments.slice(0, 4);
-  let expsHtml = '';
-  if (recentExps.length) {
-    expsHtml = recentExps.map(exp => {
-      const runCount = exp.runCount || 0;
-      const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      return `<div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openExperimentDetail('${exp.id}')">
-        <div class="text-[0.85rem] font-medium text-primary truncate">${escapeHtml(exp.title)}</div>
-        <div class="text-[0.72rem] text-dimmer mt-1">${runCount} run${runCount !== 1 ? 's' : ''}${lastUpdated ? ' · ' + lastUpdated : ''}</div>
-      </div>`;
-    }).join('');
-  } else {
-    expsHtml = '<div class="text-[0.82rem] text-dimmer">No experiments yet</div>';
-  }
+  const expsHtml = recentExps.length ? recentExps.map(exp => {
+    const runCount = exp.runCount || 0;
+    const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `<div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openExperimentDetail('${exp.id}')">
+      <div class="text-[0.85rem] font-medium text-primary truncate">${escapeHtml(exp.title)}</div>
+      <div class="text-[0.72rem] text-dimmer mt-1">${runCount} run${runCount !== 1 ? 's' : ''}${lastUpdated ? ' · ' + lastUpdated : ''}</div>
+    </div>`;
+  }).join('') : '<div class="text-[0.8rem] text-dimmer">No experiments yet</div>';
 
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Home</h2>
     <div class="grid grid-cols-[1fr_1fr] gap-6">
       <div>
         <div class="mb-6">
-          <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">${monthName}</h3>
-            <button onclick="openCalendar()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+            <div class="flex gap-1">
+              <button onclick="dashCalNav(-1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&lsaquo;</button>
+              <button onclick="dashCalNav(1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&rsaquo;</button>
+            </div>
           </div>
           <div class="bg-card border border-border-card rounded-xl p-3">
-            ${calHtml}
+            <div class="grid grid-cols-7 text-center text-[0.7rem] text-dimmer mb-1">${dayNames.map(d => `<div>${d}</div>`).join('')}</div>
+            <div class="grid grid-cols-7 text-[0.75rem]">${calGrid}</div>
           </div>
         </div>
-        <div>
-          <div class="flex items-center justify-between mb-3">
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Notes</h3>
             <button onclick="openTodos()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
           </div>
           ${notesHtml}
         </div>
-      </div>
-      <div>
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
-          <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Experiment Todos</h3>
+          </div>
+          ${expTodosHtml}
         </div>
-        <div class="flex flex-col gap-2">
-          ${expsHtml}
+      </div>
+
+      <div>
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
+            <button onclick="openSaved()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          ${readingHtml}
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
+            <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          <div class="flex flex-col gap-2">${expsHtml}</div>
         </div>
       </div>
     </div>
@@ -885,7 +960,7 @@ function openCalendar() {
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'calendar';
-  setSidebarActive('sb-calendar');
+  setSidebarActive('sb-dashboard');
   fetchCalendarEvents();
 }
 

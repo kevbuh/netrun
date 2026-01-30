@@ -32,6 +32,7 @@ function updateSavedBadge() {
   const saved = getSavedPosts();
   const unread = Object.values(saved).filter(e => !e.read).length;
   const badge = document.getElementById('saved-badge');
+  if (!badge) return;
   if (unread > 0) {
     badge.textContent = unread;
     badge.style.display = 'flex';
@@ -242,7 +243,7 @@ function openSaved() {
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'saved';
-  setSidebarActive('sb-saved');
+  setSidebarActive('sb-dashboard');
   renderSavedPosts();
 }
 
