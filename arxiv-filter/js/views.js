@@ -34,88 +34,60 @@ function showPaperView(paper, hashValue) {
   const isSaved = isPostSaved(paper.link);
   const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${isSaved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}" onclick="togglePaperViewBookmark()"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${isSaved ? 'Saved' : 'Bookmark'}</button>`;
 
+  const chatPanel = `
+    <div class="mt-auto pt-4 border-t border-border-card flex flex-col" id="doc-chat-section" style="min-height:0">
+      <div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()">
+        <span id="doc-chat-chevron">▸</span>
+        <span>Chat</span>
+        <span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span>
+      </div>
+      <div class="hidden flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
+        <div class="doc-chat-status" id="doc-chat-status"></div>
+        <div class="doc-chat-messages" id="doc-chat-messages"></div>
+        <div class="doc-chat-input-row">
+          <input id="doc-chat-input" placeholder="Ask about this document…" onkeydown="if(event.key==='Enter')sendDocMessage()" />
+          <button onclick="sendDocMessage()" id="doc-chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+  `;
+
   if (isHN) {
     sidebar.innerHTML = `
       ${backBtn}
-      <div class="mb-4">${bookmarkBtn}</div>
-      <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
-      ${paper.authors ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Posted by</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(paper.authors)}</div>
-        </div>` : ''}
-      <div class="mb-[18px]">
-        <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Score</div>
-        <div class="text-[0.85rem] text-[#f60] font-semibold">${paper.hnScore} points</div>
+      <div class="flex gap-2 mb-3">${bookmarkBtn}</div>
+      <div class="text-[0.92rem] font-semibold text-white_ leading-snug mb-2">${renderTitle(paper.title)}</div>
+      <div class="flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem] text-meta-value mb-3">
+        ${paper.authors ? `<span class="text-muted">${escapeHtml(paper.authors)}</span>` : ''}
+        <span class="text-[#f60] font-semibold">${paper.hnScore} pts</span>
+        <a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a>
+        ${paper.date ? `<span class="text-dim">${paper.date}</span>` : ''}
       </div>
-      <div class="mb-[18px]">
-        <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Comments</div>
-        <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a></div>
-      </div>
-      ${paper.date ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Date</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal">${paper.date}</div>
-        </div>` : ''}
-      <div class="mb-[18px]">
-        <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Link</div>
-        <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
-      </div>
-      ${hnDiscussionUrl ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Discussion</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">View on Hacker News</a></div>
-        </div>` : ''}
-      <div class="mt-4">
-        <a href="${paper.link}" target="_blank" rel="noopener" class="inline-block px-4 py-2 rounded-md bg-accent text-white text-[0.85rem] no-underline hover:bg-accent-hover">Open in new tab</a>
-      </div>
+      <div class="text-[0.78rem] text-dim mb-3 truncate"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
+      ${hnDiscussionUrl ? `<div class="text-[0.78rem] mb-3"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">View on Hacker News</a></div>` : ''}
+      ${chatPanel}
     `;
   } else {
     const sourceName = SOURCE_NAMES[paper.source]
       || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
     sidebar.innerHTML = `
       ${backBtn}
-      <div class="mb-4">${bookmarkBtn}</div>
-      <div class="text-[1.1rem] font-semibold text-white_ leading-snug mb-5">${renderTitle(paper.title)}</div>
-      ${sourceName ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Source</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(sourceName)}</div>
-        </div>` : ''}
-      ${paper.authors ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Authors</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal">${escapeHtml(paper.authors)}</div>
-        </div>` : ''}
-      ${paper.published ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Published</div>
-          <div class="text-[0.85rem] text-meta-value leading-normal">${paper.published}</div>
-        </div>` : ''}
-      <div class="mb-[18px]">
-        <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Link</div>
-        <div class="text-[0.85rem] text-meta-value leading-normal"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
+      <div class="flex gap-2 mb-3">${bookmarkBtn}</div>
+      <div class="text-[0.92rem] font-semibold text-white_ leading-snug mb-2">${renderTitle(paper.title)}</div>
+      <div class="flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem] mb-3">
+        ${sourceName ? `<span class="text-meta-value">${escapeHtml(sourceName)}</span>` : ''}
+        ${paper.authors ? `<span class="text-muted">${escapeHtml(paper.authors)}</span>` : ''}
+        ${paper.published ? `<span class="text-dim">${paper.published}</span>` : ''}
       </div>
+      <div class="text-[0.78rem] text-dim mb-3 truncate"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
       ${paper.categories && paper.categories.length ? `
-        <div class="mb-[18px]">
-          <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">Categories</div>
-          <div class="flex flex-wrap gap-1.5">
-            ${paper.categories.map(c => `<span class="text-[0.75rem] bg-sidebar-cat text-sidebar-cat-color px-2 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
-          </div>
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${paper.categories.map(c => `<span class="text-[0.7rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
         </div>` : ''}
-      ${paper.description ? `
-      <div class="mb-[18px]">
-        <div class="text-[0.7rem] font-semibold text-dimmer uppercase tracking-wide mb-1.5">${isArxiv ? 'Abstract' : 'Summary'}</div>
-        <div class="text-[0.85rem] leading-relaxed text-summary" id="paper-abstract">${escapeHtml(paper.description)}</div>
-      </div>` : ''}
-      ${!isArxiv ? `
-      <div class="mt-4">
-        <a href="${paper.link}" target="_blank" rel="noopener" class="inline-block px-4 py-2 rounded-md bg-accent text-white text-[0.85rem] no-underline hover:bg-accent-hover">Open in new tab</a>
-      </div>` : ''}
+      ${!isArxiv ? `<div class="mb-3"><a href="${paper.link}" target="_blank" rel="noopener" class="text-[0.82rem] text-link no-underline hover:underline">Open in new tab</a></div>` : ''}
+      ${chatPanel}
     `;
   }
-
-  renderLatexIn('paper-abstract');
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   if (isArxiv) {
@@ -124,7 +96,205 @@ function showPaperView(paper, hashValue) {
   } else {
     pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
   }
+
+  // Reset chat state
+  _docChatMessages = [];
+  _docText = '';
+  _docTextLoading = false;
+  _docChatExpanded = false;
+  if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
+  _docChatPaperUrl = paper.link;
 }
+
+// ── Document Chat ──
+let _docChatMessages = [];
+let _docText = '';
+let _docTextLoading = false;
+let _docChatAbort = null;
+let _docChatExpanded = false;
+let _docChatPaperUrl = '';
+
+function toggleDocChat() {
+  _docChatExpanded = !_docChatExpanded;
+  const panel = document.getElementById('doc-chat-panel');
+  const chevron = document.getElementById('doc-chat-chevron');
+  const sidebar = document.getElementById('paper-sidebar');
+  if (!panel) return;
+  if (_docChatExpanded) {
+    panel.classList.remove('hidden');
+    chevron.textContent = '▾';
+    // Make sidebar non-scrollable so chat fills remaining space
+    if (sidebar) sidebar.style.overflow = 'hidden';
+    if (!_docText && !_docTextLoading) {
+      extractDocText(_docChatPaperUrl);
+    }
+  } else {
+    panel.classList.add('hidden');
+    chevron.textContent = '▸';
+    if (sidebar) sidebar.style.overflow = '';
+  }
+}
+
+let _extractSpinnerInterval = null;
+
+async function extractDocText(url) {
+  _docTextLoading = true;
+  const status = document.getElementById('doc-chat-status');
+  const frames = ['\u2840','\u2844','\u2846','\u2847','\u283F','\u2839','\u2838','\u2830'];
+  let fi = 0;
+  if (_extractSpinnerInterval) clearInterval(_extractSpinnerInterval);
+  const inlineStatus = document.getElementById('doc-chat-status-inline');
+  const setStatus = (txt) => {
+    if (status) status.textContent = txt;
+    if (inlineStatus) inlineStatus.textContent = txt;
+  };
+  _extractSpinnerInterval = setInterval(() => {
+    setStatus(frames[fi % frames.length] + ' Extracting…');
+    fi++;
+  }, 100);
+  try {
+    const resp = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await resp.json();
+    clearInterval(_extractSpinnerInterval);
+    _extractSpinnerInterval = null;
+    if (data.error) {
+      setStatus('Failed: ' + data.error);
+    } else {
+      _docText = data.text || '';
+      setStatus(`${data.pages} pg · ${_docText.length.toLocaleString()} chars`);
+    }
+  } catch (e) {
+    clearInterval(_extractSpinnerInterval);
+    _extractSpinnerInterval = null;
+    setStatus('Failed: ' + e.message);
+  }
+  _docTextLoading = false;
+}
+
+async function sendDocMessage() {
+  const input = document.getElementById('doc-chat-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  _docChatMessages.push({ role: 'user', content: text });
+  renderDocChatMessages();
+
+  const setButtonDisabled = (v) => {
+    const b = document.getElementById('doc-chat-send');
+    if (b) b.disabled = v;
+  };
+  setButtonDisabled(true);
+
+  _docChatAbort = new AbortController();
+  try {
+    const resp = await fetch('/api/doc-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: _docText, messages: _docChatMessages }),
+      signal: _docChatAbort.signal
+    });
+
+    let aiText = '';
+    _docChatMessages.push({ role: 'assistant', content: '' });
+    const aiIdx = _docChatMessages.length - 1;
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          if (currentEvent === 'token') {
+            try {
+              const token = JSON.parse(line.slice(6));
+              aiText += token;
+              _docChatMessages[aiIdx].content = aiText;
+              renderDocChatMessages();
+            } catch (e) {}
+          }
+          currentEvent = '';
+        } else if (line === '') {
+          currentEvent = '';
+        }
+      }
+    }
+    // Final render with parsed markdown
+    _docChatMessages[aiIdx].content = aiText;
+    renderDocChatMessages(true);
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      _docChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
+      renderDocChatMessages(true);
+    }
+  }
+  _docChatAbort = null;
+  setButtonDisabled(false);
+}
+
+function renderDocChatMessages(final) {
+  const container = document.getElementById('doc-chat-messages');
+  if (!container) return;
+  container.innerHTML = _docChatMessages.map((m, i) => {
+    if (m.role === 'user') {
+      return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
+    }
+    const isLast = i === _docChatMessages.length - 1;
+    const content = (final || !isLast) && typeof marked !== 'undefined'
+      ? marked.parse(m.content)
+      : escapeHtml(m.content);
+    return `<div class="doc-msg-ai">${content}</div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+// Text selection → "Ask about this" floating button
+document.addEventListener('mouseup', function(e) {
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) existing.remove();
+
+  const msgContainer = document.getElementById('doc-chat-messages');
+  if (!msgContainer || !msgContainer.contains(e.target)) return;
+
+  const sel = window.getSelection();
+  const text = sel ? sel.toString().trim() : '';
+  if (!text || text.length < 3) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'doc-chat-ask-float';
+  btn.className = 'doc-chat-ask-btn';
+  btn.textContent = 'Ask about this';
+  btn.style.left = e.pageX + 'px';
+  btn.style.top = (e.pageY - 30) + 'px';
+  btn.onclick = function() {
+    const input = document.getElementById('doc-chat-input');
+    if (input) input.value = '> ' + text + '\n\n';
+    input.focus();
+    btn.remove();
+  };
+  document.body.appendChild(btn);
+});
+
+document.addEventListener('mousedown', function(e) {
+  const btn = document.getElementById('doc-chat-ask-float');
+  if (btn && !btn.contains(e.target)) btn.remove();
+});
 
 function openPaper(index) {
   paperViewOrigin = 'arxiv';

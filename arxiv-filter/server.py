@@ -12,12 +12,16 @@ import subprocess
 import sys
 import concurrent.futures
 import threading
+import tempfile
+import base64
 
 PORT = 8000
 CACHE_TTL = 600  # 10 minutes
 
 # In-memory cache: url -> (data_bytes, content_type, timestamp)
 _cache = {}
+# In-memory cache for extracted document text: url -> { text, pages }
+_extract_cache = {}
 DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
@@ -791,6 +795,121 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             write_meta(exp_id, meta)
             self._send_json(run, 201)
 
+        elif self.path == '/api/extract-text':
+            try:
+                body = self._read_body()
+                url = body.get('url', '').strip()
+                if not url:
+                    self._send_json({'error': 'url required'}, 400)
+                    return
+                if url in _extract_cache:
+                    self._send_json(_extract_cache[url])
+                    return
+                is_arxiv = 'arxiv.org' in url
+                if is_arxiv:
+                    pdf_url = url.replace('/abs/', '/pdf/')
+                    if not pdf_url.endswith('.pdf'):
+                        pdf_url += '.pdf'
+                    req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    ctx = ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                        pdf_bytes = resp.read()
+                    import fitz
+                    tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+                    tmp.write(pdf_bytes)
+                    tmp.close()
+                    try:
+                        doc = fitz.open(tmp.name)
+                        pages = []
+                        for page_num in range(len(doc)):
+                            page = doc[page_num]
+                            page_text = page.get_text()
+                            pages.append(page_text)
+                        doc.close()
+                    finally:
+                        os.unlink(tmp.name)
+                    result = {'text': '\n\n---\n\n'.join(pages), 'pages': len(pages)}
+                else:
+                    from html.parser import HTMLParser
+                    html_bytes = cached_fetch(url, timeout=30)
+                    html_str = html_bytes.decode('utf-8', errors='replace')
+                    class TextExtractor(HTMLParser):
+                        def __init__(self):
+                            super().__init__()
+                            self.parts = []
+                            self._skip = False
+                        def handle_starttag(self, tag, attrs):
+                            if tag in ('script', 'style', 'noscript'):
+                                self._skip = True
+                        def handle_endtag(self, tag):
+                            if tag in ('script', 'style', 'noscript'):
+                                self._skip = False
+                        def handle_data(self, data):
+                            if not self._skip:
+                                t = data.strip()
+                                if t:
+                                    self.parts.append(t)
+                    extractor = TextExtractor()
+                    extractor.feed(html_str)
+                    text = '\n'.join(extractor.parts)
+                    result = {'text': text, 'pages': 1}
+                _extract_cache[url] = result
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/doc-chat':
+            try:
+                body = self._read_body()
+                context = body.get('context', '')
+                messages = body.get('messages', [])
+                if not messages:
+                    self._send_json({'error': 'messages required'}, 400)
+                    return
+                truncated_ctx = context[:12000]
+                system_msg = (
+                    "You are a helpful research assistant. The user is reading a document. "
+                    "Answer their questions based ONLY on the document text below. "
+                    "Do not make up information that is not in the document.\n\n"
+                    "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
+                )
+                ollama_messages = [{"role": "system", "content": system_msg}] + messages
+                payload = json.dumps({
+                    "model": "qwen2.5:3b",
+                    "messages": ollama_messages,
+                    "stream": True
+                }).encode()
+                req = urllib.request.Request(
+                    "http://localhost:11434/api/chat",
+                    data=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.send_header('Cache-Control', 'no-cache')
+                self.send_header('Connection', 'keep-alive')
+                self.end_headers()
+                try:
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        for line in resp:
+                            chunk = json.loads(line)
+                            token = chunk.get("message", {}).get("content", "")
+                            if token:
+                                self.wfile.write(f'event: token\ndata: {json.dumps(token)}\n\n'.encode())
+                                self.wfile.flush()
+                            if chunk.get("done"):
+                                break
+                    self.wfile.write(b'event: done\ndata: {}\n\n')
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+            except Exception as e:
+                try:
+                    self.wfile.write(f'event: error\ndata: {json.dumps(str(e))}\n\n'.encode())
+                    self.wfile.flush()
+                except Exception:
+                    pass
+
         elif self.path == '/api/quality-filter':
             try:
                 body = self._read_body()
@@ -871,7 +990,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             initial = body.get('content', None)
             if name.endswith(('.png', '.svg')) and initial:
-                import base64
                 # Strip data URI prefix if present
                 if ',' in initial:
                     initial = initial.split(',', 1)[1]
