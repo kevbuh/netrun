@@ -6,6 +6,13 @@
   <title>alpha</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/markdown/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
   tailwind.config = {
@@ -257,6 +264,47 @@
       color: var(--accent);
     }
 
+    /* CodeMirror notebook theme */
+    .CodeMirror {
+      background: transparent !important;
+      color: #e0e0e0 !important;
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace !important;
+      font-size: 0.8rem !important;
+      height: auto !important;
+      padding: 0.5rem 0 !important;
+    }
+    .CodeMirror-scroll { min-height: 40px; }
+    .CodeMirror-gutters {
+      background: transparent !important;
+      border-right: none !important;
+    }
+    .CodeMirror-linenumber { color: #444 !important; font-size: 0.7rem !important; }
+    .CodeMirror-cursor { border-left-color: #e0e0e0 !important; }
+    .CodeMirror-selected { background: rgba(180,69,26,0.25) !important; }
+    .CodeMirror-focused .CodeMirror-selected { background: rgba(180,69,26,0.35) !important; }
+    .CodeMirror-matchingbracket { color: #fff !important; background: rgba(180,69,26,0.4) !important; }
+    .CodeMirror-activeline-background { background: rgba(255,255,255,0.03) !important; }
+    /* Syntax colors */
+    .cm-s-default .cm-keyword { color: #c586c0 !important; }
+    .cm-s-default .cm-def { color: #dcdcaa !important; }
+    .cm-s-default .cm-variable { color: #9cdcfe !important; }
+    .cm-s-default .cm-variable-2 { color: #9cdcfe !important; }
+    .cm-s-default .cm-variable-3 { color: #4ec9b0 !important; }
+    .cm-s-default .cm-type { color: #4ec9b0 !important; }
+    .cm-s-default .cm-property { color: #9cdcfe !important; }
+    .cm-s-default .cm-operator { color: #d4d4d4 !important; }
+    .cm-s-default .cm-number { color: #b5cea8 !important; }
+    .cm-s-default .cm-string { color: #ce9178 !important; }
+    .cm-s-default .cm-string-2 { color: #ce9178 !important; }
+    .cm-s-default .cm-comment { color: #6a9955 !important; }
+    .cm-s-default .cm-builtin { color: #4ec9b0 !important; }
+    .cm-s-default .cm-meta { color: #569cd6 !important; }
+    .cm-s-default .cm-atom { color: #569cd6 !important; }
+    .cm-s-default .cm-tag { color: #569cd6 !important; }
+    .cm-s-default .cm-attribute { color: #9cdcfe !important; }
+    .cm-s-default .cm-header { color: #569cd6 !important; }
+    .cm-s-default .cm-link { color: #9cdcfe !important; }
+
   </style>
 </head>
 <body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] bg-body text-primary min-h-screen">
@@ -391,6 +439,7 @@
         <div class="flex items-center justify-between mb-4">
           <span class="text-[0.8rem] text-dim">Files</span>
           <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.py')">+ Python</button>
             <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.md')">+ Markdown</button>
             <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.ipynb')">+ Notebook</button>
           </div>
@@ -2999,7 +3048,7 @@
       el.innerHTML = files.map(f => `
         <div class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-card/50 cursor-pointer group transition-colors" onclick="openFile('${escapeHtml(f)}')">
           <div class="flex items-center gap-2">
-            <span class="text-[0.75rem] px-1.5 py-0.5 rounded ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : 'md'}</span>
+            <span class="text-[0.75rem] px-1.5 py-0.5 rounded ${f.endsWith('.ipynb') ? 'bg-orange-500/20 text-orange-400' : f.endsWith('.py') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}">${f.endsWith('.ipynb') ? 'nb' : f.endsWith('.py') ? 'py' : 'md'}</span>
             <span class="text-[0.85rem] text-primary">${escapeHtml(f)}</span>
           </div>
           <button onclick="event.stopPropagation(); deleteExpFile('${escapeHtml(f)}')" class="w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
@@ -3008,19 +3057,21 @@
         </div>`).join('');
     }
 
-    async function createExpFile(ext) {
-      const base = ext === '.ipynb' ? 'notebook' : 'notes';
+    async function createExpFile(ext, content) {
+      const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : 'notes';
       let name = `${base}${ext}`;
       let i = 2;
-      // Try to find unique name
       const resp = await fetch(`/api/experiments/${currentExpId}/files`);
       const existing = await resp.json();
       while (existing.includes(name)) { name = `${base}-${i}${ext}`; i++; }
+      const payload = {name};
+      if (content !== undefined) payload.content = content;
       await fetch(`/api/experiments/${currentExpId}/files`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({name})
+        body: JSON.stringify(payload)
       });
       fetchExpFiles();
+      return name;
     }
 
     async function deleteExpFile(fname) {
@@ -3044,6 +3095,8 @@
 
       if (fname.endsWith('.ipynb')) {
         renderNotebookEditor(fname, data.content);
+      } else if (fname.endsWith('.py')) {
+        renderPythonEditor(fname, data.content);
       } else {
         renderMarkdownEditor(fname, data.content);
       }
@@ -3052,6 +3105,8 @@
     function closeFileEditor() {
       if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; }
       currentFile = null;
+      pyEditorCm = null;
+      cmInstances = [];
       document.getElementById('exp-file-editor').style.display = 'none';
       document.getElementById('exp-file-editor').innerHTML = '';
       document.getElementById('runs-table-container').style.display = '';
@@ -3093,9 +3148,67 @@
       if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
     }
 
+    // ── Python File Editor ──
+    let pyEditorCm = null;
+
+    function renderPythonEditor(fname, content) {
+      const editor = document.getElementById('exp-file-editor');
+      editor.innerHTML = `
+        <div class="flex items-center gap-3 mb-4">
+          <button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="closeFileEditor()">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Back
+          </button>
+          <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
+          <span class="text-[0.9rem] text-white_ font-medium">${escapeHtml(fname)}</span>
+          <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
+        </div>
+        <div class="rounded-lg border border-border-input overflow-hidden">
+          <textarea id="py-editor-textarea">${escapeHtml(content)}</textarea>
+        </div>`;
+      const ta = document.getElementById('py-editor-textarea');
+      pyEditorCm = CodeMirror.fromTextArea(ta, {
+        mode: 'python',
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        indentUnit: 4,
+        tabSize: 4,
+        indentWithTabs: false,
+        lineWrapping: true,
+        viewportMargin: Infinity,
+        extraKeys: {
+          'Cmd-/': function(cm) { cm.toggleComment(); },
+          'Ctrl-/': function(cm) { cm.toggleComment(); },
+          'Tab': function(cm) {
+            if (cm.somethingSelected()) cm.indentSelection('add');
+            else cm.replaceSelection('    ', 'end');
+          }
+        }
+      });
+      pyEditorCm.setSize(null, '500px');
+      pyEditorCm.on('change', () => {
+        clearTimeout(fileSaveTimer);
+        fileSaveTimer = setTimeout(() => savePythonFile(), 600);
+      });
+      pyEditorCm.focus();
+    }
+
+    async function savePythonFile() {
+      fileSaveTimer = null;
+      if (!currentFile || !currentExpId || !pyEditorCm) return;
+      const content = pyEditorCm.getValue();
+      await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({content})
+      });
+      const ind = document.getElementById('py-save-ind');
+      if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+    }
+
     // ── Notebook Editor ──
     let nbData = null;
     let kernelStatus = 'idle'; // idle, busy, dead
+    let cmInstances = []; // CodeMirror editors, one per cell
 
     function renderNotebookEditor(fname, contentStr) {
       try { nbData = JSON.parse(contentStr); } catch(e) {
@@ -3103,6 +3216,7 @@
       }
       const editor = document.getElementById('exp-file-editor');
       const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
+      const hasVenv = pythonPath.includes('/venv/');
       editor.innerHTML = `
         <div class="flex items-center gap-3 mb-4 flex-wrap">
           <button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="closeFileEditor()">
@@ -3117,11 +3231,20 @@
               <span id="kernel-status-text">idle</span>
             </span>
             <button class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart kernel</button>
-            <label class="text-[0.75rem] text-dim flex items-center gap-1.5">
-              Python:
-              <input type="text" id="nb-python-path" value="${escapeHtml(pythonPath)}" class="px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.75rem] w-[140px] focus:outline-none focus:border-accent" />
-            </label>
+            <select id="nb-venv-select" class="px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.75rem] cursor-pointer focus:outline-none focus:border-accent" onchange="switchVenv(this.value)">
+              <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
+            </select>
+            <button id="btn-create-venv" class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
+            <button class="px-2 py-1 rounded border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
           </div>
+        </div>
+        <div id="packages-panel" class="hidden mb-4 rounded-lg border border-border-input bg-surface-secondary p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <input type="text" id="pkg-install-input" placeholder="Package names (e.g. numpy pandas)" class="flex-1 px-2 py-1.5 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" onkeydown="if(event.key==='Enter')installPackages()" />
+            <button class="px-3 py-1.5 rounded bg-accent text-white text-[0.8rem] cursor-pointer hover:opacity-90" onclick="installPackages()">Install</button>
+          </div>
+          <div id="pkg-install-status" class="text-[0.75rem] mb-2 hidden"></div>
+          <div id="pkg-list" class="text-[0.8rem] text-muted">Loading...</div>
         </div>
         <div id="nb-cells"></div>
         <div class="flex gap-2 mt-3">
@@ -3129,57 +3252,259 @@
           <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('markdown')">+ Markdown</button>
         </div>`;
       renderNbCells();
-      // Python path change
-      document.getElementById('nb-python-path').addEventListener('change', async function() {
-        const newPath = this.value.trim() || 'python3';
-        await fetch(`/api/experiments/${currentExpId}`, {
-          method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({pythonPath: newPath})
+      // Load available venvs into dropdown
+      loadVenvDropdown(pythonPath);
+    }
+
+    async function loadVenvDropdown(currentPath) {
+      const select = document.getElementById('nb-venv-select');
+      if (!select) return;
+      try {
+        const resp = await fetch('/api/venvs');
+        const venvs = await resp.json();
+        // Keep system python3 as first option
+        let html = `<option value="python3" ${currentPath === 'python3' ? 'selected' : ''}>System python3</option>`;
+        venvs.forEach(v => {
+          const label = v.id === currentExpId ? `venv (this project)` : `venv (${v.title})`;
+          html += `<option value="${escapeHtml(v.pythonPath)}" ${currentPath === v.pythonPath ? 'selected' : ''}>${escapeHtml(label)}</option>`;
         });
-        if (currentExp) currentExp.pythonPath = newPath;
-        updateKernelStatus('dead');
+        select.innerHTML = html;
+      } catch(e) { /* keep default */ }
+    }
+
+    async function switchVenv(pythonPath) {
+      await fetch(`/api/experiments/${currentExpId}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({pythonPath})
       });
+      if (currentExp) currentExp.pythonPath = pythonPath;
+      updateKernelStatus('dead');
+      // Restart kernel with new venv
+      try {
+        await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
+        updateKernelStatus('idle');
+      } catch(e) { /* will restart on next run */ }
+    }
+
+    async function createVenv() {
+      const btn = document.getElementById('btn-create-venv');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/venv`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.ok) {
+          if (currentExp) currentExp.pythonPath = data.pythonPath;
+          updateKernelStatus('dead');
+          await loadVenvDropdown(data.pythonPath);
+          btn.textContent = '+ venv';
+          btn.disabled = false;
+          // Restart kernel
+          try {
+            await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
+            updateKernelStatus('idle');
+          } catch(e) { /* will restart on next run */ }
+        } else {
+          btn.textContent = 'Failed';
+          btn.disabled = false;
+          setTimeout(() => { btn.textContent = '+ venv'; }, 2000);
+        }
+      } catch(e) {
+        btn.textContent = 'Error';
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = '+ venv'; }, 2000);
+      }
+    }
+
+    function togglePackagesPanel() {
+      const panel = document.getElementById('packages-panel');
+      if (!panel) return;
+      const wasHidden = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
+      if (wasHidden) loadPackagesList();
+    }
+
+    async function loadPackagesList() {
+      const listEl = document.getElementById('pkg-list');
+      if (!listEl) return;
+      listEl.textContent = 'Loading...';
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/packages`);
+        const packages = await resp.json();
+        if (!packages.length) {
+          listEl.innerHTML = '<span class="text-dim">No packages installed</span>';
+          return;
+        }
+        listEl.innerHTML = `<div class="flex flex-wrap gap-1.5">${packages.map(p =>
+          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface text-[0.75rem] border border-border-input">
+            ${escapeHtml(p.name)} <span class="text-dim">${escapeHtml(p.version)}</span>
+            <button class="ml-1 text-red-400 hover:text-red-300 cursor-pointer bg-transparent border-none p-0 text-[0.7rem]" onclick="uninstallPackage('${escapeHtml(p.name)}')" title="Uninstall">&times;</button>
+          </span>`
+        ).join('')}</div>`;
+      } catch(e) {
+        listEl.innerHTML = '<span class="text-red-400">Failed to load packages</span>';
+      }
+    }
+
+    async function installPackages() {
+      const input = document.getElementById('pkg-install-input');
+      const statusEl = document.getElementById('pkg-install-status');
+      if (!input || !input.value.trim()) return;
+      const packages = input.value.trim();
+      input.disabled = true;
+      if (statusEl) { statusEl.classList.remove('hidden'); statusEl.className = 'text-[0.75rem] mb-2 text-muted'; statusEl.textContent = `Installing ${packages}...`; }
+      try {
+        const resp = await fetch(`/api/experiments/${currentExpId}/packages`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ packages })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-emerald-400'; statusEl.textContent = 'Installed — kernel restarting...'; }
+          input.value = '';
+          loadPackagesList();
+          // Kernel was killed server-side; restart it so next cell run uses new packages
+          updateKernelStatus('dead');
+          try {
+            await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
+            updateKernelStatus('idle');
+          } catch(e) { /* kernel will be recreated on next run */ }
+          if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-emerald-400'; statusEl.textContent = 'Installed — kernel ready'; }
+          setTimeout(() => { if (statusEl) statusEl.classList.add('hidden'); }, 3000);
+        } else {
+          if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400'; statusEl.textContent = data.error || 'Install failed'; }
+        }
+      } catch(e) {
+        if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400'; statusEl.textContent = 'Install failed'; }
+      }
+      input.disabled = false;
+    }
+
+    async function uninstallPackage(name) {
+      const statusEl = document.getElementById('pkg-install-status');
+      if (statusEl) { statusEl.classList.remove('hidden'); statusEl.className = 'text-[0.75rem] mb-2 text-muted'; statusEl.textContent = `Uninstalling ${name}...`; }
+      try {
+        await fetch(`/api/experiments/${currentExpId}/packages/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        loadPackagesList();
+        // Kernel was killed server-side; restart it
+        updateKernelStatus('dead');
+        try {
+          await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
+          updateKernelStatus('idle');
+        } catch(e) { /* kernel will be recreated on next run */ }
+        if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-emerald-400'; statusEl.textContent = `${name} uninstalled`; }
+        setTimeout(() => { if (statusEl) statusEl.classList.add('hidden'); }, 3000);
+      } catch(e) {
+        if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400'; statusEl.textContent = 'Uninstall failed'; }
+      }
+    }
+
+    function renderCellOutputs(outputs) {
+      return outputs.map(o => {
+        if (o.output_type === 'stream') {
+          const text = Array.isArray(o.text) ? o.text.join('') : (o.text || '');
+          if (!text) return '';
+          const cls = o.name === 'stderr' ? 'text-red-400' : '';
+          return `<div class="${cls}">${escapeHtml(text)}</div>`;
+        }
+        if (o.output_type === 'error') {
+          const tb = (o.traceback || []).join('\n');
+          // Strip ANSI codes for display
+          const clean = tb.replace(/\x1b\[[0-9;]*m/g, '');
+          return `<div class="text-red-400">${escapeHtml(clean || (o.ename + ': ' + o.evalue))}</div>`;
+        }
+        if (o.output_type === 'execute_result' || o.output_type === 'display_data') {
+          const data = o.data || {};
+          const parts = [];
+          // Images
+          if (data['image/png']) {
+            parts.push(`<img src="data:image/png;base64,${data['image/png']}" class="max-w-full rounded" />`);
+          }
+          if (data['image/svg+xml']) {
+            const svg = Array.isArray(data['image/svg+xml']) ? data['image/svg+xml'].join('') : data['image/svg+xml'];
+            parts.push(`<div class="max-w-full">${svg}</div>`);
+          }
+          // HTML
+          if (data['text/html']) {
+            const html = Array.isArray(data['text/html']) ? data['text/html'].join('') : data['text/html'];
+            parts.push(`<div class="nb-html-output">${html}</div>`);
+          }
+          // LaTeX
+          if (data['text/latex']) {
+            const latex = Array.isArray(data['text/latex']) ? data['text/latex'].join('') : data['text/latex'];
+            parts.push(`<div class="text-muted">${escapeHtml(latex)}</div>`);
+          }
+          // Plain text fallback
+          if (!parts.length && data['text/plain']) {
+            const t = Array.isArray(data['text/plain']) ? data['text/plain'].join('') : data['text/plain'];
+            parts.push(`<div>${escapeHtml(t)}</div>`);
+          }
+          return parts.join('');
+        }
+        return '';
+      }).filter(Boolean).join('');
     }
 
     function renderNbCells() {
       const container = document.getElementById('nb-cells');
       if (!container || !nbData) return;
+      // Clear old CodeMirror instances (DOM will be replaced below)
+      cmInstances = [];
       container.innerHTML = nbData.cells.map((cell, i) => {
         const isCode = cell.cell_type === 'code';
         const src = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
-        const outputs = (cell.outputs || []).map(o => {
-          if (o.text) return escapeHtml(Array.isArray(o.text) ? o.text.join('') : o.text);
-          if (o.data && o.data['text/plain']) {
-            const t = o.data['text/plain'];
-            return escapeHtml(Array.isArray(t) ? t.join('') : t);
-          }
-          if (o.ename) return `<span class="text-red-400">${escapeHtml(o.ename)}: ${escapeHtml(o.evalue || '')}</span>`;
-          return '';
-        }).filter(Boolean).join('\n');
+        const outputs = renderCellOutputs(cell.outputs || []);
 
         return `<div class="mb-3 rounded-lg border border-border-dim overflow-hidden" data-cell="${i}">
           <div class="flex items-center gap-2 px-3 py-1.5 bg-card/30 border-b border-border-dim">
             <span class="text-[0.7rem] ${isCode ? 'text-emerald-400' : 'text-blue-400'} font-medium">${isCode ? 'Code' : 'Markdown'}</span>
             <span class="text-[0.65rem] text-dimmer">[${i+1}]</span>
             <div class="ml-auto flex gap-1">
-              ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell">Run</button>` : ''}
+              ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>` : ''}
+              ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/10 text-blue-400 border-none cursor-pointer hover:bg-blue-500/20" onclick="exportCellToPy(${i})" title="Export to .py file">.py</button>` : ''}
               ${i > 0 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},-1)" title="Move up">&uarr;</button>` : ''}
               ${i < nbData.cells.length-1 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},1)" title="Move down">&darr;</button>` : ''}
               <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
             </div>
           </div>
-          <textarea class="w-full px-4 py-2 bg-transparent text-primary text-[0.8rem] font-mono border-none resize-y focus:outline-none min-h-[40px]" rows="${Math.max(1, src.split('\n').length)}" oninput="updateNbCellSource(${i}, this.value); autoResizeTextarea(this)" data-cell-input="${i}">${escapeHtml(src)}</textarea>
+          <textarea data-cell-input="${i}">${escapeHtml(src)}</textarea>
           ${outputs ? `<div class="px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs}</div>` : `<div class="hidden" data-cell-output="${i}"></div>`}
         </div>`;
       }).join('');
 
-      // Auto-resize textareas
-      container.querySelectorAll('textarea').forEach(ta => autoResizeTextarea(ta));
-    }
-
-    function autoResizeTextarea(ta) {
-      ta.style.height = 'auto';
-      ta.style.height = ta.scrollHeight + 'px';
+      // Initialize CodeMirror on each cell textarea
+      nbData.cells.forEach((cell, i) => {
+        const ta = container.querySelector(`[data-cell-input="${i}"]`);
+        if (!ta) { cmInstances.push(null); return; }
+        const isCode = cell.cell_type === 'code';
+        const cm = CodeMirror.fromTextArea(ta, {
+          mode: isCode ? 'python' : 'markdown',
+          lineNumbers: true,
+          matchBrackets: isCode,
+          autoCloseBrackets: isCode,
+          indentUnit: 4,
+          tabSize: 4,
+          indentWithTabs: false,
+          lineWrapping: true,
+          viewportMargin: Infinity,
+          extraKeys: {
+            'Shift-Enter': function() { if (isCode) runNbCell(i); },
+            'Cmd-/': function(cm) { cm.toggleComment(); },
+            'Ctrl-/': function(cm) { cm.toggleComment(); },
+            'Tab': function(cm) {
+              if (cm.somethingSelected()) cm.indentSelection('add');
+              else cm.replaceSelection('    ', 'end');
+            }
+          }
+        });
+        cm.on('change', () => {
+          if (!nbData || !nbData.cells[i]) return;
+          nbData.cells[i].source = cm.getValue();
+          scheduleNbSave();
+        });
+        cmInstances.push(cm);
+      });
     }
 
     function updateNbCellSource(i, val) {
@@ -3209,10 +3534,10 @@
       nbData.cells.push({cell_type: type, source: '', outputs: []});
       renderNbCells();
       scheduleNbSave();
-      // Focus new cell
+      // Focus new CodeMirror cell
       setTimeout(() => {
-        const ta = document.querySelector(`[data-cell-input="${nbData.cells.length-1}"]`);
-        if (ta) ta.focus();
+        const cm = cmInstances[nbData.cells.length - 1];
+        if (cm) cm.focus();
       }, 50);
     }
 
@@ -3232,6 +3557,16 @@
       scheduleNbSave();
     }
 
+    async function exportCellToPy(i) {
+      if (!nbData || !nbData.cells[i]) return;
+      const src = Array.isArray(nbData.cells[i].source) ? nbData.cells[i].source.join('') : nbData.cells[i].source;
+      if (!src.trim()) return;
+      const name = await createExpFile('.py', src);
+      // Brief visual feedback
+      const btn = document.querySelector(`[data-cell="${i}"] .text-blue-400`);
+      if (btn && btn.textContent === '.py') { btn.textContent = 'Saved!'; setTimeout(() => { btn.textContent = '.py'; }, 1500); }
+    }
+
     async function runNbCell(i) {
       if (!nbData || !nbData.cells[i] || nbData.cells[i].cell_type !== 'code') return;
       const src = Array.isArray(nbData.cells[i].source) ? nbData.cells[i].source.join('') : nbData.cells[i].source;
@@ -3247,20 +3582,16 @@
           body: JSON.stringify({code: src})
         });
         const result = await resp.json();
-        let display = '';
-        if (result.output) display += result.output;
-        if (result.error) display += (display ? '\n' : '') + result.error;
+        const cellOutputs = result.outputs || [];
 
-        nbData.cells[i].outputs = [];
-        if (result.output) nbData.cells[i].outputs.push({output_type:'stream', name:'stdout', text: result.output});
-        if (result.error) nbData.cells[i].outputs.push({output_type:'stream', name:'stderr', text: result.error});
+        nbData.cells[i].outputs = cellOutputs;
 
         if (outEl) {
-          if (display) {
+          const rendered = renderCellOutputs(cellOutputs);
+          if (rendered) {
             outEl.classList.remove('hidden');
             outEl.style.display = '';
-            outEl.innerHTML = escapeHtml(display);
-            if (result.error && !result.output) outEl.innerHTML = `<span class="text-red-400">${escapeHtml(result.error)}</span>`;
+            outEl.innerHTML = rendered;
           } else {
             outEl.classList.add('hidden');
           }

@@ -8,10 +8,10 @@ import re
 import shutil
 import time
 import uuid
-import concurrent.futures
 import subprocess
+import sys
+import concurrent.futures
 import threading
-import select
 
 PORT = 8000
 CACHE_TTL = 600  # 10 minutes
@@ -27,33 +27,43 @@ TODOS_FILE = os.path.join(DIR, 'todos.json')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 
-# Persistent Python kernels: exp_id -> { "proc": Popen, "lock": Lock }
+# Persistent Jupyter kernels: exp_id -> { "km": KernelManager, "kc": KernelClient, "lock": Lock }
 _kernels = {}
 _kernels_lock = threading.Lock()
 
 
 def _get_kernel(exp_id):
-    """Get or start a persistent Python kernel for an experiment."""
+    """Get or start a persistent Jupyter kernel for an experiment."""
+    import jupyter_client
+    from jupyter_client.kernelspec import KernelSpecManager
     with _kernels_lock:
         entry = _kernels.get(exp_id)
-        if entry and entry['proc'].poll() is None:
+        if entry and entry['km'].is_alive():
             return entry
         # Read pythonPath from meta
         meta = read_meta(exp_id)
         python_path = (meta or {}).get('pythonPath', 'python3')
-        proc = subprocess.Popen(
-            [python_path, '-u', '-i'],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=0
-        )
-        entry = {'proc': proc, 'lock': threading.Lock()}
+        if os.path.isabs(python_path):
+            # Write a kernel spec pointing to the venv python
+            spec_dir = os.path.join(EXPERIMENTS_DIR, exp_id, '.kernels', 'venv')
+            os.makedirs(spec_dir, exist_ok=True)
+            with open(os.path.join(spec_dir, 'kernel.json'), 'w') as f:
+                json.dump({
+                    'argv': [python_path, '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
+                    'display_name': 'Python (venv)',
+                    'language': 'python'
+                }, f)
+            ksm = KernelSpecManager()
+            ksm.kernel_dirs = [os.path.join(EXPERIMENTS_DIR, exp_id, '.kernels')]
+            km = jupyter_client.KernelManager(kernel_name='venv', kernel_spec_manager=ksm)
+        else:
+            km = jupyter_client.KernelManager(kernel_name='python3')
+        km.start_kernel()
+        kc = km.client()
+        kc.start_channels()
+        kc.wait_for_ready(timeout=30)
+        entry = {'km': km, 'kc': kc, 'lock': threading.Lock()}
         _kernels[exp_id] = entry
-        # Drain the initial Python banner from stderr
-        while select.select([proc.stderr], [], [], 0.3)[0]:
-            proc.stderr.read(1)
         return entry
 
 
@@ -61,67 +71,100 @@ def _kill_kernel(exp_id):
     """Kill a kernel if it exists."""
     with _kernels_lock:
         entry = _kernels.pop(exp_id, None)
-    if entry and entry['proc'].poll() is None:
-        entry['proc'].terminate()
+    if entry:
         try:
-            entry['proc'].wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            entry['proc'].kill()
+            entry['kc'].stop_channels()
+        except Exception:
+            pass
+        try:
+            entry['km'].shutdown_kernel(now=True)
+        except Exception:
+            pass
+
+
+def _get_python_path(exp_id):
+    """Get the pythonPath for an experiment, defaulting to python3."""
+    meta = read_meta(exp_id)
+    return (meta or {}).get('pythonPath', 'python3')
+
+
+def _validate_package_names(packages_str):
+    """Validate package names string to prevent shell injection."""
+    if re.search(r'[;&|$`\\]', packages_str):
+        return False
+    return True
+
+
+def _create_venv(exp_id):
+    """Create a venv for an experiment, install ipykernel, update meta."""
+    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+    venv_dir = os.path.join(exp_dir, 'venv')
+    subprocess.run([sys.executable, '-m', 'venv', venv_dir], check=True)
+    python_path = os.path.join(venv_dir, 'bin', 'python')
+    subprocess.run([python_path, '-m', 'pip', 'install', '-q', 'ipykernel'], check=True)
+    meta = read_meta(exp_id)
+    meta['pythonPath'] = python_path
+    write_meta(exp_id, meta)
+    _kill_kernel(exp_id)
+    return python_path
 
 
 def _execute_code(exp_id, code):
-    """Execute code in the persistent kernel, return (output, error)."""
+    """Execute code in the Jupyter kernel, return rich outputs."""
     entry = _get_kernel(exp_id)
     with entry['lock']:
-        proc = entry['proc']
-        if proc.poll() is not None:
-            # Kernel died, restart
+        kc = entry['kc']
+        km = entry['km']
+
+        if not km.is_alive():
             with _kernels_lock:
                 _kernels.pop(exp_id, None)
             entry = _get_kernel(exp_id)
-            proc = entry['proc']
+            kc = entry['kc']
 
-        sentinel = '__SENTINEL_DONE_a7f3b2__'
-        full_code = code.rstrip('\n') + f'\nprint("{sentinel}")\n'
-        try:
-            proc.stdin.write(full_code)
-            proc.stdin.flush()
-        except (BrokenPipeError, OSError):
-            return ('', 'Kernel process died')
+        msg_id = kc.execute(code)
 
-        stdout_lines = []
-        stderr_lines = []
-        deadline = time.time() + 30
+        outputs = []
+        deadline = time.time() + 60
 
         while time.time() < deadline:
-            remaining = deadline - time.time()
-            if remaining <= 0:
+            try:
+                msg = kc.get_iopub_msg(timeout=1)
+            except Exception:
+                continue
+
+            if msg['parent_header'].get('msg_id') != msg_id:
+                continue
+
+            msg_type = msg['msg_type']
+            content = msg['content']
+
+            if msg_type == 'stream':
+                outputs.append({
+                    'output_type': 'stream',
+                    'name': content.get('name', 'stdout'),
+                    'text': content.get('text', '')
+                })
+            elif msg_type in ('display_data', 'execute_result'):
+                out = {
+                    'output_type': msg_type,
+                    'data': content.get('data', {}),
+                    'metadata': content.get('metadata', {})
+                }
+                if msg_type == 'execute_result':
+                    out['execution_count'] = content.get('execution_count')
+                outputs.append(out)
+            elif msg_type == 'error':
+                outputs.append({
+                    'output_type': 'error',
+                    'ename': content.get('ename', ''),
+                    'evalue': content.get('evalue', ''),
+                    'traceback': content.get('traceback', [])
+                })
+            elif msg_type == 'status' and content.get('execution_state') == 'idle':
                 break
-            ready_out, _, _ = select.select([proc.stdout], [], [], min(0.1, remaining))
-            if ready_out:
-                line = proc.stdout.readline()
-                if sentinel in line:
-                    break
-                stdout_lines.append(line)
-            # Drain stderr non-blocking
-            while select.select([proc.stderr], [], [], 0)[0]:
-                ch = proc.stderr.read(1)
-                if ch:
-                    stderr_lines.append(ch)
 
-        # Final stderr drain
-        while select.select([proc.stderr], [], [], 0.05)[0]:
-            ch = proc.stderr.read(1)
-            if ch:
-                stderr_lines.append(ch)
-
-        output = ''.join(stdout_lines).rstrip('\n')
-        error = ''.join(stderr_lines).strip()
-        # Filter out Python prompt artifacts
-        error_lines = [l for l in error.split('\n') if not re.match(r'^(>>>|\.\.\.) ', l)]
-        error = '\n'.join(error_lines).strip()
-
-        return (output, error)
+        return outputs
 
 
 def read_blocked_titles():
@@ -492,7 +535,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb')) and f != 'meta.json']
+            files = [f for f in os.listdir(exp_dir) if f.endswith(('.md', '.ipynb', '.py')) and f != 'meta.json']
             files.sort()
             self._send_json(files)
 
@@ -507,6 +550,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 content = f.read()
             self._send_json({'name': fname, 'content': content})
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/packages$'):
+            exp_id = m.group(1)
+            if not read_meta(exp_id):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            python_path = _get_python_path(exp_id)
+            try:
+                result = subprocess.run(
+                    [python_path, '-m', 'pip', 'list', '--format=json'],
+                    capture_output=True, text=True, timeout=30
+                )
+                packages = json.loads(result.stdout) if result.returncode == 0 else []
+                self._send_json(packages)
+            except Exception:
+                self._send_json([])
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
             meta = read_meta(exp_id)
@@ -515,6 +574,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(meta)
             else:
                 self._send_json({'error': 'Not found'}, 404)
+
+        elif self.path == '/api/venvs':
+            venvs = []
+            if os.path.isdir(EXPERIMENTS_DIR):
+                for name in sorted(os.listdir(EXPERIMENTS_DIR)):
+                    venv_python = os.path.join(EXPERIMENTS_DIR, name, 'venv', 'bin', 'python')
+                    if os.path.exists(venv_python):
+                        meta = read_meta(name)
+                        title = (meta or {}).get('title', name)
+                        venvs.append({'id': name, 'title': title, 'pythonPath': venv_python})
+            self._send_json(venvs)
 
         elif self.path == '/api/todos':
             self._send_json(read_todos())
@@ -664,14 +734,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             name = body.get('name', '').strip()
-            if not name or not (name.endswith('.md') or name.endswith('.ipynb')):
-                self._send_json({'error': 'Name must end with .md or .ipynb'}, 400)
+            if not name or not (name.endswith('.md') or name.endswith('.ipynb') or name.endswith('.py')):
+                self._send_json({'error': 'Name must end with .md, .ipynb, or .py'}, 400)
                 return
             fpath = os.path.join(exp_dir, name)
             if os.path.exists(fpath):
                 self._send_json({'error': 'File already exists'}, 409)
                 return
-            if name.endswith('.ipynb'):
+            initial = body.get('content', None)
+            if initial is not None:
+                content = initial
+            elif name.endswith('.ipynb'):
                 content = json.dumps({
                     "cells": [{"cell_type": "code", "source": "", "outputs": []}],
                     "metadata": {},
@@ -690,14 +763,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             code = body.get('code', '')
-            output, error = _execute_code(exp_id, code)
-            self._send_json({'output': output, 'error': error})
+            outputs = _execute_code(exp_id, code)
+            self._send_json({'outputs': outputs})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel/restart$'):
             exp_id = m.group(1)
             _kill_kernel(exp_id)
             _get_kernel(exp_id)
             self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/venv$'):
+            exp_id = m.group(1)
+            if not read_meta(exp_id):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            try:
+                python_path = _create_venv(exp_id)
+                self._send_json({'ok': True, 'pythonPath': python_path})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/packages$'):
+            exp_id = m.group(1)
+            if not read_meta(exp_id):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            body = self._read_body()
+            packages_str = body.get('packages', '').strip()
+            if not packages_str:
+                self._send_json({'error': 'packages required'}, 400)
+                return
+            if not _validate_package_names(packages_str):
+                self._send_json({'error': 'Invalid package name'}, 400)
+                return
+            python_path = _get_python_path(exp_id)
+            pkg_list = packages_str.split()
+            try:
+                result = subprocess.run(
+                    [python_path, '-m', 'pip', 'install'] + pkg_list,
+                    capture_output=True, text=True, timeout=120
+                )
+                if result.returncode != 0:
+                    self._send_json({'error': result.stderr or result.stdout}, 500)
+                    return
+                _kill_kernel(exp_id)
+                self._send_json({'ok': True, 'output': result.stdout})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
 
         elif self.path == '/api/experiments':
             body = self._read_body()
@@ -903,6 +1015,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not found'}, 404)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/packages/(.+)$'):
+            exp_id = m.group(1)
+            package = m.group(2)
+            if not read_meta(exp_id):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            if not _validate_package_names(package):
+                self._send_json({'error': 'Invalid package name'}, 400)
+                return
+            python_path = _get_python_path(exp_id)
+            try:
+                result = subprocess.run(
+                    [python_path, '-m', 'pip', 'uninstall', '-y', package],
+                    capture_output=True, text=True, timeout=60
+                )
+                _kill_kernel(exp_id)
+                self._send_json({'ok': True})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel$'):
             exp_id = m.group(1)
