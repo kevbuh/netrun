@@ -239,15 +239,14 @@
       stroke-width: 2;
     }
 
-    /* ── Category select styled as button ── */
-    .cat-select {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    /* ── Sort button active state ── */
+    .sort-btn.active { border-color: var(--accent); color: var(--text-primary); }
+
+    /* ── arXiv category select inside pill ── */
+    .arxiv-cat-select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 8px center;
-    }
-    .cat-select:focus, .cat-select.active {
-      border-color: var(--accent);
-      color: var(--text-primary);
+      background-position: right 6px center;
     }
 
     /* ── Finder pagination column span ── */

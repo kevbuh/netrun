@@ -282,8 +282,13 @@ let feedViewMode = 'block'; // 'block' or 'compact'
 
 function toggleViewMode() {
   feedViewMode = feedViewMode === 'block' ? 'compact' : 'block';
-  const btn = document.getElementById('view-mode-btn');
-  if (btn) btn.textContent = feedViewMode === 'block' ? 'Compact' : 'Block';
+  const icon = document.getElementById('view-mode-icon');
+  if (icon) {
+    // list icon for block mode (click to go compact), grid icon for compact mode (click to go block)
+    icon.innerHTML = feedViewMode === 'block'
+      ? '<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>'
+      : '<path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>';
+  }
   renderPapers();
 }
 
@@ -302,14 +307,44 @@ function renderSourceBubbles() {
     sourceCounts[p.source] = (sourceCounts[p.source] || 0) + 1;
   }
   const sources = Object.keys(sourceCounts);
+  const catSelect = document.getElementById('category');
+  const currentCat = catSelect ? catSelect.value : '';
+
   el.innerHTML = sources.map(key => {
     const entry = FEED_CATALOG.find(f => f.key === key);
     const name = entry ? entry.name : (key.startsWith('custom:') ? key.slice(7) : key);
     const logo = SOURCE_LOGO_INLINE[key] || '';
     const count = sourceCounts[key];
     const dimmed = hiddenSourceFilters.has(key);
-    return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border ${dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15'} text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none" onclick="toggleSourceBubble('${escapeHtml(key)}')">${logo}<span class="${dimmed ? 'text-dim' : 'text-primary'}">${escapeHtml(name)}</span><span class="text-[0.68rem] ${dimmed ? 'text-dimmer' : 'text-dim'}">${count}</span></span>`;
+    const baseClass = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full border ${dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15'} text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none`;
+
+    if (key === 'arxiv' && catSelect) {
+      const opts = Array.from(catSelect.options);
+      const selectOpts = opts.map(o => {
+        const label = o.value ? o.textContent : `arXiv (${count})`;
+        return `<option value="${escapeHtml(o.value)}"${o.value === currentCat ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+      return `<span class="inline-flex items-center rounded-full border ${dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15'} text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none">
+        <span class="inline-flex items-center pl-2.5 pointer-events-none">${logo}</span>
+        <select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ${dimmed ? 'text-dim' : 'text-primary'} cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById('category').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">${selectOpts}</select>
+      </span>`;
+    }
+
+    return `<span class="${baseClass}" onclick="toggleSourceBubble('${escapeHtml(key)}')">${logo}<span class="${dimmed ? 'text-dim' : 'text-primary'}">${escapeHtml(name)}</span><span class="text-[0.68rem] ${dimmed ? 'text-dimmer' : 'text-dim'}">${count}</span></span>`;
   }).join('');
+
+  // Auto-size the arxiv select after rendering
+  const arxivSel = el.querySelector('.arxiv-cat-select');
+  if (arxivSel) _fitArxivSelect(arxivSel);
+}
+
+function _fitArxivSelect(sel) {
+  const span = document.createElement('span');
+  span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-size:0.78rem;';
+  span.textContent = sel.options[sel.selectedIndex].text;
+  document.body.appendChild(span);
+  sel.style.width = (span.offsetWidth + 24) + 'px'; // 24px for chevron padding
+  document.body.removeChild(span);
 }
 
 function setSortMode(mode) {
@@ -926,7 +961,7 @@ function populateCategories() {
   const freq = {};
   allPapers.forEach(p => p.categories.forEach(c => { freq[c] = (freq[c] || 0) + 1; }));
   const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-  select.innerHTML = '<option value="">All Categories</option>';
+  select.innerHTML = '<option value="">All</option>';
   sorted.forEach(([cat, count]) => {
     const opt = document.createElement('option');
     opt.value = cat;
