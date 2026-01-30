@@ -151,6 +151,15 @@
       box-shadow: inset 3px 0 0 var(--accent);
     }
 
+    /* ── Sidebar drag ghost ── */
+    .sidebar-drag-ghost {
+      background: var(--bg-hover);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .sidebar-drag-ghost .sidebar-tooltip { display: none !important; }
+    .sidebar-draggable { touch-action: none; }
+
     /* ── Toggle switch ── */
     .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }

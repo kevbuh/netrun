@@ -968,6 +968,15 @@ function searchNext() {
 }
 
 // ── Search History (for search view) ──
+function selectSearchHistory(index) {
+  const hist = getSearchHistory();
+  if (!hist[index]) return;
+  const input = document.getElementById('search-query');
+  if (input) input.value = hist[index];
+  hideSearchHistoryView();
+  submitSearch();
+}
+
 function showSearchHistoryView() {
   const input = document.getElementById('search-query');
   const dd = document.getElementById('search-history-dropdown-view');
@@ -975,7 +984,7 @@ function showSearchHistoryView() {
   if (input.value.trim()) { dd.classList.add('hidden'); return; }
   const hist = getSearchHistory();
   if (!hist.length) { dd.classList.add('hidden'); return; }
-  dd.innerHTML = hist.map((h, i) => `<div class="flex items-center gap-2 px-3 py-1.5 hover:bg-hover cursor-pointer text-[0.82rem] text-primary" onmousedown="event.preventDefault(); document.getElementById('search-query').value=${JSON.stringify(h)}; hideSearchHistoryView(); submitSearch();">
+  dd.innerHTML = hist.map((h, i) => `<div class="flex items-center gap-2 px-3 py-1.5 hover:bg-hover cursor-pointer text-[0.82rem] text-primary" onmousedown="event.preventDefault(); selectSearchHistory(${i})">
     <span class="truncate flex-1">${escapeHtml(h)}</span>
     <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary" onmousedown="event.preventDefault(); event.stopPropagation(); removeSearchHistory(${i});">×</button>
   </div>`).join('');
@@ -1227,7 +1236,7 @@ function openCalendar() {
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'calendar';
-  setSidebarActive('sb-dashboard');
+  setSidebarActive('sb-home');
   fetchCalendarEvents();
 }
 

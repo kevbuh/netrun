@@ -164,7 +164,7 @@ function openDashboard() {
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = '';
-  setSidebarActive('sb-dashboard');
+  setSidebarActive('sb-home');
   renderDashboard();
 }
 
@@ -201,7 +201,7 @@ function routeFromHash() {
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
   else if (hash.startsWith('#paper/')) openPaper(parseInt(hash.slice('#paper/'.length), 10));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
-  else openDashboard();
+  else goHome();
 }
 
 window.addEventListener('hashchange', routeFromHash);
@@ -297,3 +297,106 @@ window.addEventListener('keydown', e => {
     if (document.getElementById('settings-view').style.display === 'block') goHome();
   }
 });
+
+// ── Sidebar drag-to-reorder ──
+(function() {
+  const nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+
+  function getDraggables() {
+    return Array.from(nav.querySelectorAll('.sidebar-draggable'));
+  }
+
+  function getSpacer() {
+    return nav.querySelector('.mt-auto');
+  }
+
+  // Restore saved order from localStorage
+  function restoreOrder() {
+    const saved = localStorage.getItem('sidebarOrder');
+    if (!saved) return;
+    try {
+      const order = JSON.parse(saved); // array of ids e.g. ['sb-home','sb-experiments',...]
+      const spacer = getSpacer();
+      const btns = getDraggables();
+      const btnMap = {};
+      btns.forEach(b => { btnMap[b.id] = b; });
+      order.forEach(id => {
+        if (btnMap[id]) nav.insertBefore(btnMap[id], spacer);
+      });
+      // Append any buttons not in saved order (new buttons)
+      btns.forEach(b => {
+        if (!order.includes(b.id)) nav.insertBefore(b, spacer);
+      });
+    } catch {}
+  }
+
+  function saveOrder() {
+    const ids = getDraggables().map(b => b.id);
+    localStorage.setItem('sidebarOrder', JSON.stringify(ids));
+  }
+
+  restoreOrder();
+
+  let dragEl = null;
+  let dragGhost = null;
+  let startY = 0;
+  let dragStarted = false;
+
+  nav.addEventListener('pointerdown', e => {
+    const btn = e.target.closest('.sidebar-draggable');
+    if (!btn) return;
+    dragEl = btn;
+    startY = e.clientY;
+    dragStarted = false;
+    dragEl.setPointerCapture(e.pointerId);
+  });
+
+  nav.addEventListener('pointermove', e => {
+    if (!dragEl) return;
+    if (!dragStarted && Math.abs(e.clientY - startY) < 5) return;
+    if (!dragStarted) {
+      dragStarted = true;
+      dragEl.style.opacity = '0.3';
+      dragGhost = dragEl.cloneNode(true);
+      dragGhost.classList.add('sidebar-drag-ghost');
+      dragGhost.style.cssText = `position:fixed;left:${nav.getBoundingClientRect().left}px;pointer-events:none;z-index:999;opacity:0.9;`;
+      document.body.appendChild(dragGhost);
+    }
+    const rect = nav.getBoundingClientRect();
+    dragGhost.style.top = (e.clientY - 22) + 'px';
+    dragGhost.style.left = rect.left + 'px';
+
+    // Find drop target
+    const btns = getDraggables();
+    for (const b of btns) {
+      if (b === dragEl) continue;
+      const r = b.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      if (e.clientY < mid) {
+        nav.insertBefore(dragEl, b);
+        return;
+      }
+    }
+    // Past all — insert before spacer
+    const spacer = getSpacer();
+    if (spacer) nav.insertBefore(dragEl, spacer);
+  });
+
+  function endDrag() {
+    if (!dragEl) return;
+    dragEl.style.opacity = '';
+    if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    if (dragStarted) {
+      saveOrder();
+      // Suppress the click that would follow the drag
+      const suppress = e => { e.stopPropagation(); e.preventDefault(); };
+      dragEl.addEventListener('click', suppress, { capture: true, once: true });
+    }
+    dragEl = null;
+    dragStarted = false;
+  }
+
+  nav.addEventListener('pointerup', endDrag);
+  nav.addEventListener('pointercancel', endDrag);
+})();
