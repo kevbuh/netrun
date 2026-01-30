@@ -277,27 +277,44 @@
 
   <!-- Whiteboard View -->
   <div id="whiteboard-view" class="hidden ml-[60px] view" style="height:100vh;overflow:hidden">
-    <div class="wb-toolbar">
-      <input type="color" id="wb-color" value="#ffffff" title="Brush color">
-      <label class="text-[0.78rem] text-muted flex items-center gap-1.5">Size
-        <input type="range" id="wb-size" min="1" max="30" value="3" class="wb-size-slider">
-        <span id="wb-size-label" class="text-[0.72rem] text-dim w-5 text-right">3</span>
-      </label>
-      <button id="wb-eraser" class="wb-tool-btn" title="Eraser">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 20H7l-4-4a1.41 1.41 0 010-2l10-10a1.41 1.41 0 012 0l5 5a1.41 1.41 0 010 2L13 18" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <span class="w-px h-5 bg-border-dim mx-1"></span>
-      <button id="wb-undo" class="wb-tool-btn" title="Undo">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 015 5v0a5 5 0 01-5 5H3" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 6l-4 4 4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button id="wb-redo" class="wb-tool-btn" title="Redo">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10H11a5 5 0 00-5 5v0a5 5 0 005 5h10" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button id="wb-clear" class="wb-tool-btn" title="Clear all">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V4a1 1 0 011-1h6a1 1 0 011 1v3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+    <div class="flex h-full">
+      <!-- Whiteboard list sidebar -->
+      <div id="wb-sidebar" class="wb-sidebar">
+        <div class="flex items-center justify-between mb-2 px-2">
+          <span class="text-[0.75rem] text-dim uppercase tracking-wide">Boards</span>
+          <button onclick="wbNew()" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors flex items-center justify-center" title="New whiteboard"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14" stroke-linecap="round"/></svg></button>
+        </div>
+        <div id="wb-list" class="flex-1 overflow-y-auto"></div>
+      </div>
+      <!-- Canvas area -->
+      <div id="wb-canvas-area" class="flex flex-col flex-1 min-w-0">
+        <div class="wb-toolbar">
+          <input type="color" id="wb-color" value="#ffffff" title="Brush color">
+          <label class="text-[0.78rem] text-muted flex items-center gap-1.5">Size
+            <input type="range" id="wb-size" min="1" max="30" value="3" class="wb-size-slider">
+            <span id="wb-size-label" class="text-[0.72rem] text-dim w-5 text-right">3</span>
+          </label>
+          <button id="wb-eraser" class="wb-tool-btn" title="Pixel eraser (paint over)">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 20H7l-4-4a1.41 1.41 0 010-2l10-10a1.41 1.41 0 012 0l5 5a1.41 1.41 0 010 2L13 18" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button id="wb-stroke-eraser" class="wb-tool-btn" title="Stroke eraser (remove whole strokes)">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4l16 16M4 20L20 4" stroke-linecap="round"/></svg>
+          </button>
+          <span class="w-px h-5 bg-border-dim mx-1"></span>
+          <button id="wb-undo" class="wb-tool-btn" title="Undo">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 015 5v0a5 5 0 01-5 5H3" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 6l-4 4 4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button id="wb-redo" class="wb-tool-btn" title="Redo">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10H11a5 5 0 00-5 5v0a5 5 0 005 5h10" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button id="wb-clear" class="wb-tool-btn" title="Clear canvas">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V4a1 1 0 011-1h6a1 1 0 011 1v3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span class="ml-auto text-[0.85rem] text-primary font-medium truncate max-w-[300px] cursor-pointer hover:text-accent transition-colors" id="wb-title-display" onclick="wbRenameActive()" title="Click to rename"></span>
+        </div>
+        <canvas id="wb-canvas"></canvas>
+      </div>
     </div>
-    <canvas id="wb-canvas"></canvas>
   </div>
 
   <script src="/js/core.js"></script>
