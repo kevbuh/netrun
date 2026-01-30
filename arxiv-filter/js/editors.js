@@ -69,7 +69,10 @@ function renderPythonEditor(fname, content) {
         <span class="text-[0.7rem] text-muted font-medium">Output</span>
         <button onclick="document.getElementById('py-output').classList.add('hidden')" class="text-dimmer hover:text-primary text-[0.8rem] bg-transparent border-none cursor-pointer">&times;</button>
       </div>
-      <div id="py-output-content" class="px-4 py-2 bg-body/50 text-[0.8rem] font-mono text-muted whitespace-pre-wrap"></div>
+      <div class="cell-output-wrap" id="py-output-scroll">
+        <div id="py-output-content" class="px-4 py-2 bg-body/50 text-[0.8rem] font-mono text-muted whitespace-pre-wrap"></div>
+        <div class="cell-output-toggle" onclick="togglePyOutputExpand()">Show all output</div>
+      </div>
     </div>
     <div class="pb-40"></div>`;
   const ta = document.getElementById('py-editor-textarea');
@@ -102,41 +105,96 @@ function renderPythonEditor(fname, content) {
   loadVenvDropdown(pythonPath);
 }
 
+let _pyRunning = false;
+
+function _pyBtnRun() {
+  const btn = document.getElementById('py-run-btn');
+  if (!btn) return;
+  if (_pyCooldown) {
+    btn.textContent = 'Stopping…';
+    btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-gray-500/20 text-dimmer border-none cursor-not-allowed opacity-60 font-medium';
+    btn.disabled = true;
+    btn.removeAttribute('onclick');
+    setTimeout(() => {
+      _pyCooldown = false;
+      const b = document.getElementById('py-run-btn');
+      if (b) {
+        b.textContent = 'Run';
+        b.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium';
+        b.disabled = false;
+        b.setAttribute('onclick', 'runPythonFile()');
+      }
+    }, 3000);
+  } else {
+    btn.textContent = 'Run';
+    btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium';
+    btn.disabled = false;
+    btn.setAttribute('onclick', 'runPythonFile()');
+  }
+}
+
+function _pyBtnStop() {
+  const btn = document.getElementById('py-run-btn');
+  if (btn) {
+    btn.textContent = 'Stop';
+    btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30 font-medium';
+    btn.setAttribute('onclick', 'stopPythonFile()');
+  }
+}
+
 async function runPythonFile() {
   if (!currentExpId || !pyEditorCm) return;
   const code = pyEditorCm.getValue();
   if (!code.trim()) return;
 
-  const btn = document.getElementById('py-run-btn');
+  _pyRunning = true;
   const dot = document.getElementById('py-kernel-dot');
   const text = document.getElementById('py-kernel-text');
-  if (btn) { btn.textContent = 'Running…'; btn.disabled = true; }
+  _pyBtnStop();
   if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-amber-500';
   if (text) text.textContent = 'busy';
 
   const outPanel = document.getElementById('py-output');
   const outContent = document.getElementById('py-output-content');
+  const outScroll = document.getElementById('py-output-scroll');
   outPanel.classList.remove('hidden');
-  outContent.textContent = 'Running…';
+  if (outScroll) outScroll.classList.remove('expanded');
+  outContent.innerHTML = '<span class="text-dim">Running…</span>';
 
-  try {
-    // Save first
-    await savePythonFile();
-    const resp = await fetch(`/api/experiments/${currentExpId}/execute`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ code })
-    });
-    const result = await resp.json();
-    const rendered = renderCellOutputs(result.outputs || []);
-    outContent.innerHTML = rendered || '<span class="text-dim">No output</span>';
-    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-emerald-500';
-    if (text) text.textContent = 'idle';
-  } catch(e) {
-    outContent.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`;
-    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-red-500';
-    if (text) text.textContent = 'dead';
-  }
-  if (btn) { btn.textContent = 'Run'; btn.disabled = false; }
+  await savePythonFile();
+  let firstOutput = true;
+
+  _streamExecute(currentExpId, code,
+    (out) => {
+      if (firstOutput) { outContent.innerHTML = ''; firstOutput = false; }
+      outContent.innerHTML += renderCellOutputs([out]);
+    },
+    () => {
+      if (firstOutput) outContent.innerHTML = '<span class="text-dim">No output</span>';
+      if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-emerald-500';
+      if (text) text.textContent = 'idle';
+      _pyRunning = false;
+      _execAbort = null;
+      _pyBtnRun();
+    },
+    (e) => {
+      outContent.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`;
+      if (dot) dot.className = 'w-1.5 h-1.5 rounded-full inline-block bg-red-500';
+      if (text) text.textContent = 'dead';
+      _pyRunning = false;
+      _execAbort = null;
+      _pyBtnRun();
+    }
+  );
+}
+
+let _pyCooldown = false;
+
+async function stopPythonFile() {
+  _pyCooldown = true;
+  const btn = document.getElementById('py-run-btn');
+  if (btn) { btn.textContent = 'Stopping…'; btn.disabled = true; btn.classList.add('opacity-60'); }
+  await interruptKernel();
 }
 
 async function savePythonFile() {
@@ -467,7 +525,12 @@ function renderNbCells() {
   container.innerHTML = nbData.cells.map((cell, i) => {
     const isCode = cell.cell_type === 'code';
     const src = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
-    const outputs = renderCellOutputs(cell.outputs || []);
+    const cellOutputs = cell.outputs || [];
+    const hasOutput = cellOutputs.length > 0;
+    // Only render a lightweight preview (first 20 outputs max)
+    const previewOutputs = cellOutputs.slice(0, 20);
+    const outputs = renderCellOutputs(previewOutputs);
+    const hasMore = cellOutputs.length > 20;
 
     return (i === 0 ? cellDivider(0) : '') + `<div class="mb-0 rounded-lg border border-border-dim overflow-hidden" data-cell="${i}">
       <div class="flex items-center gap-2 px-3 py-1.5 bg-card/30 border-b border-border-dim">
@@ -484,7 +547,12 @@ function renderNbCells() {
       </div>
       <div data-cell-editor="${i}"><textarea data-cell-input="${i}" class="w-full bg-[var(--bg-body)] text-[var(--text-primary)] border-none outline-none resize-none p-3 font-mono text-[0.85rem]" rows="3">${escapeHtml(src)}</textarea></div>
       <div data-cell-rendered="${i}" class="hidden px-4 py-3 nb-rendered-md text-[0.85rem] cursor-pointer" onclick="editMdCell(${i})" title="Click to edit"></div>
-      <div class="${outputs ? '' : 'hidden '}px-4 py-2 bg-body/50 border-t border-border-dim text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs || ''}</div>
+      <div class="${hasOutput ? '' : 'hidden '}border-t border-border-dim" data-cell-output-wrap="${i}">
+        <div class="cell-output-wrap" data-cell-output-scroll="${i}">
+          <div class="px-4 py-2 bg-body/50 text-[0.8rem] font-mono text-muted whitespace-pre-wrap" data-cell-output="${i}">${outputs || ''}</div>
+          <div class="cell-output-toggle" onclick="toggleOutputExpand(${i})">${hasMore ? `Show all output (${cellOutputs.length} items)` : 'Show all output'}</div>
+        </div>
+      </div>
     </div>` + cellDivider(i + 1);
   }).join('');
 
@@ -595,41 +663,174 @@ async function exportCellToPy(i) {
   if (btn && btn.textContent === '.py') { btn.textContent = 'Saved!'; setTimeout(() => { btn.textContent = '.py'; }, 1500); }
 }
 
+let _nbRunningCell = -1;
+let _execAbort = null;
+
+async function interruptKernel() {
+  if (!currentExpId) return;
+  if (_execAbort) { _execAbort.abort(); _execAbort = null; }
+  try {
+    await fetch(`/api/experiments/${currentExpId}/kernel/interrupt`, {method:'POST'});
+  } catch(e) { /* best effort */ }
+}
+
+function _streamExecute(expId, code, onOutput, onDone, onError) {
+  const abort = new AbortController();
+  _execAbort = abort;
+  fetch(`/api/experiments/${expId}/execute`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ code, stream: true }),
+    signal: abort.signal
+  }).then(resp => {
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    function pump() {
+      reader.read().then(({done, value}) => {
+        if (done) { onDone(); return; }
+        buf += decoder.decode(value, {stream: true});
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          const lines = part.split('\n');
+          let event = '', data = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) event = line.slice(7);
+            else if (line.startsWith('data: ')) data = line.slice(6);
+          }
+          if (event === 'output' && data) {
+            try { onOutput(JSON.parse(data)); } catch(e) {}
+          } else if (event === 'done') {
+            onDone();
+            return;
+          }
+        }
+        pump();
+      }).catch(e => {
+        if (e.name !== 'AbortError') onError(e);
+        else onDone();
+      });
+    }
+    pump();
+  }).catch(e => {
+    if (e.name !== 'AbortError') onError(e);
+    else onDone();
+  });
+  return abort;
+}
+
+function _swapToStop(cellEl, i) {
+  if (!cellEl) return;
+  const header = cellEl.querySelector('.ml-auto');
+  const runBtn = header && header.querySelector('[onclick^="runNbCell"]');
+  if (runBtn) {
+    runBtn.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30" onclick="stopNbCell(${i})" title="Stop cell">Stop</button>`;
+  }
+}
+
+let _runCooldown = false;
+
+function _swapToRun(cellEl, i) {
+  if (!cellEl) return;
+  const header = cellEl.querySelector('.ml-auto');
+  const btn = header && (header.querySelector('[onclick^="stopNbCell"]') || header.querySelector('[onclick^="runNbCell"]'));
+  if (!btn) return;
+  if (_runCooldown) {
+    btn.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-gray-500/20 text-dimmer border-none cursor-not-allowed opacity-60" disabled id="nb-cooldown-btn-${i}">Stopping…</button>`;
+    setTimeout(() => {
+      const cb = document.getElementById(`nb-cooldown-btn-${i}`);
+      if (cb) cb.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>`;
+      _runCooldown = false;
+    }, 3000);
+  } else {
+    btn.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>`;
+  }
+}
+
 async function runNbCell(i) {
   if (!nbData || !nbData.cells[i] || nbData.cells[i].cell_type !== 'code') return;
   const src = Array.isArray(nbData.cells[i].source) ? nbData.cells[i].source.join('') : nbData.cells[i].source;
   if (!src.trim()) return;
 
+  _nbRunningCell = i;
   updateKernelStatus('busy');
+  const outWrap = document.querySelector(`[data-cell-output-wrap="${i}"]`);
   const outEl = document.querySelector(`[data-cell-output="${i}"]`);
-  if (outEl) { outEl.classList.remove('hidden'); outEl.textContent = 'Running...'; outEl.className = outEl.className.replace('hidden',''); }
+  const outScroll = document.querySelector(`[data-cell-output-scroll="${i}"]`);
+  if (outWrap) outWrap.classList.remove('hidden');
+  if (outEl) { outEl.innerHTML = '<span class="text-dim">Running…</span>'; delete outEl.dataset.full; }
+  if (outScroll) outScroll.classList.remove('expanded');
 
-  try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/execute`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({code: src})
-    });
-    const result = await resp.json();
-    const cellOutputs = result.outputs || [];
+  const cellEl = document.querySelector(`[data-cell="${i}"]`);
+  _swapToStop(cellEl, i);
 
-    nbData.cells[i].outputs = cellOutputs;
+  const collectedOutputs = [];
+  let firstOutput = true;
 
-    if (outEl) {
-      const rendered = renderCellOutputs(cellOutputs);
-      if (rendered) {
-        outEl.classList.remove('hidden');
-        outEl.style.display = '';
-        outEl.innerHTML = rendered;
-      } else {
-        outEl.classList.add('hidden');
+  _streamExecute(currentExpId, src,
+    (out) => {
+      collectedOutputs.push(out);
+      if (outEl) {
+        if (firstOutput) { outEl.innerHTML = ''; firstOutput = false; }
+        outEl.innerHTML += renderCellOutputs([out]);
       }
+      if (outWrap) outWrap.classList.remove('hidden');
+    },
+    () => {
+      nbData.cells[i].outputs = collectedOutputs;
+      if (!collectedOutputs.length && outWrap) outWrap.classList.add('hidden');
+      if (outEl) outEl.dataset.full = '1';
+      updateKernelStatus('idle');
+      _nbRunningCell = -1;
+      _execAbort = null;
+      _swapToRun(document.querySelector(`[data-cell="${i}"]`), i);
+      scheduleNbSave();
+    },
+    (e) => {
+      if (outEl) outEl.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`;
+      if (outWrap) outWrap.classList.remove('hidden');
+      updateKernelStatus('dead');
+      _nbRunningCell = -1;
+      _execAbort = null;
+      _swapToRun(document.querySelector(`[data-cell="${i}"]`), i);
     }
-    updateKernelStatus('idle');
-    scheduleNbSave();
-  } catch(e) {
-    if (outEl) { outEl.classList.remove('hidden'); outEl.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`; }
-    updateKernelStatus('dead');
+  );
+}
+
+async function stopNbCell(i) {
+  _runCooldown = true;
+  const cellEl = document.querySelector(`[data-cell="${i}"]`);
+  if (cellEl) {
+    const btn = cellEl.querySelector('[onclick^="stopNbCell"]');
+    if (btn) { btn.textContent = 'Stopping…'; btn.disabled = true; btn.classList.add('opacity-60'); }
   }
+  await interruptKernel();
+}
+
+function toggleOutputExpand(i) {
+  const wrap = document.querySelector(`[data-cell-output-scroll="${i}"]`);
+  if (!wrap) return;
+  const expanded = wrap.classList.toggle('expanded');
+  const toggle = wrap.querySelector('.cell-output-toggle');
+  if (expanded && nbData && nbData.cells[i]) {
+    // Lazily render full output on first expand
+    const outEl = document.querySelector(`[data-cell-output="${i}"]`);
+    if (outEl && !outEl.dataset.full) {
+      outEl.innerHTML = renderCellOutputs(nbData.cells[i].outputs || []);
+      outEl.dataset.full = '1';
+    }
+    if (toggle) toggle.textContent = 'Collapse output';
+  } else {
+    if (toggle) toggle.textContent = 'Show all output';
+  }
+}
+
+function togglePyOutputExpand() {
+  const wrap = document.getElementById('py-output-scroll');
+  if (!wrap) return;
+  const expanded = wrap.classList.toggle('expanded');
+  const toggle = wrap.querySelector('.cell-output-toggle');
+  if (toggle) toggle.textContent = expanded ? 'Collapse output' : 'Show all output';
 }
 
 function renderMdCell(i) {

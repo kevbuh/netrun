@@ -125,7 +125,7 @@ def _execute_code(exp_id, code):
         msg_id = kc.execute(code)
 
         outputs = []
-        deadline = time.time() + 60
+        deadline = time.time() + 300
 
         while time.time() < deadline:
             try:
@@ -165,6 +165,88 @@ def _execute_code(exp_id, code):
                 break
 
         return outputs
+
+
+def _execute_code_streaming(exp_id, code, wfile, is_connected):
+    """Execute code and stream SSE events as outputs arrive."""
+    entry = _get_kernel(exp_id)
+    with entry['lock']:
+        kc = entry['kc']
+        km = entry['km']
+
+        if not km.is_alive():
+            with _kernels_lock:
+                _kernels.pop(exp_id, None)
+            entry = _get_kernel(exp_id)
+            kc = entry['kc']
+
+        msg_id = kc.execute(code)
+        deadline = time.time() + 300
+
+        while time.time() < deadline:
+            if not is_connected():
+                # Client disconnected — interrupt the kernel
+                try:
+                    km.interrupt_kernel()
+                except Exception:
+                    pass
+                return
+
+            try:
+                msg = kc.get_iopub_msg(timeout=0.5)
+            except Exception:
+                continue
+
+            if msg['parent_header'].get('msg_id') != msg_id:
+                continue
+
+            msg_type = msg['msg_type']
+            content = msg['content']
+            out = None
+
+            if msg_type == 'stream':
+                out = {
+                    'output_type': 'stream',
+                    'name': content.get('name', 'stdout'),
+                    'text': content.get('text', '')
+                }
+            elif msg_type in ('display_data', 'execute_result'):
+                out = {
+                    'output_type': msg_type,
+                    'data': content.get('data', {}),
+                    'metadata': content.get('metadata', {})
+                }
+                if msg_type == 'execute_result':
+                    out['execution_count'] = content.get('execution_count')
+            elif msg_type == 'error':
+                out = {
+                    'output_type': 'error',
+                    'ename': content.get('ename', ''),
+                    'evalue': content.get('evalue', ''),
+                    'traceback': content.get('traceback', [])
+                }
+            elif msg_type == 'status' and content.get('execution_state') == 'idle':
+                try:
+                    wfile.write(b'event: done\ndata: {}\n\n')
+                    wfile.flush()
+                except Exception:
+                    pass
+                return
+
+            if out:
+                try:
+                    data = json.dumps(out)
+                    wfile.write(f'event: output\ndata: {data}\n\n'.encode())
+                    wfile.flush()
+                except Exception:
+                    return
+
+        # Timed out
+        try:
+            wfile.write(b'event: done\ndata: {"timeout":true}\n\n')
+            wfile.flush()
+        except Exception:
+            pass
 
 
 def read_blocked_titles():
@@ -817,14 +899,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             code = body.get('code', '')
-            outputs = _execute_code(exp_id, code)
-            self._send_json({'outputs': outputs})
+            stream = body.get('stream', False)
+            if stream:
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.send_header('Cache-Control', 'no-cache')
+                self.send_header('Connection', 'keep-alive')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                connected = [True]
+                def is_connected():
+                    return connected[0]
+                try:
+                    _execute_code_streaming(exp_id, code, self.wfile, is_connected)
+                except (BrokenPipeError, ConnectionResetError):
+                    connected[0] = False
+            else:
+                outputs = _execute_code(exp_id, code)
+                self._send_json({'outputs': outputs})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel/restart$'):
             exp_id = m.group(1)
             _kill_kernel(exp_id)
             _get_kernel(exp_id)
             self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel/interrupt$'):
+            exp_id = m.group(1)
+            with _kernels_lock:
+                entry = _kernels.get(exp_id)
+            if entry and entry['km'].is_alive():
+                try:
+                    entry['km'].interrupt_kernel()
+                    self._send_json({'ok': True})
+                except Exception as e:
+                    self._send_json({'error': str(e)}, 500)
+            else:
+                self._send_json({'error': 'No running kernel'}, 404)
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/venv$'):
             exp_id = m.group(1)
@@ -1128,4 +1239,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 print(f'Serving at http://localhost:{PORT}')
-http.server.HTTPServer(('', PORT), Handler).serve_forever()
+class ThreadingHTTPServer(http.server.HTTPServer):
+    import socketserver
+    _mixin = socketserver.ThreadingMixIn
+    allow_reuse_address = True
+    daemon_threads = True
+    def process_request_thread(self, request, client_address):
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            pass
+        finally:
+            self.shutdown_request(request)
+    def process_request(self, request, client_address):
+        import threading
+        t = threading.Thread(target=self.process_request_thread, args=(request, client_address))
+        t.daemon = True
+        t.start()
+
+ThreadingHTTPServer(('', PORT), Handler).serve_forever()

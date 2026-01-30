@@ -259,3 +259,18 @@
     .cm-s-default .cm-attribute { color: #9cdcfe !important; }
     .cm-s-default .cm-header { color: #569cd6 !important; }
     .cm-s-default .cm-link { color: #9cdcfe !important; }
+
+    /* ── Cell output truncation ── */
+    .cell-output-wrap { position: relative; max-height: 300px; overflow: hidden; }
+    .cell-output-wrap.expanded { max-height: 600px; overflow-y: auto; }
+    .cell-output-toggle {
+      display: none; position: sticky; bottom: 0; left: 0; right: 0;
+      text-align: center; padding: 4px 0;
+      background: linear-gradient(transparent, var(--bg-body) 40%);
+      cursor: pointer; font-size: 0.7rem; color: var(--text-muted);
+    }
+    .cell-output-toggle:hover { color: var(--accent); }
+    .cell-output-wrap:not(.expanded) .cell-output-toggle { display: block; }
+    .cell-output-wrap.expanded .cell-output-toggle {
+      display: block; background: var(--bg-body); position: sticky;
+    }
