@@ -211,31 +211,22 @@ function renderExpTodos() {
   const countEl = document.getElementById('exp-todo-count');
   const active = expTodos.filter(t => !t.done);
   const done = expTodos.filter(t => t.done);
-  countEl.textContent = `${active.length} todo${active.length !== 1 ? 's' : ''}${done.length ? ` · ${done.length} done` : ''}`;
+  const total = active.length + done.length;
+  countEl.textContent = total ? `${active.length}/${total}` : '';
 
   if (!expTodos.length) {
-    list.innerHTML = '';
+    list.innerHTML = '<div class="text-[0.75rem] text-dimmer pl-1 py-1">No todos</div>';
     return;
   }
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${months[m - 1]} ${d}`;
-  };
-
   const renderItem = (t) => {
-    const dateTag = t.date ? `<span class="text-[0.7rem] text-dimmer bg-body px-2 py-0.5 rounded-full">${formatDate(t.date)}</span>` : '';
-    return `<div class="flex items-center gap-3 py-2.5 px-1 group border-b border-border-dim/50">
-      <button onclick="toggleExpTodo('${t.id}')" class="w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center cursor-pointer bg-transparent transition-colors ${t.done ? 'border-emerald-500 bg-emerald-500/20' : 'border-border-input hover:border-accent'}">
-        ${t.done ? '<svg class="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
+    return `<div class="flex items-center gap-2 py-1 pl-1 group hover:bg-hover rounded transition-colors">
+      <button onclick="toggleExpTodo('${t.id}')" class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center cursor-pointer bg-transparent transition-colors ${t.done ? 'border-emerald-500 bg-emerald-500/20' : 'border-border-input hover:border-accent'}">
+        ${t.done ? '<svg class="w-2.5 h-2.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
       </button>
-      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${t.color || '#b4451a'}"></span>
-      <span class="flex-1 text-[0.85rem] ${t.done ? 'line-through text-dimmer' : 'text-primary'}">${escapeHtml(t.title)}</span>
-      ${dateTag}
-      <button onclick="deleteExpTodo('${t.id}')" class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="flex-1 text-[0.78rem] truncate ${t.done ? 'line-through text-dimmer' : 'text-muted'}">${escapeHtml(t.title)}</span>
+      <button onclick="deleteExpTodo('${t.id}')" class="w-4 h-4 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Delete">
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>`;
   };
@@ -243,19 +234,36 @@ function renderExpTodos() {
   list.innerHTML = active.map(renderItem).join('') + done.map(renderItem).join('');
 }
 
+function toggleExpTodosFolder() {
+  const folder = document.getElementById('exp-todos-folder');
+  const chevron = document.getElementById('exp-todos-chevron');
+  if (!folder) return;
+  const collapsed = folder.classList.toggle('hidden');
+  if (chevron) chevron.style.transform = collapsed ? '' : 'rotate(90deg)';
+}
+
 function addExpTodo() {
+  // Expand folder if collapsed
+  const folder = document.getElementById('exp-todos-folder');
+  const chevron = document.getElementById('exp-todos-chevron');
+  if (folder && folder.classList.contains('hidden')) {
+    folder.classList.remove('hidden');
+    if (chevron) chevron.style.transform = 'rotate(90deg)';
+  }
   const area = document.getElementById('exp-todo-input-area');
   if (area.querySelector('input')) { area.querySelector('input').focus(); return; }
-  area.innerHTML = `<div class="flex items-center gap-2 mb-4">
-    <input id="exp-todo-input" type="text" class="flex-1 px-3 py-2 rounded-md border border-border-input bg-input text-primary text-[0.85rem] focus:outline-none focus:border-accent" placeholder="Todo title..." autofocus />
-    <button onclick="submitExpTodo()" class="px-3 py-2 rounded-md border-none bg-accent text-white text-[0.85rem] cursor-pointer hover:bg-accent-hover">Add</button>
-    <button onclick="document.getElementById('exp-todo-input-area').innerHTML=''" class="px-3 py-2 rounded-md border border-border-input bg-transparent text-muted text-[0.85rem] cursor-pointer hover:text-primary">Cancel</button>
+  area.innerHTML = `<div class="flex items-center gap-1.5 mb-1">
+    <input id="exp-todo-input" type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.78rem] focus:outline-none focus:border-accent" placeholder="New todo…" autofocus />
+    <button onmousedown="event.preventDefault(); submitExpTodo()" class="px-2 py-1 rounded border-none bg-accent text-white text-[0.75rem] cursor-pointer hover:bg-accent-hover">Add</button>
   </div>`;
   const input = document.getElementById('exp-todo-input');
   input.focus();
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); submitExpTodo(); }
     if (e.key === 'Escape') { area.innerHTML = ''; }
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => { if (area.querySelector('#exp-todo-input')) area.innerHTML = ''; }, 100);
   });
 }
 
@@ -377,6 +385,23 @@ function startRenameFile(fname, spanEl) {
     if (e.key === 'Escape') { fetchExpFiles(); }
   });
   input.addEventListener('blur', () => commit());
+}
+
+function toggleExpFileMenu() {
+  const menu = document.getElementById('exp-file-menu');
+  if (!menu) return;
+  menu.classList.toggle('hidden');
+  if (!menu.classList.contains('hidden')) {
+    setTimeout(() => document.addEventListener('click', hideExpFileMenuOnClick, { once: true }), 0);
+  }
+}
+function hideExpFileMenu() {
+  const menu = document.getElementById('exp-file-menu');
+  if (menu) menu.classList.add('hidden');
+}
+function hideExpFileMenuOnClick(e) {
+  const menu = document.getElementById('exp-file-menu');
+  if (menu && !menu.contains(e.target)) menu.classList.add('hidden');
 }
 
 async function createExpFile(ext, content) {

@@ -206,26 +206,41 @@
           Back
         </button>
         <div id="exp-detail-title" class="text-[1.1rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors nb-rendered-md mb-3" onclick="startRenameExperiment()" title="Click to rename"></div>
-        <span class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Files</span>
-        <div class="flex gap-1.5 mb-3">
-          <button class="px-2 py-1 rounded-md border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.py')">+ py</button>
-          <button class="px-2 py-1 rounded-md border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.md')">+ md</button>
-          <button class="px-2 py-1 rounded-md border border-border-input bg-transparent text-muted text-[0.75rem] cursor-pointer hover:text-primary hover:border-accent transition-colors" onclick="createExpFile('.ipynb')">+ nb</button>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[0.75rem] text-dim uppercase tracking-wide">Files</span>
+          <div class="relative">
+            <button class="w-6 h-6 rounded-md flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors text-[0.85rem] leading-none p-0" onclick="toggleExpFileMenu()" title="New file">+</button>
+            <div id="exp-file-menu" class="hidden absolute right-0 top-7 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[120px]">
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.py'); hideExpFileMenu()">Python (.py)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.md'); hideExpFileMenu()">Markdown (.md)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.ipynb'); hideExpFileMenu()">Notebook (.ipynb)</button>
+            </div>
+          </div>
         </div>
         <div id="exp-sidebar-files"></div>
+
+        <!-- Todos folder -->
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-1">
+            <button onclick="toggleExpTodosFolder()" class="flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer text-dim hover:text-primary transition-colors">
+              <svg id="exp-todos-chevron" class="w-3 h-3 fill-current transition-transform" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+              <span class="text-[0.75rem] uppercase tracking-wide">Todos</span>
+            </button>
+            <div class="flex items-center gap-1">
+              <span id="exp-todo-count" class="text-[0.68rem] text-dimmer"></span>
+              <button onclick="addExpTodo()" class="w-5 h-5 rounded flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary text-[0.9rem] leading-none p-0" title="New todo">+</button>
+            </div>
+          </div>
+          <div id="exp-todos-folder" class="">
+            <div id="exp-todo-input-area"></div>
+            <div id="exp-todos-list"></div>
+          </div>
+        </div>
       </div>
       <!-- Right Content Pane -->
       <div id="exp-content-pane" class="overflow-y-auto p-8">
         <div id="exp-default-content">
-          <div id="exp-detail-desc" class="text-[0.85rem] text-muted mb-5 cursor-pointer hover:text-primary transition-colors nb-rendered-md" ondblclick="startEditDesc()" title="Double-click to edit description"></div>
-          <div id="exp-todos-section" class="mt-4">
-            <div class="flex items-center justify-between mb-4">
-              <span id="exp-todo-count" class="text-[0.8rem] text-dim"></span>
-              <button onclick="addExpTodo()" class="px-4 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors">+ Add Todo</button>
-            </div>
-            <div id="exp-todo-input-area"></div>
-            <div id="exp-todos-list"></div>
-          </div>
+          <div id="exp-detail-desc" class="text-[0.85rem] text-muted cursor-pointer hover:text-primary transition-colors nb-rendered-md" ondblclick="startEditDesc()" title="Double-click to edit description"></div>
         </div>
         <div id="exp-file-editor" style="display:none"></div>
       </div>

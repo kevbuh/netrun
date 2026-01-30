@@ -93,12 +93,12 @@ async function renderDashboard() {
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No notes yet</div>';
 
-  // ── Experiment todos ──
-  const expTodos = allNotes.filter(n => n.experimentId && !n.done);
+  // ── All active todos ──
+  const activeTodos = allNotes.filter(n => !n.done);
   const expMap = {};
   experiments.forEach(e => { expMap[e.id] = e.title; });
-  const expTodosHtml = expTodos.length ? expTodos.slice(0, 6).map(t => {
-    const expName = expMap[t.experimentId] || '';
+  const todosHtml = activeTodos.length ? activeTodos.slice(0, 10).map(t => {
+    const expName = t.experimentId ? (expMap[t.experimentId] || '') : '';
     return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors">
       <span class="w-2 h-2 rounded-full shrink-0" style="background:${t.color || 'var(--accent)'}"></span>
       <div class="flex-1 min-w-0">
@@ -106,7 +106,7 @@ async function renderDashboard() {
         ${expName ? `<div class="text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary" onclick="openExperimentDetail('${t.experimentId}')">${escapeHtml(expName)}</div>` : ''}
       </div>
     </div>`;
-  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No experiment todos</div>';
+  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No todos</div>';
 
   // ── Reading list ──
   const savedEntries = Object.values(mergedSaved).sort((a, b) => b.savedAt - a.savedAt).slice(0, 6);
@@ -137,7 +137,7 @@ async function renderDashboard() {
 
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Home</h2>
-    <div class="grid grid-cols-[1fr_1fr] gap-6">
+    <div class="grid grid-cols-[320px_1fr] gap-8">
       <div>
         <div class="mb-6">
           <div class="flex items-center justify-between mb-2">
@@ -147,9 +147,9 @@ async function renderDashboard() {
               <button onclick="dashCalNav(1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&rsaquo;</button>
             </div>
           </div>
-          <div class="bg-card border border-border-card rounded-xl p-3">
-            <div class="grid grid-cols-7 text-center text-[0.7rem] text-dimmer mb-1">${dayNames.map(d => `<div>${d}</div>`).join('')}</div>
-            <div class="grid grid-cols-7 text-[0.75rem]">${calGrid}</div>
+          <div class="bg-card border border-border-card rounded-xl p-4">
+            <div class="grid grid-cols-7 text-center text-[0.78rem] text-dimmer mb-2">${dayNames.map(d => `<div>${d}</div>`).join('')}</div>
+            <div class="grid grid-cols-7 text-[0.88rem] gap-y-1">${calGrid}</div>
           </div>
         </div>
 
@@ -163,31 +163,61 @@ async function renderDashboard() {
 
         <div>
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Experiment Todos</h3>
-          </div>
-          ${expTodosHtml}
-        </div>
-      </div>
-
-      <div>
-        <div class="mb-6">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
-            <button onclick="openSaved()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
-          </div>
-          ${readingHtml}
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
             <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
           </div>
           <div class="flex flex-col gap-2">${expsHtml}</div>
         </div>
       </div>
+
+      <div>
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Todos</h3>
+            <button onclick="dashShowTodoInput()" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary text-[1rem] leading-none p-0" title="New todo">+</button>
+          </div>
+          <div id="dash-todo-input" class="hidden mb-3">
+            <form class="flex gap-2" onsubmit="event.preventDefault(); dashAddTodo(this)">
+              <input type="text" placeholder="New todo…" class="flex-1 px-3 py-1.5 rounded-lg bg-card border border-border-input text-[0.82rem] text-primary outline-none focus:border-accent" name="todoTitle" onkeydown="if(event.key==='Escape'){document.getElementById('dash-todo-input').classList.add('hidden')}">
+              <button type="submit" class="px-3 py-1.5 rounded-lg bg-accent text-white text-[0.82rem] border-none cursor-pointer hover:opacity-90">Add</button>
+            </form>
+          </div>
+          ${todosHtml}
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
+            <button onclick="openSaved()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          ${readingHtml}
+        </div>
+      </div>
     </div>
   `;
+}
+
+function dashShowTodoInput() {
+  const el = document.getElementById('dash-todo-input');
+  if (!el) return;
+  el.classList.remove('hidden');
+  const inp = el.querySelector('input');
+  if (inp) inp.focus();
+}
+
+async function dashAddTodo(form) {
+  const input = form.todoTitle;
+  const title = input.value.trim();
+  if (!title) return;
+  input.value = '';
+  try {
+    await fetch('/api/todos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, done: false })
+    });
+    renderDashboard();
+  } catch (e) { console.error('Failed to add todo', e); }
 }
 
 // ── Paper Viewer (shared) ──

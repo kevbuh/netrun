@@ -638,6 +638,7 @@ function renderSettingsView() {
     { color: '#805ad5', name: 'Purple' },
     { color: '#d53f8c', name: 'Pink' },
     { color: '#718096', name: 'Gray' },
+    { color: '#111111', name: 'Black' },
   ];
 
   container.innerHTML = `
