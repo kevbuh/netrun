@@ -43,6 +43,51 @@ function updateSavedBadge() {
 function getHiddenPosts() {
   try { return JSON.parse(localStorage.getItem('hiddenPosts') || '[]'); } catch { return []; }
 }
+function openCardMenu(btn, ev, index) {
+  ev.stopPropagation();
+  ev.preventDefault();
+  closeCardMenu();
+  const p = lastFilteredPapers[index];
+  if (!p) return;
+  const qfOn = isQualityFilterOn();
+  const sourceKey = p.source;
+  const sourceName = SOURCE_NAMES[p.source] || p.source;
+  const bypassed = qfOn && isSourceBypassed(p.source);
+
+  const menu = document.createElement('div');
+  menu.id = 'card-menu-portal';
+  menu.className = 'card-menu';
+  menu.innerHTML = `
+    <button onmousedown="event.stopPropagation(); hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}'); closeCardMenu()">Hide post</button>
+    <button onmousedown="event.stopPropagation(); toggleSourceBubble('${escapeAttr(sourceKey)}'); closeCardMenu()">Hide ${escapeHtml(sourceName)}</button>
+    ${qfOn ? `<button onmousedown="event.stopPropagation(); setQualityBypass('${escapeAttr(sourceKey)}', ${!bypassed}); closeCardMenu()">${bypassed ? 'Enable' : 'Skip'} filter for ${escapeHtml(sourceName)}</button>` : ''}
+  `;
+  document.body.appendChild(menu);
+
+  const rect = btn.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 4) + 'px';
+  let left = rect.right - menu.offsetWidth;
+  if (left < 8) left = 8;
+  menu.style.left = left + 'px';
+
+  setTimeout(() => {
+    document.addEventListener('mousedown', _cardMenuOutsideClick);
+    window.addEventListener('scroll', closeCardMenu, true);
+  }, 0);
+}
+
+function _cardMenuOutsideClick(e) {
+  const menu = document.getElementById('card-menu-portal');
+  if (menu && !menu.contains(e.target)) closeCardMenu();
+}
+
+function closeCardMenu() {
+  const menu = document.getElementById('card-menu-portal');
+  if (menu) menu.remove();
+  document.removeEventListener('mousedown', _cardMenuOutsideClick);
+  window.removeEventListener('scroll', closeCardMenu, true);
+}
+
 function hidePost(link, title, event) {
   if (event) event.stopPropagation();
   const hidden = getHiddenPosts();
@@ -233,6 +278,14 @@ let currentSort = 'latest';
 const PAGE_SIZE = 20;
 let visibleCount = PAGE_SIZE;
 let hiddenSourceFilters = new Set();
+let feedViewMode = 'block'; // 'block' or 'compact'
+
+function toggleViewMode() {
+  feedViewMode = feedViewMode === 'block' ? 'compact' : 'block';
+  const btn = document.getElementById('view-mode-btn');
+  if (btn) btn.textContent = feedViewMode === 'block' ? 'Compact' : 'Block';
+  renderPapers();
+}
 
 function toggleSourceBubble(key) {
   if (hiddenSourceFilters.has(key)) hiddenSourceFilters.delete(key);
@@ -775,12 +828,24 @@ async function loadAllFeeds() {
     labels.push('custom');
   }
 
+  // Show centered loading animation
+  const container = document.getElementById('papers');
+  const loadFrames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+  let _loadFi = 0;
+  container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span id="feed-load-anim" class="text-dim text-[1.4rem] font-mono"></span></div>`;
+  const _loadAnim = setInterval(() => {
+    const el = document.getElementById('feed-load-anim');
+    if (el) el.textContent = loadFrames[_loadFi++ % loadFrames.length];
+  }, 80);
+
   const results = await Promise.all(promises);
+  clearInterval(_loadAnim);
   if (abort.signal.aborted) return;
+  const MAX_PER_SOURCE = 100;
   for (let i = 0; i < results.length; i++) {
     const items = results[i];
     if (Array.isArray(items) && items.length) {
-      allPapers = allPapers.concat(items);
+      allPapers = allPapers.concat(items.slice(0, MAX_PER_SOURCE));
     }
   }
   renderTrends();
@@ -965,36 +1030,59 @@ function renderPapers() {
   const container = document.getElementById('papers');
   if (!filtered.length && pendingCount > 0) { container.innerHTML = '<div class="text-center py-20 text-dim text-[0.85rem]"><span class="animate-pulse">●</span> Evaluating posts…</div>'; return; }
   if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
-  container.innerHTML = visible.map((p, i) => {
-    const isHN = p.source === 'hn';
-    const sourceChip = getSourceChip(p.source, p.arxivId);
-    const aiEntry = qfOn ? qCache[p.title] : null;
-    const aiVerdict = aiEntry?.v || aiEntry;
-    const aiScore = aiEntry?.s;
-    const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
-    const isPoly = p.source === 'polymarket';
-    const statsChips = isHN
-      ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
-      : isPoly
-      ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
-      : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
-    const catChips = isPoly ? '' : p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
-    const dateChip = p.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(p.date)}</span>` : '';
-    const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
-    const isSaved = isPostSaved(p.link);
-    const bmFill = isSaved ? 'var(--accent)' : 'none';
-    const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
-    const actionBtns = `<div class="absolute top-3 right-3 flex items-center gap-0.5 z-10"><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button><button class="bg-transparent border-none cursor-pointer p-1 text-dimmer hover:text-red-400 transition-colors" onclick="hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}', event)" title="Hide this post"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
-    const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-    const newDot = isNew ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-1 shrink-0" title="New"></span>' : '';
-    return `
-    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
-      ${actionBtns}
-      <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-16">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}${dateChip}</div>
-      <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
-      ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
-    </div>`;
-  }).join('');
+  if (feedViewMode === 'compact') {
+    container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => {
+      const sourceChip = getSourceChip(p.source, p.arxivId);
+      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+      const newDot = isNew ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
+      const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
+      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors group" onclick="openPaper(${i})">
+        ${newDot}${sourceChip}
+        <span class="text-[0.82rem] text-primary truncate">${renderTitle(p.title)}</span>
+        <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${isPostSaved(p.link) ? 'var(--accent)' : 'none'}" stroke="${isPostSaved(p.link) ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
+          <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+        </span>
+        ${date}
+      </div>`;
+    }).join('') + `</div>`;
+  } else {
+    container.innerHTML = visible.map((p, i) => {
+      const isHN = p.source === 'hn';
+      const isArxiv = p.source === 'arxiv';
+      const sourceChip = getSourceChip(p.source, p.arxivId);
+      const aiEntry = qfOn ? qCache[p.title] : null;
+      const aiVerdict = aiEntry?.v || aiEntry;
+      const aiScore = aiEntry?.s;
+      const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
+      const isPoly = p.source === 'polymarket';
+      const statsChips = isHN
+        ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
+        : isPoly
+        ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
+        : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
+      const catChips = (isPoly || isArxiv) ? '' : p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
+      const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
+      const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
+      const isSaved = isPostSaved(p.link);
+      const bmFill = isSaved ? 'var(--accent)' : 'none';
+      const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+      const actionBtns = `<div class="absolute top-3 right-3 flex items-center z-10">
+        ${dateChip ? `<span class="text-[0.68rem] text-dim mr-1.5">${escapeHtml(p.date)}</span>` : ''}
+        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
+        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+      </div>`;
+      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+      const newDot = isNew ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-1 shrink-0" title="New"></span>' : '';
+      return `
+      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
+        ${actionBtns}
+        <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}</div>
+        <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
+        ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
   fetchCitationsFor(visible);
 }
 
