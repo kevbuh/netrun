@@ -659,7 +659,7 @@ function renderSettingsView() {
         <span class="text-primary text-sm">Accent Color</span>
         <div class="flex gap-2">
           ${accentColors.map(a => `
-            <button onclick="setAccentColor('${a.color}')" class="w-6 h-6 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 ${currentAccent === a.color ? 'border-white_ scale-110' : 'border-transparent'}" style="background:${a.color}" title="${a.name}"></button>
+            <button onclick="setAccentColor('${a.color}')" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${currentAccent === a.color ? 'scale-110 ring-2 ring-offset-2' : ''}" style="background:${a.color}; ${currentAccent === a.color ? `--tw-ring-color:${a.color}; --tw-ring-offset-color: var(--bg-body)` : ''}" title="${a.name}"></button>
           `).join('')}
         </div>
       </div>
@@ -668,26 +668,22 @@ function renderSettingsView() {
     <!-- FEED SOURCES -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Feed Sources</h3>
-      <div class="flex flex-col gap-2" id="settings-builtin-sources">
+      <div class="flex flex-wrap gap-x-12 gap-y-4" id="settings-builtin-sources">
         ${cats.map(cat => `
-          <div class="text-[0.68rem] text-dim uppercase tracking-wider mt-3 first:mt-0">${cat}</div>
-          ${catMap[cat].map(f => `
-            <div class="flex items-center justify-between">
-              <span class="text-primary text-sm">${f.name}</span>
-              <div class="flex items-center gap-3">
-                <label class="flex items-center gap-1 cursor-pointer" title="Skip AI quality filter for this source">
-                  <span class="text-dimmer text-[0.65rem]">Skip filter</span>
-                  <input type="checkbox" class="accent-[var(--accent)]" ${bypassMap[f.key] ? 'checked' : ''} onchange="setQualityBypass('${f.key}', this.checked)">
-                </label>
+          <div class="min-w-[160px]">
+            <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-2">${cat}</div>
+            ${catMap[cat].map(f => `
+              <div class="flex items-center gap-3 py-1">
                 <label class="cursor-pointer">
                   <span class="toggle-switch">
                     <input type="checkbox" id="toggle-${f.key}" ${sources[f.key] ? 'checked' : ''} onchange="toggleFeedSource('${f.key}', this.checked)">
                     <span class="slider"></span>
                   </span>
                 </label>
+                <span class="text-primary text-sm">${f.name}</span>
               </div>
-            </div>
-          `).join('')}
+            `).join('')}
+          </div>
         `).join('')}
       </div>
     </div>
@@ -816,13 +812,17 @@ function setAccentColor(color) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accentColor: color })
   }).catch(() => {});
-  // Update swatch borders
+  // Update swatch rings
   document.querySelectorAll('[onclick^="setAccentColor"]').forEach(btn => {
-    const btnColor = btn.style.background;
-    const el = btn;
-    // Compare by checking if this button's onclick matches
     const isActive = btn.getAttribute('onclick') === `setAccentColor('${color}')`;
-    el.className = `w-6 h-6 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 ${isActive ? 'border-white_ scale-110' : 'border-transparent'}`;
+    btn.className = `w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${isActive ? 'scale-110 ring-2 ring-offset-2' : ''}`;
+    if (isActive) {
+      btn.style.setProperty('--tw-ring-color', color);
+      btn.style.setProperty('--tw-ring-offset-color', 'var(--bg-body)');
+    } else {
+      btn.style.removeProperty('--tw-ring-color');
+      btn.style.removeProperty('--tw-ring-offset-color');
+    }
   });
 }
 

@@ -153,16 +153,16 @@
     .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-switch .slider {
-      position: absolute; inset: 0; background: #333; border-radius: 20px;
+      position: absolute; inset: 0; background: color-mix(in srgb, var(--accent) 30%, #999); border-radius: 20px;
       cursor: pointer; transition: background 0.2s;
     }
     .toggle-switch .slider::before {
       content: ''; position: absolute; left: 2px; top: 2px;
-      width: 16px; height: 16px; background: #999; border-radius: 50%;
-      transition: transform 0.2s, background 0.2s;
+      width: 16px; height: 16px; background: #fff; border-radius: 50%; opacity: 0.7;
+      transition: transform 0.2s, opacity 0.2s;
     }
     .toggle-switch input:checked + .slider { background: var(--accent); }
-    .toggle-switch input:checked + .slider::before { transform: translateX(16px); background: #fff; }
+    .toggle-switch input:checked + .slider::before { transform: translateX(16px); opacity: 1; }
 
     /* ── CSS columns masonry ── */
     main {
