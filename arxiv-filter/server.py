@@ -686,6 +686,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(str(e).encode())
 
+        elif self.path.startswith('/api/openalex-search'):
+            try:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                query = qs.get('q', [''])[0].strip()
+                page = int(qs.get('page', ['1'])[0])
+                per_page = int(qs.get('per_page', ['100'])[0])
+                if not query:
+                    self._send_json({'error': 'Query required'}, 400)
+                    return
+                search_url = (
+                    f'https://api.openalex.org/works?search={urllib.request.quote(query)}'
+                    f'&page={page}&per_page={per_page}'
+                    f'&select=id,doi,title,authorships,publication_date,cited_by_count,primary_location,type'
+                )
+                req = urllib.request.Request(
+                    search_url,
+                    headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
+                )
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                    data = resp.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         elif self.path == '/api/experiments':
             experiments = []
             if os.path.isdir(EXPERIMENTS_DIR):
