@@ -1346,13 +1346,17 @@ function renderPapers() {
     container.innerHTML = visible.map((p, i) => {
       const isHN = p.source === 'hn';
       const isArxiv = p.source === 'arxiv';
-      const sourceChip = p.commentsUrl ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="inline-flex items-center gap-1 text-[0.75rem] text-dim"><img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=32" class="w-4 h-4 rounded" alt="">${escapeHtml(h)}</span>`; } catch { return getSourceChip(p.source, p.arxivId); } })() : getSourceChip(p.source, p.arxivId);
+      const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+      const sourceChip = _hasExternalLink ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="inline-flex items-center gap-1 text-[0.75rem] text-dim"><img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=32" class="w-4 h-4 rounded" alt="">${escapeHtml(h)}</span>`; } catch { return getSourceChip(p.source, p.arxivId); } })() : getSourceChip(p.source, p.arxivId);
+      const viaLine = _hasExternalLink ? `<div class="flex items-center gap-1 text-[0.68rem] text-dimmer mt-0.5">${SOURCE_LOGO_INLINE[p.source] || ''}via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</div>` : '';
       const aiEntry = qfOn ? qCache[p.title] : null;
       const aiVerdict = aiEntry?.v || aiEntry;
       const aiScore = aiEntry?.s;
       const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
       const isPoly = p.source === 'polymarket';
-      const statsChips = isHN
+      const statsChips = (isHN && _hasExternalLink)
+        ? ''
+        : isHN
         ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
         : isPoly
         ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
@@ -1374,8 +1378,9 @@ function renderPapers() {
       return `
       <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
         ${actionBtns}
-        <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}</div>
-        <div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
+        <div class="flex gap-1.5 flex-wrap items-center mb-0.5 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}</div>
+        ${viaLine}
+        <div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} mb-1.5 leading-snug pr-12 ${viaLine ? 'mt-1.5' : 'mt-1'}">${renderTitle(p.title)}</div>
         ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
       </div>`;
     }).join('');
