@@ -168,6 +168,8 @@ function showPaperView(paper, hashValue) {
       </button>
     </div>
     ${bookmarkBtn}
+    <span id="openreview-link" class="shrink-0 hidden"></span>
+    <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-transparent border-border-input text-muted text-[0.78rem] cursor-pointer transition-colors hover:text-primary hover:border-dimmer shrink-0" onclick="showCitePopup()" title="Cite paper">Cite</button>
     <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
@@ -275,6 +277,9 @@ function showPaperView(paper, hashValue) {
 
   // Fetch paper insights (async, non-blocking)
   fetchPaperInsights(paper.link);
+
+  // Check for OpenReview link (async, non-blocking)
+  checkOpenReview(paper.title);
 }
 
 // ── Post Quote from Viewer ──
@@ -382,6 +387,136 @@ async function fetchPaperInsights(url) {
   } catch (e) {
     el.innerHTML = '';
   }
+}
+
+// ── OpenReview Link ──
+async function checkOpenReview(title) {
+  const el = document.getElementById('openreview-link');
+  const pdfEl = document.getElementById('pdf-openreview-link');
+  if (el) el.classList.add('hidden');
+  if (pdfEl) pdfEl.classList.add('hidden');
+  try {
+    const resp = await fetch('/api/openreview-search?' + new URLSearchParams({ title }));
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.url) {
+      const linkHtml = `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-border-input text-[0.78rem] text-link no-underline hover:border-accent hover:bg-accent/10 transition-colors" title="View on OpenReview"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg>OpenReview</a>`;
+      if (el) { el.innerHTML = linkHtml; el.classList.remove('hidden'); }
+      if (pdfEl) { pdfEl.innerHTML = linkHtml; pdfEl.classList.remove('hidden'); }
+    }
+  } catch {}
+}
+
+// ── Cite Paper ──
+let _citePopup = null;
+
+function showCitePopup() {
+  if (_citePopup) { dismissCitePopup(); return; }
+  const paper = _currentPaperViewPaper;
+  if (!paper) return;
+
+  _citePopup = document.createElement('div');
+  _citePopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:20px;min-width:400px;max-width:600px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  _citePopup.innerHTML = `<div class="flex items-center justify-between mb-3"><span class="text-[0.9rem] font-semibold text-white_">Cite</span><button onclick="dismissCitePopup()" class="bg-transparent border-none text-dimmer cursor-pointer hover:text-primary text-lg">&times;</button></div><div class="flex gap-1.5 mb-3"><button onclick="switchCiteFormat('bibtex')" id="cite-fmt-bibtex" class="px-2.5 py-1 rounded-md text-[0.75rem] border cursor-pointer border-accent text-accent bg-accent/10">BibTeX</button><button onclick="switchCiteFormat('apa')" id="cite-fmt-apa" class="px-2.5 py-1 rounded-md text-[0.75rem] border cursor-pointer border-border-input text-muted bg-card hover:text-primary">APA</button></div><pre id="cite-content" class="bg-body border border-border-input rounded-lg p-3 text-[0.78rem] text-primary font-mono whitespace-pre-wrap overflow-auto max-h-[300px] m-0">Loading...</pre><button onclick="copyCitation()" id="cite-copy-btn" class="mt-3 px-3 py-1.5 rounded-md bg-accent text-white text-[0.78rem] border-none cursor-pointer hover:opacity-90">Copy</button>`;
+  document.body.appendChild(_citePopup);
+
+  // Backdrop
+  const backdrop = document.createElement('div');
+  backdrop.id = 'cite-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.4)';
+  backdrop.onclick = dismissCitePopup;
+  document.body.appendChild(backdrop);
+
+  generateCitation('bibtex');
+}
+
+function dismissCitePopup() {
+  if (_citePopup) { _citePopup.remove(); _citePopup = null; }
+  const bd = document.getElementById('cite-backdrop');
+  if (bd) bd.remove();
+}
+
+function switchCiteFormat(fmt) {
+  ['bibtex', 'apa'].forEach(f => {
+    const btn = document.getElementById('cite-fmt-' + f);
+    if (btn) btn.className = `px-2.5 py-1 rounded-md text-[0.75rem] border cursor-pointer ${f === fmt ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:text-primary'}`;
+  });
+  generateCitation(fmt);
+}
+
+function _citeKey(paper) {
+  const first = (paper.authors || '').split(/[,;&]/)[0].trim().split(/\s+/).pop() || 'unknown';
+  const year = paper.published ? new Date(paper.published).getFullYear() : new Date().getFullYear();
+  const word = (paper.title || '').split(/\s+/).find(w => w.length > 3 && /^[a-zA-Z]/.test(w)) || 'paper';
+  return (first + year + word).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+async function generateCitation(fmt) {
+  const el = document.getElementById('cite-content');
+  if (!el) return;
+  const paper = _currentPaperViewPaper;
+  if (!paper) return;
+
+  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/abs\//.test(paper.link);
+  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '') : '';
+
+  let authors = paper.authors || '';
+  let title = paper.title || '';
+  let year = paper.published ? new Date(paper.published).getFullYear() : '';
+  let journal = '';
+  let eprint = arxivId;
+
+  // Try to fetch richer metadata from arXiv API
+  if (arxivId) {
+    try {
+      const resp = await fetch('/api/arxiv-search?' + new URLSearchParams({ query: `id:${arxivId}`, max_results: '1' }));
+      if (resp.ok) {
+        const text = await resp.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(text, 'text/xml');
+        const entry = xml.querySelector('entry');
+        if (entry) {
+          const names = [...entry.querySelectorAll('author name')].map(n => n.textContent);
+          if (names.length) authors = names.join(' and ');
+          const t = entry.querySelector('title');
+          if (t) title = t.textContent.replace(/\s+/g, ' ').trim();
+          const pub = entry.querySelector('published');
+          if (pub) year = new Date(pub.textContent).getFullYear();
+          const cat = entry.querySelector('category');
+          if (cat) journal = cat.getAttribute('term') || '';
+        }
+      }
+    } catch {}
+  }
+
+  const key = _citeKey(paper);
+
+  if (fmt === 'bibtex') {
+    let bib = `@article{${key},\n  title = {${title}},\n  author = {${authors}},\n  year = {${year}}`;
+    if (eprint) bib += `,\n  eprint = {${eprint}},\n  archivePrefix = {arXiv}`;
+    if (journal) bib += `,\n  primaryClass = {${journal}}`;
+    bib += `,\n  url = {${paper.link}}\n}`;
+    el.textContent = bib;
+  } else {
+    // APA format
+    const authorList = authors.split(/\s+and\s+|,\s*/).map(a => a.trim()).filter(Boolean);
+    let apaAuthors = '';
+    if (authorList.length === 1) apaAuthors = authorList[0];
+    else if (authorList.length === 2) apaAuthors = authorList.join(' & ');
+    else if (authorList.length > 2) apaAuthors = authorList.slice(0, -1).join(', ') + ', & ' + authorList[authorList.length - 1];
+    const yearStr = year ? ` (${year})` : '';
+    const arxivNote = eprint ? ` arXiv:${eprint}.` : '';
+    el.textContent = `${apaAuthors}${yearStr}. ${title}.${arxivNote} ${paper.link}`;
+  }
+}
+
+function copyCitation() {
+  const el = document.getElementById('cite-content');
+  const btn = document.getElementById('cite-copy-btn');
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    if (btn) { btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); }
+  });
 }
 
 // ── Selection Mirror + Search-in-PDF ──

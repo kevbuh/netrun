@@ -303,6 +303,42 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(str(e).encode())
 
+        elif self.path.startswith('/api/openreview-search'):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            title = qs.get('title', [''])[0].strip()
+            if not title:
+                self._send_json({'url': None})
+                return
+            try:
+                search_url = (
+                    'https://api.openreview.net/notes/search?query='
+                    + urllib.request.quote(title)
+                    + '&limit=3'
+                )
+                req = urllib.request.Request(
+                    search_url,
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    data = json.loads(resp.read())
+                notes = data.get('notes', [])
+                # Find a note whose title closely matches
+                title_lower = title.lower().strip()
+                for note in notes:
+                    note_content = note.get('content', {})
+                    note_title = note_content.get('title', '')
+                    if isinstance(note_title, dict):
+                        note_title = note_title.get('value', '')
+                    if note_title.lower().strip() == title_lower:
+                        forum_id = note.get('forum') or note.get('id', '')
+                        self._send_json({'url': f'https://openreview.net/forum?id={forum_id}'})
+                        return
+                self._send_json({'url': None})
+            except Exception:
+                self._send_json({'url': None})
+
         elif self.path.startswith('/api/check-embed'):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
