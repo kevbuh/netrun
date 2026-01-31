@@ -778,9 +778,9 @@ function submitSearch() {
   hideSearchHistoryView();
   // Filter feed results
   renderSearchFeedResults(query);
-  // Skip arXiv search for structured queries
-  const hasPrefix = /\b(by|source|sort):/.test(query);
-  if (hasPrefix) return;
+  // Skip arXiv search if query is only source:/sort: prefixes (no searchable terms)
+  const searchableTokens = query.split(/\s+/).filter(t => !t.startsWith('source:') && !t.startsWith('sort:'));
+  if (searchableTokens.length === 0) return;
   searchCurrentStart = 0;
   searchSort = 'relevance';
   searchCurrentQuery = query;
@@ -791,22 +791,20 @@ function renderSearchFeedResults(query) {
   const container = document.getElementById('search-feed-results');
   if (!container) return;
   if (!query) { container.innerHTML = ''; return; }
-  const lq = query.toLowerCase();
-  const tokens = lq.split(/\s+/).filter(Boolean);
-  let authorFilter = null, sourceFilter = null;
-  const textTokens = [];
-  for (const t of tokens) {
-    if (t.startsWith('by:')) authorFilter = t.slice(3);
-    else if (t.startsWith('source:')) sourceFilter = t.slice(7);
-    else if (t.startsWith('sort:')) { /* ignore for filtering */ }
-    else textTokens.push(t);
-  }
+  const parsed = parseSearchQuery(query.toLowerCase());
+  const { authorFilter, sourceFilter, textTokens, exactPhrases, titleTokens, titlePhrases } = parsed;
   const matches = allPapers.filter(p => {
     if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
     if (sourceFilter && !p.source.toLowerCase().includes(sourceFilter) && !(SOURCE_NAMES[p.source] || '').toLowerCase().includes(sourceFilter)) return false;
-    if (textTokens.length) {
+    const allPhrases = exactPhrases.slice();
+    if (textTokens.length) allPhrases.push(textTokens.join(' '));
+    if (allPhrases.length || titleTokens.length || titlePhrases.length) {
+      const titleLow = p.title.toLowerCase();
       const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-      return textTokens.every(t => h.includes(t));
+      if (!allPhrases.every(ph => h.includes(ph))) return false;
+      if (!titlePhrases.every(ph => titleLow.includes(ph))) return false;
+      if (!titleTokens.every(t => titleLow.includes(t))) return false;
+      return true;
     }
     return !!(authorFilter || sourceFilter);
   }).slice(0, 30);

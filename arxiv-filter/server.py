@@ -471,6 +471,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def _match(self, pattern):
         return re.match(pattern, self.path)
 
+    def _build_arxiv_query(self, raw):
+        """Build arXiv API search_query from user input.
+        Supports: title:"phrase", title:word, "phrase", by:author, bare words.
+        Maps to arXiv fields: ti: (title), au: (author), all: (everything)."""
+        import shlex
+        parts = []
+        # Extract title:"quoted" → ti:"quoted"
+        raw = re.sub(r'title:"([^"]+)"', lambda m: (parts.append(f'ti:"{m.group(1)}"'), '')[1], raw)
+        # Extract "quoted phrases" → all:"phrase"
+        raw = re.sub(r'"([^"]+)"', lambda m: (parts.append(f'all:"{m.group(1)}"'), '')[1], raw)
+        tokens = raw.split()
+        bare_words = []
+        for t in tokens:
+            if t.startswith('title:'):
+                val = t[6:]
+                if val: parts.append(f'ti:{val}')
+            elif t.startswith('by:'):
+                val = t[3:]
+                if val: parts.append(f'au:{val}')
+            elif t.startswith('source:') or t.startswith('sort:'):
+                continue  # client-only prefixes
+            else:
+                bare_words.append(t)
+        if bare_words:
+            phrase = ' '.join(bare_words)
+            parts.append(f'all:"{phrase}"')
+        return ' AND '.join(parts) if parts else 'all:*'
+
     def do_GET(self):
         if self.path == '/feed':
             try:
@@ -634,9 +662,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not query:
                     self._send_json({'error': 'Query required'}, 400)
                     return
+                arxiv_query = self._build_arxiv_query(query)
                 search_url = (
                     f'https://export.arxiv.org/api/query?'
-                    f'search_query=all:{urllib.request.quote(query)}'
+                    f'search_query={urllib.request.quote(arxiv_query)}'
                     f'&start={start}&max_results={max_results}'
                     f'&sortBy=relevance&sortOrder=descending'
                 )

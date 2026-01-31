@@ -1041,6 +1041,35 @@ function removeSearchHistory(index) {
   showSearchHistoryView();
 }
 
+/**
+ * Parse a search query string into structured parts:
+ * - "quoted phrases" → exact phrase match (across title+authors+desc)
+ * - title:"quoted" or title:word → match in title only
+ * - by:name → author filter
+ * - source:key → source filter
+ * - sort:mode → sort override
+ * - bare words → loose token match (across title+authors+desc)
+ */
+function parseSearchQuery(raw) {
+  let authorFilter = null, sourceFilter = null, sortOverride = null;
+  const textTokens = [], exactPhrases = [], titleTokens = [], titlePhrases = [];
+
+  // Extract title:"quoted phrases" first
+  let s = raw.replace(/title:"([^"]+)"/g, (_, ph) => { titlePhrases.push(ph.toLowerCase()); return ''; });
+  // Extract generic "quoted phrases"
+  s = s.replace(/"([^"]+)"/g, (_, ph) => { exactPhrases.push(ph.toLowerCase()); return ''; });
+
+  const tokens = s.split(/\s+/).filter(Boolean);
+  for (const t of tokens) {
+    if (t.startsWith('by:')) authorFilter = t.slice(3).toLowerCase();
+    else if (t.startsWith('source:')) sourceFilter = t.slice(7).toLowerCase();
+    else if (t.startsWith('sort:')) sortOverride = t.slice(5).toLowerCase();
+    else if (t.startsWith('title:')) titleTokens.push(t.slice(6).toLowerCase());
+    else textTokens.push(t);
+  }
+  return { authorFilter, sourceFilter, sortOverride, textTokens, exactPhrases, titleTokens, titlePhrases };
+}
+
 function getFilteredPapers() {
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
@@ -1050,16 +1079,10 @@ function getFilteredPapers() {
   const qCache = qfOn ? getQualityCache() : {};
   const bypass = qfOn ? getQualityBypass() : {};
 
-  // Parse structured search prefixes
-  const tokens = rawSearch.split(/\s+/).filter(Boolean);
-  let authorFilter = null, sourceFilter = null, sortOverride = null;
-  const textTokens = [];
-  for (const t of tokens) {
-    if (t.startsWith('by:')) authorFilter = t.slice(3).toLowerCase();
-    else if (t.startsWith('source:')) sourceFilter = t.slice(7).toLowerCase();
-    else if (t.startsWith('sort:')) sortOverride = t.slice(5).toLowerCase();
-    else textTokens.push(t);
-  }
+  // Parse structured search prefixes, quoted phrases, and title: prefix
+  const parsed = parseSearchQuery(rawSearch);
+  let authorFilter = parsed.authorFilter, sourceFilter = parsed.sourceFilter, sortOverride = parsed.sortOverride;
+  const textTokens = parsed.textTokens, exactPhrases = parsed.exactPhrases, titleTokens = parsed.titleTokens, titlePhrases = parsed.titlePhrases;
 
   let filtered = allPapers.filter(p => {
     if (hiddenSourceFilters.has(p.source)) return false;
@@ -1081,9 +1104,15 @@ function getFilteredPapers() {
     if (category && !p.categories.includes(category)) return false;
     if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
     if (sourceFilter && !p.source.toLowerCase().includes(sourceFilter) && !(SOURCE_NAMES[p.source] || '').toLowerCase().includes(sourceFilter)) return false;
-    if (textTokens.length) {
+    const allPhrases = exactPhrases.slice();
+    if (textTokens.length) allPhrases.push(textTokens.join(' '));
+    if (allPhrases.length || titleTokens.length || titlePhrases.length) {
+      const titleLow = p.title.toLowerCase();
       const h = `${p.title} ${p.authors} ${p.description}`.toLowerCase();
-      return textTokens.every(t => h.includes(t));
+      if (!allPhrases.every(ph => h.includes(ph))) return false;
+      if (!titlePhrases.every(ph => titleLow.includes(ph))) return false;
+      if (!titleTokens.every(t => titleLow.includes(t))) return false;
+      return true;
     }
     return true;
   });
