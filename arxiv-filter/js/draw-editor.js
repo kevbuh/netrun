@@ -154,6 +154,15 @@ function _initDrawCanvas(data) {
     _drawPushUndo();
   }
 
+  // Update selected objects when color/stroke inputs change
+  document.getElementById('draw-fill').addEventListener('input', _drawApplyColorsToSelection);
+  document.getElementById('draw-stroke').addEventListener('input', _drawApplyColorsToSelection);
+  document.getElementById('draw-stroke-width').addEventListener('input', _drawApplyColorsToSelection);
+
+  // Sync color inputs when an object is selected
+  _drawCanvas.on('selection:created', _drawSyncColorInputs);
+  _drawCanvas.on('selection:updated', _drawSyncColorInputs);
+
   // Wire auto-save events
   _drawCanvas.on('object:modified', _drawOnChange);
   _drawCanvas.on('object:added', _drawOnChange);
@@ -553,4 +562,33 @@ function _drawPickImage() {
     reader.readAsDataURL(file);
   };
   input.click();
+}
+
+function _drawApplyColorsToSelection() {
+  if (!_drawCanvas) return;
+  const objs = _drawCanvas.getActiveObjects();
+  if (objs.length === 0) return;
+  const colors = _getDrawColors();
+  objs.forEach(o => {
+    if (o.type === 'path' || o.type === 'line') {
+      o.set({ stroke: colors.stroke, strokeWidth: colors.strokeWidth });
+    } else if (o.type === 'i-text' || o.type === 'text' || o.type === 'textbox') {
+      o.set({ fill: colors.fill });
+    } else {
+      o.set({ fill: colors.fill, stroke: colors.stroke, strokeWidth: colors.strokeWidth });
+    }
+  });
+  _drawCanvas.renderAll();
+  _drawOnChange();
+}
+
+function _drawSyncColorInputs(opt) {
+  const obj = opt.selected ? opt.selected[0] : null;
+  if (!obj) return;
+  const fillEl = document.getElementById('draw-fill');
+  const strokeEl = document.getElementById('draw-stroke');
+  const swEl = document.getElementById('draw-stroke-width');
+  if (obj.fill && typeof obj.fill === 'string' && obj.fill[0] === '#' && fillEl) fillEl.value = obj.fill.slice(0, 7);
+  if (obj.stroke && typeof obj.stroke === 'string' && obj.stroke[0] === '#' && strokeEl) strokeEl.value = obj.stroke.slice(0, 7);
+  if (obj.strokeWidth && swEl) swEl.value = obj.strokeWidth;
 }
