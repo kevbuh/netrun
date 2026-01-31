@@ -1,3 +1,54 @@
+// ── Spinner system ──
+let _spinnerData = null;
+let _spinnerNames = [];
+let _spinnerInterval = null;
+
+function getSelectedSpinner() {
+  return localStorage.getItem('spinner') || 'squareCorners';
+}
+
+function setSelectedSpinner(name) {
+  localStorage.setItem('spinner', name);
+  restartSpinners();
+}
+
+function loadSpinners() {
+  return fetch('/spinners.json').then(r => r.json()).then(data => {
+    _spinnerData = data;
+    _spinnerNames = Object.keys(data);
+    restartSpinners();
+    return data;
+  });
+}
+
+function restartSpinners() {
+  if (_spinnerInterval) { clearInterval(_spinnerInterval); _spinnerInterval = null; }
+  if (!_spinnerData) return;
+  const name = getSelectedSpinner();
+  const spinner = _spinnerData[name];
+  if (!spinner) return;
+  const frames = spinner.frames;
+  const interval = spinner.interval;
+  let i = 0;
+  function tick() {
+    const els = document.querySelectorAll('.spinner');
+    if (!els.length) return;
+    els.forEach(el => { el.textContent = frames[i]; });
+    i = (i + 1) % frames.length;
+  }
+  tick();
+  _spinnerInterval = setInterval(tick, interval);
+}
+
+// Observe DOM for new .spinner elements
+const _spinnerMO = new MutationObserver(() => {
+  const els = document.querySelectorAll('.spinner');
+  if (els.length && !_spinnerInterval && _spinnerData) restartSpinners();
+});
+_spinnerMO.observe(document.documentElement, { childList: true, subtree: true });
+
+loadSpinners();
+
 // ── View management ──
 const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
 const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
@@ -135,6 +186,7 @@ function hideAllViews() {
   }
   if (typeof stopFeedLoading === 'function') stopFeedLoading();
   if (typeof _stopScrollTracker === 'function') _stopScrollTracker();
+  if (typeof _spinnerPreviewInterval !== 'undefined' && _spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; }
 }
 
 function goHome() {

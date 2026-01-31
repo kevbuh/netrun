@@ -646,6 +646,19 @@ function renderSettingsView() {
       </div>
     </div>
 
+      <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Loading Spinner</span>
+        <div class="flex items-center gap-2">
+          <button onclick="cycleSpinner(-1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&lsaquo;</button>
+          <div class="flex flex-col items-center min-w-[100px]">
+            <div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>
+            <div class="text-[0.68rem] text-dimmer" id="spinner-name">${getSelectedSpinner()}</div>
+          </div>
+          <button onclick="cycleSpinner(1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&rsaquo;</button>
+        </div>
+      </div>
+    </div>
+
     <!-- FEED SOURCES -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Feed Sources</h3>
@@ -764,6 +777,8 @@ function renderSettingsView() {
     const scoringEl = document.getElementById('scoring-prompt-display');
     if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
   }).catch(() => {});
+  // Start spinner preview
+  updateSpinnerPreview(getSelectedSpinner());
 }
 
 function setTheme(theme) {
@@ -804,6 +819,35 @@ function setAccentColor(color) {
       btn.style.removeProperty('--tw-ring-offset-color');
     }
   });
+}
+
+let _spinnerPreviewInterval = null;
+
+function cycleSpinner(dir) {
+  if (!_spinnerData || !_spinnerNames.length) return;
+  const current = getSelectedSpinner();
+  let idx = _spinnerNames.indexOf(current);
+  if (idx === -1) idx = 0;
+  idx = (idx + dir + _spinnerNames.length) % _spinnerNames.length;
+  const name = _spinnerNames[idx];
+  setSelectedSpinner(name);
+  updateSpinnerPreview(name);
+}
+
+function updateSpinnerPreview(name) {
+  const el = document.getElementById('spinner-preview');
+  const nameEl = document.getElementById('spinner-name');
+  if (!el || !_spinnerData) return;
+  if (nameEl) nameEl.textContent = name;
+  const spinner = _spinnerData[name];
+  if (!spinner) return;
+  if (_spinnerPreviewInterval) clearInterval(_spinnerPreviewInterval);
+  let i = 0;
+  el.textContent = spinner.frames[0];
+  _spinnerPreviewInterval = setInterval(() => {
+    i = (i + 1) % spinner.frames.length;
+    el.textContent = spinner.frames[i];
+  }, spinner.interval);
 }
 
 function applyAccentColor(color) {
@@ -902,16 +946,9 @@ async function loadAllFeeds() {
 
   // Show centered loading animation
   const container = document.getElementById('papers');
-  const loadFrames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
-  let _loadFi = 0;
-  container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span id="feed-load-anim" class="text-dim text-[1.4rem] font-mono"></span></div>`;
-  const _loadAnim = setInterval(() => {
-    const el = document.getElementById('feed-load-anim');
-    if (el) el.textContent = loadFrames[_loadFi++ % loadFrames.length];
-  }, 80);
+  container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>`;
 
   const results = await Promise.all(promises);
-  clearInterval(_loadAnim);
   if (abort.signal.aborted) return;
   const MAX_PER_SOURCE = 100;
   for (let i = 0; i < results.length; i++) {
