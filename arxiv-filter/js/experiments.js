@@ -138,7 +138,9 @@ async function fetchExperimentDetail(id) {
     document.getElementById('exp-default-content').style.display = '';
     currentFile = null;
     fetchExpTodos();
-    fetchExpFiles();
+    await fetchExpFiles();
+    // Auto-open README.md if it exists and no file is open
+    if (!currentFile) _autoOpenReadme();
   } catch (err) {
     document.getElementById('exp-todos-list').innerHTML =
       `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
@@ -186,7 +188,7 @@ function startEditDesc() {
   if (!currentExpId || !currentExp || editingDesc) return;
   editingDesc = true;
   const el = document.getElementById('exp-detail-desc');
-  el.outerHTML = `<textarea id="exp-desc-input" class="text-[0.85rem] text-primary bg-input border border-border-input rounded-md outline-none w-full mb-5 p-3 resize-y focus:border-accent" rows="6" placeholder="Add a description (markdown supported)...">${escapeHtml(currentExp.desc || '')}</textarea>`;
+  el.outerHTML = `<textarea id="exp-desc-input" class="text-[0.85rem] text-primary bg-transparent outline-none w-full flex-1 px-4 py-3 resize-none focus:outline-none border-none font-mono" placeholder="Add a description (markdown supported)...">${escapeHtml(currentExp.desc || '')}</textarea>`;
   const textarea = document.getElementById('exp-desc-input');
   textarea.focus();
   textarea.addEventListener('keydown', async e => {
@@ -211,7 +213,7 @@ function cancelEditDesc() {
   if (!textarea) return;
   const desc = currentExp.desc || '';
   const content = desc ? marked.parse(desc) : escapeHtml('No description. Double-click to add one.');
-  textarea.outerHTML = `<div id="exp-detail-desc" class="text-[0.85rem] ${desc ? 'text-muted' : 'text-dimmest'} mb-5 cursor-pointer hover:text-primary transition-colors nb-rendered-md" ondblclick="startEditDesc()" title="Double-click to edit description">${content}</div>`;
+  textarea.outerHTML = `<div id="exp-detail-desc" class="text-[0.85rem] ${desc ? 'text-muted' : 'text-dimmest'} cursor-pointer hover:text-primary transition-colors nb-rendered-md flex-1 overflow-y-auto px-4 py-3" ondblclick="startEditDesc()" title="Double-click to edit description">${content}</div>`;
   if (desc) renderLatexIn('exp-detail-desc');
 }
 
@@ -341,6 +343,7 @@ async function deleteExpTodo(id) {
 let currentFile = null;
 let fileSaveTimer = null;
 
+let _expFiles = [];
 async function fetchExpFiles() {
   if (!currentExpId) return;
   try {
@@ -349,10 +352,17 @@ async function fetchExpFiles() {
     // Support both old (array) and new ({ files, emptyDirs }) response shapes
     const files = Array.isArray(data) ? data : data.files || [];
     const emptyDirs = Array.isArray(data) ? [] : data.emptyDirs || [];
+    _expFiles = files;
     renderFilesList(files, emptyDirs);
   } catch(e) {
+    _expFiles = [];
     document.getElementById('exp-sidebar-files').innerHTML = '';
   }
+}
+
+function _autoOpenReadme() {
+  const readme = _expFiles.find(f => /^readme\.md$/i.test(f));
+  if (readme) openFile(readme);
 }
 
 function _fileExtBadge(f) {
@@ -768,13 +778,7 @@ async function deleteExpFile(fname) {
   if (!confirm(`Delete ${fname}?`)) return;
   await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {method:'DELETE'});
   if (currentFile === fname) {
-    if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; }
-    currentFile = null;
-    pyEditorCm = null;
-    cmInstances = [];
-    document.getElementById('exp-file-editor').style.display = 'none';
-    document.getElementById('exp-file-editor').innerHTML = '';
-    document.getElementById('exp-default-content').style.display = '';
+    closeFileEditor();
   }
   fetchExpFiles();
 }
@@ -792,12 +796,13 @@ async function openFile(fname) {
 
   document.getElementById('exp-default-content').style.display = 'none';
   const editor = document.getElementById('exp-file-editor');
-  editor.style.display = 'block';
-  editor.style.flexDirection = '';
-  editor.style.height = '';
+  editor.style.display = 'flex';
+  editor.style.flexDirection = 'column';
+  editor.style.height = '100%';
   var cp = document.getElementById('exp-content-pane');
-  cp.style.overflow = '';
-  cp.style.padding = '';
+  cp.style.overflow = 'hidden';
+  cp.style.display = 'flex';
+  cp.style.flexDirection = 'column';
 
   if (fname.endsWith('.png') || fname.endsWith('.svg')) {
     renderImageViewer(fname, data.content);
@@ -891,7 +896,8 @@ function closeFileEditor() {
   el.style.height = '';
   var cp = document.getElementById('exp-content-pane');
   cp.style.overflow = '';
-  cp.style.padding = '';
+  cp.style.display = '';
+  cp.style.flexDirection = '';
   el.innerHTML = '';
   document.getElementById('exp-default-content').style.display = '';
   fetchExpFiles();

@@ -1,19 +1,51 @@
 // ── Markdown Editor ──
+let _mdMode = 'preview'; // 'preview' or 'edit'
+let _mdRawContent = '';
+
 function renderMarkdownEditor(fname, content) {
+  _mdRawContent = content;
+  _mdMode = 'preview';
   const editor = document.getElementById('exp-file-editor');
   editor.innerHTML = `
-    <div class="flex items-center gap-3 mb-4">
+    <div class="flex items-center gap-3 px-4 py-2 shrink-0">
       <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">md</span>
       <span class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
+      <button id="md-toggle-btn" onclick="toggleMdMode()" class="ml-auto text-[0.75rem] px-2.5 py-1 rounded-md border border-border-input bg-transparent text-dimmer cursor-pointer hover:text-primary hover:border-accent transition-colors">Edit</button>
       <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="md-save-ind">Saved</span>
     </div>
-    <textarea id="md-editor-textarea" class="w-full min-h-[500px] px-4 py-3 rounded-lg border border-border-input bg-input text-primary text-[0.85rem] font-mono resize-y focus:outline-none focus:border-accent" spellcheck="false">${escapeHtml(content)}</textarea>`;
+    <div id="md-preview" class="nb-rendered-md flex-1 overflow-y-auto px-4 py-3">${marked.parse(content)}</div>
+    <textarea id="md-editor-textarea" class="hidden flex-1 w-full px-4 py-2 bg-transparent text-primary text-[0.85rem] font-mono resize-none focus:outline-none border-none" spellcheck="false">${escapeHtml(content)}</textarea>`;
+  renderLatexIn('md-preview');
+}
+
+function toggleMdMode() {
+  const preview = document.getElementById('md-preview');
   const ta = document.getElementById('md-editor-textarea');
-  ta.addEventListener('input', () => {
-    clearTimeout(fileSaveTimer);
-    fileSaveTimer = setTimeout(() => saveMarkdown(), 600);
-  });
-  ta.focus();
+  const btn = document.getElementById('md-toggle-btn');
+  if (!preview || !ta) return;
+  if (_mdMode === 'preview') {
+    _mdMode = 'edit';
+    preview.classList.add('hidden');
+    ta.classList.remove('hidden');
+    btn.textContent = 'Preview';
+    ta.value = _mdRawContent;
+    ta.addEventListener('input', _mdOnInput);
+    ta.focus();
+  } else {
+    _mdMode = 'preview';
+    _mdRawContent = ta.value;
+    preview.innerHTML = marked.parse(_mdRawContent);
+    renderLatexIn('md-preview');
+    preview.classList.remove('hidden');
+    ta.classList.add('hidden');
+    btn.textContent = 'Edit';
+  }
+}
+
+function _mdOnInput() {
+  _mdRawContent = document.getElementById('md-editor-textarea').value;
+  clearTimeout(fileSaveTimer);
+  fileSaveTimer = setTimeout(() => saveMarkdown(), 600);
 }
 
 async function saveMarkdown() {
@@ -38,13 +70,6 @@ function renderLatexEditor(fname, content) {
   _texPdfUrl = null;
   _texCm = null;
   const editor = document.getElementById('exp-file-editor');
-  // Stretch editor to fill the content pane by negating parent p-8 padding
-  var pane = document.getElementById('exp-content-pane');
-  pane.style.overflow = 'hidden';
-  pane.style.padding = '0';
-  editor.style.display = 'flex';
-  editor.style.flexDirection = 'column';
-  editor.style.height = '100vh';
   editor.innerHTML =
     '<div class="flex items-center gap-3 px-4 py-2 shrink-0">' +
       '<span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">tex</span>' +
@@ -204,12 +229,12 @@ function renderPythonEditor(fname, content) {
   const editor = document.getElementById('exp-file-editor');
   const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
   editor.innerHTML = `
-    <div class="flex items-center gap-2 mb-2">
+    <div class="flex items-center gap-2 px-4 py-2 shrink-0">
       <span class="text-[0.7rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
       <span class="text-[0.85rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
       <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
     </div>
-    <div class="flex items-center gap-2 mb-3 flex-wrap">
+    <div class="flex items-center gap-2 px-4 pb-2 flex-wrap shrink-0">
       <span class="flex items-center gap-1 text-[0.7rem] text-dimmer"><span id="py-kernel-dot" class="w-1.5 h-1.5 rounded-full inline-block bg-emerald-500"></span><span id="py-kernel-text">idle</span></span>
       <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
       <div class="ml-auto flex items-center gap-1.5">
@@ -230,10 +255,10 @@ function renderPythonEditor(fname, content) {
       <div id="pkg-install-status" class="text-[0.75rem] mb-2 hidden"></div>
       <div id="pkg-list" class="text-[0.8rem] text-muted">Loading...</div>
     </div>
-    <div class="rounded-lg border border-border-input overflow-hidden">
+    <div class="border-t border-border-dim overflow-hidden flex-1">
       <textarea id="py-editor-textarea">${escapeHtml(content)}</textarea>
     </div>
-    <div id="py-output" class="hidden mt-3 rounded-lg border border-border-dim overflow-hidden">
+    <div id="py-output" class="hidden border-t border-border-dim overflow-hidden shrink-0">
       <div class="flex items-center justify-between px-3 py-1.5 bg-card/30 border-b border-border-dim">
         <span class="text-[0.7rem] text-muted font-medium">Output</span>
         <button onclick="document.getElementById('py-output').classList.add('hidden')" class="text-dimmer hover:text-primary text-[0.8rem] bg-transparent border-none cursor-pointer">&times;</button>
