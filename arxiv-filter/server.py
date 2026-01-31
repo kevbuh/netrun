@@ -1569,12 +1569,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': 'Invalid path'}, 400)
                 return
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
-            if not os.path.isfile(fpath):
-                self._send_json({'error': 'Not found'}, 404)
-                return
             body = self._read_body()
             # Rename if 'rename' field is provided
             if 'rename' in body:
+                if not os.path.isfile(fpath):
+                    self._send_json({'error': 'Not found'}, 404)
+                    return
                 new_name = body['rename'].strip()
                 if not new_name:
                     self._send_json({'error': 'Name required'}, 400)
@@ -1586,6 +1586,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 os.rename(fpath, new_path)
                 self._send_json({'ok': True, 'name': new_name})
             else:
+                os.makedirs(os.path.dirname(fpath), exist_ok=True)
                 with open(fpath, 'w') as f:
                     f.write(body.get('content', ''))
                 self._send_json({'ok': True})

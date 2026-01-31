@@ -524,6 +524,7 @@ function renderNotebookEditor(fname, contentStr) {
         </select>
         <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
         <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
+        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="convertNbToPy()" title="Export all code cells as a .py file">Convert to .py</button>
       </div>
     </div>
     <div id="packages-panel" class="hidden mb-4 rounded-lg border border-border-input bg-surface-secondary p-4">
@@ -792,6 +793,32 @@ async function saveOutputSvgToProject(svgHtml, btn) {
   const b64 = btoa(unescape(encodeURIComponent(svgHtml)));
   const dataUrl = `data:image/svg+xml;base64,${b64}`;
   await saveOutputToProject(dataUrl, 'svg', btn);
+}
+
+async function convertNbToPy() {
+  if (!nbData || !currentExpId || !currentFile) return;
+  // Sync live CodeMirror content back to nbData
+  cmInstances.forEach(function(cm, i) {
+    if (cm && nbData.cells[i]) {
+      nbData.cells[i].source = cm.getValue();
+    }
+  });
+  const chunks = [];
+  for (const cell of nbData.cells) {
+    if (cell.cell_type !== 'code') continue;
+    const src = typeof cell.source === 'string' ? cell.source : (Array.isArray(cell.source) ? cell.source.join('') : '');
+    if (src.trim()) chunks.push(src);
+  }
+  const pyContent = chunks.join('\n\n');
+  const dir = currentFile.includes('/') ? currentFile.substring(0, currentFile.lastIndexOf('/') + 1) : '';
+  const base = currentFile.includes('/') ? currentFile.substring(currentFile.lastIndexOf('/') + 1) : currentFile;
+  const pyName = dir + base.replace(/\.ipynb$/, '.py');
+  await fetch(`/api/experiments/${currentExpId}/files/${pyName}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: pyContent })
+  });
+  fetchExpFiles();
+  openFile(pyName);
 }
 
 function renderNbCells() {
