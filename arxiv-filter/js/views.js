@@ -114,7 +114,40 @@ async function renderDashboard() {
 
   // 1-10 scale: count 1 = level 1, count 10+ = level 10
   const levelFn = (count) => Math.min(count, 10);
-  const colorFn = (lvl) => lvl === 0 ? 'var(--border-card)' : `color-mix(in srgb, var(--accent) ${lvl * 10}%, transparent)`;
+
+  // Easter egg themes based on today's date (or override for preview)
+  const _heatThemes = {
+    default:    { accent: null, alt: null, outline: null, label: 'Default' },
+    halloween:  { accent: '#f97316', alt: null, outline: '#a855f7', label: 'Halloween' },
+    christmas:  { accent: '#22c55e', alt: null, outline: '#dc2626', label: 'Christmas' },
+    valentine:  { accent: '#ec4899', alt: null, outline: '#ec4899', label: "Valentine's" },
+    stpatricks: { accent: '#22c55e', alt: null, outline: '#eab308', label: "St. Patrick's" },
+    july4:      { accent: '#ef4444', alt: null, outline: '#3b82f6', label: '4th of July' },
+    newyear:    { accent: '#eab308', alt: null, outline: '#eab308', label: "New Year's" },
+  };
+  // Auto-detect theme from date
+  let activeThemeKey = 'default';
+  { const mm = now.getMonth(), dd = now.getDate();
+    if (mm === 9 && dd >= 25 && dd <= 31) activeThemeKey = 'halloween';
+    else if (mm === 11 && dd >= 20 && dd <= 31) activeThemeKey = 'christmas';
+    else if (mm === 1 && dd === 14) activeThemeKey = 'valentine';
+    else if (mm === 2 && dd === 17) activeThemeKey = 'stpatricks';
+    else if (mm === 6 && dd === 4) activeThemeKey = 'july4';
+    else if (mm === 0 && dd === 1) activeThemeKey = 'newyear';
+  }
+  const theme = _heatThemes[activeThemeKey];
+  const heatAccent = theme.accent, heatAccentAlt = theme.alt;
+
+  const colorFn = (lvl, col) => {
+    if (lvl === 0) return 'var(--border-card)';
+    if (heatAccentAlt) {
+      const c = col % 2 === 0 ? heatAccent : heatAccentAlt;
+      return `color-mix(in srgb, ${c} ${lvl * 10}%, transparent)`;
+    }
+    if (heatAccent) return `color-mix(in srgb, ${heatAccent} ${lvl * 10}%, transparent)`;
+    return `color-mix(in srgb, var(--accent) ${lvl * 10}%, transparent)`;
+  };
+
   const cellSize = 11;
   const cellGap = 3;
   const labelW = 30;
@@ -137,13 +170,16 @@ async function renderDashboard() {
     const x = labelW + c.col * (cellSize + cellGap);
     const y = monthLabelH + c.row * (cellSize + cellGap);
     const lvl = c.isFuture ? 0 : levelFn(c.count);
-    const stroke = c.isToday ? 'var(--accent)' : 'none';
+    const stroke = c.isToday ? (theme.outline || 'var(--accent)') : 'none';
     const sw = c.isToday ? '1.5' : '0';
     const prettyDate = new Date(heatYear, c.month, c.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const tooltipText = c.isFuture ? prettyDate : (c.count === 0 ? `No activity on ${prettyDate}` : `${c.count} activit${c.count === 1 ? 'y' : 'ies'} on ${prettyDate}`);
-    heatmapHtml += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${colorFn(lvl)}" stroke="${stroke}" stroke-width="${sw}" data-tip="${escapeAttr(tooltipText)}" data-key="${c.key}" class="heatmap-cell" style="cursor:pointer"/>`;
+    heatmapHtml += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${colorFn(lvl, c.col)}" stroke="${stroke}" stroke-width="${sw}" data-tip="${escapeAttr(tooltipText)}" data-key="${c.key}" class="heatmap-cell" style="cursor:pointer"/>`;
   });
-  heatmapHtml += '</svg><div id="heatmap-tip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text-primary);white-space:nowrap;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div><div id="heatmap-popover" style="display:none;position:absolute;z-index:101;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div></div>';
+  heatmapHtml += '</svg></div>';
+  // Tooltip and popover are fixed-position, appended to body via JS
+  heatmapHtml += '<div id="heatmap-tip" style="display:none;position:fixed;pointer-events:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text-primary);white-space:nowrap;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>';
+  heatmapHtml += '<div id="heatmap-popover" style="display:none;position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div>';
 
   // Store activity items on window for click handler
   window._heatmapItems = activityItems;
@@ -155,25 +191,24 @@ async function renderDashboard() {
     const svg = document.querySelector('.heatmap-svg');
     if (!svg || !tip || !pop) return;
 
-    // Hover tooltip
+    // Hover tooltip (fixed positioning — works with scroll)
     svg.addEventListener('mouseover', e => {
       const r = e.target.closest('.heatmap-cell');
       if (!r) { tip.style.display = 'none'; return; }
       tip.textContent = r.dataset.tip;
       tip.style.display = 'block';
-      const svgRect = svg.parentElement.getBoundingClientRect();
-      const cellRect = r.getBoundingClientRect();
-      let left = cellRect.left - svgRect.left + cellRect.width / 2 - tip.offsetWidth / 2;
-      left = Math.max(0, Math.min(left, svgRect.width - tip.offsetWidth));
+      const cr = r.getBoundingClientRect();
+      let left = cr.left + cr.width / 2 - tip.offsetWidth / 2;
+      left = Math.max(4, Math.min(left, window.innerWidth - tip.offsetWidth - 4));
       tip.style.left = left + 'px';
-      tip.style.top = (cellRect.top - svgRect.top - tip.offsetHeight - 6) + 'px';
+      tip.style.top = (cr.top - tip.offsetHeight - 6) + 'px';
     });
     svg.addEventListener('mouseout', e => {
       if (!e.target.closest('.heatmap-cell')) return;
       tip.style.display = 'none';
     });
 
-    // Click popover
+    // Click popover (fixed positioning — works with scroll)
     svg.addEventListener('click', e => {
       const r = e.target.closest('.heatmap-cell');
       if (!r) return;
@@ -205,12 +240,11 @@ async function renderDashboard() {
       }
 
       pop.style.display = 'block';
-      const svgRect = svg.parentElement.getBoundingClientRect();
-      const cellRect = r.getBoundingClientRect();
-      let left = cellRect.left - svgRect.left + cellRect.width / 2 - pop.offsetWidth / 2;
-      left = Math.max(0, Math.min(left, svgRect.width - pop.offsetWidth));
-      let top = cellRect.bottom - svgRect.top + 6;
-      if (top + pop.offsetHeight > svgRect.height + 100) top = cellRect.top - svgRect.top - pop.offsetHeight - 6;
+      const cr = r.getBoundingClientRect();
+      let left = cr.left + cr.width / 2 - pop.offsetWidth / 2;
+      left = Math.max(4, Math.min(left, window.innerWidth - pop.offsetWidth - 4));
+      let top = cr.bottom + 6;
+      if (top + pop.offsetHeight > window.innerHeight) top = cr.top - pop.offsetHeight - 6;
       pop.style.left = left + 'px';
       pop.style.top = top + 'px';
     });
