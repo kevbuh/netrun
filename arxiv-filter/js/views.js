@@ -260,6 +260,7 @@ async function dashAddTodo(form) {
 let paperViewOrigin = 'arxiv';
 
 function paperViewGoBack() {
+  cleanupPdfViewer();
   if (paperViewOrigin === 'saved') { openDashboard(); return; }
   if (paperViewOrigin === 'search') { openSearch(); return; }
   goHome();
@@ -360,10 +361,12 @@ function showPaperView(paper, hashValue) {
   }
 
   const pdfContainer = document.getElementById('paper-pdf-container');
+  cleanupPdfViewer();
   if (isArxiv) {
     const arxivId = paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '';
     if (arxivId) {
-      pdfContainer.innerHTML = `<iframe src="/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}" title="Paper PDF" class="w-full h-full border-none"></iframe>`;
+      pdfContainer.innerHTML = '';
+      initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
     } else {
       pdfContainer.innerHTML = `<div class="flex items-center justify-center h-full text-dim"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link text-[0.9rem]">Open paper in new tab</a></div>`;
     }
