@@ -763,7 +763,7 @@ function openPaperByUrl(url) {
 let searchResultsCache = [];
 let searchCurrentQuery = '';
 let searchCurrentStart = 0;
-let searchSort = 'relevance';
+let searchSort = 'citations';
 let searchLastTotal = 0;
 
 function onSearchInput() {
@@ -782,7 +782,7 @@ function submitSearch() {
   const searchableTokens = query.split(/\s+/).filter(t => !t.startsWith('source:') && !t.startsWith('sort:'));
   if (searchableTokens.length === 0) return;
   searchCurrentStart = 0;
-  searchSort = 'relevance';
+  searchSort = 'citations';
   searchCurrentQuery = query;
   doSearchArxiv();
 }
@@ -810,9 +810,7 @@ function renderSearchFeedResults(query) {
   }).slice(0, 30);
 
   if (!matches.length) {
-    container.innerHTML = textTokens.length || authorFilter || sourceFilter
-      ? '<div class="text-dim text-[0.82rem] py-3">No feed matches.</div>'
-      : '';
+    container.innerHTML = '';
     return;
   }
   container.innerHTML = `<div class="mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">Feed (${matches.length})</div>` +
@@ -841,7 +839,7 @@ async function doSearchArxiv() {
   if (!container) return;
   container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Searching arXiv...</div></div>';
   try {
-    const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=20`);
+    const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=100`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const xml = await resp.text();
     parseSearchArxivResults(xml);
@@ -914,24 +912,26 @@ function renderSearchArxivResults(total) {
     });
   }
 
-  const sortBar = `<div class="flex gap-1 mb-4 mt-4">
-    <span class="text-[0.75rem] text-dimmer uppercase tracking-wide self-center mr-2">arXiv</span>
-    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${searchSort === 'relevance' ? 'active' : ''}" onclick="setSearchSort('relevance')">Relevance</button>
-    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${searchSort === 'latest' ? 'active' : ''}" onclick="setSearchSort('latest')">Latest</button>
-    <button class="sort-btn shrink-0 px-3.5 py-1.5 rounded-lg border border-border-input bg-card text-muted text-[0.82rem] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-accent hover:text-primary ${searchSort === 'citations' ? 'active' : ''}" onclick="setSearchSort('citations')">Most Cited</button>
+  const isCited = searchSort === 'citations';
+  const sortIcon = isCited
+    ? `<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg>`
+    : `<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
+  const sortBar = `<div class="flex items-center gap-2 mb-3 mt-4">
+    <span class="text-[0.75rem] text-dimmer uppercase tracking-wide">arXiv</span>
+    <button class="shrink-0 w-7 h-7 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" onclick="setSearchSort('${isCited ? 'latest' : 'citations'}')" title="${isCited ? 'Sort by latest' : 'Sort by most cited'}">${sortIcon}</button>
   </div>`;
 
   container.innerHTML = sortBar + sorted.map((r, i) => `
-    <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openSearchArxivPaper(${i})">
-      <div class="flex gap-1.5 flex-wrap items-center mb-2">${r.arxivId ? ARXIV_LOGO_INLINE : ''}${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${r.citations} cited</span>` : ''}${r.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('')}${r.date ? `<span class="text-[0.68rem] text-dim ml-auto">${escapeHtml(r.date)}</span>` : ''}</div>
-      <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug">${renderTitle(r.title)}</div>
-      ${r.description ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(truncate(r.description, 120))}</div>` : ''}
+    <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchArxivPaper(${i})">
+      ${r.arxivId ? ARXIV_LOGO_INLINE : ''}<span class="text-[0.82rem] text-primary truncate">${renderTitle(r.title)}</span>
+      ${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim shrink-0">${r.citations} cited</span>` : ''}
+      ${r.date ? `<span class="text-[0.68rem] text-dim shrink-0 ml-auto">${escapeHtml(r.date)}</span>` : ''}
     </div>
-  `).join('') + (total > 20 ? `
+  `).join('') + (total > 100 ? `
     <div class="finder-pagination flex justify-center gap-3 pt-6">
       <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${searchCurrentStart === 0 ? 'disabled' : ''} onclick="searchPrev()">Previous</button>
       <span class="text-dimmer text-[0.8rem] self-center">${searchCurrentStart + 1}&ndash;${searchCurrentStart + sorted.length} of ${total}</span>
-      <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${searchCurrentStart + 20 >= total ? 'disabled' : ''} onclick="searchNext()">Next</button>
+      <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${searchCurrentStart + 100 >= total ? 'disabled' : ''} onclick="searchNext()">Next</button>
     </div>
   ` : '');
   searchLastTotal = total;
@@ -965,7 +965,7 @@ function openSearchArxivPaper(i) {
 }
 
 function searchPrev() {
-  searchCurrentStart = Math.max(0, searchCurrentStart - 20);
+  searchCurrentStart = Math.max(0, searchCurrentStart - 100);
   doSearchArxiv();
 }
 
