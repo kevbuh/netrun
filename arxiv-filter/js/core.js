@@ -727,8 +727,22 @@ window.addEventListener('keydown', e => {
         for(let x=3;x<=11;x++)px(x,9,F);
         for(let x=4;x<=10;x++)px(x,10,F);
         for(let x=5;x<=9;x++)px(x,11,F);
-        // ── Eyes: simple purple dots ──
-        if(!o.blink){px(5,6,'#7c3aed');px(10,6,'#7c3aed');}
+        // ── Eyes: 2x2 white, pupils shift with eyeDir ──
+        if(!o.blink){
+          const ed = o.eyeDir || 'center';
+          // Left eye top-left at (4,5), right eye top-left at (9,5)
+          const eyes = [[4,5],[9,5]];
+          eyes.forEach(([ex,ey])=>{
+            // White 2x2
+            px(ex,ey,W);px(ex+1,ey,W);px(ex,ey+1,W);px(ex+1,ey+1,W);
+            // Black pupils
+            if(ed==='up'){px(ex,ey,'#000');px(ex+1,ey,'#000');}          // top row
+            else if(ed==='down'){px(ex,ey+1,'#000');px(ex+1,ey+1,'#000');}// bottom row
+            else if(ed==='left'){px(ex,ey,'#000');px(ex,ey+1,'#000');}    // left column
+            else if(ed==='right'){px(ex+1,ey,'#000');px(ex+1,ey+1,'#000');}// right column
+            else{px(ex,ey,'#000');px(ex+1,ey,'#000');}                    // center = top row
+          });
+        }
         // ── Smiley mouth ──
         px(4,8,O);px(5,9,O);px(6,9,O);px(7,9,O);px(8,9,O);px(9,9,O);px(10,9,O);px(11,8,O);
         if(o.sleeping){
@@ -784,6 +798,7 @@ window.addEventListener('keydown', e => {
   let petTargetX = 300, petTargetY = 400;
   let petDir = 1;
   let petFrame = 0;
+  let petEyeDir = 'center', petEyeTimer = 0;
   let petStateTimer = 0, petTempTimer = 0;
   let _petLoop = null;
   let _lastActivity = Date.now();
@@ -818,6 +833,23 @@ window.addEventListener('keydown', e => {
 
   function petTick() {
     petFrame++;
+    // Eye direction follows mouse (with occasional random glance)
+    if (--petEyeTimer <= 0) {
+      // Mostly follow mouse, sometimes glance randomly
+      if (_mouseX >= 0 && Math.random() < 0.85) {
+        const el = document.getElementById('pixel-pet');
+        const ex = petX + (el ? el.offsetWidth / 2 : 0);
+        const ey = petY + (el ? el.offsetHeight / 2 : 0);
+        const dx = _mouseX - ex, dy = _mouseY - ey;
+        if (Math.abs(dx) > Math.abs(dy) * 1.2) petEyeDir = dx < 0 ? 'left' : 'right';
+        else if (Math.abs(dy) > Math.abs(dx) * 1.2) petEyeDir = dy < 0 ? 'up' : 'down';
+        else petEyeDir = 'center';
+      } else {
+        const dirs = ['center','left','right','up','down'];
+        petEyeDir = dirs[Math.floor(Math.random() * dirs.length)];
+      }
+      petEyeTimer = 5 + Math.floor(Math.random() * 10);
+    }
     const now = Date.now();
     const idleMs = now - _lastActivity;
 
@@ -944,7 +976,7 @@ window.addEventListener('keydown', e => {
       ctx.fillStyle = color;
       ctx.fillRect(x * S, (y + yOff) * S, S, S);
     };
-    pet.draw(pxFn, { blink, legFrame, sitting, sleeping, jump });
+    pet.draw(pxFn, { blink, legFrame, sitting, sleeping, jump, eyeDir: petEyeDir });
 
     ctx.restore();
 
@@ -959,6 +991,25 @@ window.addEventListener('keydown', e => {
   // ── Sidebar mode drawing ──
   function sidebarTick() {
     petFrame++;
+    // Eye direction follows mouse in sidebar too (never up)
+    if (--petEyeTimer <= 0) {
+      if (_mouseX >= 0 && Math.random() < 0.85) {
+        const el = document.getElementById('pixel-pet-sidebar');
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const ex = rect.left + rect.width / 2;
+          const ey = rect.top + rect.height / 2;
+          const dx = _mouseX - ex, dy = _mouseY - ey;
+          if (Math.abs(dx) > Math.abs(dy) * 1.2) petEyeDir = dx < 0 ? 'left' : 'right';
+          else if (dy > Math.abs(dx) * 1.2) petEyeDir = 'down';
+          else petEyeDir = 'center';
+        }
+      } else {
+        const dirs = ['center','left','right','down'];
+        petEyeDir = dirs[Math.floor(Math.random() * dirs.length)];
+      }
+      petEyeTimer = 5 + Math.floor(Math.random() * 10);
+    }
     const now = Date.now();
     const idleMs = now - _lastActivity;
 
@@ -995,7 +1046,7 @@ window.addEventListener('keydown', e => {
       ctx.fillStyle = color;
       ctx.fillRect(x * S, (y + yOff) * S, S, S);
     };
-    pet.draw(pxFn, { blink, legFrame: 0, sitting, sleeping, jump });
+    pet.draw(pxFn, { blink, legFrame: 0, sitting, sleeping, jump, eyeDir: petEyeDir });
 
     if (petState === 'happy') drawParticle(ctx, 'heart', 1, 2, petFrame);
     if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
