@@ -44,6 +44,13 @@ function updateSavedBadge() {
 function getHiddenPosts() {
   try { return JSON.parse(localStorage.getItem('hiddenPosts') || '[]'); } catch { return []; }
 }
+function getReadPosts() {
+  try { return JSON.parse(localStorage.getItem('readPosts') || '[]'); } catch { return []; }
+}
+function markPostAsRead(link) {
+  const read = getReadPosts();
+  if (!read.includes(link)) { read.push(link); localStorage.setItem('readPosts', JSON.stringify(read)); }
+}
 function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
   ev.preventDefault();
@@ -1223,6 +1230,7 @@ function renderPapers() {
   const qfOn = isQualityFilterOn();
   const qCache = qfOn ? getQualityCache() : {};
   const hiddenSet = new Set(getHiddenPosts());
+  const readSet = new Set(getReadPosts());
   const bypass = qfOn ? getQualityBypass() : {};
   const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && !(p.title in qCache)).length : 0;
   document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
@@ -1243,11 +1251,12 @@ function renderPapers() {
     container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => {
       const sourceChip = getSourceChip(p.source, p.arxivId);
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-      const newDot = isNew ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
+      const isRead = readSet.has(p.link);
+      const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
       const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
-      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors group" onclick="openPaper(${i})">
+      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors group${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
         ${newDot}${sourceChip}
-        <span class="text-[0.82rem] text-primary truncate">${renderTitle(p.title)}</span>
+        <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
         <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${isPostSaved(p.link) ? 'var(--accent)' : 'none'}" stroke="${isPostSaved(p.link) ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
           <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
@@ -1282,12 +1291,13 @@ function renderPapers() {
         <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
       </div>`;
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-      const newDot = isNew ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-1 shrink-0" title="New"></span>' : '';
+      const isRead = readSet.has(p.link);
+      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-1 shrink-0" title="New"></span>' : '';
       return `
-      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative" onclick="openPaper(${i})">
+      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
         ${actionBtns}
         <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}</div>
-        <div class="text-[0.92rem] font-semibold text-primary mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
+        <div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
         ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
       </div>`;
     }).join('');

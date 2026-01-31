@@ -1299,6 +1299,7 @@ function openPaper(index) {
   paperViewOrigin = 'arxiv';
   const paper = lastFilteredPapers[index];
   if (!paper) return;
+  markPostAsRead(paper.link);
   if (paper.source === 'arxiv') {
     showPaperView(paper, 'paper/' + index);
   } else {
