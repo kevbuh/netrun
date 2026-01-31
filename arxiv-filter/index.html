@@ -180,9 +180,12 @@
   <!-- Reading List View -->
   <!-- Paper Viewer View -->
   <div id="paper-view" class="hidden ml-[60px] view">
-    <div class="grid grid-cols-[320px_1fr] h-screen overflow-hidden">
-      <div class="border-r border-border-card p-6 overflow-y-auto flex flex-col" id="paper-sidebar"></div>
-      <div class="bg-header overflow-hidden" id="paper-pdf-container"></div>
+    <div class="flex flex-col h-screen overflow-hidden">
+      <div class="flex items-center gap-3 px-4 py-2 border-b border-border-card bg-card shrink-0 min-h-0 overflow-hidden" id="paper-topbar"></div>
+      <div class="flex flex-1 min-h-0 overflow-hidden">
+        <div class="flex-1 bg-header overflow-hidden" id="paper-pdf-container"></div>
+        <div class="w-[320px] shrink-0 border-l border-border-card p-4 overflow-y-auto flex flex-col" id="paper-sidebar"></div>
+      </div>
     </div>
   </div>
 

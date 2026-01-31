@@ -8,7 +8,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 let _pdfDoc = null;
-let _pdfScale = 1.5;
+let _pdfScale = 1.0;
 let _pdfArxivId = '';
 let _pdfTotalPages = 0;
 let _pdfHighlights = [];

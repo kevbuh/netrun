@@ -285,17 +285,39 @@ function showPaperView(paper, hashValue) {
   view.style.display = 'block';
   window.location.hash = hashValue;
 
+  const topbar = document.getElementById('paper-topbar');
   const sidebar = document.getElementById('paper-sidebar');
   const isHN = paper.source === 'hn';
   const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/abs\//.test(paper.link);
   const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
-  const backBtn = `<button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary mb-4" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button>`;
   _currentPaperViewPaper = paper;
   const isSaved = isPostSaved(paper.link);
-  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${isSaved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}" onclick="togglePaperViewBookmark()"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${isSaved ? 'Saved' : 'Bookmark'}</button>`;
+  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[0.78rem] cursor-pointer transition-colors shrink-0 ${isSaved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}" onclick="togglePaperViewBookmark()"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${isSaved ? 'Saved' : 'Save'}</button>`;
 
+  // ── Top bar: back + metadata compact ──
+  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>`;
+  const sourceName = SOURCE_NAMES[paper.source] || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
+
+  let metaParts = [];
+  if (sourceName) metaParts.push(`<span class="text-meta-value">${escapeHtml(sourceName)}</span>`);
+  if (paper.authors) metaParts.push(`<span class="text-muted truncate max-w-[300px]">${escapeHtml(paper.authors)}</span>`);
+  if (paper.published) metaParts.push(`<span class="text-dim">${paper.published}</span>`);
+  if (isHN && paper.hnScore) metaParts.push(`<span class="text-[#f60] font-semibold">${paper.hnScore} pts</span>`);
+  if (isHN && hnDiscussionUrl) metaParts.push(`<a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a>`);
+  if (paper.categories && paper.categories.length) metaParts.push(...paper.categories.slice(0, 3).map(c => `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`));
+
+  topbar.innerHTML = `
+    ${backBtn}
+    <span class="w-px h-5 bg-border-dim shrink-0"></span>
+    <span class="text-[0.82rem] font-semibold text-white_ truncate">${renderTitle(paper.title)}</span>
+    <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest">·</span>')}</span>
+    ${bookmarkBtn}
+    <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  `;
+
+  // ── Sidebar: notes + chat ──
   const notesPanel = `
-    <div class="pt-4 border-t border-border-card" id="paper-notes-section">
+    <div id="paper-notes-section">
       <div id="paper-note-editor" class="hidden">
         <div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div>
         <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
@@ -304,13 +326,13 @@ function showPaperView(paper, hashValue) {
   `;
 
   const chatPanel = `
-    <div class="mt-auto pt-4 border-t border-border-card flex flex-col" id="doc-chat-section" style="min-height:0">
+    <div class="flex-1 flex flex-col border-t border-border-card pt-2" id="doc-chat-section" style="min-height:0">
       <div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()">
-        <span id="doc-chat-chevron">▸</span>
+        <span id="doc-chat-chevron">▾</span>
         <span>Chat</span>
         <span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span>
       </div>
-      <div class="hidden flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
+      <div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
         <div class="doc-chat-status" id="doc-chat-status"></div>
         <div class="doc-chat-messages" id="doc-chat-messages"></div>
         <div class="doc-chat-input-row">
@@ -321,44 +343,12 @@ function showPaperView(paper, hashValue) {
     </div>
   `;
 
-  if (isHN) {
-    sidebar.innerHTML = `
-      ${backBtn}
-      <div class="flex gap-2 mb-3">${bookmarkBtn}</div>
-      <div class="text-[0.92rem] font-semibold text-white_ leading-snug mb-2">${renderTitle(paper.title)}</div>
-      <div class="flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem] text-meta-value mb-3">
-        ${paper.authors ? `<span class="text-muted">${escapeHtml(paper.authors)}</span>` : ''}
-        <span class="text-[#f60] font-semibold">${paper.hnScore} pts</span>
-        <a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a>
-        ${paper.date ? `<span class="text-dim">${paper.date}</span>` : ''}
-      </div>
-      <div class="text-[0.78rem] text-dim mb-3 truncate"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
-      ${hnDiscussionUrl ? `<div class="text-[0.78rem] mb-3"><a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">View on Hacker News</a></div>` : ''}
-      ${notesPanel}
-      ${chatPanel}
-    `;
-  } else {
-    const sourceName = SOURCE_NAMES[paper.source]
-      || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
-    sidebar.innerHTML = `
-      ${backBtn}
-      <div class="flex gap-2 mb-3">${bookmarkBtn}</div>
-      <div class="text-[0.92rem] font-semibold text-white_ leading-snug mb-2">${renderTitle(paper.title)}</div>
-      <div class="flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem] mb-3">
-        ${sourceName ? `<span class="text-meta-value">${escapeHtml(sourceName)}</span>` : ''}
-        ${paper.authors ? `<span class="text-muted">${escapeHtml(paper.authors)}</span>` : ''}
-        ${paper.published ? `<span class="text-dim">${paper.published}</span>` : ''}
-      </div>
-      <div class="text-[0.78rem] text-dim mb-3 truncate"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${escapeHtml(paper.link)}</a></div>
-      ${paper.categories && paper.categories.length ? `
-        <div class="flex flex-wrap gap-1.5 mb-3">
-          ${paper.categories.map(c => `<span class="text-[0.7rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`).join('')}
-        </div>` : ''}
-      ${!isArxiv ? `<div class="mb-3"><a href="${paper.link}" target="_blank" rel="noopener" class="text-[0.82rem] text-link no-underline hover:underline">Open in new tab</a></div>` : ''}
-      ${notesPanel}
-      ${chatPanel}
-    `;
-  }
+  sidebar.innerHTML = `
+    ${notesPanel}
+    ${chatPanel}
+  `;
+  // Chat expanded by default — lock sidebar scroll so chat fills space
+  sidebar.style.overflow = 'hidden';
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
@@ -374,13 +364,15 @@ function showPaperView(paper, hashValue) {
     pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
   }
 
-  // Reset chat state
+  // Reset chat state — expanded by default
   _docChatMessages = [];
   _docText = '';
   _docTextLoading = false;
-  _docChatExpanded = false;
+  _docChatExpanded = true;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _docChatPaperUrl = paper.link;
+  // Start extracting doc text immediately since chat is open
+  setTimeout(() => { if (!_docText && !_docTextLoading) extractDocText(_docChatPaperUrl); }, 0);
 
   // Load paper notes
   _paperNoteSelected = null;
