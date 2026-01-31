@@ -218,6 +218,7 @@ function toggleSavePost(paper, event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: paper.link, title: paper.title, source: paper.source, description: paper.description || '' })
     }).catch(() => {});
+    if (typeof petReact === 'function') petReact('happy');
   }
   savePosts(saved);
   updateSavedBadge();
@@ -644,8 +645,6 @@ function renderSettingsView() {
           `).join('')}
         </div>
       </div>
-    </div>
-
       <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Loading Spinner</span>
         <div class="flex items-center gap-2">
@@ -655,6 +654,27 @@ function renderSettingsView() {
             <div class="text-[0.68rem] text-dimmer" id="spinner-name">${getSelectedSpinner()}</div>
           </div>
           <button onclick="cycleSpinner(1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&rsaquo;</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Pixel Pet</span>
+        <div class="flex items-center gap-2">
+          <div class="flex gap-1">
+            ${['cat','dog','bunny','bird','frog'].map(t => {
+              const sel = (localStorage.getItem('pixelPetType') || 'cat') === t;
+              return `<button onclick="setPixelPetType('${t}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${t}</button>`;
+            }).join('')}
+          </div>
+          <div class="flex gap-1">
+            ${['free','sidebar'].map(m => {
+              const sel = (localStorage.getItem('pixelPetMode') || 'free') === m;
+              return `<button onclick="setPixelPetMode('${m}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${m}</button>`;
+            }).join('')}
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('pixelPet') === 'on' ? 'checked' : ''} onchange="togglePixelPet(this.checked)">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
     </div>

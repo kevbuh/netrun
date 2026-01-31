@@ -376,6 +376,7 @@ function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
 
 function showPaperView(paper, hashValue) {
   markPostRead(paper.link);
+  if (typeof petReact === 'function') petReact('happy');
   hideAllViews();
   const view = document.getElementById('paper-view');
   view.classList.add('active');
