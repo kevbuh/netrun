@@ -1,6 +1,6 @@
 {
   "title": "rl",
-  "desc": "# YEEE\n\nso this is a really good markdown\n\n\n\n# OOOOOO\n\n\n i wonder what in the world happens if i do this\n\n$\\alpha$\n\n\n![](./me/output.png)",
+  "desc": "# YEEE\n\nso this is a really good markdown\n\n\n\n# OOOOOO\n\n\n i wonder what in the world happens if i do this\n\n$\\alpha$\n\n\n![](me/output.png)\n\n\n```\ndef frank(x): print(\"123)\n```",
   "created": 1769732262753,
   "versions": [
     {

@@ -738,6 +738,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/raw/(.+)$'):
+            exp_id = m.group(1)
+            fname = m.group(2)
+            if '..' in fname:
+                self.send_response(400)
+                self.end_headers()
+                return
+            fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+            if not os.path.isfile(fpath):
+                self.send_response(404)
+                self.end_headers()
+                return
+            ext = os.path.splitext(fname)[1].lower()
+            mime_map = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                        '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+                        '.pdf': 'application/pdf'}
+            mime = mime_map.get(ext, 'application/octet-stream')
+            with open(fpath, 'rb') as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'no-cache')
+            self.end_headers()
+            self.wfile.write(data)
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
             fname = m.group(2)

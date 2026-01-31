@@ -128,6 +128,7 @@ async function fetchExperimentDetail(id) {
       descEl.classList.remove('text-dimmest');
       descEl.classList.add('text-muted');
       renderLatexIn('exp-detail-desc');
+      _rewriteExpImages(descEl);
     } else {
       descEl.textContent = 'No description. Double-click to add one.';
       descEl.classList.add('text-dimmest');
@@ -214,7 +215,10 @@ function cancelEditDesc() {
   const desc = currentExp.desc || '';
   const content = desc ? marked.parse(desc) : escapeHtml('No description. Double-click to add one.');
   textarea.outerHTML = `<div id="exp-detail-desc" class="text-[0.85rem] ${desc ? 'text-muted' : 'text-dimmest'} cursor-pointer hover:text-primary transition-colors nb-rendered-md flex-1 overflow-y-auto px-4 py-3" ondblclick="startEditDesc()" title="Double-click to edit description">${content}</div>`;
-  if (desc) renderLatexIn('exp-detail-desc');
+  if (desc) {
+    renderLatexIn('exp-detail-desc');
+    _rewriteExpImages(document.getElementById('exp-detail-desc'));
+  }
 }
 
 // ── Experiment Todos ──

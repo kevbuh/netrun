@@ -1,3 +1,13 @@
+// ── Rewrite relative image paths in rendered markdown to raw endpoint ──
+function _rewriteExpImages(containerEl) {
+  if (!currentExpId) return;
+  containerEl.querySelectorAll('img').forEach(img => {
+    const src = img.getAttribute('src');
+    if (!src || src.startsWith('http') || src.startsWith('data:') || src.startsWith('/api/')) return;
+    img.src = `/api/experiments/${currentExpId}/raw/${src}`;
+  });
+}
+
 // ── Markdown Editor ──
 let _mdMode = 'preview'; // 'preview' or 'edit'
 let _mdRawContent = '';
@@ -16,6 +26,7 @@ function renderMarkdownEditor(fname, content) {
     <div id="md-preview" class="nb-rendered-md flex-1 overflow-y-auto px-4 py-3">${marked.parse(content)}</div>
     <textarea id="md-editor-textarea" class="hidden flex-1 w-full px-4 py-2 bg-transparent text-primary text-[0.85rem] font-mono resize-none focus:outline-none border-none" spellcheck="false">${escapeHtml(content)}</textarea>`;
   renderLatexIn('md-preview');
+  _rewriteExpImages(document.getElementById('md-preview'));
 }
 
 function toggleMdMode() {
@@ -36,6 +47,7 @@ function toggleMdMode() {
     _mdRawContent = ta.value;
     preview.innerHTML = marked.parse(_mdRawContent);
     renderLatexIn('md-preview');
+    _rewriteExpImages(preview);
     preview.classList.remove('hidden');
     ta.classList.add('hidden');
     btn.textContent = 'Edit';
