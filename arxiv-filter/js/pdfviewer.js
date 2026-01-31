@@ -119,7 +119,17 @@ function initPdfViewer(container, url, arxivId) {
     <span style="flex:1"></span>
     <div class="pdf-search-bar" id="pdf-search-bar" style="display:flex;align-items:center;gap:4px;">
       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="opacity:0.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-      <input id="pdf-search-input" type="text" placeholder="Find..." style="width:120px;font-size:0.75rem;padding:2px 6px;border-radius:4px;border:1px solid var(--border-input);background:var(--input-bg,transparent);color:var(--text-primary,#fff);outline:none;" />
+      <div style="display:flex;align-items:center;border:1px solid var(--border-input);border-radius:5px;overflow:hidden;background:var(--input-bg,transparent);">
+        <input id="pdf-search-input" type="text" placeholder="Find..." style="width:110px;font-size:0.75rem;padding:3px 6px;border:none;background:transparent;color:var(--text-primary,#fff);outline:none;" />
+        <span id="pdf-find-count" style="font-size:0.65rem;color:var(--text-dimmer,#888);white-space:nowrap;padding:0 4px;"></span>
+        <span style="width:1px;height:16px;background:var(--border-input);flex-shrink:0;"></span>
+        <button onclick="pdfSearchPrev()" title="Previous (Shift+Enter)" style="display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;padding:3px 4px;color:var(--text-dimmer,#888);">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button onclick="pdfSearchNext()" title="Next (Enter)" style="display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;padding:3px 4px;color:var(--text-dimmer,#888);">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
     </div>
   `;
   container.appendChild(toolbar);
@@ -135,6 +145,8 @@ function initPdfViewer(container, url, arxivId) {
     });
     searchInput.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') { this.value = ''; pdfClearSearchHighlights(); this.blur(); }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pdfSearchNext(); }
+      if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); pdfSearchPrev(); }
     });
   }
 
@@ -847,9 +859,47 @@ function cleanupPdfViewer() {
 
 // ── Search highlight: find text in PDF and overlay highlights ──
 
+let _pdfSearchMatches = []; // array of { overlays: [div,...] } per match
+let _pdfSearchCurrentIdx = -1;
+
 function pdfClearSearchHighlights() {
   _pdfSearchOverlays.forEach(el => el.remove());
   _pdfSearchOverlays = [];
+  _pdfSearchMatches = [];
+  _pdfSearchCurrentIdx = -1;
+}
+
+function _pdfSearchHighlightCurrent() {
+  // Hide all matches, show only the current one
+  _pdfSearchMatches.forEach(m => m.overlays.forEach(o => o.style.display = 'none'));
+  if (_pdfSearchCurrentIdx >= 0 && _pdfSearchCurrentIdx < _pdfSearchMatches.length) {
+    const m = _pdfSearchMatches[_pdfSearchCurrentIdx];
+    m.overlays.forEach(o => { o.style.display = ''; o.style.background = 'rgba(255,160,0,0.45)'; });
+    if (m.overlays[0]) m.overlays[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  _pdfSearchUpdateCounter();
+}
+
+function _pdfSearchUpdateCounter() {
+  const el = document.getElementById('pdf-find-count');
+  if (!el) return;
+  if (_pdfSearchMatches.length === 0) {
+    el.textContent = 'No matches';
+  } else {
+    el.textContent = `${_pdfSearchCurrentIdx + 1} of ${_pdfSearchMatches.length}`;
+  }
+}
+
+function pdfSearchNext() {
+  if (!_pdfSearchMatches.length) return;
+  _pdfSearchCurrentIdx = (_pdfSearchCurrentIdx + 1) % _pdfSearchMatches.length;
+  _pdfSearchHighlightCurrent();
+}
+
+function pdfSearchPrev() {
+  if (!_pdfSearchMatches.length) return;
+  _pdfSearchCurrentIdx = (_pdfSearchCurrentIdx - 1 + _pdfSearchMatches.length) % _pdfSearchMatches.length;
+  _pdfSearchHighlightCurrent();
 }
 
 function _normalizeForSearch(s) {
@@ -895,6 +945,7 @@ function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
     const involvedSpans = new Set();
     matchChars.forEach(c => { if (c.span) involvedSpans.add(c.span); });
 
+    const matchOverlays = [];
     involvedSpans.forEach(span => {
       const rect = span.getBoundingClientRect();
       const wrapperRect = wrapper.getBoundingClientRect();
@@ -907,15 +958,18 @@ function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
       div.style.top = (rect.top - wrapperRect.top) + 'px';
       div.style.width = rect.width + 'px';
       div.style.height = rect.height + 'px';
-      div.style.background = 'rgba(255,160,0,0.35)';
+      div.style.background = 'rgba(255,160,0,0.45)';
       div.style.borderRadius = '2px';
       div.style.pointerEvents = 'none';
       div.style.mixBlendMode = 'multiply';
+      div.style.display = 'none';
       pageIdx.hlLayer.appendChild(div);
       _pdfSearchOverlays.push(div);
+      matchOverlays.push(div);
 
       if (!firstMatch.el) firstMatch.el = div;
     });
+    if (matchOverlays.length) _pdfSearchMatches.push({ overlays: matchOverlays });
   }
   return found;
 }
@@ -936,15 +990,39 @@ function pdfTextExists(query) {
   return false;
 }
 
-function pdfSearchHighlight(query) {
+async function _ensureAllPagesRendered() {
+  if (!_pdfDoc || !_pdfPagesContainer) return;
+  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+  const promises = [];
+  for (const w of wrappers) {
+    const pageNum = parseInt(w.dataset.page);
+    if (!_pdfRenderedPages.has(pageNum)) {
+      _pdfRenderedPages.add(pageNum);
+      promises.push(new Promise(resolve => {
+        renderPdfPage(pageNum, w);
+        // Wait for text layer to appear
+        const check = (tries) => {
+          if (w.querySelector('.textLayer') || tries > 40) resolve();
+          else setTimeout(() => check(tries + 1), 100);
+        };
+        check(0);
+      }));
+    }
+  }
+  if (promises.length) await Promise.all(promises);
+}
+
+async function pdfSearchHighlight(query) {
   pdfClearSearchHighlights();
-  if (!query || query.length < 2 || !_pdfPagesContainer) return;
+  if (!query || query.length < 2 || !_pdfPagesContainer) { _pdfSearchUpdateCounter(); return; }
+
+  // Ensure all pages are rendered so we can search their text layers
+  await _ensureAllPagesRendered();
 
   const queryNorm = _normalizeForSearch(query);
   const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
   const firstMatch = { el: null };
 
-  // Try full query first
   let found = false;
   const pageIndices = [];
   wrappers.forEach(wrapper => {
@@ -954,34 +1032,10 @@ function pdfSearchHighlight(query) {
     if (_highlightMatchInPage(wrapper, idx, queryNorm, firstMatch)) found = true;
   });
 
-  // If no match, try progressively shorter substrings from the start
-  if (!found && queryNorm.length > 20) {
-    const words = query.split(/\s+/);
-    for (let len = words.length - 1; len >= 3 && !found; len--) {
-      const sub = _normalizeForSearch(words.slice(0, len).join(' '));
-      if (sub.length < 15) break;
-      for (const p of pageIndices) {
-        if (!p) continue;
-        if (_highlightMatchInPage(p.wrapper, p.idx, sub, firstMatch)) { found = true; break; }
-      }
-    }
-  }
-
-  // If still no match, try a unique middle chunk (skip first few words which may be noisy)
-  if (!found && queryNorm.length > 30) {
-    const words = query.split(/\s+/);
-    const start = Math.min(3, Math.floor(words.length / 4));
-    for (let len = Math.min(words.length - start, 8); len >= 3 && !found; len--) {
-      const sub = _normalizeForSearch(words.slice(start, start + len).join(' '));
-      if (sub.length < 15) break;
-      for (const p of pageIndices) {
-        if (!p) continue;
-        if (_highlightMatchInPage(p.wrapper, p.idx, sub, firstMatch)) { found = true; break; }
-      }
-    }
-  }
-
-  if (firstMatch.el) {
-    firstMatch.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (_pdfSearchMatches.length > 0) {
+    _pdfSearchCurrentIdx = 0;
+    _pdfSearchHighlightCurrent();
+  } else {
+    _pdfSearchUpdateCounter();
   }
 }

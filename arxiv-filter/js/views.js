@@ -386,8 +386,23 @@ function togglePaperViewBookmark() {
   const btn = document.getElementById('paper-view-bookmark');
   if (!btn) return;
   const saved = isPostSaved(_currentPaperViewPaper.link);
-  btn.className = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${saved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}`;
-  btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${saved ? 'Saved' : 'Bookmark'}`;
+  btn.className = `inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${saved ? 'text-accent' : 'text-muted hover:text-primary'}`;
+  btn.title = saved ? 'Saved' : 'Save';
+  btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
+  // Switch URL from #paper/N to #view/URL so the page is addressable by URL
+  const link = _currentPaperViewPaper.link;
+  const viewHash = 'view/' + encodeURIComponent(link);
+  if (!window.location.hash.startsWith('#view/')) {
+    history.replaceState(null, '', '#' + viewHash);
+  }
+}
+
+// ── Toggle paper sidebar ──
+function togglePaperSidebar() {
+  const sidebar = document.getElementById('paper-sidebar');
+  if (!sidebar) return;
+  const hidden = sidebar.style.display === 'none';
+  sidebar.style.display = hidden ? '' : 'none';
 }
 
 // ── Add to experiment dropdown ──
@@ -500,7 +515,7 @@ function showPaperView(paper, hashValue) {
   const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
   _currentPaperViewPaper = paper;
   const isSaved = isPostSaved(paper.link);
-  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[0.78rem] cursor-pointer transition-colors shrink-0 ${isSaved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}" onclick="togglePaperViewBookmark()"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${isSaved ? 'Saved' : 'Save'}</button>`;
+  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
 
   // ── Top bar: back + metadata compact ──
   const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>`;
@@ -519,13 +534,14 @@ function showPaperView(paper, hashValue) {
     <span class="w-px h-5 bg-border-dim shrink-0"></span>
     <span class="text-[0.82rem] font-semibold text-white_ truncate">${renderTitle(paper.title)}</span>
     <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest">·</span>')}</span>
-    ${bookmarkBtn}
     <div class="relative shrink-0" id="paper-exp-btn-wrap">
       <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-transparent border-border-input text-muted text-[0.78rem] cursor-pointer transition-colors hover:text-primary hover:border-dimmer" onclick="togglePaperExpDropdown()" title="Add to experiment">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Experiment
       </button>
     </div>
+    ${bookmarkBtn}
+    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
 
@@ -778,37 +794,26 @@ function _renderSelectionMirror(el, selectedText) {
   </div>`;
 }
 
-function showPdfFindBar() {
-  const el = document.getElementById('paper-selection-mirror');
-  if (!el) return;
-  el.classList.remove('hidden');
-  el.innerHTML = `<div class="rounded-lg border border-border-card bg-card-bg p-3">
-    <div class="flex items-center justify-between mb-1.5">
-      <div class="text-[0.72rem] font-semibold text-dim uppercase tracking-wide">Find in PDF</div>
-      <button onclick="closePdfFindBar()" class="text-dim hover:text-primary text-[0.7rem] bg-transparent border-none cursor-pointer p-0">&times;</button>
-    </div>
-    <input id="pdf-find-input" type="text" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1 text-primary outline-none focus:border-accent" placeholder="Type to find in PDF..." autofocus />
-  </div>`;
-  const input = document.getElementById('pdf-find-input');
-  if (input) {
-    input.focus();
-    input.addEventListener('input', function() {
-      clearTimeout(_selMirrorSearchTimer);
-      const q = this.value.trim();
-      _selMirrorSearchTimer = setTimeout(() => {
-        if (typeof pdfSearchHighlight === 'function') pdfSearchHighlight(q);
-      }, 300);
-    });
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closePdfFindBar();
-    });
+// Intercept Cmd/Ctrl+F in paper view to focus the PDF toolbar search
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+    const paperView = document.getElementById('paper-view');
+    if (paperView && paperView.style.display === 'block') {
+      const input = document.getElementById('pdf-search-input');
+      if (input) { e.preventDefault(); input.focus(); input.select(); }
+    }
   }
+});
+
+function showPdfFindBar() {
+  const input = document.getElementById('pdf-search-input');
+  if (input) { input.focus(); input.select(); }
 }
 
 function closePdfFindBar() {
   if (typeof pdfClearSearchHighlights === 'function') pdfClearSearchHighlights();
-  const el = document.getElementById('paper-selection-mirror');
-  if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+  const input = document.getElementById('pdf-search-input');
+  if (input) { input.value = ''; input.blur(); }
 }
 
 // ── Paper Notes ──
@@ -1404,8 +1409,10 @@ function renderSearchFeedResults(query) {
 
   if (!matches.length) {
     container.innerHTML = '';
+
     return;
   }
+
   container.innerHTML = `<div class="mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">Feed (${matches.length})</div>` +
     matches.map((p, i) => {
       const sourceChip = getSourceChip(p.source, p.arxivId);
