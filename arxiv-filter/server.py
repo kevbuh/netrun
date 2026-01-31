@@ -481,7 +481,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg', '.mermaid')
+            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg', '.mermaid', '.draw')
             skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
             files = []
             dirs_with_files = set()
@@ -1287,7 +1287,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self._read_body()
             name = body.get('name', '').strip()
-            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg', '.mermaid')
+            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg', '.mermaid', '.draw')
             if not name or not any(name.endswith(e) for e in allowed_ext):
                 self._send_json({'error': f'Name must end with {", ".join(allowed_ext)}'}, 400)
                 return
@@ -1312,6 +1312,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         "metadata": {},
                         "nbformat": 4, "nbformat_minor": 5
                     }, indent=2))
+            elif name.endswith('.draw'):
+                with open(fpath, 'w') as f:
+                    f.write(json.dumps({"version": 1, "objects": []}))
             elif name.endswith('.tex'):
                 template_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.tex')
                 if os.path.isfile(template_path):
