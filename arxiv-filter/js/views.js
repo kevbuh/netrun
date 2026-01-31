@@ -66,17 +66,20 @@ async function renderDashboard() {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const heatYear = now.getFullYear();
 
-  // Build activity counts per date key (YYYY-MM-DD)
-  const activity = {};
-  const addActivity = (dateStr) => { activity[dateStr] = (activity[dateStr] || 0) + 1; };
-  events.forEach(ev => { if (ev.date) addActivity(ev.date); });
-  allNotes.forEach(t => { if (t.date) addActivity(t.date); });
+  // Build activity items per date key (YYYY-MM-DD)
+  const activityItems = {};
+  const addItem = (dateStr, item) => { (activityItems[dateStr] ||= []).push(item); };
+  events.forEach(ev => { if (ev.date) addItem(ev.date, { type: 'event', title: ev.title || 'Calendar event' }); });
+  allNotes.forEach(t => { if (t.date) addItem(t.date, { type: 'note', title: t.title || 'Note', id: t.id, paperLink: t.paperLink }); });
   Object.values(mergedSaved).forEach(entry => {
     if (entry.savedAt) {
       const d = new Date(entry.savedAt);
-      addActivity(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      addItem(key, { type: 'saved', title: entry.paper?.title || 'Saved post', link: entry.paper?.link });
     }
   });
+  // Helper to get count
+  const activityCount = (key) => (activityItems[key] || []).length;
 
   // Jan 1 to Dec 31 of current year
   const jan1 = new Date(heatYear, 0, 1);
@@ -91,7 +94,7 @@ async function renderDashboard() {
   for (let day = 0; day < totalDays; day++) {
     const d = new Date(heatYear, 0, 1 + day);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const count = activity[key] || 0;
+    const count = activityCount(key);
     const isToday = d.getTime() === today.getTime();
     const isFuture = d > today;
     const dow = d.getDay();
@@ -109,16 +112,9 @@ async function renderDashboard() {
     }
   });
 
-  const maxCount = Math.max(1, ...cells.filter(c => !c.isFuture).map(c => c.count));
-  const levelFn = (count) => {
-    if (count === 0) return 0;
-    if (count <= maxCount * 0.25) return 1;
-    if (count <= maxCount * 0.5) return 2;
-    if (count <= maxCount * 0.75) return 3;
-    return 4;
-  };
-
-  const colors = ['var(--border-card)', 'color-mix(in srgb, var(--accent) 30%, transparent)', 'color-mix(in srgb, var(--accent) 55%, transparent)', 'color-mix(in srgb, var(--accent) 80%, transparent)', 'var(--accent)'];
+  // 1-10 scale: count 1 = level 1, count 10+ = level 10
+  const levelFn = (count) => Math.min(count, 10);
+  const colorFn = (lvl) => lvl === 0 ? 'var(--border-card)' : `color-mix(in srgb, var(--accent) ${lvl * 10}%, transparent)`;
   const cellSize = 11;
   const cellGap = 3;
   const labelW = 30;
@@ -126,7 +122,7 @@ async function renderDashboard() {
   const gridW = labelW + numWeeks * (cellSize + cellGap);
   const gridH = monthLabelH + 7 * (cellSize + cellGap);
 
-  let heatmapHtml = `<div class="overflow-x-auto scrollbar-hide"><svg width="${gridW}" height="${gridH}" class="block" style="min-width:${gridW}px">`;
+  let heatmapHtml = `<div class="overflow-x-auto scrollbar-hide" style="position:relative"><svg width="${gridW}" height="${gridH}" class="block heatmap-svg" style="min-width:${gridW}px">`;
   // Month labels along top
   monthLabels.forEach(m => {
     heatmapHtml += `<text x="${labelW + m.col * (cellSize + cellGap)}" y="11" fill="var(--text-dimmer)" font-size="10" font-family="sans-serif">${m.label}</text>`;
@@ -141,13 +137,91 @@ async function renderDashboard() {
     const x = labelW + c.col * (cellSize + cellGap);
     const y = monthLabelH + c.row * (cellSize + cellGap);
     const lvl = c.isFuture ? 0 : levelFn(c.count);
-    const stroke = c.isToday ? 'var(--text-primary)' : 'none';
+    const stroke = c.isToday ? 'var(--accent)' : 'none';
     const sw = c.isToday ? '1.5' : '0';
-    const prettyDate = new Date(heatYear, c.month, c.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const tooltip = c.count === 0 ? `${prettyDate} — No activity` : `${prettyDate} — ${c.count} activit${c.count === 1 ? 'y' : 'ies'}`;
-    heatmapHtml += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${colors[lvl]}" stroke="${stroke}" stroke-width="${sw}"><title>${tooltip}</title></rect>`;
+    const prettyDate = new Date(heatYear, c.month, c.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const tooltipText = c.isFuture ? prettyDate : (c.count === 0 ? `No activity on ${prettyDate}` : `${c.count} activit${c.count === 1 ? 'y' : 'ies'} on ${prettyDate}`);
+    heatmapHtml += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${colorFn(lvl)}" stroke="${stroke}" stroke-width="${sw}" data-tip="${escapeAttr(tooltipText)}" data-key="${c.key}" class="heatmap-cell" style="cursor:pointer"/>`;
   });
-  heatmapHtml += '</svg></div>';
+  heatmapHtml += '</svg><div id="heatmap-tip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text-primary);white-space:nowrap;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div><div id="heatmap-popover" style="display:none;position:absolute;z-index:101;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div></div>';
+
+  // Store activity items on window for click handler
+  window._heatmapItems = activityItems;
+
+  // Attach tooltip + click handlers after render
+  requestAnimationFrame(() => {
+    const tip = document.getElementById('heatmap-tip');
+    const pop = document.getElementById('heatmap-popover');
+    const svg = document.querySelector('.heatmap-svg');
+    if (!svg || !tip || !pop) return;
+
+    // Hover tooltip
+    svg.addEventListener('mouseover', e => {
+      const r = e.target.closest('.heatmap-cell');
+      if (!r) { tip.style.display = 'none'; return; }
+      tip.textContent = r.dataset.tip;
+      tip.style.display = 'block';
+      const svgRect = svg.parentElement.getBoundingClientRect();
+      const cellRect = r.getBoundingClientRect();
+      let left = cellRect.left - svgRect.left + cellRect.width / 2 - tip.offsetWidth / 2;
+      left = Math.max(0, Math.min(left, svgRect.width - tip.offsetWidth));
+      tip.style.left = left + 'px';
+      tip.style.top = (cellRect.top - svgRect.top - tip.offsetHeight - 6) + 'px';
+    });
+    svg.addEventListener('mouseout', e => {
+      if (!e.target.closest('.heatmap-cell')) return;
+      tip.style.display = 'none';
+    });
+
+    // Click popover
+    svg.addEventListener('click', e => {
+      const r = e.target.closest('.heatmap-cell');
+      if (!r) return;
+      const key = r.dataset.key;
+      const items = window._heatmapItems[key] || [];
+      const parts = key.split('-');
+      const dateLabel = new Date(+parts[0], +parts[1]-1, +parts[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+      if (!items.length) {
+        pop.innerHTML = `<div style="padding:6px 12px;color:var(--text-dimmer)">${dateLabel}<br>No activity</div>`;
+      } else {
+        const icons = { event: '\u{1F4C5}', note: '\u{1F4DD}', saved: '\u{1F516}' };
+        const labels = { event: 'Event', note: 'Note', saved: 'Saved' };
+        let html = `<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:11px;border-bottom:1px solid var(--border-card);margin-bottom:2px">${dateLabel}</div>`;
+        items.forEach(item => {
+          const icon = icons[item.type] || '';
+          const tag = `<span style="font-size:9px;color:var(--text-dimmest);margin-left:4px">${labels[item.type] || ''}</span>`;
+          let onclick = '';
+          if (item.type === 'saved' && item.link) onclick = `onclick="openSavedPaper('${escapeAttr(item.link)}')"`;
+          else if (item.type === 'note' && item.paperLink) onclick = `onclick="openPaperByUrl('${escapeAttr(item.paperLink)}')"`;
+          else if (item.type === 'note' && item.id) onclick = `onclick="openTodos(); setTimeout(()=>selectTodo('${item.id}'),100)"`;
+          const cursor = onclick ? 'cursor:pointer;' : '';
+          html += `<div style="padding:4px 12px;${cursor}display:flex;align-items:center;gap:6px;color:var(--text-primary)" ${onclick} class="hover:bg-hover">
+            <span style="flex-shrink:0">${icon}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escapeHtml(item.title)}</span>${tag}
+          </div>`;
+        });
+        pop.innerHTML = html;
+      }
+
+      pop.style.display = 'block';
+      const svgRect = svg.parentElement.getBoundingClientRect();
+      const cellRect = r.getBoundingClientRect();
+      let left = cellRect.left - svgRect.left + cellRect.width / 2 - pop.offsetWidth / 2;
+      left = Math.max(0, Math.min(left, svgRect.width - pop.offsetWidth));
+      let top = cellRect.bottom - svgRect.top + 6;
+      if (top + pop.offsetHeight > svgRect.height + 100) top = cellRect.top - svgRect.top - pop.offsetHeight - 6;
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+    });
+
+    // Close popover on click outside
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.heatmap-cell') && !e.target.closest('#heatmap-popover')) {
+        pop.style.display = 'none';
+      }
+    });
+  });
 
   // ── Notes (non-experiment) ──
   const notes = allNotes.filter(n => !n.experimentId);

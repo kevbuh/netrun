@@ -293,16 +293,16 @@ function getGreeting() {
     : [n('Evening')];
 
   const dayGreetings = [];
-  if (day === 0) { dayGreetings.push(n('Happy Sunday')); dayGreetings.push(name ? `Sunday session, ${name}?` : 'Sunday session?'); }
+  if (day === 0) { dayGreetings.push(n('Happy Sunday')); dayGreetings.push(name ? `Sunday session, ${name}?` : 'Sunday session'); }
   if (day === 1) dayGreetings.push(n('Happy Monday'));
   if (day === 2) dayGreetings.push(n('Happy Tuesday'));
   if (day === 3) dayGreetings.push(n('Happy Wednesday'));
   if (day === 4) dayGreetings.push(n('Happy Thursday'));
   if (day === 5) { dayGreetings.push(n('Happy Friday')); dayGreetings.push(n('That Friday feeling')); }
-  if (day === 6) { dayGreetings.push(n('Happy Saturday!')); dayGreetings.push(n('Welcome to the weekend')); }
+  if (day === 6) { dayGreetings.push(n('Happy Saturday')); dayGreetings.push(n('Welcome to the weekend')); }
 
   const casual = [
-    n('Hey there'), nQ("How's it going"), n('Back at it!'),
+    n('Hey there'), nQ("How's it going"), n('Back at it'),
     nQ("What's new"), n('Welcome'),
   ];
   if (name) casual.push(`${name} returns!`);
