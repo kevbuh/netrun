@@ -22,6 +22,7 @@ let _pdfPopup = null;
 let _pdfSavedRange = null;
 
 // ── Pen / Drawing state ──
+let _pdfHighlightMode = false;
 let _pdfPenMode = false;
 let _pdfPenColor = '#000000';
 let _pdfPenSize = 2;
@@ -106,6 +107,9 @@ function initPdfViewer(container, url, arxivId) {
       </button>
     </div>
     <span class="pdf-tb-sep"></span>
+    <button class="pdf-tb-btn" id="pdf-hl-mode-toggle" onclick="togglePdfHighlightMode()" title="Highlight mode">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 14l3 3v5h6v-5l3-3V9H6v5zm5-12h2v3h-2V2zM3.5 5.88l1.41-1.41 2.12 2.12L5.62 8 3.5 5.88zm13.46.71l2.12-2.12 1.41 1.41L18.38 8l-1.42-1.41z"/></svg>
+    </button>
     <button class="pdf-tb-btn" id="pdf-pen-toggle" onclick="togglePdfPen()" title="Pen tool">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
     </button>
@@ -257,6 +261,38 @@ function renderPdfPage(pageNum, wrapper) {
       });
       renderTask.promise.catch(err => console.error('Text layer render error:', err));
 
+      // Annotation layer — renders internal links (citations, TOC, URLs)
+      page.getAnnotations().then(annotations => {
+        if (!annotations.length) return;
+        const annotLayer = document.createElement('div');
+        annotLayer.className = 'pdf-annotation-layer';
+        annotLayer.style.width = viewport.width + 'px';
+        annotLayer.style.height = viewport.height + 'px';
+        wrapper.appendChild(annotLayer);
+        for (const annot of annotations) {
+          if (annot.subtype !== 'Link') continue;
+          const rect = annot.rect;
+          if (!rect) continue;
+          const [x1, y1, x2, y2] = pdfjsLib.Util.normalizeRect(viewport.convertToViewportRectangle(rect));
+          const link = document.createElement('a');
+          link.className = 'pdf-annot-link';
+          link.style.left = x1 + 'px';
+          link.style.top = y1 + 'px';
+          link.style.width = (x2 - x1) + 'px';
+          link.style.height = (y2 - y1) + 'px';
+          if (annot.dest) {
+            link.href = '#';
+            link.dataset.dest = typeof annot.dest === 'string' ? annot.dest : JSON.stringify(annot.dest);
+            link.addEventListener('click', _onPdfAnnotClick);
+          } else if (annot.url) {
+            link.href = annot.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+          }
+          annotLayer.appendChild(link);
+        }
+      });
+
       // Highlight layer
       const hlLayer = document.createElement('div');
       hlLayer.className = 'pdf-highlight-layer';
@@ -360,7 +396,7 @@ function updatePdfPageIndicator() {
 // ── Text selection → highlight popup ──
 
 function onPdfTextSelected(e) {
-  if (_pdfPenMode) return;
+  if (_pdfPenMode || !_pdfHighlightMode) return;
   dismissHighlightPopup();
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
@@ -676,7 +712,20 @@ function scrollToHighlight(id) {
 
 // ── Pen / Drawing ──
 
+function togglePdfHighlightMode() {
+  _pdfHighlightMode = !_pdfHighlightMode;
+  // Turn off pen mode if switching out of highlight mode
+  if (!_pdfHighlightMode && _pdfPenMode) togglePdfPen();
+  const btn = document.getElementById('pdf-hl-mode-toggle');
+  if (btn) btn.classList.toggle('active', _pdfHighlightMode);
+  if (_pdfPagesContainer) {
+    _pdfPagesContainer.classList.toggle('pdf-hl-mode', _pdfHighlightMode);
+  }
+}
+
 function togglePdfPen() {
+  // Entering pen mode also activates highlight mode
+  if (!_pdfPenMode && !_pdfHighlightMode) togglePdfHighlightMode();
   _pdfPenMode = !_pdfPenMode;
   if (!_pdfPenMode) _pdfEraserMode = false;
   const btn = document.getElementById('pdf-pen-toggle');
@@ -851,6 +900,7 @@ function cleanupPdfViewer() {
   _pdfArxivId = '';
   _pdfContainer = null;
   _pdfPagesContainer = null;
+  _pdfHighlightMode = false;
   _pdfPenMode = false;
   _pdfEraserMode = false;
   _pdfDrawings = {};
@@ -1091,4 +1141,26 @@ async function pdfSearchHighlight(query) {
   } else {
     _pdfSearchUpdateCounter();
   }
+}
+
+// ── PDF annotation (internal link) click handler ──
+function _onPdfAnnotClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const raw = e.currentTarget.dataset.dest;
+  if (!raw || !_pdfDoc) return;
+  let dest;
+  try { dest = JSON.parse(raw); } catch { dest = raw; }
+  const resolve = typeof dest === 'string'
+    ? _pdfDoc.getDestination(dest).then(d => d)
+    : Promise.resolve(dest);
+  resolve.then(destArray => {
+    if (!destArray || !destArray.length) return;
+    const ref = destArray[0];
+    return _pdfDoc.getPageIndex(ref).then(idx => idx + 1);
+  }).then(pageNum => {
+    if (!pageNum || !_pdfPagesContainer) return;
+    const wrapper = _pdfPagesContainer.querySelector(`.pdf-page-wrapper[data-page="${pageNum}"]`);
+    if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }).catch(() => {});
 }

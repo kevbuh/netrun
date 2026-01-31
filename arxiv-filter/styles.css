@@ -648,15 +648,46 @@
     }
     .pdf-highlight-rect {
       position: absolute;
-      pointer-events: auto;
-      cursor: pointer;
+      pointer-events: none;
       mix-blend-mode: multiply;
       border-radius: 2px;
       transition: opacity 0.15s;
     }
     .pdf-search-highlight {
+      pointer-events: none;
+    }
+    /* In highlight mode, highlight rects become interactive */
+    .pdf-hl-mode .pdf-highlight-rect {
       pointer-events: auto;
       cursor: pointer;
+    }
+    .pdf-hl-mode .pdf-search-highlight {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .pdf-annotation-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .pdf-annot-link {
+      position: absolute;
+      pointer-events: auto;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .pdf-annot-link:hover {
+      background: rgba(180, 69, 26, 0.15);
+    }
+    /* In highlight mode, annotation links step back */
+    .pdf-hl-mode .pdf-annotation-layer {
+      z-index: 2;
+      pointer-events: none;
+    }
+    .pdf-hl-mode .pdf-annot-link {
+      pointer-events: none;
     }
     .pdf-highlight-rect:hover {
       opacity: 0.6;
@@ -875,6 +906,18 @@
     }
     .pdf-pen-active .pdf-highlight-layer {
       pointer-events: none;
+    }
+    #pdf-hl-mode-toggle {
+      border: none;
+      background: none;
+      color: var(--text-muted);
+    }
+    #pdf-hl-mode-toggle:hover {
+      color: var(--text-primary);
+    }
+    #pdf-hl-mode-toggle.active {
+      color: var(--accent);
+      background: none;
     }
     #pdf-pen-toggle {
       border: none;
