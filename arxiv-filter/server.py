@@ -30,6 +30,7 @@ CALENDAR_FILE = os.path.join(DIR, 'calendar.json')
 TODOS_FILE = os.path.join(DIR, 'todos.json')
 SAVED_POSTS_FILE = os.path.join(DIR, 'saved_posts.json')
 SETTINGS_FILE = os.path.join(DIR, 'settings.json')
+COMMENTS_FILE = os.path.join(DIR, 'comments.json')
 
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 
@@ -318,6 +319,23 @@ def read_settings():
 def write_settings(data):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(data, f, indent=2)
+
+
+def read_comments():
+    if not os.path.exists(COMMENTS_FILE):
+        return []
+    try:
+        with open(COMMENTS_FILE, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+
+def write_comments(comments):
+    tmp = COMMENTS_FILE + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(comments, f, indent=2)
+    os.replace(tmp, COMMENTS_FILE)
 
 
 def slugify(text):
@@ -962,6 +980,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif self.path == '/api/settings':
             self._send_json(read_settings())
 
+        elif self.path.startswith('/api/comments'):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            paper_link = qs.get('paperLink', [''])[0].strip()
+            all_comments = read_comments()
+            if paper_link:
+                filtered = [c for c in all_comments if c.get('paperLink') == paper_link]
+            else:
+                filtered = all_comments
+            self._send_json(filtered)
+
         else:
             super().do_GET()
 
@@ -1536,6 +1565,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 write_blocked_titles(titles)
             self._send_json({'ok': True})
 
+        elif self.path == '/api/comments':
+            body = self._read_body()
+            paper_link = body.get('paperLink', '').strip()
+            author = body.get('author', '').strip()
+            content = body.get('content', '').strip()
+            if not paper_link or not content:
+                self._send_json({'error': 'paperLink and content required'}, 400)
+                return
+            comment = {
+                'id': str(uuid.uuid4()),
+                'paperLink': paper_link,
+                'author': author or 'Anonymous',
+                'content': content,
+                'timestamp': int(time.time() * 1000),
+                'parentId': body.get('parentId', None)
+            }
+            comments = read_comments()
+            comments.append(comment)
+            write_comments(comments)
+            self._send_json(comment, 201)
+
         elif self.path == '/api/saved-posts':
             body = self._read_body()
             url = body.get('url', '').strip()
@@ -1769,6 +1819,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/blocked-titles':
             write_blocked_titles([])
+            self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/comments/([a-zA-Z0-9_-]+)$'):
+            cid = m.group(1)
+            comments = read_comments()
+            # Remove the comment and any replies to it
+            to_remove = {cid}
+            changed = True
+            while changed:
+                changed = False
+                for c in comments:
+                    if c.get('parentId') in to_remove and c['id'] not in to_remove:
+                        to_remove.add(c['id'])
+                        changed = True
+            new_comments = [c for c in comments if c['id'] not in to_remove]
+            if len(new_comments) == len(comments):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            write_comments(new_comments)
             self._send_json({'ok': True})
 
         elif self.path == '/api/saved-posts':

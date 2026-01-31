@@ -590,10 +590,25 @@ function showPaperView(paper, hashValue) {
     </div>
   `;
 
+  const commentsPanel = `
+    <div class="flex flex-col flex-1 min-h-0">
+      <div id="comments-list" class="flex-1 overflow-y-auto"></div>
+      <div class="border-t border-border-card pt-2 mt-2 shrink-0">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-[0.72rem] text-dim">Name:</span>
+          <input id="comment-author" class="flex-1 text-[0.78rem] bg-input border border-border-input rounded px-2 py-1 text-primary outline-none focus:border-accent" value="${escapeHtml(localStorage.getItem('userName') || '')}" placeholder="Your name" />
+        </div>
+        <textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea>
+        <button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button>
+      </div>
+    </div>
+  `;
+
   sidebar.innerHTML = `
     <div class="flex gap-1 mb-3 shrink-0">
       <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
+      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
     </div>
     <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
       <div id="pdf-highlights-section">
@@ -603,6 +618,9 @@ function showPaperView(paper, hashValue) {
     </div>
     <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0" style="display:none">
       ${chatPanel}
+    </div>
+    <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0" style="display:none">
+      ${commentsPanel}
     </div>
   `;
 
@@ -738,6 +756,140 @@ async function savePaperNote(id, content) {
   } catch (e) { /* silent */ }
 }
 
+// ── Paper Comments ──
+let _commentsCache = [];
+
+async function fetchPaperComments() {
+  const list = document.getElementById('comments-list');
+  if (!list) return;
+  try {
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(_paperNoteLink));
+    _commentsCache = await resp.json();
+  } catch (e) {
+    _commentsCache = [];
+  }
+  renderComments();
+}
+
+function renderComments() {
+  const list = document.getElementById('comments-list');
+  if (!list) return;
+  if (!_commentsCache.length) {
+    list.innerHTML = '<div class="text-dim text-[0.8rem] py-4 text-center">No comments yet</div>';
+    return;
+  }
+  // Build threaded tree
+  const topLevel = _commentsCache.filter(c => !c.parentId);
+  const byParent = {};
+  _commentsCache.forEach(c => {
+    if (c.parentId) {
+      (byParent[c.parentId] = byParent[c.parentId] || []).push(c);
+    }
+  });
+  // Sort by timestamp
+  topLevel.sort((a, b) => a.timestamp - b.timestamp);
+
+  function renderThread(comment, depth) {
+    const replies = (byParent[comment.id] || []).sort((a, b) => a.timestamp - b.timestamp);
+    const ml = depth > 0 ? `margin-left:${Math.min(depth, 4) * 16}px; border-left: 2px solid var(--border-card); padding-left: 8px;` : '';
+    const initial = (comment.author || '?')[0].toUpperCase();
+    const timeAgo = _relativeTime(comment.timestamp);
+    const userName = localStorage.getItem('userName') || '';
+    const isOwn = comment.author === userName;
+    const deleteBtn = isOwn ? `<button onclick="deleteComment('${comment.id}')" class="text-dimmest hover:text-red-400 text-[0.7rem] ml-auto" title="Delete" style="background:none;border:none;cursor:pointer;">x</button>` : '';
+    let html = `<div class="comment-thread" style="${ml}; margin-bottom: 8px;">
+      <div class="flex items-start gap-2">
+        <div style="width:22px;height:22px;min-width:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:0.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${escapeHtml(initial)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-[0.75rem] font-medium text-primary">${escapeHtml(comment.author)}</span>
+            <span class="text-[0.68rem] text-dimmer">${timeAgo}</span>
+            ${deleteBtn}
+          </div>
+          <div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(comment.content).replace(/\n/g, '<br>')}</div>
+          <button onclick="showReplyInput('${comment.id}')" class="text-[0.7rem] text-dim hover:text-accent mt-1" style="background:none;border:none;cursor:pointer;">Reply</button>
+          <div id="reply-input-${comment.id}" class="hidden mt-1">
+            <textarea id="reply-textarea-${comment.id}" class="w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent" rows="2" placeholder="Write a reply..."></textarea>
+            <div class="flex gap-1 mt-1">
+              <button onclick="postReply('${comment.id}')" class="px-2 py-0.5 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none">Reply</button>
+              <button onclick="hideReplyInput('${comment.id}')" class="px-2 py-0.5 text-[0.72rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    replies.forEach(r => { html += renderThread(r, depth + 1); });
+    html += '</div>';
+    return html;
+  }
+
+  list.innerHTML = topLevel.map(c => renderThread(c, 0)).join('');
+}
+
+function _relativeTime(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return days + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
+async function postComment(parentId) {
+  const authorInput = document.getElementById('comment-author');
+  const contentInput = document.getElementById('comment-input');
+  if (!contentInput) return;
+  const content = contentInput.value.trim();
+  if (!content) return;
+  const author = (authorInput?.value || '').trim() || 'Anonymous';
+  // Save author name
+  localStorage.setItem('userName', author);
+  try {
+    await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paperLink: _paperNoteLink, author, content, parentId: parentId || null })
+    });
+    contentInput.value = '';
+    fetchPaperComments();
+  } catch (e) { /* silent */ }
+}
+
+async function postReply(parentId) {
+  const textarea = document.getElementById('reply-textarea-' + parentId);
+  if (!textarea) return;
+  const content = textarea.value.trim();
+  if (!content) return;
+  const author = (localStorage.getItem('userName') || '').trim() || 'Anonymous';
+  try {
+    await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paperLink: _paperNoteLink, author, content, parentId })
+    });
+    fetchPaperComments();
+  } catch (e) { /* silent */ }
+}
+
+async function deleteComment(id) {
+  try {
+    await fetch('/api/comments/' + id, { method: 'DELETE' });
+    fetchPaperComments();
+  } catch (e) { /* silent */ }
+}
+
+function showReplyInput(id) {
+  const el = document.getElementById('reply-input-' + id);
+  if (el) { el.classList.remove('hidden'); el.querySelector('textarea')?.focus(); }
+}
+
+function hideReplyInput(id) {
+  const el = document.getElementById('reply-input-' + id);
+  if (el) el.classList.add('hidden');
+}
+
 // ── Read Progress Tracking ──
 let _scrollTrackerInterval = null;
 
@@ -784,24 +936,15 @@ let _docChatExpanded = false;
 let _docChatPaperUrl = '';
 
 function switchSidebarTab(tab) {
-  const notesPane = document.getElementById('sidebar-pane-notes');
-  const chatPane = document.getElementById('sidebar-pane-chat');
-  const notesBtn = document.getElementById('sidebar-tab-notes');
-  const chatBtn = document.getElementById('sidebar-tab-chat');
-  if (!notesPane || !chatPane) return;
-  if (tab === 'chat') {
-    notesPane.style.display = 'none';
-    chatPane.style.display = '';
-    notesBtn.classList.remove('active');
-    chatBtn.classList.add('active');
-    // Expand chat if not already
-    if (!_docChatExpanded) toggleDocChat();
-  } else {
-    chatPane.style.display = 'none';
-    notesPane.style.display = '';
-    chatBtn.classList.remove('active');
-    notesBtn.classList.add('active');
-  }
+  const panes = ['notes', 'chat', 'comments'];
+  panes.forEach(p => {
+    const pane = document.getElementById('sidebar-pane-' + p);
+    const btn = document.getElementById('sidebar-tab-' + p);
+    if (pane) pane.style.display = p === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', p === tab);
+  });
+  if (tab === 'chat' && !_docChatExpanded) toggleDocChat();
+  if (tab === 'comments') fetchPaperComments();
 }
 
 function toggleDocChat() {
