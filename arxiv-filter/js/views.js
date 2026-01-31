@@ -286,7 +286,7 @@ function showPaperView(paper, hashValue) {
 
   const sidebar = document.getElementById('paper-sidebar');
   const isHN = paper.source === 'hn';
-  const isArxiv = paper.source === 'arxiv';
+  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/abs\//.test(paper.link);
   const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
   const backBtn = `<button class="bg-transparent border-none text-muted text-[0.85rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary mb-4" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button>`;
   _currentPaperViewPaper = paper;
@@ -361,8 +361,12 @@ function showPaperView(paper, hashValue) {
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   if (isArxiv) {
-    const htmlUrl = paper.link.replace('arxiv.org', 'ar5iv.org');
-    pdfContainer.innerHTML = `<iframe src="${htmlUrl}" title="Paper viewer" class="w-full h-full border-none"></iframe>`;
+    const arxivId = paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '';
+    if (arxivId) {
+      pdfContainer.innerHTML = `<iframe src="/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}" title="Paper PDF" class="w-full h-full border-none"></iframe>`;
+    } else {
+      pdfContainer.innerHTML = `<div class="flex items-center justify-center h-full text-dim"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link text-[0.9rem]">Open paper in new tab</a></div>`;
+    }
   } else {
     pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
   }

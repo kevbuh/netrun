@@ -558,6 +558,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path.startswith('/api/arxiv-pdf'):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            arxiv_id = qs.get('id', [''])[0].strip()
+            if not arxiv_id:
+                self.send_response(400)
+                self.end_headers()
+                return
+            pdf_url = f'https://arxiv.org/pdf/{arxiv_id}.pdf'
+            try:
+                req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+                    data = resp.read()
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/pdf')
+                    self.send_header('Content-Length', str(len(data)))
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(data)
+            except Exception as e:
+                self.send_response(502)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+
         elif self.path.startswith('/api/check-embed'):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
