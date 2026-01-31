@@ -50,18 +50,15 @@ function openCardMenu(btn, ev, index) {
   closeCardMenu();
   const p = lastFilteredPapers[index];
   if (!p) return;
-  const qfOn = isQualityFilterOn();
   const sourceKey = p.source;
   const sourceName = SOURCE_NAMES[p.source] || p.source;
-  const bypassed = qfOn && isSourceBypassed(p.source);
 
   const menu = document.createElement('div');
   menu.id = 'card-menu-portal';
   menu.className = 'card-menu';
   menu.innerHTML = `
-    <button onmousedown="event.stopPropagation(); hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}'); closeCardMenu()">Hide post</button>
-    <button onmousedown="event.stopPropagation(); toggleSourceBubble('${escapeAttr(sourceKey)}'); closeCardMenu()">Hide ${escapeHtml(sourceName)}</button>
-    ${qfOn ? `<button onmousedown="event.stopPropagation(); setQualityBypass('${escapeAttr(sourceKey)}', ${!bypassed}); closeCardMenu()">${bypassed ? 'Enable' : 'Skip'} filter for ${escapeHtml(sourceName)}</button>` : ''}
+    <button onmousedown="event.stopPropagation(); hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}'); closeCardMenu()">Block post</button>
+    <button onmousedown="event.stopPropagation(); unsubscribeSource('${escapeAttr(sourceKey)}'); closeCardMenu()">Unsubscribe from ${escapeHtml(sourceName)}</button>
   `;
   document.body.appendChild(menu);
 
@@ -307,6 +304,26 @@ function toggleViewMode() {
 function toggleSourceBubble(key) {
   if (hiddenSourceFilters.has(key)) hiddenSourceFilters.delete(key);
   else hiddenSourceFilters.add(key);
+  renderSourceBubbles();
+  renderPapers();
+}
+
+function unsubscribeSource(key) {
+  // Check catalog sources
+  const sources = getFeedSources();
+  if (key in sources) {
+    sources[key] = false;
+    localStorage.setItem('feedSources', JSON.stringify(sources));
+  }
+  // Check custom feeds
+  const custom = getCustomFeeds();
+  const idx = custom.findIndex(f => f.url === key || f.name === key);
+  if (idx !== -1) {
+    custom[idx].enabled = false;
+    localStorage.setItem('customFeeds', JSON.stringify(custom));
+  }
+  // Remove posts from this source and re-render
+  allPapers = allPapers.filter(p => p.source !== key);
   renderSourceBubbles();
   renderPapers();
 }
