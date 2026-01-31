@@ -334,6 +334,7 @@ function renderPythonEditor(fname, content) {
         </select>
         <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
         <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
+        <button onclick="copyPyFile()" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents">Copy</button>
         <button onclick="runPythonFile()" class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium" id="py-run-btn" title="Run file (Shift+Enter)">Run</button>
       </div>
     </div>
@@ -424,6 +425,14 @@ function _pyBtnStop() {
     btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30 font-medium';
     btn.setAttribute('onclick', 'stopPythonFile()');
   }
+}
+
+function copyPyFile() {
+  if (!pyEditorCm) return;
+  navigator.clipboard.writeText(pyEditorCm.getValue()).then(() => {
+    const btn = document.getElementById('py-copy-btn');
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1000); }
+  });
 }
 
 async function runPythonFile() {
@@ -851,6 +860,7 @@ function renderNbCells() {
           ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>` : ''}
           ${!isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/20 text-blue-400 border-none cursor-pointer hover:bg-blue-500/30" onclick="renderMdCell(${i})" title="Render (Shift+Enter)">Render</button>` : ''}
           ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/10 text-blue-400 border-none cursor-pointer hover:bg-blue-500/20" onclick="exportCellToPy(${i})" title="Export to .py file">.py</button>` : ''}
+          <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" onclick="copyNbCell(${i})" title="Copy cell contents"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
           ${i > 0 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},-1)" title="Move up">&uarr;</button>` : ''}
           ${i < nbData.cells.length-1 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},1)" title="Move down">&darr;</button>` : ''}
           <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
@@ -947,6 +957,17 @@ function insertNbCell(atIndex, type) {
     const cm = cmInstances[atIndex];
     if (cm) cm.focus();
   }, 50);
+}
+
+function copyNbCell(i) {
+  if (!nbData || !nbData.cells[i]) return;
+  const cm = cmInstances[i];
+  const src = cm ? cm.getValue() : (Array.isArray(nbData.cells[i].source) ? nbData.cells[i].source.join('') : nbData.cells[i].source || '');
+  navigator.clipboard.writeText(src).then(() => {
+    const cellEl = document.querySelector(`[data-cell="${i}"]`);
+    const btn = cellEl && cellEl.querySelector('[title="Copy cell contents"]');
+    if (btn) { const orig = btn.innerHTML; btn.innerHTML = '<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>'; setTimeout(() => btn.innerHTML = orig, 1200); }
+  });
 }
 
 function deleteNbCell(i) {

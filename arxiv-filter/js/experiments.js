@@ -457,9 +457,14 @@ function renderFilesList(files, emptyDirs) {
         <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
         <span class="text-[0.8rem] text-primary truncate">${escapeHtml(displayName)}</span>
       </div>
-      <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); deleteExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+      <div class="flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); duplicateExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" title="Duplicate">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        </button>
+        <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); deleteExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400" title="Delete">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
     </div>`;
   }
 
@@ -816,6 +821,21 @@ async function _onFolderDrop(e, targetFolder) {
     }
   } catch (e) { /* silently fail */ }
   _draggedFile = null;
+}
+
+async function duplicateExpFile(fname) {
+  const ext = fname.includes('.') ? '.' + fname.split('.').pop() : '';
+  const base = fname.includes('.') ? fname.slice(0, fname.lastIndexOf('.')) : fname;
+  const newName = base + '_copy' + ext;
+  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
+  const data = await resp.json();
+  if (data.error) return;
+  await fetch(`/api/experiments/${currentExpId}/files/${newName}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: data.content })
+  });
+  fetchExpFiles();
 }
 
 async function deleteExpFile(fname) {
