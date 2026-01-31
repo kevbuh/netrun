@@ -833,11 +833,16 @@ function pdfClearSearchHighlights() {
   _pdfSearchOverlays = [];
 }
 
+function _normalizeLigatures(s) {
+  return s.replace(/\ufb00/g,'ff').replace(/\ufb01/g,'fi').replace(/\ufb02/g,'fl')
+          .replace(/\ufb03/g,'ffi').replace(/\ufb04/g,'ffl').replace(/\ufb05/g,'st').replace(/\ufb06/g,'st');
+}
+
 function pdfSearchHighlight(query) {
   pdfClearSearchHighlights();
   if (!query || query.length < 2 || !_pdfPagesContainer) return;
 
-  const queryLower = query.toLowerCase();
+  const queryLower = _normalizeLigatures(query.toLowerCase());
   const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
   let firstMatch = null;
 
@@ -861,7 +866,7 @@ function pdfSearchHighlight(query) {
       fullText.push(' ');
     });
 
-    const joined = fullText.join('').toLowerCase();
+    const joined = _normalizeLigatures(fullText.join('').toLowerCase());
     let searchFrom = 0;
     while (true) {
       const idx = joined.indexOf(queryLower, searchFrom);

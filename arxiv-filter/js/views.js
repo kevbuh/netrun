@@ -699,7 +699,10 @@ async function fetchPaperInsights(url) {
       html += '</div>';
     }
     if (hasContribution) {
-      html += `<div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(data.contribution)}</div>`;
+      // Use a shorter snippet for PDF search to avoid ligature/truncation mismatches
+      let searchSnippet = data.contribution.replace(/\.\.\.$/, '').replace(/[\ufb00-\ufb06]/g, m => ({'\ufb00':'ff','\ufb01':'fi','\ufb02':'fl','\ufb03':'ffi','\ufb04':'ffl','\ufb05':'st','\ufb06':'st'}[m]||m));
+      if (searchSnippet.length > 80) searchSnippet = searchSnippet.slice(0, 80).replace(/\s+\S*$/, '');
+      html += `<div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic cursor-pointer transition-colors hover:border-accent" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()" data-q="${escapeHtml(searchSnippet)}">${escapeHtml(data.contribution)}</div>`;
     }
     html += '</div>';
     el.innerHTML = html;
