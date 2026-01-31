@@ -22,6 +22,8 @@ CACHE_TTL = 600  # 10 minutes
 _cache = {}
 # In-memory cache for extracted document text: url -> { text, pages }
 _extract_cache = {}
+# In-memory cache for paper insights: url -> { repos, contribution }
+_insights_cache = {}
 DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
@@ -1112,6 +1114,155 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     text = '\n'.join(extractor.parts)
                     result = {'text': text, 'pages': 1}
                 _extract_cache[url] = result
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/paper-insights':
+            try:
+                body = self._read_body()
+                url = body.get('url', '').strip()
+                if not url:
+                    self._send_json({'error': 'url required'}, 400)
+                    return
+                if url in _insights_cache:
+                    self._send_json(_insights_cache[url])
+                    return
+
+                # Reuse extract-text logic to get document text
+                if url in _extract_cache:
+                    text = _extract_cache[url]['text']
+                else:
+                    # Trigger extraction inline
+                    is_arxiv = 'arxiv.org' in url
+                    if is_arxiv:
+                        pdf_url = url.replace('/abs/', '/pdf/')
+                        if not pdf_url.endswith('.pdf'):
+                            pdf_url += '.pdf'
+                        req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
+                        ctx = ssl._create_unverified_context()
+                        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                            pdf_bytes = resp.read()
+                        import fitz
+                        tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+                        tmp.write(pdf_bytes)
+                        tmp.close()
+                        try:
+                            doc = fitz.open(tmp.name)
+                            pages = []
+                            for page_num in range(len(doc)):
+                                pages.append(doc[page_num].get_text())
+                            doc.close()
+                        finally:
+                            os.unlink(tmp.name)
+                        text = '\n\n---\n\n'.join(pages)
+                        _extract_cache[url] = {'text': text, 'pages': len(pages)}
+                    else:
+                        from html.parser import HTMLParser
+                        html_bytes = cached_fetch(url, timeout=30)
+                        html_str = html_bytes.decode('utf-8', errors='replace')
+                        class TextExtractor(HTMLParser):
+                            def __init__(self):
+                                super().__init__()
+                                self.parts = []
+                                self._skip = False
+                            def handle_starttag(self, tag, attrs):
+                                if tag in ('script', 'style', 'noscript'):
+                                    self._skip = True
+                            def handle_endtag(self, tag):
+                                if tag in ('script', 'style', 'noscript'):
+                                    self._skip = False
+                            def handle_data(self, data):
+                                if not self._skip:
+                                    t = data.strip()
+                                    if t:
+                                        self.parts.append(t)
+                        extractor = TextExtractor()
+                        extractor.feed(html_str)
+                        text = '\n'.join(extractor.parts)
+                        _extract_cache[url] = {'text': text, 'pages': 1}
+
+                # 1. Extract repo URLs
+                repo_pattern = re.compile(
+                    r'https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)'
+                    r'/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]*)?'
+                )
+                context_pattern = re.compile(
+                    r'(?:code|implementation|source|repository|available|released|open[- ]?source)[^.]*?(https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)',
+                    re.IGNORECASE
+                )
+                raw_urls = repo_pattern.findall(text)
+                # Deduplicate, normalize: strip trailing slashes and common suffixes
+                seen = {}
+                repos = []
+                for u in raw_urls:
+                    u = u.rstrip('/')
+                    # Remove trailing punctuation that got captured
+                    u = re.sub(r'[.,;:)\]]+$', '', u)
+                    # Normalize to base repo (user/repo)
+                    parts = u.split('/')
+                    # At minimum: https://github.com/user/repo = 5 parts
+                    if len(parts) >= 5:
+                        base = '/'.join(parts[:5])
+                    else:
+                        base = u
+                    if base not in seen:
+                        seen[base] = u
+                        repos.append({'url': base, 'context': ''})
+
+                # Add context for URLs mentioned near code-related phrases
+                context_matches = context_pattern.findall(text)
+                for cm in context_matches:
+                    cm_base = '/'.join(cm.rstrip('/').split('/')[:5])
+                    for r in repos:
+                        if r['url'] == cm_base and not r['context']:
+                            r['context'] = 'Code repository'
+
+                # 2. Extract key contribution sentence
+                contribution = ''
+                trigger_phrases = [
+                    'we propose', 'we introduce', 'we present',
+                    'our contribution', 'main contribution', 'key contribution',
+                    'in this paper, we', 'in this work, we',
+                    'our approach', 'we develop', 'we design',
+                    'this paper presents', 'this paper introduces',
+                    'this work presents', 'this paper proposes',
+                    'purpose of this paper', 'goal of this paper',
+                    'aim of this paper', 'purpose of this work',
+                    'goal of this work', 'we show that',
+                    'we demonstrate', 'we prove that',
+                    'our method', 'the proposed method',
+                ]
+                # Normalize text: collapse newlines within sentences for PDF text
+                normalized = re.sub(r'(?<![.!?\n])\n(?![A-Z\n])', ' ', text)
+                normalized = re.sub(r'  +', ' ', normalized)
+                # Split into sentences
+                sentences = re.split(r'(?<=[.!?])\s+', normalized)
+                # Prefer sentences from early text (abstract / first ~5000 chars)
+                early_text_len = 5000
+                candidates = []
+                char_pos = 0
+                for s in sentences:
+                    s_clean = ' '.join(s.split())  # normalize whitespace
+                    s_lower = s_clean.lower()
+                    for phrase in trigger_phrases:
+                        if phrase in s_lower:
+                            # Truncate to ~300 chars
+                            trimmed = s_clean[:300]
+                            if len(s_clean) > 300:
+                                trimmed = trimmed.rsplit(' ', 1)[0] + '...'
+                            weight = 2 if char_pos < early_text_len else 1
+                            candidates.append((weight, char_pos, trimmed))
+                            break
+                    char_pos += len(s) + 1
+
+                if candidates:
+                    # Sort by weight desc, then position asc
+                    candidates.sort(key=lambda x: (-x[0], x[1]))
+                    contribution = candidates[0][2]
+
+                result = {'repos': repos, 'contribution': contribution}
+                _insights_cache[url] = result
                 self._send_json(result)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)

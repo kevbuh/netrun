@@ -7,6 +7,8 @@ const HIGHLIGHT_COLORS = [
   { name: 'pink',   bg: 'rgba(236,64,122,0.35)', solid: '#ec407a' },
 ];
 
+let _pdfSearchOverlays = [];
+
 let _pdfDoc = null;
 let _pdfScale = 1.0;
 let _pdfArxivId = '';
@@ -819,6 +821,84 @@ function cleanupPdfViewer() {
   _pdfDrawings = {};
   _pdfCurrentStroke = null;
   _pdfCurrentDrawCanvas = null;
+  pdfClearSearchHighlights();
   dismissHighlightPopup();
   dismissNotePopup();
+}
+
+// ── Search highlight: find text in PDF and overlay highlights ──
+
+function pdfClearSearchHighlights() {
+  _pdfSearchOverlays.forEach(el => el.remove());
+  _pdfSearchOverlays = [];
+}
+
+function pdfSearchHighlight(query) {
+  pdfClearSearchHighlights();
+  if (!query || query.length < 2 || !_pdfPagesContainer) return;
+
+  const queryLower = query.toLowerCase();
+  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+  let firstMatch = null;
+
+  wrappers.forEach(wrapper => {
+    const textLayer = wrapper.querySelector('.textLayer');
+    const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
+    if (!textLayer || !hlLayer) return;
+
+    const spans = textLayer.querySelectorAll('span');
+    // Build a map of character positions to spans
+    const charMap = []; // [{span, offsetInSpan}]
+    const fullText = [];
+    spans.forEach(span => {
+      const t = span.textContent;
+      for (let i = 0; i < t.length; i++) {
+        charMap.push({ span, offset: i });
+        fullText.push(t[i]);
+      }
+      // Add a space between spans
+      charMap.push({ span: null, offset: 0 });
+      fullText.push(' ');
+    });
+
+    const joined = fullText.join('').toLowerCase();
+    let searchFrom = 0;
+    while (true) {
+      const idx = joined.indexOf(queryLower, searchFrom);
+      if (idx === -1) break;
+      searchFrom = idx + 1;
+
+      // Collect all spans involved in this match
+      const matchChars = charMap.slice(idx, idx + query.length);
+      const involvedSpans = new Set();
+      matchChars.forEach(c => { if (c.span) involvedSpans.add(c.span); });
+
+      involvedSpans.forEach(span => {
+        const rect = span.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+
+        const div = document.createElement('div');
+        div.className = 'pdf-search-highlight';
+        div.style.position = 'absolute';
+        div.style.left = (rect.left - wrapperRect.left) + 'px';
+        div.style.top = (rect.top - wrapperRect.top) + 'px';
+        div.style.width = rect.width + 'px';
+        div.style.height = rect.height + 'px';
+        div.style.background = 'rgba(255,160,0,0.35)';
+        div.style.borderRadius = '2px';
+        div.style.pointerEvents = 'none';
+        div.style.mixBlendMode = 'multiply';
+        hlLayer.appendChild(div);
+        _pdfSearchOverlays.push(div);
+
+        if (!firstMatch) firstMatch = div;
+      });
+    }
+  });
+
+  // Scroll to first match
+  if (firstMatch) {
+    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }

@@ -605,10 +605,13 @@ function showPaperView(paper, hashValue) {
   `;
 
   sidebar.innerHTML = `
+    <div id="paper-insights" class="mb-3 shrink-0"></div>
+    <div id="paper-selection-mirror" class="mb-3 shrink-0 hidden"></div>
     <div class="flex gap-1 mb-3 shrink-0">
       <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
+      <button class="sidebar-tab-btn ml-auto" onclick="showPdfFindBar()" title="Find in PDF (Ctrl/Cmd+F)"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg></button>
     </div>
     <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
       <div id="pdf-highlights-section">
@@ -653,6 +656,125 @@ function showPaperView(paper, hashValue) {
 
   // Start scroll progress tracking
   _startScrollTracker(paper.link);
+
+  // Fetch paper insights (async, non-blocking)
+  fetchPaperInsights(paper.link);
+}
+
+// ── Paper Insights ──
+async function fetchPaperInsights(url) {
+  const el = document.getElementById('paper-insights');
+  if (!el) return;
+  el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>Analyzing paper...</div>`;
+  try {
+    const resp = await fetch('/api/paper-insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    if (!resp.ok) throw new Error('Failed');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    const hasRepos = data.repos && data.repos.length > 0;
+    const hasContribution = data.contribution && data.contribution.trim();
+    if (!hasRepos && !hasContribution) {
+      el.innerHTML = '';
+      return;
+    }
+    let html = '<div class="rounded-lg border border-border-card bg-card-bg p-3 space-y-2">';
+    html += '<div class="text-[0.72rem] font-semibold text-dim uppercase tracking-wide">Insights</div>';
+    if (hasRepos) {
+      html += '<div class="flex flex-wrap gap-1.5">';
+      for (const repo of data.repos) {
+        const label = repo.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const isGH = repo.url.includes('github.com');
+        const isHF = repo.url.includes('huggingface.co');
+        const icon = isGH
+          ? '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>'
+          : isHF
+          ? '<span class="text-[0.7rem] shrink-0">&#129303;</span>'
+          : '<svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        html += `<a href="${escapeHtml(repo.url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border-input bg-sidebar-bg text-[0.74rem] text-link no-underline hover:border-accent hover:bg-accent/10 transition-colors">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></a>`;
+      }
+      html += '</div>';
+    }
+    if (hasContribution) {
+      html += `<div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(data.contribution)}</div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '';
+  }
+}
+
+// ── Selection Mirror + Search-in-PDF ──
+let _selMirrorSearchTimer = null;
+
+document.addEventListener('selectionchange', function() {
+  const el = document.getElementById('paper-selection-mirror');
+  if (!el) return;
+  const sel = window.getSelection();
+  const text = sel ? sel.toString().trim() : '';
+  if (!text || text.length < 2) {
+    // Don't hide if user is typing in the search input
+    const active = document.activeElement;
+    if (active && active.id === 'pdf-find-input') return;
+    if (!el.querySelector('#pdf-find-input')) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+    }
+    return;
+  }
+  // Only show for selections inside the PDF container
+  if (sel.anchorNode) {
+    const parent = sel.anchorNode.parentElement;
+    if (!parent || !parent.closest('#paper-pdf-container')) return;
+  }
+  _renderSelectionMirror(el, text);
+});
+
+function _renderSelectionMirror(el, selectedText) {
+  el.classList.remove('hidden');
+  el.innerHTML = `<div class="rounded-lg border border-border-card bg-card-bg p-3">
+    <div class="flex items-center justify-between mb-1.5">
+      <div class="text-[0.72rem] font-semibold text-dim uppercase tracking-wide">Selected Text</div>
+    </div>
+    <div class="text-[0.78rem] text-primary leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">${escapeHtml(selectedText)}</div>
+  </div>`;
+}
+
+function showPdfFindBar() {
+  const el = document.getElementById('paper-selection-mirror');
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.innerHTML = `<div class="rounded-lg border border-border-card bg-card-bg p-3">
+    <div class="flex items-center justify-between mb-1.5">
+      <div class="text-[0.72rem] font-semibold text-dim uppercase tracking-wide">Find in PDF</div>
+      <button onclick="closePdfFindBar()" class="text-dim hover:text-primary text-[0.7rem] bg-transparent border-none cursor-pointer p-0">&times;</button>
+    </div>
+    <input id="pdf-find-input" type="text" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1 text-primary outline-none focus:border-accent" placeholder="Type to find in PDF..." autofocus />
+  </div>`;
+  const input = document.getElementById('pdf-find-input');
+  if (input) {
+    input.focus();
+    input.addEventListener('input', function() {
+      clearTimeout(_selMirrorSearchTimer);
+      const q = this.value.trim();
+      _selMirrorSearchTimer = setTimeout(() => {
+        if (typeof pdfSearchHighlight === 'function') pdfSearchHighlight(q);
+      }, 300);
+    });
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closePdfFindBar();
+    });
+  }
+}
+
+function closePdfFindBar() {
+  if (typeof pdfClearSearchHighlights === 'function') pdfClearSearchHighlights();
+  const el = document.getElementById('paper-selection-mirror');
+  if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
 }
 
 // ── Paper Notes ──
