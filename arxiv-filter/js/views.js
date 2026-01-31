@@ -765,6 +765,19 @@ let searchCurrentQuery = '';
 let searchCurrentStart = 0;
 let searchSort = 'citations';
 let searchLastTotal = 0;
+let searchResultsSorted = [];
+function _searchAuthorLabel(authors) {
+  if (!authors) return '';
+  const list = authors.split(',').map(a => a.trim()).filter(Boolean);
+  if (!list.length) return '';
+  const byMatch = searchCurrentQuery.match(/\bby:(.+)/i);
+  if (byMatch) {
+    const needle = byMatch[1].trim().toLowerCase();
+    const match = list.find(a => a.toLowerCase().includes(needle));
+    if (match) return escapeHtml(match);
+  }
+  return list.length > 1 ? escapeHtml(list[0]) + ' et al.' : escapeHtml(list[0]);
+}
 
 function onSearchInput() {
   const query = (document.getElementById('search-query')?.value || '').trim();
@@ -776,6 +789,8 @@ function submitSearch() {
   if (!query) return;
   if (typeof saveSearchHistory === 'function') saveSearchHistory(query);
   hideSearchHistoryView();
+  const hints = document.getElementById('search-hints');
+  if (hints) hints.style.display = 'none';
   // Filter feed results
   renderSearchFeedResults(query);
   // Skip arXiv search if query is only source:/sort: prefixes (no searchable terms)
@@ -824,10 +839,12 @@ function renderSearchFeedResults(query) {
   container.innerHTML = `<div class="mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">Feed (${matches.length})</div>` +
     matches.map((p, i) => {
       const sourceChip = getSourceChip(p.source, p.arxivId);
+      const authorLabel = _searchAuthorLabel(p.authors);
       const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
       return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchFeedPaper(${i})">
         ${sourceChip}
         <span class="text-[0.82rem] text-primary truncate">${renderTitle(p.title)}</span>
+        ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
         <span class="ml-auto shrink-0">${date}</span>
       </div>`;
     }).join('');
@@ -910,8 +927,7 @@ function renderSearchArxivResults(total) {
   if (!container) return;
   if (!searchResultsCache.length || typeof searchResultsCache[0] === 'undefined') {
     if (!Array.isArray(searchResultsCache) || !searchResultsCache.length) {
-      container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No arXiv results found.</div>';
-      return;
+      searchResultsCache = [];
     }
   }
 
@@ -944,13 +960,16 @@ function renderSearchArxivResults(total) {
     return;
   }
 
-  container.innerHTML = header + sorted.map((r, i) => `
-    <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchArxivPaper(${i})">
+  searchResultsSorted = sorted;
+  container.innerHTML = header + sorted.map((r, i) => {
+    const authorLabel = _searchAuthorLabel(r.authors);
+    return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchArxivPaper(${i})">
       ${r.arxivId ? ARXIV_LOGO_INLINE : ''}<span class="text-[0.82rem] text-primary truncate">${renderTitle(r.title)}</span>
+      ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
       ${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim shrink-0">${r.citations} cited</span>` : ''}
       ${r.date ? `<span class="text-[0.68rem] text-dim shrink-0 ml-auto">${escapeHtml(r.date)}</span>` : ''}
-    </div>
-  `).join('') + (total > 100 ? `
+    </div>`;
+  }).join('') + (total > 100 ? `
     <div class="finder-pagination flex justify-center gap-3 pt-6">
       <button class="px-5 py-2 rounded-md border border-border-input bg-card text-muted text-[0.85rem] cursor-pointer hover:border-accent hover:text-white_ disabled:opacity-30 disabled:cursor-default disabled:border-border-input disabled:text-muted" ${searchCurrentStart === 0 ? 'disabled' : ''} onclick="searchPrev()">Previous</button>
       <span class="text-dimmer text-[0.8rem] self-center">${searchCurrentStart + 1}&ndash;${searchCurrentStart + sorted.length} of ${total}</span>
@@ -983,7 +1002,7 @@ async function fetchSearchCitations(total) {
 }
 
 function openSearchArxivPaper(i) {
-  const r = searchResultsCache[i];
+  const r = searchResultsSorted[i];
   if (r && r.link) openPaperByUrl(r.link);
 }
 
@@ -1000,6 +1019,7 @@ function searchNext() {
 // ── OpenAlex Search ──
 let openalexResultsCache = [];
 let openalexSort = 'citations';
+let openalexResultsSorted = [];
 let openalexCollapsed = true;
 let openalexLoaded = false;
 
@@ -1078,10 +1098,13 @@ function renderOpenAlexResults() {
     <button class="shrink-0 w-7 h-7 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" onclick="setOpenAlexSort('${isCited ? 'latest' : 'citations'}')" title="${isCited ? 'Sort by latest' : 'Sort by most cited'}">${sortIcon}</button>
   </div>`;
 
+  openalexResultsSorted = sorted;
   container.innerHTML = header + sorted.map((r, i) => {
     const sourceTag = r.source ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(truncate(r.source, 30))}</span>` : '';
+    const authorLabel = _searchAuthorLabel(r.authors);
     return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openOpenAlexPaper(${i})">
       ${sourceTag}<span class="text-[0.82rem] text-primary truncate">${escapeHtml(r.title)}</span>
+      ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
       <span class="text-[0.68rem] text-dim shrink-0">${r.citations} cited</span>
       ${r.date ? `<span class="text-[0.68rem] text-dim shrink-0 ml-auto">${escapeHtml(r.date)}</span>` : ''}
     </div>`;
@@ -1094,7 +1117,7 @@ function setOpenAlexSort(mode) {
 }
 
 function openOpenAlexPaper(i) {
-  const r = openalexResultsCache[i];
+  const r = openalexResultsSorted[i];
   if (!r || !r.link) return;
   openPaperByUrl(r.link);
 }

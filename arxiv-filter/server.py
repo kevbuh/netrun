@@ -477,6 +477,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         Maps to arXiv fields: ti: (title), au: (author), all: (everything)."""
         import shlex
         parts = []
+        # Extract by: — everything after by: is the author name
+        by_match = re.search(r'\bby:(.+)', raw)
+        if by_match:
+            author = by_match.group(1).strip()
+            if author:
+                parts.append(f'au:"{author}"')
+            raw = raw[:by_match.start()].strip()
         # Extract title:"quoted" → ti:"quoted"
         raw = re.sub(r'title:"([^"]+)"', lambda m: (parts.append(f'ti:"{m.group(1)}"'), '')[1], raw)
         # Extract "quoted phrases" → all:"phrase"
@@ -487,9 +494,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if t.startswith('title:'):
                 val = t[6:]
                 if val: parts.append(f'ti:{val}')
-            elif t.startswith('by:'):
-                val = t[3:]
-                if val: parts.append(f'au:{val}')
             elif t.startswith('source:') or t.startswith('sort:'):
                 continue  # client-only prefixes
             else:
@@ -696,9 +700,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not query:
                     self._send_json({'error': 'Query required'}, 400)
                     return
+                # Parse by: prefix — everything after by: is author
+                by_match = re.search(r'\bby:(.+)', query)
+                author_name = by_match.group(1).strip() if by_match else None
+                rest_query = query[:by_match.start()].strip() if by_match else query
+                filters = []
+                if author_name:
+                    filters.append(f'author.search:{urllib.request.quote(author_name)}')
+                search_param = f'search={urllib.request.quote(rest_query)}&' if rest_query else ''
+                filter_param = f'filter={",".join(filters)}&' if filters else ''
+                sort_param = 'sort=cited_by_count:desc&' if author_name and not rest_query else ''
                 search_url = (
-                    f'https://api.openalex.org/works?search={urllib.request.quote(query)}'
-                    f'&page={page}&per_page={per_page}'
+                    f'https://api.openalex.org/works?{search_param}{filter_param}{sort_param}'
+                    f'page={page}&per_page={per_page}'
                     f'&select=id,doi,title,authorships,publication_date,cited_by_count,primary_location,type'
                 )
                 req = urllib.request.Request(

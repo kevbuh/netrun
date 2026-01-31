@@ -152,10 +152,18 @@ function openSearch() {
   view.style.display = 'block';
   window.location.hash = 'search';
   setSidebarActive('sb-search');
-  setTimeout(() => {
-    const input = document.getElementById('search-query');
-    if (input) input.focus();
-  }, 50);
+  // Reset to default state
+  const input = document.getElementById('search-query');
+  if (input) input.value = '';
+  const hints = document.getElementById('search-hints');
+  if (hints) hints.style.display = '';
+  const feedR = document.getElementById('search-feed-results');
+  if (feedR) feedR.innerHTML = '';
+  const arxivR = document.getElementById('search-arxiv-results');
+  if (arxivR) arxivR.innerHTML = '';
+  const oaR = document.getElementById('search-openalex-results');
+  if (oaR) oaR.innerHTML = '';
+  setTimeout(() => { if (input) input.focus(); }, 50);
 }
 
 function openDashboard() {

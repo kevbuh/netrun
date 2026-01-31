@@ -1054,6 +1054,13 @@ function parseSearchQuery(raw) {
   let authorFilter = null, sourceFilter = null, sortOverride = null;
   const textTokens = [], exactPhrases = [], titleTokens = [], titlePhrases = [];
 
+  // Extract by: — everything after by: is the author name
+  const byMatch = raw.match(/\bby:(.+)/);
+  if (byMatch) {
+    authorFilter = byMatch[1].trim().toLowerCase();
+    raw = raw.slice(0, byMatch.index).trim();
+  }
+
   // Extract title:"quoted phrases" first
   let s = raw.replace(/title:"([^"]+)"/g, (_, ph) => { titlePhrases.push(ph.toLowerCase()); return ''; });
   // Extract generic "quoted phrases"
@@ -1061,8 +1068,7 @@ function parseSearchQuery(raw) {
 
   const tokens = s.split(/\s+/).filter(Boolean);
   for (const t of tokens) {
-    if (t.startsWith('by:')) authorFilter = t.slice(3).toLowerCase();
-    else if (t.startsWith('source:')) sourceFilter = t.slice(7).toLowerCase();
+    if (t.startsWith('source:')) sourceFilter = t.slice(7).toLowerCase();
     else if (t.startsWith('sort:')) sortOverride = t.slice(5).toLowerCase();
     else if (t.startsWith('title:')) titleTokens.push(t.slice(6).toLowerCase());
     else textTokens.push(t);
