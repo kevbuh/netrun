@@ -261,12 +261,15 @@ let paperViewOrigin = 'arxiv';
 
 function paperViewGoBack() {
   cleanupPdfViewer();
+  dismissPaperExpDropdown();
   if (paperViewOrigin === 'saved') { openDashboard(); return; }
   if (paperViewOrigin === 'search') { openSearch(); return; }
+  if (paperViewOrigin === 'experiment' && _paperOriginExpId) { openExperimentDetail(_paperOriginExpId); return; }
   goHome();
 }
 
 let _currentPaperViewPaper = null;
+let _paperOriginExpId = null;
 function togglePaperViewBookmark() {
   if (!_currentPaperViewPaper) return;
   toggleSavePost(_currentPaperViewPaper);
@@ -275,6 +278,100 @@ function togglePaperViewBookmark() {
   const saved = isPostSaved(_currentPaperViewPaper.link);
   btn.className = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors ${saved ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border-input text-muted hover:text-primary hover:border-dimmer'}`;
   btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>${saved ? 'Saved' : 'Bookmark'}`;
+}
+
+// ── Add to experiment dropdown ──
+let _paperExpDropdown = null;
+
+function togglePaperExpDropdown() {
+  if (_paperExpDropdown) { dismissPaperExpDropdown(); return; }
+  const wrap = document.getElementById('paper-exp-btn-wrap');
+  if (!wrap) return;
+  const btnRect = wrap.getBoundingClientRect();
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'paper-exp-dropdown';
+  dropdown.style.cssText = `position:fixed;top:${btnRect.bottom + 4}px;min-width:220px;max-height:260px;overflow-y:auto;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;`;
+  // Align right edge to button right edge
+  dropdown.style.right = (window.innerWidth - btnRect.right) + 'px';
+
+  dropdown.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">Loading...</div>';
+  document.body.appendChild(dropdown);
+
+  // Fetch experiments
+  fetch('/api/experiments').then(r => r.json()).then(exps => {
+    dropdown.innerHTML = '';
+    if (!exps.length) {
+      dropdown.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">No experiments yet</div>';
+      return;
+    }
+    const paper = _currentPaperViewPaper;
+    exps.forEach(exp => {
+      const papers = exp.papers || [];
+      const isLinked = papers.some(p => p.link === paper.link);
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;padding:6px 12px;font-size:0.78rem;transition:background 0.1s;';
+      item.onmouseenter = () => item.style.background = 'var(--bg-hover)';
+      item.onmouseleave = () => item.style.background = 'none';
+      if (isLinked) {
+        // Linked: click row to navigate to experiment, × to unlink
+        const link = document.createElement('button');
+        link.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1;min-width:0;border:none;background:none;color:var(--accent);font-size:0.78rem;cursor:pointer;text-align:left;padding:0;';
+        link.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" style="flex-shrink:0"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(exp.title)}</span>`;
+        link.onclick = (e) => { e.stopPropagation(); dismissPaperExpDropdown(); openExperimentDetail(exp.id); };
+        item.appendChild(link);
+        const unlinkBtn = document.createElement('button');
+        unlinkBtn.style.cssText = 'border:none;background:none;color:var(--text-dimmest);cursor:pointer;padding:0 2px;font-size:0.9rem;line-height:1;flex-shrink:0;';
+        unlinkBtn.innerHTML = '&times;';
+        unlinkBtn.title = 'Remove from experiment';
+        unlinkBtn.onmouseenter = () => unlinkBtn.style.color = 'var(--text-primary)';
+        unlinkBtn.onmouseleave = () => unlinkBtn.style.color = 'var(--text-dimmest)';
+        unlinkBtn.onclick = (e) => { e.stopPropagation(); togglePaperInExperiment(exp.id, paper, true, papers); };
+        item.appendChild(unlinkBtn);
+      } else {
+        // Not linked: click to add
+        const addBtn = document.createElement('button');
+        addBtn.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1;min-width:0;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;text-align:left;padding:0;';
+        addBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dimmest)" stroke-width="2" style="flex-shrink:0"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(exp.title)}</span>`;
+        addBtn.onclick = (e) => { e.stopPropagation(); togglePaperInExperiment(exp.id, paper, false, papers); };
+        item.appendChild(addBtn);
+      }
+      dropdown.appendChild(item);
+    });
+  }).catch(() => {
+    dropdown.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">Failed to load</div>';
+  });
+  _paperExpDropdown = dropdown;
+
+  setTimeout(() => document.addEventListener('mousedown', _dismissPaperExpHandler), 0);
+}
+
+function _dismissPaperExpHandler(e) {
+  if (_paperExpDropdown && !_paperExpDropdown.contains(e.target)) {
+    dismissPaperExpDropdown();
+  }
+}
+
+function dismissPaperExpDropdown() {
+  if (_paperExpDropdown) { _paperExpDropdown.remove(); _paperExpDropdown = null; }
+  document.removeEventListener('mousedown', _dismissPaperExpHandler);
+}
+
+function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
+  let papers;
+  if (isLinked) {
+    papers = currentPapers.filter(p => p.link !== paper.link);
+  } else {
+    papers = [...currentPapers, { link: paper.link, title: paper.title, source: paper.source, addedAt: new Date().toISOString() }];
+  }
+  fetch(`/api/experiments/${expId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ papers })
+  }).then(() => {
+    dismissPaperExpDropdown();
+    togglePaperExpDropdown(); // re-open to show updated state
+  });
 }
 
 function showPaperView(paper, hashValue) {
@@ -312,6 +409,12 @@ function showPaperView(paper, hashValue) {
     <span class="text-[0.82rem] font-semibold text-white_ truncate">${renderTitle(paper.title)}</span>
     <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest">·</span>')}</span>
     ${bookmarkBtn}
+    <div class="relative shrink-0" id="paper-exp-btn-wrap">
+      <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-transparent border-border-input text-muted text-[0.78rem] cursor-pointer transition-colors hover:text-primary hover:border-dimmer" onclick="togglePaperExpDropdown()" title="Add to experiment">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Experiment
+      </button>
+    </div>
     <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
 

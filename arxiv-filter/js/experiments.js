@@ -138,6 +138,7 @@ async function fetchExperimentDetail(id) {
     document.getElementById('exp-file-editor').innerHTML = '';
     document.getElementById('exp-default-content').style.display = '';
     currentFile = null;
+    renderExpPapers();
     fetchExpTodos();
     await fetchExpFiles();
     // Auto-open README.md if it exists and no file is open
@@ -146,6 +147,45 @@ async function fetchExperimentDetail(id) {
     document.getElementById('exp-todos-list').innerHTML =
       `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
   }
+}
+
+// ── Linked Papers ──
+function renderExpPapers() {
+  const section = document.getElementById('exp-papers-section');
+  const list = document.getElementById('exp-papers-list');
+  if (!section || !list) return;
+  const papers = (currentExp && currentExp.papers) || [];
+  if (!papers.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  list.innerHTML = papers.map(p => {
+    const title = p.title || p.link;
+    const snippet = title.length > 50 ? title.slice(0, 50) + '…' : title;
+    return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors group" onclick="openExpPaper('${escapeAttr(p.link)}', '${escapeAttr(p.title || '')}', '${escapeAttr(p.source || '')}')">
+      <svg class="w-3.5 h-3.5 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="text-[0.78rem] text-primary truncate flex-1">${escapeHtml(snippet)}</span>
+      <button class="opacity-0 group-hover:opacity-100 bg-transparent border-none text-dimmest hover:text-red-400 cursor-pointer p-0 text-[0.85rem] leading-none shrink-0 transition-opacity" onclick="event.stopPropagation();removeExpPaper('${escapeAttr(p.link)}')" title="Remove">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+function openExpPaper(link, title, source) {
+  const paper = { link, title: title || link, source: source || '' };
+  paperViewOrigin = 'experiment';
+  _paperOriginExpId = currentExpId;
+  showPaperView(paper, 'view/' + encodeURIComponent(link));
+}
+
+function removeExpPaper(link) {
+  if (!currentExp || !currentExpId) return;
+  const papers = (currentExp.papers || []).filter(p => p.link !== link);
+  fetch(`/api/experiments/${currentExpId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ papers })
+  }).then(() => {
+    currentExp.papers = papers;
+    renderExpPapers();
+  });
 }
 
 // ── Rename ──

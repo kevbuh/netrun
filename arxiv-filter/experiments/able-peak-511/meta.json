@@ -28,5 +28,18 @@
       "episodes": null
     }
   ],
-  "pythonPath": "/Users/kevinbuhler/Code/alpha/arxiv-filter/experiments/able-peak-511/venv/bin/python"
+  "pythonPath": "/Users/kevinbuhler/Code/alpha/arxiv-filter/experiments/able-peak-511/venv/bin/python",
+  "papers": [
+    {
+      "link": "https://arxiv.org/abs/1611.08097v2",
+      "title": "Geometric deep learning: going beyond Euclidean data",
+      "addedAt": "2026-01-31T14:59:49.432Z"
+    },
+    {
+      "link": "https://deepgenerativemodels.github.io/notes/autoregressive/",
+      "title": "Autoregressive Models",
+      "source": "web",
+      "addedAt": "2026-01-31T15:07:02.588Z"
+    }
+  ]
 }

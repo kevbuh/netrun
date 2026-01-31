@@ -1677,6 +1677,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if 'pythonPath' in body:
                 meta['pythonPath'] = body['pythonPath']
                 _kill_kernel(exp_id)
+            if 'papers' in body:
+                meta['papers'] = body['papers']
             write_meta(exp_id, meta)
             meta['id'] = exp_id
             self._send_json(meta)
