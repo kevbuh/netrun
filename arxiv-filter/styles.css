@@ -97,6 +97,49 @@
       --tooltip-border: #ddd;
     }
 
+    [data-theme="daylight"] {
+      /* Static fallback — midday values. JS overwrites every 60s. */
+      --bg-body: #f2f2f5;
+      --text-primary: #1a1a2e;
+      --text-white: #0f0f1a;
+      --text-muted: #555566;
+      --text-dim: #777788;
+      --text-dimmer: #888899;
+      --text-dimmest: #9999aa;
+      --bg-sidebar: #eaeaef;
+      --border-sidebar: #d8d8e0;
+      --bg-hover: #e4e4ea;
+      --bg-card: #eeeef2;
+      --bg-input: #e8e8ee;
+      --bg-input-alt: #eeeef2;
+      --border-card: #d0d0da;
+      --border-input: #bbbbc8;
+      --border-subtle: #d8d8e0;
+      --border-dim: #e0e0e8;
+      --bg-header: #eaeaef;
+      --bg-canvas: #f0f0f4;
+      --bg-popup: #eeeef2;
+      --bg-chip-count: #e4e4ea;
+      --bg-cat-tag: #e4e4ea;
+      --bg-cat-tag-color: #555566;
+      --bg-cite: #f5f0e8;
+      --bg-sidebar-cat: #e4e4ea;
+      --sidebar-cat-border: #d0d0da;
+      --sidebar-cat-color: #555566;
+      --text-link: var(--accent);
+      --text-summary: #555566;
+      --text-authors: #666677;
+      --text-meta-value: #444455;
+      --text-idea-desc: #444455;
+      --shadow-card: rgba(0,0,30,0.07);
+      --shadow-popup: rgba(0,0,30,0.13);
+      --overlay-bg: rgba(0,0,30,0.25);
+      --tree-edge: #bbbbc8;
+      --spinner-border: #bbbbc8;
+      --tooltip-bg: #eeeef2;
+      --tooltip-border: #d0d0da;
+    }
+
     [data-theme="sepia"] {
       --bg-body: #f4f0e8;
       --text-primary: #3b3530;
@@ -364,61 +407,86 @@
 
     /* Light / Sepia CodeMirror overrides */
     [data-theme="light"] .CodeMirror,
-    [data-theme="sepia"] .CodeMirror {
+    [data-theme="sepia"] .CodeMirror,
+    [data-theme="daylight"] .CodeMirror {
       color: var(--text-primary) !important;
     }
     [data-theme="light"] .CodeMirror-cursor,
-    [data-theme="sepia"] .CodeMirror-cursor {
+    [data-theme="sepia"] .CodeMirror-cursor,
+    [data-theme="daylight"] .CodeMirror-cursor {
       border-left-color: var(--text-primary) !important;
     }
     [data-theme="light"] .CodeMirror-linenumber,
-    [data-theme="sepia"] .CodeMirror-linenumber {
+    [data-theme="sepia"] .CodeMirror-linenumber,
+    [data-theme="daylight"] .CodeMirror-linenumber {
       color: var(--text-dimmest) !important;
     }
     [data-theme="light"] .cm-s-default .cm-keyword,
-    [data-theme="sepia"] .cm-s-default .cm-keyword { color: #7928a1 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-keyword,
+    [data-theme="daylight"] .cm-s-default .cm-keyword { color: #7928a1 !important; }
     [data-theme="light"] .cm-s-default .cm-def,
-    [data-theme="sepia"] .cm-s-default .cm-def { color: #6f42c1 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-def,
+    [data-theme="daylight"] .cm-s-default .cm-def { color: #6f42c1 !important; }
     [data-theme="light"] .cm-s-default .cm-variable,
-    [data-theme="sepia"] .cm-s-default .cm-variable { color: #24292e !important; }
+    [data-theme="sepia"] .cm-s-default .cm-variable,
+    [data-theme="daylight"] .cm-s-default .cm-variable { color: #24292e !important; }
     [data-theme="light"] .cm-s-default .cm-variable-2,
-    [data-theme="sepia"] .cm-s-default .cm-variable-2 { color: #005cc5 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-variable-2,
+    [data-theme="daylight"] .cm-s-default .cm-variable-2 { color: #005cc5 !important; }
     [data-theme="light"] .cm-s-default .cm-variable-3,
     [data-theme="sepia"] .cm-s-default .cm-variable-3,
+    [data-theme="daylight"] .cm-s-default .cm-variable-3,
     [data-theme="light"] .cm-s-default .cm-type,
-    [data-theme="sepia"] .cm-s-default .cm-type { color: #22863a !important; }
+    [data-theme="sepia"] .cm-s-default .cm-type,
+    [data-theme="daylight"] .cm-s-default .cm-type { color: #22863a !important; }
     [data-theme="light"] .cm-s-default .cm-property,
-    [data-theme="sepia"] .cm-s-default .cm-property { color: #005cc5 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-property,
+    [data-theme="daylight"] .cm-s-default .cm-property { color: #005cc5 !important; }
     [data-theme="light"] .cm-s-default .cm-operator,
-    [data-theme="sepia"] .cm-s-default .cm-operator { color: #24292e !important; }
+    [data-theme="sepia"] .cm-s-default .cm-operator,
+    [data-theme="daylight"] .cm-s-default .cm-operator { color: #24292e !important; }
     [data-theme="light"] .cm-s-default .cm-number,
-    [data-theme="sepia"] .cm-s-default .cm-number { color: #005cc5 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-number,
+    [data-theme="daylight"] .cm-s-default .cm-number { color: #005cc5 !important; }
     [data-theme="light"] .cm-s-default .cm-string,
     [data-theme="sepia"] .cm-s-default .cm-string,
+    [data-theme="daylight"] .cm-s-default .cm-string,
     [data-theme="light"] .cm-s-default .cm-string-2,
-    [data-theme="sepia"] .cm-s-default .cm-string-2 { color: #b45309 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-string-2,
+    [data-theme="daylight"] .cm-s-default .cm-string-2 { color: #b45309 !important; }
     [data-theme="light"] .cm-s-default .cm-comment,
-    [data-theme="sepia"] .cm-s-default .cm-comment { color: #6a737d !important; }
+    [data-theme="sepia"] .cm-s-default .cm-comment,
+    [data-theme="daylight"] .cm-s-default .cm-comment { color: #6a737d !important; }
     [data-theme="light"] .cm-s-default .cm-builtin,
-    [data-theme="sepia"] .cm-s-default .cm-builtin { color: #22863a !important; }
+    [data-theme="sepia"] .cm-s-default .cm-builtin,
+    [data-theme="daylight"] .cm-s-default .cm-builtin { color: #22863a !important; }
     [data-theme="light"] .cm-s-default .cm-meta,
-    [data-theme="sepia"] .cm-s-default .cm-meta { color: #e36209 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-meta,
+    [data-theme="daylight"] .cm-s-default .cm-meta { color: #e36209 !important; }
     [data-theme="light"] .cm-s-default .cm-atom,
     [data-theme="sepia"] .cm-s-default .cm-atom,
+    [data-theme="daylight"] .cm-s-default .cm-atom,
     [data-theme="light"] .cm-s-default .cm-tag,
-    [data-theme="sepia"] .cm-s-default .cm-tag { color: #22863a !important; }
+    [data-theme="sepia"] .cm-s-default .cm-tag,
+    [data-theme="daylight"] .cm-s-default .cm-tag { color: #22863a !important; }
     [data-theme="light"] .cm-s-default .cm-attribute,
-    [data-theme="sepia"] .cm-s-default .cm-attribute { color: #005cc5 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-attribute,
+    [data-theme="daylight"] .cm-s-default .cm-attribute { color: #005cc5 !important; }
     [data-theme="light"] .cm-s-default .cm-header,
-    [data-theme="sepia"] .cm-s-default .cm-header { color: #005cc5 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-header,
+    [data-theme="daylight"] .cm-s-default .cm-header { color: #005cc5 !important; }
     [data-theme="light"] .cm-s-default .cm-link,
-    [data-theme="sepia"] .cm-s-default .cm-link { color: #005cc5 !important; }
+    [data-theme="sepia"] .cm-s-default .cm-link,
+    [data-theme="daylight"] .cm-s-default .cm-link { color: #005cc5 !important; }
     [data-theme="light"] .CodeMirror-selected,
-    [data-theme="sepia"] .CodeMirror-selected { background: rgba(180,69,26,0.15) !important; }
+    [data-theme="sepia"] .CodeMirror-selected,
+    [data-theme="daylight"] .CodeMirror-selected { background: rgba(180,69,26,0.15) !important; }
     [data-theme="light"] .CodeMirror-focused .CodeMirror-selected,
-    [data-theme="sepia"] .CodeMirror-focused .CodeMirror-selected { background: rgba(180,69,26,0.25) !important; }
+    [data-theme="sepia"] .CodeMirror-focused .CodeMirror-selected,
+    [data-theme="daylight"] .CodeMirror-focused .CodeMirror-selected { background: rgba(180,69,26,0.25) !important; }
     [data-theme="light"] .CodeMirror-matchingbracket,
-    [data-theme="sepia"] .CodeMirror-matchingbracket { color: #24292e !important; background: rgba(180,69,26,0.2) !important; }
+    [data-theme="sepia"] .CodeMirror-matchingbracket,
+    [data-theme="daylight"] .CodeMirror-matchingbracket { color: #24292e !important; background: rgba(180,69,26,0.2) !important; }
 
     /* ── Cell output truncation ── */
     .cell-output-wrap { position: relative; max-height: 300px; overflow: hidden; }
