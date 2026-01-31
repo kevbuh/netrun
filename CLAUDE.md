@@ -44,6 +44,8 @@ Python HTTP server (`http.server`) that acts as an API proxy and local data stor
 - `/api/blocked-titles` — GET/POST/DELETE for the prompt test suite titles, stored in `blocked_titles.json`
 - `/api/experiments` — CRUD for experiments and their versions, stored as JSON files in `arxiv-filter/experiments/`
 - `/api/check-embed` — checks if a URL can be embedded in an iframe
+- `/api/extract-text` — POST a URL, returns extracted text (PDF via PyMuPDF for arXiv, HTML text extraction for other sites)
+- `/api/paper-insights` — POST a URL, returns extracted repo links and key insights from the document
 
 Experiments are stored on disk as `experiments/{slug}/meta.json`.
 
@@ -57,9 +59,9 @@ Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.cs
 
 1. **Onboarding** (`#`) — shown on first visit (no `feedSources` in localStorage) or when all sources are off. 2×N grid of source cards grouped by category, user picks sources, clicks "Start reading"
 2. **Home** (`#`) — multi-source feed with masonry grid, sorting (latest/most cited), trend panels, infinite scroll, search
-3. **Paper Viewer** (`#view/` or `#paper/`) — split layout with metadata sidebar + embedded PDF iframe, citation counts
+3. **Paper Viewer** (`#view/` or `#paper/`) — arXiv papers use full PDF viewer (highlights, pen, search); non-arXiv posts show the original website in an iframe. Both get sidebar with insights, chat, notes, and comments.
 4. **Reading List** (`#saved`) — bookmarked posts with read/unread tracking
-5. **Experiments List** (`#experiments`) — create/delete experiment ideas
+5. **Experiments List** (`#experiments`) — create/delete experiment ideas, sorted by last modified (includes file mtimes)
 6. **Experiment Detail** (`#experiment/{id}`) — version tree with SVG visualization, interactive version cards, auto-save (600ms debounce), branching
 7. **Quality Filter** (`#quality`) — dedicated sidebar tab for AI filter management: prompts, scoring threshold, blocked posts, test suite, cache stats
 
@@ -75,7 +77,7 @@ arxiv-filter/
     quality.js     — AI quality filter (Ollama integration, prompts, scoring, test suite)
     views.js       — paper viewer, finder/search, calendar, todos
     experiments.js — experiment list/detail, rename, description, exp todos, file sidebar
-    editors.js     — markdown/python/notebook editors + all notebook helpers
+    editors.js     — markdown/python/notebook editors + all notebook helpers (copy cell, copy file, duplicate file)
 ```
 
 **Script load order** (bottom of `<body>`): `core.js` → `feed.js` → `quality.js` → `views.js` → `experiments.js` → `editors.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then views/experiments/editors. All functions are global (no modules).
@@ -124,6 +126,8 @@ Each feed card has two action buttons (top-right corner):
 - **Bookmark** — saves to Reading List (`localStorage.savedPosts`)
 - **Hide (✕)** — permanently hides the post from the feed (`localStorage.hiddenPosts`) and adds its title to the prompt test suite (`localStorage.qualityTestTitles`)
 
+Clicking a post marks it as read (`localStorage.readPosts`). Read posts render at 50% opacity with muted title text in both card and compact views.
+
 ### External APIs
 
 - arXiv RSS: `https://rss.arxiv.org/rss/cs`
@@ -144,6 +148,7 @@ Each feed card has two action buttons (top-right corner):
 | `qualityCache` | `{ title: { v: 'keep'\|'skip', s: number\|null } }` — cached verdicts and scores |
 | `hiddenPosts` | Array of post URLs permanently hidden by user |
 | `savedPosts` | `{ url: { paper, savedAt, read } }` — reading list |
+| `readPosts` | Array of post URLs that have been clicked/opened |
 | `qualityTestTitles` | Array of strings — titles that must be classified as SKIP (prompt test suite) |
 
 ## Key Conventions

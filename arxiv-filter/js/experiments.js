@@ -138,15 +138,57 @@ async function fetchExperimentDetail(id) {
     document.getElementById('exp-file-editor').innerHTML = '';
     document.getElementById('exp-default-content').style.display = '';
     currentFile = null;
+    _renderExpMetadata();
     renderExpPapers();
     fetchExpTodos();
     await fetchExpFiles();
+    _renderExpMetadata();
     // Auto-open README.md if it exists and no file is open
     if (!currentFile) _autoOpenReadme();
   } catch (err) {
     document.getElementById('exp-todos-list').innerHTML =
       `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
   }
+}
+
+function _renderMetaTree(node, prefix) {
+  let lines = [];
+  const dirs = Object.keys(node.children).sort();
+  const fileNames = node.files.map(f => f.split('/').pop()).sort();
+  const entries = dirs.map(d => ({ name: d, isDir: true })).concat(fileNames.map(f => ({ name: f, isDir: false })));
+  entries.forEach((entry, idx) => {
+    const isLast = idx === entries.length - 1;
+    const connector = isLast ? '└── ' : '├── ';
+    const icon = entry.isDir ? '<span class="text-amber-400/70">'+entry.name+'</span>' : escapeHtml(entry.name);
+    lines.push(`${prefix}${connector}${icon}`);
+    if (entry.isDir) {
+      const childPrefix = prefix + (isLast ? '    ' : '│   ');
+      lines.push(..._renderMetaTree(node.children[entry.name], childPrefix));
+    }
+  });
+  return lines;
+}
+
+function _renderExpMetadata() {
+  const el = document.getElementById('exp-metadata');
+  if (!el || !currentExp) return;
+  const created = currentExp.created ? new Date(currentExp.created).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+  const runs = (currentExp.runs || []).length;
+  const papers = (currentExp.papers || []).length;
+  const files = _expFiles ? _expFiles.length : 0;
+  const parts = [];
+  if (created) parts.push(`<span>Created ${created}</span>`);
+  if (files) parts.push(`<span>${files} file${files !== 1 ? 's' : ''}</span>`);
+  if (runs) parts.push(`<span>${runs} run${runs !== 1 ? 's' : ''}</span>`);
+  if (papers) parts.push(`<span>${papers} paper${papers !== 1 ? 's' : ''}</span>`);
+  let html = '';
+  if (parts.length) html += `<div class="flex items-center gap-2 text-[0.75rem] text-dimmer flex-wrap mb-3">${parts.join('<span class="text-dimmest">·</span>')}</div>`;
+  if (_expFiles && _expFiles.length) {
+    const tree = _buildFileTree(_expFiles, []);
+    const treeLines = _renderMetaTree(tree, '');
+    html += `<div class="text-[0.72rem] font-mono text-dim leading-relaxed whitespace-pre">${treeLines.join('\n')}</div>`;
+  }
+  el.innerHTML = html;
 }
 
 // ── Linked Papers ──
@@ -420,6 +462,34 @@ function _fileExtBadge(f) {
 
 let _draggedFile = null;
 
+function _buildFileTree(files, emptyDirs) {
+  const root = { children: {}, files: [] };
+  files.forEach(f => {
+    const parts = f.split('/');
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node.children[parts[i]]) node.children[parts[i]] = { children: {}, files: [] };
+      node = node.children[parts[i]];
+    }
+    node.files.push(f);
+  });
+  (emptyDirs || []).forEach(d => {
+    const parts = d.split('/');
+    let node = root;
+    for (const p of parts) {
+      if (!node.children[p]) node.children[p] = { children: {}, files: [] };
+      node = node.children[p];
+    }
+  });
+  return root;
+}
+
+function _countTreeFiles(node) {
+  let n = node.files.length;
+  for (const k of Object.keys(node.children)) n += _countTreeFiles(node.children[k]);
+  return n;
+}
+
 function renderFilesList(files, emptyDirs) {
   emptyDirs = emptyDirs || [];
   const el = document.getElementById('exp-sidebar-files');
@@ -427,26 +497,12 @@ function renderFilesList(files, emptyDirs) {
     el.innerHTML = '<div class="text-dimmest text-[0.75rem] py-2">No files yet.</div>';
     return;
   }
-  // Group files: top-level first, then by folder
-  const topLevel = [];
-  const folders = {};
-  files.forEach(f => {
-    const slashIdx = f.indexOf('/');
-    if (slashIdx === -1) {
-      topLevel.push(f);
-    } else {
-      const folder = f.substring(0, slashIdx);
-      if (!folders[folder]) folders[folder] = [];
-      folders[folder].push(f);
-    }
-  });
-  // Add empty dirs
-  emptyDirs.forEach(d => { if (!folders[d]) folders[d] = []; });
+  const tree = _buildFileTree(files, emptyDirs);
 
   function fileRow(f) {
     const isActive = currentFile === f;
     const activeCls = isActive ? 'bg-accent/10 border-l-2 border-accent' : 'border-l-2 border-transparent';
-    const displayName = f.includes('/') ? f.split('/').pop() : f;
+    const displayName = f.split('/').pop();
     const [badge, badgeCls] = _fileExtBadge(f);
     const escapedF = escapeHtml(f).replace(/'/g, "\\'");
     return `
@@ -468,33 +524,42 @@ function renderFilesList(files, emptyDirs) {
     </div>`;
   }
 
-  // Root drop zone for moving files to top level
-  let html = `<div class="exp-root-drop" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '')">`;
-  html += topLevel.map(fileRow).join('');
-  html += `</div>`;
-
-  for (const folder of Object.keys(folders).sort()) {
-    const folderId = 'folder-' + folder.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const escapedFolder = escapeHtml(folder).replace(/'/g, "\\'");
-    const count = folders[folder].length;
-    html += `
-    <div class="mt-1" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '${escapedFolder}')">
-      <div class="flex items-center gap-1 w-full px-1 py-1 group">
-        <button onclick="document.getElementById('${folderId}').classList.toggle('hidden'); this.querySelector('svg').style.transform = document.getElementById('${folderId}').classList.contains('hidden') ? '' : 'rotate(90deg)'" class="flex items-center gap-1 flex-1 text-left bg-transparent border-none p-0 cursor-pointer text-dim hover:text-primary transition-colors min-w-0">
-          <svg class="w-3 h-3 fill-current transition-transform shrink-0" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
-          <svg class="w-3.5 h-3.5 text-amber-400/70 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-          <span class="text-[0.78rem] truncate folder-name-span" ondblclick="event.stopPropagation(); startRenameFolder('${escapedFolder}', this)">${escapeHtml(folder)}</span>
-        </button>
-        <span class="text-[0.65rem] text-dimmer shrink-0">${count}</span>
-        <button onclick="event.stopPropagation(); deleteExpFolder('${escapedFolder}')" class="w-5 h-5 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete folder">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </div>
-      <div id="${folderId}" class="pl-3">
-        ${count ? folders[folder].map(fileRow).join('') : '<div class="text-dimmest text-[0.7rem] py-1 px-2">Empty</div>'}
-      </div>
-    </div>`;
+  function renderNode(node, folderPath) {
+    let html = '';
+    // Files at this level
+    html += node.files.map(fileRow).join('');
+    // Subfolders
+    for (const name of Object.keys(node.children).sort()) {
+      const child = node.children[name];
+      const childPath = folderPath ? folderPath + '/' + name : name;
+      const folderId = 'folder-' + childPath.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const escapedFolder = escapeHtml(childPath).replace(/'/g, "\\'");
+      const count = _countTreeFiles(child);
+      const isTopLevel = !folderPath;
+      html += `
+      <div class="${isTopLevel ? 'mt-1' : 'mt-0.5'}" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '${escapedFolder}')">
+        <div class="flex items-center gap-1 w-full px-1 py-1 group">
+          <button onclick="document.getElementById('${folderId}').classList.toggle('hidden'); this.querySelector('.chevron-icon').style.transform = document.getElementById('${folderId}').classList.contains('hidden') ? '' : 'rotate(90deg)'" class="flex items-center gap-1 flex-1 text-left bg-transparent border-none p-0 cursor-pointer text-dim hover:text-primary transition-colors min-w-0">
+            <svg class="w-3 h-3 fill-current transition-transform shrink-0 chevron-icon" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+            <svg class="w-3.5 h-3.5 text-amber-400/70 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+            <span class="text-[0.78rem] truncate folder-name-span" ondblclick="event.stopPropagation(); startRenameFolder('${escapedFolder}', this)">${escapeHtml(name)}</span>
+          </button>
+          <span class="text-[0.65rem] text-dimmer shrink-0">${count}</span>
+          <button onclick="event.stopPropagation(); deleteExpFolder('${escapedFolder}')" class="w-5 h-5 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete folder">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div id="${folderId}" class="pl-3${isTopLevel ? '' : ''}">
+          ${count ? renderNode(child, childPath) : '<div class="text-dimmest text-[0.7rem] py-1 px-2">Empty</div>'}
+        </div>
+      </div>`;
+    }
+    return html;
   }
+
+  let html = `<div class="exp-root-drop" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '')">`;
+  html += renderNode(tree, '');
+  html += `</div>`;
   el.innerHTML = html;
 }
 

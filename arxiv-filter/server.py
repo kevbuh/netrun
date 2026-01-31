@@ -843,8 +843,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         runs = meta.get('runs', [])
                         meta['runCount'] = len(runs)
                         ts = [r.get('created', 0) for r in runs] + [meta.get('created', 0) or 0]
+                        # Include file modification times for accurate lastUpdated
+                        exp_dir = os.path.join(EXPERIMENTS_DIR, name)
+                        for root, dirs, files in os.walk(exp_dir):
+                            for fname in files:
+                                try:
+                                    ts.append(os.path.getmtime(os.path.join(root, fname)))
+                                except OSError:
+                                    pass
                         meta['lastUpdated'] = max(ts) if ts else 0
                         experiments.append(meta)
+            experiments.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
             self._send_json(experiments)
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
