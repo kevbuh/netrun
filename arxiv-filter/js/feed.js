@@ -263,20 +263,7 @@ function openSavedPaper(link) {
   if (!entry) return;
   const paper = entry.paper;
   paperViewOrigin = 'saved';
-  if (paper.source === 'arxiv') {
-    showPaperView(paper, 'view/' + encodeURIComponent(link));
-  } else {
-    fetch(`/api/check-embed?url=${encodeURIComponent(link)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.embeddable) {
-          showPaperView(paper, 'view/' + encodeURIComponent(link));
-        } else {
-          window.open(link, '_blank');
-        }
-      })
-      .catch(() => { window.open(link, '_blank'); });
-  }
+  showPaperView(paper, 'view/' + encodeURIComponent(link));
 }
 
 // ── arXiv Feed (loads on startup) ──

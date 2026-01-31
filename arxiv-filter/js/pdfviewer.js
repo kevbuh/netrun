@@ -19,6 +19,15 @@ let _pdfObserver = null;
 let _pdfPopup = null;
 let _pdfSavedRange = null;
 
+// ── Pen / Drawing state ──
+let _pdfPenMode = false;
+let _pdfPenColor = '#000000';
+let _pdfPenSize = 2;
+let _pdfDrawings = {};       // { pageNum: [ { points, color, size } ] }
+let _pdfCurrentStroke = null;
+let _pdfCurrentDrawCanvas = null;
+let _pdfEraserMode = false;
+
 // ── Storage ──
 
 function loadPdfHighlights(arxivId) {
@@ -37,6 +46,25 @@ function savePdfHighlights() {
   } catch (e) { console.error('Failed to save highlights', e); }
 }
 
+// ── Drawing storage ──
+
+function loadPdfDrawings(arxivId) {
+  try {
+    const all = JSON.parse(localStorage.getItem('pdfDrawings') || '{}');
+    return all[arxivId] || {};
+  } catch { return {}; }
+}
+
+function savePdfDrawings() {
+  try {
+    const all = JSON.parse(localStorage.getItem('pdfDrawings') || '{}');
+    const hasStrokes = Object.values(_pdfDrawings).some(arr => arr.length > 0);
+    if (hasStrokes) all[_pdfArxivId] = _pdfDrawings;
+    else delete all[_pdfArxivId];
+    localStorage.setItem('pdfDrawings', JSON.stringify(all));
+  } catch (e) { console.error('Failed to save drawings', e); }
+}
+
 // ── Init ──
 
 function initPdfViewer(container, url, arxivId) {
@@ -44,6 +72,8 @@ function initPdfViewer(container, url, arxivId) {
   _pdfContainer = container;
   _pdfArxivId = arxivId;
   _pdfHighlights = loadPdfHighlights(arxivId);
+  _pdfDrawings = loadPdfDrawings(arxivId);
+  _pdfPenMode = false;
 
   container.innerHTML = '';
   container.style.display = 'flex';
@@ -69,6 +99,21 @@ function initPdfViewer(container, url, arxivId) {
     <button class="pdf-tb-btn" onclick="pdfZoom(0.25)" title="Zoom in">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
     </button>
+    <span class="pdf-tb-sep"></span>
+    <button class="pdf-tb-btn" id="pdf-pen-toggle" onclick="togglePdfPen()" title="Pen tool">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+    </button>
+    <div class="pdf-pen-controls" id="pdf-pen-controls" style="display:none">
+      <button class="pdf-pen-color-btn" id="pdf-pen-color-btn" style="background:${_pdfPenColor}" onclick="document.getElementById('pdf-pen-color-input').click()" title="Pen color"></button>
+      <input type="color" id="pdf-pen-color-input" value="${_pdfPenColor}" style="display:none" oninput="pdfSetPenColor(this.value)">
+      <input type="range" class="pdf-pen-size-slider" id="pdf-pen-size" min="1" max="12" value="${_pdfPenSize}" onchange="_pdfPenSize=+this.value" title="Pen size">
+      <button class="pdf-tb-btn" id="pdf-eraser-toggle" onclick="togglePdfEraser()" title="Eraser (tap a stroke to delete it)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16.24 3.56l4.95 4.94a1.5 1.5 0 010 2.12l-8.49 8.49a3 3 0 01-2.12.88H7.17a3 3 0 01-2.12-.88L2.93 16.99a1.5 1.5 0 010-2.12L12.12 5.68l2-2.12a1.5 1.5 0 012.12 0zM4.34 16.28l2.12 2.12a1 1 0 00.71.3h3.41a1 1 0 00.71-.3l3.18-3.18-4.95-4.95-5.18 5.3v.71z"/></svg>
+      </button>
+      <button class="pdf-tb-btn" onclick="pdfPenUndo()" title="Undo last stroke">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1.04-6.83 2.73L2 7v10h10l-3.72-3.72A8.97 8.97 0 0112.5 11c3.31 0 6.13 2.13 7.16 5.09l2.09-.72A11.003 11.003 0 0012.5 8z"/></svg>
+      </button>
+    </div>
   `;
   container.appendChild(toolbar);
 
@@ -184,6 +229,25 @@ function renderPdfPage(pageNum, wrapper) {
 
       // Replay saved highlights for this page
       replayHighlightsForPage(pageNum);
+
+      // Drawing canvas layer
+      const drawCanvas = document.createElement('canvas');
+      drawCanvas.className = 'pdf-drawing-canvas';
+      drawCanvas.width = viewport.width * (window.devicePixelRatio || 1);
+      drawCanvas.height = viewport.height * (window.devicePixelRatio || 1);
+      drawCanvas.style.width = viewport.width + 'px';
+      drawCanvas.style.height = viewport.height + 'px';
+      drawCanvas.dataset.page = pageNum;
+      wrapper.appendChild(drawCanvas);
+
+      // Set up drawing event listeners
+      drawCanvas.addEventListener('pointerdown', onPdfDrawStart);
+      drawCanvas.addEventListener('pointermove', onPdfDrawMove);
+      drawCanvas.addEventListener('pointerup', onPdfDrawEnd);
+      drawCanvas.addEventListener('pointerleave', onPdfDrawEnd);
+
+      // Replay saved drawings for this page
+      replayDrawingsForPage(pageNum);
     });
   });
 }
@@ -259,6 +323,7 @@ function updatePdfPageIndicator() {
 // ── Text selection → highlight popup ──
 
 function onPdfTextSelected(e) {
+  if (_pdfPenMode) return;
   dismissHighlightPopup();
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
@@ -430,11 +495,13 @@ function showNotePopup(e, highlightId) {
   popup.style.zIndex = '10000';
 
   popup.innerHTML = `
-    <div class="pdf-note-popup-quote" style="border-left-color:${colorObj.solid}">${escapeHtml(snippet)}</div>
-    <textarea class="pdf-note-popup-textarea" placeholder="Write a note…" rows="3">${escapeHtml(hl.note || '')}</textarea>
-    <div class="pdf-note-popup-footer">
-      <button class="pdf-note-popup-del" onclick="event.stopPropagation();deleteHighlight('${highlightId}')">Delete</button>
+    <div class="pdf-note-popup-header">
+      <div class="pdf-note-popup-quote" style="border-left-color:${colorObj.solid}">${escapeHtml(snippet)}</div>
+      <button class="pdf-note-popup-del" onclick="event.stopPropagation();deleteHighlight('${highlightId}')" title="Delete highlight">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V4a1 1 0 011-1h6a1 1 0 011 1v3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
+    <textarea class="pdf-note-popup-textarea" placeholder="Write a note…" rows="3">${escapeHtml(hl.note || '')}</textarea>
   `;
 
   // Prevent clicks inside from bubbling
@@ -570,6 +637,172 @@ function scrollToHighlight(id) {
   }
 }
 
+// ── Pen / Drawing ──
+
+function togglePdfPen() {
+  _pdfPenMode = !_pdfPenMode;
+  if (!_pdfPenMode) _pdfEraserMode = false;
+  const btn = document.getElementById('pdf-pen-toggle');
+  const controls = document.getElementById('pdf-pen-controls');
+  const eraserBtn = document.getElementById('pdf-eraser-toggle');
+  if (btn) btn.classList.toggle('active', _pdfPenMode);
+  if (controls) controls.style.display = _pdfPenMode ? 'flex' : 'none';
+  if (eraserBtn) eraserBtn.classList.remove('active');
+  if (_pdfPagesContainer) {
+    _pdfPagesContainer.classList.toggle('pdf-pen-active', _pdfPenMode);
+    _pdfPagesContainer.classList.remove('pdf-eraser-active');
+  }
+}
+
+function pdfSetPenColor(color) {
+  _pdfPenColor = color;
+  const btn = document.getElementById('pdf-pen-color-btn');
+  if (btn) btn.style.background = color;
+}
+
+function togglePdfEraser() {
+  _pdfEraserMode = !_pdfEraserMode;
+  const btn = document.getElementById('pdf-eraser-toggle');
+  if (btn) btn.classList.toggle('active', _pdfEraserMode);
+  if (_pdfPagesContainer) {
+    _pdfPagesContainer.classList.toggle('pdf-eraser-active', _pdfEraserMode);
+  }
+}
+
+function eraseStrokeAt(canvas, x, y) {
+  const pageNum = canvas.dataset.page;
+  const strokes = _pdfDrawings[pageNum];
+  if (!strokes || !strokes.length) return;
+  // x, y are in CSS pixels; convert to PDF-unit space
+  const px = x / _pdfScale;
+  const py = y / _pdfScale;
+  const threshold = 8 / _pdfScale; // 8 CSS px hit radius
+  for (let si = strokes.length - 1; si >= 0; si--) {
+    const pts = strokes[si].points;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (distToSegment(px, py, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y) < threshold + strokes[si].size / 2) {
+        strokes.splice(si, 1);
+        savePdfDrawings();
+        replayDrawingsForPage(pageNum);
+        return;
+      }
+    }
+  }
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function onPdfDrawStart(e) {
+  if (!_pdfPenMode) return;
+  const canvas = e.currentTarget;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if (_pdfEraserMode) {
+    eraseStrokeAt(canvas, x, y);
+    canvas.setPointerCapture(e.pointerId);
+    _pdfCurrentDrawCanvas = canvas;
+    _pdfCurrentStroke = null; // flag: erasing, not drawing
+    return;
+  }
+
+  canvas.setPointerCapture(e.pointerId);
+  const dpr = window.devicePixelRatio || 1;
+  _pdfCurrentStroke = {
+    points: [{ x: x / _pdfScale, y: y / _pdfScale }],
+    color: _pdfPenColor,
+    size: _pdfPenSize
+  };
+  _pdfCurrentDrawCanvas = canvas;
+  const ctx = canvas.getContext('2d');
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = _pdfPenColor;
+  ctx.lineWidth = _pdfPenSize * dpr;
+  ctx.beginPath();
+  ctx.moveTo(x * dpr, y * dpr);
+}
+
+function onPdfDrawMove(e) {
+  if (!_pdfPenMode || !_pdfCurrentDrawCanvas) return;
+
+  const canvas = _pdfCurrentDrawCanvas;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if (_pdfEraserMode) {
+    eraseStrokeAt(canvas, x, y);
+    return;
+  }
+
+  if (!_pdfCurrentStroke) return;
+  const dpr = window.devicePixelRatio || 1;
+  _pdfCurrentStroke.points.push({ x: x / _pdfScale, y: y / _pdfScale });
+  const ctx = canvas.getContext('2d');
+  ctx.lineTo(x * dpr, y * dpr);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x * dpr, y * dpr);
+}
+
+function onPdfDrawEnd(e) {
+  if (_pdfEraserMode) {
+    _pdfCurrentDrawCanvas = null;
+    return;
+  }
+  if (!_pdfCurrentStroke || !_pdfCurrentDrawCanvas) return;
+  const pageNum = _pdfCurrentDrawCanvas.dataset.page;
+  if (!_pdfDrawings[pageNum]) _pdfDrawings[pageNum] = [];
+  if (_pdfCurrentStroke.points.length > 1) {
+    _pdfDrawings[pageNum].push(_pdfCurrentStroke);
+    savePdfDrawings();
+  }
+  _pdfCurrentStroke = null;
+  _pdfCurrentDrawCanvas = null;
+}
+
+function replayDrawingsForPage(pageNum) {
+  const wrapper = document.getElementById(`pdf-page-${pageNum}`);
+  if (!wrapper) return;
+  const canvas = wrapper.querySelector('.pdf-drawing-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const strokes = _pdfDrawings[pageNum] || [];
+  strokes.forEach(stroke => {
+    if (stroke.points.length < 2) return;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.size * dpr;
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0].x * _pdfScale * dpr, stroke.points[0].y * _pdfScale * dpr);
+    for (let i = 1; i < stroke.points.length; i++) {
+      ctx.lineTo(stroke.points[i].x * _pdfScale * dpr, stroke.points[i].y * _pdfScale * dpr);
+    }
+    ctx.stroke();
+  });
+}
+
+function pdfPenUndo() {
+  const pageNum = getCurrentPdfPage().toString();
+  if (!_pdfDrawings[pageNum] || !_pdfDrawings[pageNum].length) return;
+  _pdfDrawings[pageNum].pop();
+  savePdfDrawings();
+  replayDrawingsForPage(pageNum);
+}
+
 // ── Cleanup ──
 
 function cleanupPdfViewer() {
@@ -581,6 +814,11 @@ function cleanupPdfViewer() {
   _pdfArxivId = '';
   _pdfContainer = null;
   _pdfPagesContainer = null;
+  _pdfPenMode = false;
+  _pdfEraserMode = false;
+  _pdfDrawings = {};
+  _pdfCurrentStroke = null;
+  _pdfCurrentDrawCanvas = null;
   dismissHighlightPopup();
   dismissNotePopup();
 }

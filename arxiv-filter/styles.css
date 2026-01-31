@@ -704,13 +704,19 @@
       box-shadow: 0 8px 24px var(--shadow-popup);
       overflow: hidden;
     }
+    .pdf-note-popup-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 8px 8px 0 10px;
+    }
     .pdf-note-popup-quote {
-      padding: 8px 10px;
+      flex: 1;
+      padding: 0 0 0 8px;
       font-size: 0.72rem;
       color: var(--text-muted);
       line-height: 1.4;
       border-left: 3px solid;
-      margin: 8px 10px 0;
       font-style: italic;
     }
     .pdf-note-popup-textarea {
@@ -728,21 +734,18 @@
     }
     .pdf-note-popup-textarea::placeholder { color: var(--text-dimmest); }
     .pdf-note-popup-textarea:focus { background: var(--bg-input); }
-    .pdf-note-popup-footer {
-      display: flex;
-      justify-content: flex-end;
-      padding: 4px 8px 6px;
-      border-top: 1px solid var(--border-card);
-    }
     .pdf-note-popup-del {
       background: none;
       border: none;
       color: var(--text-dimmest);
-      font-size: 0.72rem;
       cursor: pointer;
-      padding: 2px 6px;
+      padding: 4px;
       border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: all 0.15s;
+      shrink: 0;
     }
     .pdf-note-popup-del:hover {
       color: #e53935;
@@ -854,6 +857,93 @@
     }
     .pdf-hl-card-note:focus {
       background: var(--bg-input);
+    }
+
+    /* ── PDF Drawing Canvas (pen overlay) ── */
+    .pdf-drawing-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+    .pdf-pen-active .pdf-drawing-canvas {
+      pointer-events: auto;
+      cursor: crosshair;
+    }
+    .pdf-pen-active .textLayer {
+      pointer-events: none;
+    }
+    .pdf-pen-active .pdf-highlight-layer {
+      pointer-events: none;
+    }
+    #pdf-pen-toggle {
+      border: none;
+      background: none;
+      color: var(--text-muted);
+    }
+    #pdf-pen-toggle:hover {
+      color: var(--text-primary);
+    }
+    #pdf-pen-toggle.active {
+      color: var(--accent);
+      background: none;
+      border: none;
+    }
+    .pdf-pen-controls .pdf-tb-btn {
+      border: none;
+      background: none;
+      color: var(--text-muted);
+    }
+    .pdf-pen-controls .pdf-tb-btn:hover {
+      color: var(--text-primary);
+    }
+    .pdf-pen-controls .pdf-tb-btn.active {
+      background: none;
+      border: none;
+      color: var(--accent);
+    }
+    .pdf-pen-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pdf-pen-color-btn {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .pdf-pen-size-slider {
+      width: 60px;
+      accent-color: var(--accent);
+      -webkit-appearance: none;
+      appearance: none;
+      height: 3px;
+      background: var(--border-input);
+      border-radius: 2px;
+      outline: none;
+    }
+    .pdf-pen-size-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      cursor: pointer;
+    }
+    .pdf-pen-size-slider::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      border: none;
+      cursor: pointer;
+    }
+    .pdf-eraser-active .pdf-drawing-canvas {
+      cursor: not-allowed;
     }
 
     /* ── Drag-and-drop file management ── */
