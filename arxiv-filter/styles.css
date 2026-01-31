@@ -1041,6 +1041,70 @@
     .draw-tool.active { border-color: var(--accent); background: var(--accent); color: #fff; }
     .draw-sep { width: 1px; height: 22px; background: var(--border-dim); margin: 0 2px; flex-shrink: 0; }
 
+    /* ── Slides editor ── */
+    .slides-thumb-panel {
+      width: 200px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border-dim);
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--bg-card);
+    }
+    .slides-thumb {
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 6px;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .slides-thumb:hover {
+      background: var(--bg-hover);
+    }
+    .slides-thumb.active {
+      background: var(--bg-hover);
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+    .slides-thumb-btns {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: none;
+      gap: 2px;
+    }
+    .slides-thumb:hover .slides-thumb-btns {
+      display: flex;
+    }
+    .slides-thumb-add {
+      width: 160px;
+      height: 90px;
+      border: 2px dashed var(--border-input);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      margin: 0 auto;
+      flex-shrink: 0;
+    }
+    .slides-thumb-add:hover {
+      border-color: var(--accent);
+      background: var(--bg-hover);
+    }
+    .slides-present-indicator {
+      position: absolute;
+      bottom: 20px;
+      right: 30px;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.85rem;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      pointer-events: none;
+    }
+
     /* ── Drag-and-drop file management ── */
     .drag-over-highlight { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 6px; }
     .exp-file-row[draggable="true"] { cursor: grab; }
