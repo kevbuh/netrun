@@ -935,6 +935,7 @@ function _buildPageIndex(wrapper) {
 function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
   let searchFrom = 0;
   let found = false;
+  const pageNum = parseInt(wrapper.dataset.page);
   while (true) {
     const idx = pageIdx.joined.indexOf(queryNorm, searchFrom);
     if (idx === -1) break;
@@ -942,14 +943,33 @@ function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
     found = true;
 
     const matchChars = pageIdx.charMap.slice(idx, idx + queryNorm.length);
+    // Reconstruct original (non-normalized) text from the spans
+    const textParts = [];
+    let lastSpan = null;
+    matchChars.forEach(c => {
+      if (c.span && c.span !== lastSpan) {
+        textParts.push(c.span.textContent);
+        lastSpan = c.span;
+      }
+    });
+    const matchText = textParts.join(' ').trim();
+
     const involvedSpans = new Set();
     matchChars.forEach(c => { if (c.span) involvedSpans.add(c.span); });
 
     const matchOverlays = [];
+    const matchRects = [];
+    const wrapperRect = wrapper.getBoundingClientRect();
     involvedSpans.forEach(span => {
       const rect = span.getBoundingClientRect();
-      const wrapperRect = wrapper.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1) return;
+
+      matchRects.push({
+        x: (rect.left - wrapperRect.left) / _pdfScale,
+        y: (rect.top - wrapperRect.top) / _pdfScale,
+        w: rect.width / _pdfScale,
+        h: rect.height / _pdfScale,
+      });
 
       const div = document.createElement('div');
       div.className = 'pdf-search-highlight';
@@ -960,7 +980,7 @@ function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
       div.style.height = rect.height + 'px';
       div.style.background = 'rgba(255,160,0,0.45)';
       div.style.borderRadius = '2px';
-      div.style.pointerEvents = 'none';
+      div.style.cursor = 'pointer';
       div.style.mixBlendMode = 'multiply';
       div.style.display = 'none';
       pageIdx.hlLayer.appendChild(div);
@@ -969,9 +989,38 @@ function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
 
       if (!firstMatch.el) firstMatch.el = div;
     });
-    if (matchOverlays.length) _pdfSearchMatches.push({ overlays: matchOverlays });
+    if (matchOverlays.length) {
+      const matchEntry = { overlays: matchOverlays, text: matchText, page: pageNum, rects: matchRects };
+      _pdfSearchMatches.push(matchEntry);
+      // Click any overlay in this match to convert to a note
+      matchOverlays.forEach(div => {
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          _convertSearchMatchToHighlight(matchEntry, e);
+        });
+      });
+    }
   }
   return found;
+}
+
+function _convertSearchMatchToHighlight(match, event) {
+  const colorObj = HIGHLIGHT_COLORS[0]; // default yellow
+  const highlight = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    page: match.page,
+    color: colorObj.name,
+    rects: match.rects,
+    text: match.text,
+    note: '',
+    createdAt: new Date().toISOString(),
+  };
+  _pdfHighlights.push(highlight);
+  savePdfHighlights();
+  const wrapper = document.getElementById(`pdf-page-${match.page}`);
+  if (wrapper) renderHighlightRects(wrapper, highlight);
+  renderHighlightsPanel();
+  showNotePopup(event, highlight.id);
 }
 
 function pdfTextExists(query) {
