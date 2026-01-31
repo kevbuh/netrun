@@ -1247,6 +1247,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         'our architecture', 'we formulate', 'we build on',
                         'we extend', 'our technique', 'our algorithm',
                     ],
+                    'Surprising': [
+                        'surprisingly', 'unexpectedly', 'counterintuitively',
+                        'contrary to', 'interestingly', 'remarkably',
+                        'notable exception', 'did not expect',
+                        'against conventional', 'unlike previous',
+                        'in contrast to', 'however, we find',
+                        'however, we found', 'paradoxically',
+                        'despite this', 'this suggests that',
+                    ],
+                    'Design': [
+                        'key design', 'design choice', 'design decision',
+                        'we chose to', 'critical to', 'crucial for',
+                        'the key idea', 'key insight', 'core idea',
+                        'the intuition', 'motivated by', 'this enables',
+                        'this allows', 'important detail', 'we found it important',
+                        'trick', 'the main idea behind',
+                    ],
                 }
                 # Normalize text: collapse newlines within sentences for PDF text
                 normalized = re.sub(r'(?<![.!?\n])\n(?![A-Z\n])', ' ', text)
@@ -1284,6 +1301,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                 insights.append({'label': category, 'text': text_candidate})
                                 used_sentences.add(text_candidate)
                                 break
+
+                # 3. Extract GPU/hardware info
+                gpu_pattern = re.compile(
+                    r'(?:NVIDIA|AMD|Intel)?\s*(?:A100|H100|V100|A6000|A40|RTX\s*\d{4}\s*(?:Ti)?|'
+                    r'P100|T4|K80|TPU\s*v\d|MI\d{3}|GeForce|Titan|3090|4090|A10G)',
+                    re.IGNORECASE
+                )
+                gpu_matches = gpu_pattern.findall(normalized)
+                if gpu_matches:
+                    # Deduplicate preserving order
+                    seen_gpus = set()
+                    unique_gpus = []
+                    for g in gpu_matches:
+                        g_clean = ' '.join(g.split())
+                        if g_clean.lower() not in seen_gpus:
+                            seen_gpus.add(g_clean.lower())
+                            unique_gpus.append(g_clean)
+                    # Find a sentence with GPU context for hover-to-highlight
+                    gpu_sentence = ''
+                    for s in sentences:
+                        s_clean = ' '.join(s.split())
+                        if gpu_pattern.search(s_clean) and len(s_clean) >= 30:
+                            gpu_sentence = s_clean[:300]
+                            if len(s_clean) > 300:
+                                gpu_sentence = gpu_sentence.rsplit(' ', 1)[0] + '...'
+                            break
+                    insights.append({
+                        'label': 'Hardware',
+                        'text': gpu_sentence or ('Trained on: ' + ', '.join(unique_gpus)),
+                        'gpus': unique_gpus,
+                    })
 
                 result = {'repos': repos, 'insights': insights}
                 _insights_cache[url] = result

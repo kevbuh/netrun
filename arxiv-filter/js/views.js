@@ -611,7 +611,6 @@ function showPaperView(paper, hashValue) {
       <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
-      <button class="sidebar-tab-btn ml-auto" onclick="showPdfFindBar()" title="Find in PDF (Ctrl/Cmd+F)"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg></button>
     </div>
     <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
       <div id="pdf-highlights-section">
@@ -662,6 +661,23 @@ function showPaperView(paper, hashValue) {
 }
 
 // ── Paper Insights ──
+async function _verifyInsightsInPdf(insights) {
+  // Wait for at least some PDF text layers to render (up to 8s, checking every 500ms)
+  if (typeof pdfTextExists === 'function') {
+    for (let attempt = 0; attempt < 16; attempt++) {
+      // Check if any text layer exists at all
+      const container = document.querySelector('.pdf-pages-container');
+      if (container && container.querySelector('.textLayer span')) break;
+      await new Promise(r => setTimeout(r, 500));
+    }
+    return insights.filter(insight => {
+      const q = insight.text.replace(/\.\.\.$/, '');
+      return pdfTextExists(q);
+    });
+  }
+  return insights;
+}
+
 async function fetchPaperInsights(url) {
   const el = document.getElementById('paper-insights');
   if (!el) return;
@@ -699,15 +715,25 @@ async function fetchPaperInsights(url) {
       html += '</div>';
     }
     if (hasInsights) {
-      const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400' };
-      for (const insight of data.insights) {
-        let searchSnippet = insight.text.replace(/\.\.\.$/, '').replace(/[\ufb00-\ufb06]/g, m => ({'\ufb00':'ff','\ufb01':'fi','\ufb02':'fl','\ufb03':'ffi','\ufb04':'ffl','\ufb05':'st','\ufb06':'st'}[m]||m));
-        if (searchSnippet.length > 80) searchSnippet = searchSnippet.slice(0, 80).replace(/\s+\S*$/, '');
+      // Wait for PDF text layers to render before verifying quotes
+      const verified = await _verifyInsightsInPdf(data.insights);
+      const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400', Surprising: 'text-yellow-400', Design: 'text-orange-400', Hardware: 'text-red-400' };
+      for (const insight of verified) {
+        const searchSnippet = insight.text.replace(/\.\.\.$/, '');
         const colorCls = labelColors[insight.label] || 'text-dim';
+        let extraHtml = '';
+        if (insight.gpus && insight.gpus.length) {
+          extraHtml = `<div class="flex flex-wrap gap-1 mt-1">${insight.gpus.map(g => `<span class="text-[0.68rem] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">${escapeHtml(g)}</span>`).join('')}</div>`;
+        }
         html += `<div class="cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()" data-q="${escapeHtml(searchSnippet)}">
           <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
           <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
+          ${extraHtml}
         </div>`;
+      }
+      if (!verified.length && !hasRepos) {
+        el.innerHTML = '';
+        return;
       }
     }
     html += '</div>';

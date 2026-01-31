@@ -116,8 +116,27 @@ function initPdfViewer(container, url, arxivId) {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1.04-6.83 2.73L2 7v10h10l-3.72-3.72A8.97 8.97 0 0112.5 11c3.31 0 6.13 2.13 7.16 5.09l2.09-.72A11.003 11.003 0 0012.5 8z"/></svg>
       </button>
     </div>
+    <span style="flex:1"></span>
+    <div class="pdf-search-bar" id="pdf-search-bar" style="display:flex;align-items:center;gap:4px;">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="opacity:0.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+      <input id="pdf-search-input" type="text" placeholder="Find..." style="width:120px;font-size:0.75rem;padding:2px 6px;border-radius:4px;border:1px solid var(--border-input);background:var(--input-bg,transparent);color:var(--text-primary,#fff);outline:none;" />
+    </div>
   `;
   container.appendChild(toolbar);
+
+  // Wire up toolbar search input
+  const searchInput = toolbar.querySelector('#pdf-search-input');
+  let _pdfSearchTimer = null;
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(_pdfSearchTimer);
+      const q = this.value.trim();
+      _pdfSearchTimer = setTimeout(() => pdfSearchHighlight(q), 300);
+    });
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { this.value = ''; pdfClearSearchHighlights(); this.blur(); }
+    });
+  }
 
   // Pages container
   const pages = document.createElement('div');
@@ -833,77 +852,136 @@ function pdfClearSearchHighlights() {
   _pdfSearchOverlays = [];
 }
 
-function _normalizeLigatures(s) {
-  return s.replace(/\ufb00/g,'ff').replace(/\ufb01/g,'fi').replace(/\ufb02/g,'fl')
-          .replace(/\ufb03/g,'ffi').replace(/\ufb04/g,'ffl').replace(/\ufb05/g,'st').replace(/\ufb06/g,'st');
+function _normalizeForSearch(s) {
+  // Ligatures
+  s = s.replace(/\ufb00/g,'ff').replace(/\ufb01/g,'fi').replace(/\ufb02/g,'fl')
+       .replace(/\ufb03/g,'ffi').replace(/\ufb04/g,'ffl').replace(/\ufb05/g,'st').replace(/\ufb06/g,'st');
+  // Collapse whitespace and strip hyphens at line-break boundaries (e.g. "LLaMA- 65B" → "LLaMA-65B", "mod-\nel" → "model")
+  s = s.replace(/-\s+/g, '-').replace(/\s+/g, ' ');
+  return s.toLowerCase();
+}
+
+function _buildPageIndex(wrapper) {
+  const textLayer = wrapper.querySelector('.textLayer');
+  const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
+  if (!textLayer || !hlLayer) return null;
+
+  const spans = textLayer.querySelectorAll('span');
+  const charMap = [];
+  const fullText = [];
+  spans.forEach(span => {
+    const t = span.textContent;
+    for (let i = 0; i < t.length; i++) {
+      charMap.push({ span, offset: i });
+      fullText.push(t[i]);
+    }
+    charMap.push({ span: null, offset: 0 });
+    fullText.push(' ');
+  });
+  const joined = _normalizeForSearch(fullText.join(''));
+  return { charMap, joined, hlLayer };
+}
+
+function _highlightMatchInPage(wrapper, pageIdx, queryNorm, firstMatch) {
+  let searchFrom = 0;
+  let found = false;
+  while (true) {
+    const idx = pageIdx.joined.indexOf(queryNorm, searchFrom);
+    if (idx === -1) break;
+    searchFrom = idx + 1;
+    found = true;
+
+    const matchChars = pageIdx.charMap.slice(idx, idx + queryNorm.length);
+    const involvedSpans = new Set();
+    matchChars.forEach(c => { if (c.span) involvedSpans.add(c.span); });
+
+    involvedSpans.forEach(span => {
+      const rect = span.getBoundingClientRect();
+      const wrapperRect = wrapper.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
+
+      const div = document.createElement('div');
+      div.className = 'pdf-search-highlight';
+      div.style.position = 'absolute';
+      div.style.left = (rect.left - wrapperRect.left) + 'px';
+      div.style.top = (rect.top - wrapperRect.top) + 'px';
+      div.style.width = rect.width + 'px';
+      div.style.height = rect.height + 'px';
+      div.style.background = 'rgba(255,160,0,0.35)';
+      div.style.borderRadius = '2px';
+      div.style.pointerEvents = 'none';
+      div.style.mixBlendMode = 'multiply';
+      pageIdx.hlLayer.appendChild(div);
+      _pdfSearchOverlays.push(div);
+
+      if (!firstMatch.el) firstMatch.el = div;
+    });
+  }
+  return found;
+}
+
+function pdfTextExists(query) {
+  if (!query || query.length < 2 || !_pdfPagesContainer) return false;
+  const qNorm = _normalizeForSearch(query);
+  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+  for (const wrapper of wrappers) {
+    const textLayer = wrapper.querySelector('.textLayer');
+    if (!textLayer) continue;
+    const spans = textLayer.querySelectorAll('span');
+    const parts = [];
+    spans.forEach(span => { parts.push(span.textContent); });
+    const joined = _normalizeForSearch(parts.join(' '));
+    if (joined.includes(qNorm)) return true;
+  }
+  return false;
 }
 
 function pdfSearchHighlight(query) {
   pdfClearSearchHighlights();
   if (!query || query.length < 2 || !_pdfPagesContainer) return;
 
-  const queryLower = _normalizeLigatures(query.toLowerCase());
+  const queryNorm = _normalizeForSearch(query);
   const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
-  let firstMatch = null;
+  const firstMatch = { el: null };
 
+  // Try full query first
+  let found = false;
+  const pageIndices = [];
   wrappers.forEach(wrapper => {
-    const textLayer = wrapper.querySelector('.textLayer');
-    const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
-    if (!textLayer || !hlLayer) return;
-
-    const spans = textLayer.querySelectorAll('span');
-    // Build a map of character positions to spans
-    const charMap = []; // [{span, offsetInSpan}]
-    const fullText = [];
-    spans.forEach(span => {
-      const t = span.textContent;
-      for (let i = 0; i < t.length; i++) {
-        charMap.push({ span, offset: i });
-        fullText.push(t[i]);
-      }
-      // Add a space between spans
-      charMap.push({ span: null, offset: 0 });
-      fullText.push(' ');
-    });
-
-    const joined = _normalizeLigatures(fullText.join('').toLowerCase());
-    let searchFrom = 0;
-    while (true) {
-      const idx = joined.indexOf(queryLower, searchFrom);
-      if (idx === -1) break;
-      searchFrom = idx + 1;
-
-      // Collect all spans involved in this match
-      const matchChars = charMap.slice(idx, idx + query.length);
-      const involvedSpans = new Set();
-      matchChars.forEach(c => { if (c.span) involvedSpans.add(c.span); });
-
-      involvedSpans.forEach(span => {
-        const rect = span.getBoundingClientRect();
-        const wrapperRect = wrapper.getBoundingClientRect();
-        if (rect.width < 1 || rect.height < 1) return;
-
-        const div = document.createElement('div');
-        div.className = 'pdf-search-highlight';
-        div.style.position = 'absolute';
-        div.style.left = (rect.left - wrapperRect.left) + 'px';
-        div.style.top = (rect.top - wrapperRect.top) + 'px';
-        div.style.width = rect.width + 'px';
-        div.style.height = rect.height + 'px';
-        div.style.background = 'rgba(255,160,0,0.35)';
-        div.style.borderRadius = '2px';
-        div.style.pointerEvents = 'none';
-        div.style.mixBlendMode = 'multiply';
-        hlLayer.appendChild(div);
-        _pdfSearchOverlays.push(div);
-
-        if (!firstMatch) firstMatch = div;
-      });
-    }
+    const idx = _buildPageIndex(wrapper);
+    if (!idx) { pageIndices.push(null); return; }
+    pageIndices.push({ wrapper, idx });
+    if (_highlightMatchInPage(wrapper, idx, queryNorm, firstMatch)) found = true;
   });
 
-  // Scroll to first match
-  if (firstMatch) {
-    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // If no match, try progressively shorter substrings from the start
+  if (!found && queryNorm.length > 20) {
+    const words = query.split(/\s+/);
+    for (let len = words.length - 1; len >= 3 && !found; len--) {
+      const sub = _normalizeForSearch(words.slice(0, len).join(' '));
+      if (sub.length < 15) break;
+      for (const p of pageIndices) {
+        if (!p) continue;
+        if (_highlightMatchInPage(p.wrapper, p.idx, sub, firstMatch)) { found = true; break; }
+      }
+    }
+  }
+
+  // If still no match, try a unique middle chunk (skip first few words which may be noisy)
+  if (!found && queryNorm.length > 30) {
+    const words = query.split(/\s+/);
+    const start = Math.min(3, Math.floor(words.length / 4));
+    for (let len = Math.min(words.length - start, 8); len >= 3 && !found; len--) {
+      const sub = _normalizeForSearch(words.slice(start, start + len).join(' '));
+      if (sub.length < 15) break;
+      for (const p of pageIndices) {
+        if (!p) continue;
+        if (_highlightMatchInPage(p.wrapper, p.idx, sub, firstMatch)) { found = true; break; }
+      }
+    }
+  }
+
+  if (firstMatch.el) {
+    firstMatch.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
