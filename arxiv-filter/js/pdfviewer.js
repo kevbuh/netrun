@@ -95,7 +95,6 @@ function initPdfViewer(container, url, arxivId) {
       wrapper.className = 'pdf-page-wrapper';
       wrapper.dataset.page = i;
       wrapper.id = `pdf-page-${i}`;
-      // Placeholder sizing — will be updated when rendered
       wrapper.style.minHeight = '800px';
       pages.appendChild(wrapper);
     }
@@ -128,6 +127,9 @@ function initPdfViewer(container, url, arxivId) {
 
     // Track current page on scroll
     pages.addEventListener('scroll', updatePdfPageIndicator);
+
+    // Render sidebar panel for existing highlights
+    renderHighlightsPanel();
   }).catch(err => {
     console.error('PDF load error', err);
     container.innerHTML = `<div class="flex items-center justify-center h-full text-dim">
@@ -365,19 +367,21 @@ function createHighlight(color) {
     color: color.name,
     rects,
     text,
+    note: '',
     createdAt: new Date().toISOString(),
   };
 
   _pdfHighlights.push(highlight);
   savePdfHighlights();
   renderHighlightRects(wrapper, highlight);
+  renderHighlightsPanel();
 
   _pdfSavedRange = null;
   window.getSelection()?.removeAllRanges();
   dismissHighlightPopup();
 }
 
-// ── Render highlight rects ──
+// ── Render highlight rects on PDF ──
 
 function renderHighlightRects(wrapper, highlight) {
   const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
@@ -394,7 +398,7 @@ function renderHighlightRects(wrapper, highlight) {
     div.style.width = (r.w * _pdfScale) + 'px';
     div.style.height = (r.h * _pdfScale) + 'px';
     div.style.background = colorObj.bg;
-    div.onclick = (e) => { e.stopPropagation(); showDeletePopup(e, highlight.id); };
+    div.onclick = (e) => { e.stopPropagation(); showNotePopup(e, highlight.id); };
     hlLayer.appendChild(div);
   });
 }
@@ -408,37 +412,162 @@ function replayHighlightsForPage(pageNum) {
   pageHighlights.forEach(h => renderHighlightRects(wrapper, h));
 }
 
-// ── Delete highlight ──
+// ── Note popup on highlight click ──
 
-function showDeletePopup(e, highlightId) {
-  // Remove any existing delete popup
-  const existing = document.querySelector('.pdf-delete-popup');
-  if (existing) existing.remove();
+let _pdfNotePopup = null;
+
+function showNotePopup(e, highlightId) {
+  dismissNotePopup();
+  const hl = _pdfHighlights.find(h => h.id === highlightId);
+  if (!hl) return;
+
+  const colorObj = HIGHLIGHT_COLORS.find(c => c.name === hl.color) || HIGHLIGHT_COLORS[0];
+  const snippet = hl.text.length > 60 ? hl.text.slice(0, 60) + '…' : hl.text;
 
   const popup = document.createElement('div');
-  popup.className = 'pdf-delete-popup';
-  popup.style.left = e.clientX + 'px';
-  popup.style.top = e.clientY + 'px';
+  popup.className = 'pdf-note-popup';
   popup.style.position = 'fixed';
+  popup.style.zIndex = '10000';
 
-  const btn = document.createElement('button');
-  btn.textContent = 'Delete highlight';
-  btn.onclick = (ev) => { ev.stopPropagation(); deleteHighlight(highlightId); popup.remove(); };
-  popup.appendChild(btn);
+  popup.innerHTML = `
+    <div class="pdf-note-popup-quote" style="border-left-color:${colorObj.solid}">${escapeHtml(snippet)}</div>
+    <textarea class="pdf-note-popup-textarea" placeholder="Write a note…" rows="3">${escapeHtml(hl.note || '')}</textarea>
+    <div class="pdf-note-popup-footer">
+      <button class="pdf-note-popup-del" onclick="event.stopPropagation();deleteHighlight('${highlightId}')">Delete</button>
+    </div>
+  `;
+
+  // Prevent clicks inside from bubbling
+  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  popup.addEventListener('mouseup', (ev) => ev.stopPropagation());
 
   document.body.appendChild(popup);
+  _pdfNotePopup = popup;
 
-  const dismiss = (ev) => {
-    if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('mousedown', dismiss); }
-  };
-  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+  // Position near click, clamped to viewport
+  const pw = popup.offsetWidth;
+  const ph = popup.offsetHeight;
+  let left = e.clientX + 8;
+  let top = e.clientY - ph / 2;
+  if (left + pw > window.innerWidth - 12) left = e.clientX - pw - 8;
+  if (top < 8) top = 8;
+  if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+
+  // Wire up textarea
+  const textarea = popup.querySelector('textarea');
+  textarea.focus();
+  textarea.addEventListener('input', () => {
+    hl.note = textarea.value;
+    savePdfHighlights();
+    // Sync sidebar card if visible
+    const sidebarTextarea = document.querySelector(`.pdf-hl-card-note[data-hl-id="${highlightId}"]`);
+    if (sidebarTextarea) { sidebarTextarea.value = textarea.value; autoResizeTextarea(sidebarTextarea); }
+  });
+
+  // Dismiss on click outside
+  setTimeout(() => {
+    document.addEventListener('mousedown', _dismissNotePopupHandler);
+  }, 0);
+}
+
+function _dismissNotePopupHandler(e) {
+  if (_pdfNotePopup && !_pdfNotePopup.contains(e.target)) {
+    dismissNotePopup();
+  }
+}
+
+function dismissNotePopup() {
+  if (_pdfNotePopup) {
+    _pdfNotePopup.remove();
+    _pdfNotePopup = null;
+  }
+  document.removeEventListener('mousedown', _dismissNotePopupHandler);
 }
 
 function deleteHighlight(id) {
+  dismissNotePopup();
   _pdfHighlights = _pdfHighlights.filter(h => h.id !== id);
   savePdfHighlights();
-  // Remove from DOM
   document.querySelectorAll(`.pdf-highlight-rect[data-highlight-id="${id}"]`).forEach(el => el.remove());
+  renderHighlightsPanel();
+}
+
+function scrollToHighlightNote(id) {
+  const card = document.querySelector(`.pdf-hl-card[data-highlight-id="${id}"]`);
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  card.style.outline = '1px solid var(--accent)';
+  setTimeout(() => { card.style.outline = ''; }, 1200);
+  const textarea = card.querySelector('textarea');
+  if (textarea) textarea.focus();
+}
+
+// ── Highlights sidebar panel ──
+
+function renderHighlightsPanel() {
+  const panel = document.getElementById('pdf-highlights-panel');
+  if (!panel) return;
+
+  if (!_pdfHighlights.length) {
+    panel.innerHTML = '<div class="text-[0.75rem] text-dimmer py-2">No highlights yet. Select text in the PDF to highlight.</div>';
+    return;
+  }
+
+  panel.innerHTML = '';
+  _pdfHighlights.forEach((h, i) => {
+    const num = i + 1;
+    const colorObj = HIGHLIGHT_COLORS.find(c => c.name === h.color) || HIGHLIGHT_COLORS[0];
+    const snippet = h.text.length > 80 ? h.text.slice(0, 80) + '…' : h.text;
+
+    const card = document.createElement('div');
+    card.className = 'pdf-hl-card';
+    card.dataset.highlightId = h.id;
+
+    card.innerHTML = `
+      <div class="pdf-hl-card-header" onclick="scrollToHighlight('${h.id}')">
+        <span class="pdf-hl-card-badge" style="background:${colorObj.solid}">${num}</span>
+        <span class="pdf-hl-card-text">${escapeHtml(snippet)}</span>
+        <span class="pdf-hl-card-page">p.${h.page}</span>
+        <button class="pdf-hl-card-del" onclick="event.stopPropagation();deleteHighlight('${h.id}')" title="Delete">×</button>
+      </div>
+      <textarea class="pdf-hl-card-note" placeholder="Add a note…" rows="1" data-hl-id="${h.id}">${escapeHtml(h.note || '')}</textarea>
+    `;
+
+    panel.appendChild(card);
+
+    // Auto-resize and save note on input
+    const textarea = card.querySelector('textarea');
+    autoResizeTextarea(textarea);
+    textarea.addEventListener('input', () => {
+      autoResizeTextarea(textarea);
+      const hl = _pdfHighlights.find(x => x.id === h.id);
+      if (hl) { hl.note = textarea.value; savePdfHighlights(); }
+    });
+  });
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.max(el.scrollHeight, 24) + 'px';
+}
+
+function scrollToHighlight(id) {
+  const rect = document.querySelector(`.pdf-highlight-rect[data-highlight-id="${id}"]`);
+  if (rect) {
+    rect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash effect
+    rect.style.outline = '2px solid var(--accent)';
+    setTimeout(() => { rect.style.outline = ''; }, 1200);
+    return;
+  }
+  // Page might not be rendered yet — scroll to the page wrapper
+  const hl = _pdfHighlights.find(h => h.id === id);
+  if (hl) {
+    const wrapper = document.getElementById(`pdf-page-${hl.page}`);
+    if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // ── Cleanup ──
@@ -453,6 +582,5 @@ function cleanupPdfViewer() {
   _pdfContainer = null;
   _pdfPagesContainer = null;
   dismissHighlightPopup();
-  const dp = document.querySelector('.pdf-delete-popup');
-  if (dp) dp.remove();
+  dismissNotePopup();
 }

@@ -344,11 +344,20 @@ function showPaperView(paper, hashValue) {
   `;
 
   sidebar.innerHTML = `
-    ${notesPanel}
-    ${chatPanel}
+    <div class="flex gap-1 mb-3 shrink-0">
+      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
+      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
+    </div>
+    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
+      <div id="pdf-highlights-section">
+        <div id="pdf-highlights-panel"></div>
+      </div>
+      ${notesPanel}
+    </div>
+    <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0" style="display:none">
+      ${chatPanel}
+    </div>
   `;
-  // Chat expanded by default — lock sidebar scroll so chat fills space
-  sidebar.style.overflow = 'hidden';
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
@@ -364,15 +373,13 @@ function showPaperView(paper, hashValue) {
     pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
   }
 
-  // Reset chat state — expanded by default
+  // Reset chat state
   _docChatMessages = [];
   _docText = '';
   _docTextLoading = false;
   _docChatExpanded = true;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _docChatPaperUrl = paper.link;
-  // Start extracting doc text immediately since chat is open
-  setTimeout(() => { if (!_docText && !_docTextLoading) extractDocText(_docChatPaperUrl); }, 0);
 
   // Load paper notes
   _paperNoteSelected = null;
@@ -528,6 +535,27 @@ let _docTextLoading = false;
 let _docChatAbort = null;
 let _docChatExpanded = false;
 let _docChatPaperUrl = '';
+
+function switchSidebarTab(tab) {
+  const notesPane = document.getElementById('sidebar-pane-notes');
+  const chatPane = document.getElementById('sidebar-pane-chat');
+  const notesBtn = document.getElementById('sidebar-tab-notes');
+  const chatBtn = document.getElementById('sidebar-tab-chat');
+  if (!notesPane || !chatPane) return;
+  if (tab === 'chat') {
+    notesPane.style.display = 'none';
+    chatPane.style.display = '';
+    notesBtn.classList.remove('active');
+    chatBtn.classList.add('active');
+    // Expand chat if not already
+    if (!_docChatExpanded) toggleDocChat();
+  } else {
+    chatPane.style.display = 'none';
+    notesPane.style.display = '';
+    chatBtn.classList.remove('active');
+    notesBtn.classList.add('active');
+  }
+}
 
 function toggleDocChat() {
   _docChatExpanded = !_docChatExpanded;
