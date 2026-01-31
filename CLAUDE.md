@@ -75,8 +75,8 @@ arxiv-filter/
     core.js        — globals, constants, FEED_CATALOG, utilities, routing, view management
     feed.js        — feed loading/parsing/rendering, reading list, settings, citations, trends
     quality.js     — AI quality filter (Ollama integration, prompts, scoring, test suite)
-    views.js       — paper viewer, finder/search, calendar, todos
-    experiments.js — experiment list/detail, rename, description, exp todos, file sidebar
+    views.js       — paper viewer, finder/search, calendar
+    experiments.js — experiment list/detail, rename, description, file sidebar
     editors.js     — markdown/python/notebook editors + all notebook helpers (copy cell, copy file, duplicate file)
 ```
 
@@ -84,7 +84,7 @@ arxiv-filter/
 
 ### Sidebar
 
-The left sidebar (`60px` wide) has buttons for: Home, Experiments, Reading List (with unread badge), Calendar, Todos, and Settings (gear icon).
+The left sidebar (`60px` wide) has buttons for: Home, Experiments, Reading List (with unread badge), Calendar, and Settings (gear icon).
 
 ### Feed System
 

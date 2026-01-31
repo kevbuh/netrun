@@ -297,8 +297,7 @@ function routeFromHash() {
   if (hash === '#experiments') openExperiments();
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
-  else if (hash === '#todos') openTodos();
-  else if (hash === '#saved') openDashboard();
+else if (hash === '#saved') openDashboard();
   else if (hash === '#search') openSearch();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));

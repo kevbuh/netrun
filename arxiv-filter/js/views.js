@@ -7,24 +7,6 @@ let _dashYear, _dashMonth;
   _dashMonth = _n.getMonth();
 }
 
-async function dashToggleTodo(id) {
-  try {
-    await fetch('/api/todos/' + id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ done: true })
-    });
-    renderDashboard();
-  } catch {}
-}
-
-async function dashDeleteTodo(id) {
-  try {
-    await fetch('/api/todos/' + id, { method: 'DELETE' });
-    renderDashboard();
-  } catch {}
-}
-
 function dashRemoveSaved(link) {
   toggleSavePostByLink(link);
   renderDashboard();
@@ -42,14 +24,12 @@ async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
-  const [todosResp, expResp, calResp, savedResp] = await Promise.all([
-    fetch('/api/todos').then(r => r.json()).catch(() => []),
+  const [expResp, calResp, savedResp] = await Promise.all([
     fetch('/api/experiments').then(r => r.json()).catch(() => []),
     fetch('/api/calendar').then(r => r.json()).catch(() => []),
     fetch('/api/saved-posts').then(r => r.json()).catch(() => ({}))
   ]);
 
-  const allNotes = todosResp || [];
   const experiments = expResp || [];
   const events = calResp || [];
   const savedPosts = savedResp || {};
@@ -70,7 +50,6 @@ async function renderDashboard() {
   const activityItems = {};
   const addItem = (dateStr, item) => { (activityItems[dateStr] ||= []).push(item); };
   events.forEach(ev => { if (ev.date) addItem(ev.date, { type: 'event', title: ev.title || 'Calendar event' }); });
-  allNotes.forEach(t => { if (t.date) addItem(t.date, { type: 'note', title: t.title || 'Note', id: t.id, paperLink: t.paperLink }); });
   Object.values(mergedSaved).forEach(entry => {
     if (entry.savedAt) {
       const d = new Date(entry.savedAt);
@@ -228,8 +207,7 @@ async function renderDashboard() {
           const tag = `<span style="font-size:9px;color:var(--text-dimmest);margin-left:4px">${labels[item.type] || ''}</span>`;
           let onclick = '';
           if (item.type === 'saved' && item.link) onclick = `onclick="openSavedPaper('${escapeAttr(item.link)}')"`;
-          else if (item.type === 'note' && item.paperLink) onclick = `onclick="openPaperByUrl('${escapeAttr(item.paperLink)}')"`;
-          else if (item.type === 'note' && item.id) onclick = `onclick="openTodos(); setTimeout(()=>selectTodo('${item.id}'),100)"`;
+          else if (item.type === 'event') onclick = '';
           const cursor = onclick ? 'cursor:pointer;' : '';
           html += `<div style="padding:4px 12px;${cursor}display:flex;align-items:center;gap:6px;color:var(--text-primary)" ${onclick} class="hover:bg-hover">
             <span style="flex-shrink:0">${icon}</span>
@@ -256,36 +234,6 @@ async function renderDashboard() {
       }
     });
   });
-
-  // ── Notes (non-experiment) ──
-  const notes = allNotes.filter(n => !n.experimentId);
-  const notesHtml = notes.length ? notes.slice(0, 6).map(n => {
-    const preview = (n.content || '').split('\n')[0] || '';
-    const paperTag = n.paperLink ? `<span class="text-[0.65rem] text-accent bg-accent/10 px-1 rounded">paper</span>` : '';
-    const clickAction = n.paperLink ? `openPaperByUrl('${escapeAttr(n.paperLink)}')` : `openTodos(); setTimeout(()=>selectTodo('${n.id}'),100)`;
-    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors" onclick="${clickAction}">
-      <div class="flex-1 min-w-0">
-        <div class="text-[0.82rem] text-primary truncate flex items-center gap-1.5">${escapeHtml(n.title)}${paperTag}</div>
-        ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No notes yet</div>';
-
-  // ── All active todos ──
-  const activeTodos = allNotes.filter(n => !n.done);
-  const expMap = {};
-  experiments.forEach(e => { expMap[e.id] = e.title; });
-  const todosHtml = activeTodos.length ? activeTodos.slice(0, 10).map(t => {
-    const expName = t.experimentId ? (expMap[t.experimentId] || '') : '';
-    return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors">
-      <button class="w-4 h-4 rounded border shrink-0 bg-transparent cursor-pointer flex items-center justify-center p-0" style="border-color:var(--text-dimmer)" onclick="dashToggleTodo('${t.id}')" title="Mark done"></button>
-      <div class="flex-1 min-w-0 cursor-pointer" onclick="openTodos(); setTimeout(()=>selectTodo('${t.id}'),100)">
-        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(t.title)}</div>
-        ${expName ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(expName)}</div>` : ''}
-      </div>
-      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="dashDeleteTodo('${t.id}')" title="Delete">&times;</button>
-    </div>`;
-  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No todos</div>';
 
   // ── Reading list ──
   const savedEntries = Object.values(mergedSaved).sort((a, b) => b.savedAt - a.savedAt);
@@ -340,7 +288,7 @@ async function renderDashboard() {
         </div>
       </div>
 
-      <!-- Right column: Recent Experiments, Notes, Todos -->
+      <!-- Right column: Recent Experiments -->
       <div class="flex-1 min-w-0">
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
@@ -349,54 +297,9 @@ async function renderDashboard() {
           </div>
           <div class="flex flex-col gap-2">${expsHtml}</div>
         </div>
-
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Notes</h3>
-            <button onclick="openTodos()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
-          </div>
-          ${notesHtml}
-        </div>
-
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Todos</h3>
-            <button onclick="dashShowTodoInput()" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary text-[1rem] leading-none p-0" title="New todo">+</button>
-          </div>
-          <div id="dash-todo-input" class="hidden mb-3">
-            <form class="flex gap-2" onsubmit="event.preventDefault(); dashAddTodo(this)">
-              <input type="text" placeholder="New todo…" class="flex-1 px-3 py-1.5 rounded-lg bg-card border border-border-input text-[0.82rem] text-primary outline-none focus:border-accent" name="todoTitle" onkeydown="if(event.key==='Escape'){document.getElementById('dash-todo-input').classList.add('hidden')}">
-              <button type="submit" class="px-3 py-1.5 rounded-lg bg-accent text-white text-[0.82rem] border-none cursor-pointer hover:opacity-90">Add</button>
-            </form>
-          </div>
-          ${todosHtml}
-        </div>
       </div>
     </div>
   `;
-}
-
-function dashShowTodoInput() {
-  const el = document.getElementById('dash-todo-input');
-  if (!el) return;
-  el.classList.remove('hidden');
-  const inp = el.querySelector('input');
-  if (inp) inp.focus();
-}
-
-async function dashAddTodo(form) {
-  const input = form.todoTitle;
-  const title = input.value.trim();
-  if (!title) return;
-  input.value = '';
-  try {
-    await fetch('/api/todos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, done: false })
-    });
-    renderDashboard();
-  } catch (e) { console.error('Failed to add todo', e); }
 }
 
 // ── Paper Viewer (shared) ──
@@ -1722,227 +1625,6 @@ function hideSearchHistoryView() {
   if (dd) dd.classList.add('hidden');
 }
 
-// ── Todos ──
-let todos = [];
-let selectedTodoId = null;
-let _todoSaveTimer = null;
-
-function openTodos() {
-  hideAllViews();
-  const view = document.getElementById('todos-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'todos';
-  setSidebarActive('sb-todos');
-  fetchTodos();
-}
-
-async function fetchTodos() {
-  try {
-    const [todosResp, expResp] = await Promise.all([fetch('/api/todos'), fetch('/api/experiments')]);
-    todos = await todosResp.json();
-    allExperiments = await expResp.json();
-  } catch (e) { todos = []; }
-  renderTodosView();
-}
-
-async function addTodo(todo) {
-  try {
-    const resp = await fetch('/api/todos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(todo)
-    });
-    const created = await resp.json();
-    todos.push(created);
-    selectedTodoId = created.id;
-    renderTodosView();
-  } catch (e) { /* silently fail */ }
-}
-
-async function toggleTodo(id) {
-  const todo = todos.find(t => t.id === id);
-  if (!todo) return;
-  try {
-    const resp = await fetch('/api/todos/' + id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ done: !todo.done })
-    });
-    const updated = await resp.json();
-    const idx = todos.findIndex(t => t.id === id);
-    if (idx !== -1) todos[idx] = updated;
-    renderTodosView();
-    if (document.getElementById('calendar-view-content').innerHTML) renderCalendarView();
-  } catch (e) { /* silently fail */ }
-}
-
-async function deleteTodo(id) {
-  try {
-    await fetch('/api/todos/' + id, { method: 'DELETE' });
-    todos = todos.filter(t => t.id !== id);
-    if (selectedTodoId === id) selectedTodoId = null;
-    renderTodosView();
-    if (document.getElementById('calendar-view-content').innerHTML) renderCalendarView();
-  } catch (e) { /* silently fail */ }
-}
-
-function selectTodo(id) {
-  const todo = todos.find(t => t.id === id);
-  if (todo && todo.paperLink) {
-    openPaperByUrl(todo.paperLink);
-    return;
-  }
-  selectedTodoId = id;
-  _todoEditing = false;
-  renderTodosList();
-  renderTodoEditor();
-}
-
-function todoEditorInput() {
-  if (_todoSaveTimer) clearTimeout(_todoSaveTimer);
-  _todoSaveTimer = setTimeout(saveTodoContent, 600);
-}
-
-async function saveTodoContent() {
-  const todo = todos.find(t => t.id === selectedTodoId);
-  if (!todo) return;
-  const editor = document.getElementById('todo-editor');
-  if (!editor) return;
-  const content = editor.value;
-  todo.content = content;
-  try {
-    await fetch('/api/todos/' + todo.id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    });
-  } catch {}
-}
-
-async function saveTodoTitle(id) {
-  const input = document.getElementById('todo-title-input');
-  if (!input) return;
-  const title = input.value.trim();
-  if (!title) return;
-  const todo = todos.find(t => t.id === id);
-  if (!todo) return;
-  todo.title = title;
-  try {
-    await fetch('/api/todos/' + id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title })
-    });
-  } catch {}
-  renderTodosList();
-}
-
-function renderTodosList() {
-  const list = document.getElementById('todos-list');
-  if (!list) return;
-  const sorted = [...todos].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    return 0;
-  });
-  list.innerHTML = sorted.map(todo => {
-    const sel = todo.id === selectedTodoId;
-    const preview = (todo.content || '').split('\n')[0] || '';
-    return `
-    <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${sel ? 'bg-accent/15' : 'hover:bg-hover'}" onclick="selectTodo('${todo.id}')">
-      <div class="flex-1 min-w-0">
-        <div class="text-[0.82rem] text-primary truncate flex items-center gap-1.5">${escapeHtml(todo.title)}${todo.paperLink ? `<span class="text-[0.65rem] text-accent bg-accent/10 px-1 rounded shrink-0">paper</span>` : ''}</div>
-        ${preview ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(preview.slice(0, 50))}</div>` : ''}
-      </div>
-      <button onclick="event.stopPropagation(); deleteTodo('${todo.id}')" class="shrink-0 bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>`;
-  }).join('');
-}
-
-let _todoEditing = false;
-
-function renderTodoEditor() {
-  const pane = document.getElementById('todos-editor-pane');
-  if (!pane) return;
-  const todo = todos.find(t => t.id === selectedTodoId);
-  if (!todo) {
-    pane.innerHTML = `<div class="flex items-center justify-center h-full text-dimmer text-[0.9rem]">Select or create a note</div>`;
-    return;
-  }
-  if (_todoEditing) {
-    // Show raw editor
-    pane.innerHTML = `
-      <input id="todo-title-input" value="${escapeAttr(todo.title)}" class="w-full text-[1.1rem] font-semibold text-primary bg-transparent border-none outline-none mb-2 px-0" onblur="saveTodoTitle('${todo.id}')" onkeydown="if(event.key==='Enter'){this.blur()}" />
-      <textarea id="todo-editor" class="w-full flex-1 bg-transparent border-none outline-none text-[0.86rem] text-primary leading-relaxed resize-none font-mono" placeholder="Write markdown, LaTeX ($...$), or plain text..." oninput="todoEditorInput()" onblur="todoEditorBlur()">${escapeHtml(todo.content || '')}</textarea>
-    `;
-  } else {
-    // Show rendered preview
-    const content = todo.content || '';
-    let rendered = '';
-    if (content.trim()) {
-      rendered = typeof marked !== 'undefined' ? marked.parse(content) : escapeHtml(content).replace(/\n/g, '<br>');
-    } else {
-      rendered = '<span class="text-dimmer">Click to edit...</span>';
-    }
-    pane.innerHTML = `
-      <div class="text-[1.1rem] font-semibold text-primary mb-2">${escapeHtml(todo.title)}</div>
-      <div id="todo-rendered" class="flex-1 text-[0.86rem] text-primary leading-relaxed overflow-y-auto cursor-text nb-rendered-md" data-latex onclick="startTodoEdit()">${rendered}</div>
-    `;
-    // Render LaTeX in preview
-    const el = document.getElementById('todo-rendered');
-    if (el && typeof katex !== 'undefined') {
-      function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
-      let html = el.innerHTML;
-      html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
-        try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); } catch { return _; }
-      });
-      html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
-        try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); } catch { return _; }
-      });
-      el.innerHTML = html;
-    }
-  }
-}
-
-function startTodoEdit() {
-  _todoEditing = true;
-  renderTodoEditor();
-  setTimeout(() => {
-    const editor = document.getElementById('todo-editor');
-    if (editor) editor.focus();
-  }, 30);
-}
-
-function todoEditorBlur() {
-  // Small delay to allow clicking title input without triggering blur render
-  setTimeout(() => {
-    const active = document.activeElement;
-    if (active && (active.id === 'todo-editor' || active.id === 'todo-title-input')) return;
-    _todoEditing = false;
-    saveTodoContent();
-    renderTodoEditor();
-  }, 150);
-}
-
-function renderTodosView() {
-  const container = document.getElementById('todos-view-content');
-  container.innerHTML = `
-    <div class="flex h-[calc(100vh-80px)]">
-      <div class="w-[200px] shrink-0 border-r border-border-dim pr-0 flex flex-col">
-        <div class="flex items-center justify-between mb-2 px-2">
-          <h2 class="text-[1rem] font-semibold text-white_">Notes</h2>
-          <button onclick="addTodo({title:'Untitled',content:''})" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors flex items-center justify-center" title="New note"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14" stroke-linecap="round"/></svg></button>
-        </div>
-        <div id="todos-list" class="flex-1 overflow-y-auto px-1"></div>
-      </div>
-      <div id="todos-editor-pane" class="flex-1 flex flex-col px-5 pt-1 min-w-0"></div>
-    </div>
-  `;
-  renderTodosList();
-  renderTodoEditor();
-}
 
 // ── Calendar ──
 let calendarEvents = [];
@@ -1968,9 +1650,8 @@ function openCalendar() {
 
 async function fetchCalendarEvents() {
   try {
-    const [evResp, tdResp] = await Promise.all([fetch('/api/calendar'), fetch('/api/todos')]);
+    const evResp = await fetch('/api/calendar');
     calendarEvents = await evResp.json();
-    todos = await tdResp.json();
   } catch (e) { calendarEvents = []; }
   renderCalendarView();
 }
@@ -2043,16 +1724,6 @@ function renderCalendarView() {
     }
   });
 
-  const todosByDay = {};
-  todos.forEach(todo => {
-    if (!todo.date) return;
-    const [y, m, d] = todo.date.split('-').map(Number);
-    if (y === calendarYear && m === calendarMonth + 1) {
-      if (!todosByDay[d]) todosByDay[d] = [];
-      todosByDay[d].push(todo);
-    }
-  });
-
   const presetColors = [
     { value: '#b4451a', label: 'Accent' },
     { value: '#3b82f6', label: 'Blue' },
@@ -2092,14 +1763,12 @@ function renderCalendarView() {
     const isToday = isCurrentMonth && d === todayDate;
     const isSelected = d === calendarSelectedDay;
     const evs = eventsByDay[d] || [];
-    const tds = todosByDay[d] || [];
     const borderClass = isToday ? 'border-2 border-accent' : '';
     const selectedClass = isSelected ? 'bg-hover' : 'bg-card';
     html += `<div class="${selectedClass} ${borderClass} px-2 py-1.5 min-h-[70px] cursor-pointer hover:bg-hover transition-colors" onclick="calendarSelectDay(${d})">
       <span class="text-[0.8rem] ${isToday ? 'text-accent font-bold' : 'text-primary'}">${d}</span>
       <div class="flex flex-wrap gap-1 mt-1">
         ${evs.map(ev => `<span class="w-2 h-2 rounded-full inline-block" style="background:${ev.color}" title="${ev.title.replace(/"/g, '&quot;')}"></span>`).join('')}
-        ${tds.map(td => `<span class="w-2 h-2 rounded-full inline-block border border-current" style="color:${td.color}${td.done ? ';opacity:0.4' : ''}" title="${td.title.replace(/"/g, '&quot;')}"></span>`).join('')}
       </div>
     </div>`;
   }
@@ -2114,7 +1783,6 @@ function renderCalendarView() {
 
   if (calendarSelectedDay !== null) {
     const evs = eventsByDay[calendarSelectedDay] || [];
-    const dayTodos = todosByDay[calendarSelectedDay] || [];
     const dateStr = `${monthNames[calendarMonth]} ${calendarSelectedDay}, ${calendarYear}`;
     html += `
       <div class="mt-6 p-5 bg-card rounded-xl border border-border-card">
@@ -2146,8 +1814,8 @@ function renderCalendarView() {
       `;
     }
 
-    if (evs.length === 0 && dayTodos.length === 0 && !calendarShowForm) {
-      html += `<p class="text-[0.85rem] text-dimmer">No events or todos on this day.</p>`;
+    if (evs.length === 0 && !calendarShowForm) {
+      html += `<p class="text-[0.85rem] text-dimmer">No events on this day.</p>`;
     } else {
       evs.forEach(ev => {
         html += `
@@ -2164,23 +1832,6 @@ function renderCalendarView() {
         `;
       });
 
-      if (dayTodos.length > 0) {
-        html += `<div class="mt-3 pt-3 ${evs.length ? 'border-t border-border-dim' : ''}">
-          <div class="text-[0.75rem] font-semibold text-dimmer uppercase tracking-wide mb-2">Todos</div>`;
-        dayTodos.forEach(td => {
-          html += `
-            <div class="flex items-start gap-3 py-2 ${td.done ? 'opacity-50' : ''}">
-              <input type="checkbox" ${td.done ? 'checked' : ''} onchange="toggleTodo('${td.id}')" class="mt-0.5 w-4 h-4 cursor-pointer accent-accent" />
-              <span class="w-3 h-3 rounded-full mt-1 flex-shrink-0 border-2" style="border-color:${td.color}"></span>
-              <div class="flex-1 min-w-0">
-                <div class="text-[0.9rem] font-medium text-white_ ${td.done ? 'line-through' : ''}">${escapeHtml(td.title)}</div>
-                ${td.description ? `<div class="text-[0.8rem] text-dimmer mt-0.5">${escapeHtml(td.description)}</div>` : ''}
-              </div>
-            </div>
-          `;
-        });
-        html += `</div>`;
-      }
     }
 
     html += `</div>`;

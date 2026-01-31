@@ -140,13 +140,12 @@ async function fetchExperimentDetail(id) {
     currentFile = null;
     _renderExpMetadata();
     renderExpPapers();
-    fetchExpTodos();
     await fetchExpFiles();
     _renderExpMetadata();
     // Auto-open README.md if it exists and no file is open
     if (!currentFile) _autoOpenReadme();
   } catch (err) {
-    document.getElementById('exp-todos-list').innerHTML =
+    document.getElementById('exp-detail-desc').innerHTML =
       `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
   }
 }
@@ -181,14 +180,17 @@ function _renderExpMetadata() {
   if (files) parts.push(`<span>${files} file${files !== 1 ? 's' : ''}</span>`);
   if (runs) parts.push(`<span>${runs} run${runs !== 1 ? 's' : ''}</span>`);
   if (papers) parts.push(`<span>${papers} paper${papers !== 1 ? 's' : ''}</span>`);
-  let html = '';
-  if (parts.length) html += `<div class="flex items-center gap-2 text-[0.75rem] text-dimmer flex-wrap mb-3">${parts.join('<span class="text-dimmest">·</span>')}</div>`;
-  if (_expFiles && _expFiles.length) {
-    const tree = _buildFileTree(_expFiles, []);
-    const treeLines = _renderMetaTree(tree, '');
-    html += `<div class="text-[0.72rem] font-mono text-dim leading-relaxed whitespace-pre">${treeLines.join('\n')}</div>`;
+  el.innerHTML = parts.length ? `<div class="flex items-center gap-2 text-[0.75rem] text-dimmer flex-wrap">${parts.join('<span class="text-dimmest">·</span>')}</div>` : '';
+  const treeEl = document.getElementById('exp-file-tree');
+  if (treeEl) {
+    if (_expFiles && _expFiles.length) {
+      const tree = _buildFileTree(_expFiles, []);
+      const treeLines = _renderMetaTree(tree, '');
+      treeEl.innerHTML = `<div class="text-[0.72rem] text-dim uppercase tracking-wide mb-2">File tree</div><div class="text-[0.72rem] font-mono text-dim leading-relaxed whitespace-pre">${treeLines.join('\n')}</div>`;
+    } else {
+      treeEl.innerHTML = '';
+    }
   }
-  el.innerHTML = html;
 }
 
 // ── Linked Papers ──
@@ -301,128 +303,6 @@ function cancelEditDesc() {
     renderLatexIn('exp-detail-desc');
     _rewriteExpImages(document.getElementById('exp-detail-desc'));
   }
-}
-
-// ── Experiment Todos ──
-let expTodos = [];
-
-async function fetchExpTodos() {
-  try {
-    const resp = await fetch('/api/todos');
-    const allTodos = await resp.json();
-    expTodos = allTodos.filter(t => t.experimentId === currentExpId);
-  } catch (e) { expTodos = []; }
-  renderExpTodos();
-}
-
-function renderExpTodos() {
-  const list = document.getElementById('exp-todos-list');
-  const countEl = document.getElementById('exp-todo-count');
-  const active = expTodos.filter(t => !t.done);
-  const done = expTodos.filter(t => t.done);
-  const total = active.length + done.length;
-  countEl.textContent = total ? `${active.length}/${total}` : '';
-
-  if (!expTodos.length) {
-    list.innerHTML = '<div class="text-[0.75rem] text-dimmer pl-1 py-1">No todos</div>';
-    return;
-  }
-
-  const renderItem = (t) => {
-    return `<div class="flex items-center gap-2 py-1 pl-1 group hover:bg-hover rounded transition-colors">
-      <button onclick="toggleExpTodo('${t.id}')" class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center cursor-pointer bg-transparent transition-colors ${t.done ? 'border-emerald-500 bg-emerald-500/20' : 'border-border-input hover:border-accent'}">
-        ${t.done ? '<svg class="w-2.5 h-2.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
-      </button>
-      <span class="flex-1 text-[0.78rem] truncate ${t.done ? 'line-through text-dimmer' : 'text-muted'}">${escapeHtml(t.title)}</span>
-      <button onclick="deleteExpTodo('${t.id}')" class="w-4 h-4 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Delete">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-    </div>`;
-  };
-
-  list.innerHTML = active.map(renderItem).join('') + done.map(renderItem).join('');
-}
-
-function toggleExpTodosFolder() {
-  const folder = document.getElementById('exp-todos-folder');
-  const chevron = document.getElementById('exp-todos-chevron');
-  if (!folder) return;
-  const collapsed = folder.classList.toggle('hidden');
-  if (chevron) chevron.style.transform = collapsed ? '' : 'rotate(90deg)';
-}
-
-function addExpTodo() {
-  // Expand folder if collapsed
-  const folder = document.getElementById('exp-todos-folder');
-  const chevron = document.getElementById('exp-todos-chevron');
-  if (folder && folder.classList.contains('hidden')) {
-    folder.classList.remove('hidden');
-    if (chevron) chevron.style.transform = 'rotate(90deg)';
-  }
-  const area = document.getElementById('exp-todo-input-area');
-  if (area.querySelector('input')) { area.querySelector('input').focus(); return; }
-  area.innerHTML = `<div class="flex items-center gap-1.5 mb-1">
-    <input id="exp-todo-input" type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.78rem] focus:outline-none focus:border-accent" placeholder="New todo…" autofocus />
-    <button onmousedown="event.preventDefault(); submitExpTodo()" class="px-2 py-1 rounded border-none bg-accent text-white text-[0.75rem] cursor-pointer hover:bg-accent-hover">Add</button>
-  </div>`;
-  const input = document.getElementById('exp-todo-input');
-  input.focus();
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); submitExpTodo(); }
-    if (e.key === 'Escape') { area.innerHTML = ''; }
-  });
-  input.addEventListener('blur', () => {
-    setTimeout(() => { if (area.querySelector('#exp-todo-input')) area.innerHTML = ''; }, 100);
-  });
-}
-
-async function submitExpTodo() {
-  const input = document.getElementById('exp-todo-input');
-  if (!input) return;
-  const title = input.value.trim();
-  if (!title) return;
-  try {
-    const resp = await fetch('/api/todos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, experimentId: currentExpId })
-    });
-    const created = await resp.json();
-    expTodos.push(created);
-    if (typeof todos !== 'undefined') todos.push(created);
-    document.getElementById('exp-todo-input-area').innerHTML = '';
-    renderExpTodos();
-  } catch (e) { /* silently fail */ }
-}
-
-async function toggleExpTodo(id) {
-  const todo = expTodos.find(t => t.id === id);
-  if (!todo) return;
-  try {
-    const resp = await fetch('/api/todos/' + id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ done: !todo.done })
-    });
-    const updated = await resp.json();
-    const idx = expTodos.findIndex(t => t.id === id);
-    if (idx !== -1) expTodos[idx] = updated;
-    if (typeof todos !== 'undefined') {
-      const gi = todos.findIndex(t => t.id === id);
-      if (gi !== -1) todos[gi] = updated;
-    }
-    renderExpTodos();
-  } catch (e) { /* silently fail */ }
-}
-
-async function deleteExpTodo(id) {
-  if (!confirm('Delete this todo?')) return;
-  try {
-    await fetch('/api/todos/' + id, { method: 'DELETE' });
-    expTodos = expTodos.filter(t => t.id !== id);
-    if (typeof todos !== 'undefined') todos = todos.filter(t => t.id !== id);
-    renderExpTodos();
-  } catch (e) { /* silently fail */ }
 }
 
 // ── Files ──

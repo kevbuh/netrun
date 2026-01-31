@@ -386,6 +386,7 @@ function renderPythonEditor(fname, content) {
     clearTimeout(fileSaveTimer);
     fileSaveTimer = setTimeout(() => savePythonFile(), 600);
   });
+  _attachGotoDef(pyEditorCm);
   pyEditorCm.focus();
   loadVenvDropdown(pythonPath);
 }
@@ -424,6 +425,72 @@ function _pyBtnStop() {
     btn.textContent = 'Stop';
     btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30 font-medium';
     btn.setAttribute('onclick', 'stopPythonFile()');
+  }
+}
+
+function _gotoDefInCm(cm, token) {
+  const text = cm.getValue();
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(`^(\\s*)def\\s+${escaped}\\s*\\(`, 'm'),
+    new RegExp(`^(\\s*)class\\s+${escaped}\\s*[:(]`, 'm'),
+    new RegExp(`^(\\s*)${escaped}\\s*=`, 'm'),
+  ];
+  for (const pat of patterns) {
+    const match = pat.exec(text);
+    if (match) {
+      const line = text.substring(0, match.index).split('\n').length - 1;
+      cm.setCursor(line, match[1].length);
+      cm.scrollIntoView({ line, ch: 0 }, 100);
+      cm.addLineClass(line, 'background', 'cm-goto-highlight');
+      setTimeout(() => cm.removeLineClass(line, 'background', 'cm-goto-highlight'), 1200);
+      return true;
+    }
+  }
+  return false;
+}
+
+function _attachGotoDef(cm) {
+  cm.on('mousedown', (cm, e) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+    const word = cm.findWordAt(pos);
+    const token = cm.getRange(word.anchor, word.head).trim();
+    if (!token || !/^[a-zA-Z_]\w*$/.test(token)) return;
+    e.preventDefault();
+    // Search current editor first
+    if (_gotoDefInCm(cm, token)) return;
+    // Search other notebook cells
+    for (const other of cmInstances) {
+      if (other && other !== cm && _gotoDefInCm(other, token)) return;
+    }
+    // Search other files in the project
+    _gotoDefInProject(token);
+  });
+  const wrapper = cm.getWrapperElement();
+  cm.on('keydown', (cm, e) => { if (e.metaKey || e.ctrlKey) wrapper.classList.add('cm-cmd-held'); });
+  cm.on('keyup', (cm, e) => { if (!e.metaKey && !e.ctrlKey) wrapper.classList.remove('cm-cmd-held'); });
+  wrapper.addEventListener('mouseleave', () => wrapper.classList.remove('cm-cmd-held'));
+}
+
+async function _gotoDefInProject(token) {
+  if (!currentExpId || !_expFiles) return;
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pyFiles = _expFiles.filter(f => f.endsWith('.py') && f !== currentFile);
+  for (const fname of pyFiles) {
+    try {
+      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
+      const data = await resp.json();
+      if (data.error) continue;
+      const text = data.content || '';
+      const defPat = new RegExp(`^\\s*(?:def|class)\\s+${escaped}\\s*[\\(:]`, 'm');
+      if (defPat.test(text)) {
+        await openFile(fname);
+        await new Promise(r => setTimeout(r, 150));
+        if (pyEditorCm) _gotoDefInCm(pyEditorCm, token);
+        return;
+      }
+    } catch (e) { /* skip */ }
   }
 }
 
@@ -907,6 +974,7 @@ function renderNbCells() {
       nbData.cells[i].source = cm.getValue();
       scheduleNbSave();
     });
+    if (isCode) _attachGotoDef(cm);
     cmInstances.push(cm);
     // Auto-render markdown cells that have content
     if (!isCode && cellSrc.trim()) {

@@ -339,6 +339,8 @@
     .CodeMirror-focused .CodeMirror-selected { background: rgba(180,69,26,0.35) !important; }
     .CodeMirror-matchingbracket { color: #fff !important; background: rgba(180,69,26,0.4) !important; }
     .CodeMirror-activeline-background { background: rgba(255,255,255,0.03) !important; }
+    .cm-goto-highlight { background: rgba(180,69,26,0.3) !important; transition: background 0.3s; }
+    .cm-cmd-held .CodeMirror-code span { cursor: pointer; }
     /* Syntax colors */
     .cm-s-default .cm-keyword { color: #c586c0 !important; }
     .cm-s-default .cm-def { color: #dcdcaa !important; }
