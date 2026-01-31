@@ -224,20 +224,20 @@ function showPaperView(paper, hashValue) {
 
   sidebar.innerHTML = `
     <div class="sidebar-tab-toolbar">
-      <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')">Insights</button>
-      <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')">Notes</button>
+      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
+      <button id="sidebar-tab-insights" class="sidebar-tab-btn" onclick="switchSidebarTab('insights')">Insights</button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
     </div>
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
-    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
-      <div id="paper-insights"></div>
-    </div>
-    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
+    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
       <div id="pdf-highlights-section">
         <div id="pdf-highlights-panel"></div>
       </div>
       ${notesPanel}
+    </div>
+    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
+      <div id="paper-insights"></div>
     </div>
     <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${chatPanel}
@@ -264,9 +264,6 @@ function showPaperView(paper, hashValue) {
   _docChatExpanded = false;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _docChatPaperUrl = paper.link;
-
-  // Start extracting document text eagerly so it's ready for chat
-  extractDocText(paper.link);
 
   // Load paper notes
   _paperNoteSelected = null;
