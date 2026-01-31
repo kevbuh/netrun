@@ -248,11 +248,14 @@ async function renderDashboard() {
     const faviconImg = favicon
       ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
       : pixelFallback;
+    const rp = entry.readProgress;
+    const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--border-card);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--accent);border-radius:1px"></div></div>` : '';
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
       <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
         <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
         ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
+        ${progressBar}
       </div>
       <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="dashRemoveSaved('${escapeAttr(p.link)}')" title="Remove">&times;</button>
     </div>`;
@@ -353,11 +356,14 @@ function openAllSaved() {
       ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
       : pixelFallback;
     const dateStr = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    const rp = entry.readProgress;
+    const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--border-card);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--accent);border-radius:1px"></div></div>` : '';
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
       <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
         <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
         ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
+        ${progressBar}
       </div>
       ${dateStr ? `<span class="text-[0.68rem] text-dimmest shrink-0">${dateStr}</span>` : ''}
       <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="event.stopPropagation(); dashRemoveSaved('${escapeAttr(p.link)}'); openAllSaved()" title="Remove">&times;</button>
@@ -1055,6 +1061,17 @@ function _startScrollTracker(link) {
   if (_scrollTrackerInterval) clearInterval(_scrollTrackerInterval);
   _scrollTrackerInterval = setInterval(() => {
     try {
+      // PDF viewer — scroll tracked on .pdf-pages-container
+      const pdfContainer = document.querySelector('.pdf-pages-container');
+      if (pdfContainer) {
+        const { scrollTop, scrollHeight, clientHeight } = pdfContainer;
+        if (scrollHeight > clientHeight) {
+          const progress = Math.min(1, scrollTop / (scrollHeight - clientHeight));
+          _saveReadProgress(link, progress);
+        }
+        return;
+      }
+      // iframe-based viewer
       const iframe = document.querySelector('#paper-pdf-container iframe');
       if (!iframe || !iframe.contentWindow) return;
       const doc = iframe.contentDocument || iframe.contentWindow.document;
