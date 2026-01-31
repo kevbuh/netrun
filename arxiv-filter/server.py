@@ -48,6 +48,14 @@ _pdf_cache_dir = os.path.join(DIR, '.pdf-cache')
 os.makedirs(_pdf_cache_dir, exist_ok=True)
 _pdf_cache = {}  # url -> pdf_path
 
+# Auto-create _unstructured pseudo-experiment for loose files
+_unstructured_dir = os.path.join(EXPERIMENTS_DIR, '_unstructured')
+os.makedirs(_unstructured_dir, exist_ok=True)
+_unstructured_meta = os.path.join(_unstructured_dir, 'meta.json')
+if not os.path.isfile(_unstructured_meta):
+    with open(_unstructured_meta, 'w') as f:
+        json.dump({'title': 'Unstructured Files', 'desc': '', 'created': None, 'runs': []}, f)
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -456,6 +464,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             experiments = []
             if os.path.isdir(EXPERIMENTS_DIR):
                 for name in sorted(os.listdir(EXPERIMENTS_DIR)):
+                    if name == '_unstructured':
+                        continue
                     meta = read_meta(name)
                     if meta:
                         meta['id'] = name
@@ -1413,6 +1423,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'ok': True, 'output': result.stdout})
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
+
+        elif self.path == '/api/experiments/move-unstructured-file':
+            body = self._read_body()
+            filename = body.get('filename', '').strip()
+            target_exp = body.get('targetExp', '').strip()
+            if not filename or not target_exp or '..' in filename or '..' in target_exp:
+                self._send_json({'error': 'Invalid parameters'}, 400)
+                return
+            src = os.path.join(EXPERIMENTS_DIR, '_unstructured', filename)
+            dst_dir = os.path.join(EXPERIMENTS_DIR, target_exp)
+            if not os.path.isfile(src):
+                self._send_json({'error': 'Source file not found'}, 404)
+                return
+            if not os.path.isdir(dst_dir):
+                self._send_json({'error': 'Target experiment not found'}, 404)
+                return
+            dst = os.path.join(dst_dir, filename)
+            if os.path.exists(dst):
+                self._send_json({'error': 'File already exists in target project'}, 409)
+                return
+            shutil.move(src, dst)
+            self._send_json({'ok': True})
 
         elif self.path == '/api/experiments':
             body = self._read_body()

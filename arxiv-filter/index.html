@@ -165,13 +165,37 @@
     <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16">
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-[1.3rem] font-semibold text-white_">Projects</h2>
-        <button class="px-4 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.85rem] font-medium cursor-pointer hover:border-accent hover:text-primary transition-colors" onclick="createQuickProject()">+ New Project</button>
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <button class="px-4 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.85rem] font-medium cursor-pointer hover:border-accent hover:text-primary transition-colors" onclick="toggleNewFileMenu()">+ New File</button>
+            <div id="new-file-menu" class="hidden absolute right-0 top-10 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[160px]">
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.py'); hideNewFileMenu()">Python (.py)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.md'); hideNewFileMenu()">Markdown (.md)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.ipynb'); hideNewFileMenu()">Notebook (.ipynb)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.tex'); hideNewFileMenu()">LaTeX (.tex)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.mermaid'); hideNewFileMenu()">Diagram (.mermaid)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.draw'); hideNewFileMenu()">Drawing (.draw)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.slides'); hideNewFileMenu()">Slides (.slides)</button>
+              <div class="h-px bg-border-subtle mx-2 my-1"></div>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFolder(); hideNewFileMenu()">New Folder</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createNewProjectFromGithub(); hideNewFileMenu()">Clone from GitHub</button>
+            </div>
+          </div>
+          <button class="px-4 py-2 rounded-lg border border-border-input bg-card text-muted text-[0.85rem] font-medium cursor-pointer hover:border-accent hover:text-primary transition-colors" onclick="createQuickProject()">+ New Project</button>
+        </div>
       </div>
       <div class="relative mb-5">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
         <input type="text" id="exp-search" placeholder="Search projects..." autocomplete="off" oninput="filterExperiments()" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent transition-all" />
       </div>
       <div id="ideas-list" class="grid grid-cols-2 gap-4"></div>
+      <div id="unstructured-section" class="mt-8" style="display:none">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-[0.85rem] text-dim font-medium">Files</span>
+          <span id="unstructured-count" class="text-[0.7rem] text-dimmest"></span>
+        </div>
+        <div id="unstructured-files" class="grid grid-cols-2 gap-3"></div>
+      </div>
     </div>
   </div>
 

@@ -291,7 +291,29 @@ function openExperimentDetail(id) {
   window.location.hash = 'experiment/' + id;
   setSidebarActive('sb-experiments');
   currentExpId = id;
-  fetchExperimentDetail(id);
+  if (id === '_unstructured') {
+    // Stripped-down detail view for loose files
+    document.getElementById('exp-detail-title').innerHTML = 'Files';
+    const descEl = document.getElementById('exp-detail-desc');
+    descEl.textContent = 'Loose files not attached to any project. Drag files onto a project card to move them.';
+    descEl.classList.add('text-dimmest');
+    descEl.classList.remove('text-muted');
+    descEl.ondblclick = null;
+    const metaEl = document.getElementById('exp-metadata');
+    if (metaEl) metaEl.innerHTML = '';
+    const treeEl = document.getElementById('exp-file-tree');
+    if (treeEl) treeEl.innerHTML = '';
+    const papersSection = document.getElementById('exp-papers-section');
+    if (papersSection) papersSection.style.display = 'none';
+    document.getElementById('exp-file-editor').style.display = 'none';
+    document.getElementById('exp-file-editor').innerHTML = '';
+    document.getElementById('exp-default-content').style.display = '';
+    currentFile = null;
+    currentExp = { title: 'Files', desc: '', runs: [], papers: [] };
+    fetchExpFiles();
+  } else {
+    fetchExperimentDetail(id);
+  }
 }
 
 function routeFromHash() {

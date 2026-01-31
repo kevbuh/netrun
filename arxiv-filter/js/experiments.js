@@ -8,6 +8,7 @@ async function fetchExperiments() {
     const resp = await fetch('/api/experiments');
     allExperiments = await resp.json();
     renderExperimentList();
+    fetchUnstructuredFiles();
   } catch (err) {
     container.innerHTML = `<div class="col-span-2 text-center py-20 text-red-400"><p>Failed to load projects: ${err.message}</p></div>`;
   }
@@ -65,7 +66,8 @@ function renderExperimentList() {
         ${statusCounts.crashed ? `<div class="bg-red-500" style="width:${statusCounts.crashed/total*100}%"></div>` : ''}
       </div>` : '';
     return `
-    <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')">
+    <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')"
+         ondragover="_onExpCardDragOver(event)" ondragleave="_onExpCardDragLeave(event)" ondrop="_onExpCardDrop(event, '${exp.id}')">
       <div class="flex items-center gap-2.5 mb-1">
         ${_pixelArt(exp.id)}
         <div class="text-[0.95rem] font-semibold text-white_ truncate">${escapeHtml(exp.title)}</div>
@@ -920,4 +922,165 @@ function closeFileEditor() {
   el.innerHTML = '';
   document.getElementById('exp-default-content').style.display = '';
   fetchExpFiles();
+}
+
+// ── Unstructured Files (loose files on experiments page) ──
+let _unstructuredFiles = [];
+let _draggedUnstructuredFile = null;
+
+async function fetchUnstructuredFiles() {
+  try {
+    const resp = await fetch('/api/experiments/_unstructured/files');
+    const data = await resp.json();
+    const files = Array.isArray(data) ? data : data.files || [];
+    _unstructuredFiles = files;
+    renderUnstructuredFiles();
+  } catch (e) {
+    _unstructuredFiles = [];
+    renderUnstructuredFiles();
+  }
+}
+
+function renderUnstructuredFiles() {
+  const section = document.getElementById('unstructured-section');
+  const container = document.getElementById('unstructured-files');
+  const countEl = document.getElementById('unstructured-count');
+  if (!section || !container) return;
+  if (!_unstructuredFiles.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  countEl.textContent = `(${_unstructuredFiles.length})`;
+  container.innerHTML = _unstructuredFiles.map(f => {
+    const displayName = f.includes('/') ? f.split('/').pop() : f;
+    const [badge, badgeCls] = _fileExtBadge(f);
+    const escapedF = escapeHtml(f).replace(/'/g, "\\'");
+    return `
+    <div class="flex items-center gap-2 p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input hover:shadow-md transition-all group"
+         draggable="true" data-unstructured-file="${escapeHtml(f)}"
+         onclick="openUnstructuredFile('${escapedF}')"
+         ondragstart="_draggedUnstructuredFile='${escapedF}'; this.style.opacity='0.5'"
+         ondragend="_draggedUnstructuredFile=null; this.style.opacity=''">
+      <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
+      <span class="text-[0.82rem] text-primary truncate flex-1">${escapeHtml(displayName)}</span>
+      <button onclick="event.stopPropagation(); deleteUnstructuredFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete">
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function openUnstructuredFile(fname) {
+  currentExpId = '_unstructured';
+  openExperimentDetail('_unstructured');
+  // After detail view loads, open the file
+  setTimeout(() => openFile(fname), 300);
+}
+
+async function createUnstructuredFile(ext) {
+  const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'notes';
+  let name = `${base}${ext}`;
+  let i = 2;
+  const resp = await fetch('/api/experiments/_unstructured/files');
+  const data = await resp.json();
+  const existing = Array.isArray(data) ? data : data.files || [];
+  const sep = ext === '.py' ? '_' : '-';
+  while (existing.includes(name)) { name = `${base}${sep}${i}${ext}`; i++; }
+  await fetch('/api/experiments/_unstructured/files', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
+  });
+  openUnstructuredFile(name);
+}
+
+async function createUnstructuredFolder() {
+  const name = prompt('Folder name:');
+  if (!name || !name.trim()) return;
+  await fetch('/api/experiments/_unstructured/create-folder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim() })
+  });
+  fetchUnstructuredFiles();
+}
+
+async function deleteUnstructuredFile(fname) {
+  if (!confirm(`Delete ${fname}?`)) return;
+  await fetch(`/api/experiments/_unstructured/files/${fname}`, { method: 'DELETE' });
+  fetchUnstructuredFiles();
+}
+
+function createNewProjectFromGithub() {
+  const url = prompt('GitHub repository URL:\n(e.g. https://github.com/user/repo)');
+  if (!url || !url.trim()) return;
+  const match = url.trim().match(/^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/);
+  if (!match) { alert('Invalid GitHub URL. Expected: https://github.com/user/repo'); return; }
+  const repoName = match[2].replace(/\.git$/, '');
+  // Create a new project named after the repo, then clone into it
+  fetch('/api/experiments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: repoName, desc: `Cloned from ${url.trim()}`, created: Date.now() })
+  }).then(r => r.json()).then(async exp => {
+    if (!exp.id) { alert('Failed to create project'); return; }
+    const cloneResp = await fetch(`/api/experiments/${exp.id}/clone-repo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url.trim() })
+    });
+    if (!cloneResp.ok) {
+      const err = await cloneResp.json().catch(() => ({}));
+      alert(err.error || 'Clone failed');
+    }
+    openExperimentDetail(exp.id);
+  });
+}
+
+// ── New File menu toggle ──
+function toggleNewFileMenu() {
+  const menu = document.getElementById('new-file-menu');
+  if (!menu) return;
+  menu.classList.toggle('hidden');
+  if (!menu.classList.contains('hidden')) {
+    setTimeout(() => document.addEventListener('click', _hideNewFileMenuOnClick, { once: true }), 0);
+  }
+}
+function hideNewFileMenu() {
+  const menu = document.getElementById('new-file-menu');
+  if (menu) menu.classList.add('hidden');
+}
+function _hideNewFileMenuOnClick(e) {
+  const menu = document.getElementById('new-file-menu');
+  if (menu && !menu.contains(e.target)) menu.classList.add('hidden');
+}
+
+// ── Drag unstructured files onto project cards ──
+function _onExpCardDragOver(e) {
+  if (!_draggedUnstructuredFile) return;
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over-highlight');
+}
+function _onExpCardDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over-highlight');
+}
+async function _onExpCardDrop(e, targetExpId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over-highlight');
+  if (!_draggedUnstructuredFile) return;
+  const filename = _draggedUnstructuredFile;
+  _draggedUnstructuredFile = null;
+  try {
+    const resp = await fetch('/api/experiments/move-unstructured-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, targetExp: targetExpId })
+    });
+    if (resp.ok) {
+      fetchUnstructuredFiles();
+    } else {
+      const data = await resp.json().catch(() => ({}));
+      if (data.error) alert(data.error);
+    }
+  } catch (e) { /* silently fail */ }
 }
