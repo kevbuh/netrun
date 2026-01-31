@@ -676,8 +676,8 @@ async function fetchPaperInsights(url) {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     const hasRepos = data.repos && data.repos.length > 0;
-    const hasContribution = data.contribution && data.contribution.trim();
-    if (!hasRepos && !hasContribution) {
+    const hasInsights = data.insights && data.insights.length > 0;
+    if (!hasRepos && !hasInsights) {
       el.innerHTML = '';
       return;
     }
@@ -698,11 +698,17 @@ async function fetchPaperInsights(url) {
       }
       html += '</div>';
     }
-    if (hasContribution) {
-      // Use a shorter snippet for PDF search to avoid ligature/truncation mismatches
-      let searchSnippet = data.contribution.replace(/\.\.\.$/, '').replace(/[\ufb00-\ufb06]/g, m => ({'\ufb00':'ff','\ufb01':'fi','\ufb02':'fl','\ufb03':'ffi','\ufb04':'ffl','\ufb05':'st','\ufb06':'st'}[m]||m));
-      if (searchSnippet.length > 80) searchSnippet = searchSnippet.slice(0, 80).replace(/\s+\S*$/, '');
-      html += `<div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic cursor-pointer transition-colors hover:border-accent" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()" data-q="${escapeHtml(searchSnippet)}">${escapeHtml(data.contribution)}</div>`;
+    if (hasInsights) {
+      const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400' };
+      for (const insight of data.insights) {
+        let searchSnippet = insight.text.replace(/\.\.\.$/, '').replace(/[\ufb00-\ufb06]/g, m => ({'\ufb00':'ff','\ufb01':'fi','\ufb02':'fl','\ufb03':'ffi','\ufb04':'ffl','\ufb05':'st','\ufb06':'st'}[m]||m));
+        if (searchSnippet.length > 80) searchSnippet = searchSnippet.slice(0, 80).replace(/\s+\S*$/, '');
+        const colorCls = labelColors[insight.label] || 'text-dim';
+        html += `<div class="cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()" data-q="${escapeHtml(searchSnippet)}">
+          <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
+          <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
+        </div>`;
+      }
     }
     html += '</div>';
     el.innerHTML = html;

@@ -1218,50 +1218,74 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         if r['url'] == cm_base and not r['context']:
                             r['context'] = 'Code repository'
 
-                # 2. Extract key contribution sentence
-                contribution = ''
-                trigger_phrases = [
-                    'we propose', 'we introduce', 'we present',
-                    'our contribution', 'main contribution', 'key contribution',
-                    'in this paper, we', 'in this work, we',
-                    'our approach', 'we develop', 'we design',
-                    'this paper presents', 'this paper introduces',
-                    'this work presents', 'this paper proposes',
-                    'purpose of this paper', 'goal of this paper',
-                    'aim of this paper', 'purpose of this work',
-                    'goal of this work', 'we show that',
-                    'we demonstrate', 'we prove that',
-                    'our method', 'the proposed method',
-                ]
+                # 2. Extract 3 key insights: contribution, result, method
+                insight_categories = {
+                    'Contribution': [
+                        'we propose', 'we introduce', 'we present',
+                        'our contribution', 'main contribution', 'key contribution',
+                        'in this paper, we', 'in this work, we',
+                        'this paper presents', 'this paper introduces',
+                        'this work presents', 'this paper proposes',
+                        'purpose of this paper', 'goal of this paper',
+                        'aim of this paper', 'purpose of this work',
+                        'goal of this work', 'we develop', 'we design',
+                    ],
+                    'Result': [
+                        'we show that', 'we demonstrate that', 'we prove that',
+                        'our results show', 'our experiments show',
+                        'we find that', 'we found that', 'results demonstrate',
+                        'we observe that', 'we achieve', 'achieves state-of-the-art',
+                        'outperforms', 'our approach achieves', 'we obtain',
+                        'experiments demonstrate', 'results indicate',
+                        'we report', 'leads to significant',
+                    ],
+                    'Method': [
+                        'our method', 'the proposed method', 'our approach',
+                        'we use a', 'we employ', 'we leverage',
+                        'we train', 'we fine-tune', 'we combine',
+                        'our framework', 'our model', 'our system',
+                        'our architecture', 'we formulate', 'we build on',
+                        'we extend', 'our technique', 'our algorithm',
+                    ],
+                }
                 # Normalize text: collapse newlines within sentences for PDF text
                 normalized = re.sub(r'(?<![.!?\n])\n(?![A-Z\n])', ' ', text)
                 normalized = re.sub(r'  +', ' ', normalized)
                 # Split into sentences
                 sentences = re.split(r'(?<=[.!?])\s+', normalized)
-                # Prefer sentences from early text (abstract / first ~5000 chars)
                 early_text_len = 5000
-                candidates = []
-                char_pos = 0
-                for s in sentences:
-                    s_clean = ' '.join(s.split())  # normalize whitespace
-                    s_lower = s_clean.lower()
-                    for phrase in trigger_phrases:
-                        if phrase in s_lower:
-                            # Truncate to ~300 chars
-                            trimmed = s_clean[:300]
-                            if len(s_clean) > 300:
-                                trimmed = trimmed.rsplit(' ', 1)[0] + '...'
-                            weight = 2 if char_pos < early_text_len else 1
-                            candidates.append((weight, char_pos, trimmed))
-                            break
-                    char_pos += len(s) + 1
 
-                if candidates:
-                    # Sort by weight desc, then position asc
-                    candidates.sort(key=lambda x: (-x[0], x[1]))
-                    contribution = candidates[0][2]
+                insights = []
+                used_sentences = set()
+                for category, trigger_phrases in insight_categories.items():
+                    candidates = []
+                    char_pos = 0
+                    for s in sentences:
+                        s_clean = ' '.join(s.split())
+                        s_lower = s_clean.lower()
+                        # Skip very short sentences or lines that look like titles/author lists
+                        if len(s_clean) < 40 or s_clean.count(',') > 6:
+                            char_pos += len(s) + 1
+                            continue
+                        for phrase in trigger_phrases:
+                            if phrase in s_lower:
+                                trimmed = s_clean[:300]
+                                if len(s_clean) > 300:
+                                    trimmed = trimmed.rsplit(' ', 1)[0] + '...'
+                                weight = 2 if char_pos < early_text_len else 1
+                                candidates.append((weight, char_pos, trimmed))
+                                break
+                        char_pos += len(s) + 1
+                    if candidates:
+                        candidates.sort(key=lambda x: (-x[0], x[1]))
+                        # Pick best candidate not already used
+                        for _, _, text_candidate in candidates:
+                            if text_candidate not in used_sentences:
+                                insights.append({'label': category, 'text': text_candidate})
+                                used_sentences.add(text_candidate)
+                                break
 
-                result = {'repos': repos, 'contribution': contribution}
+                result = {'repos': repos, 'insights': insights}
                 _insights_cache[url] = result
                 self._send_json(result)
             except Exception as e:
