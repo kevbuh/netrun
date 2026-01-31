@@ -596,14 +596,17 @@ function showPaperView(paper, hashValue) {
   `;
 
   sidebar.innerHTML = `
-    <div id="paper-insights" class="mb-3 shrink-0"></div>
     <div id="paper-selection-mirror" class="mb-3 shrink-0 hidden"></div>
     <div class="flex gap-1 mb-3 shrink-0">
-      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
+      <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')">Insights</button>
+      <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')">Notes</button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
     </div>
-    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
+    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
+      <div id="paper-insights"></div>
+    </div>
+    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto" style="display:none">
       <div id="pdf-highlights-section">
         <div id="pdf-highlights-panel"></div>
       </div>
@@ -696,12 +699,12 @@ async function _verifyInsightsInPdf(insights) {
 async function fetchPaperInsights(url) {
   const el = document.getElementById('paper-insights');
   if (!el) return;
-  el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>Analyzing paper...</div>`;
+  el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing paper...</div>`;
   try {
     const resp = await fetch('/api/paper-insights', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      body: JSON.stringify({ url, allowHeuristics: localStorage.getItem('insightsAllowHeuristics') !== 'false' })
     });
     if (!resp.ok) throw new Error('Failed');
     const data = await resp.json();
@@ -712,8 +715,7 @@ async function fetchPaperInsights(url) {
       el.innerHTML = '';
       return;
     }
-    let html = '<div class="rounded-lg border border-border-card bg-card-bg p-3 space-y-2">';
-    html += '<div class="text-[0.72rem] font-semibold text-dim uppercase tracking-wide">Insights</div>';
+    let html = '<div class="space-y-2">';
     if (hasRepos) {
       html += '<div class="flex flex-wrap gap-1.5">';
       for (const repo of data.repos) {
@@ -1097,7 +1099,7 @@ let _docChatExpanded = false;
 let _docChatPaperUrl = '';
 
 function switchSidebarTab(tab) {
-  const panes = ['notes', 'chat', 'comments'];
+  const panes = ['insights', 'notes', 'chat', 'comments'];
   panes.forEach(p => {
     const pane = document.getElementById('sidebar-pane-' + p);
     const btn = document.getElementById('sidebar-tab-' + p);

@@ -86,21 +86,25 @@ function initPdfViewer(container, url, arxivId) {
   const toolbar = document.createElement('div');
   toolbar.className = 'pdf-toolbar';
   toolbar.innerHTML = `
-    <button class="pdf-tb-btn" onclick="pdfScrollToPage(-1)" title="Previous page">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-    </button>
-    <span class="pdf-page-indicator" id="pdf-page-indicator">Loading…</span>
-    <button class="pdf-tb-btn" onclick="pdfScrollToPage(1)" title="Next page">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-    </button>
+    <div style="display:flex;align-items:center;gap:0;">
+      <button class="pdf-tb-btn" onclick="pdfScrollToPage(-1)" title="Previous page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <span class="pdf-page-indicator" id="pdf-page-indicator">Loading…</span>
+      <button class="pdf-tb-btn" onclick="pdfScrollToPage(1)" title="Next page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
     <span class="pdf-tb-sep"></span>
-    <button class="pdf-tb-btn" onclick="pdfZoom(-0.25)" title="Zoom out">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
-    </button>
-    <span class="pdf-zoom-label" id="pdf-zoom-label">${Math.round(_pdfScale * 100)}%</span>
-    <button class="pdf-tb-btn" onclick="pdfZoom(0.25)" title="Zoom in">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-    </button>
+    <div style="display:flex;align-items:center;gap:0;">
+      <button class="pdf-tb-btn" onclick="pdfZoom(-0.25)" title="Zoom out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
+      </button>
+      <span class="pdf-zoom-label" id="pdf-zoom-label">${Math.round(_pdfScale * 100)}%</span>
+      <button class="pdf-tb-btn" onclick="pdfZoom(0.25)" title="Zoom in">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      </button>
+    </div>
     <span class="pdf-tb-sep"></span>
     <button class="pdf-tb-btn" id="pdf-pen-toggle" onclick="togglePdfPen()" title="Pen tool">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>

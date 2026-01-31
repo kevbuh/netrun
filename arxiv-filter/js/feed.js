@@ -754,6 +754,24 @@ function renderSettingsView() {
       <div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div>
     </div>
 
+    <!-- PAPER INSIGHTS -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Paper Insights</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Extracts key insights when viewing a paper. Uses local LLM (qwen2.5:3b).</p>
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-primary text-sm">Allow heuristics</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Use regex/keyword matching for repos, hardware, and insight fallback</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('insightsAllowHeuristics') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('insightsAllowHeuristics', this.checked)">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+
     <!-- AI QUALITY FILTER -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center gap-3 mb-1">

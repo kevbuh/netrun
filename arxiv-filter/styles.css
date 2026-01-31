@@ -597,8 +597,8 @@
       width: 28px;
       height: 28px;
       border-radius: 6px;
-      border: 1px solid var(--border-input);
-      background: var(--bg-card);
+      border: none;
+      background: transparent;
       color: var(--text-muted);
       cursor: pointer;
       display: flex;
@@ -606,7 +606,7 @@
       justify-content: center;
       transition: all 0.15s;
     }
-    .pdf-tb-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+    .pdf-tb-btn:hover { color: var(--text-primary); }
     .pdf-tb-sep { width: 1px; height: 20px; background: var(--border-dim); margin: 0 4px; }
     .pdf-page-indicator { font-size: 0.78rem; color: var(--text-muted); min-width: 60px; text-align: center; }
     .pdf-zoom-label { font-size: 0.78rem; color: var(--text-muted); min-width: 40px; text-align: center; }

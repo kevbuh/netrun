@@ -1218,8 +1218,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not url:
                     self._send_json({'error': 'url required'}, 400)
                     return
-                if url in _insights_cache:
-                    self._send_json(_insights_cache[url])
+                allow_heuristics = body.get('allowHeuristics', True)
+                _cache_key = url + ('::h' if allow_heuristics else '::noh')
+                if _cache_key in _insights_cache:
+                    self._send_json(_insights_cache[_cache_key])
                     return
 
                 # Reuse extract-text logic to get document text
@@ -1275,159 +1277,137 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         text = '\n'.join(extractor.parts)
                         _extract_cache[url] = {'text': text, 'pages': 1}
 
-                # 1. Extract repo URLs
-                repo_pattern = re.compile(
-                    r'https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)'
-                    r'/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]*)?'
-                )
-                context_pattern = re.compile(
-                    r'(?:code|implementation|source|repository|available|released|open[- ]?source)[^.]*?(https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)',
-                    re.IGNORECASE
-                )
-                raw_urls = repo_pattern.findall(text)
-                # Deduplicate, normalize: strip trailing slashes and common suffixes
-                seen = {}
+                # 1. Extract repo URLs (heuristic — regex)
                 repos = []
-                for u in raw_urls:
-                    u = u.rstrip('/')
-                    # Remove trailing punctuation that got captured
-                    u = re.sub(r'[.,;:)\]]+$', '', u)
-                    # Normalize to base repo (user/repo)
-                    parts = u.split('/')
-                    # At minimum: https://github.com/user/repo = 5 parts
-                    if len(parts) >= 5:
-                        base = '/'.join(parts[:5])
-                    else:
-                        base = u
-                    if base not in seen:
-                        seen[base] = u
-                        repos.append({'url': base, 'context': ''})
+                if allow_heuristics:
+                    repo_pattern = re.compile(
+                        r'https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)'
+                        r'/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]*)?'
+                    )
+                    context_pattern = re.compile(
+                        r'(?:code|implementation|source|repository|available|released|open[- ]?source)[^.]*?(https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)',
+                        re.IGNORECASE
+                    )
+                    raw_urls = repo_pattern.findall(text)
+                    seen = {}
+                    for u in raw_urls:
+                        u = u.rstrip('/')
+                        u = re.sub(r'[.,;:)\]]+$', '', u)
+                        parts = u.split('/')
+                        if len(parts) >= 5:
+                            base = '/'.join(parts[:5])
+                        else:
+                            base = u
+                        if base not in seen:
+                            seen[base] = u
+                            repos.append({'url': base, 'context': ''})
+                    context_matches = context_pattern.findall(text)
+                    for cm in context_matches:
+                        cm_base = '/'.join(cm.rstrip('/').split('/')[:5])
+                        for r in repos:
+                            if r['url'] == cm_base and not r['context']:
+                                r['context'] = 'Code repository'
 
-                # Add context for URLs mentioned near code-related phrases
-                context_matches = context_pattern.findall(text)
-                for cm in context_matches:
-                    cm_base = '/'.join(cm.rstrip('/').split('/')[:5])
-                    for r in repos:
-                        if r['url'] == cm_base and not r['context']:
-                            r['context'] = 'Code repository'
-
-                # 2. Extract 3 key insights: contribution, result, method
-                insight_categories = {
-                    'Contribution': [
-                        'we propose', 'we introduce', 'we present',
-                        'our contribution', 'main contribution', 'key contribution',
-                        'in this paper, we', 'in this work, we',
-                        'this paper presents', 'this paper introduces',
-                        'this work presents', 'this paper proposes',
-                        'purpose of this paper', 'goal of this paper',
-                        'aim of this paper', 'purpose of this work',
-                        'goal of this work', 'we develop', 'we design',
-                    ],
-                    'Result': [
-                        'we show that', 'we demonstrate that', 'we prove that',
-                        'our results show', 'our experiments show',
-                        'we find that', 'we found that', 'results demonstrate',
-                        'we observe that', 'we achieve', 'achieves state-of-the-art',
-                        'outperforms', 'our approach achieves', 'we obtain',
-                        'experiments demonstrate', 'results indicate',
-                        'we report', 'leads to significant',
-                    ],
-                    'Method': [
-                        'our method', 'the proposed method', 'our approach',
-                        'we use a', 'we employ', 'we leverage',
-                        'we train', 'we fine-tune', 'we combine',
-                        'our framework', 'our model', 'our system',
-                        'our architecture', 'we formulate', 'we build on',
-                        'we extend', 'our technique', 'our algorithm',
-                    ],
-                    'Surprising': [
-                        'surprisingly', 'unexpectedly', 'counterintuitively',
-                        'contrary to', 'interestingly', 'remarkably',
-                        'notable exception', 'did not expect',
-                        'against conventional', 'unlike previous',
-                        'in contrast to', 'however, we find',
-                        'however, we found', 'paradoxically',
-                        'despite this', 'this suggests that',
-                    ],
-                    'Design': [
-                        'key design', 'design choice', 'design decision',
-                        'we chose to', 'critical to', 'crucial for',
-                        'the key idea', 'key insight', 'core idea',
-                        'the intuition', 'motivated by', 'this enables',
-                        'this allows', 'important detail', 'we found it important',
-                        'trick', 'the main idea behind',
-                    ],
-                }
-                # Normalize text: collapse newlines within sentences for PDF text
+                # 2. Extract key insights via LLM (Ollama qwen2.5:3b)
                 normalized = re.sub(r'(?<![.!?\n])\n(?![A-Z\n])', ' ', text)
                 normalized = re.sub(r'  +', ' ', normalized)
-                # Split into sentences
                 sentences = re.split(r'(?<=[.!?])\s+', normalized)
-                early_text_len = 5000
-
+                truncated_text = text[:10000]
                 insights = []
-                used_sentences = set()
-                for category, trigger_phrases in insight_categories.items():
-                    candidates = []
-                    char_pos = 0
-                    for s in sentences:
-                        s_clean = ' '.join(s.split())
-                        s_lower = s_clean.lower()
-                        # Skip very short sentences or lines that look like titles/author lists
-                        if len(s_clean) < 40 or s_clean.count(',') > 6:
-                            char_pos += len(s) + 1
-                            continue
-                        for phrase in trigger_phrases:
-                            if phrase in s_lower:
-                                trimmed = s_clean[:300]
-                                if len(s_clean) > 300:
-                                    trimmed = trimmed.rsplit(' ', 1)[0] + '...'
-                                weight = 2 if char_pos < early_text_len else 1
-                                candidates.append((weight, char_pos, trimmed))
-                                break
-                        char_pos += len(s) + 1
-                    if candidates:
-                        candidates.sort(key=lambda x: (-x[0], x[1]))
-                        # Pick best candidate not already used
-                        for _, _, text_candidate in candidates:
-                            if text_candidate not in used_sentences:
-                                insights.append({'label': category, 'text': text_candidate})
-                                used_sentences.add(text_candidate)
-                                break
+                try:
+                    insight_prompt = (
+                        "You are a research paper analyzer. Read the document text below and extract "
+                        "the most important insights. For each insight, provide a category label and "
+                        "quote the EXACT sentence or passage from the text (do not paraphrase).\n\n"
+                        "Categories: Contribution, Result, Method, Surprising, Design\n\n"
+                        "Respond ONLY with a JSON array. Each element: {\"label\": \"Category\", \"text\": \"exact quote from paper\"}\n"
+                        "Return 3-5 insights. Only use categories from the list above.\n"
+                        "If you cannot find insights for a category, skip it.\n\n"
+                        "--- DOCUMENT TEXT ---\n" + truncated_text + "\n--- END ---"
+                    )
+                    llm_payload = json.dumps({
+                        "model": "qwen2.5:3b",
+                        "messages": [{"role": "user", "content": insight_prompt}],
+                        "stream": False,
+                        "options": {"temperature": 0, "num_predict": 1500}
+                    }).encode()
+                    llm_req = urllib.request.Request(
+                        "http://localhost:11434/api/chat",
+                        data=llm_payload,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    with urllib.request.urlopen(llm_req, timeout=60) as llm_resp:
+                        llm_data = json.loads(llm_resp.read())
+                    raw_content = llm_data.get("message", {}).get("content", "").strip()
+                    # Parse JSON from response (handle markdown code fences)
+                    json_str = raw_content
+                    if '```' in json_str:
+                        json_str = re.sub(r'```(?:json)?\s*', '', json_str)
+                        json_str = json_str.replace('```', '')
+                    json_str = json_str.strip()
+                    parsed_insights = json.loads(json_str)
+                    valid_labels = {'Contribution', 'Result', 'Method', 'Surprising', 'Design'}
+                    if isinstance(parsed_insights, list):
+                        for item in parsed_insights[:5]:
+                            if isinstance(item, dict) and 'label' in item and 'text' in item:
+                                label = item['label']
+                                if label in valid_labels:
+                                    insights.append({'label': label, 'text': item['text'][:300]})
+                except Exception as llm_err:
+                    print(f"[insights] LLM extraction failed: {llm_err}")
+                    if allow_heuristics:
+                        print("[insights] Falling back to keyword matching")
+                        fallback_phrases = {
+                            'Contribution': ['we propose', 'we introduce', 'we present', 'this paper presents'],
+                            'Result': ['we show that', 'we achieve', 'outperforms', 'state-of-the-art'],
+                            'Method': ['our method', 'our approach', 'our framework', 'we train'],
+                        }
+                        used_sentences = set()
+                        for category, phrases in fallback_phrases.items():
+                            for s in sentences:
+                                s_clean = ' '.join(s.split())
+                                if len(s_clean) < 40:
+                                    continue
+                                if any(p in s_clean.lower() for p in phrases) and s_clean not in used_sentences:
+                                    trimmed = s_clean[:300]
+                                    if len(s_clean) > 300:
+                                        trimmed = trimmed.rsplit(' ', 1)[0] + '...'
+                                    insights.append({'label': category, 'text': trimmed})
+                                    used_sentences.add(s_clean)
+                                    break
 
-                # 3. Extract GPU/hardware info
-                gpu_pattern = re.compile(
-                    r'(?:NVIDIA|AMD|Intel)?\s*(?:A100|H100|V100|A6000|A40|RTX\s*\d{4}\s*(?:Ti)?|'
-                    r'P100|T4|K80|TPU\s*v\d|MI\d{3}|GeForce|Titan|3090|4090|A10G)',
-                    re.IGNORECASE
-                )
-                gpu_matches = gpu_pattern.findall(normalized)
-                if gpu_matches:
-                    # Deduplicate preserving order
-                    seen_gpus = set()
-                    unique_gpus = []
-                    for g in gpu_matches:
-                        g_clean = ' '.join(g.split())
-                        if g_clean.lower() not in seen_gpus:
-                            seen_gpus.add(g_clean.lower())
-                            unique_gpus.append(g_clean)
-                    # Find a sentence with GPU context for hover-to-highlight
-                    gpu_sentence = ''
-                    for s in sentences:
-                        s_clean = ' '.join(s.split())
-                        if gpu_pattern.search(s_clean) and len(s_clean) >= 30:
-                            gpu_sentence = s_clean[:300]
-                            if len(s_clean) > 300:
-                                gpu_sentence = gpu_sentence.rsplit(' ', 1)[0] + '...'
-                            break
-                    insights.append({
-                        'label': 'Hardware',
-                        'text': gpu_sentence or ('Trained on: ' + ', '.join(unique_gpus)),
-                        'gpus': unique_gpus,
-                    })
+                # 3. Extract GPU/hardware info (heuristic — regex)
+                if allow_heuristics:
+                    gpu_pattern = re.compile(
+                        r'(?:NVIDIA|AMD|Intel)?\s*(?:A100|H100|V100|A6000|A40|RTX\s*\d{4}\s*(?:Ti)?|'
+                        r'P100|T4|K80|TPU\s*v\d|MI\d{3}|GeForce|Titan|3090|4090|A10G)',
+                        re.IGNORECASE
+                    )
+                    gpu_matches = gpu_pattern.findall(normalized)
+                    if gpu_matches:
+                        seen_gpus = set()
+                        unique_gpus = []
+                        for g in gpu_matches:
+                            g_clean = ' '.join(g.split())
+                            if g_clean.lower() not in seen_gpus:
+                                seen_gpus.add(g_clean.lower())
+                                unique_gpus.append(g_clean)
+                        gpu_sentence = ''
+                        for s in sentences:
+                            s_clean = ' '.join(s.split())
+                            if gpu_pattern.search(s_clean) and len(s_clean) >= 30:
+                                gpu_sentence = s_clean[:300]
+                                if len(s_clean) > 300:
+                                    gpu_sentence = gpu_sentence.rsplit(' ', 1)[0] + '...'
+                                break
+                        insights.append({
+                            'label': 'Hardware',
+                            'text': gpu_sentence or ('Trained on: ' + ', '.join(unique_gpus)),
+                            'gpus': unique_gpus,
+                        })
 
                 result = {'repos': repos, 'insights': insights}
-                _insights_cache[url] = result
+                _insights_cache[_cache_key] = result
                 self._send_json(result)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
