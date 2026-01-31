@@ -61,48 +61,93 @@ async function renderDashboard() {
     if (!mergedSaved[url]) mergedSaved[url] = entry;
   }
 
-  // ── Calendar ──
+  // ── Activity heatmap (full year, GitHub-style) ──
   const now = new Date();
-  const year = _dashYear;
-  const month = _dashMonth;
-  const todayDate = now.getDate();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay();
-  const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const heatYear = now.getFullYear();
 
-  const eventsByDay = {};
-  const todosByDay = {};
-  events.forEach(ev => {
-    if (!ev.date) return;
-    const [ey, em, ed] = ev.date.split('-').map(Number);
-    if (ey === year && em === month + 1) {
-      if (!eventsByDay[ed]) eventsByDay[ed] = [];
-      eventsByDay[ed].push(ev);
-    }
-  });
-  allNotes.forEach(t => {
-    if (!t.date) return;
-    const [ty, tm, td] = t.date.split('-').map(Number);
-    if (ty === year && tm === month + 1) {
-      if (!todosByDay[td]) todosByDay[td] = [];
-      todosByDay[td].push(t);
+  // Build activity counts per date key (YYYY-MM-DD)
+  const activity = {};
+  const addActivity = (dateStr) => { activity[dateStr] = (activity[dateStr] || 0) + 1; };
+  events.forEach(ev => { if (ev.date) addActivity(ev.date); });
+  allNotes.forEach(t => { if (t.date) addActivity(t.date); });
+  Object.values(mergedSaved).forEach(entry => {
+    if (entry.savedAt) {
+      const d = new Date(entry.savedAt);
+      addActivity(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
     }
   });
 
-  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  let calGrid = '';
-  for (let i = 0; i < firstDay; i++) calGrid += '<div></div>';
-  for (let d = 1; d <= daysInMonth; d++) {
-    const isToday = isCurrentMonth && d === todayDate;
-    const evts = eventsByDay[d] || [];
-    const tds = todosByDay[d] || [];
-    const dots = evts.map(e => `<span class="w-1.5 h-1.5 rounded-full" style="background:${e.color || 'var(--accent)'}"></span>`).join('') +
-      tds.map(t => `<span class="w-1.5 h-1.5 rounded-full border" style="border-color:${t.color || 'var(--accent)'}; ${t.done ? 'opacity:0.4' : ''}"></span>`).join('');
-    calGrid += `<div class="py-1 rounded-md text-center ${isToday ? 'bg-accent text-white font-bold' : 'text-primary'} hover:bg-hover cursor-default">
-      ${d}${dots ? `<div class="flex justify-center gap-0.5 mt-0.5">${dots}</div>` : ''}
-    </div>`;
+  // Jan 1 to Dec 31 of current year
+  const jan1 = new Date(heatYear, 0, 1);
+  const dec31 = new Date(heatYear, 11, 31);
+  const startDow = jan1.getDay(); // 0=Sun
+  // Total weeks columns needed
+  const totalDays = Math.ceil((dec31 - jan1) / 86400000) + 1;
+  const numWeeks = Math.ceil((startDow + totalDays) / 7);
+
+  // Build cells
+  const cells = [];
+  for (let day = 0; day < totalDays; day++) {
+    const d = new Date(heatYear, 0, 1 + day);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const count = activity[key] || 0;
+    const isToday = d.getTime() === today.getTime();
+    const isFuture = d > today;
+    const dow = d.getDay();
+    const col = Math.floor((startDow + day) / 7);
+    cells.push({ key, count, isToday, isFuture, col, row: dow, month: d.getMonth(), date: d.getDate() });
   }
+
+  // Month labels — find the first week column where each month starts
+  const monthLabels = [];
+  let lastMonth = -1;
+  cells.forEach(c => {
+    if (c.month !== lastMonth && c.row === 0) {
+      lastMonth = c.month;
+      monthLabels.push({ col: c.col, label: new Date(heatYear, c.month).toLocaleDateString('en-US', { month: 'short' }) });
+    }
+  });
+
+  const maxCount = Math.max(1, ...cells.filter(c => !c.isFuture).map(c => c.count));
+  const levelFn = (count) => {
+    if (count === 0) return 0;
+    if (count <= maxCount * 0.25) return 1;
+    if (count <= maxCount * 0.5) return 2;
+    if (count <= maxCount * 0.75) return 3;
+    return 4;
+  };
+
+  const colors = ['var(--border-card)', 'color-mix(in srgb, var(--accent) 30%, transparent)', 'color-mix(in srgb, var(--accent) 55%, transparent)', 'color-mix(in srgb, var(--accent) 80%, transparent)', 'var(--accent)'];
+  const cellSize = 11;
+  const cellGap = 3;
+  const labelW = 30;
+  const monthLabelH = 16;
+  const gridW = labelW + numWeeks * (cellSize + cellGap);
+  const gridH = monthLabelH + 7 * (cellSize + cellGap);
+
+  let heatmapHtml = `<div class="overflow-x-auto scrollbar-hide"><svg width="${gridW}" height="${gridH}" class="block" style="min-width:${gridW}px">`;
+  // Month labels along top
+  monthLabels.forEach(m => {
+    heatmapHtml += `<text x="${labelW + m.col * (cellSize + cellGap)}" y="11" fill="var(--text-dimmer)" font-size="10" font-family="sans-serif">${m.label}</text>`;
+  });
+  // Day labels (Mon, Wed, Fri)
+  const dayLabelMap = { 1: 'Mon', 3: 'Wed', 5: 'Fri' };
+  Object.entries(dayLabelMap).forEach(([row, label]) => {
+    heatmapHtml += `<text x="0" y="${monthLabelH + row * (cellSize + cellGap) + 9}" fill="var(--text-dimmest)" font-size="9" font-family="sans-serif">${label}</text>`;
+  });
+  // Cells
+  cells.forEach(c => {
+    const x = labelW + c.col * (cellSize + cellGap);
+    const y = monthLabelH + c.row * (cellSize + cellGap);
+    const lvl = c.isFuture ? 0 : levelFn(c.count);
+    const stroke = c.isToday ? 'var(--text-primary)' : 'none';
+    const sw = c.isToday ? '1.5' : '0';
+    const prettyDate = new Date(heatYear, c.month, c.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const tooltip = c.count === 0 ? `${prettyDate} — No activity` : `${prettyDate} — ${c.count} activit${c.count === 1 ? 'y' : 'ies'}`;
+    heatmapHtml += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${colors[lvl]}" stroke="${stroke}" stroke-width="${sw}"><title>${tooltip}</title></rect>`;
+  });
+  heatmapHtml += '</svg></div>';
 
   // ── Notes (non-experiment) ──
   const notes = allNotes.filter(n => !n.experimentId);
@@ -176,17 +221,7 @@ async function renderDashboard() {
       <!-- Left column: Calendar, Reading List -->
       <div class="flex-1 min-w-0">
         <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">${monthName}</h3>
-            <div class="flex gap-1">
-              <button onclick="dashCalNav(-1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&lsaquo;</button>
-              <button onclick="dashCalNav(1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&rsaquo;</button>
-            </div>
-          </div>
-          <div class="bg-card border border-border-card rounded-xl p-4">
-            <div class="grid grid-cols-7 text-center text-[0.78rem] text-dimmer mb-2">${dayNames.map(d => `<div>${d}</div>`).join('')}</div>
-            <div class="grid grid-cols-7 text-[0.88rem] gap-y-1">${calGrid}</div>
-          </div>
+          ${heatmapHtml}
         </div>
 
         <div class="mb-5">
