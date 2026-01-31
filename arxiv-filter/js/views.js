@@ -237,7 +237,10 @@ async function renderDashboard() {
 
   // ── Reading list ──
   const savedEntries = Object.values(mergedSaved).sort((a, b) => b.savedAt - a.savedAt);
-  const readingHtml = savedEntries.length ? savedEntries.map(entry => {
+  const READING_LIST_LIMIT = 10;
+  const displayedSaved = savedEntries.slice(0, READING_LIST_LIMIT);
+  const hasMoreSaved = savedEntries.length > READING_LIST_LIMIT;
+  const _renderSavedRow = (entry) => {
     const p = entry.paper;
     const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
     const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
@@ -253,7 +256,8 @@ async function renderDashboard() {
       </div>
       <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="dashRemoveSaved('${escapeAttr(p.link)}')" title="Remove">&times;</button>
     </div>`;
-  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
+  };
+  const readingHtml = displayedSaved.length ? displayedSaved.map(_renderSavedRow).join('') + (hasMoreSaved ? `<button onclick="openAllSaved()" class="text-[0.78rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer mt-2 px-2">View all ${savedEntries.length} saved posts</button>` : '') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
 
   // ── Recent experiments ──
   const recentExps = experiments.slice(0, 4);
@@ -270,6 +274,24 @@ async function renderDashboard() {
       </div>
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer">No experiments yet</div>';
+
+  // ── User Quotes ──
+  const userQuotes = typeof _getUserQuotes === 'function' ? _getUserQuotes() : [];
+  const quotesHtml = userQuotes.length ? userQuotes.slice().reverse().map(q => {
+    const hostname = (() => { try { return new URL(q.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+    const dateStr = q.pubDate ? new Date(q.pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `<div class="dash-row flex gap-2 px-2 py-2 rounded-md hover:bg-hover transition-colors group">
+      <div class="w-0.5 bg-accent rounded shrink-0 self-stretch"></div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.82rem] text-primary italic leading-snug">${escapeHtml(truncate(q.quote, 200))}</div>
+        <div class="flex items-center gap-1.5 mt-1">
+          <span class="text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary" onclick="window.location.hash='view/'+encodeURIComponent('${escapeAttr(q.link)}')">${escapeHtml(q.title || hostname)}</span>
+          ${dateStr ? `<span class="text-[0.68rem] text-dimmest">${dateStr}</span>` : ''}
+        </div>
+      </div>
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="deleteUserQuote('${escapeAttr(q.id)}'); renderDashboard()" title="Remove">&times;</button>
+    </div>`;
+  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No quotes yet. Open a page and use Post Quote in the sidebar.</div>';
 
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">${getGreeting()}</h2>
@@ -288,7 +310,7 @@ async function renderDashboard() {
         </div>
       </div>
 
-      <!-- Right column: Recent Experiments -->
+      <!-- Right column: Recent Experiments, Quotes -->
       <div class="flex-1 min-w-0">
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
@@ -297,9 +319,51 @@ async function renderDashboard() {
           </div>
           <div class="flex flex-col gap-2">${expsHtml}</div>
         </div>
+
+        <div class="mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Quotes</h3>
+            <span class="text-[0.72rem] text-dimmer">${userQuotes.length}</span>
+          </div>
+          ${quotesHtml}
+        </div>
       </div>
     </div>
   `;
+}
+
+// ── All Saved Posts view ──
+function openAllSaved() {
+  hideAllViews();
+  const view = document.getElementById('dashboard-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  window.location.hash = 'saved-all';
+  setSidebarActive('sb-dashboard');
+  const container = document.getElementById('dashboard-content');
+  const saved = getSavedPosts();
+  const entries = Object.values(saved).sort((a, b) => b.savedAt - a.savedAt);
+  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0 mb-4" onclick="openDashboard()"><svg class="w-4 h-4 fill-current mr-1.5" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg><span class="text-[0.82rem]">Back</span></button>`;
+  const rows = entries.length ? entries.map(entry => {
+    const p = entry.paper;
+    const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+    const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
+    const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title || p.link) : '';
+    const faviconImg = favicon
+      ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
+      : pixelFallback;
+    const dateStr = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
+      ${faviconImg}
+      <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+        <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
+        ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
+      </div>
+      ${dateStr ? `<span class="text-[0.68rem] text-dimmest shrink-0">${dateStr}</span>` : ''}
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="event.stopPropagation(); dashRemoveSaved('${escapeAttr(p.link)}'); openAllSaved()" title="Remove">&times;</button>
+    </div>`;
+  }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
+  container.innerHTML = `${backBtn}<h2 class="text-[1.3rem] font-semibold text-white_ mb-4">Reading List <span class="text-dim font-normal text-[0.9rem]">(${entries.length})</span></h2>${rows}`;
 }
 
 // ── Paper Viewer (shared) ──
@@ -473,6 +537,14 @@ function showPaperView(paper, hashValue) {
         <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
       </div>
     </div>
+    <div id="paper-quote-section" class="border-t border-border-card pt-3 mt-3">
+      <div class="text-[0.72rem] text-dim uppercase tracking-wider mb-1.5">Post Quote</div>
+      <textarea id="paper-quote-input" class="w-full bg-input border border-border-input rounded-md px-2.5 py-2 text-[0.82rem] text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Paste a quote from this page..."></textarea>
+      <div class="flex items-center justify-between mt-1.5">
+        <span id="paper-quote-status" class="text-[0.72rem] text-green-500 opacity-0 transition-opacity">Posted!</span>
+        <button onclick="postQuoteFromViewer()" class="px-3 py-1 text-[0.78rem] rounded-md bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post to Feed</button>
+      </div>
+    </div>
   `;
 
   const chatPanel = `
@@ -560,6 +632,30 @@ function showPaperView(paper, hashValue) {
 
   // Fetch paper insights (async, non-blocking)
   fetchPaperInsights(paper.link);
+}
+
+// ── Post Quote from Viewer ──
+function postQuoteFromViewer() {
+  const input = document.getElementById('paper-quote-input');
+  if (!input || !input.value.trim()) return;
+  const paper = _currentPaperViewPaper;
+  if (!paper) return;
+  const quotes = JSON.parse(localStorage.getItem('userQuotes') || '[]');
+  quotes.push({
+    id: 'q-' + Date.now(),
+    quote: input.value.trim(),
+    link: paper.link,
+    title: paper.title,
+    source: 'quote',
+    pubDate: new Date().toISOString()
+  });
+  localStorage.setItem('userQuotes', JSON.stringify(quotes));
+  input.value = '';
+  const status = document.getElementById('paper-quote-status');
+  if (status) {
+    status.style.opacity = '1';
+    setTimeout(() => { status.style.opacity = '0'; }, 2000);
+  }
 }
 
 // ── Paper Insights ──

@@ -192,6 +192,8 @@ FEED_CATALOG.forEach(f => {
   SOURCE_LOGO_INLINE[f.key] = catalogLogo(f, 'inline');
   SOURCE_NAMES[f.key] = f.name;
 });
+SOURCE_LOGO_INLINE['quote'] = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#6b7280" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="180" font-weight="bold" font-family="Georgia,serif">&quot;</text></svg>';
+SOURCE_NAMES['quote'] = 'Quote';
 
 function _isSubstackSource(source) {
   if (!source?.startsWith('custom:')) return false;
@@ -297,7 +299,8 @@ function routeFromHash() {
   if (hash === '#experiments') openExperiments();
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
-else if (hash === '#saved') openDashboard();
+else if (hash === '#saved-all') openAllSaved();
+  else if (hash === '#saved') openDashboard();
   else if (hash === '#search') openSearch();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));

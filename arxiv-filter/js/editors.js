@@ -312,6 +312,212 @@ function startRenameTexFile(fname) {
   input.addEventListener('blur', function() { commit(); });
 }
 
+// ── Mermaid Diagram Editor ──
+let _mermaidMode = 'split'; // 'code', 'split', 'preview'
+let _mermaidCm = null;
+let _mermaidRenderTimer = null;
+let _mermaidIdCounter = 0;
+
+const MERMAID_DEFAULT_CONTENT = `graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Result 1]
+    B -->|No| D[Result 2]
+    C --> E[End]
+    D --> E`;
+
+function renderMermaidEditor(fname, content) {
+  _mermaidMode = 'split';
+  _mermaidCm = null;
+  if (!content || !content.trim()) content = MERMAID_DEFAULT_CONTENT;
+  const editor = document.getElementById('exp-file-editor');
+  editor.innerHTML =
+    '<div class="flex items-center gap-3 px-4 py-2 shrink-0">' +
+      '<span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400">dia</span>' +
+      '<span id="mermaid-editor-fname" class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameMermaidFile(\'' + escapeHtml(fname).replace(/'/g, "\\'") + '\')" title="Click to rename">' + escapeHtml(fname) + '</span>' +
+      '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="mermaid-save-ind">Saved</span>' +
+      '<div class="ml-auto flex items-center gap-2">' +
+        '<button onclick="cycleMermaidMode()" id="mermaid-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Cycle: Code / Split / Preview">Preview</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="mermaid-body" class="flex-1 overflow-hidden border-t border-border-input flex">' +
+      '<div id="mermaid-cm-wrap" class="overflow-hidden" style="flex:1 1 0%;min-width:0">' +
+        '<textarea id="mermaid-editor-textarea">' + escapeHtml(content) + '</textarea>' +
+      '</div>' +
+      '<div id="mermaid-split-handle" class="shrink-0" style="width:5px;cursor:col-resize;background:var(--border-input);transition:background 0.15s" onmouseenter="this.style.background=\'var(--accent)\'" onmouseleave="if(!this.dataset.dragging)this.style.background=\'var(--border-input)\'"></div>' +
+      '<div id="mermaid-preview-pane" class="flex bg-input items-center justify-center overflow-auto" style="flex:1 1 0%;min-width:0">' +
+        '<div id="mermaid-preview-content" class="p-4 flex items-center justify-center w-full h-full"></div>' +
+      '</div>' +
+    '</div>';
+  var ta = document.getElementById('mermaid-editor-textarea');
+  _mermaidCm = CodeMirror.fromTextArea(ta, {
+    mode: null,
+    lineNumbers: true,
+    matchBrackets: false,
+    indentUnit: 4,
+    tabSize: 4,
+    indentWithTabs: false,
+    lineWrapping: true,
+    viewportMargin: Infinity
+  });
+  _mermaidCm.on('change', function() {
+    clearTimeout(fileSaveTimer);
+    fileSaveTimer = setTimeout(function() { saveMermaid(); }, 600);
+    clearTimeout(_mermaidRenderTimer);
+    _mermaidRenderTimer = setTimeout(function() { _renderMermaidPreview(); }, 500);
+  });
+  _mermaidCm.focus();
+  _initMermaidSplitDrag();
+  _renderMermaidPreview();
+}
+
+async function _renderMermaidPreview() {
+  var el = document.getElementById('mermaid-preview-content');
+  if (!el || !_mermaidCm) return;
+  var code = _mermaidCm.getValue().trim();
+  if (!code) { el.innerHTML = '<span class="text-dimmer text-[0.85rem]">Empty diagram</span>'; return; }
+  try {
+    _mermaidIdCounter++;
+    var id = 'mermaid-svg-' + _mermaidIdCounter;
+    var result = await mermaid.render(id, code);
+    el.innerHTML = result.svg;
+  } catch (e) {
+    el.innerHTML = '<span class="text-red-400 text-[0.8rem]">' + escapeHtml(e.message || 'Invalid diagram syntax') + '</span>';
+    // Clean up any leftover temp element mermaid may have created
+    var temp = document.getElementById('dmermaid-svg-' + _mermaidIdCounter);
+    if (temp) temp.remove();
+  }
+}
+
+function cycleMermaidMode() {
+  var wrap = document.getElementById('mermaid-cm-wrap');
+  var pane = document.getElementById('mermaid-preview-pane');
+  var handle = document.getElementById('mermaid-split-handle');
+  var btn = document.getElementById('mermaid-toggle-btn');
+  if (_mermaidMode === 'code') {
+    _mermaidMode = 'split';
+    wrap.style.display = '';
+    wrap.style.flex = '1 1 0%';
+    pane.style.display = 'flex';
+    pane.style.flex = '1 1 0%';
+    handle.style.display = '';
+    btn.textContent = 'Preview';
+    if (_mermaidCm) _mermaidCm.refresh();
+    _renderMermaidPreview();
+  } else if (_mermaidMode === 'split') {
+    _mermaidMode = 'preview';
+    wrap.style.display = 'none';
+    handle.style.display = 'none';
+    pane.style.display = 'flex';
+    pane.style.flex = '1 1 0%';
+    btn.textContent = 'Code';
+  } else {
+    _mermaidMode = 'code';
+    wrap.style.display = '';
+    wrap.style.flex = '1 1 0%';
+    pane.style.display = 'none';
+    handle.style.display = 'none';
+    btn.textContent = 'Split';
+    if (_mermaidCm) _mermaidCm.refresh();
+  }
+}
+
+function _initMermaidSplitDrag() {
+  var handle = document.getElementById('mermaid-split-handle');
+  if (!handle) return;
+  handle.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    handle.dataset.dragging = '1';
+    handle.style.background = 'var(--accent)';
+    var body = document.getElementById('mermaid-body');
+    var wrap = document.getElementById('mermaid-cm-wrap');
+    var pane = document.getElementById('mermaid-preview-pane');
+    var bodyRect = body.getBoundingClientRect();
+    function onMove(e2) {
+      var x = e2.clientX - bodyRect.left;
+      var leftPct = (x / bodyRect.width) * 100;
+      if (leftPct < 10) {
+        onUp();
+        _mermaidMode = 'split';
+        cycleMermaidMode(); // goes to preview
+        return;
+      }
+      if (leftPct > 90) {
+        onUp();
+        _mermaidMode = 'preview';
+        cycleMermaidMode(); // goes to code
+        return;
+      }
+      leftPct = Math.max(15, Math.min(85, leftPct));
+      wrap.style.flex = 'none';
+      wrap.style.width = leftPct + '%';
+      pane.style.flex = 'none';
+      pane.style.width = (100 - leftPct) + '%';
+      if (_mermaidCm) _mermaidCm.refresh();
+    }
+    function onUp() {
+      delete handle.dataset.dragging;
+      handle.style.background = 'var(--border-input)';
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    }
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
+}
+
+async function saveMermaid() {
+  fileSaveTimer = null;
+  if (!currentFile || !currentExpId || !_mermaidCm) return;
+  var content = _mermaidCm.getValue();
+  await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({content: content})
+  });
+  var ind = document.getElementById('mermaid-save-ind');
+  if (ind) { ind.style.opacity='1'; setTimeout(function(){ind.style.opacity='0';},1500); }
+}
+
+function startRenameMermaidFile(fname) {
+  var span = document.getElementById('mermaid-editor-fname');
+  if (!span) return;
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = fname;
+  input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent';
+  span.replaceWith(input);
+  input.focus();
+  var dotIdx = fname.lastIndexOf('.');
+  input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
+
+  async function commit() {
+    var newName = input.value.trim();
+    if (newName && newName !== fname) {
+      var resp = await fetch('/api/experiments/' + currentExpId + '/files/' + fname, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rename: newName })
+      });
+      if (resp.ok) {
+        currentFile = newName;
+        fname = newName;
+      }
+    }
+    var newSpan = document.createElement('span');
+    newSpan.id = 'mermaid-editor-fname';
+    newSpan.className = 'text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
+    newSpan.title = 'Click to rename';
+    newSpan.textContent = fname;
+    newSpan.onclick = function() { startRenameMermaidFile(fname); };
+    input.replaceWith(newSpan);
+    fetchExpFiles();
+  }
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { commit(); }
+  });
+  input.addEventListener('blur', function() { commit(); });
+}
+
 // ── Python File Editor ──
 let pyEditorCm = null;
 

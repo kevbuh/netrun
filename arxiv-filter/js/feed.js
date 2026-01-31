@@ -63,7 +63,10 @@ function openCardMenu(btn, ev, index) {
   const menu = document.createElement('div');
   menu.id = 'card-menu-portal';
   menu.className = 'card-menu';
-  menu.innerHTML = `
+  const isQuote = p.source === 'quote' && p._quoteId;
+  menu.innerHTML = isQuote ? `
+    <button onmousedown="event.stopPropagation(); deleteUserQuote('${escapeAttr(p._quoteId)}'); closeCardMenu()">Delete quote</button>
+  ` : `
     <button onmousedown="event.stopPropagation(); hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}'); closeCardMenu()">Block post</button>
     <button onmousedown="event.stopPropagation(); unsubscribeSource('${escapeAttr(sourceKey)}'); closeCardMenu()">Unsubscribe from ${escapeHtml(sourceName)}</button>
   `;
@@ -125,6 +128,17 @@ function addTestTitle(title) {
   }).catch(() => {});
 }
 function isPostHidden(link) { return getHiddenPosts().includes(link); }
+
+// ── User Quotes ──
+function _getUserQuotes() {
+  try { return JSON.parse(localStorage.getItem('userQuotes') || '[]'); } catch { return []; }
+}
+function deleteUserQuote(id) {
+  const quotes = _getUserQuotes().filter(q => q.id !== id);
+  localStorage.setItem('userQuotes', JSON.stringify(quotes));
+  allPapers = allPapers.filter(p => p._quoteId !== id);
+  renderPapers();
+}
 
 // ── Blocked Words ──
 function getBlockedWords() {
@@ -995,6 +1009,23 @@ async function loadAllFeeds() {
       allPapers = allPapers.concat(items.slice(0, MAX_PER_SOURCE));
     }
   }
+  // Inject user quotes as paper-like objects
+  const userQuotes = _getUserQuotes();
+  for (const q of userQuotes) {
+    allPapers.push({
+      source: 'quote',
+      title: q.title || 'Quote',
+      link: q.link,
+      authors: '',
+      categories: [],
+      description: q.quote,
+      date: formatDate(new Date(q.pubDate)),
+      pubDate: q.pubDate,
+      arxivId: null,
+      _quoteId: q.id,
+      _quoteText: q.quote,
+    });
+  }
   renderTrends();
   renderPapers();
   if (isQualityFilterOn()) qualityFilterPapers();
@@ -1138,7 +1169,33 @@ function parseSearchQuery(raw) {
   return { authorFilter, sourceFilter, sortOverride, textTokens, exactPhrases, titleTokens, titlePhrases };
 }
 
+function _syncUserQuotesIntoAllPapers() {
+  const quotes = _getUserQuotes();
+  const existingIds = new Set(allPapers.filter(p => p._quoteId).map(p => p._quoteId));
+  // Remove quotes that were deleted
+  allPapers = allPapers.filter(p => !p._quoteId || quotes.some(q => q.id === p._quoteId));
+  // Add new quotes not yet in allPapers
+  for (const q of quotes) {
+    if (!existingIds.has(q.id)) {
+      allPapers.push({
+        source: 'quote',
+        title: q.title || 'Quote',
+        link: q.link,
+        authors: '',
+        categories: [],
+        description: q.quote,
+        date: formatDate(new Date(q.pubDate)),
+        pubDate: q.pubDate,
+        arxivId: null,
+        _quoteId: q.id,
+        _quoteText: q.quote,
+      });
+    }
+  }
+}
+
 function getFilteredPapers() {
+  _syncUserQuotesIntoAllPapers();
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
   const hidden = new Set(getHiddenPosts());
@@ -1161,7 +1218,7 @@ function getFilteredPapers() {
         if (titleLower.includes(w)) return false;
       }
     }
-    const bypassed = bypass[p.source];
+    const bypassed = bypass[p.source] || p.source === 'quote';
     if (qfOn && !bypassed && !(p.title in qCache)) return false;
     if (qfOn && !bypassed && (p.title in qCache)) {
       const entry = qCache[p.title];
@@ -1232,7 +1289,7 @@ function renderPapers() {
   const hiddenSet = new Set(getHiddenPosts());
   const readSet = new Set(getReadPosts());
   const bypass = qfOn ? getQualityBypass() : {};
-  const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && !(p.title in qCache)).length : 0;
+  const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && p.source !== 'quote' && !(p.title in qCache)).length : 0;
   document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
   const evalEl = document.getElementById('eval-indicator');
   const evalCountEl = document.getElementById('eval-count');
@@ -1298,7 +1355,7 @@ function renderPapers() {
         ${actionBtns}
         <div class="flex gap-1.5 flex-wrap items-center mb-2 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}</div>
         <div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} mb-1.5 leading-snug pr-12">${renderTitle(p.title)}</div>
-        ${snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
+        ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
       </div>`;
     }).join('');
   }

@@ -336,6 +336,7 @@ function _fileExtBadge(f) {
   if (name.endsWith('.ipynb')) return ['nb', 'bg-orange-500/20 text-orange-400'];
   if (name.endsWith('.py')) return ['py', 'bg-emerald-500/20 text-emerald-400'];
   if (name.endsWith('.tex')) return ['tex', 'bg-red-500/20 text-red-400'];
+  if (name.endsWith('.mermaid')) return ['dia', 'bg-cyan-500/20 text-cyan-400'];
   if (name.endsWith('.png') || name.endsWith('.svg')) return [name.endsWith('.png') ? 'png' : 'svg', 'bg-purple-500/20 text-purple-400'];
   return ['md', 'bg-blue-500/20 text-blue-400'];
 }
@@ -542,7 +543,7 @@ function hideExpFileMenuOnClick(e) {
 }
 
 async function createExpFile(ext, content) {
-  const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : 'notes';
+  const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
   const resp = await fetch(`/api/experiments/${currentExpId}/files`);
@@ -821,6 +822,8 @@ async function openFile(fname) {
     renderPythonEditor(fname, data.content);
   } else if (fname.endsWith('.tex')) {
     renderLatexEditor(fname, data.content);
+  } else if (fname.endsWith('.mermaid')) {
+    renderMermaidEditor(fname, data.content);
   } else {
     renderMarkdownEditor(fname, data.content);
   }
@@ -899,6 +902,7 @@ function closeFileEditor() {
   pyEditorCm = null;
   cmInstances = [];
   if (typeof _texCm !== 'undefined') _texCm = null;
+  if (typeof _mermaidCm !== 'undefined') _mermaidCm = null;
   const el = document.getElementById('exp-file-editor');
   el.style.display = 'none';
   el.style.flexDirection = '';
