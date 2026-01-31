@@ -25,6 +25,10 @@ _extract_cache = {}
 # In-memory cache for paper insights: url -> { repos, contribution }
 _insights_cache = {}
 DIR = os.path.dirname(os.path.abspath(__file__))
+# On-disk cache for URL-to-PDF conversions: url -> file path
+_pdf_cache_dir = os.path.join(DIR, '.pdf-cache')
+os.makedirs(_pdf_cache_dir, exist_ok=True)
+_pdf_cache = {}  # url -> pdf_path
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
@@ -632,6 +636,86 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(data)
             except Exception as e:
                 self.send_response(502)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+
+        elif self.path.startswith('/api/url-to-pdf'):
+            from urllib.parse import urlparse, parse_qs
+            import hashlib
+            qs = parse_qs(urlparse(self.path).query)
+            url = qs.get('url', [''])[0].strip()
+            if not url:
+                self.send_response(400)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'url parameter required')
+                return
+            # Check disk cache
+            url_hash = hashlib.md5(url.encode()).hexdigest()
+            cached_path = os.path.join(_pdf_cache_dir, url_hash + '.pdf')
+            if url in _pdf_cache and os.path.isfile(_pdf_cache[url]):
+                cached_path = _pdf_cache[url]
+            elif os.path.isfile(cached_path):
+                _pdf_cache[url] = cached_path
+            else:
+                # Convert URL to PDF using headless Chrome
+                chrome_paths = [
+                    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                    '/usr/bin/google-chrome',
+                    '/usr/bin/chromium-browser',
+                    '/usr/bin/chromium',
+                ]
+                chrome = None
+                for p in chrome_paths:
+                    if os.path.isfile(p):
+                        chrome = p
+                        break
+                if not chrome:
+                    self.send_response(500)
+                    self.send_header('Content-Type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(b'Chrome not found')
+                    return
+                try:
+                    result = subprocess.run(
+                        [chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                         '--print-to-pdf=' + cached_path,
+                         '--run-all-compositor-stages-before-draw',
+                         '--virtual-time-budget=10000',
+                         url],
+                        capture_output=True, timeout=30
+                    )
+                    if not os.path.isfile(cached_path):
+                        self.send_response(502)
+                        self.send_header('Content-Type', 'text/plain')
+                        self.end_headers()
+                        self.wfile.write(b'PDF conversion failed')
+                        return
+                    _pdf_cache[url] = cached_path
+                except subprocess.TimeoutExpired:
+                    self.send_response(504)
+                    self.send_header('Content-Type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(b'Conversion timed out')
+                    return
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-Type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(str(e).encode())
+                    return
+            try:
+                with open(cached_path, 'rb') as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/pdf')
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                self.send_response(500)
                 self.send_header('Content-Type', 'text/plain')
                 self.end_headers()
                 self.wfile.write(str(e).encode())

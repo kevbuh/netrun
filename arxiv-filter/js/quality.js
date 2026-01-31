@@ -164,8 +164,18 @@ function renderBlockedList() {
     el.innerHTML = '<div class="text-dim text-[0.75rem]">No posts blocked yet.</div>';
     return;
   }
+  // Build title → link map from loaded papers + hidden posts
+  const titleToLink = {};
+  if (typeof allPapers !== 'undefined') {
+    for (const p of allPapers) titleToLink[p.title] = p.link;
+  }
   const items = all.reverse();
-  el.innerHTML = items.map(b => `<div class="py-1 border-b border-border-subtle last:border-0 flex items-center gap-2"><a href="https://www.google.com/search?q=${encodeURIComponent(b.title)}" target="_blank" rel="noopener" class="${b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70'} flex-1 min-w-0 truncate hover:underline cursor-pointer" title="Search for this post">${escapeHtml(b.title)}</a>${b.source === 'manual' ? '<span class="text-dimmer text-[0.68rem] shrink-0">✕</span>' : ''}${b.score != null ? `<span class="text-dimmer text-[0.68rem] shrink-0">${b.score}</span>` : ''}</div>`).join('');
+  el.innerHTML = items.map(b => {
+    const link = titleToLink[b.title];
+    const href = link || `https://www.google.com/search?q=${encodeURIComponent(b.title)}`;
+    const title = link ? 'Open post' : 'Search for this post';
+    return `<div class="py-1 border-b border-border-subtle last:border-0 flex items-center gap-2"><a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="${b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70'} flex-1 min-w-0 truncate hover:underline cursor-pointer" title="${title}">${escapeHtml(b.title)}</a>${b.source === 'manual' ? '<span class="text-dimmer text-[0.68rem] shrink-0">✕</span>' : ''}${b.score != null ? `<span class="text-dimmer text-[0.68rem] shrink-0">${b.score}</span>` : ''}</div>`;
+  }).join('');
 }
 function getQualityCache() {
   try { return JSON.parse(localStorage.getItem('qualityCache') || '{}'); } catch { return {}; }

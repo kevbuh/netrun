@@ -628,16 +628,12 @@ function showPaperView(paper, hashValue) {
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
-  if (isArxiv) {
-    const arxivId = paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '';
-    if (arxivId) {
-      pdfContainer.innerHTML = '';
-      initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
-    } else {
-      pdfContainer.innerHTML = `<div class="flex items-center justify-center h-full text-dim"><a href="${paper.link}" target="_blank" rel="noopener" class="text-link text-[0.9rem]">Open paper in new tab</a></div>`;
-    }
+  pdfContainer.innerHTML = '';
+  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '') : '';
+  if (arxivId) {
+    initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
   } else {
-    pdfContainer.innerHTML = `<iframe src="${paper.link}" title="Article viewer" class="w-full h-full border-none" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>`;
+    pdfContainer.innerHTML = `<iframe src="${paper.link}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
   }
 
   // Reset chat state
@@ -665,12 +661,13 @@ function showPaperView(paper, hashValue) {
 
 // ── Paper Insights ──
 async function _verifyInsightsInPdf(insights) {
+  // Skip verification for non-PDF views (e.g. iframe websites) — no text layers to check
+  const pdfContainer = document.querySelector('.pdf-pages-container');
+  if (!pdfContainer) return insights;
   // Wait for at least some PDF text layers to render (up to 8s, checking every 500ms)
   if (typeof pdfTextExists === 'function') {
     for (let attempt = 0; attempt < 16; attempt++) {
-      // Check if any text layer exists at all
-      const container = document.querySelector('.pdf-pages-container');
-      if (container && container.querySelector('.textLayer span')) break;
+      if (pdfContainer.querySelector('.textLayer span')) break;
       await new Promise(r => setTimeout(r, 500));
     }
     return insights.filter(insight => {

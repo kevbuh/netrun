@@ -32,12 +32,19 @@ function restartSpinners() {
   let i = 0;
   function tick() {
     const els = document.querySelectorAll('.spinner');
-    if (!els.length) return;
+    if (!els.length) {
+      // No spinners in DOM — stop interval so MutationObserver can restart when new ones appear
+      clearInterval(_spinnerInterval);
+      _spinnerInterval = null;
+      return;
+    }
     els.forEach(el => { el.textContent = frames[i]; });
     i = (i + 1) % frames.length;
   }
   tick();
-  _spinnerInterval = setInterval(tick, interval);
+  if (document.querySelectorAll('.spinner').length) {
+    _spinnerInterval = setInterval(tick, interval);
+  }
 }
 
 // Observe DOM for new .spinner elements
