@@ -665,14 +665,16 @@ function renderSettingsView() {
       <div class="flex flex-wrap gap-2.5">
         ${FEED_CATALOG.map(f => {
           const on = sources[f.key];
-          const logo = f.img
-            ? `<img src="${f.img}" class="h-5 w-auto" alt="${f.name}">`
-            : (() => {
-                const stroke = f.stroke ? ` stroke="${f.stroke}"` : '';
-                const font = f.font || 'Georgia,serif';
-                const fs = (f.letter || '').length > 1 ? 140 : 170;
-                return `<svg class="h-6 w-auto" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="${f.bg}"${stroke} width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="${f.fg}" font-size="${fs}" font-weight="bold" font-family="${font}">${f.letter}</text></svg>`;
-              })();
+          const logo = f.favicon
+            ? `<img src="https://www.google.com/s2/favicons?domain=${f.favicon}&sz=64" class="h-6 w-6 rounded" alt="${f.name}">`
+            : f.img
+              ? `<img src="${f.img}" class="h-5 w-auto" alt="${f.name}">`
+              : (() => {
+                  const stroke = f.stroke ? ` stroke="${f.stroke}"` : '';
+                  const font = f.font || 'Georgia,serif';
+                  const fs = (f.letter || '').length > 1 ? 140 : 170;
+                  return `<svg class="h-6 w-auto" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="${f.bg}"${stroke} width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="${f.fg}" font-size="${fs}" font-weight="bold" font-family="${font}">${f.letter}</text></svg>`;
+                })();
           return `<button onclick="toggleFeedSource('${f.key}', ${!on}); renderSettingsView()" class="flex flex-col items-center justify-center w-[72px] h-[80px] rounded-xl border cursor-pointer transition-all duration-150 ${on ? 'border-accent bg-accent/10 shadow-sm' : 'border-border-card bg-card opacity-40 hover:opacity-70'}" title="${f.name}">
             <div class="mb-1.5">${logo}</div>
             <div class="text-[0.65rem] ${on ? 'text-primary' : 'text-dimmer'} leading-tight text-center px-1 truncate w-full">${f.name}</div>
