@@ -1346,7 +1346,7 @@ function renderPapers() {
     container.innerHTML = visible.map((p, i) => {
       const isHN = p.source === 'hn';
       const isArxiv = p.source === 'arxiv';
-      const sourceChip = getSourceChip(p.source, p.arxivId);
+      const sourceChip = p.commentsUrl ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="inline-flex items-center gap-1 text-[0.75rem] text-dim"><img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=32" class="w-4 h-4 rounded" alt="">${escapeHtml(h)}</span>`; } catch { return getSourceChip(p.source, p.arxivId); } })() : getSourceChip(p.source, p.arxivId);
       const aiEntry = qfOn ? qCache[p.title] : null;
       const aiVerdict = aiEntry?.v || aiEntry;
       const aiScore = aiEntry?.s;
@@ -1357,7 +1357,7 @@ function renderPapers() {
         : isPoly
         ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
         : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
-      const catChips = (isPoly || isArxiv) ? '' : p.categories.slice(0,3).map(c => `<span class="text-[0.68rem] bg-cat-tag text-cat-tag-color px-[7px] py-0.5 rounded border border-border-subtle">${escapeHtml(c)}</span>`).join('');
+      const catChips = '';
       const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
       const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
       const isSaved = isPostSaved(p.link);
