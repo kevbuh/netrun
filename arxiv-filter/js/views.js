@@ -171,7 +171,7 @@ async function renderDashboard() {
   }).join('') : '<div class="text-[0.8rem] text-dimmer">No experiments yet</div>';
 
   container.innerHTML = `
-    <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Home</h2>
+    <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">${getGreeting()}</h2>
     <div class="flex gap-5 items-start">
       <!-- Left column: Calendar, Reading List -->
       <div class="flex-1 min-w-0">

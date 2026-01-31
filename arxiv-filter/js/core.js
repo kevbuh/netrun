@@ -271,6 +271,46 @@ if (document.readyState === 'loading') {
   setTimeout(routeFromHash, 0);
 }
 
+// ── Greeting system ──
+function getGreeting() {
+  const name = localStorage.getItem('userName') || '';
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay(); // 0=Sun
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  const n = (s) => name ? `${s}, ${name}` : s;
+  const nQ = (s) => name ? `${s}, ${name}?` : `${s}?`;
+
+  const timeGreetings = hour < 5
+    ? [n('Hello, night owl')]
+    : hour < 12
+    ? [n('Good morning')]
+    : hour < 17
+    ? [n('Good afternoon')]
+    : hour < 21
+    ? [n('Good evening')]
+    : [n('Evening')];
+
+  const dayGreetings = [];
+  if (day === 0) { dayGreetings.push(n('Happy Sunday')); dayGreetings.push(name ? `Sunday session, ${name}?` : 'Sunday session?'); }
+  if (day === 1) dayGreetings.push(n('Happy Monday'));
+  if (day === 2) dayGreetings.push(n('Happy Tuesday'));
+  if (day === 3) dayGreetings.push(n('Happy Wednesday'));
+  if (day === 4) dayGreetings.push(n('Happy Thursday'));
+  if (day === 5) { dayGreetings.push(n('Happy Friday')); dayGreetings.push(n('That Friday feeling')); }
+  if (day === 6) { dayGreetings.push(n('Happy Saturday!')); dayGreetings.push(n('Welcome to the weekend')); }
+
+  const casual = [
+    n('Hey there'), nQ("How's it going"), n('Back at it!'),
+    nQ("What's new"), n('Welcome'),
+  ];
+  if (name) casual.push(`${name} returns!`);
+
+  const all = [...timeGreetings, ...dayGreetings, ...casual];
+  return all[Math.floor(Math.random() * all.length)];
+}
+
 // ── Utilities ──
 function formatDate(d) {
   if (!d) return '';

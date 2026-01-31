@@ -626,6 +626,15 @@ function renderSettingsView() {
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
 
+    <!-- PROFILE -->
+    <div class="mb-8">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
+      <div class="flex items-center justify-between">
+        <span class="text-primary text-sm">Name</span>
+        <input type="text" value="${escapeAttr(localStorage.getItem('userName') || '')}" placeholder="Your name" onchange="localStorage.setItem('userName', this.value.trim())" class="w-40 px-2.5 py-1 rounded-md border border-border-input bg-card text-primary text-[0.82rem] focus:outline-none focus:border-accent transition-colors" />
+      </div>
+    </div>
+
     <!-- APPEARANCE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Appearance</h3>
