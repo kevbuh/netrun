@@ -89,15 +89,18 @@ function renderLatexEditor(fname, content) {
       '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="tex-save-ind">Saved</span>' +
       '<div class="ml-auto flex items-center gap-2">' +
         '<span id="tex-compile-status" class="text-[0.75rem] text-dimmer"></span>' +
-        '<button onclick="toggleTexMode()" id="tex-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Preview</button>' +
-        '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors">Compile PDF</button>' +
+        '<button onclick="cycleTexMode()" id="tex-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Cycle: Code → Split → Preview">Split</button>' +
+        '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Compile PDF (⌘S)">Compile PDF</button>' +
       '</div>' +
     '</div>' +
-    '<div id="tex-cm-wrap" class="flex-1 overflow-hidden border-t border-border-input">' +
-      '<textarea id="tex-editor-textarea">' + escapeHtml(content) + '</textarea>' +
-    '</div>' +
-    '<div id="tex-preview-pane" class="hidden flex-1 bg-input items-center justify-center">' +
-      '<span class="text-dimmer text-[0.85rem]">Click "Compile PDF" to build the preview</span>' +
+    '<div id="tex-body" class="flex-1 overflow-hidden border-t border-border-input flex">' +
+      '<div id="tex-cm-wrap" class="overflow-hidden" style="flex:1 1 0%;min-width:0">' +
+        '<textarea id="tex-editor-textarea">' + escapeHtml(content) + '</textarea>' +
+      '</div>' +
+      '<div id="tex-split-handle" class="hidden shrink-0" style="width:5px;cursor:col-resize;background:var(--border-input);transition:background 0.15s" onmouseenter="this.style.background=\'var(--accent)\'" onmouseleave="if(!this.dataset.dragging)this.style.background=\'var(--border-input)\'"></div>' +
+      '<div id="tex-preview-pane" class="hidden bg-input items-center justify-center" style="flex:1 1 0%;min-width:0">' +
+        '<span class="text-dimmer text-[0.85rem]">⌘S to compile</span>' +
+      '</div>' +
     '</div>' +
     '<div id="tex-error-log" class="hidden p-3 shrink-0 bg-red-500/10 border-t border-red-500/20 text-red-400 text-[0.75rem] font-mono whitespace-pre-wrap max-h-[200px] overflow-auto"></div>';
   var ta = document.getElementById('tex-editor-textarea');
@@ -116,26 +119,99 @@ function renderLatexEditor(fname, content) {
     clearTimeout(fileSaveTimer);
     fileSaveTimer = setTimeout(function() { saveLatex(); }, 600);
   });
+  // Cmd+S / Ctrl+S to compile
+  _texCm.on('keydown', function(cm, e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      compileLatex();
+    }
+  });
   _texCm.focus();
+  // Split drag handle
+  _initTexSplitDrag();
 }
 
-function toggleTexMode() {
+function cycleTexMode() {
   var wrap = document.getElementById('tex-cm-wrap');
   var pane = document.getElementById('tex-preview-pane');
+  var handle = document.getElementById('tex-split-handle');
   var btn = document.getElementById('tex-toggle-btn');
   if (_texMode === 'code') {
+    _texMode = 'split';
+    wrap.style.display = '';
+    wrap.style.flex = '1 1 0%';
+    pane.style.display = 'flex';
+    pane.style.flex = '1 1 0%';
+    pane.classList.remove('hidden');
+    handle.style.display = '';
+    handle.classList.remove('hidden');
+    btn.textContent = 'Preview';
+    if (_texCm) _texCm.refresh();
+  } else if (_texMode === 'split') {
     _texMode = 'preview';
     wrap.style.display = 'none';
+    handle.style.display = 'none';
     pane.style.display = 'flex';
+    pane.style.flex = '1 1 0%';
     pane.classList.remove('hidden');
     btn.textContent = 'Code';
   } else {
     _texMode = 'code';
     wrap.style.display = '';
+    wrap.style.flex = '1 1 0%';
     pane.style.display = 'none';
-    btn.textContent = 'Preview';
+    handle.style.display = 'none';
+    btn.textContent = 'Split';
     if (_texCm) _texCm.refresh();
   }
+}
+function toggleTexMode() { cycleTexMode(); }
+
+function _initTexSplitDrag() {
+  var handle = document.getElementById('tex-split-handle');
+  if (!handle) return;
+  handle.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    handle.dataset.dragging = '1';
+    handle.style.background = 'var(--accent)';
+    var body = document.getElementById('tex-body');
+    var wrap = document.getElementById('tex-cm-wrap');
+    var pane = document.getElementById('tex-preview-pane');
+    var bodyRect = body.getBoundingClientRect();
+    function onMove(e2) {
+      var x = e2.clientX - bodyRect.left;
+      var leftPct = (x / bodyRect.width) * 100;
+      if (leftPct < 10) {
+        // Snap to preview-only
+        onUp();
+        _texMode = 'split'; // so cycleTexMode goes to preview
+        cycleTexMode();
+        return;
+      }
+      if (leftPct > 90) {
+        // Snap to code-only
+        onUp();
+        _texMode = 'preview'; // so cycleTexMode goes to code
+        cycleTexMode();
+        return;
+      }
+      leftPct = Math.max(15, Math.min(85, leftPct));
+      wrap.style.flex = 'none';
+      wrap.style.width = leftPct + '%';
+      pane.style.flex = 'none';
+      pane.style.width = (100 - leftPct) + '%';
+      if (_texCm) _texCm.refresh();
+    }
+    function onUp() {
+      delete handle.dataset.dragging;
+      handle.style.background = 'var(--border-input)';
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    }
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
 }
 
 async function saveLatex() {
@@ -179,9 +255,11 @@ async function compileLatex() {
     if (_texPdfUrl) URL.revokeObjectURL(_texPdfUrl);
     _texPdfUrl = URL.createObjectURL(blob);
     var pane = document.getElementById('tex-preview-pane');
-    pane.innerHTML = '<iframe src="' + _texPdfUrl + '" class="w-full h-full rounded-lg" style="border:none"></iframe>';
-    // Switch to preview mode
-    if (_texMode === 'code') toggleTexMode();
+    pane.innerHTML = '<iframe src="' + _texPdfUrl + '" class="w-full h-full" style="border:none"></iframe>';
+    // Show preview if not visible
+    if (_texMode === 'code') {
+      cycleTexMode(); // code → split
+    }
     status.textContent = 'Compiled';
     status.className = 'text-[0.75rem] text-emerald-400';
     setTimeout(function() { status.textContent = ''; }, 3000);
