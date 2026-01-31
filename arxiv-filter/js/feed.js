@@ -960,16 +960,19 @@ async function fetchGenericRSS(feedUrl, sourceName) {
       const author = item.querySelector('author, dc\\:creator, itunes\\:author')?.textContent?.trim() || '';
       const pubStr = item.querySelector('pubDate, published, updated')?.textContent?.trim() || '';
       const ts = pubStr ? new Date(pubStr) : null;
+      const commentsUrl = (item.querySelector('comments')?.textContent || '').trim();
+      const cats = Array.from(item.querySelectorAll('category')).map(c => c.textContent.trim());
       return {
         source: sourceName,
         title,
         link,
         authors: author,
-        categories: [],
+        categories: cats,
         description: stripHtml(desc).replace(/^\s*Comments\s*$/i, '').slice(0, 300),
         date: ts ? formatDate(ts) : '',
         pubDate: ts ? ts.toUTCString() : '',
         arxivId: null,
+        commentsUrl: commentsUrl || null,
       };
     });
   } catch { return []; }

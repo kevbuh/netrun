@@ -744,23 +744,30 @@
       background: rgba(229,57,53,0.1);
     }
 
-    /* ── Paper sidebar tab buttons ── */
+    /* ── Paper sidebar tab toolbar (aligned with PDF toolbar) ── */
+    .sidebar-tab-toolbar {
+      display: flex;
+      gap: 4px;
+      padding: 6px 12px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-dim);
+      flex-shrink: 0;
+    }
     .sidebar-tab-btn {
       flex: 1;
-      padding: 5px 0;
-      border: 1px solid var(--border-input);
+      height: 28px;
+      border: none;
       border-radius: 6px;
       background: transparent;
       color: var(--text-muted);
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s;
     }
-    .sidebar-tab-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+    .sidebar-tab-btn:hover { color: var(--text-primary); }
     .sidebar-tab-btn.active {
       background: var(--accent);
-      border-color: var(--accent);
       color: #fff;
     }
 

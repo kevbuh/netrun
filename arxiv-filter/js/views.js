@@ -389,12 +389,6 @@ function togglePaperViewBookmark() {
   btn.className = `inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${saved ? 'text-accent' : 'text-muted hover:text-primary'}`;
   btn.title = saved ? 'Saved' : 'Save';
   btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
-  // Switch URL from #paper/N to #view/URL so the page is addressable by URL
-  const link = _currentPaperViewPaper.link;
-  const viewHash = 'view/' + encodeURIComponent(link);
-  if (!window.location.hash.startsWith('#view/')) {
-    history.replaceState(null, '', '#' + viewHash);
-  }
 }
 
 // ── Toggle paper sidebar ──
@@ -527,6 +521,7 @@ function showPaperView(paper, hashValue) {
   if (paper.published) metaParts.push(`<span class="text-dim">${paper.published}</span>`);
   if (isHN && paper.hnScore) metaParts.push(`<span class="text-[#f60] font-semibold">${paper.hnScore} pts</span>`);
   if (isHN && hnDiscussionUrl) metaParts.push(`<a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a>`);
+  if (paper.commentsUrl) metaParts.push(`<a href="${paper.commentsUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">discussion</a>`);
   if (paper.categories && paper.categories.length) metaParts.push(...paper.categories.slice(0, 3).map(c => `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`));
 
   topbar.innerHTML = `
@@ -596,26 +591,26 @@ function showPaperView(paper, hashValue) {
   `;
 
   sidebar.innerHTML = `
-    <div id="paper-selection-mirror" class="mb-3 shrink-0 hidden"></div>
-    <div class="flex gap-1 mb-3 shrink-0">
+    <div class="sidebar-tab-toolbar">
       <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')">Insights</button>
       <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')">Notes</button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
     </div>
-    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto">
+    <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
+    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
       <div id="paper-insights"></div>
     </div>
-    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto" style="display:none">
+    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
       <div id="pdf-highlights-section">
         <div id="pdf-highlights-panel"></div>
       </div>
       ${notesPanel}
     </div>
-    <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0" style="display:none">
+    <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${chatPanel}
     </div>
-    <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0" style="display:none">
+    <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${commentsPanel}
     </div>
   `;
@@ -1306,14 +1301,15 @@ function openPaper(index) {
   const paper = lastFilteredPapers[index];
   if (!paper) return;
   markPostAsRead(paper.link);
+  const hashVal = 'view/' + encodeURIComponent(paper.link);
   if (paper.source === 'arxiv') {
-    showPaperView(paper, 'paper/' + index);
+    showPaperView(paper, hashVal);
   } else {
     fetch(`/api/check-embed?url=${encodeURIComponent(paper.link)}`)
       .then(r => r.json())
       .then(data => {
         if (data.embeddable) {
-          showPaperView(paper, 'paper/' + index);
+          showPaperView(paper, hashVal);
         } else {
           window.open(paper.link, '_blank');
         }
