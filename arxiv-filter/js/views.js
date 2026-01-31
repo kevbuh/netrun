@@ -414,15 +414,6 @@ async function fetchPaperNotes() {
 }
 
 async function _createPaperNote() {
-  // Auto-bookmark the paper
-  if (_currentPaperViewPaper && !isPostSaved(_currentPaperViewPaper.link)) {
-    toggleSavePost(_currentPaperViewPaper);
-    const btn = document.getElementById('paper-view-bookmark');
-    if (btn) {
-      btn.className = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[0.82rem] cursor-pointer transition-colors bg-accent/15 border-accent text-accent`;
-      btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="var(--accent)" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>Saved`;
-    }
-  }
   const resp = await fetch('/api/todos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
