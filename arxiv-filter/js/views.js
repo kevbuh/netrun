@@ -644,9 +644,12 @@ function showPaperView(paper, hashValue) {
   _docChatMessages = [];
   _docText = '';
   _docTextLoading = false;
-  _docChatExpanded = true;
+  _docChatExpanded = false;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _docChatPaperUrl = paper.link;
+
+  // Start extracting document text eagerly so it's ready for chat
+  extractDocText(paper.link);
 
   // Load paper notes
   _paperNoteSelected = null;
@@ -1199,7 +1202,8 @@ async function sendDocMessage() {
     let buffer = '';
     let currentEvent = '';
 
-    while (true) {
+    let streamDone = false;
+    while (!streamDone) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -1218,6 +1222,14 @@ async function sendDocMessage() {
               _docChatMessages[aiIdx].content = aiText;
               renderDocChatMessages();
             } catch (e) {}
+          } else if (currentEvent === 'done') {
+            streamDone = true;
+          } else if (currentEvent === 'error') {
+            try {
+              const errMsg = JSON.parse(line.slice(6));
+              _docChatMessages[aiIdx].content = aiText || ('Error: ' + errMsg);
+            } catch (e) {}
+            streamDone = true;
           }
           currentEvent = '';
         } else if (line === '') {
