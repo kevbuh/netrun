@@ -62,6 +62,13 @@ function renderSettingsView() {
       </div>
     </div>
 
+    <!-- TEAMS -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Teams</h3>
+      <div id="teams-section-content"></div>
+      <div id="create-team-form"></div>
+    </div>
+
     <!-- APPEARANCE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Appearance</h3>
@@ -292,6 +299,10 @@ function renderSettingsView() {
   }).catch(() => {});
   // Start spinner preview
   updateSpinnerPreview(getSelectedSpinner());
+  // Load teams section
+  if (typeof fetchTeams === 'function') {
+    fetchTeams().then(() => renderTeamsSection());
+  }
 }
 
 function setTheme(theme) {

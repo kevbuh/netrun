@@ -560,6 +560,7 @@ function routeFromHash() {
   if (hash === '#experiments') openExperiments();
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
+  else if (hash === '#inbox') openInbox();
 else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#search') openSearch();
@@ -1427,6 +1428,11 @@ function _onLoginSuccess() {
   _startSyncInterval();
   // Apply any synced appearance settings
   if (typeof applyStoredAppearance === 'function') applyStoredAppearance();
+  // Refresh inbox badge
+  if (typeof refreshInboxBadge === 'function') {
+    refreshInboxBadge();
+    setInterval(refreshInboxBadge, 60000);
+  }
 }
 
 async function authLogout() {

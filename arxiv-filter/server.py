@@ -35,6 +35,10 @@ from persistence import (
     upsert_google_user, get_user_info, create_session,
     get_session_user, delete_session, set_username, delete_user,
     get_all_user_data, set_user_data, set_user_data_bulk,
+    create_team, get_user_teams, get_team, delete_team,
+    invite_to_team, get_pending_invites, respond_to_invite,
+    remove_team_member, set_experiment_team, remove_experiment_team,
+    get_experiment_team, get_team_experiments,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -834,6 +838,65 @@ ch.postMessage({type:'preview-ready'});
             else:
                 self._send_json({'error': 'Not authenticated'}, 401)
 
+        elif self.path == '/api/teams':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_user_teams(google_id))
+
+        elif m := self._match(r'^/api/teams/(\d+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team = get_team(int(m.group(1)))
+            if not team:
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            self._send_json(team)
+
+        elif self.path == '/api/inbox':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_pending_invites(google_id))
+
+        elif self.path == '/api/team-experiments':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            teams = get_user_teams(google_id)
+            result = []
+            seen = set()
+            for team in teams:
+                exp_ids = get_team_experiments(team['id'])
+                for eid in exp_ids:
+                    if eid in seen:
+                        continue
+                    seen.add(eid)
+                    meta = read_meta(eid)
+                    if meta:
+                        meta['id'] = eid
+                        meta['team_id'] = team['id']
+                        meta['team_name'] = team['name']
+                        runs = meta.get('runs', [])
+                        meta['runCount'] = len(runs)
+                        ts = [r.get('created', 0) for r in runs] + [meta.get('created', 0) or 0]
+                        exp_dir = os.path.join(EXPERIMENTS_DIR, eid)
+                        for root, dirs, files in os.walk(exp_dir):
+                            for fname in files:
+                                try:
+                                    ts.append(os.path.getmtime(os.path.join(root, fname)))
+                                except OSError:
+                                    pass
+                        meta['lastUpdated'] = max(ts) if ts else 0
+                        result.append(meta)
+            result.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
+            self._send_json(result)
+
         else:
             super().do_GET()
 
@@ -916,6 +979,66 @@ ch.postMessage({type:'preview-ready'});
                 return
             delete_user(google_id)
             self._send_json({'ok': True})
+            return
+
+        elif self.path == '/api/teams':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            name = (body.get('name') or '').strip()
+            if not name:
+                self._send_json({'error': 'Team name required'}, 400)
+                return
+            team_id = create_team(name, google_id)
+            self._send_json({'ok': True, 'id': team_id})
+            return
+
+        elif m := self._match(r'^/api/teams/(\d+)/invite$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            username = (body.get('username') or '').strip()
+            if not username:
+                self._send_json({'error': 'Username required'}, 400)
+                return
+            result = invite_to_team(int(m.group(1)), google_id, username)
+            if 'error' in result:
+                self._send_json(result, 400)
+            else:
+                self._send_json(result)
+            return
+
+        elif m := self._match(r'^/api/teams/(\d+)/remove$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            target = body.get('google_id', '')
+            if not target:
+                self._send_json({'error': 'google_id required'}, 400)
+                return
+            if remove_team_member(int(m.group(1)), google_id, target):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not allowed'}, 403)
+            return
+
+        elif m := self._match(r'^/api/inbox/(\d+)/respond$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            accept = body.get('accept', False)
+            if respond_to_invite(int(m.group(1)), google_id, accept):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found or not yours'}, 404)
             return
 
         elif self.path == '/api/sync':
@@ -1994,6 +2117,23 @@ ch.postMessage({type:'preview-ready'});
                     f.write(body.get('content', ''))
                 self._send_json({'ok': True})
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/team$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            exp_id = m.group(1)
+            body = self._read_body()
+            team_id = body.get('team_id')
+            if team_id is None:
+                self._send_json({'error': 'team_id required'}, 400)
+                return
+            if set_experiment_team(exp_id, int(team_id), google_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not a team member'}, 403)
+            return
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
             meta = read_meta(exp_id)
@@ -2145,6 +2285,24 @@ ch.postMessage({type:'preview-ready'});
             if url in saved:
                 del saved[url]
                 write_saved_posts(saved)
+            self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/teams/(\d+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            if delete_team(int(m.group(1)), google_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not allowed or not found'}, 403)
+
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/team$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            remove_experiment_team(m.group(1))
             self._send_json({'ok': True})
 
         else:

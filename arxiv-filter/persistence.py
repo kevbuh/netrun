@@ -295,6 +295,35 @@ def init_db():
             FOREIGN KEY (google_id) REFERENCES users(google_id)
         );
     """)
+    # Teams tables
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS teams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            owner_google_id TEXT NOT NULL REFERENCES users(google_id),
+            created TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS team_members (
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            role TEXT NOT NULL DEFAULT 'member',
+            joined TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (team_id, google_id)
+        );
+        CREATE TABLE IF NOT EXISTS team_invites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            from_google_id TEXT NOT NULL,
+            to_google_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS experiment_teams (
+            experiment_id TEXT NOT NULL,
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            PRIMARY KEY (experiment_id, team_id)
+        );
+    """)
     # Migration: add username column if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     if 'username' not in cols:
@@ -437,6 +466,220 @@ def set_user_data_bulk(google_id, data):
         )
     conn.commit()
     conn.close()
+
+
+# ── Teams ──
+
+def create_team(name, owner_google_id):
+    conn = _get_db()
+    cur = conn.execute(
+        "INSERT INTO teams (name, owner_google_id) VALUES (?, ?)",
+        (name, owner_google_id)
+    )
+    team_id = cur.lastrowid
+    conn.execute(
+        "INSERT INTO team_members (team_id, google_id, role) VALUES (?, ?, 'owner')",
+        (team_id, owner_google_id)
+    )
+    conn.commit()
+    conn.close()
+    return team_id
+
+
+def get_user_teams(google_id):
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT t.id, t.name, tm.role,
+               (SELECT COUNT(*) FROM team_members WHERE team_id = t.id) AS member_count
+        FROM teams t
+        JOIN team_members tm ON tm.team_id = t.id AND tm.google_id = ?
+        ORDER BY t.name
+    """, (google_id,)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'name': r['name'], 'role': r['role'], 'member_count': r['member_count']} for r in rows]
+
+
+def get_team(team_id):
+    conn = _get_db()
+    team = conn.execute("SELECT id, name, owner_google_id, created FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team:
+        conn.close()
+        return None
+    members = conn.execute("""
+        SELECT tm.google_id, u.username, u.picture, tm.role
+        FROM team_members tm
+        JOIN users u ON u.google_id = tm.google_id
+        WHERE tm.team_id = ?
+        ORDER BY tm.role DESC, u.username
+    """, (team_id,)).fetchall()
+    conn.close()
+    return {
+        'id': team['id'],
+        'name': team['name'],
+        'owner_google_id': team['owner_google_id'],
+        'created': team['created'],
+        'members': [{'google_id': m['google_id'], 'username': m['username'], 'picture': m['picture'], 'role': m['role']} for m in members]
+    }
+
+
+def delete_team(team_id, google_id):
+    conn = _get_db()
+    team = conn.execute("SELECT owner_google_id FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team or team['owner_google_id'] != google_id:
+        conn.close()
+        return False
+    conn.execute("DELETE FROM experiment_teams WHERE team_id = ?", (team_id,))
+    conn.execute("DELETE FROM team_invites WHERE team_id = ?", (team_id,))
+    conn.execute("DELETE FROM team_members WHERE team_id = ?", (team_id,))
+    conn.execute("DELETE FROM teams WHERE id = ?", (team_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def invite_to_team(team_id, from_google_id, to_username):
+    conn = _get_db()
+    # Check team exists and inviter is a member
+    member = conn.execute(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+        (team_id, from_google_id)
+    ).fetchone()
+    if not member:
+        conn.close()
+        return {'error': 'Not a team member'}
+    # Look up target user by username (case-insensitive)
+    target = conn.execute(
+        "SELECT google_id FROM users WHERE lower(username) = ?",
+        (to_username.lower(),)
+    ).fetchone()
+    if not target:
+        conn.close()
+        return {'error': 'Username not found'}
+    to_google_id = target['google_id']
+    # Check already a member
+    existing = conn.execute(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+        (team_id, to_google_id)
+    ).fetchone()
+    if existing:
+        conn.close()
+        return {'error': 'Already a team member'}
+    # Check for existing pending invite
+    pending = conn.execute(
+        "SELECT 1 FROM team_invites WHERE team_id = ? AND to_google_id = ? AND status = 'pending'",
+        (team_id, to_google_id)
+    ).fetchone()
+    if pending:
+        conn.close()
+        return {'error': 'Invite already pending'}
+    conn.execute(
+        "INSERT INTO team_invites (team_id, from_google_id, to_google_id) VALUES (?, ?, ?)",
+        (team_id, from_google_id, to_google_id)
+    )
+    conn.commit()
+    conn.close()
+    return {'ok': True}
+
+
+def get_pending_invites(google_id):
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT ti.id, t.name AS team_name, u.username AS from_username, ti.created
+        FROM team_invites ti
+        JOIN teams t ON t.id = ti.team_id
+        JOIN users u ON u.google_id = ti.from_google_id
+        WHERE ti.to_google_id = ? AND ti.status = 'pending'
+        ORDER BY ti.created DESC
+    """, (google_id,)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'team_name': r['team_name'], 'from_username': r['from_username'], 'created': r['created']} for r in rows]
+
+
+def respond_to_invite(invite_id, google_id, accept):
+    conn = _get_db()
+    invite = conn.execute(
+        "SELECT team_id, to_google_id FROM team_invites WHERE id = ? AND status = 'pending'",
+        (invite_id,)
+    ).fetchone()
+    if not invite or invite['to_google_id'] != google_id:
+        conn.close()
+        return False
+    if accept:
+        conn.execute(
+            "INSERT OR IGNORE INTO team_members (team_id, google_id, role) VALUES (?, ?, 'member')",
+            (invite['team_id'], google_id)
+        )
+        conn.execute("UPDATE team_invites SET status = 'accepted' WHERE id = ?", (invite_id,))
+    else:
+        conn.execute("UPDATE team_invites SET status = 'declined' WHERE id = ?", (invite_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def remove_team_member(team_id, owner_google_id, target_google_id):
+    conn = _get_db()
+    team = conn.execute("SELECT owner_google_id FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team or team['owner_google_id'] != owner_google_id:
+        conn.close()
+        return False
+    if target_google_id == owner_google_id:
+        conn.close()
+        return False
+    conn.execute(
+        "DELETE FROM team_members WHERE team_id = ? AND google_id = ?",
+        (team_id, target_google_id)
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def set_experiment_team(experiment_id, team_id, google_id):
+    conn = _get_db()
+    member = conn.execute(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+        (team_id, google_id)
+    ).fetchone()
+    if not member:
+        conn.close()
+        return False
+    # Remove existing team assignment for this experiment
+    conn.execute("DELETE FROM experiment_teams WHERE experiment_id = ?", (experiment_id,))
+    conn.execute(
+        "INSERT INTO experiment_teams (experiment_id, team_id) VALUES (?, ?)",
+        (experiment_id, team_id)
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def remove_experiment_team(experiment_id):
+    conn = _get_db()
+    conn.execute("DELETE FROM experiment_teams WHERE experiment_id = ?", (experiment_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_experiment_team(experiment_id):
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT team_id FROM experiment_teams WHERE experiment_id = ?",
+        (experiment_id,)
+    ).fetchone()
+    conn.close()
+    return row['team_id'] if row else None
+
+
+def get_team_experiments(team_id):
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT experiment_id FROM experiment_teams WHERE team_id = ?",
+        (team_id,)
+    ).fetchall()
+    conn.close()
+    return [r['experiment_id'] for r in rows]
 
 
 # Initialize DB on import

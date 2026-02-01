@@ -35,12 +35,18 @@ env.close()
 // ── Projects List (server-backed) ──
 let allExperiments = [];
 
+let _teamExperiments = [];
+
 async function fetchExperiments() {
   const container = document.getElementById('ideas-list');
   container.innerHTML = '<div class="col-span-2 text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading...</div></div>';
   try {
-    const resp = await fetch('/api/experiments');
+    const [resp, teamResp] = await Promise.all([
+      fetch('/api/experiments'),
+      fetch('/api/team-experiments', { headers: _authHeaders() }).catch(() => ({ ok: false }))
+    ]);
     allExperiments = await resp.json();
+    _teamExperiments = teamResp.ok ? await teamResp.json() : [];
     renderExperimentList();
     fetchUnstructuredFiles();
   } catch (err) {
@@ -81,11 +87,21 @@ function renderExperimentList() {
   const filtered = query
     ? allExperiments.filter(exp => exp.title.toLowerCase().includes(query) || (exp.desc || '').toLowerCase().includes(query))
     : allExperiments;
-  if (!filtered.length) {
+
+  // Team experiments (exclude ones already in own list)
+  const ownIds = new Set(allExperiments.map(e => e.id));
+  const teamFiltered = (_teamExperiments || []).filter(e => !ownIds.has(e.id) && (!query || e.title.toLowerCase().includes(query) || (e.desc || '').toLowerCase().includes(query)));
+
+  if (!filtered.length && !teamFiltered.length) {
     container.innerHTML = `<div class="col-span-2 text-center py-20 text-dimmest text-[0.95rem]">${query ? 'No matching projects.' : 'No projects yet. Create one to get started.'}</div>`;
     return;
   }
-  container.innerHTML = filtered.map(exp => {
+
+  let html = '';
+  if (teamFiltered.length && filtered.length) {
+    html += '<div class="col-span-2 text-[0.75rem] text-dim uppercase tracking-wide mb-1">My Projects</div>';
+  }
+  html += filtered.map(exp => {
     const runCount = exp.runCount || 0;
     const runs = exp.runs || [];
     const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
@@ -117,6 +133,30 @@ function renderExperimentList() {
       </button>
     </div>`;
   }).join('');
+
+  // Team experiments section
+  if (teamFiltered.length) {
+    html += '<div class="col-span-2 text-[0.75rem] text-dim uppercase tracking-wide mt-4 mb-1">Team Projects</div>';
+    html += teamFiltered.map(exp => {
+      const runCount = exp.runCount || 0;
+      const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
+      return `
+      <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')">
+        <div class="flex items-center gap-2.5 mb-1">
+          ${_pixelArt(exp.id)}
+          <div class="text-[0.95rem] font-semibold text-white_ truncate">${escapeHtml(exp.title)}</div>
+          <span class="ml-auto text-[0.65rem] px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">${escapeHtml(exp.team_name || 'Team')}</span>
+        </div>
+        <div class="mb-2"></div>
+        <div class="flex items-center gap-3 text-[0.75rem] text-dimmer">
+          <span>${runCount} run${runCount !== 1 ? 's' : ''}</span>
+          ${lastUpdated ? `<span>${lastUpdated}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  container.innerHTML = html;
 }
 
 function filterExperiments() {
@@ -176,6 +216,7 @@ async function fetchExperimentDetail(id) {
     currentFile = null;
     _renderExpMetadata();
     renderExpPapers();
+    if (typeof renderTeamPicker === 'function') renderTeamPicker(id);
     await fetchExpFiles();
     _renderExpMetadata();
     // Auto-open README.md if it exists and no file is open
