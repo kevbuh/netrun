@@ -871,44 +871,59 @@ function renderPythonEditor(fname, content) {
     <div class="flex items-center gap-2 px-4 py-2 shrink-0">
       <span class="text-[0.7rem] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">py</span>
       <span class="text-[0.85rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
-      <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
-    </div>
-    <div class="flex items-center gap-2 px-4 pb-2 flex-wrap shrink-0">
       <span class="flex items-center gap-1 text-[0.7rem] text-dimmer"><span id="py-kernel-dot" class="w-1.5 h-1.5 rounded-full inline-block bg-emerald-500"></span><span id="py-kernel-text">idle</span></span>
-      <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
-      <div class="ml-auto flex items-center gap-1.5">
-        <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart</button>
-        <select id="py-venv-select" onchange="switchVenv(this.value)" class="px-1.5 py-0.5 rounded border-none bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent">
-          <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
-        </select>
-        <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
-        <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
-        <button onclick="copyPyFile()" class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents">Copy</button>
-        <button onclick="runPythonFile()" class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium" id="py-run-btn" title="Run file (Shift+Enter)">Run</button>
+      <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1 truncate"></span>
+      <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
+      <div class="ml-auto flex items-center gap-1.5 shrink-0">
+        <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></button>
+        <div class="relative inline-flex items-center">
+          <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="toggleVenvMenu()">Env</button>
+          <div id="py-venv-menu" class="hidden absolute right-0 top-full mt-1 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[220px]">
+            <div id="venv-menu-status" class="px-3 py-1.5 text-[0.7rem] text-muted flex items-center gap-1.5"></div>
+            <div class="h-px bg-border-subtle mx-2 my-0.5"></div>
+            <div class="px-3 py-1.5 text-[0.68rem] text-dimmest uppercase tracking-wide">Environment</div>
+            <div class="px-3 py-1"><select id="py-venv-select" onchange="switchVenv(this.value)" class="w-full px-1.5 py-1 rounded border border-border-input bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent"><option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option></select></div>
+            <button id="btn-create-venv" class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.75rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createVenv()">+ Create venv</button>
+            <div id="venv-create-status" class="px-3 py-0.5 text-[0.68rem] hidden"></div>
+            <div id="venv-delete-list"></div>
+            <div id="venv-size-info" class="px-3 py-1 text-[0.68rem] text-dimmest"></div>
+            <div class="h-px bg-border-subtle mx-2 my-1"></div>
+            <div class="px-3 py-1.5 text-[0.68rem] text-dimmest uppercase tracking-wide">Packages</div>
+            <div class="px-3 py-1">
+              <div class="flex items-center gap-2 mb-1.5">
+                <input type="text" id="pkg-install-input" placeholder="e.g. numpy pandas" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.72rem] placeholder:text-dimmer focus:outline-none focus:border-accent" onkeydown="if(event.key==='Enter')installPackages()" />
+                <button class="bg-transparent border-none text-muted text-[0.72rem] cursor-pointer hover:text-primary transition-colors whitespace-nowrap" id="pkg-install-btn" onclick="installPackages()">Install</button>
+              </div>
+              <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                <span class="text-[0.65rem] text-dimmest">Quick:</span>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('gymnasium ale-py AutoROM')">RL</button>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('numpy pandas matplotlib')">Data Sci</button>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('torch torchvision')">PyTorch</button>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('jax jaxlib flax')">JAX</button>
+              </div>
+              <div id="pkg-install-status" class="text-[0.72rem] mb-1 hidden"></div>
+              <div id="pkg-list" class="text-[0.72rem] text-muted max-h-[200px] overflow-y-auto">Loading...</div>
+            </div>
+          </div>
+        </div>
+        <button onclick="togglePyOutput()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Toggle output (⌘J)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg></button>
+        <button onclick="copyPyFile()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+        <button onclick="runPythonFile()" class="w-7 h-7 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" id="py-run-btn" title="Run file (Shift+Enter)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></button>
       </div>
     </div>
-    <div id="packages-panel" class="hidden mb-4 rounded-lg border border-border-input bg-surface-secondary p-4">
-      <div class="flex items-center gap-2 mb-3">
-        <input type="text" id="pkg-install-input" placeholder="Package names (e.g. numpy pandas)" class="flex-1 px-2 py-1.5 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" onkeydown="if(event.key==='Enter')installPackages()" />
-        <button class="px-3 py-1.5 rounded bg-accent text-white text-[0.8rem] cursor-pointer hover:opacity-90" onclick="installPackages()">Install</button>
-      </div>
-      <div id="pkg-install-status" class="text-[0.75rem] mb-2 hidden"></div>
-      <div id="pkg-list" class="text-[0.8rem] text-muted">Loading...</div>
-    </div>
-    <div class="border-t border-border-dim overflow-hidden flex-1">
+    <div class="border-t border-border-dim" style="flex:1 1 0%;min-height:0;overflow:hidden;display:flex;flex-direction:column">
       <textarea id="py-editor-textarea">${escapeHtml(content)}</textarea>
     </div>
-    <div id="py-output" class="hidden border-t border-border-dim overflow-hidden shrink-0">
-      <div class="flex items-center justify-between px-3 py-1.5 bg-card/30 border-b border-border-dim">
+    <div id="py-output" class="hidden border-t border-border-dim overflow-hidden shrink-0" style="height:200px">
+      <div id="py-output-drag" class="py-output-drag-handle" title="Drag to resize"></div>
+      <div class="flex items-center justify-between px-3 py-1 bg-card/30 border-b border-border-dim">
         <span class="text-[0.7rem] text-muted font-medium">Output</span>
         <button onclick="document.getElementById('py-output').classList.add('hidden')" class="text-dimmer hover:text-primary text-[0.8rem] bg-transparent border-none cursor-pointer">&times;</button>
       </div>
-      <div class="cell-output-wrap" id="py-output-scroll">
+      <div id="py-output-scroll" class="overflow-y-auto" style="height:calc(100% - 34px)">
         <div id="py-output-content" class="px-4 py-2 bg-body/50 text-[0.8rem] font-mono text-muted whitespace-pre-wrap"></div>
-        <div class="cell-output-toggle" onclick="togglePyOutputExpand()">Show all output</div>
       </div>
-    </div>
-    <div class="pb-40"></div>`;
+    </div>`;
   const ta = document.getElementById('py-editor-textarea');
   pyEditorCm = CodeMirror.fromTextArea(ta, {
     mode: 'python',
@@ -930,7 +945,7 @@ function renderPythonEditor(fname, content) {
       }
     }
   });
-  pyEditorCm.setSize(null, '500px');
+  pyEditorCm.setSize(null, '100%');
   pyEditorCm.on('change', () => {
     clearTimeout(fileSaveTimer);
     fileSaveTimer = setTimeout(() => savePythonFile(), 600);
@@ -938,32 +953,81 @@ function renderPythonEditor(fname, content) {
   _attachGotoDef(pyEditorCm);
   pyEditorCm.focus();
   loadVenvDropdown(pythonPath);
+  _initPyOutputDrag();
 }
 
+function _initPyOutputDrag() {
+  const handle = document.getElementById('py-output-drag');
+  if (!handle) return;
+  handle.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const panel = document.getElementById('py-output');
+    if (!panel) return;
+    const startY = e.clientY;
+    const startH = panel.offsetHeight;
+    handle.classList.add('active');
+    function onMove(e2) {
+      const delta = startY - e2.clientY;
+      const newH = Math.max(60, Math.min(window.innerHeight * 0.8, startH + delta));
+      panel.style.height = newH + 'px';
+    }
+    function onUp() {
+      handle.classList.remove('active');
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    }
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
+}
+
+function togglePyOutput() {
+  const panel = document.getElementById('py-output');
+  if (!panel) return;
+  panel.classList.toggle('hidden');
+}
+
+// Global Cmd+J / Ctrl+J to toggle output when a .py file is open
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+    if (currentFile && currentFile.endsWith('.py') && !currentFile.endsWith('.ipynb')) {
+      e.preventDefault();
+      togglePyOutput();
+    }
+  }
+});
+
 let _pyRunning = false;
+
+const _pyPlayIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>';
+const _pyPauseIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg>';
 
 function _pyBtnRun() {
   const btn = document.getElementById('py-run-btn');
   if (!btn) return;
   if (_pyCooldown) {
-    btn.textContent = 'Stopping…';
-    btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-gray-500/20 text-dimmer border-none cursor-not-allowed opacity-60 font-medium';
+    btn.innerHTML = _pyPauseIcon;
+    btn.className = 'w-7 h-7 rounded flex items-center justify-center bg-gray-500/20 text-dimmer border-none cursor-not-allowed opacity-60';
     btn.disabled = true;
+    btn.title = 'Stopping…';
     btn.removeAttribute('onclick');
     setTimeout(() => {
       _pyCooldown = false;
       const b = document.getElementById('py-run-btn');
       if (b) {
-        b.textContent = 'Run';
-        b.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium';
+        b.innerHTML = _pyPlayIcon;
+        b.className = 'w-7 h-7 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30';
         b.disabled = false;
+        b.title = 'Run file (Shift+Enter)';
         b.setAttribute('onclick', 'runPythonFile()');
       }
     }, 3000);
   } else {
-    btn.textContent = 'Run';
-    btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium';
+    btn.innerHTML = _pyPlayIcon;
+    btn.className = 'w-7 h-7 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30';
     btn.disabled = false;
+    btn.title = 'Run file (Shift+Enter)';
     btn.setAttribute('onclick', 'runPythonFile()');
   }
 }
@@ -971,8 +1035,9 @@ function _pyBtnRun() {
 function _pyBtnStop() {
   const btn = document.getElementById('py-run-btn');
   if (btn) {
-    btn.textContent = 'Stop';
-    btn.className = 'px-2 py-0.5 rounded text-[0.7rem] bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30 font-medium';
+    btn.innerHTML = _pyPauseIcon;
+    btn.className = 'w-7 h-7 rounded flex items-center justify-center bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30';
+    btn.title = 'Stop';
     btn.setAttribute('onclick', 'stopPythonFile()');
   }
 }
@@ -1043,11 +1108,14 @@ async function _gotoDefInProject(token) {
   }
 }
 
+const _copyIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+const _checkIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
 function copyPyFile() {
   if (!pyEditorCm) return;
   navigator.clipboard.writeText(pyEditorCm.getValue()).then(() => {
     const btn = document.getElementById('py-copy-btn');
-    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1000); }
+    if (btn) { btn.innerHTML = _checkIcon; btn.classList.add('text-emerald-400'); setTimeout(() => { btn.innerHTML = _copyIcon; btn.classList.remove('text-emerald-400'); }, 1000); }
   });
 }
 
@@ -1065,9 +1133,7 @@ async function runPythonFile() {
 
   const outPanel = document.getElementById('py-output');
   const outContent = document.getElementById('py-output-content');
-  const outScroll = document.getElementById('py-output-scroll');
   outPanel.classList.remove('hidden');
-  if (outScroll) outScroll.classList.remove('expanded');
   outContent.innerHTML = '<span class="text-dim">Running…</span>';
 
   await savePythonFile();
@@ -1077,6 +1143,8 @@ async function runPythonFile() {
     (out) => {
       if (firstOutput) { outContent.innerHTML = ''; firstOutput = false; }
       outContent.innerHTML += renderCellOutputs([out]);
+      const scrollEl = document.getElementById('py-output-scroll');
+      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
     },
     () => {
       if (firstOutput) outContent.innerHTML = '<span class="text-dim">No output</span>';
@@ -1104,6 +1172,40 @@ async function stopPythonFile() {
   const btn = document.getElementById('py-run-btn');
   if (btn) { btn.textContent = 'Stopping…'; btn.disabled = true; btn.classList.add('opacity-60'); }
   await interruptKernel();
+}
+
+// ── Venv Menu ──
+
+function toggleVenvMenu() {
+  const menu = document.getElementById('py-venv-menu');
+  if (!menu) return;
+  const wasHidden = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden');
+  if (wasHidden) {
+    loadPackagesList();
+    loadVenvInfo();
+    // Close on click outside — use mousedown so it fires before focus changes
+    setTimeout(() => {
+      document.addEventListener('mousedown', _closeVenvMenuOutside);
+    }, 0);
+  } else {
+    document.removeEventListener('mousedown', _closeVenvMenuOutside);
+  }
+}
+
+function hideVenvMenu() {
+  const menu = document.getElementById('py-venv-menu');
+  if (menu) menu.classList.add('hidden');
+  document.removeEventListener('mousedown', _closeVenvMenuOutside);
+}
+
+function _closeVenvMenuOutside(e) {
+  const menu = document.getElementById('py-venv-menu');
+  if (!menu) return;
+  // Check if click is inside the menu or its parent (the Env button wrapper)
+  if (menu.parentElement.contains(e.target)) return;
+  menu.classList.add('hidden');
+  document.removeEventListener('mousedown', _closeVenvMenuOutside);
 }
 
 async function savePythonFile() {

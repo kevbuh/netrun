@@ -23,22 +23,39 @@ function renderNotebookEditor(fname, contentStr) {
       </span>
       <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
       <div class="ml-auto flex items-center gap-1.5">
-        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart</button>
-        <select id="nb-venv-select" class="px-1.5 py-0.5 rounded border border-border-input bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent" onchange="switchVenv(this.value)">
-          <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
-        </select>
-        <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
-        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
-        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="convertNbToPy()" title="Export all code cells as a .py file">Convert to .py</button>
+        <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></button>
+        <div class="relative inline-flex items-center">
+          <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="toggleVenvMenu()">Env</button>
+          <div id="py-venv-menu" class="hidden absolute right-0 top-full mt-1 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[220px]">
+            <div id="venv-menu-status" class="px-3 py-1.5 text-[0.7rem] text-muted flex items-center gap-1.5"></div>
+            <div class="h-px bg-border-subtle mx-2 my-0.5"></div>
+            <div class="px-3 py-1.5 text-[0.68rem] text-dimmest uppercase tracking-wide">Environment</div>
+            <div class="px-3 py-1"><select id="nb-venv-select" onchange="switchVenv(this.value)" class="w-full px-1.5 py-1 rounded border border-border-input bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent"><option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option></select></div>
+            <button id="btn-create-venv" class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.75rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createVenv()">+ Create venv</button>
+            <div id="venv-create-status" class="px-3 py-0.5 text-[0.68rem] hidden"></div>
+            <div id="venv-delete-list"></div>
+            <div id="venv-size-info" class="px-3 py-1 text-[0.68rem] text-dimmest"></div>
+            <div class="h-px bg-border-subtle mx-2 my-1"></div>
+            <div class="px-3 py-1.5 text-[0.68rem] text-dimmest uppercase tracking-wide">Packages</div>
+            <div class="px-3 py-1">
+              <div class="flex items-center gap-2 mb-1.5">
+                <input type="text" id="pkg-install-input" placeholder="e.g. numpy pandas" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.72rem] placeholder:text-dimmer focus:outline-none focus:border-accent" onkeydown="if(event.key==='Enter')installPackages()" />
+                <button class="bg-transparent border-none text-muted text-[0.72rem] cursor-pointer hover:text-primary transition-colors whitespace-nowrap" id="pkg-install-btn" onclick="installPackages()">Install</button>
+              </div>
+              <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                <span class="text-[0.65rem] text-dimmest">Quick:</span>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('gymnasium ale-py AutoROM')">RL</button>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('numpy pandas matplotlib')">Data Sci</button>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('torch torchvision')">PyTorch</button>
+                <button class="px-1 py-0.5 rounded text-[0.65rem] bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover transition-colors" onclick="_quickInstallPkgs('jax jaxlib flax')">JAX</button>
+              </div>
+              <div id="pkg-install-status" class="text-[0.72rem] mb-1 hidden"></div>
+              <div id="pkg-list" class="text-[0.72rem] text-muted max-h-[200px] overflow-y-auto">Loading...</div>
+            </div>
+          </div>
+        </div>
+        <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="convertNbToPy()" title="Export all code cells as a .py file">Convert to .py</button>
       </div>
-    </div>
-    <div id="packages-panel" class="hidden mb-4 rounded-lg border border-border-input bg-surface-secondary p-4">
-      <div class="flex items-center gap-2 mb-3">
-        <input type="text" id="pkg-install-input" placeholder="Package names (e.g. numpy pandas)" class="flex-1 px-2 py-1.5 rounded border border-border-input bg-input text-primary text-[0.8rem] focus:outline-none focus:border-accent" onkeydown="if(event.key==='Enter')installPackages()" />
-        <button class="px-3 py-1.5 rounded bg-accent text-white text-[0.8rem] cursor-pointer hover:opacity-90" onclick="installPackages()">Install</button>
-      </div>
-      <div id="pkg-install-status" class="text-[0.75rem] mb-2 hidden"></div>
-      <div id="pkg-list" class="text-[0.8rem] text-muted">Loading...</div>
     </div>
     <div id="nb-cells"></div>
     <div class="flex gap-2 mt-3 pb-40">
@@ -61,6 +78,18 @@ async function loadVenvDropdown(currentPath) {
       html += `<option value="${escapeHtml(v.pythonPath)}" ${currentPath === v.pythonPath ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     });
     select.innerHTML = html;
+    // Render delete buttons for venvs in the menu
+    const delContainer = document.getElementById('venv-delete-list');
+    if (delContainer) {
+      if (venvs.length === 0) {
+        delContainer.innerHTML = '';
+      } else {
+        delContainer.innerHTML = venvs.map(v => {
+          const label = v.id === currentExpId ? 'this project' : escapeHtml(v.title);
+          return `<div class="flex items-center justify-between px-3 py-1 text-[0.7rem]"><span class="text-muted truncate">${label}</span><button onclick="deleteVenv('${escapeHtml(v.id)}','${escapeHtml(v.title).replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-300 bg-transparent border-none cursor-pointer text-[0.65rem] shrink-0">&times; delete</button></div>`;
+        }).join('');
+      }
+    }
   } catch(e) { /* keep default */ }
   loadVenvInfo();
 }
@@ -71,15 +100,31 @@ async function loadVenvInfo() {
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/venv-info`);
     const info = await resp.json();
-    if (!info.hasVenv) {
-      el.innerHTML = '<span class="text-dimmer">No venv</span>';
-      return;
+    // Top bar: python version, pkg count, disk size (no path)
+    const parts = [];
+    parts.push(`<span>${escapeHtml(info.pythonVersion || 'Python')}</span>`);
+    if (info.hasVenv) {
+      parts.push(`<span>${info.packageCount || 0} pkg${info.packageCount !== 1 ? 's' : ''}</span>`);
+      parts.push(`<span>${escapeHtml(info.diskSize || '?')}</span>`);
     }
-    el.innerHTML = `<span title="${escapeHtml(info.venvPath || '')}">${escapeHtml(info.pythonVersion || 'Python')}</span>`
-      + `<span class="text-border-input">·</span>`
-      + `<span>${info.packageCount || 0} pkg${info.packageCount !== 1 ? 's' : ''}</span>`
-      + `<span class="text-border-input">·</span>`
-      + `<span>${escapeHtml(info.diskSize || '?')}</span>`;
+    const sep = '<span class="text-border-input">·</span>';
+    el.innerHTML = parts.join(sep);
+    // Env popup: size info line
+    const sizeEl = document.getElementById('venv-size-info');
+    if (sizeEl) {
+      const sizeParts = [];
+      if (info.pythonVersion) sizeParts.push(escapeHtml(info.pythonVersion));
+      if (info.hasVenv && info.diskSize) sizeParts.push(escapeHtml(info.diskSize));
+      if (info.hasVenv && info.packageCount != null) sizeParts.push(`${info.packageCount} pkg${info.packageCount !== 1 ? 's' : ''}`);
+      sizeEl.textContent = sizeParts.join(' · ') || '';
+    }
+    // Env popup: status with dot and path
+    const statusEl = document.getElementById('venv-menu-status');
+    if (statusEl) {
+      const dotColor = kernelStatus === 'busy' ? 'bg-amber-500' : kernelStatus === 'dead' ? 'bg-red-500' : 'bg-emerald-500';
+      const displayPath = info.venvPath || info.pythonPath || '';
+      statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full inline-block ${dotColor}"></span><span class="text-[0.68rem] text-muted truncate" title="${escapeHtml(displayPath)}">${escapeHtml(displayPath || 'python3')}</span>`;
+    }
   } catch(e) {
     el.innerHTML = '';
   }
@@ -100,10 +145,11 @@ async function switchVenv(pythonPath) {
 }
 
 async function createVenv() {
+  if (!confirm('Create a new virtual environment for this project?')) return;
   const btn = document.getElementById('btn-create-venv');
-  if (!btn) return;
-  btn.disabled = true;
-  btn.textContent = 'Creating...';
+  const statusEl = document.getElementById('venv-create-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+  if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('hidden'); }
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/venv`, { method: 'POST' });
     const data = await resp.json();
@@ -111,31 +157,44 @@ async function createVenv() {
       if (currentExp) currentExp.pythonPath = data.pythonPath;
       updateKernelStatus('dead');
       await loadVenvDropdown(data.pythonPath);
-      btn.textContent = '+ venv';
-      btn.disabled = false;
+      if (btn) { btn.textContent = '+ Create venv'; btn.disabled = false; }
+      if (statusEl) { statusEl.innerHTML = `<span class="text-emerald-400">Created at ${escapeHtml(data.pythonPath.replace(/\/bin\/python$/, ''))}</span>`; }
       try {
         await fetch(`/api/experiments/${currentExpId}/kernel/restart`, {method:'POST'});
         updateKernelStatus('idle');
       } catch(e) { /* will restart on next run */ }
       loadVenvInfo();
     } else {
-      btn.textContent = 'Failed';
-      btn.disabled = false;
-      setTimeout(() => { btn.textContent = '+ venv'; }, 2000);
+      if (btn) { btn.textContent = 'Failed'; btn.disabled = false; setTimeout(() => { btn.textContent = '+ Create venv'; }, 2000); }
+      if (statusEl) { statusEl.innerHTML = `<span class="text-red-400">${escapeHtml(data.error || 'Failed')}</span>`; }
     }
   } catch(e) {
-    btn.textContent = 'Error';
-    btn.disabled = false;
-    setTimeout(() => { btn.textContent = '+ venv'; }, 2000);
+    if (btn) { btn.textContent = 'Error'; btn.disabled = false; setTimeout(() => { btn.textContent = '+ Create venv'; }, 2000); }
+    if (statusEl) { statusEl.innerHTML = '<span class="text-red-400">Error creating venv</span>'; }
   }
 }
 
+async function deleteVenv(expId, title) {
+  if (!confirm(`Delete the virtual environment for "${title}"? This cannot be undone.`)) return;
+  try {
+    const resp = await fetch(`/api/experiments/${expId}/venv`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.ok) {
+      // If we deleted the venv we're currently using, switch to system python
+      if (currentExp && currentExp.pythonPath && currentExp.pythonPath.includes(`/${expId}/venv/`)) {
+        currentExp.pythonPath = 'python3';
+        updateKernelStatus('dead');
+      }
+      const currentPath = (currentExp && currentExp.pythonPath) || 'python3';
+      await loadVenvDropdown(currentPath);
+      loadVenvInfo();
+    }
+  } catch(e) { /* best effort */ }
+}
+
 function togglePackagesPanel() {
-  const panel = document.getElementById('packages-panel');
-  if (!panel) return;
-  const wasHidden = panel.classList.contains('hidden');
-  panel.classList.toggle('hidden');
-  if (wasHidden) loadPackagesList();
+  // Packages are now inside the Env menu — open it
+  toggleVenvMenu();
 }
 
 async function loadPackagesList() {
@@ -160,17 +219,30 @@ async function loadPackagesList() {
   }
 }
 
+function _quickInstallPkgs(pkgs) {
+  const input = document.getElementById('pkg-install-input');
+  if (!input) return;
+  input.value = pkgs;
+  input.focus();
+}
+
+let _installAbort = null;
+
 async function installPackages() {
   const input = document.getElementById('pkg-install-input');
   const statusEl = document.getElementById('pkg-install-status');
+  const installBtn = document.getElementById('pkg-install-btn');
   if (!input || !input.value.trim()) return;
   const packages = input.value.trim();
   input.disabled = true;
-  if (statusEl) { statusEl.classList.remove('hidden'); statusEl.className = 'text-[0.75rem] mb-2 text-muted'; statusEl.textContent = `Installing ${packages}...`; }
+  _installAbort = new AbortController();
+  if (installBtn) { installBtn.disabled = false; installBtn.innerHTML = 'Cancel'; installBtn.onclick = cancelInstall; }
+  if (statusEl) { statusEl.classList.remove('hidden'); statusEl.className = 'text-[0.75rem] mb-2 text-muted max-h-[200px] overflow-y-auto'; statusEl.innerHTML = `<span class="spinner"></span> Installing ${escapeHtml(packages)}...`; restartSpinners(); }
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/packages`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ packages })
+      body: JSON.stringify({ packages }),
+      signal: _installAbort.signal
     });
     const data = await resp.json();
     if (data.ok) {
@@ -185,12 +257,22 @@ async function installPackages() {
       if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-emerald-400'; statusEl.textContent = 'Installed — kernel ready'; }
       setTimeout(() => { if (statusEl) statusEl.classList.add('hidden'); }, 3000);
     } else {
-      if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400'; statusEl.textContent = data.error || 'Install failed'; }
+      if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400 max-h-[200px] overflow-y-auto whitespace-pre-wrap font-mono'; statusEl.textContent = data.error || 'Install failed'; }
     }
   } catch(e) {
-    if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400'; statusEl.textContent = 'Install failed'; }
+    if (e.name === 'AbortError') {
+      if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-muted'; statusEl.textContent = 'Installation cancelled'; setTimeout(() => { if (statusEl) statusEl.classList.add('hidden'); }, 2000); }
+    } else {
+      if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-red-400'; statusEl.textContent = 'Install failed'; }
+    }
   }
+  _installAbort = null;
   input.disabled = false;
+  if (installBtn) { installBtn.disabled = false; installBtn.textContent = 'Install'; installBtn.onclick = installPackages; }
+}
+
+function cancelInstall() {
+  if (_installAbort) { _installAbort.abort(); _installAbort = null; }
 }
 
 async function uninstallPackage(name) {
@@ -353,7 +435,7 @@ function renderNbCells() {
         <span class="text-[0.7rem] ${isCode ? 'text-emerald-400' : 'text-blue-400'} font-medium">${isCode ? 'Code' : 'Markdown'}</span>
         <span class="text-[0.65rem] text-dimmer">[${i+1}]</span>
         <div class="ml-auto flex gap-1">
-          ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>` : ''}
+          ${isCode ? `<button class="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></button>` : ''}
           ${!isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/20 text-blue-400 border-none cursor-pointer hover:bg-blue-500/30" onclick="renderMdCell(${i})" title="Render (Shift+Enter)">Render</button>` : ''}
           ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/10 text-blue-400 border-none cursor-pointer hover:bg-blue-500/20" onclick="exportCellToPy(${i})" title="Export to .py file">.py</button>` : ''}
           <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" onclick="copyNbCell(${i})" title="Copy cell contents"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -553,11 +635,14 @@ function _swapToStop(cellEl, i) {
   const header = cellEl.querySelector('.ml-auto');
   const runBtn = header && header.querySelector('[onclick^="runNbCell"]');
   if (runBtn) {
-    runBtn.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30" onclick="stopNbCell(${i})" title="Stop cell">Stop</button>`;
+    runBtn.outerHTML = `<button class="w-6 h-6 rounded flex items-center justify-center bg-red-500/20 text-red-400 border-none cursor-pointer hover:bg-red-500/30" onclick="stopNbCell(${i})" title="Stop cell">${_nbPauseIcon}</button>`;
   }
 }
 
 let _runCooldown = false;
+
+const _nbPlayIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>';
+const _nbPauseIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg>';
 
 function _swapToRun(cellEl, i) {
   if (!cellEl) return;
@@ -565,14 +650,14 @@ function _swapToRun(cellEl, i) {
   const btn = header && (header.querySelector('[onclick^="stopNbCell"]') || header.querySelector('[onclick^="runNbCell"]'));
   if (!btn) return;
   if (_runCooldown) {
-    btn.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-gray-500/20 text-dimmer border-none cursor-not-allowed opacity-60" disabled id="nb-cooldown-btn-${i}">Stopping…</button>`;
+    btn.outerHTML = `<button class="w-6 h-6 rounded flex items-center justify-center bg-gray-500/20 text-dimmer border-none cursor-not-allowed opacity-60" disabled id="nb-cooldown-btn-${i}">${_nbPauseIcon}</button>`;
     setTimeout(() => {
       const cb = document.getElementById(`nb-cooldown-btn-${i}`);
-      if (cb) cb.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>`;
+      if (cb) cb.outerHTML = `<button class="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">${_nbPlayIcon}</button>`;
       _runCooldown = false;
     }, 3000);
   } else {
-    btn.outerHTML = `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">Run</button>`;
+    btn.outerHTML = `<button class="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">${_nbPlayIcon}</button>`;
   }
 }
 
@@ -631,7 +716,7 @@ async function stopNbCell(i) {
   const cellEl = document.querySelector(`[data-cell="${i}"]`);
   if (cellEl) {
     const btn = cellEl.querySelector('[onclick^="stopNbCell"]');
-    if (btn) { btn.textContent = 'Stopping…'; btn.disabled = true; btn.classList.add('opacity-60'); }
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }
   }
   await interruptKernel();
 }

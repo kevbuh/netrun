@@ -253,7 +253,7 @@
 
   <!-- Project Detail View -->
   <div id="exp-detail-view" class="hidden ml-[60px] view">
-    <div class="grid grid-cols-[260px_1fr] h-screen overflow-hidden">
+    <div class="grid grid-cols-[260px_1px_1fr] h-screen overflow-hidden">
       <!-- Left Sidebar -->
       <div id="exp-sidebar" class="border-r border-border-card py-3 overflow-y-auto flex flex-col scrollbar-hide">
         <div class="flex items-center justify-between mb-3 px-2">
@@ -284,6 +284,10 @@
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.mermaid'); hideExpFileMenu()">Diagram (.mermaid)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.draw'); hideExpFileMenu()">Drawing (.draw)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.slides'); hideExpFileMenu()">Slides (.slides)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">RL <span class="text-dimmest text-[0.7rem]">...</span></button>
+              <div class="hidden">
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.py', _RL_ENV_TEMPLATE); hideExpFileMenu()">Gym Environment</button>
+              </div>
               <div class="h-px bg-border-subtle mx-2 my-1"></div>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="promptCreateFolder(); hideExpFileMenu()">New Folder</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="promptCloneRepo(); hideExpFileMenu()">Clone from GitHub</button>
@@ -300,6 +304,8 @@
           <div id="exp-papers-list"></div>
         </div>
       </div>
+      <!-- Resize Handle -->
+      <div id="exp-sidebar-resize" class="exp-sidebar-resize-handle"></div>
       <!-- Right Content Pane -->
       <div id="exp-content-pane" class="overflow-y-auto">
         <div id="exp-default-content" class="flex flex-col h-full">

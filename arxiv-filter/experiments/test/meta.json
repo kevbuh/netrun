@@ -2,5 +2,6 @@
   "title": "test",
   "desc": "",
   "created": 1769734365785,
-  "runs": []
+  "runs": [],
+  "pythonPath": "/Users/kevinbuhler/Code/alpha/arxiv-filter/experiments/test/venv/bin/python"
 }

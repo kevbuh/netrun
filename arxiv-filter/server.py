@@ -1915,6 +1915,20 @@ ch.postMessage({type:'preview-ready'});
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/venv$'):
+            exp_id = m.group(1)
+            venv_dir = os.path.join(EXPERIMENTS_DIR, exp_id, 'venv')
+            if not os.path.isdir(venv_dir):
+                self._send_json({'error': 'No venv found'}, 404)
+                return
+            _kill_kernel(exp_id)
+            shutil.rmtree(venv_dir)
+            meta = read_meta(exp_id)
+            if meta:
+                meta['pythonPath'] = 'python3'
+                write_meta(exp_id, meta)
+            self._send_json({'ok': True})
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/kernel$'):
             exp_id = m.group(1)
             _kill_kernel(exp_id)

@@ -1,3 +1,37 @@
+// ── RL Templates ──
+const _RL_ENV_TEMPLATE = `import gymnasium as gym
+
+# ── Classic Control (works out of the box with just gymnasium) ──
+env = gym.make("CartPole-v1")
+print("Observation Space:", env.observation_space)
+print("Action Space:", env.action_space)
+
+obs, info = env.reset(seed=42)
+total_reward = 0
+episodes = 0
+
+for _ in range(10_000):
+    action = env.action_space.sample()
+    obs, reward, terminated, truncated, info = env.step(action)
+    total_reward += reward
+
+    if terminated or truncated:
+        episodes += 1
+        print(f"Episode {episodes} finished with reward: {total_reward}")
+        obs, info = env.reset()
+        total_reward = 0
+
+env.close()
+
+# ── Atari (requires extra setup) ──
+# pip install ale-py AutoROM
+# python -m AutoROM --accept-license
+#
+# import ale_py
+# gym.register_envs(ale_py)
+# env = gym.make("ALE/MsPacman-v5", frameskip=4)
+`;
+
 // ── Projects List (server-backed) ──
 let allExperiments = [];
 
@@ -526,7 +560,7 @@ function renderFilesList(files, emptyDirs) {
   emptyDirs = emptyDirs || [];
   const el = document.getElementById('exp-sidebar-files');
   if (!files.length && !emptyDirs.length) {
-    el.innerHTML = '<div class="text-dimmest text-[0.75rem] py-2">No files yet.</div>';
+    el.innerHTML = '<div class="text-dimmest text-[0.75rem] py-2 px-2">No files yet.</div>';
     return;
   }
   const tree = _buildFileTree(files, emptyDirs);
@@ -535,7 +569,7 @@ function renderFilesList(files, emptyDirs) {
     const isActive = currentFile === f;
     const isSelected = _selectedFiles.has(f);
     const hasSelection = _selectedFiles.size > 0;
-    const activeCls = isSelected ? 'bg-blue-500/15 border-l-2 border-blue-500' : isActive ? 'bg-accent/10 border-l-2 border-accent' : 'border-l-2 border-transparent';
+    const activeCls = isSelected ? 'bg-blue-500/15' : isActive ? 'bg-card' : '';
     const displayName = f.split('/').pop();
     const [badge, badgeCls] = _fileExtBadge(f);
     const escapedF = escapeHtml(f).replace(/'/g, "\\'");
@@ -966,7 +1000,9 @@ async function openFile(fname) {
   const editor = document.getElementById('exp-file-editor');
   editor.style.display = 'flex';
   editor.style.flexDirection = 'column';
-  editor.style.height = '100%';
+  editor.style.flex = '1 1 0%';
+  editor.style.minHeight = '0';
+  editor.style.overflow = 'hidden';
   var cp = document.getElementById('exp-content-pane');
   cp.style.overflow = 'hidden';
   cp.style.display = 'flex';
@@ -1108,7 +1144,9 @@ function closeFileEditor() {
   const el = document.getElementById('exp-file-editor');
   el.style.display = 'none';
   el.style.flexDirection = '';
-  el.style.height = '';
+  el.style.flex = '';
+  el.style.minHeight = '';
+  el.style.overflow = '';
   var cp = document.getElementById('exp-content-pane');
   cp.style.overflow = '';
   cp.style.display = '';
@@ -1309,6 +1347,59 @@ async function _onExpCardDrop(e, targetExpId) {
   } catch (e) { /* silently fail */ }
 }
 
+// ── Resizable Experiment Sidebar ──
+
+function _initExpSidebarResize() {
+  const handle = document.getElementById('exp-sidebar-resize');
+  if (!handle) return;
+  let dragging = false;
+  let startX, startWidth;
+
+  handle.addEventListener('mousedown', e => {
+    const grid = document.querySelector('#exp-detail-view .grid');
+    if (!grid || grid.classList.contains('exp-sidebar-collapsed')) return;
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startWidth = document.getElementById('exp-sidebar').offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      if (!dragging) return;
+      const delta = e.clientX - startX;
+      const newWidth = Math.max(160, Math.min(600, startWidth + delta));
+      grid.style.gridTemplateColumns = newWidth + 'px 1px 1fr';
+    }
+    function onUp() {
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      // Persist width
+      const w = document.getElementById('exp-sidebar').offsetWidth;
+      localStorage.setItem('expSidebarWidth', w);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function _restoreExpSidebarWidth() {
+  const grid = document.querySelector('#exp-detail-view .grid');
+  if (!grid || grid.classList.contains('exp-sidebar-collapsed')) return;
+  const saved = localStorage.getItem('expSidebarWidth');
+  if (saved) {
+    const w = parseInt(saved, 10);
+    if (w >= 160 && w <= 600) {
+      grid.style.gridTemplateColumns = w + 'px 1px 1fr';
+    }
+  }
+}
+
 // ── Collapsible Experiment Sidebar (Desktop) ──
 
 function toggleExpSidebar() {
@@ -1317,6 +1408,11 @@ function toggleExpSidebar() {
   grid.classList.toggle('exp-sidebar-collapsed');
   const collapsed = grid.classList.contains('exp-sidebar-collapsed');
   localStorage.setItem('expSidebarCollapsed', collapsed ? '1' : '0');
+  if (collapsed) {
+    grid.style.gridTemplateColumns = '';
+  } else {
+    _restoreExpSidebarWidth();
+  }
 }
 
 function _restoreExpSidebarState() {
@@ -1436,6 +1532,8 @@ openExperimentDetail = function(id) {
   _lastClickedFile = null;
   _origOpenExperimentDetail(id);
   _restoreExpSidebarState();
+  _restoreExpSidebarWidth();
+  _initExpSidebarResize();
   _initExpSidebarDrop();
   setTimeout(() => initExpSidebarMobile(), 100);
 };
