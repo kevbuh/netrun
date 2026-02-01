@@ -32,7 +32,7 @@ from persistence import (
     read_prompt, write_prompt, get_active_prompt,
     DEFAULT_VERDICT_PROMPT, DEFAULT_SCORING_PROMPT,
     classify_title, cached_fetch,
-    create_user, verify_user, create_session,
+    upsert_google_user, get_user_info, create_session,
     get_session_user, delete_session,
     get_all_user_data, set_user_data, set_user_data_bulk,
 )
@@ -43,6 +43,7 @@ from kernels import (
 )
 
 PORT = 8000
+GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
 
 # In-memory cache for extracted document text: url -> { text, pages }
 _extract_cache = {}
@@ -124,7 +125,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return ' AND '.join(parts) if parts else 'all:*'
 
     def do_GET(self):
-        if self.path == '/feed':
+        if self.path == '/favicon.ico':
+            favicon = os.path.join(DIR, 'favicon.png')
+            if os.path.exists(favicon):
+                with open(favicon, 'rb') as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
+            return
+
+        elif self.path == '/feed':
             try:
                 data = cached_fetch('https://rss.arxiv.org/rss/cs')
                 self.send_response(200)
@@ -808,9 +824,13 @@ ch.postMessage({type:'preview-ready'});
             self.wfile.write(html)
 
         elif self.path == '/api/auth/me':
-            username = self._get_user()
-            if username:
-                self._send_json({'username': username})
+            google_id = self._get_user()
+            if google_id:
+                info = get_user_info(google_id)
+                if info:
+                    self._send_json(info)
+                else:
+                    self._send_json({'google_id': google_id})
             else:
                 self._send_json({'error': 'Not authenticated'}, 401)
 
@@ -818,45 +838,41 @@ ch.postMessage({type:'preview-ready'});
             super().do_GET()
 
     def _get_user(self):
-        """Extract username from Authorization: Bearer <token> header."""
+        """Extract google_id from Authorization: Bearer <token> header."""
         auth = self.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
             return get_session_user(auth[7:])
         return None
 
     def do_POST(self):
-        if self.path == '/api/auth/register':
+        if self.path == '/api/auth/google':
             body = self._read_body()
-            username = body.get('username', '').strip().lower()
-            password = body.get('password', '')
-            if not username or not password:
-                self._send_json({'error': 'Username and password required'}, 400)
+            credential = body.get('credential', '')
+            if not credential:
+                self._send_json({'error': 'Missing credential'}, 400)
                 return
-            if len(username) < 2 or len(username) > 30:
-                self._send_json({'error': 'Username must be 2-30 characters'}, 400)
+            # Verify Google ID token
+            try:
+                verify_url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + credential
+                req = urllib.request.Request(verify_url)
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    token_info = json.loads(resp.read())
+                if token_info.get('aud') != GOOGLE_CLIENT_ID:
+                    self._send_json({'error': 'Invalid token audience'}, 401)
+                    return
+                google_id = token_info.get('sub')
+                email = token_info.get('email', '')
+                name = token_info.get('name', '')
+                if not google_id:
+                    self._send_json({'error': 'Invalid token'}, 401)
+                    return
+            except Exception as e:
+                self._send_json({'error': f'Token verification failed: {e}'}, 401)
                 return
-            if len(password) < 4:
-                self._send_json({'error': 'Password must be at least 4 characters'}, 400)
-                return
-            if not re.match(r'^[a-z0-9_-]+$', username):
-                self._send_json({'error': 'Username may only contain letters, numbers, hyphens, underscores'}, 400)
-                return
-            if not create_user(username, password):
-                self._send_json({'error': 'Username already taken'}, 409)
-                return
-            token = create_session(username)
-            self._send_json({'token': token, 'username': username}, 201)
-            return
-
-        elif self.path == '/api/auth/login':
-            body = self._read_body()
-            username = body.get('username', '').strip().lower()
-            password = body.get('password', '')
-            if not verify_user(username, password):
-                self._send_json({'error': 'Invalid username or password'}, 401)
-                return
-            token = create_session(username)
-            self._send_json({'token': token, 'username': username})
+            upsert_google_user(google_id, email, name)
+            token = create_session(google_id)
+            self._send_json({'token': token, 'email': email, 'name': name})
             return
 
         elif self.path == '/api/auth/logout':

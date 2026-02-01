@@ -990,7 +990,7 @@ function renderPapers() {
     }
   }
   const container = document.getElementById('papers');
-  if (!filtered.length && pendingCount > 0) { container.innerHTML = '<div class="text-center py-20 text-dim text-[0.85rem]"><span class="animate-pulse">●</span> Evaluating posts…</div>'; return; }
+  if (!filtered.length && pendingCount > 0) { container.innerHTML = '<div class="text-center py-20 text-dim text-[0.85rem]"><span class="spinner"></span> Evaluating posts…</div>'; return; }
   if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
   if (feedViewMode === 'compact') {
     container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => {

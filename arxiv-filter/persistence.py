@@ -5,7 +5,6 @@ import ssl
 import time
 import urllib.request
 import sqlite3
-import hashlib
 import secrets
 
 DIR = os.path.dirname(os.path.abspath(__file__))
@@ -274,70 +273,63 @@ def init_db():
     conn = _get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY,
-            password_hash TEXT NOT NULL,
+            google_id TEXT PRIMARY KEY,
+            email TEXT,
+            name TEXT,
             created REAL NOT NULL
         );
         CREATE TABLE IF NOT EXISTS sessions (
             token TEXT PRIMARY KEY,
-            username TEXT NOT NULL,
+            google_id TEXT NOT NULL,
             expires REAL NOT NULL,
-            FOREIGN KEY (username) REFERENCES users(username)
+            FOREIGN KEY (google_id) REFERENCES users(google_id)
         );
         CREATE TABLE IF NOT EXISTS user_data (
-            username TEXT NOT NULL,
+            google_id TEXT NOT NULL,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
             updated REAL NOT NULL,
-            PRIMARY KEY (username, key),
-            FOREIGN KEY (username) REFERENCES users(username)
+            PRIMARY KEY (google_id, key),
+            FOREIGN KEY (google_id) REFERENCES users(google_id)
         );
     """)
     conn.close()
 
 
-def _hash_password(password):
-    salt = secrets.token_hex(16)
-    h = hashlib.sha256((salt + password).encode()).hexdigest()
-    return salt + ':' + h
-
-
-def _verify_password(password, stored):
-    salt, h = stored.split(':', 1)
-    return hashlib.sha256((salt + password).encode()).hexdigest() == h
-
-
-def create_user(username, password):
+def upsert_google_user(google_id, email, name):
     conn = _get_db()
-    try:
+    row = conn.execute("SELECT google_id FROM users WHERE google_id = ?", (google_id,)).fetchone()
+    if row:
         conn.execute(
-            "INSERT INTO users (username, password_hash, created) VALUES (?, ?, ?)",
-            (username, _hash_password(password), time.time())
+            "UPDATE users SET email = ?, name = ? WHERE google_id = ?",
+            (email, name, google_id)
         )
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
+    else:
+        conn.execute(
+            "INSERT INTO users (google_id, email, name, created) VALUES (?, ?, ?, ?)",
+            (google_id, email, name, time.time())
+        )
+    conn.commit()
+    conn.close()
+    return google_id
 
 
-def verify_user(username, password):
+def get_user_info(google_id):
     conn = _get_db()
-    row = conn.execute("SELECT password_hash FROM users WHERE username = ?", (username,)).fetchone()
+    row = conn.execute("SELECT google_id, email, name FROM users WHERE google_id = ?", (google_id,)).fetchone()
     conn.close()
     if not row:
-        return False
-    return _verify_password(password, row['password_hash'])
+        return None
+    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name']}
 
 
-def create_session(username):
+def create_session(google_id):
     token = secrets.token_urlsafe(32)
     expires = time.time() + SESSION_TTL
     conn = _get_db()
     conn.execute(
-        "INSERT INTO sessions (token, username, expires) VALUES (?, ?, ?)",
-        (token, username, expires)
+        "INSERT INTO sessions (token, google_id, expires) VALUES (?, ?, ?)",
+        (token, google_id, expires)
     )
     conn.commit()
     conn.close()
@@ -349,12 +341,12 @@ def get_session_user(token):
         return None
     conn = _get_db()
     row = conn.execute(
-        "SELECT username, expires FROM sessions WHERE token = ?", (token,)
+        "SELECT google_id, expires FROM sessions WHERE token = ?", (token,)
     ).fetchone()
     conn.close()
     if not row or row['expires'] < time.time():
         return None
-    return row['username']
+    return row['google_id']
 
 
 def delete_session(token):
@@ -364,10 +356,10 @@ def delete_session(token):
     conn.close()
 
 
-def get_all_user_data(username):
+def get_all_user_data(google_id):
     conn = _get_db()
     rows = conn.execute(
-        "SELECT key, value, updated FROM user_data WHERE username = ?", (username,)
+        "SELECT key, value, updated FROM user_data WHERE google_id = ?", (google_id,)
     ).fetchall()
     conn.close()
     result = {}
@@ -379,27 +371,27 @@ def get_all_user_data(username):
     return result
 
 
-def set_user_data(username, key, value, updated=None):
+def set_user_data(google_id, key, value, updated=None):
     if updated is None:
         updated = time.time()
     conn = _get_db()
     conn.execute(
-        "INSERT OR REPLACE INTO user_data (username, key, value, updated) VALUES (?, ?, ?, ?)",
-        (username, key, json.dumps(value), updated)
+        "INSERT OR REPLACE INTO user_data (google_id, key, value, updated) VALUES (?, ?, ?, ?)",
+        (google_id, key, json.dumps(value), updated)
     )
     conn.commit()
     conn.close()
 
 
-def set_user_data_bulk(username, data):
+def set_user_data_bulk(google_id, data):
     """data is dict of {key: {value, updated}}"""
     conn = _get_db()
     for key, entry in data.items():
         value = entry.get('value')
         updated = entry.get('updated', time.time())
         conn.execute(
-            "INSERT OR REPLACE INTO user_data (username, key, value, updated) VALUES (?, ?, ?, ?)",
-            (username, key, json.dumps(value), updated)
+            "INSERT OR REPLACE INTO user_data (google_id, key, value, updated) VALUES (?, ?, ?, ?)",
+            (google_id, key, json.dumps(value), updated)
         )
     conn.commit()
     conn.close()

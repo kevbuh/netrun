@@ -856,7 +856,7 @@ function playClickSound() {
     const ctx = _clickSoundCtx;
     const t = ctx.currentTime;
 
-    const type = localStorage.getItem('clickSoundType') || 'tap';
+    const type = localStorage.getItem('clickSoundType') || 'thud';
     const preset = CLICK_SOUND_PRESETS[type] || CLICK_SOUND_PRESETS.tap;
     preset.play(ctx, t);
   } catch {}
@@ -1122,8 +1122,10 @@ if (localStorage.getItem('rainOn') === '1') {
 
 // ── User accounts & sync ──
 
+const GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
 let _authToken = localStorage.getItem('authToken') || null;
-let _authUser = localStorage.getItem('authUser') || null;
+let _authUser = localStorage.getItem('authUser') || null;  // email or name
+let _authUserInfo = null;  // { google_id, email, name }
 let _syncInterval = null;
 let _authReady = false;  // true once login gate has been resolved
 
@@ -1148,7 +1150,12 @@ function _authHeaders() {
 function _showLoginGate() {
   const gate = document.getElementById('login-gate');
   if (gate) gate.style.display = '';
-  _renderLoginForm();
+  // Defer until DOM is ready (login gate HTML is at bottom of body, after scripts)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _renderGoogleButton);
+  } else {
+    _renderGoogleButton();
+  }
 }
 
 function _hideLoginGate() {
@@ -1156,88 +1163,64 @@ function _hideLoginGate() {
   if (gate) gate.style.display = 'none';
 }
 
-function _renderLoginForm() {
-  const title = document.getElementById('auth-modal-title');
-  const body = document.getElementById('auth-modal-body');
-  if (!body) return;
-  if (title) title.textContent = 'Sign in to continue';
-  body.innerHTML = `
-    <div class="auth-error" id="auth-error"></div>
-    <div class="flex flex-col gap-3">
-      <input class="auth-input" id="auth-username" type="text" placeholder="Username" autocomplete="username" />
-      <input class="auth-input" id="auth-password" type="password" placeholder="Password" autocomplete="current-password" />
-      <button class="auth-btn" id="auth-submit" onclick="_doLogin()">Sign In</button>
-    </div>
-    <div class="auth-switch">Don't have an account? <a onclick="_renderRegisterForm()">Create one</a></div>
-  `;
-  setTimeout(() => document.getElementById('auth-username')?.focus(), 50);
-  _attachEnterKey();
-}
-
-function _renderRegisterForm() {
-  const title = document.getElementById('auth-modal-title');
-  const body = document.getElementById('auth-modal-body');
-  if (!body) return;
-  if (title) title.textContent = 'Create an account';
-  body.innerHTML = `
-    <div class="auth-error" id="auth-error"></div>
-    <div class="flex flex-col gap-3">
-      <input class="auth-input" id="auth-username" type="text" placeholder="Username" autocomplete="username" />
-      <input class="auth-input" id="auth-password" type="password" placeholder="Password (4+ characters)" autocomplete="new-password" />
-      <button class="auth-btn" id="auth-submit" onclick="_doRegister()">Create Account</button>
-    </div>
-    <div class="auth-switch">Already have an account? <a onclick="_renderLoginForm()">Sign in</a></div>
-  `;
-  setTimeout(() => document.getElementById('auth-username')?.focus(), 50);
-  _attachEnterKey();
-}
-
-function _attachEnterKey() {
-  const pw = document.getElementById('auth-password');
-  if (pw) {
-    pw.addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('auth-submit')?.click();
+let _gisRetries = 0;
+function _renderGoogleButton() {
+  const container = document.getElementById('google-signin-btn');
+  if (!container) { console.warn('[auth] no google-signin-btn container'); return; }
+  // Wait for GIS library to load (up to ~10s)
+  if (typeof google === 'undefined' || !google.accounts) {
+    _gisRetries++;
+    if (_gisRetries % 10 === 1) console.log('[auth] waiting for GIS library... attempt', _gisRetries);
+    if (_gisRetries < 50) {
+      setTimeout(_renderGoogleButton, 200);
+    } else {
+      console.error('[auth] Google Identity Services failed to load after 50 attempts');
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In failed to load. Check that accounts.google.com is reachable and <code>http://localhost:8000</code> is an authorized JavaScript origin in your Google Cloud Console.</p>';
+    }
+    return;
+  }
+  console.log('[auth] GIS loaded, rendering button');
+  try {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: _handleGoogleCredential,
     });
+    google.accounts.id.renderButton(container, {
+      theme: 'outline',
+      size: 'large',
+      width: 280,
+    });
+  } catch (e) {
+    console.error('[auth] GIS renderButton error:', e);
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In error: ' + e.message + '</p>';
+  }
+}
+
+async function _handleGoogleCredential(response) {
+  const errEl = document.getElementById('auth-error');
+  if (errEl) errEl.textContent = '';
+  try {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sign-in failed');
+    _authToken = data.token;
+    _authUser = (data.name || data.email || '').split(' ')[0];
+    _authUserInfo = { email: data.email, name: data.name };
+    localStorage.setItem('authToken', _authToken);
+    localStorage.setItem('authUser', _authUser);
+    // Sync: pull from server first for returning users, push for new
+    await syncFromServer();
+    _onLoginSuccess();
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
   }
 }
 
 // ── Auth actions ──
-
-async function authRegister(username, password) {
-  const res = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Registration failed');
-  _authToken = data.token;
-  _authUser = data.username;
-  localStorage.setItem('authToken', _authToken);
-  localStorage.setItem('authUser', _authUser);
-  // New user: push current defaults to server
-  await syncToServer();
-  _onLoginSuccess();
-  return data;
-}
-
-async function authLogin(username, password) {
-  const res = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Login failed');
-  _authToken = data.token;
-  _authUser = data.username;
-  localStorage.setItem('authToken', _authToken);
-  localStorage.setItem('authUser', _authUser);
-  // Existing user: pull their settings from server
-  await syncFromServer();
-  _onLoginSuccess();
-  return data;
-}
 
 function _onLoginSuccess() {
   _authReady = true;
@@ -1259,6 +1242,7 @@ async function authLogout() {
   }
   _authToken = null;
   _authUser = null;
+  _authUserInfo = null;
   _authReady = false;
   localStorage.removeItem('authToken');
   localStorage.removeItem('authUser');
@@ -1267,41 +1251,14 @@ async function authLogout() {
   _showLoginGate();
 }
 
-// ── Account sidebar button + modal (when already logged in) ──
-
 function _updateAccountUI() {
-  const btn = document.getElementById('sb-account');
-  const label = document.getElementById('sb-account-label');
-  if (!btn) return;
-  if (_authUser) {
-    btn.classList.add('logged-in');
-    if (label) label.textContent = _authUser;
-  } else {
-    btn.classList.remove('logged-in');
-    if (label) label.textContent = 'Account';
-  }
+  // No-op: account info is now shown inline in Settings view
 }
 
 function openAuthModal() {
   if (!_authUser) { _showLoginGate(); return; }
-  const modal = document.getElementById('auth-modal');
-  if (!modal) return;
-  modal.style.display = '';
-  const body = document.getElementById('account-modal-body');
-  if (!body) return;
-  body.innerHTML = `
-    <div class="auth-logged-in">
-      <div class="auth-username">${escapeHtml(_authUser)}</div>
-      <div class="auth-sync-status" id="account-sync-status">Syncing across devices</div>
-      <button class="auth-btn" style="margin-bottom:8px" onclick="_doSyncNow()">Sync Now</button>
-      <button class="auth-logout-btn" onclick="_doLogout()">Sign Out</button>
-    </div>
-  `;
-}
-
-function closeAuthModal() {
-  const modal = document.getElementById('auth-modal');
-  if (modal) modal.style.display = 'none';
+  // Already logged in — open settings instead
+  if (typeof openSettings === 'function') openSettings();
 }
 
 // ── Sync ──
@@ -1372,54 +1329,16 @@ function _stopSyncInterval() {
 
 // ── UI action handlers ──
 
-async function _doLogin() {
-  const errEl = document.getElementById('auth-error');
-  const btn = document.getElementById('auth-submit');
-  const username = document.getElementById('auth-username')?.value?.trim();
-  const password = document.getElementById('auth-password')?.value;
-  if (!username || !password) { if (errEl) errEl.textContent = 'Fill in both fields'; return; }
-  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
-  try {
-    await authLogin(username, password);
-  } catch (e) {
-    if (errEl) errEl.textContent = e.message;
-    if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
-  }
-}
-
-async function _doRegister() {
-  const errEl = document.getElementById('auth-error');
-  const btn = document.getElementById('auth-submit');
-  const username = document.getElementById('auth-username')?.value?.trim();
-  const password = document.getElementById('auth-password')?.value;
-  if (!username || !password) { if (errEl) errEl.textContent = 'Fill in both fields'; return; }
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
-  try {
-    await authRegister(username, password);
-  } catch (e) {
-    if (errEl) errEl.textContent = e.message;
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
-  }
-}
-
-async function _doSyncNow() {
+async function _doSettingsSync() {
+  const s = document.getElementById('settings-sync-status');
+  if (s) s.textContent = 'Syncing...';
   await syncToServer();
-  const s = document.getElementById('account-sync-status');
   if (s) s.textContent = 'Synced just now';
 }
 
 function _doLogout() {
-  closeAuthModal();
   authLogout();
 }
-
-// Close account modal on Escape (but not login gate)
-window.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    const modal = document.getElementById('auth-modal');
-    if (modal && modal.style.display !== 'none') closeAuthModal();
-  }
-});
 
 // ── Initialize: check session, show login gate if needed ──
 (function _initAuth() {
@@ -1432,7 +1351,8 @@ window.addEventListener('keydown', e => {
         throw new Error('expired');
       })
       .then(data => {
-        _authUser = data.username;
+        _authUser = (data.name || data.email || _authUser || '').split(' ')[0];
+        _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id };
         localStorage.setItem('authUser', _authUser);
         _onLoginSuccess();
         syncFromServer();
@@ -1440,6 +1360,7 @@ window.addEventListener('keydown', e => {
       .catch(() => {
         _authToken = null;
         _authUser = null;
+        _authUserInfo = null;
         localStorage.removeItem('authToken');
         localStorage.removeItem('authUser');
         _updateAccountUI();

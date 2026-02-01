@@ -42,12 +42,23 @@ function renderSettingsView() {
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
 
-    <!-- PROFILE -->
+    <!-- ACCOUNT -->
     <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
+      <h3 class="text-white_ text-sm font-semibold mb-3">Account</h3>
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-primary text-sm">Signed in as</span>
+        <span class="text-white_ text-sm font-medium">${escapeHtml(_authUserInfo?.email || _authUser || '')}</span>
+      </div>
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-primary text-sm">Display Name</span>
+        <input type="text" value="${escapeAttr(localStorage.getItem('userName') || _authUserInfo?.name || '')}" placeholder="Your name" onchange="localStorage.setItem('userName', this.value.trim())" class="w-40 px-2.5 py-1 rounded-md border border-border-input bg-card text-primary text-[0.82rem] focus:outline-none focus:border-accent transition-colors" />
+      </div>
       <div class="flex items-center justify-between">
-        <span class="text-primary text-sm">Name</span>
-        <input type="text" value="${escapeAttr(localStorage.getItem('userName') || '')}" placeholder="Your name" onchange="localStorage.setItem('userName', this.value.trim())" class="w-40 px-2.5 py-1 rounded-md border border-border-input bg-card text-primary text-[0.82rem] focus:outline-none focus:border-accent transition-colors" />
+        <span class="text-dim text-xs" id="settings-sync-status">Settings synced across devices</span>
+        <div class="flex gap-2">
+          <button onclick="_doSettingsSync()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Sync Now</button>
+          <button onclick="_doLogout()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Sign Out</button>
+        </div>
       </div>
     </div>
 
@@ -129,7 +140,7 @@ function renderSettingsView() {
         <div class="flex items-center gap-2">
           <div class="flex gap-1">
             ${Object.entries(CLICK_SOUND_PRESETS).map(([key, p]) => {
-              const sel = (localStorage.getItem('clickSoundType') || 'tap') === key;
+              const sel = (localStorage.getItem('clickSoundType') || 'thud') === key;
               return `<button onclick="setClickSoundType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
             }).join('')}
           </div>
