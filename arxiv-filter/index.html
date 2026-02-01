@@ -204,7 +204,12 @@
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.py'); hideNewFileMenu()">Python (.py)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.md'); hideNewFileMenu()">Markdown (.md)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.ipynb'); hideNewFileMenu()">Notebook (.ipynb)</button>
-              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.tex'); hideNewFileMenu()">LaTeX (.tex)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">LaTeX (.tex) <span class="text-dimmest text-[0.7rem]">...</span></button>
+              <div class="hidden">
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.tex','iclr2025'); hideNewFileMenu()">ICLR 2025</button>
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.tex','neurips2023'); hideNewFileMenu()">NeurIPS 2023</button>
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.tex','blank'); hideNewFileMenu()">Blank</button>
+              </div>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.mermaid'); hideNewFileMenu()">Diagram (.mermaid)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.draw'); hideNewFileMenu()">Drawing (.draw)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createUnstructuredFile('.slides'); hideNewFileMenu()">Slides (.slides)</button>
@@ -250,8 +255,8 @@
   <div id="exp-detail-view" class="hidden ml-[60px] view">
     <div class="grid grid-cols-[260px_1fr] h-screen overflow-hidden">
       <!-- Left Sidebar -->
-      <div id="exp-sidebar" class="border-r border-border-card px-2.5 py-3 overflow-y-auto flex flex-col">
-        <div class="flex items-center justify-between mb-3">
+      <div id="exp-sidebar" class="border-r border-border-card py-3 overflow-y-auto flex flex-col scrollbar-hide">
+        <div class="flex items-center justify-between mb-3 px-2">
           <button class="bg-transparent border-none text-muted text-[0.8rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="openExperiments()">
             <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             <span class="exp-sidebar-label">Back</span>
@@ -260,8 +265,8 @@
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 3v18" stroke-linecap="round"/></svg>
           </button>
         </div>
-        <div id="exp-detail-title" class="text-[1.1rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors nb-rendered-md mb-3" onclick="startRenameExperiment()" title="Click to rename"></div>
-        <div class="flex items-center justify-between mb-2">
+        <div id="exp-detail-title" class="text-[1.1rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors nb-rendered-md mb-3 px-2" onclick="startRenameExperiment()" title="Click to rename"></div>
+        <div class="flex items-center justify-between mb-2 px-2">
           <span class="text-[0.75rem] text-dim uppercase tracking-wide exp-sidebar-label">Files</span>
           <div class="flex items-center gap-0.5">
             <div class="relative">
@@ -270,7 +275,12 @@
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.py'); hideExpFileMenu()">Python (.py)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.md'); hideExpFileMenu()">Markdown (.md)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.ipynb'); hideExpFileMenu()">Notebook (.ipynb)</button>
-              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex'); hideExpFileMenu()">LaTeX (.tex)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">LaTeX (.tex) <span class="text-dimmest text-[0.7rem]">...</span></button>
+              <div class="hidden">
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex',undefined,'iclr2025'); hideExpFileMenu()">ICLR 2025</button>
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex',undefined,'neurips2023'); hideExpFileMenu()">NeurIPS 2023</button>
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex',undefined,'blank'); hideExpFileMenu()">Blank</button>
+              </div>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.mermaid'); hideExpFileMenu()">Diagram (.mermaid)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.draw'); hideExpFileMenu()">Drawing (.draw)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.slides'); hideExpFileMenu()">Slides (.slides)</button>
@@ -285,7 +295,7 @@
         </div>
         <div id="exp-sidebar-files"></div>
 
-        <div id="exp-papers-section" class="mt-4" style="display:none">
+        <div id="exp-papers-section" class="mt-4 px-2" style="display:none">
           <div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Papers</div>
           <div id="exp-papers-list"></div>
         </div>

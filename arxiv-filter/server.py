@@ -528,16 +528,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             import subprocess as sp
             tmp = tempfile.mkdtemp()
             try:
-                shutil.copy(fpath, os.path.join(tmp, fname))
-                # Copy neurips_2023.sty so pdflatex can find it
-                sty_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.sty')
-                if os.path.isfile(sty_path):
-                    shutil.copy(sty_path, tmp)
+                tex_basename = os.path.basename(fname)
+                shutil.copy(fpath, os.path.join(tmp, tex_basename))
+                # Copy all support files (.sty, .bst, .bib, helper .tex) from the same directory as the .tex file
+                tex_dir = os.path.dirname(fpath)
+                for sf in os.listdir(tex_dir):
+                    if sf != tex_basename and (sf.endswith('.sty') or sf.endswith('.bst') or sf.endswith('.bib') or (sf.endswith('.tex') and sf != tex_basename)):
+                        src = os.path.join(tex_dir, sf)
+                        if os.path.isfile(src):
+                            shutil.copy(src, tmp)
+                # Fallback: copy legacy .sty if nothing was found
+                if not any(f.endswith('.sty') for f in os.listdir(tmp)):
+                    sty_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.sty')
+                    if os.path.isfile(sty_path):
+                        shutil.copy(sty_path, tmp)
+                # First pdflatex pass
                 result = sp.run(
-                    ['pdflatex', '-interaction=nonstopmode', '-halt-on-error', fname],
+                    ['pdflatex', '-interaction=nonstopmode', '-halt-on-error', tex_basename],
                     cwd=tmp, capture_output=True, text=True, timeout=30
                 )
-                pdf_path = os.path.join(tmp, fname.rsplit('.', 1)[0] + '.pdf')
+                # Run bibtex if .bib files present
+                aux_name = tex_basename.rsplit('.', 1)[0]
+                if any(f.endswith('.bib') for f in os.listdir(tmp)):
+                    sp.run(['bibtex', aux_name], cwd=tmp, capture_output=True, text=True, timeout=15)
+                    # Two more pdflatex passes to resolve references
+                    sp.run(['pdflatex', '-interaction=nonstopmode', '-halt-on-error', tex_basename],
+                           cwd=tmp, capture_output=True, text=True, timeout=30)
+                    result = sp.run(
+                        ['pdflatex', '-interaction=nonstopmode', '-halt-on-error', tex_basename],
+                        cwd=tmp, capture_output=True, text=True, timeout=30
+                    )
+                pdf_path = os.path.join(tmp, aux_name + '.pdf')
                 if result.returncode != 0 or not os.path.isfile(pdf_path):
                     log = result.stdout + '\n' + result.stderr
                     self._send_json({'error': 'Compilation failed', 'log': log}, 400)
@@ -1415,7 +1436,14 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': f'Name must end with {", ".join(allowed_ext)}'}, 400)
                 return
             fpath = os.path.join(exp_dir, name)
-            if os.path.exists(fpath):
+            # For template-based .tex files, check the folder instead
+            template_key = body.get('template') if name.endswith('.tex') else None
+            if template_key:
+                folder_dir = os.path.join(exp_dir, template_key)
+                if os.path.exists(folder_dir):
+                    self._send_json({'error': 'Folder already exists'}, 409)
+                    return
+            elif os.path.exists(fpath):
                 self._send_json({'error': 'File already exists'}, 409)
                 return
             initial = body.get('content', None)
@@ -1442,9 +1470,28 @@ ch.postMessage({type:'preview-ready'});
                 with open(fpath, 'w') as f:
                     f.write(json.dumps({"version": 1, "slides": [{"id": "slide-1", "objects": [], "background": None}]}))
             elif name.endswith('.tex'):
-                template_path = os.path.join(os.path.dirname(__file__), 'neurips_2023.tex')
-                if os.path.isfile(template_path):
-                    shutil.copy(template_path, fpath)
+                template_key = body.get('template')
+                if template_key:
+                    # Create inside a folder named after the template
+                    templates_dir = os.path.join(os.path.dirname(__file__), 'templates', template_key)
+                    template_tex = os.path.join(templates_dir, 'template.tex')
+                    if os.path.isfile(template_tex):
+                        folder_name = template_key
+                        folder_dir = os.path.join(EXPERIMENTS_DIR, exp_id, folder_name)
+                        os.makedirs(folder_dir, exist_ok=True)
+                        tex_name = 'paper.tex'
+                        fpath = os.path.join(folder_dir, tex_name)
+                        name = folder_name + '/' + tex_name
+                        shutil.copy(template_tex, fpath)
+                        # Copy support files into the same folder
+                        for sf in os.listdir(templates_dir):
+                            if sf != 'template.tex':
+                                dst = os.path.join(folder_dir, sf)
+                                if not os.path.exists(dst):
+                                    shutil.copy(os.path.join(templates_dir, sf), dst)
+                    else:
+                        with open(fpath, 'w') as f:
+                            f.write('')
                 else:
                     with open(fpath, 'w') as f:
                         f.write('')

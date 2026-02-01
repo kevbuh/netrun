@@ -351,7 +351,7 @@ function _fileExtBadge(f) {
   const name = f.includes('/') ? f.split('/').pop() : f;
   if (name.endsWith('.ipynb')) return ['nb', 'bg-orange-500/20 text-orange-400'];
   if (name.endsWith('.py')) return ['py', 'bg-emerald-500/20 text-emerald-400'];
-  if (name.endsWith('.tex')) return ['tex', 'bg-red-500/20 text-red-400'];
+  if (name.endsWith('.tex') || name.endsWith('.sty') || name.endsWith('.bst')) return ['tex', 'bg-red-500/20 text-red-400'];
   if (name.endsWith('.mermaid')) return ['dia', 'bg-cyan-500/20 text-cyan-400'];
   if (name.endsWith('.draw')) return ['drw', 'bg-violet-500/20 text-violet-400'];
   if (name.endsWith('.slides')) return ['sld', 'bg-pink-500/20 text-pink-400'];
@@ -414,14 +414,14 @@ function renderFilesList(files, emptyDirs) {
     const [badge, badgeCls] = _fileExtBadge(f);
     const escapedF = escapeHtml(f).replace(/'/g, "\\'");
     return `
-    <div class="exp-file-row flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors ${activeCls}" draggable="true" data-filepath="${escapeHtml(f)}" onclick="openFile('${escapedF}')" title="${escapeHtml(f)}"
+    <div class="exp-file-row relative flex items-center py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors overflow-hidden ${activeCls}" draggable="true" data-filepath="${escapeHtml(f)}" onclick="openFile('${escapedF}')" title="${escapeHtml(f)}"
          ondragstart="_draggedFile='${escapedF}'; this.style.opacity='0.5'"
          ondragend="_draggedFile=null; this.style.opacity=''">
       <div class="flex items-center gap-1.5 min-w-0">
         <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
         <span class="text-[0.8rem] text-primary truncate">${escapeHtml(displayName)}</span>
       </div>
-      <div class="flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 rounded-md">
         <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); duplicateExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" title="Duplicate">
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         </button>
@@ -569,7 +569,7 @@ function hideExpFileMenuOnClick(e) {
   if (menu && !menu.contains(e.target)) menu.classList.add('hidden');
 }
 
-async function createExpFile(ext, content) {
+async function createExpFile(ext, content, template) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
@@ -580,12 +580,15 @@ async function createExpFile(ext, content) {
   while (existing.includes(name)) { name = `${base}${sep}${i}${ext}`; i++; }
   const payload = {name};
   if (content !== undefined) payload.content = content;
-  await fetch(`/api/experiments/${currentExpId}/files`, {
+  if (template) payload.template = template;
+  const createResp = await fetch(`/api/experiments/${currentExpId}/files`, {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify(payload)
   });
+  const result = await createResp.json().catch(() => null);
+  const actualName = result?.name || name;
   fetchExpFiles();
-  return name;
+  return actualName;
 }
 
 function promptCloneRepo() {
@@ -853,7 +856,7 @@ async function openFile(fname) {
     renderNotebookEditor(fname, data.content);
   } else if (fname.endsWith('.py')) {
     renderPythonEditor(fname, data.content);
-  } else if (fname.endsWith('.tex')) {
+  } else if (fname.endsWith('.tex') || fname.endsWith('.sty') || fname.endsWith('.bst')) {
     renderLatexEditor(fname, data.content);
   } else if (fname.endsWith('.mermaid')) {
     renderMermaidEditor(fname, data.content);
@@ -1044,7 +1047,7 @@ function openUnstructuredFile(fname) {
   setTimeout(() => openFile(fname), 300);
 }
 
-async function createUnstructuredFile(ext) {
+async function createUnstructuredFile(ext, template) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
@@ -1053,11 +1056,15 @@ async function createUnstructuredFile(ext) {
   const existing = Array.isArray(data) ? data : data.files || [];
   const sep = ext === '.py' ? '_' : '-';
   while (existing.includes(name)) { name = `${base}${sep}${i}${ext}`; i++; }
-  await fetch('/api/experiments/_unstructured/files', {
+  const payload = { name };
+  if (template) payload.template = template;
+  const createResp = await fetch('/api/experiments/_unstructured/files', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name })
+    body: JSON.stringify(payload)
   });
-  openUnstructuredFile(name);
+  const result = await createResp.json().catch(() => null);
+  const actualName = result?.name || name;
+  openUnstructuredFile(actualName);
 }
 
 async function createUnstructuredFolder() {
