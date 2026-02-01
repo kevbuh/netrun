@@ -492,8 +492,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            allowed_ext = ('.md', '.ipynb', '.py', '.tex', '.png', '.svg', '.mermaid', '.draw', '.slides')
             skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
+            skip_files = {'meta.json', '.DS_Store', 'Thumbs.db'}
             files = []
             dirs_with_files = set()
             all_dirs = set()
@@ -505,7 +505,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     top = rel_dir.split(os.sep)[0]
                     all_dirs.add(top)
                 for f in filenames:
-                    if f.endswith(allowed_ext) and f != 'meta.json':
+                    if f not in skip_files and not f.startswith('.'):
                         rel = os.path.relpath(os.path.join(dirpath, f), exp_dir)
                         files.append(rel)
                         if '/' in rel or os.sep in rel:
@@ -589,16 +589,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isfile(fpath):
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            if fname.endswith(('.png', '.svg')):
-                import base64
+            _binary_mime = {
+                '.png': 'image/png', '.svg': 'image/svg+xml',
+                '.gif': 'image/gif', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp', '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+                '.pdf': 'application/pdf',
+                '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+                '.mp4': 'video/mp4', '.webm': 'video/webm',
+                '.zip': 'application/zip', '.tar': 'application/x-tar',
+                '.gz': 'application/gzip',
+            }
+            ext = os.path.splitext(fname)[1].lower()
+            if ext in _binary_mime:
                 with open(fpath, 'rb') as f:
                     data = base64.b64encode(f.read()).decode()
-                mime = 'image/png' if fname.endswith('.png') else 'image/svg+xml'
-                self._send_json({'name': fname, 'content': f'data:{mime};base64,{data}', 'image': True})
+                mime = _binary_mime[ext]
+                self._send_json({'name': fname, 'content': f'data:{mime};base64,{data}', 'binary': True, 'mime': mime})
             else:
-                with open(fpath, 'r') as f:
-                    content = f.read()
-                self._send_json({'name': fname, 'content': content})
+                try:
+                    with open(fpath, 'r') as f:
+                        content = f.read()
+                    self._send_json({'name': fname, 'content': content})
+                except UnicodeDecodeError:
+                    with open(fpath, 'rb') as f:
+                        data = base64.b64encode(f.read()).decode()
+                    self._send_json({'name': fname, 'content': f'data:application/octet-stream;base64,{data}', 'binary': True, 'mime': 'application/octet-stream'})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/packages$'):
             exp_id = m.group(1)

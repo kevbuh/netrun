@@ -341,8 +341,17 @@ function _fileExtBadge(f) {
   if (name.endsWith('.mermaid')) return ['dia', 'bg-cyan-500/20 text-cyan-400'];
   if (name.endsWith('.draw')) return ['drw', 'bg-violet-500/20 text-violet-400'];
   if (name.endsWith('.slides')) return ['sld', 'bg-pink-500/20 text-pink-400'];
-  if (name.endsWith('.png') || name.endsWith('.svg')) return [name.endsWith('.png') ? 'png' : 'svg', 'bg-purple-500/20 text-purple-400'];
-  return ['md', 'bg-blue-500/20 text-blue-400'];
+  if (/\.(png|svg|gif|jpg|jpeg|webp|bmp|ico)$/i.test(name)) {
+    const ext = name.split('.').pop().toLowerCase();
+    return [ext.slice(0, 3), 'bg-purple-500/20 text-purple-400'];
+  }
+  if (name.endsWith('.pdf')) return ['pdf', 'bg-red-500/20 text-red-400'];
+  if (/\.(mp3|wav|ogg)$/i.test(name)) return ['aud', 'bg-yellow-500/20 text-yellow-400'];
+  if (/\.(mp4|webm)$/i.test(name)) return ['vid', 'bg-indigo-500/20 text-indigo-400'];
+  if (/\.(zip|tar|gz)$/i.test(name)) return ['zip', 'bg-gray-500/20 text-gray-400'];
+  if (name.endsWith('.md')) return ['md', 'bg-blue-500/20 text-blue-400'];
+  const ext = name.includes('.') ? name.split('.').pop().toLowerCase().slice(0, 3) : '?';
+  return [ext, 'bg-gray-500/20 text-gray-400'];
 }
 
 let _draggedFile = null;
@@ -818,8 +827,14 @@ async function openFile(fname) {
   cp.style.display = 'flex';
   cp.style.flexDirection = 'column';
 
-  if (fname.endsWith('.png') || fname.endsWith('.svg')) {
+  if (/\.(png|svg|gif|jpg|jpeg|webp|bmp|ico)$/i.test(fname)) {
     renderImageViewer(fname, data.content);
+  } else if (/\.(mp4|webm)$/i.test(fname)) {
+    renderMediaViewer(fname, data.content, 'video');
+  } else if (/\.(mp3|wav|ogg)$/i.test(fname)) {
+    renderMediaViewer(fname, data.content, 'audio');
+  } else if (data.binary) {
+    renderBinaryViewer(fname, data.content, data.mime);
   } else if (fname.endsWith('.ipynb')) {
     renderNotebookEditor(fname, data.content);
   } else if (fname.endsWith('.py')) {
@@ -850,6 +865,42 @@ function renderImageViewer(fname, dataUrl) {
     </div>
     <div class="flex items-center justify-center p-8 min-h-[300px]">
       <img src="${dataUrl}" class="max-w-full max-h-[70vh] rounded shadow-lg" alt="${escapeHtml(fname)}" />
+    </div>`;
+}
+
+function renderMediaViewer(fname, dataUrl, type) {
+  const editor = document.getElementById('exp-file-editor');
+  const tag = type === 'video'
+    ? `<video src="${dataUrl}" controls class="max-w-full max-h-[70vh] rounded shadow-lg"></video>`
+    : `<audio src="${dataUrl}" controls class="w-full max-w-[400px]"></audio>`;
+  editor.innerHTML = `
+    <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
+      <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
+      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline" title="Download">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+    <div class="flex items-center justify-center p-8 min-h-[300px]">
+      ${tag}
+    </div>`;
+}
+
+function renderBinaryViewer(fname, dataUrl, mime) {
+  const editor = document.getElementById('exp-file-editor');
+  const sizeInfo = dataUrl ? `~${Math.round(dataUrl.length * 3 / 4 / 1024)} KB` : '';
+  editor.innerHTML = `
+    <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
+      <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
+      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline" title="Download">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+    <div class="flex flex-col items-center justify-center p-8 min-h-[300px] gap-3 text-dimmer">
+      <svg class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="text-[0.85rem] text-muted">${escapeHtml(fname)}</div>
+      <div class="text-[0.75rem]">${escapeHtml(mime || 'Binary file')} ${sizeInfo ? '· ' + sizeInfo : ''}</div>
     </div>`;
 }
 
@@ -1009,6 +1060,32 @@ async function deleteUnstructuredFile(fname) {
   if (!confirm(`Delete ${fname}?`)) return;
   await fetch(`/api/experiments/_unstructured/files/${fname}`, { method: 'DELETE' });
   fetchUnstructuredFiles();
+}
+
+function triggerUnstructuredFileUpload() {
+  const input = document.getElementById('unstructured-upload-input');
+  if (input) { input.value = ''; input.click(); }
+}
+
+async function uploadUnstructuredFiles(files) {
+  if (!files || !files.length) return;
+  const formData = new FormData();
+  for (const f of files) {
+    formData.append('files', f);
+  }
+  try {
+    const resp = await fetch('/api/experiments/_unstructured/upload', {
+      method: 'POST',
+      body: formData
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.error || 'Upload failed');
+    }
+    fetchUnstructuredFiles();
+  } catch (e) {
+    alert('Upload error: ' + e.message);
+  }
 }
 
 function createNewProjectFromGithub() {
