@@ -29,6 +29,73 @@
       color: var(--text-primary);
     }
 
+    /* Twitter thread view */
+    .reader-view--twitter { max-width: 600px; }
+    .tweet-thread-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .tweet-avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 18px;
+      flex-shrink: 0;
+    }
+    .tweet-author-name {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-white);
+      line-height: 1.2;
+    }
+    .tweet-author-handle {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+    .tweet-thread {
+      display: flex;
+      flex-direction: column;
+      margin-top: 16px;
+    }
+    .tweet-card {
+      position: relative;
+      padding: 16px 16px 16px 28px;
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      background: var(--bg-card);
+    }
+    .tweet-card--continued::after {
+      content: '';
+      position: absolute;
+      left: 13px;
+      bottom: -13px;
+      width: 2px;
+      height: 13px;
+      background: var(--border-card);
+    }
+    .tweet-counter {
+      position: absolute;
+      top: 16px; left: -1px;
+      transform: translateX(-100%);
+      padding-right: 10px;
+      font-size: 11px;
+      color: var(--text-dimmest);
+      white-space: nowrap;
+    }
+    .tweet-body p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      margin: 0 0 4px 0;
+    }
+    .tweet-body p:last-child { margin-bottom: 0; }
+
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     .scrollbar-hide::-webkit-scrollbar { display: none; }
 

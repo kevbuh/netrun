@@ -41,7 +41,102 @@ function _tryRenderSavedContent(container, paper) {
     });
 }
 
+function _isTwitterUrl(url) {
+  try { const h = new URL(url).hostname; return h === 'x.com' || h === 'twitter.com' || h.endsWith('.x.com') || h.endsWith('.twitter.com'); } catch { return false; }
+}
+
+function _parseTwitterAuthor(title) {
+  // Title format: "Name on X: \"text\"" or "Name (@handle) on X: ..."
+  const m = title.match(/^(.+?)\s+on\s+X:/i) || title.match(/^(.+?)\s+on\s+Twitter:/i);
+  if (!m) return { name: '', handle: '' };
+  const raw = m[1].trim();
+  const hm = raw.match(/^(.+?)\s*\((@\w+)\)$/);
+  if (hm) return { name: hm[1].trim(), handle: hm[2] };
+  return { name: raw, handle: '' };
+}
+
+function _renderTwitterThread(container, data) {
+  const div = document.createElement('div');
+  div.className = 'reader-view reader-view--twitter';
+
+  const author = _parseTwitterAuthor(data.title || '');
+
+  // Author header
+  const header = document.createElement('div');
+  header.className = 'tweet-thread-header';
+  header.innerHTML = `
+    <div class="tweet-avatar">${(author.name || '?')[0].toUpperCase()}</div>
+    <div>
+      <div class="tweet-author-name">${_escHtml(author.name || 'Thread')}</div>
+      ${author.handle ? `<div class="tweet-author-handle">${_escHtml(author.handle)}</div>` : ''}
+    </div>
+  `;
+  div.appendChild(header);
+
+  // Source link
+  if (data.url) {
+    const link = document.createElement('a');
+    link.href = data.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.className = 'reader-view-source';
+    link.textContent = 'View on X';
+    div.appendChild(link);
+  }
+
+  // Parse text into tweets — split on double newlines, then group short consecutive paragraphs as one tweet
+  const rawParas = (data.text || '').split('\n\n').map(s => s.trim()).filter(Boolean);
+  // Filter out noise lines (metadata, follow buttons, timestamps, etc.)
+  const noise = /^(follow|click to follow|©|terms of service|privacy policy|cookie policy|accessibility|ads info|more|post|repost|reply|like|bookmark|share|\d+$|\d+:\d+|show more|sign up|log in)/i;
+  const paras = rawParas.filter(p => !noise.test(p) && p.length > 2);
+
+  // Group into tweets: each paragraph that's >=80 chars is its own tweet, shorter ones merge with next
+  const tweets = [];
+  let buf = [];
+  for (const p of paras) {
+    buf.push(p);
+    if (p.length >= 80 || p.endsWith('.') || p.endsWith('!') || p.endsWith('?') || p.endsWith(':')) {
+      tweets.push(buf.join('\n'));
+      buf = [];
+    }
+  }
+  if (buf.length) tweets.push(buf.join('\n'));
+
+  const thread = document.createElement('div');
+  thread.className = 'tweet-thread';
+  tweets.forEach((text, i) => {
+    const card = document.createElement('div');
+    card.className = 'tweet-card';
+    // Thread line
+    if (i < tweets.length - 1) card.classList.add('tweet-card--continued');
+    const counter = document.createElement('div');
+    counter.className = 'tweet-counter';
+    counter.textContent = `${i + 1}/${tweets.length}`;
+    const body = document.createElement('div');
+    body.className = 'tweet-body';
+    text.split('\n').forEach(line => {
+      const p = document.createElement('p');
+      p.textContent = line;
+      body.appendChild(p);
+    });
+    card.appendChild(counter);
+    card.appendChild(body);
+    thread.appendChild(card);
+  });
+  div.appendChild(thread);
+
+  container.innerHTML = '';
+  container.appendChild(div);
+}
+
+function _escHtml(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
 function _renderReaderView(container, data) {
+  if (_isTwitterUrl(data.url || '')) {
+    return _renderTwitterThread(container, data);
+  }
   const div = document.createElement('div');
   div.className = 'reader-view';
   const h1 = document.createElement('h1');

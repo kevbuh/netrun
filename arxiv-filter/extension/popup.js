@@ -52,22 +52,53 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
 });
 
 function extractArticleText() {
-  // Try <article>, then <main>/[role=main], then largest text-dense <div>
+  const SKIP = new Set(['nav','footer','aside','script','style','noscript','iframe','svg','button','input','select','textarea','form']);
+  const BLOCK = new Set(['p','div','section','article','main','blockquote','h1','h2','h3','h4','h5','h6','li','tr','dt','dd','figcaption','pre','header']);
+
+  // Find content root
   let root = document.querySelector('article')
     || document.querySelector('main')
     || document.querySelector('[role="main"]');
   if (!root) {
     let best = null, bestLen = 0;
     document.querySelectorAll('div').forEach(d => {
-      const len = d.innerText ? d.innerText.length : 0;
+      const len = (d.innerText || '').length;
       if (len > bestLen) { bestLen = len; best = d; }
     });
     root = best;
   }
-  if (!root) return document.body.innerText || '';
-  const clone = root.cloneNode(true);
-  clone.querySelectorAll('nav, footer, aside, script, style, noscript, iframe, [role="navigation"], [role="banner"], [role="complementary"], [aria-hidden="true"], .ad, .ads, .advertisement').forEach(el => el.remove());
-  return clone.innerText || '';
+  if (!root) root = document.body;
+
+  const parts = [];
+  function walk(node) {
+    if (node.nodeType === 3) {
+      const t = node.textContent;
+      if (t.trim()) parts.push(t);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    if (SKIP.has(tag)) return;
+    const role = node.getAttribute('role') || '';
+    if (['navigation','banner','complementary'].includes(role)) return;
+    if (node.getAttribute('aria-hidden') === 'true') return;
+    if (node.classList && (node.classList.contains('ad') || node.classList.contains('ads') || node.classList.contains('advertisement'))) return;
+
+    const isBlock = BLOCK.has(tag);
+    if (isBlock) parts.push('\n\n');
+    if (tag === 'br') { parts.push('\n'); return; }
+    for (const child of node.childNodes) walk(child);
+    if (isBlock) parts.push('\n\n');
+  }
+  walk(root);
+
+  // Clean up: collapse whitespace within lines, normalize paragraph breaks
+  return parts.join('')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n /g, '\n')
+    .replace(/ \n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 saveBtn.addEventListener('click', async () => {
