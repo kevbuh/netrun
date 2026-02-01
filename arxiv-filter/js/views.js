@@ -242,6 +242,7 @@ function showPaperView(paper, hashValue) {
       ${notesPanel}
     </div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
+      <div id="pdf-links-section"></div>
       <div id="paper-insights"></div>
     </div>
     <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
@@ -343,26 +344,16 @@ async function fetchPaperInsights(url) {
     if (data.error) throw new Error(data.error);
     const hasRepos = data.repos && data.repos.length > 0;
     const hasInsights = data.insights && data.insights.length > 0;
-    if (!hasRepos && !hasInsights) {
+    // Merge repo links from insights API into the unified PDF links section
+    if (hasRepos) {
+      for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
+      _renderPdfLinks();
+    }
+    if (!hasInsights) {
       el.innerHTML = '';
       return;
     }
     let html = '<div class="space-y-2">';
-    if (hasRepos) {
-      html += '<div class="flex flex-wrap gap-1.5">';
-      for (const repo of data.repos) {
-        const label = repo.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const isGH = repo.url.includes('github.com');
-        const isHF = repo.url.includes('huggingface.co');
-        const icon = isGH
-          ? '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>'
-          : isHF
-          ? '<span class="text-[0.7rem] shrink-0">&#129303;</span>'
-          : '<svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        html += `<a href="${escapeHtml(repo.url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border-input bg-sidebar-bg text-[0.74rem] text-link no-underline hover:border-accent hover:bg-accent/10 transition-colors">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></a>`;
-      }
-      html += '</div>';
-    }
     if (hasInsights) {
       // Wait for PDF text layers to render before verifying quotes
       const verified = await _verifyInsightsInPdf(data.insights);
@@ -380,7 +371,7 @@ async function fetchPaperInsights(url) {
           ${extraHtml}
         </div>`;
       }
-      if (!verified.length && !hasRepos) {
+      if (!verified.length) {
         el.innerHTML = '';
         return;
       }

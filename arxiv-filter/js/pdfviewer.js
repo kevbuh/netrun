@@ -35,6 +35,9 @@ let _pdfEraserMode = false;    // false | 'partial' | 'full'
 let _pdfUndoStacks = {};   // { pageNum: [ snapshotArray, ... ] }
 let _pdfRedoStacks = {};   // { pageNum: [ snapshotArray, ... ] }
 
+// ── Extracted links from PDF annotations ──
+let _pdfExtractedLinks = new Set();
+
 // ── Storage ──
 
 function loadPdfHighlights(arxivId) {
@@ -83,6 +86,7 @@ function initPdfViewer(container, url, arxivId) {
   _pdfPenMode = false;
   _pdfUndoStacks = {};
   _pdfRedoStacks = {};
+  _pdfExtractedLinks = new Set();
 
   container.innerHTML = '';
   container.style.display = 'flex';
@@ -305,9 +309,12 @@ function renderPdfPage(pageNum, wrapper) {
             link.href = annot.url;
             link.target = '_blank';
             link.rel = 'noopener';
+            link.dataset.url = annot.url;
+            _pdfExtractedLinks.add(annot.url);
           }
           annotLayer.appendChild(link);
         }
+        _renderPdfLinks();
       });
 
       // Highlight layer
@@ -1251,6 +1258,52 @@ async function pdfSearchHighlight(query) {
 }
 
 // ── PDF annotation (internal link) click handler ──
+function _pdfLinkIcon(url) {
+  if (url.includes('github.com') || url.includes('github.io'))
+    return '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>';
+  if (url.includes('huggingface.co'))
+    return '<span class="text-[0.8rem] shrink-0 leading-none">&#129303;</span>';
+  if (url.includes('arxiv.org'))
+    return '<img src="/arxiv-logomark-small@2x.png" class="w-3.5 h-3.5 shrink-0 object-contain" alt="arXiv">';
+  if (url.includes('openreview.net'))
+    return '<svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return '<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
+function _highlightPdfAnnotLinks(url) {
+  if (!_pdfPagesContainer) return;
+  const links = _pdfPagesContainer.querySelectorAll('.pdf-annot-link[data-url]');
+  let scrolled = false;
+  for (const link of links) {
+    if (link.dataset.url === url) {
+      link.classList.add('pdf-annot-link-highlight');
+      if (!scrolled) { link.scrollIntoView({ behavior: 'smooth', block: 'center' }); scrolled = true; }
+    }
+  }
+}
+
+function _clearPdfAnnotLinkHighlights() {
+  if (!_pdfPagesContainer) return;
+  const links = _pdfPagesContainer.querySelectorAll('.pdf-annot-link-highlight');
+  for (const link of links) link.classList.remove('pdf-annot-link-highlight');
+}
+
+function _renderPdfLinks() {
+  const el = document.getElementById('pdf-links-section');
+  if (!el) return;
+  if (_pdfExtractedLinks.size === 0) { el.innerHTML = ''; return; }
+  const links = [..._pdfExtractedLinks].sort();
+  let html = '<div class="text-[0.72rem] font-semibold text-dim uppercase tracking-wide mb-1.5">Links</div>';
+  html += '<div class="flex flex-wrap gap-1.5 mb-3">';
+  for (const url of links) {
+    const label = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const icon = _pdfLinkIcon(url);
+    html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="pdf-sidebar-link inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[0.74rem] text-primary no-underline hover:bg-accent/10 transition-colors" title="${escapeHtml(url)}" onmouseenter="_highlightPdfAnnotLinks(this.dataset.linkUrl)" onmouseleave="_clearPdfAnnotLinkHighlights()" data-link-url="${escapeHtml(url)}">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></a>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 function _onPdfAnnotClick(e) {
   e.preventDefault();
   e.stopPropagation();
