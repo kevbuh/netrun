@@ -325,6 +325,9 @@ function cancelEditDesc() {
 let currentFile = null;
 let fileSaveTimer = null;
 
+let _selectedFiles = new Set();
+let _lastClickedFile = null;
+
 let _expFiles = [];
 async function fetchExpFiles() {
   if (!currentExpId) return;
@@ -335,9 +338,15 @@ async function fetchExpFiles() {
     const files = Array.isArray(data) ? data : data.files || [];
     const emptyDirs = Array.isArray(data) ? [] : data.emptyDirs || [];
     _expFiles = files;
+    // Prune stale selections
+    for (const f of [..._selectedFiles]) {
+      if (!files.includes(f)) _selectedFiles.delete(f);
+    }
     renderFilesList(files, emptyDirs);
+    _renderBulkActionBar();
   } catch(e) {
     _expFiles = [];
+    _selectedFiles.clear();
     document.getElementById('exp-sidebar-files').innerHTML = '';
   }
 }
@@ -346,6 +355,121 @@ function _autoOpenReadme() {
   const readme = _expFiles.find(f => /^readme\.md$/i.test(f));
   if (readme) openFile(readme);
 }
+
+function _onFileRowClick(fname, event) {
+  if (event.metaKey || event.ctrlKey) {
+    // Toggle file in/out of selection
+    event.preventDefault();
+    if (_selectedFiles.has(fname)) {
+      _selectedFiles.delete(fname);
+    } else {
+      _selectedFiles.add(fname);
+    }
+    _lastClickedFile = fname;
+    renderFilesList(_expFiles);
+    _renderBulkActionBar();
+    return;
+  }
+  if (event.shiftKey && _lastClickedFile && _lastClickedFile !== fname) {
+    // Range select
+    event.preventDefault();
+    // Flatten file list in display order (same order as _expFiles)
+    const startIdx = _expFiles.indexOf(_lastClickedFile);
+    const endIdx = _expFiles.indexOf(fname);
+    if (startIdx !== -1 && endIdx !== -1) {
+      const lo = Math.min(startIdx, endIdx);
+      const hi = Math.max(startIdx, endIdx);
+      for (let i = lo; i <= hi; i++) {
+        _selectedFiles.add(_expFiles[i]);
+      }
+    }
+    renderFilesList(_expFiles);
+    _renderBulkActionBar();
+    return;
+  }
+  // Plain click — clear selection and open file
+  _selectedFiles.clear();
+  _lastClickedFile = fname;
+  _renderBulkActionBar();
+  openFile(fname);
+}
+
+function _renderBulkActionBar() {
+  const sidebar = document.getElementById('exp-sidebar');
+  if (!sidebar) return;
+  let bar = document.getElementById('exp-bulk-action-bar');
+  if (_selectedFiles.size === 0) {
+    if (bar) bar.remove();
+    sidebar.style.paddingBottom = '';
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'exp-bulk-action-bar';
+    sidebar.style.position = 'relative';
+    sidebar.appendChild(bar);
+  }
+  bar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-card);border-top:1px solid var(--border-dim);';
+  sidebar.style.paddingBottom = '44px';
+  bar.innerHTML = `
+    <span class="text-[0.78rem] text-primary font-medium flex-1">${_selectedFiles.size} selected</span>
+    <button onclick="_bulkMoveFiles()" class="px-2 py-1 rounded text-[0.72rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Move selected files">Move</button>
+    <button onclick="_bulkDeleteFiles()" class="px-2 py-1 rounded text-[0.72rem] bg-card border border-red-500/30 text-red-400 cursor-pointer hover:bg-red-500/10 transition-colors" title="Delete selected files">Delete</button>
+  `;
+}
+
+async function _bulkDeleteFiles() {
+  const count = _selectedFiles.size;
+  if (!count || !confirm(`Delete ${count} file${count !== 1 ? 's' : ''}?`)) return;
+  const files = [..._selectedFiles];
+  for (const fname of files) {
+    await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { method: 'DELETE' });
+    if (currentFile === fname) {
+      closeFileEditor();
+    }
+  }
+  _selectedFiles.clear();
+  _lastClickedFile = null;
+  _renderBulkActionBar();
+  fetchExpFiles();
+}
+
+async function _bulkMoveFiles() {
+  const count = _selectedFiles.size;
+  if (!count) return;
+  const folder = prompt(`Move ${count} file${count !== 1 ? 's' : ''} to folder:`);
+  if (folder === null) return; // cancelled
+  const targetFolder = folder.trim();
+  const files = [..._selectedFiles];
+  for (const oldPath of files) {
+    const fileName = oldPath.includes('/') ? oldPath.split('/').pop() : oldPath;
+    const newPath = targetFolder ? (targetFolder + '/' + fileName) : fileName;
+    if (oldPath === newPath) continue;
+    const resp = await fetch(`/api/experiments/${currentExpId}/move-file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPath, newPath })
+    });
+    if (resp.ok && currentFile === oldPath) {
+      currentFile = newPath;
+    }
+  }
+  _selectedFiles.clear();
+  _lastClickedFile = null;
+  _renderBulkActionBar();
+  fetchExpFiles();
+}
+
+// Escape key clears multi-selection
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && _selectedFiles.size > 0) {
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+    _selectedFiles.clear();
+    renderFilesList(_expFiles);
+    _renderBulkActionBar();
+  }
+});
 
 function _fileExtBadge(f) {
   const name = f.includes('/') ? f.split('/').pop() : f;
@@ -409,15 +533,19 @@ function renderFilesList(files, emptyDirs) {
 
   function fileRow(f) {
     const isActive = currentFile === f;
-    const activeCls = isActive ? 'bg-accent/10 border-l-2 border-accent' : 'border-l-2 border-transparent';
+    const isSelected = _selectedFiles.has(f);
+    const hasSelection = _selectedFiles.size > 0;
+    const activeCls = isSelected ? 'bg-blue-500/15 border-l-2 border-blue-500' : isActive ? 'bg-accent/10 border-l-2 border-accent' : 'border-l-2 border-transparent';
     const displayName = f.split('/').pop();
     const [badge, badgeCls] = _fileExtBadge(f);
     const escapedF = escapeHtml(f).replace(/'/g, "\\'");
+    const checkbox = hasSelection ? `<span class="shrink-0 w-4 h-4 flex items-center justify-center rounded border ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'border-border-input bg-transparent text-transparent'} text-[0.65rem] leading-none transition-colors">&#10003;</span>` : '';
     return `
-    <div class="exp-file-row relative flex items-center py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors overflow-hidden ${activeCls}" draggable="true" data-filepath="${escapeHtml(f)}" onclick="openFile('${escapedF}')" title="${escapeHtml(f)}"
+    <div class="exp-file-row relative flex items-center py-1.5 px-2 rounded-md hover:bg-card/50 cursor-pointer group transition-colors overflow-hidden ${activeCls}" draggable="true" data-filepath="${escapeHtml(f)}" onclick="_onFileRowClick('${escapedF}', event)" title="${escapeHtml(f)}"
          ondragstart="_draggedFile='${escapedF}'; this.style.opacity='0.5'"
          ondragend="_draggedFile=null; this.style.opacity=''">
       <div class="flex items-center gap-1.5 min-w-0">
+        ${checkbox}
         <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
         <span class="text-[0.8rem] text-primary truncate">${escapeHtml(displayName)}</span>
       </div>
@@ -1307,6 +1435,8 @@ function toggleExpSidebarMobile() {
 // Initialize sidebars when experiment detail loads
 const _origOpenExperimentDetail = openExperimentDetail;
 openExperimentDetail = function(id) {
+  _selectedFiles.clear();
+  _lastClickedFile = null;
   _origOpenExperimentDetail(id);
   _restoreExpSidebarState();
   _initExpSidebarDrop();
