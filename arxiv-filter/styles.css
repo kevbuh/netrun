@@ -422,21 +422,62 @@
       background: var(--bg-popup);
       border: 1px solid var(--border-card);
       border-radius: 6px;
-      padding: 6px 10px;
+      padding: 8px 12px;
       box-shadow: 0 8px 24px var(--shadow-popup);
       pointer-events: none;
       max-width: 50vw;
       font-family: monospace;
       font-size: 0.78rem;
       color: var(--text-primary);
+      line-height: 1.5;
+    }
+    .py-hover-tooltip .py-hover-kind {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 3px;
+      opacity: 0.85;
+    }
+    .py-hover-tooltip .py-hover-def {
       white-space: pre;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .py-hover-tooltip .py-hover-type {
+      color: #4ec9b0;
+      font-size: 0.74rem;
+      margin-top: 2px;
+    }
+    .py-hover-tooltip .py-hover-detail {
       color: var(--text-dimmer);
       font-size: 0.72rem;
       margin-top: 2px;
+    }
+    .py-hover-tooltip .py-hover-doc {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-style: italic;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-subtle);
+      white-space: normal;
+      max-height: 3.2em;
+      overflow: hidden;
+    }
+    .py-hover-tooltip .py-hover-meta {
+      display: flex;
+      gap: 10px;
+      color: var(--text-dimmest);
+      font-size: 0.65rem;
+      margin-top: 3px;
+    }
+
+    /* ── Hover occurrence highlight ── */
+    .cm-hover-occurrence {
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
     }
 
     .CodeMirror-gutters {
@@ -451,7 +492,7 @@
     .CodeMirror-activeline-background { background: rgba(255,255,255,0.03) !important; }
     .cm-goto-highlight { background: rgba(180,69,26,0.3) !important; transition: background 0.3s; }
     .cm-cmd-held .CodeMirror-code span { cursor: pointer; }
-    .cm-cmd-held .CodeMirror-code .cm-def-link { text-decoration: underline; text-underline-offset: 2px; }
+    .cm-cmd-held .CodeMirror-code .cm-def-link { background: rgba(180,69,26,0.25); border-radius: 3px; }
     /* Syntax colors */
     .cm-s-default .cm-keyword { color: #c586c0 !important; }
     .cm-s-default .cm-def { color: #dcdcaa !important; }

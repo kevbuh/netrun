@@ -1118,6 +1118,8 @@ function _attachGotoDef(cm) {
 // ── Python Variable Hover Tooltips ──
 let _pyHoverEl = null;
 let _pyHoverTimer = null;
+let _pyHoverMarks = [];   // occurrence highlight marks
+let _pyHoverToken = null; // last highlighted token to avoid re-marking
 
 const _PY_KEYWORDS = new Set([
   'if','else','elif','for','while','return','import','from','def','class',
@@ -1125,6 +1127,33 @@ const _PY_KEYWORDS = new Set([
   'break','continue','and','or','not','in','is','True','False','None',
   'del','global','nonlocal','assert','async','await','print'
 ]);
+
+function _clearPyHoverMarks() {
+  for (var i = 0; i < _pyHoverMarks.length; i++) _pyHoverMarks[i].clear();
+  _pyHoverMarks = [];
+  _pyHoverToken = null;
+}
+
+function _markOccurrences(cm, token) {
+  _clearPyHoverMarks();
+  _pyHoverToken = token;
+  var text = cm.getValue();
+  var pat = new RegExp('\\b' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+  var m;
+  while ((m = pat.exec(text)) !== null) {
+    var from = cm.posFromIndex(m.index);
+    var to = cm.posFromIndex(m.index + token.length);
+    _pyHoverMarks.push(cm.markText(from, to, { className: 'cm-hover-occurrence' }));
+  }
+}
+
+function _countReferences(cm, token) {
+  var text = cm.getValue();
+  var pat = new RegExp('\\b' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+  var count = 0;
+  while (pat.exec(text) !== null) count++;
+  return count;
+}
 
 function _initPyHover(cm) {
   if (!_pyHoverEl) {
@@ -1140,13 +1169,42 @@ function _initPyHover(cm) {
   });
   wrapper.addEventListener('mouseleave', function() {
     clearTimeout(_pyHoverTimer);
+    _clearPyHoverMarks();
     if (_pyHoverEl) _pyHoverEl.style.display = 'none';
   });
 }
 
+function _extractDocstring(lines, defLineIdx) {
+  // Look for a docstring on the line(s) after the def/class
+  for (var i = defLineIdx + 1; i < lines.length && i <= defLineIdx + 3; i++) {
+    var trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    // Triple-quoted docstring
+    var q = null;
+    if (trimmed.startsWith('"""')) q = '"""';
+    else if (trimmed.startsWith("'''")) q = "'''";
+    if (!q) break;
+    // Single-line docstring
+    var rest = trimmed.slice(3);
+    var closeIdx = rest.indexOf(q);
+    if (closeIdx >= 0) return rest.slice(0, closeIdx).trim();
+    // Multi-line: gather up to 4 lines
+    var parts = [rest];
+    for (var j = i + 1; j < lines.length && j <= i + 4; j++) {
+      var ci = lines[j].indexOf(q);
+      if (ci >= 0) { if (lines[j].slice(0, ci).trim()) parts.push(lines[j].slice(0, ci).trim()); break; }
+      if (lines[j].trim()) parts.push(lines[j].trim());
+    }
+    return parts.join(' ').trim();
+  }
+  return null;
+}
+
 function _findPyDefinition(cm, token) {
   var text = cm.getValue();
+  var lines = text.split('\n');
   var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   // def token(params) -> returnType:
   var defPat = new RegExp('^([ \\t]*)(async\\s+)?def\\s+' + escaped + '\\s*\\([^)]*\\)(\\s*->\\s*[^:]+)?\\s*:', 'm');
   var m = defPat.exec(text);
@@ -1154,42 +1212,98 @@ function _findPyDefinition(cm, token) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
     var typeHint = m[3] ? m[3].replace(/^\s*->\s*/, '').trim() : null;
     var defText = m[0].trim();
-    return { defLine: defLine, defText: defText, typeHint: typeHint ? '-> ' + typeHint : null };
+    // Extract params for count
+    var paramsMatch = defText.match(/\(([^)]*)\)/);
+    var params = paramsMatch ? paramsMatch[1].split(',').map(function(p){return p.trim();}).filter(function(p){return p && p !== 'self' && p !== 'cls';}) : [];
+    var docstring = _extractDocstring(lines, defLine);
+    return { kind: 'function', defLine: defLine, defText: defText, typeHint: typeHint ? '-> ' + typeHint : null, params: params, docstring: docstring };
   }
+
   // class token(bases):
   var clsPat = new RegExp('^([ \\t]*)class\\s+' + escaped + '\\s*(\\([^)]*\\))?\\s*:', 'm');
   m = clsPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
-    return { defLine: defLine, defText: m[0].trim(), typeHint: null };
+    var bases = m[2] ? m[2].replace(/^\(|\)$/g, '').trim() : null;
+    // Count methods in class body
+    var indent = m[1].length;
+    var methodCount = 0;
+    for (var i = defLine + 1; i < lines.length; i++) {
+      var lt = lines[i];
+      if (lt.trim() === '') continue;
+      var li = lt.search(/\S/);
+      if (li >= 0 && li <= indent) break; // left the class body
+      if (/^\s+(?:async\s+)?def\s+/.test(lt)) methodCount++;
+    }
+    var docstring = _extractDocstring(lines, defLine);
+    return { kind: 'class', defLine: defLine, defText: m[0].trim(), typeHint: bases ? 'extends ' + bases : null, methodCount: methodCount, docstring: docstring };
   }
+
   // token: Type = value
   var annPat = new RegExp('^([ \\t]*)' + escaped + '\\s*:\\s*([^=\\n]+?)\\s*=', 'm');
   m = annPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
-    var fullLine = text.split('\n')[defLine].trim();
-    return { defLine: defLine, defText: fullLine, typeHint: m[2].trim() };
+    var fullLine = lines[defLine].trim();
+    return { kind: 'variable', defLine: defLine, defText: fullLine, typeHint: m[2].trim() };
   }
+
   // token = value (simple assignment)
   var assignPat = new RegExp('^([ \\t]*)' + escaped + '\\s*=(?!=)', 'm');
   m = assignPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
-    var fullLine = text.split('\n')[defLine].trim();
-    return { defLine: defLine, defText: fullLine, typeHint: null };
+    var fullLine = lines[defLine].trim();
+    // Try to infer type from RHS
+    var rhs = fullLine.slice(fullLine.indexOf('=') + 1).trim();
+    var inferred = null;
+    if (/^-?\d+$/.test(rhs)) inferred = 'int';
+    else if (/^-?\d+\.\d*$/.test(rhs)) inferred = 'float';
+    else if (/^(True|False)$/.test(rhs)) inferred = 'bool';
+    else if (/^(["'])/.test(rhs) || /^f["']/.test(rhs)) inferred = 'str';
+    else if (/^\[/.test(rhs)) inferred = 'list';
+    else if (/^\{/.test(rhs)) inferred = rhs.indexOf(':') >= 0 ? 'dict' : 'set';
+    else if (/^\(/.test(rhs)) inferred = 'tuple';
+    else if (/^None$/.test(rhs)) inferred = 'None';
+    return { kind: 'variable', defLine: defLine, defText: fullLine, typeHint: inferred };
   }
+
+  // for token in ... (loop variable)
+  var forPat = new RegExp('^([ \\t]*)for\\s+' + escaped + '\\s+(in)\\s+', 'm');
+  m = forPat.exec(text);
+  if (m) {
+    var defLine = text.substring(0, m.index).split('\n').length - 1;
+    var fullLine = lines[defLine].trim();
+    return { kind: 'variable', defLine: defLine, defText: fullLine, typeHint: 'loop variable' };
+  }
+
+  // import token or from ... import token
+  var impPat = new RegExp('(?:^|\\n)\\s*(?:from\\s+\\S+\\s+)?import\\s+(?:[\\w.,\\s]*\\b)' + escaped + '\\b', 'm');
+  m = impPat.exec(text);
+  if (m) {
+    var defLine = text.substring(0, m.index + (m[0].startsWith('\n') ? 1 : 0)).split('\n').length - 1;
+    var fullLine = lines[defLine].trim();
+    return { kind: 'import', defLine: defLine, defText: fullLine, typeHint: 'module' };
+  }
+
   return null;
 }
 
 function _updatePyHover(cm, e) {
   if (!_pyHoverEl) return;
   var pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
-  if (pos.outside) { _pyHoverEl.style.display = 'none'; return; }
+  if (pos.outside) { _clearPyHoverMarks(); _pyHoverEl.style.display = 'none'; return; }
   var word = cm.findWordAt(pos);
   var token = cm.getRange(word.anchor, word.head).trim();
-  if (!token || !/^[a-zA-Z_]\w*$/.test(token)) { _pyHoverEl.style.display = 'none'; return; }
-  if (_PY_KEYWORDS.has(token)) { _pyHoverEl.style.display = 'none'; return; }
+  if (!token || !/^[a-zA-Z_]\w*$/.test(token)) { _clearPyHoverMarks(); _pyHoverEl.style.display = 'none'; return; }
+  if (_PY_KEYWORDS.has(token)) { _clearPyHoverMarks(); _pyHoverEl.style.display = 'none'; return; }
+
+  // Highlight all occurrences only when Cmd/Ctrl held
+  if (e.metaKey || e.ctrlKey) {
+    if (_pyHoverToken !== token) _markOccurrences(cm, token);
+  } else {
+    if (_pyHoverMarks.length) _clearPyHoverMarks();
+  }
 
   var info = _findPyDefinition(cm, token);
   // Search notebook cells if not found
@@ -1203,11 +1317,32 @@ function _updatePyHover(cm, e) {
   }
   if (!info) { _pyHoverEl.style.display = 'none'; return; }
 
+  // Count references and bytes
+  var refCount = _countReferences(cm, token);
+  var byteSize = new Blob([token]).size;
+
   // Render
-  var html = '<div style="line-height:1.4">' + escapeHtml(info.defText) + '</div>';
+  var kindLabel = info.kind === 'function' ? 'function' : info.kind === 'class' ? 'class' : info.kind === 'import' ? 'import' : 'variable';
+  var kindColor = info.kind === 'function' ? '#dcdcaa' : info.kind === 'class' ? '#4ec9b0' : info.kind === 'import' ? '#c586c0' : '#9cdcfe';
+  var html = '<div class="py-hover-kind" style="color:' + kindColor + '">' + kindLabel + '</div>';
+  html += '<div class="py-hover-def">' + escapeHtml(info.defText) + '</div>';
   if (info.typeHint) {
     html += '<div class="py-hover-type">' + escapeHtml(info.typeHint) + '</div>';
   }
+  if (info.kind === 'function' && info.params && info.params.length > 0) {
+    html += '<div class="py-hover-detail">' + info.params.length + ' param' + (info.params.length === 1 ? '' : 's') + ': ' + escapeHtml(info.params.join(', ')) + '</div>';
+  }
+  if (info.kind === 'class' && info.methodCount > 0) {
+    html += '<div class="py-hover-detail">' + info.methodCount + ' method' + (info.methodCount === 1 ? '' : 's') + '</div>';
+  }
+  if (info.docstring) {
+    html += '<div class="py-hover-doc">' + escapeHtml(info.docstring) + '</div>';
+  }
+  html += '<div class="py-hover-meta">';
+  html += '<span>line ' + (info.defLine + 1) + '</span>';
+  html += '<span>' + refCount + ' ref' + (refCount === 1 ? '' : 's') + '</span>';
+  html += '<span>' + byteSize + ' byte' + (byteSize === 1 ? '' : 's') + '</span>';
+  html += '</div>';
   _pyHoverEl.innerHTML = html;
   _pyHoverEl.style.display = '';
 
