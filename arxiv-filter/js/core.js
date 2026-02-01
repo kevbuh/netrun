@@ -723,3 +723,138 @@ window.addEventListener('keydown', e => {
   nav.addEventListener('pointercancel', endDrag);
 })();
 
+// ── Ambient rain sounds (Web Audio API) ──
+
+let _rainCtx = null;
+let _rainNodes = [];
+let _rainOn = false;
+let _rainVolume = parseFloat(localStorage.getItem('rainVolume') || '0.3');
+
+function toggleRain() {
+  _rainOn ? stopRain() : startRain();
+}
+
+function startRain() {
+  if (_rainOn) return;
+  _rainOn = true;
+  const btn = document.getElementById('sb-rain');
+  if (btn) btn.classList.add('active');
+  localStorage.setItem('rainOn', '1');
+
+  _rainCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = _rainCtx.createGain();
+  master.gain.value = _rainVolume;
+  master.connect(_rainCtx.destination);
+
+  // Layer 1: brown noise (rain body)
+  _rainNodes.push(master);
+  _makeNoise(_rainCtx, master, 'brown', 0.7);
+
+  // Layer 2: pink noise (lighter patter)
+  _makeNoise(_rainCtx, master, 'pink', 0.3);
+
+  // Layer 3: occasional low rumble (distant thunder)
+  _rainThunderLoop(_rainCtx, master);
+}
+
+function stopRain() {
+  if (!_rainOn) return;
+  _rainOn = false;
+  const btn = document.getElementById('sb-rain');
+  if (btn) btn.classList.remove('active');
+  localStorage.removeItem('rainOn');
+  if (_rainCtx) {
+    _rainCtx.close();
+    _rainCtx = null;
+  }
+  _rainNodes = [];
+}
+
+function setRainVolume(v) {
+  _rainVolume = Math.max(0, Math.min(1, v));
+  localStorage.setItem('rainVolume', _rainVolume.toString());
+  if (_rainNodes.length && _rainNodes[0]) {
+    _rainNodes[0].gain.value = _rainVolume;
+  }
+}
+
+function _makeNoise(ctx, dest, type, amp) {
+  const bufSize = ctx.sampleRate * 4;
+  const buf = ctx.createBuffer(2, bufSize, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufSize; i++) {
+      const white = Math.random() * 2 - 1;
+      if (type === 'brown') {
+        b0 = (b0 + (0.02 * white)) / 1.02;
+        data[i] = b0 * 3.5 * amp;
+      } else {
+        // pink noise (Paul Kellet's algorithm)
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11 * amp;
+        b6 = white * 0.115926;
+      }
+    }
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+
+  // Shape the noise to sound more like rain
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = type === 'brown' ? 400 : 2500;
+  lp.Q.value = 0.5;
+
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = type === 'brown' ? 40 : 200;
+  hp.Q.value = 0.5;
+
+  src.connect(hp);
+  hp.connect(lp);
+  lp.connect(dest);
+  src.start();
+  _rainNodes.push(src);
+}
+
+function _rainThunderLoop(ctx, dest) {
+  if (!_rainOn) return;
+  const delay = 15000 + Math.random() * 45000; // 15-60s between rumbles
+  setTimeout(function() {
+    if (!_rainOn || !_rainCtx) return;
+    // Low rumble
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 40 + Math.random() * 30;
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.08 * _rainVolume, ctx.currentTime + 0.5);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2 + Math.random() * 2);
+    osc.connect(gain);
+    gain.connect(dest);
+    osc.start();
+    osc.stop(ctx.currentTime + 4);
+    _rainThunderLoop(ctx, dest);
+  }, delay);
+}
+
+// Restore rain on page load
+if (localStorage.getItem('rainOn') === '1') {
+  document.addEventListener('click', function _resumeRain() {
+    document.removeEventListener('click', _resumeRain);
+    startRain();
+  }, { once: true });
+  // Visually mark button as active immediately
+  requestAnimationFrame(function() {
+    const btn = document.getElementById('sb-rain');
+    if (btn) btn.classList.add('active');
+  });
+}
+
