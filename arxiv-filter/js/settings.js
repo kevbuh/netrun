@@ -61,6 +61,7 @@ function renderSettingsView() {
           <button onclick="setTheme('light')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-light">Light</button>
           <button onclick="setTheme('sepia')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'sepia' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-sepia">Sepia</button>
           <button onclick="setTheme('daylight')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'daylight' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-daylight">Daylight</button>
+          <button onclick="setTheme('thermal')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'thermal' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-thermal">Thermal</button>
         </div>
       </div>
       <div class="flex items-center justify-between">
@@ -110,8 +111,7 @@ function renderSettingsView() {
       <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Ambient Sound</span>
         <div class="flex items-center gap-2">
-          <input type="range" id="rain-volume-slider" min="0" max="1" step="0.01" value="${_rainVolume}" oninput="setRainVolume(parseFloat(this.value))" class="w-16 accent-[var(--accent)]" />
-          <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono w-7 text-right">${Math.round(_rainVolume * 100)}%</span>
+          <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono cursor-ns-resize select-none" title="Drag up/down to adjust volume" onmousedown="_rainVolDragStart(event)">${Math.round(_rainVolume * 100)}%</span>
           <div class="flex gap-1">
             ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
               const sel = _rainNoiseType === key;
@@ -297,7 +297,7 @@ function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
   }
   if (theme === 'daylight') startDaylightTheme();
-  ['dark', 'light', 'sepia', 'daylight'].forEach(t => {
+  ['dark', 'light', 'sepia', 'daylight', 'thermal'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });
@@ -478,12 +478,12 @@ var _daylightKeyframes = [
   }],
   [17, { // Golden hour — warm honey
     '--bg-body':       [0.90, 0.03, 75],
-    '--text-primary':  [0.25, 0.02, 50],
-    '--text-white':    [0.15, 0.02, 50],
-    '--text-muted':    [0.50, 0.02, 55],
-    '--text-dim':      [0.60, 0.02, 60],
-    '--text-dimmer':   [0.65, 0.015, 60],
-    '--text-dimmest':  [0.72, 0.01, 65],
+    '--text-primary':  [0.20, 0.02, 50],
+    '--text-white':    [0.12, 0.02, 50],
+    '--text-muted':    [0.42, 0.02, 55],
+    '--text-dim':      [0.52, 0.02, 60],
+    '--text-dimmer':   [0.60, 0.015, 60],
+    '--text-dimmest':  [0.68, 0.01, 65],
     '--bg-sidebar':    [0.87, 0.03, 72],
     '--border-sidebar':[0.82, 0.025, 70],
     '--bg-hover':      [0.85, 0.03, 72],
@@ -504,11 +504,11 @@ var _daylightKeyframes = [
     '--bg-sidebar-cat':[0.85, 0.03, 72],
     '--sidebar-cat-border':[0.78, 0.025, 68],
     '--sidebar-cat-color':[0.50, 0.02, 55],
-    '--text-link':     [0.55, 0.13, 40],
-    '--text-summary':  [0.50, 0.02, 55],
-    '--text-authors':  [0.55, 0.02, 58],
-    '--text-meta-value':[0.40, 0.02, 50],
-    '--text-idea-desc':[0.40, 0.02, 50],
+    '--text-link':     [0.48, 0.13, 40],
+    '--text-summary':  [0.42, 0.02, 55],
+    '--text-authors':  [0.48, 0.02, 58],
+    '--text-meta-value':[0.32, 0.02, 50],
+    '--text-idea-desc':[0.32, 0.02, 50],
     '--tree-edge':     [0.72, 0.025, 65],
     '--spinner-border':[0.72, 0.025, 65],
     '--tooltip-bg':    [0.87, 0.03, 72],
@@ -519,12 +519,12 @@ var _daylightKeyframes = [
   }],
   [19, { // Dusk — soft peach-gray
     '--bg-body':       [0.50, 0.03, 40],
-    '--text-primary':  [0.85, 0.01, 55],
-    '--text-white':    [0.92, 0.005, 55],
-    '--text-muted':    [0.68, 0.015, 48],
-    '--text-dim':      [0.58, 0.015, 45],
-    '--text-dimmer':   [0.52, 0.012, 42],
-    '--text-dimmest':  [0.45, 0.01, 40],
+    '--text-primary':  [0.90, 0.01, 55],
+    '--text-white':    [0.95, 0.005, 55],
+    '--text-muted':    [0.75, 0.015, 48],
+    '--text-dim':      [0.65, 0.015, 45],
+    '--text-dimmer':   [0.58, 0.012, 42],
+    '--text-dimmest':  [0.50, 0.01, 40],
     '--bg-sidebar':    [0.45, 0.03, 38],
     '--border-sidebar':[0.40, 0.025, 38],
     '--bg-hover':      [0.48, 0.03, 40],
@@ -540,16 +540,16 @@ var _daylightKeyframes = [
     '--bg-popup':      [0.46, 0.03, 38],
     '--bg-chip-count': [0.44, 0.03, 38],
     '--bg-cat-tag':    [0.44, 0.03, 38],
-    '--bg-cat-tag-color':[0.68, 0.015, 48],
+    '--bg-cat-tag-color':[0.75, 0.015, 48],
     '--bg-cite':       [0.48, 0.04, 50],
     '--bg-sidebar-cat':[0.48, 0.03, 40],
     '--sidebar-cat-border':[0.52, 0.025, 42],
-    '--sidebar-cat-color':[0.68, 0.015, 48],
-    '--text-link':     [0.65, 0.12, 45],
-    '--text-summary':  [0.68, 0.015, 48],
-    '--text-authors':  [0.62, 0.015, 46],
-    '--text-meta-value':[0.78, 0.01, 52],
-    '--text-idea-desc':[0.78, 0.01, 52],
+    '--sidebar-cat-color':[0.75, 0.015, 48],
+    '--text-link':     [0.72, 0.12, 45],
+    '--text-summary':  [0.75, 0.015, 48],
+    '--text-authors':  [0.70, 0.015, 46],
+    '--text-meta-value':[0.82, 0.01, 52],
+    '--text-idea-desc':[0.82, 0.01, 52],
     '--tree-edge':     [0.56, 0.02, 44],
     '--spinner-border':[0.56, 0.02, 44],
     '--tooltip-bg':    [0.46, 0.03, 38],
@@ -634,17 +634,51 @@ function _applyDaylightColors() {
   const vA = kf[iA][1], vB = kf[iB][1];
   const el = document.documentElement;
 
+  // First pass: interpolate all values and collect lightness for bg-body
+  const lerped = {};
+  let bgL = 0.5;
   for (const key of Object.keys(vA)) {
     if (key.endsWith('$a')) {
-      // Alpha channel for shadow/overlay
-      const alpha = vA[key] + (vB[key] - vA[key]) * t;
+      lerped[key] = vA[key] + (vB[key] - vA[key]) * t;
+    } else {
+      lerped[key] = _lerpOklch(vA[key], vB[key], t);
+      if (key === '--bg-body') bgL = lerped[key][0];
+    }
+  }
+
+  // Second pass: enforce text contrast against bg-body
+  // Text variables that must be readable against the background
+  const _textKeys = {
+    '--text-primary': 0.55, '--text-white': 0.65, '--text-muted': 0.35,
+    '--text-dim': 0.25, '--text-dimmer': 0.18, '--text-dimmest': 0.12,
+    '--text-link': 0.35, '--text-summary': 0.35, '--text-authors': 0.30,
+    '--text-meta-value': 0.40, '--text-idea-desc': 0.40,
+    '--bg-cat-tag-color': 0.30, '--sidebar-cat-color': 0.30,
+  };
+  for (const [key, minGap] of Object.entries(_textKeys)) {
+    if (!lerped[key]) continue;
+    const tL = lerped[key][0];
+    const gap = Math.abs(tL - bgL);
+    if (gap < minGap) {
+      // Push text to the opposite side of bg
+      if (bgL > 0.5) {
+        lerped[key] = [bgL - minGap, lerped[key][1], lerped[key][2]];
+      } else {
+        lerped[key] = [bgL + minGap, lerped[key][1], lerped[key][2]];
+      }
+    }
+  }
+
+  // Apply
+  for (const key of Object.keys(vA)) {
+    if (key.endsWith('$a')) {
+      const alpha = lerped[key];
       const cssVar = key.slice(0, -2);
       if (cssVar === '--shadow-card') el.style.setProperty(cssVar, `rgba(0,0,0,${alpha.toFixed(3)})`);
       else if (cssVar === '--shadow-popup') el.style.setProperty(cssVar, `rgba(0,0,0,${alpha.toFixed(3)})`);
       else if (cssVar === '--overlay-bg') el.style.setProperty(cssVar, `rgba(0,0,0,${alpha.toFixed(3)})`);
     } else {
-      const lerped = _lerpOklch(vA[key], vB[key], t);
-      el.style.setProperty(key, _oklchToHex(lerped[0], lerped[1], lerped[2]));
+      el.style.setProperty(key, _oklchToHex(lerped[key][0], lerped[key][1], lerped[key][2]));
     }
   }
 }

@@ -111,12 +111,12 @@
     [data-theme="daylight"] {
       /* Static fallback — midday values. JS overwrites every 60s. */
       --bg-body: #f2f2f5;
-      --text-primary: #1a1a2e;
-      --text-white: #0f0f1a;
-      --text-muted: #555566;
-      --text-dim: #777788;
-      --text-dimmer: #888899;
-      --text-dimmest: #9999aa;
+      --text-primary: #151528;
+      --text-white: #0a0a18;
+      --text-muted: #484860;
+      --text-dim: #606078;
+      --text-dimmer: #707088;
+      --text-dimmest: #85859a;
       --bg-sidebar: #eaeaef;
       --border-sidebar: #d8d8e0;
       --bg-hover: #e4e4ea;
@@ -191,6 +191,50 @@
       --spinner-border: #c8bfad;
       --tooltip-bg: #ede8de;
       --tooltip-border: #d8d0c0;
+    }
+
+    [data-theme="thermal"] {
+      --bg-body: #0d0a12;
+      --text-primary: #e8d8c8;
+      --text-white: #fff0e0;
+      --text-muted: #a08060;
+      --text-dim: #806848;
+      --text-dimmer: #685838;
+      --text-dimmest: #504030;
+      --bg-sidebar: #100c16;
+      --border-sidebar: #1e1420;
+      --bg-hover: #1a1020;
+      --bg-card: #140e1a;
+      --bg-input: #180f1e;
+      --bg-input-alt: #140e1a;
+      --border-card: #2a1830;
+      --border-input: #3a2040;
+      --border-subtle: #221628;
+      --border-dim: #1a1020;
+      --bg-header: #100c16;
+      --bg-canvas: #0b0810;
+      --bg-popup: #1a1024;
+      --bg-chip-count: #1e1228;
+      --bg-cat-tag: #1e1228;
+      --bg-cat-tag-color: #a07050;
+      --bg-cite: #201418;
+      --bg-sidebar-cat: #1a1020;
+      --sidebar-cat-border: #2a1830;
+      --sidebar-cat-color: #b08060;
+      --text-link: #e87040;
+      --accent: #e04818;
+      --accent-hover: #f05828;
+      --text-summary: #a08060;
+      --text-authors: #907858;
+      --text-meta-value: #c0a080;
+      --text-idea-desc: #c0a080;
+      --shadow-card: rgba(200,40,0,0.12);
+      --shadow-popup: rgba(200,40,0,0.25);
+      --overlay-bg: rgba(10,5,15,0.6);
+      --tree-edge: #3a2040;
+      --spinner-border: #3a2040;
+      --tooltip-bg: #1a1024;
+      --tooltip-border: #2a1830;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -475,9 +519,8 @@
 
     /* ── Hover occurrence highlight ── */
     .cm-hover-occurrence {
-      background: rgba(255,255,255,0.08);
-      border-radius: 2px;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
+      background: rgba(180,69,26,0.25);
+      border-radius: 3px;
     }
 
     .CodeMirror-gutters {

@@ -931,14 +931,30 @@ function setRainVolume(v) {
   if (_rainNodes.length && _rainNodes[0]) {
     _rainNodes[0].gain.value = _rainVolume;
   }
-  // Update volume indicator if visible
-  const ind = document.getElementById('rain-vol-indicator');
-  if (ind) ind.textContent = Math.round(_rainVolume * 100) + '%';
-  // Update settings slider if visible
-  const slider = document.getElementById('rain-volume-slider');
-  if (slider && Math.abs(parseFloat(slider.value) - _rainVolume) > 0.01) slider.value = _rainVolume;
+  // Update settings percentage if visible
   const sliderVal = document.getElementById('rain-volume-value');
   if (sliderVal) sliderVal.textContent = Math.round(_rainVolume * 100) + '%';
+  // Update sidebar tooltip if dragging
+  const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
+  if (tooltip && tooltip.dataset.volDrag) tooltip.textContent = Math.round(_rainVolume * 100) + '%';
+}
+
+function _rainVolDragStart(e) {
+  e.preventDefault();
+  const startY = e.clientY;
+  const startVol = _rainVolume;
+  const el = document.getElementById('rain-volume-value');
+  function onMove(ev) {
+    const dy = ev.clientY - startY;
+    const newVol = Math.max(0, Math.min(1, startVol - dy / 150));
+    setRainVolume(newVol);
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function setRainSidebarVisible(show) {
@@ -957,23 +973,25 @@ function isRainSidebarVisible() {
   let _rainDragging = false;
   let _rainDragStartY = 0;
   let _rainDragStartVol = 0;
-  let _rainVolIndicator = null;
 
-  function showVolIndicator() {
-    if (_rainVolIndicator) return;
-    const btn = document.getElementById('sb-rain');
-    if (!btn) return;
-    _rainVolIndicator = document.createElement('div');
-    _rainVolIndicator.id = 'rain-vol-indicator';
-    _rainVolIndicator.style.cssText = 'position:fixed;left:70px;background:var(--bg-tooltip);color:var(--text-primary);font-size:0.72rem;padding:3px 8px;border-radius:6px;border:1px solid var(--tooltip-border);pointer-events:none;white-space:nowrap;z-index:99999;font-variant-numeric:tabular-nums;';
-    const rect = btn.getBoundingClientRect();
-    _rainVolIndicator.style.top = (rect.top + rect.height/2 - 12) + 'px';
-    _rainVolIndicator.textContent = Math.round(_rainVolume * 100) + '%';
-    document.body.appendChild(_rainVolIndicator);
+  function showVolInTooltip() {
+    const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
+    if (tooltip) {
+      tooltip.dataset.volDrag = '1';
+      tooltip.style.opacity = '1';
+      tooltip.style.visibility = 'visible';
+      tooltip.textContent = Math.round(_rainVolume * 100) + '%';
+    }
   }
 
-  function hideVolIndicator() {
-    if (_rainVolIndicator) { _rainVolIndicator.remove(); _rainVolIndicator = null; }
+  function restoreTooltip() {
+    const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
+    if (tooltip) {
+      delete tooltip.dataset.volDrag;
+      tooltip.textContent = 'Rain';
+      tooltip.style.opacity = '';
+      tooltip.style.visibility = '';
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function() {
@@ -992,7 +1010,7 @@ function isRainSidebarVisible() {
         const dy = ev.clientY - _rainDragStartY;
         if (!_rainDragging && Math.abs(dy) > 4) {
           _rainDragging = true;
-          showVolIndicator();
+          showVolInTooltip();
         }
         if (_rainDragging) {
           // drag down = lower volume, drag up = raise volume; 150px = full range
@@ -1004,7 +1022,7 @@ function isRainSidebarVisible() {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         if (_rainDragging) {
-          hideVolIndicator();
+          restoreTooltip();
           // Delay reset so click handler can see the flag
           setTimeout(function() { _rainDragging = false; }, 50);
         }
