@@ -4,6 +4,9 @@ import re
 import ssl
 import time
 import urllib.request
+import sqlite3
+import hashlib
+import secrets
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_TTL = 600  # 10 minutes
@@ -252,3 +255,155 @@ def cached_fetch(url, timeout=15):
         data = resp.read()
     _cache[url] = (data, now)
     return data
+
+
+# ── User accounts (SQLite) ──
+
+DB_PATH = os.path.join(DIR, 'alpha.db')
+SESSION_TTL = 30 * 24 * 3600  # 30 days
+
+
+def _get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
+def init_db():
+    conn = _get_db()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password_hash TEXT NOT NULL,
+            created REAL NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            expires REAL NOT NULL,
+            FOREIGN KEY (username) REFERENCES users(username)
+        );
+        CREATE TABLE IF NOT EXISTS user_data (
+            username TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated REAL NOT NULL,
+            PRIMARY KEY (username, key),
+            FOREIGN KEY (username) REFERENCES users(username)
+        );
+    """)
+    conn.close()
+
+
+def _hash_password(password):
+    salt = secrets.token_hex(16)
+    h = hashlib.sha256((salt + password).encode()).hexdigest()
+    return salt + ':' + h
+
+
+def _verify_password(password, stored):
+    salt, h = stored.split(':', 1)
+    return hashlib.sha256((salt + password).encode()).hexdigest() == h
+
+
+def create_user(username, password):
+    conn = _get_db()
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, created) VALUES (?, ?, ?)",
+            (username, _hash_password(password), time.time())
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def verify_user(username, password):
+    conn = _get_db()
+    row = conn.execute("SELECT password_hash FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    if not row:
+        return False
+    return _verify_password(password, row['password_hash'])
+
+
+def create_session(username):
+    token = secrets.token_urlsafe(32)
+    expires = time.time() + SESSION_TTL
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO sessions (token, username, expires) VALUES (?, ?, ?)",
+        (token, username, expires)
+    )
+    conn.commit()
+    conn.close()
+    return token
+
+
+def get_session_user(token):
+    if not token:
+        return None
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT username, expires FROM sessions WHERE token = ?", (token,)
+    ).fetchone()
+    conn.close()
+    if not row or row['expires'] < time.time():
+        return None
+    return row['username']
+
+
+def delete_session(token):
+    conn = _get_db()
+    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+
+
+def get_all_user_data(username):
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT key, value, updated FROM user_data WHERE username = ?", (username,)
+    ).fetchall()
+    conn.close()
+    result = {}
+    for row in rows:
+        try:
+            result[row['key']] = {'value': json.loads(row['value']), 'updated': row['updated']}
+        except json.JSONDecodeError:
+            result[row['key']] = {'value': row['value'], 'updated': row['updated']}
+    return result
+
+
+def set_user_data(username, key, value, updated=None):
+    if updated is None:
+        updated = time.time()
+    conn = _get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO user_data (username, key, value, updated) VALUES (?, ?, ?, ?)",
+        (username, key, json.dumps(value), updated)
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_user_data_bulk(username, data):
+    """data is dict of {key: {value, updated}}"""
+    conn = _get_db()
+    for key, entry in data.items():
+        value = entry.get('value')
+        updated = entry.get('updated', time.time())
+        conn.execute(
+            "INSERT OR REPLACE INTO user_data (username, key, value, updated) VALUES (?, ?, ?, ?)",
+            (username, key, json.dumps(value), updated)
+        )
+    conn.commit()
+    conn.close()
+
+
+# Initialize DB on import
+init_db()

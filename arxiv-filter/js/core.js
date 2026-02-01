@@ -1120,3 +1120,334 @@ if (localStorage.getItem('rainOn') === '1') {
   });
 }
 
+// ── User accounts & sync ──
+
+let _authToken = localStorage.getItem('authToken') || null;
+let _authUser = localStorage.getItem('authUser') || null;
+let _syncInterval = null;
+let _authReady = false;  // true once login gate has been resolved
+
+// Keys to sync between devices (all user settings)
+const SYNC_KEYS = [
+  'feedSources', 'customFeeds', 'qualityFilter', 'qualityPrompt',
+  'qualityThreshold', 'qualityCache', 'hiddenPosts', 'savedPosts',
+  'readPosts', 'qualityTestTitles', 'paperRatings', 'theme',
+  'accentColor', 'spinner', 'userName', 'sidebarOrder',
+  'clickSound', 'clickSoundType', 'rainNoiseType', 'rainVolume',
+  'editorTheme', 'rainSidebarVisible'
+];
+
+function _authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (_authToken) h['Authorization'] = 'Bearer ' + _authToken;
+  return h;
+}
+
+// ── Login gate ──
+
+function _showLoginGate() {
+  const gate = document.getElementById('login-gate');
+  if (gate) gate.style.display = '';
+  _renderLoginForm();
+}
+
+function _hideLoginGate() {
+  const gate = document.getElementById('login-gate');
+  if (gate) gate.style.display = 'none';
+}
+
+function _renderLoginForm() {
+  const title = document.getElementById('auth-modal-title');
+  const body = document.getElementById('auth-modal-body');
+  if (!body) return;
+  if (title) title.textContent = 'Sign in to continue';
+  body.innerHTML = `
+    <div class="auth-error" id="auth-error"></div>
+    <div class="flex flex-col gap-3">
+      <input class="auth-input" id="auth-username" type="text" placeholder="Username" autocomplete="username" />
+      <input class="auth-input" id="auth-password" type="password" placeholder="Password" autocomplete="current-password" />
+      <button class="auth-btn" id="auth-submit" onclick="_doLogin()">Sign In</button>
+    </div>
+    <div class="auth-switch">Don't have an account? <a onclick="_renderRegisterForm()">Create one</a></div>
+  `;
+  setTimeout(() => document.getElementById('auth-username')?.focus(), 50);
+  _attachEnterKey();
+}
+
+function _renderRegisterForm() {
+  const title = document.getElementById('auth-modal-title');
+  const body = document.getElementById('auth-modal-body');
+  if (!body) return;
+  if (title) title.textContent = 'Create an account';
+  body.innerHTML = `
+    <div class="auth-error" id="auth-error"></div>
+    <div class="flex flex-col gap-3">
+      <input class="auth-input" id="auth-username" type="text" placeholder="Username" autocomplete="username" />
+      <input class="auth-input" id="auth-password" type="password" placeholder="Password (4+ characters)" autocomplete="new-password" />
+      <button class="auth-btn" id="auth-submit" onclick="_doRegister()">Create Account</button>
+    </div>
+    <div class="auth-switch">Already have an account? <a onclick="_renderLoginForm()">Sign in</a></div>
+  `;
+  setTimeout(() => document.getElementById('auth-username')?.focus(), 50);
+  _attachEnterKey();
+}
+
+function _attachEnterKey() {
+  const pw = document.getElementById('auth-password');
+  if (pw) {
+    pw.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('auth-submit')?.click();
+    });
+  }
+}
+
+// ── Auth actions ──
+
+async function authRegister(username, password) {
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Registration failed');
+  _authToken = data.token;
+  _authUser = data.username;
+  localStorage.setItem('authToken', _authToken);
+  localStorage.setItem('authUser', _authUser);
+  // New user: push current defaults to server
+  await syncToServer();
+  _onLoginSuccess();
+  return data;
+}
+
+async function authLogin(username, password) {
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Login failed');
+  _authToken = data.token;
+  _authUser = data.username;
+  localStorage.setItem('authToken', _authToken);
+  localStorage.setItem('authUser', _authUser);
+  // Existing user: pull their settings from server
+  await syncFromServer();
+  _onLoginSuccess();
+  return data;
+}
+
+function _onLoginSuccess() {
+  _authReady = true;
+  _hideLoginGate();
+  _updateAccountUI();
+  _startSyncInterval();
+  // Apply any synced appearance settings
+  if (typeof applyStoredAppearance === 'function') applyStoredAppearance();
+}
+
+async function authLogout() {
+  if (_authToken) {
+    // Push latest settings before logging out
+    await syncToServer().catch(() => {});
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: _authHeaders()
+    }).catch(() => {});
+  }
+  _authToken = null;
+  _authUser = null;
+  _authReady = false;
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('authUser');
+  _updateAccountUI();
+  _stopSyncInterval();
+  _showLoginGate();
+}
+
+// ── Account sidebar button + modal (when already logged in) ──
+
+function _updateAccountUI() {
+  const btn = document.getElementById('sb-account');
+  const label = document.getElementById('sb-account-label');
+  if (!btn) return;
+  if (_authUser) {
+    btn.classList.add('logged-in');
+    if (label) label.textContent = _authUser;
+  } else {
+    btn.classList.remove('logged-in');
+    if (label) label.textContent = 'Account';
+  }
+}
+
+function openAuthModal() {
+  if (!_authUser) { _showLoginGate(); return; }
+  const modal = document.getElementById('auth-modal');
+  if (!modal) return;
+  modal.style.display = '';
+  const body = document.getElementById('account-modal-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="auth-logged-in">
+      <div class="auth-username">${escapeHtml(_authUser)}</div>
+      <div class="auth-sync-status" id="account-sync-status">Syncing across devices</div>
+      <button class="auth-btn" style="margin-bottom:8px" onclick="_doSyncNow()">Sync Now</button>
+      <button class="auth-logout-btn" onclick="_doLogout()">Sign Out</button>
+    </div>
+  `;
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// ── Sync ──
+
+function _buildSyncPayload() {
+  const data = {};
+  const now = Date.now() / 1000;
+  for (const key of SYNC_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) {
+      let value;
+      try { value = JSON.parse(raw); } catch { value = raw; }
+      data[key] = { value, updated: now };
+    }
+  }
+  return data;
+}
+
+function _applySyncData(serverData) {
+  for (const [key, entry] of Object.entries(serverData)) {
+    if (!SYNC_KEYS.includes(key)) continue;
+    const value = entry.value;
+    if (value === null || value === undefined) continue;
+    localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+  }
+}
+
+async function syncToServer() {
+  if (!_authToken) return;
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ data: _buildSyncPayload() })
+    });
+    if (res.status === 401) { authLogout(); return; }
+    const result = await res.json();
+    if (result.data) _applySyncData(result.data);
+  } catch (e) {
+    console.warn('[sync] push failed:', e);
+  }
+}
+
+async function syncFromServer() {
+  if (!_authToken) return;
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ data: _buildSyncPayload() })
+    });
+    if (res.status === 401) { authLogout(); return; }
+    const result = await res.json();
+    if (result.data) _applySyncData(result.data);
+  } catch (e) {
+    console.warn('[sync] pull failed:', e);
+  }
+}
+
+function _startSyncInterval() {
+  _stopSyncInterval();
+  _syncInterval = setInterval(syncToServer, 60000);
+}
+
+function _stopSyncInterval() {
+  if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
+}
+
+// ── UI action handlers ──
+
+async function _doLogin() {
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const username = document.getElementById('auth-username')?.value?.trim();
+  const password = document.getElementById('auth-password')?.value;
+  if (!username || !password) { if (errEl) errEl.textContent = 'Fill in both fields'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
+  try {
+    await authLogin(username, password);
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
+  }
+}
+
+async function _doRegister() {
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const username = document.getElementById('auth-username')?.value?.trim();
+  const password = document.getElementById('auth-password')?.value;
+  if (!username || !password) { if (errEl) errEl.textContent = 'Fill in both fields'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+  try {
+    await authRegister(username, password);
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+  }
+}
+
+async function _doSyncNow() {
+  await syncToServer();
+  const s = document.getElementById('account-sync-status');
+  if (s) s.textContent = 'Synced just now';
+}
+
+function _doLogout() {
+  closeAuthModal();
+  authLogout();
+}
+
+// Close account modal on Escape (but not login gate)
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('auth-modal');
+    if (modal && modal.style.display !== 'none') closeAuthModal();
+  }
+});
+
+// ── Initialize: check session, show login gate if needed ──
+(function _initAuth() {
+  _updateAccountUI();
+  if (_authToken) {
+    // Verify session is still valid
+    fetch('/api/auth/me', { headers: _authHeaders() })
+      .then(r => {
+        if (r.ok) return r.json();
+        throw new Error('expired');
+      })
+      .then(data => {
+        _authUser = data.username;
+        localStorage.setItem('authUser', _authUser);
+        _onLoginSuccess();
+        syncFromServer();
+      })
+      .catch(() => {
+        _authToken = null;
+        _authUser = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+        _updateAccountUI();
+        _showLoginGate();
+      });
+  } else {
+    // No token — show login gate
+    _showLoginGate();
+  }
+})();
+

@@ -32,6 +32,9 @@ from persistence import (
     read_prompt, write_prompt, get_active_prompt,
     DEFAULT_VERDICT_PROMPT, DEFAULT_SCORING_PROMPT,
     classify_title, cached_fetch,
+    create_user, verify_user, create_session,
+    get_session_user, delete_session,
+    get_all_user_data, set_user_data, set_user_data_bulk,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -76,7 +79,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
 
     def _read_body(self):
@@ -804,11 +807,96 @@ ch.postMessage({type:'preview-ready'});
             self.end_headers()
             self.wfile.write(html)
 
+        elif self.path == '/api/auth/me':
+            username = self._get_user()
+            if username:
+                self._send_json({'username': username})
+            else:
+                self._send_json({'error': 'Not authenticated'}, 401)
+
         else:
             super().do_GET()
 
+    def _get_user(self):
+        """Extract username from Authorization: Bearer <token> header."""
+        auth = self.headers.get('Authorization', '')
+        if auth.startswith('Bearer '):
+            return get_session_user(auth[7:])
+        return None
+
     def do_POST(self):
-        if self.path == '/api/citations':
+        if self.path == '/api/auth/register':
+            body = self._read_body()
+            username = body.get('username', '').strip().lower()
+            password = body.get('password', '')
+            if not username or not password:
+                self._send_json({'error': 'Username and password required'}, 400)
+                return
+            if len(username) < 2 or len(username) > 30:
+                self._send_json({'error': 'Username must be 2-30 characters'}, 400)
+                return
+            if len(password) < 4:
+                self._send_json({'error': 'Password must be at least 4 characters'}, 400)
+                return
+            if not re.match(r'^[a-z0-9_-]+$', username):
+                self._send_json({'error': 'Username may only contain letters, numbers, hyphens, underscores'}, 400)
+                return
+            if not create_user(username, password):
+                self._send_json({'error': 'Username already taken'}, 409)
+                return
+            token = create_session(username)
+            self._send_json({'token': token, 'username': username}, 201)
+            return
+
+        elif self.path == '/api/auth/login':
+            body = self._read_body()
+            username = body.get('username', '').strip().lower()
+            password = body.get('password', '')
+            if not verify_user(username, password):
+                self._send_json({'error': 'Invalid username or password'}, 401)
+                return
+            token = create_session(username)
+            self._send_json({'token': token, 'username': username})
+            return
+
+        elif self.path == '/api/auth/logout':
+            auth = self.headers.get('Authorization', '')
+            if auth.startswith('Bearer '):
+                delete_session(auth[7:])
+            self._send_json({'ok': True})
+            return
+
+        elif self.path == '/api/sync':
+            username = self._get_user()
+            if not username:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            client_data = body.get('data', {})
+            # Merge: for each key, keep the entry with the latest 'updated' timestamp
+            server_data = get_all_user_data(username)
+            to_save = {}
+            merged = {}
+            for key in set(list(client_data.keys()) + list(server_data.keys())):
+                c = client_data.get(key)
+                s = server_data.get(key)
+                if c and s:
+                    if c.get('updated', 0) >= s.get('updated', 0):
+                        to_save[key] = c
+                        merged[key] = c
+                    else:
+                        merged[key] = s
+                elif c:
+                    to_save[key] = c
+                    merged[key] = c
+                else:
+                    merged[key] = s
+            if to_save:
+                set_user_data_bulk(username, to_save)
+            self._send_json({'data': merged})
+            return
+
+        elif self.path == '/api/citations':
             try:
                 body = self._read_body()
                 arxiv_ids = body.get('ids', [])

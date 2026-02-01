@@ -162,6 +162,33 @@ Clicking a post marks it as read (`localStorage.readPosts`). Read posts render a
 | `readPosts` | Array of post URLs that have been clicked/opened |
 | `qualityTestTitles` | Array of strings — titles that must be classified as SKIP (prompt test suite) |
 
+### Authentication & User Accounts
+
+Users must sign in before accessing the app. A full-screen login gate blocks all content until authenticated.
+
+**Backend (SQLite):** User data lives in `alpha.db` (auto-created on first run) with three tables:
+- `users` — username (primary key), salted SHA-256 password hash, created timestamp
+- `sessions` — token (primary key), username, expires (30-day TTL)
+- `user_data` — per-user key-value store for synced settings (username + key composite PK)
+
+**Auth endpoints:**
+- `POST /api/auth/register` — create account (username 2-30 chars, password 4+ chars), returns session token
+- `POST /api/auth/login` — verify credentials, returns session token
+- `POST /api/auth/logout` — delete session (requires `Authorization: Bearer <token>`)
+- `GET /api/auth/me` — validate session, returns `{ username }`
+- `POST /api/sync` — bidirectional settings sync (last-write-wins by timestamp per key)
+
+**Frontend flow:**
+1. On page load, `core.js` checks for a stored `authToken` in localStorage
+2. If no token or token is expired → show login gate (covers entire app)
+3. On successful login → pull settings from server, hide gate, start 60s sync interval
+4. On register → push current localStorage defaults to server as initial settings
+5. Account button in sidebar opens a modal to sync or sign out
+
+**Synced settings (`SYNC_KEYS`):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible
+
+**Design:** This is a placeholder auth system. The username/password flow is structured to be easily replaceable with Google Sign-In or any OAuth provider — just swap the login form and the `/api/auth/register` + `/api/auth/login` endpoints. Sessions, sync, and per-user data storage remain unchanged.
+
 ## Key Conventions
 
 - UI uses a dark theme (and light theme) with accent color `#b4451a`
