@@ -149,9 +149,47 @@ async function showTeamDetailView(teamId) {
   const formEl = document.getElementById('teams-view-create-form');
   if (formEl) formEl.innerHTML = '';
   try {
-    const resp = await fetch(`/api/teams/${teamId}`, { headers: _authHeaders() });
-    const team = await resp.json();
+    const [teamResp, expResp, ownExpResp] = await Promise.all([
+      fetch(`/api/teams/${teamId}`, { headers: _authHeaders() }),
+      fetch('/api/team-experiments', { headers: _authHeaders() }),
+      fetch('/api/experiments', { headers: _authHeaders() }),
+    ]);
+    const team = await teamResp.json();
+    const allTeamExps = expResp.ok ? await expResp.json() : [];
+    const ownExps = ownExpResp.ok ? await ownExpResp.json() : [];
     const isOwner = team.owner_google_id === (_authUserInfo && _authUserInfo.google_id);
+
+    // Merge: team experiments for this team + own experiments assigned to this team
+    const seen = new Set();
+    const teamExps = [];
+    for (const e of allTeamExps) {
+      if (e.team_id === teamId && !seen.has(e.id)) { seen.add(e.id); teamExps.push(e); }
+    }
+    for (const e of ownExps) {
+      if (e.team_id === teamId && !seen.has(e.id)) { seen.add(e.id); teamExps.push(e); }
+    }
+
+    const experimentsHtml = teamExps.length ? `
+      <div class="mb-6">
+        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Experiments</h4>
+        <div class="grid grid-cols-1 gap-2">
+          ${teamExps.map(exp => `
+            <a href="#experiment/${exp.id}" class="flex items-center gap-3 p-3 rounded-lg border border-border-card bg-card hover:border-border-input transition-colors" style="text-decoration:none">
+              ${typeof _pixelArt === 'function' ? _pixelArt(exp.id) : ''}
+              <div class="min-w-0 flex-1">
+                <div class="text-primary text-sm font-medium truncate">${escapeHtml(exp.title || exp.id)}</div>
+                <div class="text-dimmer text-[0.72rem]">${exp.runCount || 0} run${(exp.runCount || 0) !== 1 ? 's' : ''}${exp.lastUpdated ? ' · ' + new Date(exp.lastUpdated).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : ''}</div>
+              </div>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    ` : `
+      <div class="mb-6">
+        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Experiments</h4>
+        <div class="text-dimmer text-xs">No experiments shared with this team yet. Assign a team to an experiment from the experiment detail page.</div>
+      </div>
+    `;
 
     container.innerHTML = `
       <div class="mb-4">
@@ -164,6 +202,7 @@ async function showTeamDetailView(teamId) {
           <div class="text-dimmer text-xs">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
+      ${experimentsHtml}
       <div class="mb-6">
         <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Members</h4>
         ${team.members.map(m => `

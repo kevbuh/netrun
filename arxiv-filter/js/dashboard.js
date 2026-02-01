@@ -263,10 +263,11 @@ async function renderDashboard() {
     return `<div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openExperimentDetail('${exp.id}')">
       <div class="flex items-center gap-2.5">
         ${_pixelArt(exp.id)}
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <div class="text-[0.85rem] font-medium text-primary truncate">${escapeHtml(exp.title)}</div>
           <div class="text-[0.72rem] text-dimmer mt-0.5">${runCount} run${runCount !== 1 ? 's' : ''}${lastUpdated ? ' · ' + lastUpdated : ''}</div>
         </div>
+        ${exp.team_name ? `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">${escapeHtml(exp.team_name)}</span>` : ''}
       </div>
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer">No experiments yet</div>';
