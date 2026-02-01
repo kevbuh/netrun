@@ -877,13 +877,13 @@ function renderPythonEditor(fname, content) {
       <span class="flex items-center gap-1 text-[0.7rem] text-dimmer"><span id="py-kernel-dot" class="w-1.5 h-1.5 rounded-full inline-block bg-emerald-500"></span><span id="py-kernel-text">idle</span></span>
       <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
       <div class="ml-auto flex items-center gap-1.5">
-        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart</button>
-        <select id="py-venv-select" onchange="switchVenv(this.value)" class="px-1.5 py-0.5 rounded border border-border-input bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent">
+        <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="restartKernel()">Restart</button>
+        <select id="py-venv-select" onchange="switchVenv(this.value)" class="px-1.5 py-0.5 rounded border-none bg-input text-primary text-[0.7rem] cursor-pointer focus:outline-none focus:border-accent">
           <option value="python3" ${pythonPath === 'python3' ? 'selected' : ''}>System python3</option>
         </select>
-        <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
-        <button class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
-        <button onclick="copyPyFile()" class="px-1.5 py-0.5 rounded border border-border-input bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents">Copy</button>
+        <button id="btn-create-venv" class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="createVenv()">+ venv</button>
+        <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="togglePackagesPanel()">Packages</button>
+        <button onclick="copyPyFile()" class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents">Copy</button>
         <button onclick="runPythonFile()" class="px-2 py-0.5 rounded text-[0.7rem] bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30 font-medium" id="py-run-btn" title="Run file (Shift+Enter)">Run</button>
       </div>
     </div>

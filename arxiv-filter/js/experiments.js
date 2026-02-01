@@ -1003,9 +1003,8 @@ function renderImageViewer(fname, dataUrl) {
   editor.innerHTML = `
     <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
       <span id="img-viewer-fname" class="text-[0.85rem] text-primary font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInViewer('${escapeHtml(fname)}')" title="Click to rename">${escapeHtml(fname)}</span>
-      <a href="${dataUrl}" download="${escapeHtml(fname)}" id="img-viewer-download" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline" title="Download">
+      <a href="${dataUrl}" download="${escapeHtml(fname)}" id="img-viewer-download" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download
       </a>
     </div>
     <div class="flex items-center justify-center p-8 min-h-[300px]">
@@ -1021,9 +1020,8 @@ function renderMediaViewer(fname, dataUrl, type) {
   editor.innerHTML = `
     <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
       <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
-      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline" title="Download">
+      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download
       </a>
     </div>
     <div class="flex items-center justify-center p-8 min-h-[300px]">
@@ -1037,9 +1035,8 @@ function renderBinaryViewer(fname, dataUrl, mime) {
   editor.innerHTML = `
     <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
       <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
-      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors no-underline" title="Download">
+      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download
       </a>
     </div>
     <div class="flex flex-col items-center justify-center p-8 min-h-[300px] gap-3 text-dimmer">
