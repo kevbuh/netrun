@@ -33,7 +33,7 @@ from persistence import (
     DEFAULT_VERDICT_PROMPT, DEFAULT_SCORING_PROMPT,
     classify_title, cached_fetch,
     upsert_google_user, get_user_info, create_session,
-    get_session_user, delete_session,
+    get_session_user, delete_session, set_username, delete_user,
     get_all_user_data, set_user_data, set_user_data_bulk,
 )
 from kernels import (
@@ -872,13 +872,43 @@ ch.postMessage({type:'preview-ready'});
                 return
             upsert_google_user(google_id, email, name)
             token = create_session(google_id)
-            self._send_json({'token': token, 'email': email, 'name': name})
+            info = get_user_info(google_id)
+            username = info['username'] if info else None
+            self._send_json({'token': token, 'email': email, 'name': name, 'username': username})
             return
 
         elif self.path == '/api/auth/logout':
             auth = self.headers.get('Authorization', '')
             if auth.startswith('Bearer '):
                 delete_session(auth[7:])
+            self._send_json({'ok': True})
+            return
+
+        elif self.path == '/api/auth/username':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            username = (body.get('username') or '').strip()
+            if not username or len(username) < 2 or len(username) > 20:
+                self._send_json({'error': 'Username must be 2-20 characters'}, 400)
+                return
+            if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+                self._send_json({'error': 'Only letters, numbers, hyphens, and underscores'}, 400)
+                return
+            if set_username(google_id, username):
+                self._send_json({'ok': True, 'username': username})
+            else:
+                self._send_json({'error': 'Username already taken'}, 409)
+            return
+
+        elif self.path == '/api/auth/delete-account':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            delete_user(google_id)
             self._send_json({'ok': True})
             return
 

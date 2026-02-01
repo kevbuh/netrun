@@ -276,6 +276,7 @@ def init_db():
             google_id TEXT PRIMARY KEY,
             email TEXT,
             name TEXT,
+            username TEXT UNIQUE,
             created REAL NOT NULL
         );
         CREATE TABLE IF NOT EXISTS sessions (
@@ -293,6 +294,12 @@ def init_db():
             FOREIGN KEY (google_id) REFERENCES users(google_id)
         );
     """)
+    # Migration: add username column if missing
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+    if 'username' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        conn.commit()
     conn.close()
 
 
@@ -316,11 +323,42 @@ def upsert_google_user(google_id, email, name):
 
 def get_user_info(google_id):
     conn = _get_db()
-    row = conn.execute("SELECT google_id, email, name FROM users WHERE google_id = ?", (google_id,)).fetchone()
+    row = conn.execute("SELECT google_id, email, name, username FROM users WHERE google_id = ?", (google_id,)).fetchone()
     conn.close()
     if not row:
         return None
-    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name']}
+    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username']}
+
+
+def set_username(google_id, username):
+    """Set username for a user. Returns True on success, False if taken (case-insensitive)."""
+    conn = _get_db()
+    try:
+        # Check case-insensitive uniqueness (excluding self)
+        row = conn.execute(
+            "SELECT google_id FROM users WHERE lower(username) = ? AND google_id != ?",
+            (username.lower(), google_id)
+        ).fetchone()
+        if row:
+            conn.close()
+            return False
+        conn.execute("UPDATE users SET username = ? WHERE google_id = ?", (username, google_id))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def delete_user(google_id):
+    """Delete a user and all their data (sessions, user_data)."""
+    conn = _get_db()
+    conn.execute("DELETE FROM user_data WHERE google_id = ?", (google_id,))
+    conn.execute("DELETE FROM sessions WHERE google_id = ?", (google_id,))
+    conn.execute("DELETE FROM users WHERE google_id = ?", (google_id,))
+    conn.commit()
+    conn.close()
 
 
 def create_session(google_id):

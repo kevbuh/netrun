@@ -406,8 +406,8 @@ function showPaperView(paper, hashValue) {
       <div id="comments-list" class="flex-1 overflow-y-auto"></div>
       <div class="border-t border-border-card pt-2 mt-2 shrink-0">
         <div class="flex items-center gap-2 mb-2">
-          <span class="text-[0.72rem] text-dim">Name:</span>
-          <input id="comment-author" class="flex-1 text-[0.78rem] bg-input border border-border-input rounded px-2 py-1 text-primary outline-none focus:border-accent" value="${escapeHtml(localStorage.getItem('userName') || '')}" placeholder="Your name" />
+          <span class="text-[0.72rem] text-dim">Posting as</span>
+          <span class="text-[0.78rem] text-primary font-medium">${escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous')}</span>
         </div>
         <textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea>
         <button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button>
@@ -885,8 +885,8 @@ function renderComments() {
     const ml = depth > 0 ? `margin-left:${Math.min(depth, 4) * 16}px; border-left: 2px solid var(--border-card); padding-left: 8px;` : '';
     const initial = (comment.author || '?')[0].toUpperCase();
     const timeAgo = _relativeTime(comment.timestamp);
-    const userName = localStorage.getItem('userName') || '';
-    const isOwn = comment.author === userName;
+    const currentUsername = (_authUserInfo && _authUserInfo.username) || _authUser || '';
+    const isOwn = comment.author === currentUsername;
     const deleteBtn = isOwn ? `<button onclick="deleteComment('${comment.id}')" class="text-dimmest hover:text-red-400 text-[0.7rem] ml-auto" title="Delete" style="background:none;border:none;cursor:pointer;">x</button>` : '';
     let html = `<div class="comment-thread" style="${ml}; margin-bottom: 8px;">
       <div class="flex items-start gap-2">
@@ -929,14 +929,11 @@ function _relativeTime(ts) {
 }
 
 async function postComment(parentId) {
-  const authorInput = document.getElementById('comment-author');
   const contentInput = document.getElementById('comment-input');
   if (!contentInput) return;
   const content = contentInput.value.trim();
   if (!content) return;
-  const author = (authorInput?.value || '').trim() || 'Anonymous';
-  // Save author name
-  localStorage.setItem('userName', author);
+  const author = (_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous';
   try {
     await fetch('/api/comments', {
       method: 'POST',
@@ -953,7 +950,7 @@ async function postReply(parentId) {
   if (!textarea) return;
   const content = textarea.value.trim();
   if (!content) return;
-  const author = (localStorage.getItem('userName') || '').trim() || 'Anonymous';
+  const author = (_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous';
   try {
     await fetch('/api/comments', {
       method: 'POST',

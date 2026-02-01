@@ -1125,7 +1125,7 @@ if (localStorage.getItem('rainOn') === '1') {
 const GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
 let _authToken = localStorage.getItem('authToken') || null;
 let _authUser = localStorage.getItem('authUser') || null;  // email or name
-let _authUserInfo = null;  // { google_id, email, name }
+let _authUserInfo = null;  // { google_id, email, name, username }
 let _syncInterval = null;
 let _authReady = false;  // true once login gate has been resolved
 
@@ -1209,14 +1209,121 @@ async function _handleGoogleCredential(response) {
     if (!res.ok) throw new Error(data.error || 'Sign-in failed');
     _authToken = data.token;
     _authUser = (data.name || data.email || '').split(' ')[0];
-    _authUserInfo = { email: data.email, name: data.name };
+    _authUserInfo = { email: data.email, name: data.name, username: data.username || null };
     localStorage.setItem('authToken', _authToken);
     localStorage.setItem('authUser', _authUser);
     // Sync: pull from server first for returning users, push for new
     await syncFromServer();
-    _onLoginSuccess();
+    if (!data.username) {
+      _showUsernamePicker();
+    } else {
+      _onLoginSuccess();
+    }
   } catch (e) {
     if (errEl) errEl.textContent = e.message;
+  }
+}
+
+// ── Username picker ──
+
+function _showUsernamePicker() {
+  const container = document.getElementById('google-signin-btn');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="text-align:center;max-width:320px;margin:0 auto;">
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">Choose a username</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">This will be your public identity for comments.</div>
+      <div style="position:relative;">
+        <input id="username-input" type="text" maxlength="20" placeholder="username"
+          style="width:100%;box-sizing:border-box;padding:8px 12px;font-size:14px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input,var(--bg-secondary));color:var(--text-primary);outline:none;" />
+        <div id="username-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:left;">2-20 chars: letters, numbers, hyphens, underscores</div>
+      </div>
+      <div id="username-error" style="font-size:12px;color:#e74c3c;margin-top:8px;min-height:18px;"></div>
+      <button id="username-submit-btn" onclick="_submitUsername()"
+        style="margin-top:8px;padding:8px 24px;font-size:14px;font-weight:500;border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer;opacity:0.5;" disabled>
+        Continue
+      </button>
+    </div>
+  `;
+  const input = document.getElementById('username-input');
+  input.addEventListener('input', () => {
+    const val = input.value.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (val !== input.value) input.value = val;
+    const btn = document.getElementById('username-submit-btn');
+    const valid = val.length >= 2 && val.length <= 20;
+    btn.disabled = !valid;
+    btn.style.opacity = valid ? '1' : '0.5';
+    document.getElementById('username-error').textContent = '';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const btn = document.getElementById('username-submit-btn');
+      if (!btn.disabled) _submitUsername();
+    }
+  });
+  input.focus();
+}
+
+async function _submitUsername() {
+  const input = document.getElementById('username-input');
+  const errEl = document.getElementById('username-error');
+  const btn = document.getElementById('username-submit-btn');
+  if (!input || !errEl) return;
+  const username = input.value.trim();
+  if (username.length < 2 || username.length > 20 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
+    errEl.textContent = 'Invalid username format';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+  try {
+    const res = await fetch('/api/auth/username', {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Failed to set username';
+      btn.disabled = false;
+      btn.textContent = 'Continue';
+      return;
+    }
+    _authUserInfo.username = data.username;
+    _onLoginSuccess();
+  } catch (e) {
+    errEl.textContent = 'Network error, please try again';
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+  }
+}
+
+async function _saveUsernameFromSettings() {
+  const input = document.getElementById('settings-username');
+  const msg = document.getElementById('settings-username-msg');
+  const btn = document.getElementById('settings-username-save');
+  if (!input || !msg) return;
+  const username = input.value.trim();
+  input.value = username;
+  if (!username) { msg.style.color = '#e74c3c'; msg.textContent = 'Username cannot be empty'; return; }
+  if (username.length < 2 || username.length > 20) { msg.style.color = '#e74c3c'; msg.textContent = '2-20 characters required'; return; }
+  if (!/^[a-zA-Z0-9_-]+$/.test(username)) { msg.style.color = '#e74c3c'; msg.textContent = 'Only letters, numbers, hyphens, underscores'; return; }
+  if (_authUserInfo && _authUserInfo.username === username) { msg.style.color = 'var(--text-muted)'; msg.textContent = 'No change'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    const res = await fetch('/api/auth/username', {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (!res.ok) { msg.style.color = '#e74c3c'; msg.textContent = data.error || 'Failed'; return; }
+    if (_authUserInfo) _authUserInfo.username = data.username;
+    msg.style.color = 'var(--accent)'; msg.textContent = 'Username updated';
+  } catch (e) {
+    msg.style.color = '#e74c3c'; msg.textContent = 'Network error';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   }
 }
 
@@ -1340,6 +1447,26 @@ function _doLogout() {
   authLogout();
 }
 
+async function _doDeleteAccount() {
+  if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
+  if (!confirm('All your data will be permanently deleted. Continue?')) return;
+  try {
+    await fetch('/api/auth/delete-account', {
+      method: 'POST',
+      headers: _authHeaders()
+    });
+  } catch (e) { /* proceed with local cleanup regardless */ }
+  _authToken = null;
+  _authUser = null;
+  _authUserInfo = null;
+  _authReady = false;
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('authUser');
+  _updateAccountUI();
+  _stopSyncInterval();
+  _showLoginGate();
+}
+
 // ── Initialize: check session, show login gate if needed ──
 (function _initAuth() {
   _updateAccountUI();
@@ -1352,9 +1479,14 @@ function _doLogout() {
       })
       .then(data => {
         _authUser = (data.name || data.email || _authUser || '').split(' ')[0];
-        _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id };
+        _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null };
         localStorage.setItem('authUser', _authUser);
-        _onLoginSuccess();
+        if (!data.username) {
+          _showLoginGate();
+          _showUsernamePicker();
+        } else {
+          _onLoginSuccess();
+        }
         syncFromServer();
       })
       .catch(() => {
