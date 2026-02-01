@@ -561,6 +561,7 @@ function routeFromHash() {
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#inbox') openInbox();
+  else if (hash === '#teams') openTeams();
   else if (hash === '#profile') openUserProfile('');
   else if (hash.startsWith('#profile/')) openUserProfile(decodeURIComponent(hash.slice('#profile/'.length)));
 else if (hash === '#saved-all') openAllSaved();

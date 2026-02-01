@@ -121,6 +121,7 @@ function renderExperimentList() {
       <div class="flex items-center gap-2.5 mb-1">
         ${_pixelArt(exp.id)}
         <div class="text-[0.95rem] font-semibold text-white_ truncate">${escapeHtml(exp.title)}</div>
+        ${exp.team_name ? `<span class="ml-auto text-[0.65rem] px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">${escapeHtml(exp.team_name)}</span>` : ''}
       </div>
       <div class="mb-2"></div>
       <div class="flex items-center gap-3 text-[0.75rem] text-dimmer">
@@ -194,8 +195,9 @@ let currentExp = null;
 
 async function fetchExperimentDetail(id) {
   try {
-    const resp = await fetch(`/api/experiments/${id}`);
+    const resp = await fetch(`/api/experiments/${id}`, { headers: _authHeaders() });
     currentExp = await resp.json();
+    if (currentExp.error) { document.getElementById('exp-detail-view').innerHTML = `<div class="text-dimmer text-sm mt-12 text-center ml-[60px]">${escapeHtml(currentExp.error)}</div>`; return; }
     document.getElementById('exp-detail-title').innerHTML = marked.parseInline(currentExp.title);
     renderLatexIn('exp-detail-title');
     const descEl = document.getElementById('exp-detail-desc');

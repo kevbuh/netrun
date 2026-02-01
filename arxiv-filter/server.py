@@ -491,6 +491,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
             allowed_ids = get_user_experiment_ids(google_id)
+            # Build lookup of experiment -> team info
+            user_teams = get_user_teams(google_id)
+            exp_team_map = {}
+            for t in user_teams:
+                for eid in get_team_experiments(t['id']):
+                    if eid not in exp_team_map:
+                        exp_team_map[eid] = {'team_id': t['id'], 'team_name': t['name']}
             experiments = []
             if os.path.isdir(EXPERIMENTS_DIR):
                 for name in sorted(os.listdir(EXPERIMENTS_DIR)):
@@ -513,6 +520,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                 except OSError:
                                     pass
                         meta['lastUpdated'] = max(ts) if ts else 0
+                        if name in exp_team_map:
+                            meta['team_id'] = exp_team_map[name]['team_id']
+                            meta['team_name'] = exp_team_map[name]['team_name']
                         experiments.append(meta)
             experiments.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
             self._send_json(experiments)
