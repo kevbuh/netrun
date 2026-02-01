@@ -414,6 +414,31 @@
     .tex-inline-preview .katex { font-size: 1.15em; }
     .tex-inline-preview .katex-display { margin: 0; }
     .tex-inline-preview .katex-display > .katex { text-align: left; }
+
+    /* ── Python hover tooltip ── */
+    .py-hover-tooltip {
+      position: fixed;
+      z-index: 9999;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      padding: 6px 10px;
+      box-shadow: 0 8px 24px var(--shadow-popup);
+      pointer-events: none;
+      max-width: 50vw;
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      white-space: pre;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .py-hover-tooltip .py-hover-type {
+      color: var(--text-dimmer);
+      font-size: 0.72rem;
+      margin-top: 2px;
+    }
+
     .CodeMirror-gutters {
       background: transparent !important;
       border-right: none !important;
@@ -426,6 +451,7 @@
     .CodeMirror-activeline-background { background: rgba(255,255,255,0.03) !important; }
     .cm-goto-highlight { background: rgba(180,69,26,0.3) !important; transition: background 0.3s; }
     .cm-cmd-held .CodeMirror-code span { cursor: pointer; }
+    .cm-cmd-held .CodeMirror-code .cm-def-link { text-decoration: underline; text-underline-offset: 2px; }
     /* Syntax colors */
     .cm-s-default .cm-keyword { color: #c586c0 !important; }
     .cm-s-default .cm-def { color: #dcdcaa !important; }

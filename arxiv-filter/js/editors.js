@@ -1082,9 +1082,144 @@ function _attachGotoDef(cm) {
     _gotoDefInProject(token);
   });
   const wrapper = cm.getWrapperElement();
+  let _defLinkMark = null;
+  function _clearDefLink() {
+    if (_defLinkMark) { _defLinkMark.clear(); _defLinkMark = null; }
+  }
+  function _updateDefLink(e) {
+    _clearDefLink();
+    if (!(e.metaKey || e.ctrlKey)) return;
+    var pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+    if (pos.outside) return;
+    var word = cm.findWordAt(pos);
+    var token = cm.getRange(word.anchor, word.head).trim();
+    if (!token || !/^[a-zA-Z_]\w*$/.test(token)) return;
+    if (_PY_KEYWORDS.has(token)) return;
+    // Check if definition exists
+    var info = _findPyDefinition(cm, token);
+    if (!info && typeof cmInstances !== 'undefined') {
+      for (var i = 0; i < cmInstances.length; i++) {
+        if (cmInstances[i] && cmInstances[i] !== cm) {
+          info = _findPyDefinition(cmInstances[i], token);
+          if (info) break;
+        }
+      }
+    }
+    if (!info) return;
+    _defLinkMark = cm.markText(word.anchor, word.head, { className: 'cm-def-link' });
+  }
+  wrapper.addEventListener('mousemove', _updateDefLink);
   cm.on('keydown', (cm, e) => { if (e.metaKey || e.ctrlKey) wrapper.classList.add('cm-cmd-held'); });
-  cm.on('keyup', (cm, e) => { if (!e.metaKey && !e.ctrlKey) wrapper.classList.remove('cm-cmd-held'); });
-  wrapper.addEventListener('mouseleave', () => wrapper.classList.remove('cm-cmd-held'));
+  cm.on('keyup', (cm, e) => { if (!e.metaKey && !e.ctrlKey) { wrapper.classList.remove('cm-cmd-held'); _clearDefLink(); } });
+  wrapper.addEventListener('mouseleave', () => { wrapper.classList.remove('cm-cmd-held'); _clearDefLink(); });
+  _initPyHover(cm);
+}
+
+// ── Python Variable Hover Tooltips ──
+let _pyHoverEl = null;
+let _pyHoverTimer = null;
+
+const _PY_KEYWORDS = new Set([
+  'if','else','elif','for','while','return','import','from','def','class',
+  'with','as','try','except','finally','raise','yield','lambda','pass',
+  'break','continue','and','or','not','in','is','True','False','None',
+  'del','global','nonlocal','assert','async','await','print'
+]);
+
+function _initPyHover(cm) {
+  if (!_pyHoverEl) {
+    _pyHoverEl = document.createElement('div');
+    _pyHoverEl.className = 'py-hover-tooltip';
+    _pyHoverEl.style.display = 'none';
+    document.body.appendChild(_pyHoverEl);
+  }
+  const wrapper = cm.getWrapperElement();
+  wrapper.addEventListener('mousemove', function(e) {
+    clearTimeout(_pyHoverTimer);
+    _pyHoverTimer = setTimeout(function() { _updatePyHover(cm, e); }, 150);
+  });
+  wrapper.addEventListener('mouseleave', function() {
+    clearTimeout(_pyHoverTimer);
+    if (_pyHoverEl) _pyHoverEl.style.display = 'none';
+  });
+}
+
+function _findPyDefinition(cm, token) {
+  var text = cm.getValue();
+  var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // def token(params) -> returnType:
+  var defPat = new RegExp('^([ \\t]*)(async\\s+)?def\\s+' + escaped + '\\s*\\([^)]*\\)(\\s*->\\s*[^:]+)?\\s*:', 'm');
+  var m = defPat.exec(text);
+  if (m) {
+    var defLine = text.substring(0, m.index).split('\n').length - 1;
+    var typeHint = m[3] ? m[3].replace(/^\s*->\s*/, '').trim() : null;
+    var defText = m[0].trim();
+    return { defLine: defLine, defText: defText, typeHint: typeHint ? '-> ' + typeHint : null };
+  }
+  // class token(bases):
+  var clsPat = new RegExp('^([ \\t]*)class\\s+' + escaped + '\\s*(\\([^)]*\\))?\\s*:', 'm');
+  m = clsPat.exec(text);
+  if (m) {
+    var defLine = text.substring(0, m.index).split('\n').length - 1;
+    return { defLine: defLine, defText: m[0].trim(), typeHint: null };
+  }
+  // token: Type = value
+  var annPat = new RegExp('^([ \\t]*)' + escaped + '\\s*:\\s*([^=\\n]+?)\\s*=', 'm');
+  m = annPat.exec(text);
+  if (m) {
+    var defLine = text.substring(0, m.index).split('\n').length - 1;
+    var fullLine = text.split('\n')[defLine].trim();
+    return { defLine: defLine, defText: fullLine, typeHint: m[2].trim() };
+  }
+  // token = value (simple assignment)
+  var assignPat = new RegExp('^([ \\t]*)' + escaped + '\\s*=(?!=)', 'm');
+  m = assignPat.exec(text);
+  if (m) {
+    var defLine = text.substring(0, m.index).split('\n').length - 1;
+    var fullLine = text.split('\n')[defLine].trim();
+    return { defLine: defLine, defText: fullLine, typeHint: null };
+  }
+  return null;
+}
+
+function _updatePyHover(cm, e) {
+  if (!_pyHoverEl) return;
+  var pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+  if (pos.outside) { _pyHoverEl.style.display = 'none'; return; }
+  var word = cm.findWordAt(pos);
+  var token = cm.getRange(word.anchor, word.head).trim();
+  if (!token || !/^[a-zA-Z_]\w*$/.test(token)) { _pyHoverEl.style.display = 'none'; return; }
+  if (_PY_KEYWORDS.has(token)) { _pyHoverEl.style.display = 'none'; return; }
+
+  var info = _findPyDefinition(cm, token);
+  // Search notebook cells if not found
+  if (!info && typeof cmInstances !== 'undefined') {
+    for (var i = 0; i < cmInstances.length; i++) {
+      if (cmInstances[i] && cmInstances[i] !== cm) {
+        info = _findPyDefinition(cmInstances[i], token);
+        if (info) break;
+      }
+    }
+  }
+  if (!info) { _pyHoverEl.style.display = 'none'; return; }
+
+  // Render
+  var html = '<div style="line-height:1.4">' + escapeHtml(info.defText) + '</div>';
+  if (info.typeHint) {
+    html += '<div class="py-hover-type">' + escapeHtml(info.typeHint) + '</div>';
+  }
+  _pyHoverEl.innerHTML = html;
+  _pyHoverEl.style.display = '';
+
+  // Position above hovered word
+  var coords = cm.charCoords(pos, 'page');
+  var h = _pyHoverEl.offsetHeight;
+  var w = _pyHoverEl.offsetWidth;
+  var top = coords.top - h - 6;
+  var left = Math.min(Math.max(8, coords.left), window.innerWidth - w - 8);
+  if (top < 0) top = coords.bottom + 6;
+  _pyHoverEl.style.top = top + 'px';
+  _pyHoverEl.style.left = left + 'px';
 }
 
 async function _gotoDefInProject(token) {
