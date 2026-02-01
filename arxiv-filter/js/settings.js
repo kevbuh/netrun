@@ -124,6 +124,21 @@ function renderSettingsView() {
           </label>
         </div>
       </div>
+      <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Button Sounds</span>
+        <div class="flex items-center gap-2">
+          <div class="flex gap-1">
+            ${Object.entries(CLICK_SOUND_PRESETS).map(([key, p]) => {
+              const sel = (localStorage.getItem('clickSoundType') || 'tap') === key;
+              return `<button onclick="setClickSoundType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
+            }).join('')}
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" ${_clickSoundOn ? 'checked' : ''} onchange="toggleClickSound(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
     </div>
 
     <!-- FEED SOURCES -->
