@@ -417,12 +417,12 @@ function catalogLogo(entry, size) {
     return `<img class="h-3.5 w-3.5 rounded-sm inline-block" src="https://www.google.com/s2/favicons?domain=${entry.favicon}&sz=32" alt="${entry.name}" onerror="this.style.display='none'" />`;
   }
   if (entry.img) {
-    const cls = size === 'onboard' ? 'h-7 w-auto opacity-70'
+    const cls = size === 'onboard' ? 'h-5 w-auto opacity-70'
       : size === 'inline' ? 'h-3.5 w-auto opacity-50 inline-block'
       : 'absolute top-2.5 right-2.5 h-4 w-auto opacity-30';
     return `<img class="${cls}" src="${entry.img}" alt="${entry.name}" />`;
   }
-  const cls = size === 'onboard' ? 'h-7 w-auto opacity-70'
+  const cls = size === 'onboard' ? 'h-5 w-auto opacity-70'
     : size === 'inline' ? 'h-3.5 w-auto opacity-50 inline-block'
     : 'absolute top-2.5 right-2.5 h-4 w-auto opacity-40';
   const stroke = entry.stroke ? ` stroke="${entry.stroke}"` : '';
@@ -1303,7 +1303,9 @@ async function _handleGoogleCredential(response) {
     localStorage.setItem('authToken', _authToken);
     localStorage.setItem('authUser', _authUser);
     localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
-    // Sync: pull from server first for returning users, push for new
+    // Clear any stale user data before pulling new user's data
+    for (const key of SYNC_KEYS) localStorage.removeItem(key);
+    // Sync: pull from server for returning users
     await syncFromServer();
     if (!data.username) {
       _showUsernamePicker();
@@ -1448,6 +1450,8 @@ async function authLogout() {
   _authUser = null;
   _authUserInfo = null;
   _authReady = false;
+  // Clear all user-specific data from localStorage
+  for (const key of SYNC_KEYS) localStorage.removeItem(key);
   localStorage.removeItem('authToken');
   localStorage.removeItem('authUser');
   localStorage.removeItem('authUserInfo');
@@ -1579,10 +1583,11 @@ async function syncToServer() {
 async function syncFromServer() {
   if (!_authToken) return;
   try {
+    // Pull only — send empty payload so server data always wins
     const res = await fetch('/api/sync', {
       method: 'POST',
       headers: _authHeaders(),
-      body: JSON.stringify({ data: _buildSyncPayload() })
+      body: JSON.stringify({ data: {} })
     });
     if (res.status === 401) { authLogout(); return; }
     const result = await res.json();

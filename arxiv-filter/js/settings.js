@@ -307,11 +307,6 @@ function renderSettingsView() {
 
 function setTheme(theme) {
   localStorage.setItem('theme', theme);
-  fetch('/api/settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ theme })
-  }).catch(() => {});
   stopDaylightTheme();
   if (theme === 'dark') {
     document.documentElement.removeAttribute('data-theme');
@@ -727,11 +722,6 @@ function stopDaylightTheme() {
 function setAccentColor(color) {
   localStorage.setItem('accentColor', color);
   applyAccentColor(color);
-  fetch('/api/settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accentColor: color })
-  }).catch(() => {});
   // Update swatch rings
   document.querySelectorAll('[onclick^="setAccentColor"]').forEach(btn => {
     const isActive = btn.getAttribute('onclick') === `setAccentColor('${color}')`;

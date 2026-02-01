@@ -20,26 +20,18 @@ function dashCalNav(dir) {
 }
 
 async function renderDashboard() {
-  if (!localStorage.getItem('feedSources')) { goHome(); return; }
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
-  const [expResp, calResp, savedResp] = await Promise.all([
-    fetch('/api/experiments').then(r => r.json()).catch(() => []),
-    fetch('/api/calendar').then(r => r.json()).catch(() => []),
-    fetch('/api/saved-posts').then(r => r.json()).catch(() => ({}))
+  const [expResp, calResp] = await Promise.all([
+    fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
+    fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => [])
   ]);
 
   const experiments = expResp || [];
   const events = calResp || [];
-  const savedPosts = savedResp || {};
 
-  // Merge server saved posts into localStorage
-  const localSaved = getSavedPosts();
-  let mergedSaved = { ...localSaved };
-  for (const [url, entry] of Object.entries(savedPosts)) {
-    if (!mergedSaved[url]) mergedSaved[url] = entry;
-  }
+  const mergedSaved = getSavedPosts();
 
   // ── Activity heatmap (full year, GitHub-style) ──
   const now = new Date();

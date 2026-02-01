@@ -18,14 +18,8 @@ from urllib.parse import unquote as url_unquote
 
 from persistence import (
     DIR, CACHE_TTL, EXPERIMENTS_DIR, BLOCKED_TITLES_FILE, PROMPT_FILE,
-    CALENDAR_FILE, TODOS_FILE, SAVED_POSTS_FILE, SETTINGS_FILE, COMMENTS_FILE,
     _cache,
     read_blocked_titles, write_blocked_titles,
-    read_calendar, write_calendar,
-    read_todos, write_todos,
-    read_saved_posts, write_saved_posts,
-    read_settings, write_settings,
-    read_comments, write_comments,
     read_saved_content, write_saved_content,
     slugify, unique_slug,
     read_meta, write_meta,
@@ -39,6 +33,10 @@ from persistence import (
     invite_to_team, get_pending_invites, respond_to_invite,
     remove_team_member, set_experiment_team, remove_experiment_team,
     get_experiment_team, get_team_experiments,
+    set_experiment_owner, get_user_experiment_ids, user_can_access_experiment,
+    get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
+    get_user_todos, create_todo, update_todo, delete_todo,
+    db_get_comments, db_create_comment, db_delete_comment,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -486,10 +484,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': str(e)}, 502)
 
         elif self.path == '/api/experiments':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            allowed_ids = get_user_experiment_ids(google_id)
             experiments = []
             if os.path.isdir(EXPERIMENTS_DIR):
                 for name in sorted(os.listdir(EXPERIMENTS_DIR)):
                     if name == '_unstructured':
+                        continue
+                    if name not in allowed_ids:
                         continue
                     meta = read_meta(name)
                     if meta:
@@ -512,6 +517,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files$'):
             exp_id = m.group(1)
+            if not self._check_experiment_access(exp_id):
+                return
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
             if not os.path.isdir(exp_dir):
                 self._send_json({'error': 'Not found'}, 404)
@@ -678,6 +685,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
+            if not self._check_experiment_access(exp_id):
+                return
             meta = read_meta(exp_id)
             if meta:
                 meta['id'] = exp_id
@@ -744,10 +753,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(info)
 
         elif self.path == '/api/todos':
-            self._send_json(read_todos())
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_user_todos(google_id))
 
         elif self.path == '/api/calendar':
-            self._send_json(read_calendar())
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_user_calendar(google_id))
 
         elif self.path == '/api/blocked-titles':
             self._send_json(read_blocked_titles())
@@ -758,9 +775,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'default': DEFAULT_VERDICT_PROMPT,
                 'scoringPrompt': DEFAULT_SCORING_PROMPT
             })
-
-        elif self.path == '/api/saved-posts':
-            self._send_json(read_saved_posts())
 
         elif self.path.startswith('/api/saved-content'):
             from urllib.parse import urlparse, parse_qs
@@ -775,19 +789,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             else:
                 self._send_json(data)
 
-        elif self.path == '/api/settings':
-            self._send_json(read_settings())
-
         elif self.path.startswith('/api/comments'):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
             paper_link = qs.get('paperLink', [''])[0].strip()
-            all_comments = read_comments()
-            if paper_link:
-                filtered = [c for c in all_comments if c.get('paperLink') == paper_link]
-            else:
-                filtered = all_comments
-            self._send_json(filtered)
+            self._send_json(db_get_comments(paper_link if paper_link else None))
 
         elif self.path == '/tex-preview':
             html = b'''<!DOCTYPE html>
@@ -907,6 +913,19 @@ ch.postMessage({type:'preview-ready'});
             return get_session_user(auth[7:])
         return None
 
+    def _check_experiment_access(self, exp_id):
+        """Check auth + experiment ownership. Returns google_id or sends error and returns None."""
+        if exp_id == '_unstructured':
+            return True
+        google_id = self._get_user()
+        if not google_id:
+            self._send_json({'error': 'Not authenticated'}, 401)
+            return None
+        if not user_can_access_experiment(exp_id, google_id):
+            self._send_json({'error': 'Forbidden'}, 403)
+            return None
+        return google_id
+
     def do_POST(self):
         if self.path == '/api/auth/google':
             body = self._read_body()
@@ -977,7 +996,24 @@ ch.postMessage({type:'preview-ready'});
             if not google_id:
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            delete_user(google_id)
+            owned_exps = delete_user(google_id)
+            # Delete owned experiment directories from disk
+            for exp_id in owned_exps:
+                exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+                if os.path.isdir(exp_dir):
+                    _kill_kernel(exp_id)
+                    shutil.rmtree(exp_dir)
+            # Clear unstructured files
+            unstructured = os.path.join(EXPERIMENTS_DIR, '_unstructured')
+            if os.path.isdir(unstructured):
+                for f in os.listdir(unstructured):
+                    if f == 'meta.json':
+                        continue
+                    fpath = os.path.join(unstructured, f)
+                    if os.path.isfile(fpath):
+                        os.remove(fpath)
+                    elif os.path.isdir(fpath):
+                        shutil.rmtree(fpath)
             self._send_json({'ok': True})
             return
 
@@ -1884,6 +1920,10 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'ok': True})
 
         elif self.path == '/api/experiments':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             body = self._read_body()
             title = body.get('title', '').strip()
             desc = body.get('desc', '').strip()
@@ -1900,47 +1940,34 @@ ch.postMessage({type:'preview-ready'});
                 'runs': []
             }
             write_meta(slug, meta)
+            set_experiment_owner(slug, google_id)
             meta['id'] = slug
             self._send_json(meta, 201)
 
         elif self.path == '/api/todos':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             body = self._read_body()
             title = body.get('title', '').strip()
             if not title:
                 self._send_json({'error': 'title required'}, 400)
                 return
-            todo = {
-                'id': str(uuid.uuid4()),
-                'title': title,
-                'done': False,
-                'date': body.get('date', ''),
-                'description': body.get('description', ''),
-                'content': body.get('content', ''),
-                'color': body.get('color', '#b4451a'),
-                'experimentId': body.get('experimentId', None),
-                'paperLink': body.get('paperLink', None)
-            }
-            todos = read_todos()
-            todos.append(todo)
-            write_todos(todos)
+            todo = create_todo(google_id, body)
             self._send_json(todo, 201)
 
         elif self.path == '/api/calendar':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             body = self._read_body()
             title = body.get('title', '').strip()
             if not title:
                 self._send_json({'error': 'title required'}, 400)
                 return
-            event = {
-                'id': str(uuid.uuid4()),
-                'title': title,
-                'date': body.get('date', ''),
-                'description': body.get('description', ''),
-                'color': body.get('color', '#b4451a')
-            }
-            events = read_calendar()
-            events.append(event)
-            write_calendar(events)
+            event = create_calendar_event(google_id, body)
             self._send_json(event, 201)
 
         elif self.path == '/api/blocked-titles':
@@ -1956,24 +1983,17 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'ok': True})
 
         elif self.path == '/api/comments':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             body = self._read_body()
             paper_link = body.get('paperLink', '').strip()
-            author = body.get('author', '').strip()
             content = body.get('content', '').strip()
             if not paper_link or not content:
                 self._send_json({'error': 'paperLink and content required'}, 400)
                 return
-            comment = {
-                'id': str(uuid.uuid4()),
-                'paperLink': paper_link,
-                'author': author or 'Anonymous',
-                'content': content,
-                'timestamp': int(time.time() * 1000),
-                'parentId': body.get('parentId', None)
-            }
-            comments = read_comments()
-            comments.append(comment)
-            write_comments(comments)
+            comment = db_create_comment(google_id, body)
             self._send_json(comment, 201)
 
         elif self.path == '/api/saved-content':
@@ -1990,68 +2010,36 @@ ch.postMessage({type:'preview-ready'});
             })
             self._send_json({'ok': True})
 
-        elif self.path == '/api/saved-posts':
-            body = self._read_body()
-            url = body.get('url', '').strip()
-            if not url:
-                self._send_json({'error': 'url required'}, 400)
-                return
-            saved = read_saved_posts()
-            if url in saved:
-                self._send_json({'ok': True, 'exists': True})
-                return
-            paper = {
-                'link': url,
-                'title': body.get('title', url),
-                'source': body.get('source', 'web'),
-                'description': body.get('description', ''),
-                'favicon': body.get('favicon', ''),
-                'hostname': body.get('hostname', ''),
-                'authors': '',
-                'categories': [],
-                'arxivId': None,
-                'date': ''
-            }
-            saved[url] = {
-                'paper': paper,
-                'savedAt': int(time.time() * 1000),
-                'read': False
-            }
-            write_saved_posts(saved)
-            self._send_json({'ok': True})
-
         else:
             self._send_json({'error': 'Not found'}, 404)
 
     def do_PUT(self):
         if m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             tid = m.group(1)
             body = self._read_body()
-            todos = read_todos()
-            for todo in todos:
-                if todo['id'] == tid:
-                    for key in ('title', 'done', 'date', 'description', 'color', 'experimentId', 'content', 'paperLink'):
-                        if key in body:
-                            todo[key] = body[key]
-                    write_todos(todos)
-                    self._send_json(todo)
-                    return
-            self._send_json({'error': 'Not found'}, 404)
+            result = update_todo(google_id, tid, body)
+            if result:
+                self._send_json(result)
+            else:
+                self._send_json({'error': 'Not found'}, 404)
             return
 
         if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             eid = m.group(1)
             body = self._read_body()
-            events = read_calendar()
-            for ev in events:
-                if ev['id'] == eid:
-                    for key in ('title', 'date', 'description', 'color'):
-                        if key in body:
-                            ev[key] = body[key]
-                    write_calendar(events)
-                    self._send_json(ev)
-                    return
-            self._send_json({'error': 'Not found'}, 404)
+            result = update_calendar_event(google_id, eid, body)
+            if result:
+                self._send_json(result)
+            else:
+                self._send_json({'error': 'Not found'}, 404)
             return
 
         if self.path == '/api/quality-prompt':
@@ -2059,14 +2047,6 @@ ch.postMessage({type:'preview-ready'});
             prompt = body.get('prompt', '')
             write_prompt(prompt)
             self._send_json({'ok': True, 'prompt': read_prompt()})
-            return
-
-        if self.path == '/api/settings':
-            body = self._read_body()
-            settings = read_settings()
-            settings.update(body)
-            write_settings(settings)
-            self._send_json(settings)
             return
 
         if m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/runs/([a-zA-Z0-9_-]+)$'):
@@ -2160,24 +2140,25 @@ ch.postMessage({type:'preview-ready'});
 
     def do_DELETE(self):
         if m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
-            tid = m.group(1)
-            todos = read_todos()
-            new_todos = [t for t in todos if t['id'] != tid]
-            if len(new_todos) == len(todos):
-                self._send_json({'error': 'Not found'}, 404)
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            write_todos(new_todos)
-            self._send_json({'ok': True})
+            if delete_todo(google_id, m.group(1)):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
+            return
 
         elif m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
-            eid = m.group(1)
-            events = read_calendar()
-            new_events = [e for e in events if e['id'] != eid]
-            if len(new_events) == len(events):
-                self._send_json({'error': 'Not found'}, 404)
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            write_calendar(new_events)
-            self._send_json({'ok': True})
+            if delete_calendar_event(google_id, m.group(1)):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/runs/([a-zA-Z0-9_-]+)$'):
             exp_id = m.group(1)
@@ -2243,7 +2224,14 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'ok': True})
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
             exp_id = m.group(1)
+            if not user_can_access_experiment(exp_id, google_id):
+                self._send_json({'error': 'Forbidden'}, 403)
+                return
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
             if os.path.isdir(exp_dir):
                 _kill_kernel(exp_id)
@@ -2257,35 +2245,14 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'ok': True})
 
         elif m := self._match(r'^/api/comments/([a-zA-Z0-9_-]+)$'):
-            cid = m.group(1)
-            comments = read_comments()
-            # Remove the comment and any replies to it
-            to_remove = {cid}
-            changed = True
-            while changed:
-                changed = False
-                for c in comments:
-                    if c.get('parentId') in to_remove and c['id'] not in to_remove:
-                        to_remove.add(c['id'])
-                        changed = True
-            new_comments = [c for c in comments if c['id'] not in to_remove]
-            if len(new_comments) == len(comments):
-                self._send_json({'error': 'Not found'}, 404)
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            write_comments(new_comments)
-            self._send_json({'ok': True})
-
-        elif self.path == '/api/saved-posts':
-            body = self._read_body()
-            url = body.get('url', '').strip()
-            if not url:
-                self._send_json({'error': 'url required'}, 400)
-                return
-            saved = read_saved_posts()
-            if url in saved:
-                del saved[url]
-                write_saved_posts(saved)
-            self._send_json({'ok': True})
+            if db_delete_comment(google_id, m.group(1)):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found or not authorized'}, 404)
 
         elif m := self._match(r'^/api/teams/(\d+)$'):
             google_id = self._get_user()

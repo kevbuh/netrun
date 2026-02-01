@@ -42,7 +42,7 @@ async function fetchExperiments() {
   container.innerHTML = '<div class="col-span-2 text-center py-20 text-dim text-base"><div class="spinner"></div><div>Loading...</div></div>';
   try {
     const [resp, teamResp] = await Promise.all([
-      fetch('/api/experiments'),
+      fetch('/api/experiments', { headers: _authHeaders() }),
       fetch('/api/team-experiments', { headers: _authHeaders() }).catch(() => ({ ok: false }))
     ]);
     allExperiments = await resp.json();
@@ -173,7 +173,7 @@ async function createQuickProject() {
   const title = `${adj}-${noun}-${num}`;
   const resp = await fetch('/api/experiments', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json', ..._authHeaders() },
     body: JSON.stringify({ title, desc: '', created: Date.now() })
   });
   if (resp.ok) {
@@ -1323,7 +1323,7 @@ function createNewProjectFromGithub() {
   // Create a new project named after the repo, then clone into it
   fetch('/api/experiments', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ..._authHeaders() },
     body: JSON.stringify({ title: repoName, desc: `Cloned from ${url.trim()}`, created: Date.now() })
   }).then(r => r.json()).then(async exp => {
     if (!exp.id) { alert('Failed to create project'); return; }

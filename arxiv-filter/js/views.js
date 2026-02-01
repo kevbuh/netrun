@@ -244,7 +244,7 @@ function togglePaperExpDropdown() {
   document.body.appendChild(dropdown);
 
   // Fetch experiments
-  fetch('/api/experiments').then(r => r.json()).then(exps => {
+  fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).then(exps => {
     dropdown.innerHTML = '';
     if (!exps.length) {
       dropdown.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">No experiments yet</div>';
@@ -754,7 +754,7 @@ let _paperNoteSaveTimer = null;
 
 async function fetchPaperNotes() {
   try {
-    const resp = await fetch('/api/todos');
+    const resp = await fetch('/api/todos', { headers: _authHeaders() });
     const all = await resp.json();
     let note = (all || []).find(n => n.paperLink === _paperNoteLink);
     if (!note) {
@@ -774,7 +774,7 @@ async function fetchPaperNotes() {
 async function _createPaperNote() {
   const resp = await fetch('/api/todos', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ..._authHeaders() },
     body: JSON.stringify({ title: 'Untitled', content: '', paperLink: _paperNoteLink })
   });
   return await resp.json();
@@ -839,7 +839,7 @@ async function savePaperNote(id, content) {
   try {
     await fetch(`/api/todos/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
       body: JSON.stringify({ content })
     });
     const note = _paperNotes.find(n => n.id === id);
@@ -937,7 +937,7 @@ async function postComment(parentId) {
   try {
     await fetch('/api/comments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
       body: JSON.stringify({ paperLink: _paperNoteLink, author, content, parentId: parentId || null })
     });
     contentInput.value = '';
@@ -954,7 +954,7 @@ async function postReply(parentId) {
   try {
     await fetch('/api/comments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
       body: JSON.stringify({ paperLink: _paperNoteLink, author, content, parentId })
     });
     fetchPaperComments();
@@ -963,7 +963,7 @@ async function postReply(parentId) {
 
 async function deleteComment(id) {
   try {
-    await fetch('/api/comments/' + id, { method: 'DELETE' });
+    await fetch('/api/comments/' + id, { method: 'DELETE', headers: _authHeaders() });
     fetchPaperComments();
   } catch (e) { /* silent */ }
 }

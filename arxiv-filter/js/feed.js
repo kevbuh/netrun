@@ -190,55 +190,14 @@ function getSavedPosts() {
 function savePosts(data) { localStorage.setItem('savedPosts', JSON.stringify(data)); }
 function isPostSaved(link) { return !!getSavedPosts()[link]; }
 
-async function syncSavedPosts() {
-  try {
-    const resp = await fetch('/api/saved-posts');
-    if (!resp.ok) return;
-    const serverPosts = await resp.json();
-    const localPosts = getSavedPosts();
-    let changed = false;
-    // Merge: server wins for new items not in local
-    for (const [url, entry] of Object.entries(serverPosts)) {
-      if (!localPosts[url]) {
-        localPosts[url] = entry;
-        changed = true;
-      }
-    }
-    // Push local-only items to server
-    for (const [url, entry] of Object.entries(localPosts)) {
-      if (!serverPosts[url]) {
-        fetch('/api/saved-posts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, title: entry.paper?.title || '', source: entry.paper?.source || 'web', description: entry.paper?.description || '' })
-        }).catch(() => {});
-      }
-    }
-    if (changed) {
-      savePosts(localPosts);
-      updateSavedBadge();
-    }
-  } catch {}
-}
-syncSavedPosts();
 
 function toggleSavePost(paper, event) {
   if (event) event.stopPropagation();
   const saved = getSavedPosts();
   if (saved[paper.link]) {
     delete saved[paper.link];
-    fetch('/api/saved-posts', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: paper.link })
-    }).catch(() => {});
   } else {
     saved[paper.link] = { paper, savedAt: Date.now(), read: false };
-    fetch('/api/saved-posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: paper.link, title: paper.title, source: paper.source, description: paper.description || '' })
-    }).catch(() => {});
     if (typeof petReact === 'function') petReact('happy');
   }
   savePosts(saved);
@@ -270,11 +229,6 @@ function toggleSavePostByLink(link) {
     updateSavedBadge();
     renderSavedPosts();
     renderPapers();
-    fetch('/api/saved-posts', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: link })
-    }).catch(() => {});
   }
 }
 
@@ -480,14 +434,16 @@ function renderOnboardGrid() {
     catMap[f.cat].push(f);
   });
   grid.innerHTML = cats.map(cat => `
-    <div class="text-left mt-6">
-      <div class="text-[0.7rem] text-dim uppercase tracking-wider mb-2 pl-1">${cat}</div>
-      <div class="grid grid-cols-2 gap-3">
+    <div class="text-left mt-4">
+      <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-1.5 pl-1">${cat}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
         ${catMap[cat].map(f => `
-          <div class="onboard-card cursor-pointer rounded-xl border-2 border-border-card bg-card p-5 transition-all duration-150 hover:border-dimmer" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
-            <div class="flex items-center justify-center mb-3">${catalogLogo(f, 'onboard')}</div>
-            <div class="text-white_ text-[0.95rem] font-medium mb-1">${f.name}</div>
-            <div class="text-muted text-[0.78rem]">${f.desc}</div>
+          <div class="onboard-card cursor-pointer rounded-lg border-2 border-border-card bg-card px-3 py-2.5 transition-all duration-150 hover:border-dimmer flex items-center gap-2.5" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
+            <div class="shrink-0">${catalogLogo(f, 'onboard')}</div>
+            <div class="min-w-0">
+              <div class="text-white_ text-[0.82rem] font-medium leading-tight">${f.name}</div>
+              <div class="text-muted text-[0.7rem] leading-snug truncate">${f.desc}</div>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -991,7 +947,10 @@ function renderPapers() {
   }
   const container = document.getElementById('papers');
   if (!filtered.length && pendingCount > 0) return;
-  if (!filtered.length) { container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>'; return; }
+  if (!filtered.length) {
+    container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>';
+    return;
+  }
   if (feedViewMode === 'compact') {
     container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => {
       const sourceChip = getSourceChip(p.source, p.arxivId);

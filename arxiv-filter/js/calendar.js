@@ -22,7 +22,7 @@ function openCalendar() {
 
 async function fetchCalendarEvents() {
   try {
-    const evResp = await fetch('/api/calendar');
+    const evResp = await fetch('/api/calendar', { headers: _authHeaders() });
     calendarEvents = await evResp.json();
   } catch (e) { calendarEvents = []; }
   renderCalendarView();
@@ -32,7 +32,7 @@ async function addCalendarEvent(ev) {
   try {
     const resp = await fetch('/api/calendar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
       body: JSON.stringify(ev)
     });
     const created = await resp.json();
@@ -44,7 +44,7 @@ async function addCalendarEvent(ev) {
 
 async function deleteCalendarEvent(id) {
   try {
-    await fetch('/api/calendar/' + id, { method: 'DELETE' });
+    await fetch('/api/calendar/' + id, { method: 'DELETE', headers: _authHeaders() });
     calendarEvents = calendarEvents.filter(e => e.id !== id);
     renderCalendarView();
   } catch (e) { /* silently fail */ }

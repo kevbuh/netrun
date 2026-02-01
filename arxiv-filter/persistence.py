@@ -16,11 +16,6 @@ _cache = {}
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
-CALENDAR_FILE = os.path.join(DIR, 'calendar.json')
-TODOS_FILE = os.path.join(DIR, 'todos.json')
-SAVED_POSTS_FILE = os.path.join(DIR, 'saved_posts.json')
-SETTINGS_FILE = os.path.join(DIR, 'settings.json')
-COMMENTS_FILE = os.path.join(DIR, 'comments.json')
 
 SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
@@ -64,74 +59,6 @@ def write_blocked_titles(titles):
         json.dump(titles, f, indent=2)
 
 
-def read_calendar():
-    if not os.path.exists(CALENDAR_FILE):
-        return []
-    with open(CALENDAR_FILE, 'r') as f:
-        return json.load(f)
-
-
-def write_calendar(events):
-    with open(CALENDAR_FILE, 'w') as f:
-        json.dump(events, f, indent=2)
-
-
-def read_todos():
-    if not os.path.exists(TODOS_FILE):
-        return []
-    with open(TODOS_FILE, 'r') as f:
-        return json.load(f)
-
-
-def write_todos(todos):
-    with open(TODOS_FILE, 'w') as f:
-        json.dump(todos, f, indent=2)
-
-
-def read_saved_posts():
-    if not os.path.exists(SAVED_POSTS_FILE):
-        return {}
-    try:
-        with open(SAVED_POSTS_FILE, 'r') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, ValueError):
-        return {}
-
-
-def write_saved_posts(data):
-    tmp = SAVED_POSTS_FILE + '.tmp'
-    with open(tmp, 'w') as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp, SAVED_POSTS_FILE)
-
-
-def read_settings():
-    if not os.path.exists(SETTINGS_FILE):
-        return {}
-    with open(SETTINGS_FILE, 'r') as f:
-        return json.load(f)
-
-
-def write_settings(data):
-    with open(SETTINGS_FILE, 'w') as f:
-        json.dump(data, f, indent=2)
-
-
-def read_comments():
-    if not os.path.exists(COMMENTS_FILE):
-        return []
-    try:
-        with open(COMMENTS_FILE, 'r') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, ValueError):
-        return []
-
-
-def write_comments(comments):
-    tmp = COMMENTS_FILE + '.tmp'
-    with open(tmp, 'w') as f:
-        json.dump(comments, f, indent=2)
-    os.replace(tmp, COMMENTS_FILE)
 
 
 def slugify(text):
@@ -324,6 +251,42 @@ def init_db():
             PRIMARY KEY (experiment_id, team_id)
         );
     """)
+    # Per-user data tables
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS experiment_owners (
+            experiment_id TEXT PRIMARY KEY,
+            google_id TEXT NOT NULL REFERENCES users(google_id)
+        );
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id TEXT PRIMARY KEY,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            title TEXT NOT NULL,
+            date TEXT NOT NULL,
+            description TEXT,
+            color TEXT
+        );
+        CREATE TABLE IF NOT EXISTS todos (
+            id TEXT PRIMARY KEY,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            title TEXT NOT NULL,
+            done INTEGER DEFAULT 0,
+            date TEXT,
+            description TEXT,
+            content TEXT,
+            color TEXT,
+            experiment_id TEXT,
+            paper_link TEXT
+        );
+        CREATE TABLE IF NOT EXISTS comments (
+            id TEXT PRIMARY KEY,
+            paper_link TEXT NOT NULL,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            author TEXT,
+            content TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            parent_id TEXT
+        );
+    """)
     # Migration: add username column if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     if 'username' not in cols:
@@ -385,13 +348,37 @@ def set_username(google_id, username):
 
 
 def delete_user(google_id):
-    """Delete a user and all their data (sessions, user_data)."""
+    """Delete a user and all their data. Returns list of owned experiment_ids for filesystem cleanup."""
     conn = _get_db()
+    # Get owned experiments for filesystem cleanup
+    owned_exps = [r['experiment_id'] for r in conn.execute(
+        "SELECT experiment_id FROM experiment_owners WHERE google_id = ?", (google_id,)
+    ).fetchall()]
+    # Get teams owned by this user
+    owned_teams = [r['id'] for r in conn.execute(
+        "SELECT id FROM teams WHERE owner_google_id = ?", (google_id,)
+    ).fetchall()]
+    # Delete per-user data
+    conn.execute("DELETE FROM calendar_events WHERE google_id = ?", (google_id,))
+    conn.execute("DELETE FROM todos WHERE google_id = ?", (google_id,))
+    conn.execute("DELETE FROM comments WHERE google_id = ?", (google_id,))
+    conn.execute("DELETE FROM experiment_owners WHERE google_id = ?", (google_id,))
+    # Delete owned teams and their related data
+    for tid in owned_teams:
+        conn.execute("DELETE FROM experiment_teams WHERE team_id = ?", (tid,))
+        conn.execute("DELETE FROM team_invites WHERE team_id = ?", (tid,))
+        conn.execute("DELETE FROM team_members WHERE team_id = ?", (tid,))
+        conn.execute("DELETE FROM teams WHERE id = ?", (tid,))
+    # Remove from teams where just a member
+    conn.execute("DELETE FROM team_members WHERE google_id = ?", (google_id,))
+    conn.execute("DELETE FROM team_invites WHERE from_google_id = ? OR to_google_id = ?", (google_id, google_id))
+    # Core user data
     conn.execute("DELETE FROM user_data WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM sessions WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM users WHERE google_id = ?", (google_id,))
     conn.commit()
     conn.close()
+    return owned_exps
 
 
 def create_session(google_id):
@@ -680,6 +667,282 @@ def get_team_experiments(team_id):
     ).fetchall()
     conn.close()
     return [r['experiment_id'] for r in rows]
+
+
+# ── Experiment Ownership ──
+
+def set_experiment_owner(experiment_id, google_id):
+    conn = _get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO experiment_owners (experiment_id, google_id) VALUES (?, ?)",
+        (experiment_id, google_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_experiment_owner(experiment_id):
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT google_id FROM experiment_owners WHERE experiment_id = ?",
+        (experiment_id,)
+    ).fetchone()
+    conn.close()
+    return row['google_id'] if row else None
+
+
+def get_user_experiment_ids(google_id):
+    """Return set of experiment_ids the user owns or has access to via teams."""
+    conn = _get_db()
+    owned = conn.execute(
+        "SELECT experiment_id FROM experiment_owners WHERE google_id = ?",
+        (google_id,)
+    ).fetchall()
+    team_exps = conn.execute("""
+        SELECT et.experiment_id FROM experiment_teams et
+        JOIN team_members tm ON tm.team_id = et.team_id
+        WHERE tm.google_id = ?
+    """, (google_id,)).fetchall()
+    conn.close()
+    return set(r['experiment_id'] for r in owned) | set(r['experiment_id'] for r in team_exps)
+
+
+def user_can_access_experiment(experiment_id, google_id):
+    """Check if user owns or has team access to an experiment."""
+    conn = _get_db()
+    owned = conn.execute(
+        "SELECT 1 FROM experiment_owners WHERE experiment_id = ? AND google_id = ?",
+        (experiment_id, google_id)
+    ).fetchone()
+    if owned:
+        conn.close()
+        return True
+    team_access = conn.execute("""
+        SELECT 1 FROM experiment_teams et
+        JOIN team_members tm ON tm.team_id = et.team_id
+        WHERE et.experiment_id = ? AND tm.google_id = ?
+    """, (experiment_id, google_id)).fetchone()
+    conn.close()
+    return bool(team_access)
+
+
+# ── Calendar (per-user) ──
+
+def get_user_calendar(google_id):
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT id, title, date, description, color FROM calendar_events WHERE google_id = ? ORDER BY date",
+        (google_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_calendar_event(google_id, data):
+    import uuid
+    eid = str(uuid.uuid4())
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO calendar_events (id, google_id, title, date, description, color) VALUES (?, ?, ?, ?, ?, ?)",
+        (eid, google_id, data['title'], data.get('date', ''), data.get('description', ''), data.get('color', '#b4451a'))
+    )
+    conn.commit()
+    conn.close()
+    return {'id': eid, 'title': data['title'], 'date': data.get('date', ''), 'description': data.get('description', ''), 'color': data.get('color', '#b4451a')}
+
+
+def update_calendar_event(google_id, eid, updates):
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT id FROM calendar_events WHERE id = ? AND google_id = ?",
+        (eid, google_id)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return None
+    allowed = ('title', 'date', 'description', 'color')
+    sets = []
+    vals = []
+    for k in allowed:
+        if k in updates:
+            sets.append(f"{k} = ?")
+            vals.append(updates[k])
+    if sets:
+        vals.append(eid)
+        conn.execute(f"UPDATE calendar_events SET {', '.join(sets)} WHERE id = ?", vals)
+        conn.commit()
+    result = conn.execute("SELECT id, title, date, description, color FROM calendar_events WHERE id = ?", (eid,)).fetchone()
+    conn.close()
+    return dict(result) if result else None
+
+
+def delete_calendar_event(google_id, eid):
+    conn = _get_db()
+    cur = conn.execute(
+        "DELETE FROM calendar_events WHERE id = ? AND google_id = ?",
+        (eid, google_id)
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
+
+
+# ── Todos (per-user) ──
+
+def get_user_todos(google_id, paper_link=None):
+    conn = _get_db()
+    if paper_link:
+        rows = conn.execute(
+            "SELECT * FROM todos WHERE google_id = ? AND paper_link = ?",
+            (google_id, paper_link)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM todos WHERE google_id = ?",
+            (google_id,)
+        ).fetchall()
+    conn.close()
+    return [_todo_row_to_dict(r) for r in rows]
+
+
+def _todo_row_to_dict(r):
+    return {
+        'id': r['id'], 'title': r['title'], 'done': bool(r['done']),
+        'date': r['date'] or '', 'description': r['description'] or '',
+        'content': r['content'] or '', 'color': r['color'] or '#b4451a',
+        'experimentId': r['experiment_id'], 'paperLink': r['paper_link']
+    }
+
+
+def create_todo(google_id, data):
+    import uuid
+    tid = str(uuid.uuid4())
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO todos (id, google_id, title, done, date, description, content, color, experiment_id, paper_link) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (tid, google_id, data['title'], 0, data.get('date', ''), data.get('description', ''),
+         data.get('content', ''), data.get('color', '#b4451a'),
+         data.get('experimentId'), data.get('paperLink'))
+    )
+    conn.commit()
+    conn.close()
+    return {
+        'id': tid, 'title': data['title'], 'done': False,
+        'date': data.get('date', ''), 'description': data.get('description', ''),
+        'content': data.get('content', ''), 'color': data.get('color', '#b4451a'),
+        'experimentId': data.get('experimentId'), 'paperLink': data.get('paperLink')
+    }
+
+
+def update_todo(google_id, tid, updates):
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT id FROM todos WHERE id = ? AND google_id = ?",
+        (tid, google_id)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return None
+    allowed = {'title': 'title', 'done': 'done', 'date': 'date', 'description': 'description',
+               'content': 'content', 'color': 'color', 'experimentId': 'experiment_id', 'paperLink': 'paper_link'}
+    sets = []
+    vals = []
+    for js_key, db_col in allowed.items():
+        if js_key in updates:
+            sets.append(f"{db_col} = ?")
+            val = updates[js_key]
+            if db_col == 'done':
+                val = 1 if val else 0
+            vals.append(val)
+    if sets:
+        vals.append(tid)
+        conn.execute(f"UPDATE todos SET {', '.join(sets)} WHERE id = ?", vals)
+        conn.commit()
+    result = conn.execute("SELECT * FROM todos WHERE id = ?", (tid,)).fetchone()
+    conn.close()
+    return _todo_row_to_dict(result) if result else None
+
+
+def delete_todo(google_id, tid):
+    conn = _get_db()
+    cur = conn.execute(
+        "DELETE FROM todos WHERE id = ? AND google_id = ?",
+        (tid, google_id)
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
+
+
+# ── Comments (shared, but auth for write/delete) ──
+
+def db_get_comments(paper_link=None):
+    conn = _get_db()
+    if paper_link:
+        rows = conn.execute(
+            "SELECT * FROM comments WHERE paper_link = ? ORDER BY timestamp",
+            (paper_link,)
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM comments ORDER BY timestamp").fetchall()
+    conn.close()
+    return [_comment_row_to_dict(r) for r in rows]
+
+
+def _comment_row_to_dict(r):
+    return {
+        'id': r['id'], 'paperLink': r['paper_link'], 'author': r['author'] or 'Anonymous',
+        'content': r['content'], 'timestamp': r['timestamp'], 'parentId': r['parent_id']
+    }
+
+
+def db_create_comment(google_id, data):
+    import uuid
+    cid = str(uuid.uuid4())
+    conn = _get_db()
+    ts = int(time.time() * 1000)
+    conn.execute(
+        "INSERT INTO comments (id, paper_link, google_id, author, content, timestamp, parent_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (cid, data['paperLink'], google_id, data.get('author', 'Anonymous'),
+         data['content'], ts, data.get('parentId'))
+    )
+    conn.commit()
+    conn.close()
+    return {
+        'id': cid, 'paperLink': data['paperLink'], 'author': data.get('author', 'Anonymous'),
+        'content': data['content'], 'timestamp': ts, 'parentId': data.get('parentId')
+    }
+
+
+def db_delete_comment(google_id, cid):
+    conn = _get_db()
+    # Only delete if user owns the comment
+    row = conn.execute(
+        "SELECT id FROM comments WHERE id = ? AND google_id = ?",
+        (cid, google_id)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return False
+    # Remove comment and all replies
+    to_remove = {cid}
+    changed = True
+    all_comments = conn.execute("SELECT id, parent_id FROM comments").fetchall()
+    while changed:
+        changed = False
+        for c in all_comments:
+            if c['parent_id'] in to_remove and c['id'] not in to_remove:
+                to_remove.add(c['id'])
+                changed = True
+    placeholders = ','.join('?' for _ in to_remove)
+    conn.execute(f"DELETE FROM comments WHERE id IN ({placeholders})", list(to_remove))
+    conn.commit()
+    conn.close()
+    return True
 
 
 # Initialize DB on import

@@ -172,13 +172,14 @@
   <!-- Home Main Content -->
   <div class="flex-1 ml-[60px] px-6 pt-6" id="home-main">
     <!-- Onboarding View -->
-    <div id="onboard-view" style="display:none" class="py-12 overflow-y-auto">
-      <div class="text-center max-w-[640px] mx-auto px-4">
-        <h1 class="text-white_ text-[1.8rem] font-semibold mb-2">What do you want to read?</h1>
-        <p class="text-muted text-[0.95rem] mb-8">Pick your sources. You can change these anytime in settings.</p>
+    <div id="onboard-view" style="display:none" class="py-6 overflow-y-auto">
+      <div class="text-center max-w-[860px] mx-auto px-4">
+        <h1 class="text-white_ text-[1.4rem] font-semibold mb-1">What do you want to read?</h1>
+        <p class="text-muted text-[0.85rem] mb-5">Pick your sources. You can change these anytime in settings.</p>
         <div id="onboard-grid"></div>
-        <div class="mt-8">
-          <button id="onboard-start-btn" disabled onclick="completeOnboarding()" class="px-8 py-3 rounded-xl border-none bg-accent text-white text-[0.95rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
+        <div class="mt-5 flex items-center justify-center gap-4">
+          <button id="onboard-start-btn" disabled onclick="completeOnboarding()" class="px-6 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
+          <a href="#" onclick="completeOnboarding();return false" class="text-[0.8rem] text-dim hover:text-muted transition-colors">Skip</a>
         </div>
       </div>
     </div>
