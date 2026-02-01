@@ -1164,6 +1164,7 @@ function _hideLoginGate() {
 }
 
 let _gisRetries = 0;
+let _gisInitialized = false;
 function _renderGoogleButton() {
   const container = document.getElementById('google-signin-btn');
   if (!container) { console.warn('[auth] no google-signin-btn container'); return; }
@@ -1181,15 +1182,32 @@ function _renderGoogleButton() {
   }
   console.log('[auth] GIS loaded, rendering button');
   try {
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: _handleGoogleCredential,
+    if (!_gisInitialized) {
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: _handleGoogleCredential,
+      });
+      _gisInitialized = true;
+    }
+    container.innerHTML = `
+      <button id="custom-google-btn" style="
+        display:inline-flex;align-items:center;gap:10px;
+        padding:10px 24px;border-radius:8px;border:1px solid var(--border-card);
+        background:var(--bg-card);color:var(--text-primary);
+        font-size:14px;font-weight:500;font-family:inherit;
+        cursor:pointer;transition:border-color 0.15s,background 0.15s;
+      ">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.014 24.014 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    `;
+    document.getElementById('custom-google-btn').addEventListener('click', () => {
+      google.accounts.id.prompt();
     });
-    google.accounts.id.renderButton(container, {
-      theme: 'outline',
-      size: 'large',
-      width: 280,
-    });
+    // Also hover style
+    const btn = document.getElementById('custom-google-btn');
+    btn.addEventListener('mouseenter', () => { btn.style.borderColor = 'var(--accent)'; btn.style.background = 'var(--bg-popup)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'var(--border-card)'; btn.style.background = 'var(--bg-card)'; });
   } catch (e) {
     console.error('[auth] GIS renderButton error:', e);
     container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In error: ' + e.message + '</p>';
