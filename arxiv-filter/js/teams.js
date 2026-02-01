@@ -175,7 +175,7 @@ async function showTeamDetail(teamId) {
                 ? `<img src="${escapeAttr(m.picture)}" class="w-6 h-6 rounded-full" referrerpolicy="no-referrer" />`
                 : `<div class="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold">${escapeHtml((m.username || '?')[0].toUpperCase())}</div>`
               }
-              <span class="text-primary text-sm">${escapeHtml(m.username || 'unknown')}</span>
+              <a href="#profile/${encodeURIComponent(m.username || 'unknown')}" class="text-primary text-sm hover:text-accent" style="text-decoration:none">${escapeHtml(m.username || 'unknown')}</a>
               ${m.role === 'owner' ? '<span class="text-accent text-[0.65rem] font-medium ml-1">owner</span>' : ''}
             </div>
             ${isOwner && m.role !== 'owner' ? `<button onclick="removeTeamMember(${teamId}, '${m.google_id}')" class="text-xs text-red-400/60 hover:text-red-400 cursor-pointer bg-transparent border-none">Remove</button>` : ''}

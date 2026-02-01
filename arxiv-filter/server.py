@@ -37,6 +37,8 @@ from persistence import (
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
+    get_public_user_info, get_user_public_stats, get_user_recent_comments,
+    get_user_shared_experiments, search_users,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -902,6 +904,57 @@ ch.postMessage({type:'preview-ready'});
                         result.append(meta)
             result.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
             self._send_json(result)
+
+        elif self.path.startswith('/api/users'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            # /api/users?q=... — search users
+            if self.path.startswith('/api/users?'):
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                q = qs.get('q', [''])[0].strip()
+                if not q:
+                    self._send_json([])
+                    return
+                self._send_json(search_users(q))
+            # /api/users/{username}/comments
+            elif (m := self._match(r'^/api/users/([^/]+)/comments$')):
+                username = url_unquote(m.group(1))
+                info = get_public_user_info(username)
+                if not info:
+                    self._send_json({'error': 'User not found'}, 404)
+                    return
+                self._send_json(get_user_recent_comments(info['google_id']))
+            # /api/users/{username}/experiments
+            elif (m := self._match(r'^/api/users/([^/]+)/experiments$')):
+                username = url_unquote(m.group(1))
+                info = get_public_user_info(username)
+                if not info:
+                    self._send_json({'error': 'User not found'}, 404)
+                    return
+                exp_ids = get_user_shared_experiments(google_id, info['google_id'])
+                result = []
+                for eid in exp_ids:
+                    meta = read_meta(eid)
+                    if meta:
+                        meta['id'] = eid
+                        result.append(meta)
+                self._send_json(result)
+            # /api/users/{username} — profile info
+            elif (m := self._match(r'^/api/users/([^/]+)$')):
+                username = url_unquote(m.group(1))
+                info = get_public_user_info(username)
+                if not info:
+                    self._send_json({'error': 'User not found'}, 404)
+                    return
+                stats = get_user_public_stats(info['google_id'])
+                info.update(stats)
+                del info['google_id']
+                self._send_json(info)
+            else:
+                self._send_json({'error': 'Not found'}, 404)
 
         else:
             super().do_GET()

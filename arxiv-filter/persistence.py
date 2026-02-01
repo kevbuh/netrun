@@ -945,5 +945,83 @@ def db_delete_comment(google_id, cid):
     return True
 
 
+# ── User Profiles (public) ──
+
+def get_public_user_info(username):
+    """Case-insensitive lookup. Returns {username, picture, created} or None."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT google_id, username, picture, created FROM users WHERE lower(username) = ?",
+        (username.lower(),)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        'google_id': row['google_id'],
+        'username': row['username'],
+        'picture': row['picture'],
+        'created': row['created']
+    }
+
+
+def get_user_public_stats(google_id):
+    """Returns {comment_count, team_count, experiment_count}."""
+    conn = _get_db()
+    comment_count = conn.execute(
+        "SELECT COUNT(*) as c FROM comments WHERE google_id = ?", (google_id,)
+    ).fetchone()['c']
+    team_count = conn.execute(
+        "SELECT COUNT(*) as c FROM team_members WHERE google_id = ?", (google_id,)
+    ).fetchone()['c']
+    experiment_count = conn.execute(
+        "SELECT COUNT(*) as c FROM experiment_owners WHERE google_id = ?", (google_id,)
+    ).fetchone()['c']
+    conn.close()
+    return {
+        'comment_count': comment_count,
+        'team_count': team_count,
+        'experiment_count': experiment_count
+    }
+
+
+def get_user_recent_comments(google_id, limit=20):
+    """Returns list of {id, paper_link, content, author, timestamp} ordered by timestamp DESC."""
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT id, paper_link, content, author, timestamp FROM comments WHERE google_id = ? ORDER BY timestamp DESC LIMIT ?",
+        (google_id, limit)
+    ).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'paperLink': r['paper_link'], 'content': r['content'],
+             'author': r['author'], 'timestamp': r['timestamp']} for r in rows]
+
+
+def get_user_shared_experiments(viewer_google_id, target_google_id):
+    """Returns experiment_ids that target owns AND are shared via a team where viewer is also a member."""
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT DISTINCT eo.experiment_id
+        FROM experiment_owners eo
+        JOIN experiment_teams et ON et.experiment_id = eo.experiment_id
+        JOIN team_members tm_target ON tm_target.team_id = et.team_id AND tm_target.google_id = ?
+        JOIN team_members tm_viewer ON tm_viewer.team_id = et.team_id AND tm_viewer.google_id = ?
+        WHERE eo.google_id = ?
+    """, (target_google_id, viewer_google_id, target_google_id)).fetchall()
+    conn.close()
+    return [r['experiment_id'] for r in rows]
+
+
+def search_users(query, limit=10):
+    """Search users by username prefix. Returns list of {username, picture}."""
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT username, picture FROM users WHERE username IS NOT NULL AND username LIKE ? LIMIT ?",
+        (query + '%', limit)
+    ).fetchall()
+    conn.close()
+    return [{'username': r['username'], 'picture': r['picture']} for r in rows]
+
+
 # Initialize DB on import
 init_db()

@@ -561,6 +561,8 @@ function routeFromHash() {
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#inbox') openInbox();
+  else if (hash === '#profile') openUserProfile('');
+  else if (hash.startsWith('#profile/')) openUserProfile(decodeURIComponent(hash.slice('#profile/'.length)));
 else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#search') openSearch();
@@ -576,6 +578,146 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', routeFromHash);
 } else {
   setTimeout(routeFromHash, 0);
+}
+
+// ── User Profile ──
+
+function openUserProfile(username) {
+  hideAllViews();
+  const view = document.getElementById('profile-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  if (username) {
+    window.location.hash = 'profile/' + encodeURIComponent(username);
+  } else {
+    window.location.hash = 'profile';
+  }
+  setSidebarActive('');
+  renderUserProfile(username);
+}
+
+async function renderUserProfile(username) {
+  const el = document.getElementById('profile-content');
+  if (!el) return;
+
+  // No username → search mode
+  if (!username) {
+    el.innerHTML = `
+      <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Find a user</h2>
+      <input type="text" id="profile-search-input" placeholder="Search by username..." class="w-full bg-input border border-border-input rounded-lg px-4 py-2.5 text-primary text-sm outline-none focus:border-accent mb-4">
+      <div id="profile-search-results"></div>
+    `;
+    const input = document.getElementById('profile-search-input');
+    let debounce = null;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(async () => {
+        const q = input.value.trim();
+        const results = document.getElementById('profile-search-results');
+        if (!q) { results.innerHTML = ''; return; }
+        try {
+          const res = await fetch('/api/users?q=' + encodeURIComponent(q), { headers: _authHeaders() });
+          const users = await res.json();
+          if (!users.length) { results.innerHTML = '<div class="text-dimmer text-sm">No users found</div>'; return; }
+          results.innerHTML = users.map(u => `
+            <a href="#profile/${encodeURIComponent(u.username)}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-hover transition-colors" style="text-decoration:none">
+              ${u.picture
+                ? `<img src="${escapeAttr(u.picture)}" class="w-8 h-8 rounded-full" referrerpolicy="no-referrer" />`
+                : `<div class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">${escapeHtml((u.username || '?')[0].toUpperCase())}</div>`
+              }
+              <span class="text-primary text-sm font-medium">${escapeHtml(u.username)}</span>
+            </a>
+          `).join('');
+        } catch (e) { console.error('User search error', e); }
+      }, 300);
+    });
+    setTimeout(() => input.focus(), 50);
+    return;
+  }
+
+  // Loading state
+  el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
+
+  try {
+    const [profileRes, commentsRes, experimentsRes] = await Promise.all([
+      fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
+      fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
+      fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
+    ]);
+
+    if (!profileRes.ok) {
+      el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">User not found</div>';
+      return;
+    }
+
+    const profile = await profileRes.json();
+    const comments = await commentsRes.json();
+    const experiments = await experimentsRes.json();
+
+    const joinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
+    const isOwnProfile = _authUserInfo && _authUserInfo.username === profile.username;
+
+    let html = `
+      <div class="flex items-center gap-4 mb-6">
+        ${profile.picture
+          ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full" referrerpolicy="no-referrer" />`
+          : `<div class="w-16 h-16 rounded-full bg-accent/20 text-accent flex items-center justify-center text-2xl font-bold">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
+        }
+        <div>
+          <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username)}</h2>
+          ${joinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${joinDate}</div>` : ''}
+        </div>
+        ${isOwnProfile ? `<a href="#settings" class="ml-auto text-dim text-[0.78rem] hover:text-primary" style="text-decoration:none">Edit profile</a>` : ''}
+      </div>
+
+      <div class="flex gap-6 mb-8 text-[0.82rem]">
+        <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
+        <div><span class="text-white_ font-semibold">${profile.team_count || 0}</span> <span class="text-dimmer">teams</span></div>
+        <div><span class="text-white_ font-semibold">${profile.experiment_count || 0}</span> <span class="text-dimmer">experiments</span></div>
+      </div>
+    `;
+
+    // Shared experiments section
+    if (experiments.length) {
+      html += `<div class="mb-8">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Shared Experiments</h3>
+        <div class="flex flex-col gap-2">`;
+      for (const exp of experiments) {
+        html += `
+          <a href="#experiment/${exp.id}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            <div class="text-primary text-sm font-medium">${escapeHtml(exp.title || exp.id)}</div>
+            ${exp.desc ? `<div class="text-dimmer text-[0.75rem] mt-1 line-clamp-1">${escapeHtml(exp.desc)}</div>` : ''}
+          </a>`;
+      }
+      html += '</div></div>';
+    }
+
+    // Recent comments section
+    if (comments.length) {
+      html += `<div class="mb-8">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Recent Comments</h3>
+        <div class="flex flex-col gap-2">`;
+      for (const c of comments) {
+        const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+        const contentPreview = (c.content || '').length > 120 ? c.content.slice(0, 120) + '...' : c.content;
+        html += `
+          <a href="#paper/${encodeURIComponent(c.paperLink)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            <div class="text-[0.78rem] text-primary leading-relaxed">${escapeHtml(contentPreview)}</div>
+            <div class="text-dimmer text-[0.7rem] mt-1">${timeAgo}</div>
+          </a>`;
+      }
+      html += '</div></div>';
+    }
+
+    if (!experiments.length && !comments.length) {
+      html += '<div class="text-dimmer text-sm mt-4">No shared activity yet.</div>';
+    }
+
+    el.innerHTML = html;
+  } catch (e) {
+    console.error('Profile load error', e);
+    el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Failed to load profile</div>';
+  }
 }
 
 // ── Greeting system ──

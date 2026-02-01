@@ -893,7 +893,7 @@ function renderComments() {
         <div style="width:22px;height:22px;min-width:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:0.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${escapeHtml(initial)}</div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <span class="text-[0.75rem] font-medium text-primary">${escapeHtml(comment.author)}</span>
+            <a href="#profile/${encodeURIComponent(comment.author)}" class="text-[0.75rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(comment.author)}</a>
             <span class="text-[0.68rem] text-dimmer">${timeAgo}</span>
             ${deleteBtn}
           </div>
