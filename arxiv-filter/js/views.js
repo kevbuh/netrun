@@ -156,11 +156,14 @@ function showPaperView(paper, hashValue) {
   if (paper.commentsUrl) metaParts.push(`<a href="${paper.commentsUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">discussion</a>`);
   if (paper.categories && paper.categories.length) metaParts.push(...paper.categories.slice(0, 3).map(c => `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`));
 
+  const sidebarToggleBtn = `<button id="paper-view-sidebar-toggle" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebarMobile()" title="Show notes" style="display:none"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+
   topbar.innerHTML = `
     ${backBtn}
     <span class="w-px h-5 bg-border-dim shrink-0"></span>
     <span class="text-[0.82rem] font-semibold text-white_ truncate">${renderTitle(paper.title)}</span>
     <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest">·</span>')}</span>
+    ${sidebarToggleBtn}
     <div class="relative shrink-0" id="paper-exp-btn-wrap">
       <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-transparent border-border-input text-muted text-[0.78rem] cursor-pointer transition-colors hover:text-primary hover:border-dimmer" onclick="togglePaperExpDropdown()" title="Add to experiment">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1105,5 +1108,156 @@ function openPaperByUrl(url) {
   const feedPaper = allPapers.find(p => p.link === url);
   if (feedPaper) { showPaperView(feedPaper, hashVal); return; }
   showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' }, hashVal);
+}
+
+// ── Mobile Paper Sidebar ──
+
+let _paperSidebarBackdrop = null;
+let _sidebarSwipeStartX = 0;
+let _sidebarSwipeStartY = 0;
+let _sidebarSwipeDeltaX = 0;
+
+function togglePaperSidebarMobile() {
+  const sidebar = document.getElementById('paper-sidebar');
+  if (!sidebar) return;
+
+  // Check if mobile
+  if (window.innerWidth >= 768) {
+    // Desktop: use default toggle behavior
+    togglePaperSidebar();
+    return;
+  }
+
+  // Mobile: slide-over behavior
+  const isOpen = sidebar.classList.contains('mobile-open');
+
+  if (isOpen) {
+    closePaperSidebarMobile();
+  } else {
+    openPaperSidebarMobile();
+  }
+}
+
+function openPaperSidebarMobile() {
+  const sidebar = document.getElementById('paper-sidebar');
+  if (!sidebar) return;
+
+  // Create backdrop if it doesn't exist
+  if (!_paperSidebarBackdrop) {
+    _paperSidebarBackdrop = document.createElement('div');
+    _paperSidebarBackdrop.id = 'paper-sidebar-backdrop';
+    _paperSidebarBackdrop.onclick = closePaperSidebarMobile;
+    document.body.appendChild(_paperSidebarBackdrop);
+
+    // Add swipe-to-close gesture
+    sidebar.addEventListener('touchstart', handleSidebarSwipeStart, { passive: true });
+    sidebar.addEventListener('touchmove', handleSidebarSwipeMove, { passive: false });
+    sidebar.addEventListener('touchend', handleSidebarSwipeEnd, { passive: true });
+  }
+
+  // Show backdrop
+  _paperSidebarBackdrop.classList.add('visible');
+
+  // Open sidebar
+  sidebar.classList.add('mobile-open');
+}
+
+function closePaperSidebarMobile() {
+  const sidebar = document.getElementById('paper-sidebar');
+  if (!sidebar) return;
+
+  // Hide backdrop
+  if (_paperSidebarBackdrop) {
+    _paperSidebarBackdrop.classList.remove('visible');
+  }
+
+  // Close sidebar
+  sidebar.classList.remove('mobile-open');
+}
+
+function handleSidebarSwipeStart(e) {
+  if (e.touches.length !== 1) return;
+  _sidebarSwipeStartX = e.touches[0].clientX;
+  _sidebarSwipeStartY = e.touches[0].clientY;
+  _sidebarSwipeDeltaX = 0;
+}
+
+function handleSidebarSwipeMove(e) {
+  if (e.touches.length !== 1) return;
+  const currentX = e.touches[0].clientX;
+  const currentY = e.touches[0].clientY;
+  _sidebarSwipeDeltaX = currentX - _sidebarSwipeStartX;
+  const deltaY = currentY - _sidebarSwipeStartY;
+
+  // Only track horizontal swipes (more horizontal than vertical)
+  if (Math.abs(_sidebarSwipeDeltaX) > Math.abs(deltaY) && _sidebarSwipeDeltaX > 10) {
+    e.preventDefault();
+  }
+}
+
+function handleSidebarSwipeEnd(e) {
+  // Swipe right to close (threshold: 50px)
+  if (_sidebarSwipeDeltaX > 50) {
+    closePaperSidebarMobile();
+  }
+  _sidebarSwipeDeltaX = 0;
+}
+
+// ── Mobile Modal Positioning ──
+
+function positionModalForMobile(modal) {
+  if (!modal || window.innerWidth >= 768) return;
+
+  // Ensure modal doesn't go below bottom nav
+  const rect = modal.getBoundingClientRect();
+  const bottomNavHeight = 60;
+  const safeArea = typeof CSS !== 'undefined' && CSS.supports('padding-bottom', 'env(safe-area-inset-bottom)')
+    ? 20 // approximate safe area
+    : 0;
+  const minBottomClearance = bottomNavHeight + safeArea + 16;
+
+  if (rect.bottom > window.innerHeight - minBottomClearance) {
+    const newTop = window.innerHeight - minBottomClearance - rect.height - 16;
+    if (newTop > 0) {
+      modal.style.top = newTop + 'px';
+    } else {
+      // Modal too tall, position at top with scroll
+      modal.style.top = '16px';
+      modal.style.maxHeight = `calc(100vh - ${minBottomClearance + 32}px)`;
+      modal.style.overflowY = 'auto';
+    }
+  }
+
+  // Ensure horizontal centering
+  const modalWidth = rect.width;
+  const viewportWidth = window.innerWidth;
+  if (modalWidth < viewportWidth - 32) {
+    modal.style.left = '50%';
+    modal.style.transform = 'translateX(-50%)';
+  } else {
+    modal.style.left = '16px';
+    modal.style.right = '16px';
+    modal.style.transform = 'none';
+  }
+}
+
+// Apply to all modals when they appear
+const _modalObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    mutation.addedNodes.forEach((node) => {
+      if (node.nodeType === 1 && (
+        node.classList?.contains('modal') ||
+        node.classList?.contains('popup') ||
+        node.classList?.contains('dropdown') ||
+        node.classList?.contains('card-menu')
+      )) {
+        setTimeout(() => positionModalForMobile(node), 0);
+      }
+    });
+  });
+});
+
+if (typeof window !== 'undefined' && document.body) {
+  _modalObserver.observe(document.body, { childList: true, subtree: true });
 }
 

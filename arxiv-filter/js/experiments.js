@@ -1084,3 +1084,51 @@ async function _onExpCardDrop(e, targetExpId) {
     }
   } catch (e) { /* silently fail */ }
 }
+
+// ── Mobile Experiment Sidebar ──
+
+function initExpSidebarMobile() {
+  const sidebar = document.getElementById('exp-sidebar');
+  if (!sidebar || window.innerWidth >= 768) return;
+
+  // Add toggle button if it doesn't exist
+  if (!document.getElementById('exp-sidebar-toggle-mobile')) {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'exp-sidebar-toggle-mobile';
+    toggleBtn.style.display = 'none'; // Controlled by CSS
+    toggleBtn.innerHTML = `
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Files</span>
+    `;
+    toggleBtn.onclick = toggleExpSidebarMobile;
+
+    // Wrap existing content in a container
+    const content = sidebar.innerHTML;
+    sidebar.innerHTML = '';
+    sidebar.appendChild(toggleBtn);
+
+    const contentWrap = document.createElement('div');
+    contentWrap.id = 'exp-sidebar-content';
+    contentWrap.innerHTML = content;
+    sidebar.appendChild(contentWrap);
+
+    // Start collapsed on mobile
+    sidebar.classList.add('collapsed');
+  }
+}
+
+function toggleExpSidebarMobile() {
+  const sidebar = document.getElementById('exp-sidebar');
+  if (!sidebar) return;
+
+  sidebar.classList.toggle('collapsed');
+}
+
+// Initialize mobile sidebar when experiment detail loads
+const _origOpenExperimentDetail = openExperimentDetail;
+openExperimentDetail = function(id) {
+  _origOpenExperimentDetail(id);
+  setTimeout(() => initExpSidebarMobile(), 100);
+};

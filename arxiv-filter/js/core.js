@@ -56,6 +56,167 @@ _spinnerMO.observe(document.documentElement, { childList: true, subtree: true })
 
 loadSpinners();
 
+// ── Mobile utilities ──
+function isMobile() {
+  return window.innerWidth < 768;
+}
+
+function isTablet() {
+  return window.innerWidth >= 768 && window.innerWidth < 1024;
+}
+
+function isDesktop() {
+  return window.innerWidth >= 1024;
+}
+
+function debounce(fn, ms) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+function throttle(fn, ms) {
+  let lastTime = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastTime >= ms) {
+      lastTime = now;
+      fn.apply(this, args);
+    }
+  };
+}
+
+// Sync active state between desktop sidebar and mobile bottom nav
+function setSidebarActive(id) {
+  // Desktop sidebar
+  document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
+  const desktopEl = document.getElementById(id);
+  if (desktopEl) desktopEl.classList.add('active');
+
+  // Mobile bottom nav (map sb-* to mb-*)
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  const mobileId = id.replace('sb-', 'mb-');
+  const mobileEl = document.getElementById(mobileId);
+  if (mobileEl) mobileEl.classList.add('active');
+}
+
+// Enhance mobile navigation on window resize
+function enhanceMobileNav() {
+  const nav = document.getElementById('mobile-bottom-nav');
+  if (!nav) return;
+
+  if (isMobile()) {
+    nav.style.display = 'flex';
+  } else {
+    nav.style.display = 'none';
+  }
+}
+
+// Call on load and resize
+enhanceMobileNav();
+window.addEventListener('resize', debounce(enhanceMobileNav, 300));
+
+// ── Performance Optimizations ──
+
+// Lazy load images using IntersectionObserver
+let _lazyImageObserver = null;
+
+function initLazyImageLoading() {
+  if (!('IntersectionObserver' in window)) {
+    // Fallback: load all images immediately on older browsers
+    return;
+  }
+
+  _lazyImageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        if (img.dataset.src) {
+          img.src = img.dataset.src;
+          img.removeAttribute('data-src');
+        }
+        observer.unobserve(img);
+      }
+    });
+  }, {
+    rootMargin: '50px' // Start loading 50px before image enters viewport
+  });
+}
+
+function observeLazyImages() {
+  if (!_lazyImageObserver) return;
+
+  document.querySelectorAll('img[data-src]').forEach(img => {
+    _lazyImageObserver.observe(img);
+  });
+}
+
+// Initialize on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    initLazyImageLoading();
+    observeLazyImages();
+  });
+} else {
+  initLazyImageLoading();
+  observeLazyImages();
+}
+
+// Passive event listeners for better scroll performance
+function addPassiveEventListener(element, event, handler) {
+  if (element && typeof element.addEventListener === 'function') {
+    element.addEventListener(event, handler, { passive: true });
+  }
+}
+
+// Batch DOM updates with requestAnimationFrame
+let _rafPending = false;
+let _rafCallbacks = [];
+
+function batchDOMUpdate(callback) {
+  _rafCallbacks.push(callback);
+  if (!_rafPending) {
+    _rafPending = true;
+    requestAnimationFrame(() => {
+      const callbacks = _rafCallbacks.slice();
+      _rafCallbacks = [];
+      _rafPending = false;
+      callbacks.forEach(cb => cb());
+    });
+  }
+}
+
+// Optimized scroll handler
+let _lastScrollY = 0;
+let _scrollDirection = 'down';
+
+function handleOptimizedScroll() {
+  const currentScrollY = window.scrollY || window.pageYOffset;
+  _scrollDirection = currentScrollY > _lastScrollY ? 'down' : 'up';
+  _lastScrollY = currentScrollY;
+
+  // Update UI elements that depend on scroll
+  batchDOMUpdate(() => {
+    // Example: hide/show elements based on scroll direction
+    // Can be used for auto-hiding headers, etc.
+  });
+}
+
+// Use throttled scroll handler
+if (typeof window !== 'undefined') {
+  addPassiveEventListener(window, 'scroll', throttle(handleOptimizedScroll, 100));
+}
+
+// Debounced window resize handler
+window.addEventListener('resize', debounce(() => {
+  batchDOMUpdate(() => {
+    enhanceMobileNav();
+    // Other resize-dependent updates
+  });
+}, 300));
+
 // ── View management ──
 const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
 const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
@@ -213,12 +374,6 @@ function getSourceChip(source, arxivId) {
     || (source?.startsWith('custom:') ? source.slice(7) : '')
     || (arxivId ? 'arXiv' : '');
   return `<span class="inline-flex items-center gap-1">${logo}<span class="text-[0.68rem] text-dim">${name}</span></span>`;
-}
-
-function setSidebarActive(id) {
-  document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
-  const el = document.getElementById(id);
-  if (el) el.classList.add('active');
 }
 
 function hideAllViews() {

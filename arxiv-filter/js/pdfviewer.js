@@ -168,6 +168,9 @@ function initPdfViewer(container, url, arxivId) {
   container.appendChild(pages);
   _pdfPagesContainer = pages;
 
+  // Initialize touch gestures for mobile
+  initPdfTouchGestures();
+
   // Configure PDF.js worker
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
@@ -1166,4 +1169,113 @@ function _onPdfAnnotClick(e) {
     const wrapper = _pdfPagesContainer.querySelector(`.pdf-page-wrapper[data-page="${pageNum}"]`);
     if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }).catch(() => {});
+}
+
+// ── Mobile Touch Gestures ──
+
+let _pdfTouchStartX = 0;
+let _pdfTouchStartY = 0;
+let _pdfTouchDeltaX = 0;
+let _pdfTouchDeltaY = 0;
+let _pdfInitialDistance = 0;
+let _pdfInitialScale = 1.0;
+let _pdfIsPinching = false;
+
+function initPdfTouchGestures() {
+  if (!_pdfPagesContainer) return;
+
+  // Only enable on mobile
+  if (window.innerWidth >= 768) return;
+
+  _pdfPagesContainer.addEventListener('touchstart', handlePdfTouchStart, { passive: false });
+  _pdfPagesContainer.addEventListener('touchmove', handlePdfTouchMove, { passive: false });
+  _pdfPagesContainer.addEventListener('touchend', handlePdfTouchEnd, { passive: true });
+}
+
+function handlePdfTouchStart(e) {
+  // Skip if pen mode active or highlight mode active
+  if (_pdfPenMode || _pdfHighlightMode) return;
+
+  if (e.touches.length === 1) {
+    // Single touch: prepare for swipe navigation
+    _pdfTouchStartX = e.touches[0].clientX;
+    _pdfTouchStartY = e.touches[0].clientY;
+    _pdfTouchDeltaX = 0;
+    _pdfTouchDeltaY = 0;
+    _pdfIsPinching = false;
+  } else if (e.touches.length === 2) {
+    // Two-finger touch: prepare for pinch zoom
+    e.preventDefault();
+    _pdfIsPinching = true;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    _pdfInitialDistance = Math.sqrt(dx * dx + dy * dy);
+    _pdfInitialScale = _pdfScale;
+  }
+}
+
+function handlePdfTouchMove(e) {
+  // Skip if pen mode active or highlight mode active
+  if (_pdfPenMode || _pdfHighlightMode) return;
+
+  if (e.touches.length === 2 && _pdfIsPinching) {
+    // Pinch zoom
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const currentDistance = Math.sqrt(dx * dx + dy * dy);
+    const scaleFactor = currentDistance / _pdfInitialDistance;
+    let newScale = _pdfInitialScale * scaleFactor;
+
+    // Clamp scale between 0.5x and 3.0x
+    newScale = Math.max(0.5, Math.min(3.0, newScale));
+
+    if (newScale !== _pdfScale) {
+      _pdfScale = newScale;
+      renderAllPdfPages();
+      updatePdfZoomLabel();
+    }
+  } else if (e.touches.length === 1 && !_pdfIsPinching) {
+    // Track swipe for page navigation
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    _pdfTouchDeltaX = currentX - _pdfTouchStartX;
+    _pdfTouchDeltaY = currentY - _pdfTouchStartY;
+
+    // Only prevent default if horizontal swipe is dominant
+    if (Math.abs(_pdfTouchDeltaX) > Math.abs(_pdfTouchDeltaY) && Math.abs(_pdfTouchDeltaX) > 20) {
+      e.preventDefault();
+    }
+  }
+}
+
+function handlePdfTouchEnd(e) {
+  // Skip if pen mode active or highlight mode active
+  if (_pdfPenMode || _pdfHighlightMode) return;
+
+  if (_pdfIsPinching) {
+    _pdfIsPinching = false;
+    return;
+  }
+
+  // Swipe navigation (threshold: 80px horizontal swipe)
+  if (Math.abs(_pdfTouchDeltaX) > 80 && Math.abs(_pdfTouchDeltaX) > Math.abs(_pdfTouchDeltaY)) {
+    if (_pdfTouchDeltaX > 0) {
+      // Swipe right: previous page
+      pdfScrollToPage(-1);
+    } else {
+      // Swipe left: next page
+      pdfScrollToPage(1);
+    }
+  }
+
+  _pdfTouchDeltaX = 0;
+  _pdfTouchDeltaY = 0;
+}
+
+function updatePdfZoomLabel() {
+  const label = document.getElementById('pdf-zoom-label');
+  if (label) {
+    label.textContent = Math.round(_pdfScale * 100) + '%';
+  }
 }
