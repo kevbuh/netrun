@@ -731,6 +731,44 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 filtered = all_comments
             self._send_json(filtered)
 
+        elif self.path == '/tex-preview':
+            html = b'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LaTeX Preview</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#1a1a1a;font-family:system-ui,sans-serif;color:#aaa}
+#pdf-frame{width:100%;height:100%;border:none;display:none}
+#placeholder{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px}
+#placeholder .spinner{width:24px;height:24px;border:2px solid #444;border-top-color:#b4451a;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body>
+<iframe id="pdf-frame"></iframe>
+<div id="placeholder"><div class="spinner"></div><span>Waiting for compilation...</span></div>
+<script>
+const ch = new BroadcastChannel('tex-pdf-preview');
+const frame = document.getElementById('pdf-frame');
+const ph = document.getElementById('placeholder');
+let currentUrl = null;
+ch.onmessage = function(e) {
+  if (e.data && e.data.type === 'pdf-update') {
+    const bytes = new Uint8Array(e.data.pdf);
+    const blob = new Blob([bytes], {type:'application/pdf'});
+    if (currentUrl) URL.revokeObjectURL(currentUrl);
+    currentUrl = URL.createObjectURL(blob);
+    frame.src = currentUrl;
+    frame.style.display = 'block';
+    ph.style.display = 'none';
+    document.title = 'LaTeX Preview' + (e.data.fname ? ' - ' + e.data.fname : '');
+  }
+};
+ch.postMessage({type:'preview-ready'});
+</script></body></html>'''
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(html)))
+            self.end_headers()
+            self.wfile.write(html)
+
         else:
             super().do_GET()
 

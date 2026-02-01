@@ -78,6 +78,8 @@ let _texPdfUrl = null;
 let _texCm = null;
 let _texPreviewEl = null;
 let _texPreviewTimer = null;
+let _texPdfChannel = null;
+let _texLastPdfBytes = null;
 
 function renderLatexEditor(fname, content) {
   _texMode = 'code';
@@ -93,6 +95,14 @@ function renderLatexEditor(fname, content) {
         '<span id="tex-compile-status" class="text-[0.75rem] text-dimmer"></span>' +
         '<button onclick="cycleTexMode()" id="tex-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Cycle: Code → Split → Preview">Split</button>' +
         '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Compile PDF (⌘S)">Compile PDF</button>' +
+        '<div class="relative">' +
+          '<button onclick="toggleTexMenu()" id="tex-menu-btn" class="px-1.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="More options">' +
+            '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/></svg>' +
+          '</button>' +
+          '<div id="tex-more-menu" class="hidden absolute right-0 top-full mt-1 z-50 bg-card border border-border-input rounded-lg shadow-lg py-1 min-w-[180px]">' +
+            '<button onclick="openCompiledPdfNewTab(); hideTexMenu()" class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors">Open PDF in new tab</button>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
     '</div>' +
     '<div id="tex-body" class="flex-1 overflow-hidden border-t border-border-input flex">' +
@@ -337,6 +347,56 @@ function _initTexSplitDrag() {
   });
 }
 
+function toggleTexMenu() {
+  var menu = document.getElementById('tex-more-menu');
+  if (!menu) return;
+  menu.classList.toggle('hidden');
+  if (!menu.classList.contains('hidden')) {
+    setTimeout(function() {
+      document.addEventListener('click', _closeTexMenuOutside, { once: true });
+    }, 0);
+  }
+}
+function hideTexMenu() {
+  var menu = document.getElementById('tex-more-menu');
+  if (menu) menu.classList.add('hidden');
+}
+function _closeTexMenuOutside(e) {
+  var menu = document.getElementById('tex-more-menu');
+  if (menu && !menu.parentElement.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+}
+function _ensurePdfChannel() {
+  if (_texPdfChannel) return;
+  _texPdfChannel = new BroadcastChannel('tex-pdf-preview');
+  _texPdfChannel.onmessage = function(e) {
+    // When preview tab signals ready, send the latest PDF if we have one
+    if (e.data && e.data.type === 'preview-ready' && _texLastPdfBytes) {
+      _broadcastPdf();
+    }
+  };
+}
+function _broadcastPdf() {
+  if (!_texLastPdfBytes) return;
+  _ensurePdfChannel();
+  _texPdfChannel.postMessage({
+    type: 'pdf-update',
+    pdf: Array.from(_texLastPdfBytes),
+    fname: currentFile || ''
+  });
+}
+function openCompiledPdfNewTab() {
+  _ensurePdfChannel();
+  if (_texLastPdfBytes) {
+    window.open('/tex-preview', '_blank');
+  } else {
+    compileLatex().then(function() {
+      window.open('/tex-preview', '_blank');
+    });
+  }
+}
+
 async function saveLatex() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId || !_texCm) return;
@@ -377,6 +437,11 @@ async function compileLatex() {
     const blob = await resp.blob();
     if (_texPdfUrl) URL.revokeObjectURL(_texPdfUrl);
     _texPdfUrl = URL.createObjectURL(blob);
+    // Store bytes and broadcast to any open preview tabs
+    blob.arrayBuffer().then(function(buf) {
+      _texLastPdfBytes = new Uint8Array(buf);
+      _broadcastPdf();
+    });
     var pane = document.getElementById('tex-preview-pane');
     pane.innerHTML = '<iframe src="' + _texPdfUrl + '" class="w-full h-full" style="border:none"></iframe>';
     // Show preview if not visible
