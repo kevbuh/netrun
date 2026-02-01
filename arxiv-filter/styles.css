@@ -341,6 +341,13 @@
     .sidebar-icon .sidebar-tooltip { display: none; }
     .sidebar-icon:hover .sidebar-tooltip { display: block; }
 
+    /* ── Sidebar user avatar (force circle) ── */
+    #sb-user-avatar {
+      border-radius: 50% !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+    }
+
     /* ── Sidebar active inset shadow ── */
     .sidebar-icon.active {
       background: var(--bg-hover);

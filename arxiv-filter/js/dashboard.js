@@ -299,13 +299,16 @@ async function renderDashboard() {
 
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">${getGreeting()}</h2>
-    <div class="flex gap-5 items-start">
-      <!-- Left column: Calendar, Reading List -->
-      <div class="flex-1 min-w-0">
-        <div class="mb-5">
-          ${heatmapHtml}
-        </div>
 
+    <!-- Calendar: full width -->
+    <div class="mb-5">
+      ${heatmapHtml}
+    </div>
+
+    <!-- Two-column layout below calendar -->
+    <div class="flex gap-5 items-start">
+      <!-- Left column: Reading List -->
+      <div class="flex-1 min-w-0">
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>

@@ -277,6 +277,7 @@ def init_db():
             email TEXT,
             name TEXT,
             username TEXT UNIQUE,
+            picture TEXT,
             created REAL NOT NULL
         );
         CREATE TABLE IF NOT EXISTS sessions (
@@ -300,21 +301,24 @@ def init_db():
         conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         conn.commit()
+    if 'picture' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN picture TEXT")
+        conn.commit()
     conn.close()
 
 
-def upsert_google_user(google_id, email, name):
+def upsert_google_user(google_id, email, name, picture=None):
     conn = _get_db()
     row = conn.execute("SELECT google_id FROM users WHERE google_id = ?", (google_id,)).fetchone()
     if row:
         conn.execute(
-            "UPDATE users SET email = ?, name = ? WHERE google_id = ?",
-            (email, name, google_id)
+            "UPDATE users SET email = ?, name = ?, picture = ? WHERE google_id = ?",
+            (email, name, picture, google_id)
         )
     else:
         conn.execute(
-            "INSERT INTO users (google_id, email, name, created) VALUES (?, ?, ?, ?)",
-            (google_id, email, name, time.time())
+            "INSERT INTO users (google_id, email, name, picture, created) VALUES (?, ?, ?, ?, ?)",
+            (google_id, email, name, picture, time.time())
         )
     conn.commit()
     conn.close()
@@ -323,11 +327,11 @@ def upsert_google_user(google_id, email, name):
 
 def get_user_info(google_id):
     conn = _get_db()
-    row = conn.execute("SELECT google_id, email, name, username FROM users WHERE google_id = ?", (google_id,)).fetchone()
+    row = conn.execute("SELECT google_id, email, name, username, picture FROM users WHERE google_id = ?", (google_id,)).fetchone()
     conn.close()
     if not row:
         return None
-    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username']}
+    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username'], 'picture': row['picture']}
 
 
 def set_username(google_id, username):

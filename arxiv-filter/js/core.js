@@ -495,7 +495,7 @@ if (document.readyState === 'loading') {
 
 // ── Greeting system ──
 function getGreeting() {
-  const name = localStorage.getItem('userName') || '';
+  const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || localStorage.getItem('userName') || '';
   const now = new Date();
   const hour = now.getHours();
   const day = now.getDay(); // 0=Sun
@@ -1125,7 +1125,7 @@ if (localStorage.getItem('rainOn') === '1') {
 const GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
 let _authToken = localStorage.getItem('authToken') || null;
 let _authUser = localStorage.getItem('authUser') || null;  // email or name
-let _authUserInfo = null;  // { google_id, email, name, username }
+let _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null');  // { google_id, email, name, username }
 let _syncInterval = null;
 let _authReady = false;  // true once login gate has been resolved
 
@@ -1164,7 +1164,6 @@ function _hideLoginGate() {
 }
 
 let _gisRetries = 0;
-let _gisInitialized = false;
 function _renderGoogleButton() {
   const container = document.getElementById('google-signin-btn');
   if (!container) { console.warn('[auth] no google-signin-btn container'); return; }
@@ -1182,32 +1181,20 @@ function _renderGoogleButton() {
   }
   console.log('[auth] GIS loaded, rendering button');
   try {
-    if (!_gisInitialized) {
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: _handleGoogleCredential,
-      });
-      _gisInitialized = true;
-    }
-    container.innerHTML = `
-      <button id="custom-google-btn" style="
-        display:inline-flex;align-items:center;gap:10px;
-        padding:10px 24px;border-radius:8px;border:1px solid var(--border-card);
-        background:var(--bg-card);color:var(--text-primary);
-        font-size:14px;font-weight:500;font-family:inherit;
-        cursor:pointer;transition:border-color 0.15s,background 0.15s;
-      ">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.014 24.014 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-    `;
-    document.getElementById('custom-google-btn').addEventListener('click', () => {
-      google.accounts.id.prompt();
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: _handleGoogleCredential,
     });
-    // Also hover style
-    const btn = document.getElementById('custom-google-btn');
-    btn.addEventListener('mouseenter', () => { btn.style.borderColor = 'var(--accent)'; btn.style.background = 'var(--bg-popup)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'var(--border-card)'; btn.style.background = 'var(--bg-card)'; });
+    // Render real Google button inside a wrapper we style ourselves
+    container.innerHTML = '<div id="google-btn-real"></div>';
+    google.accounts.id.renderButton(document.getElementById('google-btn-real'), {
+      type: 'standard',
+      theme: 'filled_black',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'pill',
+      width: 280,
+    });
   } catch (e) {
     console.error('[auth] GIS renderButton error:', e);
     container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In error: ' + e.message + '</p>';
@@ -1227,9 +1214,10 @@ async function _handleGoogleCredential(response) {
     if (!res.ok) throw new Error(data.error || 'Sign-in failed');
     _authToken = data.token;
     _authUser = (data.name || data.email || '').split(' ')[0];
-    _authUserInfo = { email: data.email, name: data.name, username: data.username || null };
+    _authUserInfo = { email: data.email, name: data.name, username: data.username || null, picture: data.picture || null };
     localStorage.setItem('authToken', _authToken);
     localStorage.setItem('authUser', _authUser);
+    localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
     // Sync: pull from server first for returning users, push for new
     await syncFromServer();
     if (!data.username) {
@@ -1308,6 +1296,7 @@ async function _submitUsername() {
       return;
     }
     _authUserInfo.username = data.username;
+    localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
     _onLoginSuccess();
   } catch (e) {
     errEl.textContent = 'Network error, please try again';
@@ -1371,13 +1360,83 @@ async function authLogout() {
   _authReady = false;
   localStorage.removeItem('authToken');
   localStorage.removeItem('authUser');
+  localStorage.removeItem('authUserInfo');
   _updateAccountUI();
   _stopSyncInterval();
   _showLoginGate();
 }
 
 function _updateAccountUI() {
-  // No-op: account info is now shown inline in Settings view
+  const wrap = document.getElementById('sb-user-wrap');
+  const avatar = document.getElementById('sb-user-avatar');
+  const gear = document.getElementById('sb-settings');
+  if (!wrap || !avatar) {
+    // DOM not ready yet, retry after load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _updateAccountUI, { once: true });
+    }
+    return;
+  }
+  if (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) {
+    if (_authUserInfo.picture) {
+      avatar.innerHTML = `<img src="${_authUserInfo.picture.replace(/"/g, '&quot;')}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" referrerpolicy="no-referrer" />`;
+      avatar.style.cssText = 'background:none; padding:0;';
+    } else {
+      const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
+      avatar.textContent = letter;
+      avatar.style.cssText = 'background:var(--accent);';
+    }
+    wrap.style.display = '';
+    if (gear) gear.style.display = 'none';
+  } else {
+    wrap.style.display = 'none';
+    if (gear) gear.style.display = '';
+  }
+}
+
+function _toggleUserMenu() {
+  const pop = document.getElementById('user-menu-popover');
+  if (!pop) return;
+  if (pop.style.display !== 'none') { pop.style.display = 'none'; return; }
+  const email = _authUserInfo?.email || '';
+  const username = _authUserInfo?.username || '';
+  pop.innerHTML = `
+    <div style="padding:10px 16px 8px;border-bottom:1px solid var(--border-card);">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${escapeHtml(username)}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">${escapeHtml(email)}</div>
+    </div>
+    <button onclick="_userMenuAction('settings')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
+      Settings
+    </button>
+    <div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>
+    <button onclick="_userMenuAction('logout')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3h-9m9 0l-3-3m3 3l-3 3"/></svg>
+      Sign Out
+    </button>
+    <button onclick="_userMenuAction('delete')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:#e57373;font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.7;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+      Delete Account
+    </button>
+  `;
+  pop.style.display = '';
+  // Close on outside click
+  setTimeout(() => {
+    function _closeMenu(e) {
+      if (!pop.contains(e.target) && e.target.id !== 'sb-user-avatar') {
+        pop.style.display = 'none';
+        document.removeEventListener('click', _closeMenu);
+      }
+    }
+    document.addEventListener('click', _closeMenu);
+  }, 0);
+}
+
+function _userMenuAction(action) {
+  document.getElementById('user-menu-popover').style.display = 'none';
+  if (action === 'settings') openSettings();
+  else if (action === 'logout') _doLogout();
+  else if (action === 'delete') _doDeleteAccount();
 }
 
 function openAuthModal() {
@@ -1478,8 +1537,7 @@ async function _doDeleteAccount() {
   _authUser = null;
   _authUserInfo = null;
   _authReady = false;
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('authUser');
+  localStorage.clear();
   _updateAccountUI();
   _stopSyncInterval();
   _showLoginGate();
@@ -1497,8 +1555,9 @@ async function _doDeleteAccount() {
       })
       .then(data => {
         _authUser = (data.name || data.email || _authUser || '').split(' ')[0];
-        _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null };
+        _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null, picture: data.picture || null };
         localStorage.setItem('authUser', _authUser);
+        localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
         if (!data.username) {
           _showLoginGate();
           _showUsernamePicker();
@@ -1513,6 +1572,7 @@ async function _doDeleteAccount() {
         _authUserInfo = null;
         localStorage.removeItem('authToken');
         localStorage.removeItem('authUser');
+        localStorage.removeItem('authUserInfo');
         _updateAccountUI();
         _showLoginGate();
       });

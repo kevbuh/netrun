@@ -42,28 +42,23 @@ function renderSettingsView() {
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
 
-    <!-- ACCOUNT -->
+    <!-- PROFILE -->
     <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Account</h3>
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-primary text-sm">Signed in as</span>
-        <span class="text-white_ text-sm font-medium">${escapeHtml(_authUserInfo?.email || _authUser || '')}</span>
-      </div>
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-primary text-sm">Username</span>
-        <div class="flex items-center gap-2">
-          <input id="settings-username" type="text" maxlength="20" value="${escapeAttr((_authUserInfo && _authUserInfo.username) || '')}" placeholder="not set" class="w-40 px-2.5 py-1 rounded-md border border-border-input bg-card text-primary text-[0.82rem] focus:outline-none focus:border-accent transition-colors" />
-          <button id="settings-username-save" onclick="_saveUsernameFromSettings()" class="px-2.5 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Save</button>
+      <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
+      <div class="flex items-center gap-4 mb-4">
+        ${_authUserInfo?.picture
+          ? `<img src="${escapeAttr(_authUserInfo.picture)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
+          : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;flex-shrink:0;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
+        }
+        <div>
+          <div class="text-primary font-semibold text-[0.95rem]">${escapeHtml(_authUserInfo?.username || '')}</div>
+          <div class="text-dim text-[0.8rem]">${escapeHtml(_authUserInfo?.name || '')}</div>
+          <div class="text-dim text-[0.75rem]">${escapeHtml(_authUserInfo?.email || '')}</div>
         </div>
       </div>
-      <div id="settings-username-msg" class="text-xs mb-3" style="min-height:18px;text-align:right;"></div>
-      <div class="flex items-center justify-between">
-        <span class="text-dim text-xs" id="settings-sync-status">Settings synced across devices</span>
-        <div class="flex gap-2">
-          <button onclick="_doSettingsSync()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Sync Now</button>
-          <button onclick="_doLogout()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Sign Out</button>
-          <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800 text-red-400 bg-card hover:border-red-500 hover:bg-red-500/10 cursor-pointer transition-colors">Delete Account</button>
-        </div>
+      <div class="flex gap-2">
+        <button onclick="_doLogout()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Sign Out</button>
+        <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
       </div>
     </div>
 

@@ -861,20 +861,26 @@ ch.postMessage({type:'preview-ready'});
                 if token_info.get('aud') != GOOGLE_CLIENT_ID:
                     self._send_json({'error': 'Invalid token audience'}, 401)
                     return
+                # Also decode JWT payload directly for picture claim
+                import base64
+                parts = credential.split('.')
+                payload_b64 = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                jwt_payload = json.loads(base64.urlsafe_b64decode(payload_b64))
                 google_id = token_info.get('sub')
                 email = token_info.get('email', '')
-                name = token_info.get('name', '')
+                name = token_info.get('name', '') or jwt_payload.get('name', '')
+                picture = token_info.get('picture', '') or jwt_payload.get('picture', '')
                 if not google_id:
                     self._send_json({'error': 'Invalid token'}, 401)
                     return
             except Exception as e:
                 self._send_json({'error': f'Token verification failed: {e}'}, 401)
                 return
-            upsert_google_user(google_id, email, name)
+            upsert_google_user(google_id, email, name, picture)
             token = create_session(google_id)
             info = get_user_info(google_id)
             username = info['username'] if info else None
-            self._send_json({'token': token, 'email': email, 'name': name, 'username': username})
+            self._send_json({'token': token, 'email': email, 'name': name, 'username': username, 'picture': picture})
             return
 
         elif self.path == '/api/auth/logout':
