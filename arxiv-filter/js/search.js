@@ -86,6 +86,7 @@ function renderSearchFeedResults(query) {
         ${sourceChip}
         <span class="text-[0.82rem] text-primary truncate">${renderTitle(p.title)}</span>
         ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
+        <span class="shrink-0">${renderStarRating(p.link, { size: 'sm', interactive: true })}</span>
         <span class="ml-auto shrink-0">${date}</span>
       </div>`;
     }).join('');
@@ -204,9 +205,11 @@ function renderSearchArxivResults(total) {
   searchResultsSorted = sorted;
   container.innerHTML = header + sorted.map((r, i) => {
     const authorLabel = _searchAuthorLabel(r.authors);
+    const rLink = r.arxivId ? `https://arxiv.org/abs/${r.arxivId}` : (r.link || '');
     return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchArxivPaper(${i})">
       ${r.arxivId ? ARXIV_LOGO_INLINE : ''}<span class="text-[0.82rem] text-primary truncate">${renderTitle(r.title)}</span>
       ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
+      ${rLink ? `<span class="shrink-0">${renderStarRating(rLink, { size: 'sm', interactive: true })}</span>` : ''}
       ${r.citations !== undefined ? `<span class="text-[0.68rem] text-dim shrink-0">${r.citations} cited</span>` : ''}
       ${r.date ? `<span class="text-[0.68rem] text-dim shrink-0 ml-auto">${escapeHtml(r.date)}</span>` : ''}
     </div>`;
@@ -346,6 +349,7 @@ function renderOpenAlexResults() {
     return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openOpenAlexPaper(${i})">
       ${sourceTag}<span class="text-[0.82rem] text-primary truncate">${escapeHtml(r.title)}</span>
       ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
+      ${r.link ? `<span class="shrink-0">${renderStarRating(r.link, { size: 'sm', interactive: true })}</span>` : ''}
       <span class="text-[0.68rem] text-dim shrink-0">${r.citations} cited</span>
       ${r.date ? `<span class="text-[0.68rem] text-dim shrink-0 ml-auto">${escapeHtml(r.date)}</span>` : ''}
     </div>`;

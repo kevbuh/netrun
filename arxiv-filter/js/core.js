@@ -572,6 +572,68 @@ function renderTitle(rawTitle) {
   return html;
 }
 
+// ── Paper ratings (1-5 stars) ──
+function getPaperRatings() {
+  try { return JSON.parse(localStorage.getItem('paperRatings') || '{}'); } catch { return {}; }
+}
+function _normalizeRatingKey(link) {
+  // Normalize arXiv URLs: strip version, use https, use /abs/ form
+  let k = link;
+  try {
+    const u = new URL(k);
+    if (u.hostname.includes('arxiv.org')) {
+      u.protocol = 'https:';
+      // /abs/1706.03762v7 → /abs/1706.03762
+      u.pathname = u.pathname.replace(/(\/abs\/[\d.]+)v\d+$/, '$1');
+      // /pdf/... → /abs/...
+      u.pathname = u.pathname.replace(/^\/pdf\//, '/abs/');
+      k = u.origin + u.pathname;
+    }
+  } catch {}
+  return k;
+}
+function getPaperRating(link) {
+  const ratings = getPaperRatings();
+  return ratings[_normalizeRatingKey(link)] || ratings[link] || 0;
+}
+function setPaperRating(link, rating) {
+  const r = getPaperRatings();
+  const key = _normalizeRatingKey(link);
+  // Clean up old non-normalized key if different
+  if (key !== link && r[link]) delete r[link];
+  if (rating <= 0) delete r[key]; else r[key] = rating;
+  localStorage.setItem('paperRatings', JSON.stringify(r));
+}
+
+function renderStarRating(link, opts) {
+  const nLink = _normalizeRatingKey(link);
+  const rating = getPaperRating(nLink);
+  const size = opts?.size || 'sm';
+  const interactive = opts?.interactive !== false;
+  const cls = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
+  let html = `<span class="inline-flex items-center gap-px paper-rating" data-link="${escapeAttr(nLink)}">`;
+  for (let i = 1; i <= 5; i++) {
+    const filled = i <= rating;
+    const fill = filled ? 'var(--accent)' : 'none';
+    const stroke = filled ? 'var(--accent)' : 'currentColor';
+    const opacity = filled ? '' : 'opacity:0.3;';
+    const click = interactive ? ` onclick="event.stopPropagation();ratePaper('${escapeAttr(nLink)}',${i})" style="cursor:pointer;${opacity}"` : ` style="${opacity}"`;
+    html += `<svg class="${cls}"${click} viewBox="0 0 24 24" fill="${fill}" stroke="${stroke}" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  html += '</span>';
+  return html;
+}
+
+function ratePaper(link, rating) {
+  const current = getPaperRating(link);
+  // Click same star again → clear rating
+  setPaperRating(link, current === rating ? 0 : rating);
+  // Update all visible rating widgets for this paper
+  document.querySelectorAll(`.paper-rating[data-link="${CSS.escape(link)}"]`).forEach(el => {
+    el.outerHTML = renderStarRating(link, { interactive: el.closest('#paper-topbar') ? true : true, size: el.closest('#paper-topbar') ? 'md' : 'sm' });
+  });
+}
+
 function escapeAttr(str) {
   return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }

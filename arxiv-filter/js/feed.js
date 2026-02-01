@@ -1031,6 +1031,8 @@ function renderPapers() {
       const catChips = '';
       const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
       const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
+      const userRating = getPaperRating(p.link);
+      const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
       const isSaved = isPostSaved(p.link);
       const bmFill = isSaved ? 'var(--accent)' : 'none';
       const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
@@ -1045,7 +1047,7 @@ function renderPapers() {
       return `
       <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
         ${actionBtns}
-        <div class="flex gap-1.5 flex-wrap items-center mb-0.5 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${catChips}</div>
+        <div class="flex gap-1.5 flex-wrap items-center mb-0.5 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${ratingChip}${catChips}</div>
         ${viaLine}
         <div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} mb-1.5 leading-snug pr-12 ${viaLine ? 'mt-1.5' : 'mt-1'}">${renderTitle(p.title)}</div>
         ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
