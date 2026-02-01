@@ -20,7 +20,34 @@ SAVED_POSTS_FILE = os.path.join(DIR, 'saved_posts.json')
 SETTINGS_FILE = os.path.join(DIR, 'settings.json')
 COMMENTS_FILE = os.path.join(DIR, 'comments.json')
 
+SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
+os.makedirs(SAVED_CONTENT_DIR, exist_ok=True)
+
+
+def _content_path(url):
+    import hashlib
+    h = hashlib.sha256(url.encode()).hexdigest()[:16]
+    return os.path.join(SAVED_CONTENT_DIR, h + '.json')
+
+
+def read_saved_content(url):
+    path = _content_path(url)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def write_saved_content(url, data):
+    path = _content_path(url)
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, path)
 
 
 def read_blocked_titles():

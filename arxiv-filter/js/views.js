@@ -24,6 +24,51 @@ const ARXIV_CAT_NAMES = {
   'physics.comp-ph':'Computational Physics','cond-mat.dis-nn':'Disordered Systems and Neural Networks',
 };
 
+// ── Reader View (saved content) ──
+function _tryRenderSavedContent(container, paper) {
+  const url = paper.link;
+  fetch(`/api/saved-content?url=${encodeURIComponent(url)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.text && data.text.length > 50) {
+        _renderReaderView(container, data);
+      } else {
+        container.innerHTML = `<iframe src="${paper.link}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+      }
+    })
+    .catch(() => {
+      container.innerHTML = `<iframe src="${paper.link}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+    });
+}
+
+function _renderReaderView(container, data) {
+  const div = document.createElement('div');
+  div.className = 'reader-view';
+  const h1 = document.createElement('h1');
+  h1.textContent = data.title || '';
+  div.appendChild(h1);
+  if (data.url) {
+    const link = document.createElement('a');
+    link.href = data.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.className = 'reader-view-source';
+    link.textContent = data.url;
+    div.appendChild(link);
+  }
+  const body = document.createElement('div');
+  body.className = 'reader-view-body';
+  (data.text || '').split('\n\n').forEach(para => {
+    if (!para.trim()) return;
+    const p = document.createElement('p');
+    p.textContent = para.trim();
+    body.appendChild(p);
+  });
+  div.appendChild(body);
+  container.innerHTML = '';
+  container.appendChild(div);
+}
+
 // ── Paper Viewer (shared) ──
 let paperViewOrigin = 'arxiv';
 
@@ -318,7 +363,7 @@ function showPaperView(paper, hashValue) {
   if (arxivId) {
     initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
   } else {
-    pdfContainer.innerHTML = `<iframe src="${paper.link}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+    _tryRenderSavedContent(pdfContainer, paper);
   }
 
   // Reset chat state
@@ -1213,13 +1258,23 @@ function openPaper(index) {
   if (paper.source === 'arxiv') {
     showPaperView(paper, hashVal);
   } else {
-    fetch(`/api/check-embed?url=${encodeURIComponent(paper.link)}`)
-      .then(r => r.json())
+    // Check if we have saved content (reader view) — if so, always open in paper view
+    // Otherwise check if the site allows iframe embedding
+    fetch(`/api/saved-content?url=${encodeURIComponent(paper.link)}`)
+      .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data.embeddable) {
+        if (data && data.text && data.text.length > 50) {
           showPaperView(paper, hashVal);
         } else {
-          window.open(paper.link, '_blank');
+          return fetch(`/api/check-embed?url=${encodeURIComponent(paper.link)}`)
+            .then(r => r.json())
+            .then(d => {
+              if (d.embeddable) {
+                showPaperView(paper, hashVal);
+              } else {
+                window.open(paper.link, '_blank');
+              }
+            });
         }
       })
       .catch(() => {

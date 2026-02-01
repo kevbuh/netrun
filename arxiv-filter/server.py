@@ -26,6 +26,7 @@ from persistence import (
     read_saved_posts, write_saved_posts,
     read_settings, write_settings,
     read_comments, write_comments,
+    read_saved_content, write_saved_content,
     slugify, unique_slug,
     read_meta, write_meta,
     read_prompt, write_prompt, get_active_prompt,
@@ -737,6 +738,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/saved-posts':
             self._send_json(read_saved_posts())
+
+        elif self.path.startswith('/api/saved-content'):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            url = qs.get('url', [''])[0].strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            data = read_saved_content(url)
+            if data is None:
+                self._send_json({'error': 'not found'}, 404)
+            else:
+                self._send_json(data)
 
         elif self.path == '/api/settings':
             self._send_json(read_settings())
@@ -1698,6 +1712,20 @@ ch.postMessage({type:'preview-ready'});
             comments.append(comment)
             write_comments(comments)
             self._send_json(comment, 201)
+
+        elif self.path == '/api/saved-content':
+            body = self._read_body()
+            url = body.get('url', '').strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            write_saved_content(url, {
+                'url': url,
+                'title': body.get('title', ''),
+                'text': body.get('text', ''),
+                'savedAt': body.get('savedAt', int(time.time() * 1000))
+            })
+            self._send_json({'ok': True})
 
         elif self.path == '/api/saved-posts':
             body = self._read_body()

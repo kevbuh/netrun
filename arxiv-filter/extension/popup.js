@@ -51,12 +51,63 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
   }
 });
 
+function extractArticleText() {
+  // Try <article>, then <main>/[role=main], then largest text-dense <div>
+  let root = document.querySelector('article')
+    || document.querySelector('main')
+    || document.querySelector('[role="main"]');
+  if (!root) {
+    let best = null, bestLen = 0;
+    document.querySelectorAll('div').forEach(d => {
+      const len = d.innerText ? d.innerText.length : 0;
+      if (len > bestLen) { bestLen = len; best = d; }
+    });
+    root = best;
+  }
+  if (!root) return document.body.innerText || '';
+  const clone = root.cloneNode(true);
+  clone.querySelectorAll('nav, footer, aside, script, style, noscript, iframe, [role="navigation"], [role="banner"], [role="complementary"], [aria-hidden="true"], .ad, .ads, .advertisement').forEach(el => el.remove());
+  return clone.innerText || '';
+}
+
 saveBtn.addEventListener('click', async () => {
   if (!pageUrl || !apiBase) return;
   saveBtn.disabled = true;
-  msgEl.textContent = '';
+  msgEl.textContent = 'Extracting...';
   msgEl.className = 'msg';
+
+  // Extract article text from the active tab
+  let extractedText = '';
   try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0]) {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: extractArticleText
+      });
+      if (results && results[0] && results[0].result) {
+        extractedText = results[0].result;
+      }
+    }
+  } catch {}
+
+  msgEl.textContent = 'Saving...';
+  try {
+    // Save content if we extracted text
+    if (extractedText.length > 50) {
+      await fetch(apiBase + '/api/saved-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: pageUrl,
+          title: pageTitle,
+          text: extractedText,
+          savedAt: Date.now()
+        })
+      });
+    }
+
+    // Save to reading list
     const resp = await fetch(apiBase + '/api/saved-posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,10 +120,10 @@ saveBtn.addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (data.exists) {
-      msgEl.textContent = 'Already in reading list';
+      msgEl.textContent = extractedText.length > 50 ? 'Updated content' : 'Already in reading list';
       msgEl.className = 'msg ok';
     } else if (data.ok) {
-      msgEl.textContent = 'Saved';
+      msgEl.textContent = extractedText.length > 50 ? 'Saved with reader view' : 'Saved';
       msgEl.className = 'msg ok';
     } else {
       msgEl.textContent = data.error || 'Failed';
