@@ -76,6 +76,8 @@ async function saveMarkdown() {
 let _texMode = 'code'; // 'code' or 'preview'
 let _texPdfUrl = null;
 let _texCm = null;
+let _texPreviewEl = null;
+let _texPreviewTimer = null;
 
 function renderLatexEditor(fname, content) {
   _texMode = 'code';
@@ -118,7 +120,9 @@ function renderLatexEditor(fname, content) {
   _texCm.on('change', function() {
     clearTimeout(fileSaveTimer);
     fileSaveTimer = setTimeout(function() { saveLatex(); }, 600);
+    _scheduleTexPreview();
   });
+  _texCm.on('cursorActivity', _scheduleTexPreview);
   // Cmd+S / Ctrl+S to compile
   _texCm.on('keydown', function(cm, e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -127,8 +131,127 @@ function renderLatexEditor(fname, content) {
     }
   });
   _texCm.focus();
+  // Inline math preview tooltip
+  _initTexInlinePreview();
   // Split drag handle
   _initTexSplitDrag();
+}
+
+function _initTexInlinePreview() {
+  if (_texPreviewEl) _texPreviewEl.remove();
+  _texPreviewEl = document.createElement('div');
+  _texPreviewEl.id = 'tex-inline-preview';
+  _texPreviewEl.className = 'tex-inline-preview';
+  _texPreviewEl.style.display = 'none';
+  document.body.appendChild(_texPreviewEl);
+}
+
+function _scheduleTexPreview() {
+  clearTimeout(_texPreviewTimer);
+  _texPreviewTimer = setTimeout(_updateTexInlinePreview, 80);
+}
+
+function _updateTexInlinePreview() {
+  if (!_texCm || !_texPreviewEl || typeof katex === 'undefined') return;
+  var cursor = _texCm.getCursor();
+  var line = cursor.line;
+  var ch = cursor.ch;
+
+  // Gather context: scan outward from cursor to find math delimiters
+  // Check a window of lines around the cursor for multi-line math environments
+  var totalLines = _texCm.lineCount();
+  var startLine = Math.max(0, line - 30);
+  var endLine = Math.min(totalLines - 1, line + 30);
+
+  // Build text block with line offsets
+  var lines = [];
+  var charOffset = 0;
+  var cursorAbsPos = 0;
+  for (var i = startLine; i <= endLine; i++) {
+    var lt = _texCm.getLine(i);
+    if (i === line) cursorAbsPos = charOffset + ch;
+    lines.push(lt);
+    charOffset += lt.length + 1; // +1 for newline
+  }
+  var text = lines.join('\n');
+
+  // Find math region containing cursor
+  var mathRegions = _findTexMathRegions(text);
+  var region = null;
+  for (var r = 0; r < mathRegions.length; r++) {
+    if (cursorAbsPos >= mathRegions[r].start && cursorAbsPos <= mathRegions[r].end) {
+      region = mathRegions[r];
+      break;
+    }
+  }
+
+  if (!region || !region.content.trim()) {
+    _texPreviewEl.style.display = 'none';
+    return;
+  }
+
+  // Render with KaTeX
+  try {
+    var rendered = katex.renderToString(region.content, {
+      displayMode: region.display,
+      throwOnError: false,
+      strict: false
+    });
+    _texPreviewEl.innerHTML = rendered;
+    _texPreviewEl.style.display = '';
+
+    // Position above the current line using viewport coordinates (position: fixed)
+    var coords = _texCm.cursorCoords(true, 'page');
+    var previewH = _texPreviewEl.offsetHeight;
+    var previewW = _texPreviewEl.offsetWidth;
+    var topPos = coords.top - previewH - 6;
+    var leftPos = Math.min(Math.max(8, coords.left), window.innerWidth - previewW - 8);
+
+    // If tooltip goes above the viewport, show below instead
+    if (topPos < 0) {
+      topPos = coords.bottom + 6;
+    }
+    _texPreviewEl.style.top = topPos + 'px';
+    _texPreviewEl.style.left = leftPos + 'px';
+  } catch (e) {
+    _texPreviewEl.style.display = 'none';
+  }
+}
+
+function _findTexMathRegions(text) {
+  var regions = [];
+  // Order matters: match longer delimiters first
+  // \[...\] display math
+  // \(...\) inline math
+  // $$...$$ display math
+  // $...$ inline math
+  // \begin{equation}...\end{equation}, \begin{align}...\end{align}, etc.
+  var patterns = [
+    { re: /\\\[([\s\S]*?)\\\]/g, display: true },
+    { re: /\\\(([\s\S]*?)\\\)/g, display: false },
+    { re: /\$\$([\s\S]*?)\$\$/g, display: true },
+    { re: /(?<![\\$])\$(?!\$)((?:[^$\\]|\\.)+)\$/g, display: false },
+    { re: /\\begin\{(equation|align|gather|multline|eqnarray)\*?\}([\s\S]*?)\\end\{\1\*?\}/g, display: true, group: 0 },
+  ];
+  var used = []; // track covered ranges to avoid overlap
+  for (var p = 0; p < patterns.length; p++) {
+    var pat = patterns[p];
+    var m;
+    while ((m = pat.re.exec(text)) !== null) {
+      var start = m.index;
+      var end = m.index + m[0].length;
+      // Skip if overlapping with already found region
+      var overlap = false;
+      for (var u = 0; u < used.length; u++) {
+        if (start < used[u].end && end > used[u].start) { overlap = true; break; }
+      }
+      if (overlap) continue;
+      var content = pat.group === 0 ? m[0] : (m[2] !== undefined ? m[2] : m[1]);
+      regions.push({ start: start, end: end, content: content, display: pat.display });
+      used.push({ start: start, end: end });
+    }
+  }
+  return regions;
 }
 
 function cycleTexMode() {

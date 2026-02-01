@@ -372,6 +372,26 @@
     .CodeMirror-scroll { min-height: 40px; }
     #tex-cm-wrap .CodeMirror { height: 100% !important; padding: 0 !important; }
     #tex-cm-wrap .CodeMirror-scroll { min-height: 100%; }
+    #tex-cm-wrap { position: relative; }
+
+    /* ── Inline LaTeX preview tooltip ── */
+    .tex-inline-preview {
+      position: fixed;
+      z-index: 9999;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 8px 14px;
+      box-shadow: 0 8px 24px var(--shadow-popup);
+      pointer-events: none;
+      max-width: 60vw;
+      overflow-x: auto;
+      overflow-y: hidden;
+      color: var(--text-primary);
+    }
+    .tex-inline-preview .katex { font-size: 1.15em; }
+    .tex-inline-preview .katex-display { margin: 0; }
+    .tex-inline-preview .katex-display > .katex { text-align: left; }
     .CodeMirror-gutters {
       background: transparent !important;
       border-right: none !important;

@@ -961,6 +961,7 @@ function closeFileEditor() {
   pyEditorCm = null;
   cmInstances = [];
   if (typeof _texCm !== 'undefined') _texCm = null;
+  if (typeof _texPreviewEl !== 'undefined' && _texPreviewEl) { _texPreviewEl.remove(); _texPreviewEl = null; }
   if (typeof _mermaidCm !== 'undefined') _mermaidCm = null;
   const el = document.getElementById('exp-file-editor');
   el.style.display = 'none';
