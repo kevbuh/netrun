@@ -1,3 +1,29 @@
+// ── arXiv category labels ──
+const ARXIV_CAT_NAMES = {
+  'cs.AI':'Artificial Intelligence','cs.AR':'Hardware Architecture','cs.CC':'Computational Complexity',
+  'cs.CE':'Computational Engineering','cs.CG':'Computational Geometry','cs.CL':'Computation and Language',
+  'cs.CR':'Cryptography and Security','cs.CV':'Computer Vision and Pattern Recognition',
+  'cs.CY':'Computers and Society','cs.DB':'Databases','cs.DC':'Distributed Computing',
+  'cs.DL':'Digital Libraries','cs.DM':'Discrete Mathematics','cs.DS':'Data Structures and Algorithms',
+  'cs.ET':'Emerging Technologies','cs.FL':'Formal Languages and Automata Theory',
+  'cs.GL':'General Literature','cs.GR':'Graphics','cs.GT':'Computer Science and Game Theory',
+  'cs.HC':'Human-Computer Interaction','cs.IR':'Information Retrieval','cs.IT':'Information Theory',
+  'cs.LG':'Machine Learning','cs.LO':'Logic in Computer Science','cs.MA':'Multiagent Systems',
+  'cs.MM':'Multimedia','cs.MS':'Mathematical Software','cs.NA':'Numerical Analysis',
+  'cs.NE':'Neural and Evolutionary Computing','cs.NI':'Networking and Internet Architecture',
+  'cs.OH':'Other Computer Science','cs.OS':'Operating Systems','cs.PF':'Performance',
+  'cs.PL':'Programming Languages','cs.RO':'Robotics','cs.SC':'Symbolic Computation',
+  'cs.SD':'Sound','cs.SE':'Software Engineering','cs.SI':'Social and Information Networks',
+  'cs.SY':'Systems and Control',
+  'stat.ML':'Machine Learning (Statistics)','stat.TH':'Statistics Theory',
+  'stat.ME':'Methodology','stat.AP':'Applications','stat.CO':'Computation',
+  'math.OC':'Optimization and Control','math.ST':'Statistics Theory',
+  'eess.IV':'Image and Video Processing','eess.AS':'Audio and Speech Processing',
+  'eess.SP':'Signal Processing','eess.SY':'Systems and Control',
+  'q-bio.QM':'Quantitative Methods','q-bio.NC':'Neurons and Cognition',
+  'physics.comp-ph':'Computational Physics','cond-mat.dis-nn':'Disordered Systems and Neural Networks',
+};
+
 // ── Paper Viewer (shared) ──
 let paperViewOrigin = 'arxiv';
 
@@ -148,25 +174,28 @@ function showPaperView(paper, hashValue) {
   const sourceName = SOURCE_NAMES[paper.source] || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
 
   let metaParts = [];
-  if (sourceName) metaParts.push(`<span class="text-meta-value">${escapeHtml(sourceName)}</span>`);
-  if (paper.authors) metaParts.push(`<span class="text-muted truncate max-w-[300px]">${escapeHtml(paper.authors)}</span>`);
-  if (paper.published) metaParts.push(`<span class="text-dim">${paper.published}</span>`);
-  if (isHN && paper.hnScore) metaParts.push(`<span class="text-[#f60] font-semibold">${paper.hnScore} pts</span>`);
-  if (isHN && hnDiscussionUrl) metaParts.push(`<a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">${paper.hnComments} comments</a>`);
-  if (paper.commentsUrl) metaParts.push(`<a href="${paper.commentsUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline">discussion</a>`);
-  if (paper.categories && paper.categories.length) metaParts.push(...paper.categories.slice(0, 3).map(c => `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border">${escapeHtml(c)}</span>`));
+  if (sourceName) metaParts.push(`<span class="text-meta-value shrink-0">${escapeHtml(sourceName)}</span>`);
+  if (paper.authors) metaParts.push(`<span class="text-muted truncate topbar-scroll-span max-w-[300px]">${escapeHtml(paper.authors)}</span>`);
+  if (paper.published) metaParts.push(`<span class="text-dim shrink-0">${paper.published}</span>`);
+  if (isHN && paper.hnScore) metaParts.push(`<span class="text-[#f60] font-semibold shrink-0">${paper.hnScore} pts</span>`);
+  if (isHN && hnDiscussionUrl) metaParts.push(`<a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline shrink-0">${paper.hnComments} comments</a>`);
+  if (paper.commentsUrl) metaParts.push(`<a href="${paper.commentsUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline shrink-0">discussion</a>`);
+  if (paper.categories && paper.categories.length) metaParts.push(...paper.categories.slice(0, 3).map(c => {
+    const fullName = ARXIV_CAT_NAMES[c] || '';
+    return `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border shrink-0 cursor-default" ${fullName ? `title="${escapeHtml(fullName)}"` : ''}>${escapeHtml(c)}</span>`;
+  }));
 
   const sidebarToggleBtn = `<button id="paper-view-sidebar-toggle" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebarMobile()" title="Show notes" style="display:none"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
 
   topbar.innerHTML = `
     ${backBtn}
     <span class="w-px h-5 bg-border-dim shrink-0"></span>
-    <span class="text-[0.82rem] font-semibold text-white_ truncate">${renderTitle(paper.title)}</span>
-    <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest">·</span>')}</span>
+    <span class="text-[0.82rem] font-semibold text-white_ truncate topbar-scroll-span">${renderTitle(paper.title)}</span>
+    <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest shrink-0">·</span>')}</span>
     ${sidebarToggleBtn}
     <div class="relative shrink-0" id="paper-exp-btn-wrap">
       <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to experiment">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 3v2m6-2v2M9 5h6M9 5a2 2 0 00-1 3.74L10 13l-2.5 5a2 2 0 001.74 3h5.52a2 2 0 001.74-3L14 13l2-4.26A2 2 0 0015 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
     ${bookmarkBtn}

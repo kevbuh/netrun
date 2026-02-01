@@ -806,6 +806,16 @@
       background: var(--accent);
       color: #fff;
     }
+    .topbar-scroll-span {
+      scrollbar-width: none;
+    }
+    .topbar-scroll-span:hover {
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      text-overflow: clip !important;
+    }
+    .topbar-scroll-span::-webkit-scrollbar { display: none; }
+
     .doc-lookup-panel {
       position: fixed;
       width: 320px;
