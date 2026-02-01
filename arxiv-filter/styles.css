@@ -1079,7 +1079,7 @@
       display: flex;
       gap: 4px;
       padding: 6px 12px;
-      background: var(--bg-card);
+      background: transparent;
       border-bottom: 1px solid var(--border-dim);
       flex-shrink: 0;
     }
@@ -1094,11 +1094,30 @@
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .sidebar-tab-btn:hover { color: var(--text-primary); }
     .sidebar-tab-btn.active {
+      background: transparent;
+      color: var(--accent);
+    }
+
+    /* Sidebar resize handle */
+    .sidebar-resize-handle {
+      position: absolute;
+      left: -3px;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+      cursor: col-resize;
+      z-index: 10;
+    }
+    .sidebar-resize-handle:hover,
+    .sidebar-resize-handle.dragging {
       background: var(--accent);
-      color: #fff;
+      opacity: 0.3;
     }
 
     /* ── PDF highlights sidebar panel ── */

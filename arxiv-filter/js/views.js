@@ -49,6 +49,34 @@ function togglePaperViewBookmark() {
   btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
 }
 
+// ── Sidebar resize ──
+function _initSidebarResize(handle, sidebar) {
+  let startX, startW;
+  function onMouseDown(e) {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = sidebar.offsetWidth;
+    handle.classList.add('dragging');
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+  function onMouseMove(e) {
+    const w = Math.max(200, Math.min(700, startW - (e.clientX - startX)));
+    sidebar.style.width = w + 'px';
+  }
+  function onMouseUp() {
+    handle.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    localStorage.setItem('paperSidebarWidth', sidebar.offsetWidth);
+  }
+  handle.addEventListener('mousedown', onMouseDown);
+}
+
 // ── Toggle paper sidebar ──
 function togglePaperSidebar() {
   const sidebar = document.getElementById('paper-sidebar');
@@ -195,12 +223,11 @@ function showPaperView(paper, hashValue) {
     ${sidebarToggleBtn}
     <div class="relative shrink-0" id="paper-exp-btn-wrap">
       <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to experiment">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 3v2m6-2v2M9 5h6M9 5a2 2 0 00-1 3.74L10 13l-2.5 5a2 2 0 001.74 3h5.52a2 2 0 001.74-3L14 13l2-4.26A2 2 0 0015 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
       </button>
     </div>
     ${bookmarkBtn}
-    <span id="openreview-link" class="shrink-0 hidden"></span>
-    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
@@ -249,10 +276,10 @@ function showPaperView(paper, hashValue) {
 
   sidebar.innerHTML = `
     <div class="sidebar-tab-toolbar">
-      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')">Notes</button>
-      <button id="sidebar-tab-insights" class="sidebar-tab-btn" onclick="switchSidebarTab('insights')">Insights</button>
-      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">Chat</button>
-      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')">Comments</button>
+      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-insights" class="sidebar-tab-btn" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg></button>
     </div>
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
@@ -272,6 +299,16 @@ function showPaperView(paper, hashValue) {
       ${commentsPanel}
     </div>
   `;
+
+  // Sidebar resize handle
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'sidebar-resize-handle';
+  sidebar.appendChild(resizeHandle);
+  _initSidebarResize(resizeHandle, sidebar);
+
+  // Restore saved sidebar width
+  const savedW = localStorage.getItem('paperSidebarWidth');
+  if (savedW) sidebar.style.width = savedW + 'px';
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
@@ -387,18 +424,13 @@ async function fetchPaperInsights(url) {
 
 // ── OpenReview Link ──
 async function checkOpenReview(title) {
-  const el = document.getElementById('openreview-link');
-  const pdfEl = document.getElementById('pdf-openreview-link');
-  if (el) el.classList.add('hidden');
-  if (pdfEl) pdfEl.classList.add('hidden');
   try {
     const resp = await fetch('/api/openreview-search?' + new URLSearchParams({ title }));
     if (!resp.ok) return;
     const data = await resp.json();
     if (data.url) {
-      const linkHtml = `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-border-input text-[0.78rem] text-link no-underline hover:border-accent hover:bg-accent/10 transition-colors" title="View on OpenReview"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg>OpenReview</a>`;
-      if (el) { el.innerHTML = linkHtml; el.classList.remove('hidden'); }
-      if (pdfEl) { pdfEl.innerHTML = linkHtml; pdfEl.classList.remove('hidden'); }
+      _pdfExtractedLinks.add(data.url);
+      _renderPdfLinks();
     }
   } catch {}
 }

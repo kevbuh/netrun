@@ -142,7 +142,6 @@ function initPdfViewer(container, url, arxivId) {
       </button>
     </div>
     <span style="flex:1"></span>
-    <span id="pdf-openreview-link" class="hidden" style="flex-shrink:0"></span>
     <div class="pdf-search-bar" id="pdf-search-bar" style="display:flex;align-items:center;gap:4px;">
       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="opacity:0.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
       <div style="display:flex;align-items:center;border:1px solid var(--border-input);border-radius:5px;overflow:hidden;background:var(--input-bg,transparent);">
