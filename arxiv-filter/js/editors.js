@@ -16,42 +16,82 @@ function renderMarkdownEditor(fname, content) {
   _mdRawContent = content;
   _mdMode = 'preview';
   const editor = document.getElementById('exp-file-editor');
+  const escapedFname = escapeHtml(fname).replace(/'/g, "\\'");
   editor.innerHTML = `
-    <div class="flex items-center gap-3 px-4 py-2 shrink-0">
+    <div class="flex items-center gap-2 px-4 py-2 shrink-0 flex-wrap">
       <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">md</span>
-      <span class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapeHtml(fname).replace(/'/g, "\\'")}')" title="Click to rename">${escapeHtml(fname)}</span>
-      <button id="md-toggle-btn" onclick="toggleMdMode()" class="ml-auto text-[0.75rem] px-2.5 py-1 rounded-md border border-border-input bg-transparent text-dimmer cursor-pointer hover:text-primary hover:border-accent transition-colors">Edit</button>
-      <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="md-save-ind">Saved</span>
+      <span class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapedFname}')" title="Click to rename">${escapeHtml(fname)}</span>
+      <div class="w-px h-4 bg-border-dim mx-1"></div>
+      <button onclick="_mdWrap('**','**')" class="md-tb-btn" title="Bold (⌘B)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg></button>
+      <button onclick="_mdWrap('*','*')" class="md-tb-btn" title="Italic (⌘I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg></button>
+      <button onclick="_mdWrap('~~','~~')" class="md-tb-btn" title="Strikethrough"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/></svg></button>
+      <div class="w-px h-4 bg-border-dim mx-1"></div>
+      <button onclick="_mdLinePrefix('# ')" class="md-tb-btn" title="Heading 1"><span class="text-[0.7rem] font-bold">H1</span></button>
+      <button onclick="_mdLinePrefix('## ')" class="md-tb-btn" title="Heading 2"><span class="text-[0.7rem] font-bold">H2</span></button>
+      <button onclick="_mdLinePrefix('### ')" class="md-tb-btn" title="Heading 3"><span class="text-[0.7rem] font-bold">H3</span></button>
+      <div class="w-px h-4 bg-border-dim mx-1"></div>
+      <button onclick="_mdLinePrefix('- ')" class="md-tb-btn" title="Bullet list"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg></button>
+      <button onclick="_mdLinePrefix('1. ')" class="md-tb-btn" title="Numbered list"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/></svg></button>
+      <button onclick="_mdLinePrefix('- [ ] ')" class="md-tb-btn" title="Todo item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg></button>
+      <div class="w-px h-4 bg-border-dim mx-1"></div>
+      <button onclick="_mdWrap('\`','\`')" class="md-tb-btn" title="Inline code (⌘E)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg></button>
+      <button onclick="_mdInsertCodeBlock()" class="md-tb-btn" title="Code block"><span class="text-[0.65rem] font-mono">{}</span></button>
+      <button onclick="_mdLinePrefix('> ')" class="md-tb-btn" title="Blockquote"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg></button>
+      <button onclick="_mdInsertLink()" class="md-tb-btn" title="Link (⌘K)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>
+      <button onclick="_mdInsertHr()" class="md-tb-btn" title="Horizontal rule"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 11h20v2H2z"/></svg></button>
+      <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity ml-auto" id="md-save-ind">Saved</span>
     </div>
-    <div id="md-preview" class="nb-rendered-md flex-1 overflow-y-auto px-4 py-3">${marked.parse(content)}</div>
+    <div id="md-preview" class="nb-rendered-md flex-1 overflow-y-auto px-4 py-3 cursor-text" onclick="_mdEnterEdit()">${marked.parse(content)}</div>
     <textarea id="md-editor-textarea" class="hidden flex-1 w-full px-4 py-2 bg-transparent text-primary text-[0.85rem] font-mono resize-none focus:outline-none border-none" spellcheck="false">${escapeHtml(content)}</textarea>`;
   renderLatexIn('md-preview');
   _rewriteExpImages(document.getElementById('md-preview'));
+  // Prevent toolbar buttons from stealing focus from textarea
+  editor.querySelectorAll('.md-tb-btn').forEach(btn => {
+    btn.addEventListener('mousedown', e => e.preventDefault());
+  });
 }
 
-function toggleMdMode() {
+function _mdEnterEdit() {
+  if (_mdMode === 'edit') return;
+  _mdMode = 'edit';
   const preview = document.getElementById('md-preview');
   const ta = document.getElementById('md-editor-textarea');
-  const btn = document.getElementById('md-toggle-btn');
   if (!preview || !ta) return;
-  if (_mdMode === 'preview') {
-    _mdMode = 'edit';
-    preview.classList.add('hidden');
-    ta.classList.remove('hidden');
-    btn.textContent = 'Preview';
-    ta.value = _mdRawContent;
-    ta.addEventListener('input', _mdOnInput);
-    ta.focus();
-  } else {
-    _mdMode = 'preview';
-    _mdRawContent = ta.value;
-    preview.innerHTML = marked.parse(_mdRawContent);
-    renderLatexIn('md-preview');
-    _rewriteExpImages(preview);
-    preview.classList.remove('hidden');
-    ta.classList.add('hidden');
-    btn.textContent = 'Edit';
-  }
+  preview.classList.add('hidden');
+  ta.classList.remove('hidden');
+  ta.value = _mdRawContent;
+  ta.addEventListener('input', _mdOnInput);
+  ta.addEventListener('keydown', _mdOnKeydown);
+  ta.addEventListener('blur', _mdOnBlur);
+  ta.focus();
+}
+
+function _mdOnBlur() {
+  // Delay so toolbar button clicks don't trigger preview switch
+  setTimeout(() => {
+    const ta = document.getElementById('md-editor-textarea');
+    if (!ta || document.activeElement === ta) return;
+    // If focus went to a toolbar button, refocus textarea
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.md-tb-btn')) {
+      ta.focus();
+      return;
+    }
+    _mdEnterPreview();
+  }, 150);
+}
+
+function _mdEnterPreview() {
+  if (_mdMode === 'preview') return;
+  _mdMode = 'preview';
+  const preview = document.getElementById('md-preview');
+  const ta = document.getElementById('md-editor-textarea');
+  if (!preview || !ta) return;
+  _mdRawContent = ta.value;
+  preview.innerHTML = marked.parse(_mdRawContent);
+  renderLatexIn('md-preview');
+  _rewriteExpImages(preview);
+  preview.classList.remove('hidden');
+  ta.classList.add('hidden');
 }
 
 function _mdOnInput() {
@@ -70,6 +110,121 @@ async function saveMarkdown() {
   });
   const ind = document.getElementById('md-save-ind');
   if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+}
+
+// ── Markdown Toolbar Helpers ──
+
+function _mdWrap(before, after) {
+  const ta = document.getElementById('md-editor-textarea');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const text = ta.value;
+  const selected = text.slice(start, end);
+  // If selection is already wrapped, unwrap it
+  if (start >= before.length && text.slice(start - before.length, start) === before && text.slice(end, end + after.length) === after) {
+    ta.value = text.slice(0, start - before.length) + selected + text.slice(end + after.length);
+    ta.selectionStart = start - before.length;
+    ta.selectionEnd = end - before.length;
+  } else {
+    const replacement = before + (selected || 'text') + after;
+    ta.value = text.slice(0, start) + replacement + text.slice(end);
+    if (selected) {
+      ta.selectionStart = start + before.length;
+      ta.selectionEnd = end + before.length;
+    } else {
+      ta.selectionStart = start + before.length;
+      ta.selectionEnd = start + before.length + 4; // select 'text'
+    }
+  }
+  ta.focus();
+  _mdOnInput();
+}
+
+function _mdLinePrefix(prefix) {
+  const ta = document.getElementById('md-editor-textarea');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const text = ta.value;
+  // Find the start of the current line
+  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const lineEnd = text.indexOf('\n', end);
+  const actualEnd = lineEnd === -1 ? text.length : lineEnd;
+  const lines = text.slice(lineStart, actualEnd).split('\n');
+  const prefixed = lines.map(line => {
+    // If line already has this prefix, remove it (toggle)
+    if (line.startsWith(prefix)) return line.slice(prefix.length);
+    // For headings, remove any existing heading prefix first
+    if (prefix.match(/^#{1,3} $/)) {
+      const stripped = line.replace(/^#{1,6} /, '');
+      return prefix + stripped;
+    }
+    return prefix + line;
+  }).join('\n');
+  ta.value = text.slice(0, lineStart) + prefixed + text.slice(actualEnd);
+  ta.selectionStart = lineStart;
+  ta.selectionEnd = lineStart + prefixed.length;
+  ta.focus();
+  _mdOnInput();
+}
+
+function _mdInsertCodeBlock() {
+  const ta = document.getElementById('md-editor-textarea');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const text = ta.value;
+  const selected = text.slice(start, end);
+  const block = '\n```\n' + (selected || 'code') + '\n```\n';
+  ta.value = text.slice(0, start) + block + text.slice(end);
+  if (selected) {
+    ta.selectionStart = start + 4;
+    ta.selectionEnd = start + 4 + selected.length;
+  } else {
+    ta.selectionStart = start + 4;
+    ta.selectionEnd = start + 8;
+  }
+  ta.focus();
+  _mdOnInput();
+}
+
+function _mdInsertLink() {
+  const ta = document.getElementById('md-editor-textarea');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const text = ta.value;
+  const selected = text.slice(start, end);
+  const link = '[' + (selected || 'text') + '](url)';
+  ta.value = text.slice(0, start) + link + text.slice(end);
+  if (selected) {
+    // Select the 'url' part
+    ta.selectionStart = start + selected.length + 3;
+    ta.selectionEnd = start + selected.length + 6;
+  } else {
+    // Select 'text'
+    ta.selectionStart = start + 1;
+    ta.selectionEnd = start + 5;
+  }
+  ta.focus();
+  _mdOnInput();
+}
+
+function _mdInsertHr() {
+  const ta = document.getElementById('md-editor-textarea');
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const text = ta.value;
+  const hr = '\n---\n';
+  ta.value = text.slice(0, start) + hr + text.slice(start);
+  ta.selectionStart = ta.selectionEnd = start + hr.length;
+  ta.focus();
+  _mdOnInput();
+}
+
+function _mdOnKeydown(e) {
+  if (!(e.metaKey || e.ctrlKey)) return;
+  if (e.key === 'b') { e.preventDefault(); _mdWrap('**', '**'); }
+  else if (e.key === 'i') { e.preventDefault(); _mdWrap('*', '*'); }
+  else if (e.key === 'k') { e.preventDefault(); _mdInsertLink(); }
+  else if (e.key === 'e') { e.preventDefault(); _mdWrap('`', '`'); }
 }
 
 // ── LaTeX Editor ──

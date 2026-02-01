@@ -8,6 +8,17 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--text-dimmer); }
     * { scrollbar-width: thin; scrollbar-color: var(--text-dimmest) transparent; }
     .nb-img-wrap:hover .nb-img-btns { opacity: 1; }
+
+    /* Markdown toolbar buttons */
+    .md-tb-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 5px;
+      background: transparent; border: none;
+      color: var(--text-dimmer); cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .md-tb-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
     .dash-del { opacity: 0; transition: opacity 0.15s; }
     .dash-row:hover > .dash-del { opacity: 1; }
 
