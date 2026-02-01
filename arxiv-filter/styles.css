@@ -1038,42 +1038,38 @@
       align-items: center;
       gap: 8px;
     }
-    .pdf-pen-color-btn {
-      width: 18px;
-      height: 18px;
-      min-width: 18px;
-      border: none;
-      border-radius: 50%;
+    .pdf-pen-color-input {
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      padding: 0;
+      border: 1px solid var(--border-input);
+      border-radius: 4px;
+      background: none;
       cursor: pointer;
-    }
-    .pdf-pen-size-slider {
-      width: 60px;
-      accent-color: var(--accent);
       -webkit-appearance: none;
       appearance: none;
-      height: 3px;
-      background: var(--border-input);
-      border-radius: 2px;
+    }
+    .pdf-pen-color-input::-webkit-color-swatch-wrapper { padding: 1px; }
+    .pdf-pen-color-input::-webkit-color-swatch { border: none; border-radius: 3px; }
+    .pdf-pen-color-input::-moz-color-swatch { border: none; border-radius: 3px; }
+    .pdf-pen-size-input {
+      width: 40px;
+      padding: 2px 4px;
+      font-size: 0.72rem;
+      text-align: center;
+      border: 1px solid var(--border-input);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-primary);
       outline: none;
+      -moz-appearance: textfield;
     }
-    .pdf-pen-size-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      cursor: pointer;
-    }
-    .pdf-pen-size-slider::-moz-range-thumb {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      border: none;
-      cursor: pointer;
-    }
+    .pdf-pen-size-input::-webkit-inner-spin-button,
+    .pdf-pen-size-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .pdf-pen-size-input:focus { border-color: var(--accent); }
     .pdf-eraser-active .pdf-drawing-canvas {
-      cursor: not-allowed;
+      cursor: cell;
     }
 
     /* ── Pixel Pet ── */

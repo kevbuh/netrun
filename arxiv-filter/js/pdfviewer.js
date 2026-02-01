@@ -29,7 +29,11 @@ let _pdfPenSize = 2;
 let _pdfDrawings = {};       // { pageNum: [ { points, color, size } ] }
 let _pdfCurrentStroke = null;
 let _pdfCurrentDrawCanvas = null;
-let _pdfEraserMode = false;
+let _pdfEraserMode = false;    // false | 'partial' | 'full'
+
+// ── Drawing undo/redo ──
+let _pdfUndoStacks = {};   // { pageNum: [ snapshotArray, ... ] }
+let _pdfRedoStacks = {};   // { pageNum: [ snapshotArray, ... ] }
 
 // ── Storage ──
 
@@ -77,6 +81,8 @@ function initPdfViewer(container, url, arxivId) {
   _pdfHighlights = loadPdfHighlights(arxivId);
   _pdfDrawings = loadPdfDrawings(arxivId);
   _pdfPenMode = false;
+  _pdfUndoStacks = {};
+  _pdfRedoStacks = {};
 
   container.innerHTML = '';
   container.style.display = 'flex';
@@ -114,20 +120,25 @@ function initPdfViewer(container, url, arxivId) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
     </button>
     <div class="pdf-pen-controls" id="pdf-pen-controls" style="display:none">
-      <button class="pdf-pen-color-btn" id="pdf-pen-color-btn" style="background:${_pdfPenColor}" onclick="document.getElementById('pdf-pen-color-input').click()" title="Pen color"></button>
-      <input type="color" id="pdf-pen-color-input" value="${_pdfPenColor}" style="display:none" oninput="pdfSetPenColor(this.value)">
-      <input type="range" class="pdf-pen-size-slider" id="pdf-pen-size" min="1" max="12" value="${_pdfPenSize}" onchange="_pdfPenSize=+this.value" title="Pen size">
-      <button class="pdf-tb-btn" id="pdf-eraser-toggle" onclick="togglePdfEraser()" title="Eraser (tap a stroke to delete it)">
+      <input type="color" id="pdf-pen-color-input" value="${_pdfPenColor}" class="pdf-pen-color-input" oninput="pdfSetPenColor(this.value)" title="Pen color">
+      <input type="number" id="pdf-pen-size-input" class="pdf-pen-size-input" min="1" max="50" value="${_pdfPenSize}" onchange="_pdfPenSize=Math.max(1,Math.min(50,+this.value))" title="Pen width (px)">
+      <span class="pdf-tb-sep" style="margin:0 2px"></span>
+      <button class="pdf-tb-btn" id="pdf-eraser-partial" onclick="setPdfEraserMode('partial')" title="Partial eraser">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16.24 3.56l4.95 4.94a1.5 1.5 0 010 2.12l-8.49 8.49a3 3 0 01-2.12.88H7.17a3 3 0 01-2.12-.88L2.93 16.99a1.5 1.5 0 010-2.12L12.12 5.68l2-2.12a1.5 1.5 0 012.12 0zM4.34 16.28l2.12 2.12a1 1 0 00.71.3h3.41a1 1 0 00.71-.3l3.18-3.18-4.95-4.95-5.18 5.3v.71z"/></svg>
       </button>
-      <button class="pdf-tb-btn" onclick="pdfPenUndo()" title="Undo last stroke">
+      <button class="pdf-tb-btn" id="pdf-eraser-full" onclick="setPdfEraserMode('full')" title="Stroke eraser">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="4" x2="20" y2="20" stroke-linecap="round"/><line x1="20" y1="4" x2="4" y2="20" stroke-linecap="round"/></svg>
+      </button>
+      <span class="pdf-tb-sep" style="margin:0 2px"></span>
+      <button class="pdf-tb-btn" id="pdf-undo-btn" onclick="pdfDrawUndo()" title="Undo (⌘Z)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1.04-6.83 2.73L2 7v10h10l-3.72-3.72A8.97 8.97 0 0112.5 11c3.31 0 6.13 2.13 7.16 5.09l2.09-.72A11.003 11.003 0 0012.5 8z"/></svg>
+      </button>
+      <button class="pdf-tb-btn" id="pdf-redo-btn" onclick="pdfDrawRedo()" title="Redo (⌘⇧Z)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1.04 6.83 2.73L22 7v10H12l3.72-3.72A8.97 8.97 0 0011.5 11c-3.31 0-6.13 2.13-7.16 5.09l-2.09-.72A11.003 11.003 0 0111.5 8z"/></svg>
       </button>
     </div>
     <span style="flex:1"></span>
     <span id="pdf-openreview-link" class="hidden" style="flex-shrink:0"></span>
-    <button class="pdf-tb-btn" onclick="showCitePopup()" title="Cite paper" style="font-size:0.72rem;padding:2px 6px;">Cite</button>
-    <span class="pdf-tb-sep"></span>
     <div class="pdf-search-bar" id="pdf-search-bar" style="display:flex;align-items:center;gap:4px;">
       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="opacity:0.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
       <div style="display:flex;align-items:center;border:1px solid var(--border-input);border-radius:5px;overflow:hidden;background:var(--input-bg,transparent);">
@@ -736,28 +747,46 @@ function togglePdfPen() {
   if (!_pdfPenMode) _pdfEraserMode = false;
   const btn = document.getElementById('pdf-pen-toggle');
   const controls = document.getElementById('pdf-pen-controls');
-  const eraserBtn = document.getElementById('pdf-eraser-toggle');
   if (btn) btn.classList.toggle('active', _pdfPenMode);
   if (controls) controls.style.display = _pdfPenMode ? 'flex' : 'none';
-  if (eraserBtn) eraserBtn.classList.remove('active');
+  const partial = document.getElementById('pdf-eraser-partial');
+  const full = document.getElementById('pdf-eraser-full');
+  if (partial) partial.classList.remove('active');
+  if (full) full.classList.remove('active');
   if (_pdfPagesContainer) {
     _pdfPagesContainer.classList.toggle('pdf-pen-active', _pdfPenMode);
     _pdfPagesContainer.classList.remove('pdf-eraser-active');
   }
 }
 
+document.addEventListener('keydown', function(e) {
+  if (!_pdfPenMode) return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    pdfDrawUndo();
+  } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+    e.preventDefault();
+    pdfDrawRedo();
+  }
+});
+
 function pdfSetPenColor(color) {
   _pdfPenColor = color;
-  const btn = document.getElementById('pdf-pen-color-btn');
-  if (btn) btn.style.background = color;
 }
 
-function togglePdfEraser() {
-  _pdfEraserMode = !_pdfEraserMode;
-  const btn = document.getElementById('pdf-eraser-toggle');
-  if (btn) btn.classList.toggle('active', _pdfEraserMode);
+function setPdfEraserMode(mode) {
+  // Toggle off if clicking the same mode
+  if (_pdfEraserMode === mode) {
+    _pdfEraserMode = false;
+  } else {
+    _pdfEraserMode = mode;
+  }
+  const partial = document.getElementById('pdf-eraser-partial');
+  const full = document.getElementById('pdf-eraser-full');
+  if (partial) partial.classList.toggle('active', _pdfEraserMode === 'partial');
+  if (full) full.classList.toggle('active', _pdfEraserMode === 'full');
   if (_pdfPagesContainer) {
-    _pdfPagesContainer.classList.toggle('pdf-eraser-active', _pdfEraserMode);
+    _pdfPagesContainer.classList.toggle('pdf-eraser-active', !!_pdfEraserMode);
   }
 }
 
@@ -765,20 +794,62 @@ function eraseStrokeAt(canvas, x, y) {
   const pageNum = canvas.dataset.page;
   const strokes = _pdfDrawings[pageNum];
   if (!strokes || !strokes.length) return;
-  // x, y are in CSS pixels; convert to PDF-unit space
   const px = x / _pdfScale;
   const py = y / _pdfScale;
-  const threshold = 8 / _pdfScale; // 8 CSS px hit radius
-  for (let si = strokes.length - 1; si >= 0; si--) {
-    const pts = strokes[si].points;
-    for (let i = 0; i < pts.length - 1; i++) {
-      if (distToSegment(px, py, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y) < threshold + strokes[si].size / 2) {
-        strokes.splice(si, 1);
-        savePdfDrawings();
-        replayDrawingsForPage(pageNum);
-        return;
+  const threshold = 8 / _pdfScale;
+  let changed = false;
+
+  if (_pdfEraserMode === 'full') {
+    // Full stroke eraser: remove the entire stroke on hit
+    for (let si = strokes.length - 1; si >= 0; si--) {
+      const pts = strokes[si].points;
+      for (let i = 0; i < pts.length - 1; i++) {
+        if (distToSegment(px, py, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y) < threshold + strokes[si].size / 2) {
+          strokes.splice(si, 1);
+          changed = true;
+          break;
+        }
       }
     }
+  } else {
+    // Partial eraser: split strokes around erased segments
+    for (let si = strokes.length - 1; si >= 0; si--) {
+      const stroke = strokes[si];
+      const pts = stroke.points;
+      const hitSegments = new Set();
+      for (let i = 0; i < pts.length - 1; i++) {
+        if (distToSegment(px, py, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y) < threshold + stroke.size / 2) {
+          hitSegments.add(i);
+        }
+      }
+      if (!hitSegments.size) continue;
+      const newStrokes = [];
+      let run = [];
+      for (let i = 0; i < pts.length; i++) {
+        const segHit = hitSegments.has(i);
+        const prevHit = hitSegments.has(i - 1);
+        if (!segHit && !prevHit) {
+          run.push(pts[i]);
+        } else if (!segHit && prevHit) {
+          if (run.length >= 2) newStrokes.push({ points: run, color: stroke.color, size: stroke.size });
+          run = [pts[i]];
+        } else {
+          if (!prevHit && run.length >= 1) {
+            run.push(pts[i]);
+            if (run.length >= 2) newStrokes.push({ points: run, color: stroke.color, size: stroke.size });
+            run = [];
+          }
+        }
+      }
+      if (run.length >= 2) newStrokes.push({ points: run, color: stroke.color, size: stroke.size });
+      strokes.splice(si, 1, ...newStrokes);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    savePdfDrawings();
+    replayDrawingsForPage(pageNum);
   }
 }
 
@@ -799,6 +870,8 @@ function onPdfDrawStart(e) {
   const y = e.clientY - rect.top;
 
   if (_pdfEraserMode) {
+    const pageNum = canvas.dataset.page;
+    _pdfSnapshotPage(pageNum);
     eraseStrokeAt(canvas, x, y);
     canvas.setPointerCapture(e.pointerId);
     _pdfCurrentDrawCanvas = canvas;
@@ -807,6 +880,7 @@ function onPdfDrawStart(e) {
   }
 
   canvas.setPointerCapture(e.pointerId);
+  _pdfSnapshotPage(canvas.dataset.page);
   const dpr = window.devicePixelRatio || 1;
   _pdfCurrentStroke = {
     points: [{ x: x / _pdfScale, y: y / _pdfScale }],
@@ -887,10 +961,37 @@ function replayDrawingsForPage(pageNum) {
   });
 }
 
-function pdfPenUndo() {
+function _pdfSnapshotPage(pageNum) {
+  if (!_pdfUndoStacks[pageNum]) _pdfUndoStacks[pageNum] = [];
+  const strokes = _pdfDrawings[pageNum] || [];
+  _pdfUndoStacks[pageNum].push(JSON.parse(JSON.stringify(strokes)));
+  if (_pdfUndoStacks[pageNum].length > 100) _pdfUndoStacks[pageNum].shift();
+  // Clear redo on new action
+  _pdfRedoStacks[pageNum] = [];
+}
+
+function pdfDrawUndo() {
   const pageNum = getCurrentPdfPage().toString();
-  if (!_pdfDrawings[pageNum] || !_pdfDrawings[pageNum].length) return;
-  _pdfDrawings[pageNum].pop();
+  const undoStack = _pdfUndoStacks[pageNum];
+  if (!undoStack || !undoStack.length) return;
+  // Save current state to redo
+  if (!_pdfRedoStacks[pageNum]) _pdfRedoStacks[pageNum] = [];
+  _pdfRedoStacks[pageNum].push(JSON.parse(JSON.stringify(_pdfDrawings[pageNum] || [])));
+  // Restore previous state
+  _pdfDrawings[pageNum] = undoStack.pop();
+  savePdfDrawings();
+  replayDrawingsForPage(pageNum);
+}
+
+function pdfDrawRedo() {
+  const pageNum = getCurrentPdfPage().toString();
+  const redoStack = _pdfRedoStacks[pageNum];
+  if (!redoStack || !redoStack.length) return;
+  // Save current state to undo
+  if (!_pdfUndoStacks[pageNum]) _pdfUndoStacks[pageNum] = [];
+  _pdfUndoStacks[pageNum].push(JSON.parse(JSON.stringify(_pdfDrawings[pageNum] || [])));
+  // Restore redo state
+  _pdfDrawings[pageNum] = redoStack.pop();
   savePdfDrawings();
   replayDrawingsForPage(pageNum);
 }
