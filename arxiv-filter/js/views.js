@@ -165,14 +165,13 @@ function showPaperView(paper, hashValue) {
     <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest">·</span>')}</span>
     ${sidebarToggleBtn}
     <div class="relative shrink-0" id="paper-exp-btn-wrap">
-      <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-transparent border-border-input text-muted text-[0.78rem] cursor-pointer transition-colors hover:text-primary hover:border-dimmer" onclick="togglePaperExpDropdown()" title="Add to experiment">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Experiment
+      <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to experiment">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
     ${bookmarkBtn}
     <span id="openreview-link" class="shrink-0 hidden"></span>
-    <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-transparent border-border-input text-muted text-[0.78rem] cursor-pointer transition-colors hover:text-primary hover:border-dimmer shrink-0" onclick="showCitePopup()" title="Cite paper">Cite</button>
+    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
@@ -183,14 +182,6 @@ function showPaperView(paper, hashValue) {
       <div id="paper-note-editor" class="hidden">
         <div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div>
         <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
-      </div>
-    </div>
-    <div id="paper-quote-section" class="border-t border-border-card pt-3 mt-3">
-      <div class="text-[0.72rem] text-dim uppercase tracking-wider mb-1.5">Post Quote</div>
-      <textarea id="paper-quote-input" class="w-full bg-input border border-border-input rounded-md px-2.5 py-2 text-[0.82rem] text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Paste a quote from this page..."></textarea>
-      <div class="flex items-center justify-between mt-1.5">
-        <span id="paper-quote-status" class="text-[0.72rem] text-green-500 opacity-0 transition-opacity">Posted!</span>
-        <button onclick="postQuoteFromViewer()" class="px-3 py-1 text-[0.78rem] rounded-md bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post to Feed</button>
       </div>
     </div>
   `;
@@ -289,25 +280,7 @@ function showPaperView(paper, hashValue) {
 // ── Post Quote from Viewer ──
 function postQuoteFromViewer() {
   const input = document.getElementById('paper-quote-input');
-  if (!input || !input.value.trim()) return;
-  const paper = _currentPaperViewPaper;
-  if (!paper) return;
-  const quotes = JSON.parse(localStorage.getItem('userQuotes') || '[]');
-  quotes.push({
-    id: 'q-' + Date.now(),
-    quote: input.value.trim(),
-    link: paper.link,
-    title: paper.title,
-    source: 'quote',
-    pubDate: new Date().toISOString()
-  });
-  localStorage.setItem('userQuotes', JSON.stringify(quotes));
-  input.value = '';
-  const status = document.getElementById('paper-quote-status');
-  if (status) {
-    status.style.opacity = '1';
-    setTimeout(() => { status.style.opacity = '0'; }, 2000);
-  }
+  if (input && input.value.trim()) { _postQuoteText(input.value.trim()); input.value = ''; }
 }
 
 // ── Paper Insights ──
@@ -1032,7 +1005,7 @@ function renderDocChatMessages(final) {
   container.scrollTop = container.scrollHeight;
 }
 
-// Text selection → "Ask about this" floating button
+// Text selection → floating popup with "Ask about this" + "Post Quote"
 document.addEventListener('mouseup', function(e) {
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) {
@@ -1051,23 +1024,118 @@ document.addEventListener('mouseup', function(e) {
   const text = sel ? sel.toString().trim() : '';
   if (!text || text.length < 3) return;
 
-  const btn = document.createElement('button');
-  btn.id = 'doc-chat-ask-float';
-  btn.className = 'doc-chat-ask-btn';
-  btn.textContent = 'Ask about this';
-  btn.style.left = e.clientX + 'px';
-  btn.style.top = (e.clientY - 30) + 'px';
+  const popup = document.createElement('div');
+  popup.id = 'doc-chat-ask-float';
+  popup.className = 'doc-selection-popup';
+  popup.style.left = e.clientX + 'px';
+  popup.style.top = (e.clientY - 40) + 'px';
+
   const capturedText = text;
-  btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-  btn.addEventListener('click', function(ev) {
-    ev.stopPropagation();
-    ev.preventDefault();
-    btn.remove();
+
+  const askBtn = document.createElement('button');
+  askBtn.className = 'doc-selection-popup-btn';
+  askBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg> Ask';
+  askBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+  askBtn.addEventListener('click', function(ev) {
+    ev.stopPropagation(); ev.preventDefault();
+    popup.remove();
     switchSidebarTab('chat');
     sendDocMessage('Explain this:\n> ' + capturedText);
   });
-  document.body.appendChild(btn);
+
+  const quoteBtn = document.createElement('button');
+  quoteBtn.className = 'doc-selection-popup-btn';
+  quoteBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 21c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10zm12 0c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Quote';
+  quoteBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+  quoteBtn.addEventListener('click', function(ev) {
+    ev.stopPropagation(); ev.preventDefault();
+    popup.remove();
+    _postQuoteText(capturedText);
+  });
+
+  popup.appendChild(askBtn);
+  popup.appendChild(quoteBtn);
+
+  // Single word → add Lookup button
+  const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
+  if (isSingleWord) {
+    const lookupBtn = document.createElement('button');
+    lookupBtn.className = 'doc-selection-popup-btn';
+    lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
+    lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+    lookupBtn.addEventListener('click', function(ev) {
+      ev.stopPropagation(); ev.preventDefault();
+      const px = popup.style.left, py = popup.style.top;
+      popup.remove();
+      _showWordLookup(capturedText, parseInt(px), parseInt(py));
+    });
+    popup.appendChild(lookupBtn);
+  }
+
+  document.body.appendChild(popup);
 });
+
+function _postQuoteText(text) {
+  const paper = _currentPaperViewPaper;
+  if (!paper || !text) return;
+  const quotes = JSON.parse(localStorage.getItem('userQuotes') || '[]');
+  quotes.push({
+    id: 'q-' + Date.now(),
+    quote: text,
+    link: paper.link,
+    title: paper.title,
+    source: 'quote',
+    pubDate: new Date().toISOString()
+  });
+  localStorage.setItem('userQuotes', JSON.stringify(quotes));
+  // Brief toast
+  const toast = document.createElement('div');
+  toast.className = 'doc-selection-popup';
+  toast.style.cssText = 'position:fixed;left:50%;top:20px;transform:translateX(-50%);padding:6px 14px;font-size:0.78rem;pointer-events:none;';
+  toast.textContent = 'Quote posted to feed';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 1500);
+}
+
+async function _showWordLookup(word, x, y) {
+  const panel = document.createElement('div');
+  panel.id = 'doc-chat-ask-float';
+  panel.className = 'doc-lookup-panel';
+  // Position near selection, clamp to viewport
+  const left = Math.min(x, window.innerWidth - 340);
+  const top = Math.min(Math.max(y, 10), window.innerHeight - 300);
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+  panel.innerHTML = '<div class="flex items-center gap-2 text-[0.75rem] text-dim py-2 px-3"><span class="spinner"></span>Looking up…</div>';
+  document.body.appendChild(panel);
+
+  try {
+    const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`);
+    if (!resp.ok) throw new Error('Not found');
+    const data = await resp.json();
+    const entry = data[0];
+
+    let html = '<div class="px-3 py-2.5">';
+    // Word + phonetic
+    html += `<div class="text-[1rem] font-bold text-primary">${escapeHtml(entry.word)}</div>`;
+    const phonetic = entry.phonetics?.find(p => p.text)?.text;
+    if (phonetic) html += `<div class="text-[0.78rem] text-dim mt-0.5">${escapeHtml(phonetic)}</div>`;
+
+    // Meanings
+    for (const meaning of (entry.meanings || []).slice(0, 3)) {
+      html += `<div class="mt-2"><span class="text-[0.68rem] font-semibold text-accent uppercase tracking-wide">${escapeHtml(meaning.partOfSpeech)}</span></div>`;
+      for (const def of (meaning.definitions || []).slice(0, 2)) {
+        html += `<div class="text-[0.78rem] text-primary leading-relaxed mt-1 pl-2 border-l-2 border-accent/30">${escapeHtml(def.definition)}</div>`;
+        if (def.example) html += `<div class="text-[0.72rem] text-dim italic mt-0.5 pl-2">${escapeHtml(def.example)}</div>`;
+      }
+    }
+
+    html += '</div>';
+    panel.innerHTML = html;
+  } catch (e) {
+    panel.innerHTML = `<div class="px-3 py-2.5"><div class="text-[1rem] font-bold text-primary">${escapeHtml(word)}</div><div class="text-[0.78rem] text-dim mt-1">No definition found.</div></div>`;
+  }
+}
 
 document.addEventListener('mousedown', function(e) {
   const btn = document.getElementById('doc-chat-ask-float');

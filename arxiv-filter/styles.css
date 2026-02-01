@@ -777,19 +777,47 @@
     }
     .doc-chat-input-row button:hover { background: var(--accent-hover); }
     .doc-chat-input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
-    .doc-chat-ask-btn {
+    .doc-selection-popup {
       position: fixed;
-      padding: 4px 10px;
-      border-radius: 6px;
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 8px;
       border: 1px solid var(--border-input);
       background: var(--bg-popup);
       color: var(--text-primary);
       font-size: 0.75rem;
-      cursor: pointer;
       z-index: 100;
       box-shadow: 0 4px 12px var(--shadow-popup);
     }
-    .doc-chat-ask-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .doc-selection-popup-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .doc-selection-popup-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .doc-lookup-panel {
+      position: fixed;
+      width: 320px;
+      max-height: 360px;
+      overflow-y: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border-input);
+      background: var(--bg-popup);
+      color: var(--text-primary);
+      z-index: 100;
+      box-shadow: 0 4px 12px var(--shadow-popup);
+    }
 
     /* ── Whiteboard toolbar ── */
     .wb-toolbar {
