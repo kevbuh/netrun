@@ -944,12 +944,11 @@ async function extractDocText(url) {
   _docTextLoading = false;
 }
 
-async function sendDocMessage() {
+async function sendDocMessage(prefill) {
   const input = document.getElementById('doc-chat-input');
-  if (!input) return;
-  const text = input.value.trim();
+  const text = prefill || (input ? input.value.trim() : '');
   if (!text) return;
-  input.value = '';
+  if (input) input.value = '';
 
   _docChatMessages.push({ role: 'user', content: text });
   renderDocChatMessages();
@@ -1045,10 +1044,17 @@ function renderDocChatMessages(final) {
 // Text selection → "Ask about this" floating button
 document.addEventListener('mouseup', function(e) {
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) existing.remove();
+  if (existing) {
+    if (existing.contains(e.target)) return; // let the click handler fire
+    existing.remove();
+  }
 
-  const msgContainer = document.getElementById('doc-chat-messages');
-  if (!msgContainer || !msgContainer.contains(e.target)) return;
+  // Allow in: chat messages, highlights panel, notes, sidebar, PDF pages
+  const sidebar = document.getElementById('paper-sidebar');
+  const pdfPages = document.getElementById('paper-pdf-container');
+  const inSidebar = sidebar && sidebar.contains(e.target);
+  const inPdf = pdfPages && pdfPages.contains(e.target);
+  if (!inSidebar && !inPdf) return;
 
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
@@ -1058,14 +1064,17 @@ document.addEventListener('mouseup', function(e) {
   btn.id = 'doc-chat-ask-float';
   btn.className = 'doc-chat-ask-btn';
   btn.textContent = 'Ask about this';
-  btn.style.left = e.pageX + 'px';
-  btn.style.top = (e.pageY - 30) + 'px';
-  btn.onclick = function() {
-    const input = document.getElementById('doc-chat-input');
-    if (input) input.value = '> ' + text + '\n\n';
-    input.focus();
+  btn.style.left = e.clientX + 'px';
+  btn.style.top = (e.clientY - 30) + 'px';
+  const capturedText = text;
+  btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+  btn.addEventListener('click', function(ev) {
+    ev.stopPropagation();
+    ev.preventDefault();
     btn.remove();
-  };
+    switchSidebarTab('chat');
+    sendDocMessage('Explain this:\n> ' + capturedText);
+  });
   document.body.appendChild(btn);
 });
 
