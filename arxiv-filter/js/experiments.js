@@ -1085,6 +1085,85 @@ async function _onExpCardDrop(e, targetExpId) {
   } catch (e) { /* silently fail */ }
 }
 
+// ── Collapsible Experiment Sidebar (Desktop) ──
+
+function toggleExpSidebar() {
+  const grid = document.querySelector('#exp-detail-view .grid');
+  if (!grid) return;
+  grid.classList.toggle('exp-sidebar-collapsed');
+  const collapsed = grid.classList.contains('exp-sidebar-collapsed');
+  localStorage.setItem('expSidebarCollapsed', collapsed ? '1' : '0');
+}
+
+function _restoreExpSidebarState() {
+  const grid = document.querySelector('#exp-detail-view .grid');
+  if (!grid) return;
+  if (localStorage.getItem('expSidebarCollapsed') === '1') {
+    grid.classList.add('exp-sidebar-collapsed');
+  } else {
+    grid.classList.remove('exp-sidebar-collapsed');
+  }
+}
+
+// ── File Upload ──
+
+function triggerExpFileUpload() {
+  const input = document.getElementById('exp-file-upload-input');
+  if (input) { input.value = ''; input.click(); }
+}
+
+async function uploadExpFiles(files) {
+  if (!files || !files.length || !currentExpId) return;
+  const formData = new FormData();
+  for (const f of files) {
+    formData.append('files', f);
+  }
+  try {
+    const resp = await fetch(`/api/experiments/${currentExpId}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.error || 'Upload failed');
+    }
+    fetchExpFiles();
+    _renderExpMetadata();
+  } catch (e) {
+    alert('Upload error: ' + e.message);
+  }
+}
+
+function _initExpSidebarDrop() {
+  const filesEl = document.getElementById('exp-sidebar-files');
+  const sidebar = document.getElementById('exp-sidebar');
+  if (!sidebar) return;
+
+  function onDragOver(e) {
+    // Only handle external file drags, not internal file reorder
+    if (_draggedFile) return;
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    sidebar.classList.add('exp-upload-drop-active');
+  }
+  function onDragLeave(e) {
+    if (!e.relatedTarget || !sidebar.contains(e.relatedTarget)) {
+      sidebar.classList.remove('exp-upload-drop-active');
+    }
+  }
+  function onDrop(e) {
+    sidebar.classList.remove('exp-upload-drop-active');
+    if (_draggedFile) return; // internal reorder, not upload
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    uploadExpFiles(e.dataTransfer.files);
+  }
+  sidebar.addEventListener('dragover', onDragOver);
+  sidebar.addEventListener('dragleave', onDragLeave);
+  sidebar.addEventListener('drop', onDrop);
+}
+
 // ── Mobile Experiment Sidebar ──
 
 function initExpSidebarMobile() {
@@ -1126,9 +1205,11 @@ function toggleExpSidebarMobile() {
   sidebar.classList.toggle('collapsed');
 }
 
-// Initialize mobile sidebar when experiment detail loads
+// Initialize sidebars when experiment detail loads
 const _origOpenExperimentDetail = openExperimentDetail;
 openExperimentDetail = function(id) {
   _origOpenExperimentDetail(id);
+  _restoreExpSidebarState();
+  _initExpSidebarDrop();
   setTimeout(() => initExpSidebarMobile(), 100);
 };

@@ -21,5 +21,12 @@
       "parentId": "v1",
       "created": 1769698644145
     }
+  ],
+  "papers": [
+    {
+      "link": "https://arxiv.org/abs/2601.01628v1",
+      "title": "The MUSCLES Extension for Atmospheric Transmission Spectroscopy: Spectral energy distributions for 20 exoplanet host stars that JWST observed in Cycle 1",
+      "addedAt": "2026-02-01T02:36:22.840Z"
+    }
   ]
 }

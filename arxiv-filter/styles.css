@@ -1178,6 +1178,38 @@
     .exp-file-row[draggable="true"] { cursor: grab; }
     .exp-file-row[draggable="true"]:active { cursor: grabbing; }
 
+    /* ── Collapsible experiment sidebar (desktop) ── */
+    #exp-detail-view .grid {
+      transition: grid-template-columns 0.2s ease;
+    }
+    #exp-detail-view .grid.exp-sidebar-collapsed {
+      grid-template-columns: 44px 1fr;
+    }
+    .exp-sidebar-collapsed #exp-sidebar {
+      padding: 5px 4px;
+      overflow: hidden;
+      align-items: center;
+    }
+    .exp-sidebar-collapsed #exp-sidebar #exp-detail-title,
+    .exp-sidebar-collapsed #exp-sidebar #exp-sidebar-files,
+    .exp-sidebar-collapsed #exp-sidebar #exp-papers-section,
+    .exp-sidebar-collapsed .exp-sidebar-label {
+      display: none;
+    }
+    .exp-sidebar-collapsed #exp-sidebar #exp-file-menu {
+      display: none !important;
+    }
+    .exp-sidebar-collapsed #exp-sidebar #exp-sidebar-collapse-btn svg {
+      transform: rotate(180deg);
+    }
+
+    /* ── File upload drop zone ── */
+    .exp-upload-drop-active {
+      outline: 2px dashed var(--accent);
+      outline-offset: -2px;
+      background: rgba(180, 69, 26, 0.05);
+    }
+
 /* ========================================
    MOBILE RESPONSIVE STYLES
    ======================================== */

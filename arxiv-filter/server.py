@@ -14,6 +14,7 @@ import concurrent.futures
 import threading
 import tempfile
 import base64
+from urllib.parse import unquote as url_unquote
 
 from persistence import (
     DIR, CACHE_TTL, EXPERIMENTS_DIR, BLOCKED_TITLES_FILE, PROMPT_FILE,
@@ -519,7 +520,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/compile-tex/(.+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
+            fname = url_unquote(m.group(2))
             fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
             if not os.path.isfile(fpath) or not fname.endswith('.tex'):
                 self._send_json({'error': 'Not found'}, 404)
@@ -554,7 +555,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/raw/(.+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
+            fname = url_unquote(m.group(2))
             if '..' in fname:
                 self.send_response(400)
                 self.end_headers()
@@ -580,7 +581,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
+            fname = url_unquote(m.group(2))
             if '..' in fname:
                 self._send_json({'error': 'Invalid path'}, 400)
                 return
@@ -1155,6 +1156,65 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/upload$'):
+            exp_id = m.group(1)
+            exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+            if not os.path.isdir(exp_dir):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            content_type = self.headers.get('Content-Type', '')
+            if 'multipart/form-data' not in content_type:
+                self._send_json({'error': 'multipart/form-data required'}, 400)
+                return
+            # Parse boundary from Content-Type
+            boundary = None
+            for part in content_type.split(';'):
+                part = part.strip()
+                if part.startswith('boundary='):
+                    boundary = part[9:].strip('"')
+            if not boundary:
+                self._send_json({'error': 'Missing boundary'}, 400)
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            body_bytes = self.rfile.read(length)
+            boundary_bytes = ('--' + boundary).encode()
+            parts = body_bytes.split(boundary_bytes)
+            uploaded = []
+            for part in parts:
+                if part in (b'', b'--', b'--\r\n', b'\r\n'):
+                    continue
+                # Split headers from content
+                header_end = part.find(b'\r\n\r\n')
+                if header_end == -1:
+                    continue
+                headers_raw = part[:header_end].decode('utf-8', errors='replace')
+                file_data = part[header_end + 4:]
+                # Strip trailing \r\n
+                if file_data.endswith(b'\r\n'):
+                    file_data = file_data[:-2]
+                # Extract filename from Content-Disposition
+                fname = None
+                for line in headers_raw.split('\r\n'):
+                    if 'filename="' in line:
+                        start = line.index('filename="') + 10
+                        end = line.index('"', start)
+                        fname = line[start:end]
+                if not fname:
+                    continue
+                fname = os.path.basename(fname)
+                if not fname or '..' in fname:
+                    continue
+                fpath = os.path.join(exp_dir, fname)
+                base, ext = os.path.splitext(fname)
+                i = 2
+                while os.path.exists(fpath):
+                    fpath = os.path.join(exp_dir, f'{base}_{i}{ext}')
+                    i += 1
+                with open(fpath, 'wb') as f:
+                    f.write(file_data)
+                uploaded.append(os.path.basename(fpath))
+            self._send_json({'uploaded': uploaded}, 201)
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/create-folder$'):
             exp_id = m.group(1)
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
@@ -1639,7 +1699,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
+            fname = url_unquote(m.group(2))
             if '..' in fname:
                 self._send_json({'error': 'Invalid path'}, 400)
                 return
@@ -1724,7 +1784,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/files/(.+)$'):
             exp_id = m.group(1)
-            fname = m.group(2)
+            fname = url_unquote(m.group(2))
             if '..' in fname:
                 self._send_json({'error': 'Invalid path'}, 400)
                 return

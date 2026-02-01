@@ -243,13 +243,17 @@
       <div id="exp-sidebar" class="border-r border-border-card p-5 overflow-y-auto flex flex-col">
         <button class="bg-transparent border-none text-muted text-[0.8rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary mb-3" onclick="openExperiments()">
           <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-          Back
+          <span class="exp-sidebar-label">Back</span>
         </button>
         <div id="exp-detail-title" class="text-[1.1rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors nb-rendered-md mb-3" onclick="startRenameExperiment()" title="Click to rename"></div>
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[0.75rem] text-dim uppercase tracking-wide">Files</span>
-          <div class="relative">
-            <button class="w-6 h-6 rounded-md flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors text-[0.85rem] leading-none p-0" onclick="toggleExpFileMenu()" title="New file">+</button>
+          <span class="text-[0.75rem] text-dim uppercase tracking-wide exp-sidebar-label">Files</span>
+          <div class="flex items-center gap-0.5">
+            <button id="exp-sidebar-collapse-btn" class="w-6 h-6 rounded-md flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors p-0" onclick="toggleExpSidebar()" title="Collapse sidebar">
+              <svg class="w-3.5 h-3.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="relative">
+              <button class="w-6 h-6 rounded-md flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors text-[0.85rem] leading-none p-0" onclick="toggleExpFileMenu()" title="New file">+</button>
             <div id="exp-file-menu" class="hidden absolute right-0 top-7 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[120px]">
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.py'); hideExpFileMenu()">Python (.py)</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.md'); hideExpFileMenu()">Markdown (.md)</button>
@@ -261,7 +265,10 @@
               <div class="h-px bg-border-subtle mx-2 my-1"></div>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="promptCreateFolder(); hideExpFileMenu()">New Folder</button>
               <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="promptCloneRepo(); hideExpFileMenu()">Clone from GitHub</button>
+              <div class="h-px bg-border-subtle mx-2 my-1"></div>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="triggerExpFileUpload(); hideExpFileMenu()">Upload files</button>
             </div>
+          </div>
           </div>
         </div>
         <div id="exp-sidebar-files"></div>
@@ -284,6 +291,7 @@
         <div id="exp-file-editor" style="display:none"></div>
       </div>
     </div>
+    <input type="file" id="exp-file-upload-input" multiple style="display:none" onchange="uploadExpFiles(this.files)" />
   </div>
 
   <!-- Search View -->
