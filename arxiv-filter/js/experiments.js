@@ -195,6 +195,20 @@ function _renderExpMetadata() {
   }
 }
 
+let _expContentTab = 'readme';
+
+function switchExpContentTab(tab) {
+  _expContentTab = tab;
+  const tree = document.getElementById('exp-file-tree');
+  const desc = document.getElementById('exp-detail-desc');
+  const treeBtn = document.getElementById('exp-tab-tree');
+  const readmeBtn = document.getElementById('exp-tab-readme');
+  if (tree) tree.style.display = tab === 'tree' ? '' : 'none';
+  if (desc) desc.style.display = tab === 'readme' ? '' : 'none';
+  if (treeBtn) treeBtn.className = 'bg-transparent border-none cursor-pointer text-[0.75rem] px-1.5 py-0.5 rounded transition-colors ' + (tab === 'tree' ? 'text-accent' : 'text-dimmer hover:text-primary');
+  if (readmeBtn) readmeBtn.className = 'bg-transparent border-none cursor-pointer text-[0.75rem] px-1.5 py-0.5 rounded transition-colors ' + (tab === 'readme' ? 'text-accent' : 'text-dimmer hover:text-primary');
+}
+
 // ── Linked Papers ──
 function renderExpPapers() {
   const section = document.getElementById('exp-papers-section');

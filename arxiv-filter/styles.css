@@ -1371,9 +1371,15 @@
       grid-template-columns: 44px 1fr;
     }
     .exp-sidebar-collapsed #exp-sidebar {
-      padding: 5px 4px;
+      padding: 8px 4px;
       overflow: hidden;
       align-items: center;
+      gap: 6px;
+    }
+    .exp-sidebar-collapsed #exp-sidebar > div:first-child {
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 0;
     }
     .exp-sidebar-collapsed #exp-sidebar #exp-detail-title,
     .exp-sidebar-collapsed #exp-sidebar #exp-sidebar-files,
@@ -1381,11 +1387,11 @@
     .exp-sidebar-collapsed .exp-sidebar-label {
       display: none;
     }
+    .exp-sidebar-collapsed #exp-sidebar > .flex.items-center.justify-between.mb-2 {
+      margin-bottom: 0;
+    }
     .exp-sidebar-collapsed #exp-sidebar #exp-file-menu {
       display: none !important;
-    }
-    .exp-sidebar-collapsed #exp-sidebar #exp-sidebar-collapse-btn svg {
-      transform: rotate(180deg);
     }
 
     /* ── File upload drop zone ── */
