@@ -87,6 +87,8 @@
         document.documentElement.style.setProperty('--accent', a);
         document.documentElement.style.setProperty('--accent-hover', h);
       }
+      var et = localStorage.getItem('editorTheme');
+      if (et && et !== 'auto') document.documentElement.setAttribute('data-editor-theme', et);
     })();
   </script>
 </head>

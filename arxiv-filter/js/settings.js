@@ -72,6 +72,16 @@ function renderSettingsView() {
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Editor Theme</span>
+        <div class="flex gap-1.5" id="editor-theme-btns">
+          ${['auto','monokai','dracula','solarized','github','nord'].map(t => {
+            const cur = localStorage.getItem('editorTheme') || 'auto';
+            const label = t.charAt(0).toUpperCase() + t.slice(1);
+            return '<button onclick="setEditorTheme(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '" id="editor-theme-btn-' + t + '">' + label + '</button>';
+          }).join('')}
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Loading Spinner</span>
         <div class="flex items-center gap-2">
           <button onclick="cycleSpinner(-1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&lsaquo;</button>
@@ -264,6 +274,19 @@ function setTheme(theme) {
   ['dark', 'light', 'sepia', 'daylight'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
+  });
+}
+
+function setEditorTheme(theme) {
+  localStorage.setItem('editorTheme', theme);
+  if (theme === 'auto') {
+    document.documentElement.removeAttribute('data-editor-theme');
+  } else {
+    document.documentElement.setAttribute('data-editor-theme', theme);
+  }
+  ['auto','monokai','dracula','solarized','github','nord'].forEach(t => {
+    const btn = document.getElementById('editor-theme-btn-' + t);
+    if (btn) btn.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
   });
 }
 
@@ -684,6 +707,8 @@ function applyStoredAppearance() {
   if (theme === 'daylight') startDaylightTheme();
   const accent = localStorage.getItem('accentColor');
   if (accent) applyAccentColor(accent);
+  const edTheme = localStorage.getItem('editorTheme');
+  if (edTheme && edTheme !== 'auto') document.documentElement.setAttribute('data-editor-theme', edTheme);
 }
 
 applyStoredAppearance();

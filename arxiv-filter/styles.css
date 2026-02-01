@@ -508,6 +508,175 @@
     [data-theme="sepia"] .CodeMirror-matchingbracket,
     [data-theme="daylight"] .CodeMirror-matchingbracket { color: #24292e !important; background: rgba(180,69,26,0.2) !important; }
 
+    /* ── Independent editor color themes ── */
+
+    /* Editor pane full-area theming */
+    [data-editor-theme="monokai"] #exp-file-editor { background: #272822 !important; color: #f8f8f2 !important; }
+    [data-editor-theme="dracula"] #exp-file-editor { background: #282a36 !important; color: #f8f8f2 !important; }
+    [data-editor-theme="solarized"] #exp-file-editor { background: #002b36 !important; color: #839496 !important; }
+    [data-editor-theme="github"] #exp-file-editor { background: #ffffff !important; color: #24292e !important; }
+    [data-editor-theme="nord"] #exp-file-editor { background: #2e3440 !important; color: #d8dee9 !important; }
+
+    /* Override CSS variables inside the editor pane so toolbar buttons, borders, inputs match */
+    [data-editor-theme="monokai"] #exp-file-editor { --text-primary: #f8f8f2; --text-white: #f8f8f2; --text-muted: #a8a8a0; --text-dim: #75715e; --text-dimmer: #5f5f50; --border-input: #3b3a32; --border-dim: #3b3a32; --bg-input: #3e3d32; --bg-card: #3e3d32; --bg-hover: #3e3d32; }
+    [data-editor-theme="dracula"] #exp-file-editor { --text-primary: #f8f8f2; --text-white: #f8f8f2; --text-muted: #bfbfbf; --text-dim: #6272a4; --text-dimmer: #505870; --border-input: #44475a; --border-dim: #44475a; --bg-input: #343746; --bg-card: #343746; --bg-hover: #44475a; }
+    [data-editor-theme="solarized"] #exp-file-editor { --text-primary: #839496; --text-white: #93a1a1; --text-muted: #657b83; --text-dim: #586e75; --text-dimmer: #4a6068; --border-input: #073642; --border-dim: #073642; --bg-input: #073642; --bg-card: #073642; --bg-hover: #073642; }
+    [data-editor-theme="github"] #exp-file-editor { --text-primary: #24292e; --text-white: #24292e; --text-muted: #586069; --text-dim: #959da5; --text-dimmer: #bbb; --border-input: #d1d5da; --border-dim: #e1e4e8; --bg-input: #f6f8fa; --bg-card: #f6f8fa; --bg-hover: #f0f2f5; }
+    [data-editor-theme="nord"] #exp-file-editor { --text-primary: #d8dee9; --text-white: #eceff4; --text-muted: #8892a4; --text-dim: #4c566a; --text-dimmer: #3b4252; --border-input: #3b4252; --border-dim: #3b4252; --bg-input: #3b4252; --bg-card: #3b4252; --bg-hover: #434c5e; }
+
+    /* Output area backgrounds */
+    [data-editor-theme="monokai"] #py-output { background: #1e1f1c !important; }
+    [data-editor-theme="dracula"] #py-output { background: #21222c !important; }
+    [data-editor-theme="solarized"] #py-output { background: #00212b !important; }
+    [data-editor-theme="github"] #py-output { background: #f6f8fa !important; color: #24292e !important; }
+    [data-editor-theme="nord"] #py-output { background: #242933 !important; }
+    [data-editor-theme="monokai"] #tex-error-log { background: #1e1f1c !important; }
+    [data-editor-theme="dracula"] #tex-error-log { background: #21222c !important; }
+    [data-editor-theme="solarized"] #tex-error-log { background: #00212b !important; }
+    [data-editor-theme="github"] #tex-error-log { background: #f6f8fa !important; }
+    [data-editor-theme="nord"] #tex-error-log { background: #242933 !important; }
+
+    /* Monokai */
+    [data-editor-theme="monokai"] .CodeMirror { background: #272822 !important; color: #f8f8f2 !important; }
+    [data-editor-theme="monokai"] .CodeMirror-gutters { background: #272822 !important; border-right-color: #3b3a32 !important; }
+    [data-editor-theme="monokai"] .CodeMirror-linenumber { color: #75715e !important; }
+    [data-editor-theme="monokai"] .CodeMirror-cursor { border-left-color: #f8f8f0 !important; }
+    [data-editor-theme="monokai"] .CodeMirror-selected { background: rgba(73,72,62,0.6) !important; }
+    [data-editor-theme="monokai"] .CodeMirror-focused .CodeMirror-selected { background: #49483e !important; }
+    [data-editor-theme="monokai"] .CodeMirror-activeline-background { background: rgba(255,255,255,0.04) !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-keyword { color: #f92672 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-def { color: #a6e22e !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-variable { color: #f8f8f2 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-variable-2 { color: #f8f8f2 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-variable-3,
+    [data-editor-theme="monokai"] .cm-s-default .cm-type { color: #66d9ef !important; font-style: italic; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-property { color: #a6e22e !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-operator { color: #f92672 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-number { color: #ae81ff !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-string,
+    [data-editor-theme="monokai"] .cm-s-default .cm-string-2 { color: #e6db74 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-comment { color: #75715e !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-builtin { color: #66d9ef !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-meta { color: #f8f8f2 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-atom,
+    [data-editor-theme="monokai"] .cm-s-default .cm-tag { color: #f92672 !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-attribute { color: #a6e22e !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-header { color: #ae81ff !important; }
+    [data-editor-theme="monokai"] .cm-s-default .cm-link { color: #66d9ef !important; }
+
+    /* Dracula */
+    [data-editor-theme="dracula"] .CodeMirror { background: #282a36 !important; color: #f8f8f2 !important; }
+    [data-editor-theme="dracula"] .CodeMirror-gutters { background: #282a36 !important; border-right-color: #44475a !important; }
+    [data-editor-theme="dracula"] .CodeMirror-linenumber { color: #6272a4 !important; }
+    [data-editor-theme="dracula"] .CodeMirror-cursor { border-left-color: #f8f8f0 !important; }
+    [data-editor-theme="dracula"] .CodeMirror-selected { background: rgba(68,71,90,0.6) !important; }
+    [data-editor-theme="dracula"] .CodeMirror-focused .CodeMirror-selected { background: #44475a !important; }
+    [data-editor-theme="dracula"] .CodeMirror-activeline-background { background: rgba(255,255,255,0.04) !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-keyword { color: #ff79c6 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-def { color: #50fa7b !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-variable { color: #f8f8f2 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-variable-2 { color: #f8f8f2 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-variable-3,
+    [data-editor-theme="dracula"] .cm-s-default .cm-type { color: #8be9fd !important; font-style: italic; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-property { color: #50fa7b !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-operator { color: #ff79c6 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-number { color: #bd93f9 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-string,
+    [data-editor-theme="dracula"] .cm-s-default .cm-string-2 { color: #f1fa8c !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-comment { color: #6272a4 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-builtin { color: #8be9fd !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-meta { color: #f8f8f2 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-atom,
+    [data-editor-theme="dracula"] .cm-s-default .cm-tag { color: #ff79c6 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-attribute { color: #50fa7b !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-header { color: #bd93f9 !important; }
+    [data-editor-theme="dracula"] .cm-s-default .cm-link { color: #8be9fd !important; }
+
+    /* Solarized (dark) */
+    [data-editor-theme="solarized"] .CodeMirror { background: #002b36 !important; color: #839496 !important; }
+    [data-editor-theme="solarized"] .CodeMirror-gutters { background: #002b36 !important; border-right-color: #073642 !important; }
+    [data-editor-theme="solarized"] .CodeMirror-linenumber { color: #586e75 !important; }
+    [data-editor-theme="solarized"] .CodeMirror-cursor { border-left-color: #839496 !important; }
+    [data-editor-theme="solarized"] .CodeMirror-selected { background: rgba(7,54,66,0.8) !important; }
+    [data-editor-theme="solarized"] .CodeMirror-focused .CodeMirror-selected { background: #073642 !important; }
+    [data-editor-theme="solarized"] .CodeMirror-activeline-background { background: rgba(255,255,255,0.03) !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-keyword { color: #859900 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-def { color: #268bd2 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-variable { color: #839496 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-variable-2 { color: #b58900 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-variable-3,
+    [data-editor-theme="solarized"] .cm-s-default .cm-type { color: #cb4b16 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-property { color: #268bd2 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-operator { color: #839496 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-number { color: #d33682 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-string,
+    [data-editor-theme="solarized"] .cm-s-default .cm-string-2 { color: #2aa198 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-comment { color: #586e75 !important; font-style: italic; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-builtin { color: #cb4b16 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-meta { color: #cb4b16 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-atom,
+    [data-editor-theme="solarized"] .cm-s-default .cm-tag { color: #268bd2 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-attribute { color: #b58900 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-header { color: #cb4b16 !important; }
+    [data-editor-theme="solarized"] .cm-s-default .cm-link { color: #2aa198 !important; }
+
+    /* GitHub (light editor on any app theme) */
+    [data-editor-theme="github"] .CodeMirror { background: #ffffff !important; color: #24292e !important; }
+    [data-editor-theme="github"] .CodeMirror-gutters { background: #f6f8fa !important; border-right-color: #e1e4e8 !important; }
+    [data-editor-theme="github"] .CodeMirror-linenumber { color: #959da5 !important; }
+    [data-editor-theme="github"] .CodeMirror-cursor { border-left-color: #24292e !important; }
+    [data-editor-theme="github"] .CodeMirror-selected { background: rgba(180,69,26,0.15) !important; }
+    [data-editor-theme="github"] .CodeMirror-focused .CodeMirror-selected { background: rgba(180,69,26,0.25) !important; }
+    [data-editor-theme="github"] .CodeMirror-activeline-background { background: rgba(0,0,0,0.03) !important; }
+    [data-editor-theme="github"] .CodeMirror-matchingbracket { color: #24292e !important; background: rgba(180,69,26,0.2) !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-keyword { color: #d73a49 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-def { color: #6f42c1 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-variable { color: #24292e !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-variable-2 { color: #005cc5 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-variable-3,
+    [data-editor-theme="github"] .cm-s-default .cm-type { color: #22863a !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-property { color: #005cc5 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-operator { color: #d73a49 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-number { color: #005cc5 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-string,
+    [data-editor-theme="github"] .cm-s-default .cm-string-2 { color: #032f62 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-comment { color: #6a737d !important; font-style: italic; }
+    [data-editor-theme="github"] .cm-s-default .cm-builtin { color: #22863a !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-meta { color: #e36209 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-atom,
+    [data-editor-theme="github"] .cm-s-default .cm-tag { color: #22863a !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-attribute { color: #6f42c1 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-header { color: #005cc5 !important; }
+    [data-editor-theme="github"] .cm-s-default .cm-link { color: #005cc5 !important; }
+
+    /* Nord */
+    [data-editor-theme="nord"] .CodeMirror { background: #2e3440 !important; color: #d8dee9 !important; }
+    [data-editor-theme="nord"] .CodeMirror-gutters { background: #2e3440 !important; border-right-color: #3b4252 !important; }
+    [data-editor-theme="nord"] .CodeMirror-linenumber { color: #4c566a !important; }
+    [data-editor-theme="nord"] .CodeMirror-cursor { border-left-color: #d8dee9 !important; }
+    [data-editor-theme="nord"] .CodeMirror-selected { background: rgba(67,76,94,0.6) !important; }
+    [data-editor-theme="nord"] .CodeMirror-focused .CodeMirror-selected { background: #434c5e !important; }
+    [data-editor-theme="nord"] .CodeMirror-activeline-background { background: rgba(255,255,255,0.03) !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-keyword { color: #81a1c1 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-def { color: #88c0d0 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-variable { color: #d8dee9 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-variable-2 { color: #d8dee9 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-variable-3,
+    [data-editor-theme="nord"] .cm-s-default .cm-type { color: #8fbcbb !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-property { color: #88c0d0 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-operator { color: #81a1c1 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-number { color: #b48ead !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-string,
+    [data-editor-theme="nord"] .cm-s-default .cm-string-2 { color: #a3be8c !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-comment { color: #616e88 !important; font-style: italic; }
+    [data-editor-theme="nord"] .cm-s-default .cm-builtin { color: #8fbcbb !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-meta { color: #5e81ac !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-atom,
+    [data-editor-theme="nord"] .cm-s-default .cm-tag { color: #81a1c1 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-attribute { color: #8fbcbb !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-header { color: #88c0d0 !important; }
+    [data-editor-theme="nord"] .cm-s-default .cm-link { color: #88c0d0 !important; }
+
     /* ── Cell output truncation ── */
     .cell-output-wrap { position: relative; max-height: 300px; overflow: hidden; }
     .cell-output-wrap.expanded { max-height: 600px; overflow-y: auto; }
