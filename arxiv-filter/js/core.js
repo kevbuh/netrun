@@ -729,6 +729,14 @@ let _rainCtx = null;
 let _rainNodes = [];
 let _rainOn = false;
 let _rainVolume = parseFloat(localStorage.getItem('rainVolume') || '0.3');
+let _rainNoiseType = localStorage.getItem('rainNoiseType') || 'rain';
+
+// Noise type presets: each defines layers for _makeNoise
+const NOISE_PRESETS = {
+  rain:    { label: 'Rain',    layers: [['brown', 0.7], ['pink', 0.3]], thunder: true },
+  brown:   { label: 'Brown',   layers: [['brown', 1.0]], thunder: false },
+  storm:   { label: 'Storm',   layers: [['brown', 0.8], ['pink', 0.2]], thunder: true, thunderFreq: 0.4 },
+};
 
 function toggleRain() {
   _rainOn ? stopRain() : startRain();
@@ -745,16 +753,11 @@ function startRain() {
   const master = _rainCtx.createGain();
   master.gain.value = _rainVolume;
   master.connect(_rainCtx.destination);
-
-  // Layer 1: brown noise (rain body)
   _rainNodes.push(master);
-  _makeNoise(_rainCtx, master, 'brown', 0.7);
 
-  // Layer 2: pink noise (lighter patter)
-  _makeNoise(_rainCtx, master, 'pink', 0.3);
-
-  // Layer 3: occasional low rumble (distant thunder)
-  _rainThunderLoop(_rainCtx, master);
+  const preset = NOISE_PRESETS[_rainNoiseType] || NOISE_PRESETS.rain;
+  preset.layers.forEach(([type, amp]) => _makeNoise(_rainCtx, master, type, amp));
+  if (preset.thunder) _rainThunderLoop(_rainCtx, master, preset.thunderFreq || 1);
 }
 
 function stopRain() {
@@ -770,13 +773,106 @@ function stopRain() {
   _rainNodes = [];
 }
 
+function setRainNoiseType(type) {
+  _rainNoiseType = type;
+  localStorage.setItem('rainNoiseType', type);
+  if (_rainOn) { stopRain(); startRain(); }
+}
+
 function setRainVolume(v) {
   _rainVolume = Math.max(0, Math.min(1, v));
   localStorage.setItem('rainVolume', _rainVolume.toString());
   if (_rainNodes.length && _rainNodes[0]) {
     _rainNodes[0].gain.value = _rainVolume;
   }
+  // Update volume indicator if visible
+  const ind = document.getElementById('rain-vol-indicator');
+  if (ind) ind.textContent = Math.round(_rainVolume * 100) + '%';
+  // Update settings slider if visible
+  const slider = document.getElementById('rain-volume-slider');
+  if (slider && Math.abs(parseFloat(slider.value) - _rainVolume) > 0.01) slider.value = _rainVolume;
+  const sliderVal = document.getElementById('rain-volume-value');
+  if (sliderVal) sliderVal.textContent = Math.round(_rainVolume * 100) + '%';
 }
+
+function setRainSidebarVisible(show) {
+  localStorage.setItem('rainSidebarVisible', show ? '1' : '0');
+  const btn = document.getElementById('sb-rain');
+  if (btn) btn.style.display = show ? '' : 'none';
+}
+
+function isRainSidebarVisible() {
+  const v = localStorage.getItem('rainSidebarVisible');
+  return v !== '0'; // default visible
+}
+
+// ── Rain button drag-to-adjust-volume ──
+(function() {
+  let _rainDragging = false;
+  let _rainDragStartY = 0;
+  let _rainDragStartVol = 0;
+  let _rainVolIndicator = null;
+
+  function showVolIndicator() {
+    if (_rainVolIndicator) return;
+    const btn = document.getElementById('sb-rain');
+    if (!btn) return;
+    _rainVolIndicator = document.createElement('div');
+    _rainVolIndicator.id = 'rain-vol-indicator';
+    _rainVolIndicator.style.cssText = 'position:fixed;left:70px;background:var(--bg-tooltip);color:var(--text-primary);font-size:0.72rem;padding:3px 8px;border-radius:6px;border:1px solid var(--tooltip-border);pointer-events:none;white-space:nowrap;z-index:99999;font-variant-numeric:tabular-nums;';
+    const rect = btn.getBoundingClientRect();
+    _rainVolIndicator.style.top = (rect.top + rect.height/2 - 12) + 'px';
+    _rainVolIndicator.textContent = Math.round(_rainVolume * 100) + '%';
+    document.body.appendChild(_rainVolIndicator);
+  }
+
+  function hideVolIndicator() {
+    if (_rainVolIndicator) { _rainVolIndicator.remove(); _rainVolIndicator = null; }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('sb-rain');
+    if (!btn) return;
+    // Apply initial sidebar visibility
+    if (!isRainSidebarVisible()) btn.style.display = 'none';
+
+    btn.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      _rainDragStartY = e.clientY;
+      _rainDragStartVol = _rainVolume;
+      _rainDragging = false;
+
+      function onMove(ev) {
+        const dy = ev.clientY - _rainDragStartY;
+        if (!_rainDragging && Math.abs(dy) > 4) {
+          _rainDragging = true;
+          showVolIndicator();
+        }
+        if (_rainDragging) {
+          // drag down = lower volume, drag up = raise volume; 150px = full range
+          const newVol = Math.max(0, Math.min(1, _rainDragStartVol - dy / 150));
+          setRainVolume(newVol);
+        }
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (_rainDragging) {
+          hideVolIndicator();
+          // Delay reset so click handler can see the flag
+          setTimeout(function() { _rainDragging = false; }, 50);
+        }
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    btn.addEventListener('click', function(e) {
+      if (_rainDragging) { e.preventDefault(); e.stopPropagation(); return; }
+      toggleRain();
+    });
+  });
+})();
 
 function _makeNoise(ctx, dest, type, amp) {
   const bufSize = ctx.sampleRate * 4;
@@ -806,7 +902,7 @@ function _makeNoise(ctx, dest, type, amp) {
   src.buffer = buf;
   src.loop = true;
 
-  // Shape the noise to sound more like rain
+  // Shape the noise
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
   lp.frequency.value = type === 'brown' ? 400 : 2500;
@@ -824,9 +920,11 @@ function _makeNoise(ctx, dest, type, amp) {
   _rainNodes.push(src);
 }
 
-function _rainThunderLoop(ctx, dest) {
+function _rainThunderLoop(ctx, dest, freqMul) {
   if (!_rainOn) return;
-  const delay = 15000 + Math.random() * 45000; // 15-60s between rumbles
+  const baseDelay = freqMul > 1 ? 5000 : 15000;
+  const randDelay = freqMul > 1 ? 15000 : 45000;
+  const delay = baseDelay + Math.random() * randDelay;
   setTimeout(function() {
     if (!_rainOn || !_rainCtx) return;
     // Low rumble
@@ -841,7 +939,7 @@ function _rainThunderLoop(ctx, dest) {
     gain.connect(dest);
     osc.start();
     osc.stop(ctx.currentTime + 4);
-    _rainThunderLoop(ctx, dest);
+    _rainThunderLoop(ctx, dest, freqMul);
   }, delay);
 }
 

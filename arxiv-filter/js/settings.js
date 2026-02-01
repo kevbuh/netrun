@@ -96,19 +96,30 @@ function renderSettingsView() {
         <span class="text-primary text-sm">Pixel Pet</span>
         <div class="flex items-center gap-2">
           <div class="flex gap-1">
-            ${['cat','dog','bunny','bird','frog'].map(t => {
+            ${['cat','dog','bunny','froog'].map(t => {
               const sel = (localStorage.getItem('pixelPetType') || 'cat') === t;
               return `<button onclick="setPixelPetType('${t}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${t}</button>`;
             }).join('')}
           </div>
+          <label class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('pixelPet') === 'on' ? 'checked' : ''} onchange="togglePixelPet(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Ambient Sound</span>
+        <div class="flex items-center gap-2">
+          <input type="range" id="rain-volume-slider" min="0" max="1" step="0.01" value="${_rainVolume}" oninput="setRainVolume(parseFloat(this.value))" class="w-16 accent-[var(--accent)]" />
+          <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono w-7 text-right">${Math.round(_rainVolume * 100)}%</span>
           <div class="flex gap-1">
-            ${['free','sidebar'].map(m => {
-              const sel = (localStorage.getItem('pixelPetMode') || 'free') === m;
-              return `<button onclick="setPixelPetMode('${m}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${m}</button>`;
+            ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
+              const sel = _rainNoiseType === key;
+              return `<button onclick="setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
             }).join('')}
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" ${localStorage.getItem('pixelPet') === 'on' ? 'checked' : ''} onchange="togglePixelPet(this.checked)">
+            <input type="checkbox" ${isRainSidebarVisible() ? 'checked' : ''} onchange="setRainSidebarVisible(this.checked)" title="Show in sidebar">
             <span class="slider"></span>
           </label>
         </div>

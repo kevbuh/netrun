@@ -218,6 +218,12 @@
     .toggle-switch input:checked + .slider { background: var(--accent); }
     .toggle-switch input:checked + .slider::before { transform: translateX(16px); opacity: 1; }
 
+    #rain-volume-slider { -webkit-appearance: none; appearance: none; background: transparent; }
+    #rain-volume-slider::-webkit-slider-runnable-track { background: var(--border-input); height: 4px; border-radius: 2px; }
+    #rain-volume-slider::-moz-range-track { background: var(--border-input); height: 4px; border-radius: 2px; border: none; }
+    #rain-volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); margin-top: -5px; cursor: pointer; }
+    #rain-volume-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; }
+
     /* ── CSS columns masonry ── */
     main {
       columns: 4;

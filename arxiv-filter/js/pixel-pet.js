@@ -22,6 +22,8 @@
         // Eyes + nose
         if(o.blink){px(6,6,D);px(10,6,D)} else{px(6,6,E);px(10,6,E)}
         px(8,7,I);
+        // Tired eyes
+        if(o.tired && !o.blink){px(6,5,D);px(10,5,D)}
         if(o.sleeping){
           for(let x=3;x<=12;x++)px(x,9,O); for(let x=4;x<=11;x++)px(x,9,B);
           for(let x=3;x<=12;x++)px(x,10,O);
@@ -55,10 +57,10 @@
         for(let y=4;y<=6;y++)for(let x=5;x<=10;x++)px(x,y,B);
         if(o.blink){px(6,5,D);px(9,5,D)}else{px(6,5,E);px(9,5,E)}
         px(7,6,O);px(8,6,O); // nose
+        if(o.tired && !o.blink){px(6,4,D);px(9,4,D)}
         if(o.sleeping){
           for(let x=4;x<=11;x++)px(x,8,O);for(let x=5;x<=10;x++)px(x,8,B);
           for(let x=4;x<=11;x++)px(x,9,O);
-          // tail up
           px(12,7,D);px(13,6,D);px(13,5,D);return;
         }
         if(o.sitting){
@@ -89,6 +91,7 @@
         for(let y=5;y<=7;y++)for(let x=4;x<=11;x++)px(x,y,B);
         if(o.blink){px(6,6,D);px(10,6,D)}else{px(6,6,E);px(10,6,E)}
         px(8,7,I);
+        if(o.tired && !o.blink){px(6,5,D);px(10,5,D)}
         if(o.sleeping){
           for(let x=4;x<=11;x++)px(x,9,O);for(let x=5;x<=10;x++)px(x,9,B);
           for(let x=4;x<=11;x++)px(x,10,O);
@@ -106,64 +109,7 @@
         px(12,10,B);px(13,10,B);
       }
     },
-    bird: {
-      outline: '#1a1a2e', body: '#e84393', dark: '#c44dbb', inner: '#fdcb6e', eye: '#fff', pupil: '#1a1a2e',
-      draw(px, o) {
-        const B = this.body, D = this.dark, I = this.inner, O = this.outline, W = this.eye, E = this.pupil;
-        // Tail feathers (behind body)
-        if(!o.sleeping && !o.sitting) {
-          px(3,9,D);px(2,8,D);px(2,9,O);
-          px(3,10,D);px(2,10,O);
-        }
-        // Round head
-        for(let x=6;x<=10;x++)px(x,3,O);
-        px(5,4,O);px(11,4,O);px(5,5,O);px(11,5,O);px(5,6,O);px(11,6,O);
-        for(let x=6;x<=10;x++)px(x,7,O);
-        for(let y=4;y<=6;y++)for(let x=6;x<=10;x++)px(x,y,B);
-        // Tuft on top
-        px(7,2,O);px(8,1,D);px(8,2,D);px(9,2,O);
-        // Eyes — big round white with pupil
-        px(7,4,W);px(7,5,W);px(9,4,W);px(9,5,W);
-        if(o.blink){px(7,5,B);px(9,5,B)}
-        else{px(7,5,E);px(9,5,E)}
-        // Beak
-        px(11,5,I);px(12,5,I);px(12,6,I);
-        // Cheek blush
-        px(6,6,'#ff9ff3');px(10,6,'#ff9ff3');
-        if(o.sleeping){
-          // Tucked body
-          for(let x=5;x<=11;x++)px(x,8,O);
-          for(let x=6;x<=10;x++)px(x,8,B);
-          for(let x=5;x<=11;x++)px(x,9,O);
-          // Tail tucked
-          px(5,8,D);px(4,8,D);px(4,9,O);
-          return;
-        }
-        if(o.sitting){
-          // Perched body
-          px(6,8,O);px(10,8,O);for(let x=7;x<=9;x++)px(x,8,B);
-          for(let x=6;x<=10;x++)px(x,9,O);
-          // Feet
-          px(7,10,O);px(8,10,O);px(9,10,O);
-          // Wing folded
-          px(5,7,D);px(4,7,D);px(4,8,D);
-          return;
-        }
-        // Standing body — rounder
-        px(6,8,O);px(10,8,O);for(let x=7;x<=9;x++)px(x,8,B);
-        px(5,9,O);px(11,9,O);for(let x=6;x<=10;x++)px(x,9,B);
-        px(5,10,O);px(11,10,O);for(let x=6;x<=10;x++)px(x,10,B);
-        for(let x=6;x<=10;x++)px(x,11,O);
-        // Wing flap
-        if(o.legFrame===1){px(4,7,D);px(3,6,D);px(4,6,D);px(3,5,D)}
-        else{px(4,8,D);px(3,8,D);px(4,7,D);px(3,9,D)}
-        // Stick legs + feet
-        px(7,12,O);px(9,12,O);
-        if(o.legFrame===1){px(6,13,O);px(7,13,O);px(9,13,O);px(10,13,O)}
-        else{px(7,13,O);px(8,13,O);px(9,13,O);px(10,13,O)}
-      }
-    },
-    frog: {
+    froog: {
       outline: '#7a1a1a', body: '#ef4444', dark: '#dc2626', face: '#c084fc', eye: '#fff', lid: '#ef4444',
       draw(px, o) {
         const B=this.body, D=this.dark, F=this.face, O=this.outline, W=this.eye, L=this.lid;
@@ -191,23 +137,21 @@
         // ── Eyes: 2x2 white, pupils shift with eyeDir ──
         if(!o.blink){
           const ed = o.eyeDir || 'center';
-          // Left eye top-left at (4,5), right eye top-left at (9,5)
           const eyes = [[4,5],[9,5]];
           eyes.forEach(([ex,ey])=>{
-            // White 2x2
             px(ex,ey,W);px(ex+1,ey,W);px(ex,ey+1,W);px(ex+1,ey+1,W);
-            // Black pupils
-            if(ed==='up'){px(ex,ey,'#000');px(ex+1,ey,'#000');}          // top row
-            else if(ed==='down'){px(ex,ey+1,'#000');px(ex+1,ey+1,'#000');}// bottom row
-            else if(ed==='left'){px(ex,ey,'#000');px(ex,ey+1,'#000');}    // left column
-            else if(ed==='right'){px(ex+1,ey,'#000');px(ex+1,ey+1,'#000');}// right column
-            else{px(ex,ey,'#000');px(ex+1,ey,'#000');}                    // center = top row
+            if(ed==='up'){px(ex,ey,'#000');px(ex+1,ey,'#000');}
+            else if(ed==='down'){px(ex,ey+1,'#000');px(ex+1,ey+1,'#000');}
+            else if(ed==='left'){px(ex,ey,'#000');px(ex,ey+1,'#000');}
+            else if(ed==='right'){px(ex+1,ey,'#000');px(ex+1,ey+1,'#000');}
+            else{px(ex,ey,'#000');px(ex+1,ey,'#000');}
           });
         }
+        // Tired droopy eyes
+        if(o.tired && !o.blink){px(4,5,L);px(5,5,L);px(9,5,L);px(10,5,L);}
         // ── Smiley mouth ──
         px(4,8,O);px(5,9,O);px(6,9,O);px(7,9,O);px(8,9,O);px(9,9,O);px(10,9,O);px(11,8,O);
         if(o.sleeping){
-          // Extra squished loaf
           for(let x=2;x<=13;x++)px(x,13,B);px(1,13,O);px(14,13,O);
           for(let x=2;x<=13;x++)px(x,14,O);
           return;
@@ -231,17 +175,31 @@
     },
   };
 
-  function getPetType() { return localStorage.getItem('pixelPetType') || 'cat'; }
+  function getPetType() {
+    let t = localStorage.getItem('pixelPetType') || 'cat';
+    if (t === 'frog') { t = 'froog'; localStorage.setItem('pixelPetType', t); }
+    if (t === 'bird') { t = 'cat'; localStorage.setItem('pixelPetType', t); }
+    return t;
+  }
 
   // ── Particles ──
   function drawParticle(ctx, type, x, y, frame) {
     const s = S;
     if (type === 'heart') {
-      ctx.fillStyle = '#e53935';
-      const py = y - (frame % 8) * 0.5;
-      ctx.globalAlpha = 1 - (frame % 8) / 8;
-      ctx.fillRect(x*s,py*s,s,s); ctx.fillRect((x+2)*s,py*s,s,s);
-      ctx.fillRect((x-1)*s,(py+1)*s,s*4,s); ctx.fillRect(x*s,(py+2)*s,s*2,s);
+      const py = y - (frame % 10) * 0.6;
+      ctx.globalAlpha = 1 - (frame % 10) / 10;
+      // Bigger, brighter heart
+      ctx.fillStyle = '#ff3b5c';
+      // Row 0: two dots
+      ctx.fillRect((x)*s,(py)*s,s*2,s); ctx.fillRect((x+3)*s,(py)*s,s*2,s);
+      // Row 1: full bar
+      ctx.fillRect((x-1)*s,(py+1)*s,s*7,s);
+      // Row 2: slightly narrower
+      ctx.fillRect((x)*s,(py+2)*s,s*5,s);
+      // Row 3
+      ctx.fillRect((x+1)*s,(py+3)*s,s*3,s);
+      // Row 4: tip
+      ctx.fillRect((x+2)*s,(py+4)*s,s,s);
       ctx.globalAlpha = 1;
     } else if (type === 'zzz') {
       ctx.fillStyle = '#888';
@@ -267,36 +225,55 @@
   let _mouseX = -1, _mouseY = -1;
   let _fleeTimer = 0;
 
+  // ── Drag state ──
+  let _dragging = false;
+  let _dragOffX = 0, _dragOffY = 0;
+  let _dragPrevState = 'idle';
+
+  function isTired() {
+    return Date.now() - _lastActivity > 60000; // tired after 1min idle
+  }
+
   function pickTarget() {
     const w = window.innerWidth, h = window.innerHeight;
     const margin = 20;
-    // Bias toward edges: pick a random edge (top/bottom/left/right), then a position along it
     const edge = Math.floor(Math.random() * 4);
-    if (edge === 0) { // top
-      petTargetX = margin + Math.random() * (w - margin * 2);
-      petTargetY = margin + Math.random() * (h * 0.15);
-    } else if (edge === 1) { // bottom
-      petTargetX = margin + Math.random() * (w - margin * 2);
-      petTargetY = h - margin - Math.random() * (h * 0.15);
-    } else if (edge === 2) { // left
-      petTargetX = margin + Math.random() * (w * 0.15);
-      petTargetY = margin + Math.random() * (h - margin * 2);
-    } else { // right
-      petTargetX = w - margin - Math.random() * (w * 0.15);
-      petTargetY = margin + Math.random() * (h - margin * 2);
-    }
-    // Occasionally wander inward (~20% of the time)
+    if (edge === 0) { petTargetX = margin + Math.random() * (w - margin * 2); petTargetY = margin + Math.random() * (h * 0.15); }
+    else if (edge === 1) { petTargetX = margin + Math.random() * (w - margin * 2); petTargetY = h - margin - Math.random() * (h * 0.15); }
+    else if (edge === 2) { petTargetX = margin + Math.random() * (w * 0.15); petTargetY = margin + Math.random() * (h - margin * 2); }
+    else { petTargetX = w - margin - Math.random() * (w * 0.15); petTargetY = margin + Math.random() * (h - margin * 2); }
     if (Math.random() < 0.2) {
       petTargetX = margin + Math.random() * (w - margin * 2);
       petTargetY = margin + Math.random() * (h - margin * 2);
     }
   }
 
+  // ── Shadow drawing ──
+  function drawShadow(ctx, yOff, floating) {
+    const cx = CPX / 2;
+    const baseY = 15; // grid row for shadow
+    const ry = floating ? 1.5 : 2;
+    const rx = floating ? 5 : 6;
+    const alpha = floating ? 0.15 : 0.2;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(cx, (baseY + 1) * S, rx * S, ry * S, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function petTick() {
     petFrame++;
-    // Eye direction follows mouse (with occasional random glance)
+    // Skip movement when dragging
+    if (_dragging) {
+      drawPetFree();
+      return;
+    }
+
+    // Eye direction follows mouse
     if (--petEyeTimer <= 0) {
-      // Mostly follow mouse, sometimes glance randomly
       if (_mouseX >= 0 && Math.random() < 0.85) {
         const el = document.getElementById('pixel-pet');
         const ex = petX + (el ? el.offsetWidth / 2 : 0);
@@ -337,42 +314,24 @@
     }
     _scrollSpeed *= 0.9;
 
-    // Mouse proximity flee
-    if (_fleeTimer > 0) _fleeTimer--;
-    if (_mouseX >= 0 && petState !== 'sleep') {
-      const mdx = petX - _mouseX, mdy = petY - _mouseY;
-      const mouseDist = Math.sqrt(mdx*mdx + mdy*mdy);
-      if (mouseDist < 60) {
-        const norm = mouseDist < 1 ? 1 : mouseDist;
-        if (mouseDist < 30) {
-          // Right on top — panic scoot
-          const fleeDist = 150 + Math.random() * 80;
-          petTargetX = petX + (mdx / norm) * fleeDist;
-          petTargetY = petY + (mdy / norm) * fleeDist;
-          _fleeTimer = 0;
-        } else if (_fleeTimer <= 0) {
-          // Close — nudge away
-          const fleeDist = 80 + Math.random() * 40;
-          petTargetX = petX + (mdx / norm) * fleeDist;
-          petTargetY = petY + (mdy / norm) * fleeDist;
-          _fleeTimer = PET_FPS;
-        }
-        petTargetX = Math.max(70, Math.min(window.innerWidth - 60, petTargetX));
-        petTargetY = Math.max(20, Math.min(window.innerHeight - 60, petTargetY));
-        if (petState !== 'run' && petState !== 'happy') {
+    // Mouse hover → happy (free mode)
+    if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy') {
+      const el = document.getElementById('pixel-pet');
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (_mouseX >= rect.left && _mouseX <= rect.right && _mouseY >= rect.top && _mouseY <= rect.bottom) {
           prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
+          petState = 'happy';
+          petTempTimer = PET_FPS * 2;
         }
-        petState = 'run';
-        petTempTimer = PET_FPS * 1.5;
       }
     }
 
-    // Base state cycling — lazy: long idles/sits, short walks
+    // Base state cycling
     if (['idle','walk','sit'].includes(petState)) {
       petStateTimer--;
       if (petStateTimer <= 0) {
         if (petState === 'idle') {
-          // 40% chance to just sit instead of walk
           if (Math.random() < 0.4) {
             petState = 'sit';
             petStateTimer = PET_FPS * (5 + Math.random() * 8);
@@ -412,7 +371,10 @@
     petX = Math.max(70, Math.min(window.innerWidth - 60, petX));
     petY = Math.max(20, Math.min(window.innerHeight - 60, petY));
 
-    // Draw
+    drawPetFree();
+  }
+
+  function drawPetFree() {
     const container = document.getElementById('pixel-pet');
     const canvas = document.getElementById('pet-canvas');
     if (!container || !canvas) return;
@@ -426,18 +388,30 @@
     const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
     const sitting = petState === 'sit' || petState === 'read';
     const sleeping = petState === 'sleep';
-    const jump = petState === 'happy' && (petFrame % 6 < 3);
-    const yOff = jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0));
+    const jump = (petState === 'happy' && (petFrame % 6 < 3));
+    const tired = isTired() && !sleeping && petState !== 'happy';
+    const floating = _dragging;
+    const yOff = floating ? -3 : (jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0)));
+
+    // Shadow only when dragging
+    if (floating) drawShadow(ctx, yOff, true);
 
     ctx.save();
     if (petDir === -1) { ctx.translate(CPX, 0); ctx.scale(-1, 1); }
 
     const pet = PET_TYPES[getPetType()] || PET_TYPES.cat;
+    // Wobble animation when dragged
+    if (floating) {
+      const wobble = Math.sin(petFrame * 0.4) * 2;
+      ctx.translate(CPX/2, CPX/2);
+      ctx.rotate(wobble * Math.PI / 180 * 3);
+      ctx.translate(-CPX/2, -CPX/2);
+    }
     const pxFn = (x, y, color) => {
       ctx.fillStyle = color;
       ctx.fillRect(x * S, (y + yOff) * S, S, S);
     };
-    pet.draw(pxFn, { blink, legFrame, sitting, sleeping, jump, eyeDir: petEyeDir });
+    pet.draw(pxFn, { blink, legFrame: floating ? (Math.floor(petFrame/2)%2) : legFrame, sitting: floating ? false : sitting, sleeping: floating ? false : sleeping, jump, eyeDir: petEyeDir, tired });
 
     ctx.restore();
 
@@ -452,7 +426,12 @@
   // ── Sidebar mode drawing ──
   function sidebarTick() {
     petFrame++;
-    // Eye direction follows mouse in sidebar too (never up)
+    if (_dragging) {
+      // In sidebar drag mode, update the free-floating container instead
+      drawPetFree();
+      return;
+    }
+    // Eye direction follows mouse in sidebar too
     if (--petEyeTimer <= 0) {
       if (_mouseX >= 0 && Math.random() < 0.85) {
         const el = document.getElementById('pixel-pet-sidebar');
@@ -481,7 +460,19 @@
     if (petState !== 'happy' && idleMs > 120000 && petState !== 'sleep') {
       prevBaseState = petState; petState = 'sleep';
     }
-    // Simple idle/blink cycle in sidebar
+    // Mouse hover → happy (sidebar mode)
+    if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy') {
+      const el = document.getElementById('pixel-pet-sidebar');
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (_mouseX >= rect.left && _mouseX <= rect.right && _mouseY >= rect.top && _mouseY <= rect.bottom) {
+          prevBaseState = ['idle','sit'].includes(petState) ? petState : prevBaseState;
+          petState = 'happy';
+          petTempTimer = PET_FPS * 2;
+        }
+      }
+    }
+
     if (['idle','sit'].includes(petState)) {
       petStateTimer--;
       if (petStateTimer <= 0) {
@@ -500,6 +491,7 @@
     const sitting = petState === 'sit' || petState === 'read';
     const sleeping = petState === 'sleep';
     const jump = petState === 'happy' && (petFrame % 6 < 3);
+    const tired = isTired() && !sleeping && petState !== 'happy';
     const yOff = jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0));
 
     const pet = PET_TYPES[getPetType()] || PET_TYPES.cat;
@@ -507,20 +499,224 @@
       ctx.fillStyle = color;
       ctx.fillRect(x * S, (y + yOff) * S, S, S);
     };
-    pet.draw(pxFn, { blink, legFrame: 0, sitting, sleeping, jump, eyeDir: petEyeDir });
+    pet.draw(pxFn, { blink, legFrame: 0, sitting, sleeping, jump, eyeDir: petEyeDir, tired });
 
     if (petState === 'happy') drawParticle(ctx, 'heart', 1, 2, petFrame);
     if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
   }
 
+  // ── Drag handling (free mode) ──
+  function onDragStart(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const container = document.getElementById('pixel-pet');
+    if (!container) return;
+    _dragging = true;
+    _dragPrevState = petState;
+    _dragOffX = e.clientX - petX;
+    _dragOffY = e.clientY - petY;
+    container.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+  }
+
+  function _isOverSidebar(x) {
+    const nav = document.getElementById('sidebar-nav');
+    return nav && x < nav.offsetWidth + 5;
+  }
+
+  function _showSidebarDropHint(show) {
+    const nav = document.getElementById('sidebar-nav');
+    if (!nav) return;
+    if (show) nav.style.outline = '2px solid var(--accent)';
+    else nav.style.outline = '';
+  }
+
+  function onDragMove(e) {
+    if (!_dragging) return;
+    petX = e.clientX - _dragOffX;
+    petY = e.clientY - _dragOffY;
+    // Allow dragging into sidebar zone
+    petX = Math.max(0, Math.min(window.innerWidth - 60, petX));
+    petY = Math.max(20, Math.min(window.innerHeight - 60, petY));
+    _showSidebarDropHint(_isOverSidebar(e.clientX));
+  }
+
+  function onDragEnd(e) {
+    if (!_dragging) return;
+    _dragging = false;
+    _showSidebarDropHint(false);
+    const container = document.getElementById('pixel-pet');
+    if (container) container.style.cursor = 'grab';
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+
+    // Dropped on sidebar → switch to sidebar mode
+    if (_isOverSidebar(e.clientX)) {
+      window.setPixelPetMode('sidebar');
+      return;
+    }
+
+    petTargetX = petX;
+    petTargetY = petY;
+    petState = _dragPrevState;
+    petStateTimer = PET_FPS * 2;
+  }
+
+  // ── Drag handling (sidebar mode — reorder within sidebar, pull out if dragged away) ──
+  let _sbDragFloating = false;
+  let _sbDragReordering = false;
+  let _sbDragGhost = null;
+  let _sbDragStartY = 0;
+
+  function onSidebarDragStart(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    _dragPrevState = petState;
+    _sbDragStartY = e.clientY;
+    _sbDragFloating = false;
+    _sbDragReordering = false;
+    _dragging = false;
+
+    const sbEl = document.getElementById('pixel-pet-sidebar');
+    const rect = sbEl ? sbEl.getBoundingClientRect() : { left: 0, top: 0 };
+    _dragOffX = e.clientX - rect.left;
+    _dragOffY = e.clientY - rect.top;
+
+    document.addEventListener('mousemove', onSidebarDragMove);
+    document.addEventListener('mouseup', onSidebarDragEnd);
+  }
+
+  function _saveSidebarOrder() {
+    const nav = document.getElementById('sidebar-nav');
+    if (!nav) return;
+    const ids = Array.from(nav.querySelectorAll('.sidebar-draggable')).map(b => b.id);
+    localStorage.setItem('sidebarOrder', JSON.stringify(ids));
+  }
+
+  function onSidebarDragMove(e) {
+    const sbEl = document.getElementById('pixel-pet-sidebar');
+    const nav = document.getElementById('sidebar-nav');
+    if (!sbEl || !nav) return;
+
+    const dx = e.clientX - (_dragOffX + sbEl.getBoundingClientRect().left + sbEl.offsetWidth / 2);
+    const dy = e.clientY - _sbDragStartY;
+
+    // If dragged horizontally outside sidebar → switch to pull-out (free float) mode
+    if (!_sbDragFloating && !_sbDragReordering && Math.abs(dx) > 30 && !_isOverSidebar(e.clientX)) {
+      _sbDragFloating = true;
+      _dragging = true;
+      if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
+      sbEl.style.opacity = '';
+      sbEl.style.visibility = 'hidden';
+      const freeEl = document.getElementById('pixel-pet');
+      if (freeEl) { freeEl.style.display = ''; freeEl.style.cursor = 'grabbing'; }
+      const rect = sbEl.getBoundingClientRect();
+      petX = rect.left;
+      petY = rect.top;
+    }
+
+    if (_sbDragFloating) {
+      petX = e.clientX - _dragOffX;
+      petY = e.clientY - _dragOffY;
+      drawPetFree();
+      return;
+    }
+
+    // Vertical drag within sidebar → reorder
+    if (!_sbDragReordering && Math.abs(dy) > 5) {
+      _sbDragReordering = true;
+      sbEl.style.opacity = '0.3';
+      _sbDragGhost = sbEl.cloneNode(true);
+      _sbDragGhost.style.cssText = `position:fixed;left:${nav.getBoundingClientRect().left}px;pointer-events:none;z-index:999;opacity:0.9;display:flex;`;
+      document.body.appendChild(_sbDragGhost);
+    }
+
+    if (_sbDragReordering && _sbDragGhost) {
+      _sbDragGhost.style.top = (e.clientY - 22) + 'px';
+      // Find drop target among sidebar-draggable
+      const spacer = nav.querySelector('.mt-auto');
+      const btns = Array.from(nav.querySelectorAll('.sidebar-draggable'));
+      for (const b of btns) {
+        if (b === sbEl) continue;
+        const r = b.getBoundingClientRect();
+        const mid = r.top + r.height / 2;
+        if (e.clientY < mid) { nav.insertBefore(sbEl, b); return; }
+      }
+      if (spacer) nav.insertBefore(sbEl, spacer);
+    }
+  }
+
+  function onSidebarDragEnd(e) {
+    document.removeEventListener('mousemove', onSidebarDragMove);
+    document.removeEventListener('mouseup', onSidebarDragEnd);
+
+    if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
+
+    const sbEl = document.getElementById('pixel-pet-sidebar');
+
+    if (_sbDragFloating) {
+      _dragging = false;
+      _sbDragFloating = false;
+      // Dropped outside sidebar → switch to free mode
+      if (!_isOverSidebar(e.clientX)) {
+        petX = Math.max(70, Math.min(window.innerWidth - 60, petX));
+        petY = Math.max(20, Math.min(window.innerHeight - 60, petY));
+        petTargetX = petX;
+        petTargetY = petY;
+        window.setPixelPetMode('free');
+        return;
+      }
+      // Snap back
+      const freeEl = document.getElementById('pixel-pet');
+      if (freeEl) freeEl.style.display = 'none';
+      if (sbEl) sbEl.style.visibility = '';
+      petState = _dragPrevState;
+      petStateTimer = PET_FPS * 2;
+      return;
+    }
+
+    if (_sbDragReordering) {
+      _sbDragReordering = false;
+      if (sbEl) sbEl.style.opacity = '';
+      _saveSidebarOrder();
+      // Suppress the click that would follow
+      if (sbEl) {
+        const suppress = ev => { ev.stopPropagation(); ev.preventDefault(); };
+        sbEl.addEventListener('click', suppress, { capture: true, once: true });
+      }
+      return;
+    }
+
+    // No drag happened — treat as click
+    petState = _dragPrevState;
+  }
+
   // ── Click handling ──
   let _lastClickTime = 0;
+  let _dragStartX = 0, _dragStartY = 0;
+  function onPetMouseDown(e) {
+    if (e.button !== 0) return;
+    _dragStartX = e.clientX;
+    _dragStartY = e.clientY;
+    if (isSidebarMode()) {
+      onSidebarDragStart(e);
+    } else {
+      onDragStart(e);
+    }
+  }
+
   function onPetClick(e) {
     e.stopPropagation();
     e.preventDefault();
+    // Only count as click if barely moved
+    const dist = Math.sqrt((_dragStartX - e.clientX)**2 + (_dragStartY - e.clientY)**2);
+    if (dist > 5) return;
+
     const now = Date.now();
     if (now - _lastClickTime < 350) {
-      // Double click — run far away
       _lastClickTime = 0;
       if (petState !== 'happy') prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
       if (!isSidebarMode()) {
@@ -533,7 +729,6 @@
       petState = 'run';
       petTempTimer = PET_FPS * 3;
     } else {
-      // Single click — happy
       _lastClickTime = now;
       setTimeout(() => {
         if (_lastClickTime === now) {
@@ -556,11 +751,16 @@
       if (sbContainer) sbContainer.style.display = '';
       petState = 'idle'; petStateTimer = PET_FPS * 5;
       _petLoop = setInterval(sidebarTick, 1000 / PET_FPS);
-      if (sbContainer) sbContainer.onclick = onPetClick;
+      if (sbContainer) {
+        sbContainer.onmousedown = onPetMouseDown;
+        sbContainer.onclick = onPetClick;
+      }
     } else {
       if (sbContainer) sbContainer.style.display = 'none';
-      if (freeContainer) freeContainer.style.display = '';
-      // Spawn at a random edge
+      if (freeContainer) {
+        freeContainer.style.display = '';
+        freeContainer.style.cursor = 'grab';
+      }
       const edge = Math.floor(Math.random() * 4);
       if (edge === 0) { petX = Math.random() * window.innerWidth; petY = 20; }
       else if (edge === 1) { petX = Math.random() * window.innerWidth; petY = window.innerHeight - 60; }
@@ -569,7 +769,10 @@
       pickTarget();
       petStateTimer = PET_FPS * 3;
       _petLoop = setInterval(petTick, 1000 / PET_FPS);
-      if (freeContainer) freeContainer.onclick = onPetClick;
+      if (freeContainer) {
+        freeContainer.onmousedown = onPetMouseDown;
+        freeContainer.onclick = onPetClick;
+      }
     }
   }
 
@@ -577,8 +780,8 @@
     if (_petLoop) { clearInterval(_petLoop); _petLoop = null; }
     const freeContainer = document.getElementById('pixel-pet');
     const sbContainer = document.getElementById('pixel-pet-sidebar');
-    if (freeContainer) { freeContainer.style.display = 'none'; freeContainer.onclick = null; }
-    if (sbContainer) { sbContainer.style.display = 'none'; sbContainer.onclick = null; }
+    if (freeContainer) { freeContainer.style.display = 'none'; freeContainer.onmousedown = null; freeContainer.onclick = null; }
+    if (sbContainer) { sbContainer.style.display = 'none'; sbContainer.onmousedown = null; sbContainer.onclick = null; }
   }
 
   window.togglePixelPet = function(on) {
@@ -627,4 +830,3 @@
     else setTimeout(startPixelPet, 0);
   }
 })();
-
