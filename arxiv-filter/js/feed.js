@@ -360,17 +360,20 @@ let currentSort = 'latest';
 const PAGE_SIZE = 20;
 let visibleCount = PAGE_SIZE;
 let hiddenSourceFilters = new Set();
-let feedViewMode = 'block'; // 'block' or 'compact'
+let feedViewMode = 'block'; // 'block', 'verbose', 'twitter', or 'compact'
+const _viewModes = ['block', 'verbose', 'twitter', 'compact'];
+const _viewModeIcons = {
+  block: '<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>',
+  verbose: '<path d="M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm0 4h16v2H4z"/>',
+  twitter: '<path d="M22.46 6c-.77.35-1.6.58-2.46.69a4.3 4.3 0 001.88-2.38 8.59 8.59 0 01-2.72 1.04A4.28 4.28 0 0015.86 4c-2.37 0-4.29 1.92-4.29 4.29 0 .34.04.67.1.98C8.28 9.09 5.11 7.38 3 4.79a4.28 4.28 0 001.33 5.72A4.26 4.26 0 012.8 10v.05a4.29 4.29 0 003.44 4.2 4.27 4.27 0 01-1.93.07 4.29 4.29 0 004 2.98A8.6 8.6 0 012 19.54a12.13 12.13 0 006.56 1.92c7.88 0 12.2-6.53 12.2-12.2 0-.19 0-.37-.01-.56A8.72 8.72 0 0024 6.56a8.49 8.49 0 01-2.54.7z"/>',
+  compact: '<path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>',
+};
 
 function toggleViewMode() {
-  feedViewMode = feedViewMode === 'block' ? 'compact' : 'block';
+  const idx = _viewModes.indexOf(feedViewMode);
+  feedViewMode = _viewModes[(idx + 1) % _viewModes.length];
   const icon = document.getElementById('view-mode-icon');
-  if (icon) {
-    // list icon for block mode (click to go compact), grid icon for compact mode (click to go block)
-    icon.innerHTML = feedViewMode === 'block'
-      ? '<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>'
-      : '<path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>';
-  }
+  if (icon) icon.innerHTML = _viewModeIcons[feedViewMode];
   renderPapers();
 }
 
@@ -1090,6 +1093,110 @@ function renderPapers() {
           <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
         </span>
         ${date}
+      </div>`;
+    }).join('') + `</div>`;
+  } else if (feedViewMode === 'verbose') {
+    container.innerHTML = `<div style="column-span:all" class="flex flex-col gap-3">` + visible.map((p, i) => {
+      const isHN = p.source === 'hn';
+      const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+      const sourceName = _hasExternalLink ? (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
+      const viaInfo = _hasExternalLink ? `<span class="text-[0.72rem] text-dimmer">via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</span>` : '';
+      const aiEntry = qfOn ? qCache[p.title] : null;
+      const aiVerdict = aiEntry?.v || aiEntry;
+      const aiScore = aiEntry?.s;
+      const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.72rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
+      const isPoly = p.source === 'polymarket';
+      const statsChips = (isHN && _hasExternalLink) ? '' : isHN ? `<span class="text-[0.72rem] text-dim">${p.hnScore} pts</span>` : isPoly ? `<span class="text-[0.72rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>` : (p.citations !== undefined ? `<span class="text-[0.72rem] text-dim">${p.citations} cited</span>` : '');
+      const dateChip = p.date ? `<span class="text-[0.72rem] text-dim">${escapeHtml(p.date)}</span>` : '';
+      const fullDesc = isPoly ? '' : (p.description || '');
+      const authors = p.authors ? `<div class="text-[0.76rem] text-dimmer mt-1">${escapeHtml(truncate(p.authors, 200))}</div>` : '';
+      const categories = p.categories && p.categories.length ? `<div class="flex gap-1 flex-wrap mt-1.5">${p.categories.slice(0, 6).map(c => `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">${escapeHtml(c)}</span>`).join('')}</div>` : '';
+      const userRating = getPaperRating(p.link);
+      const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
+      const isSaved = isPostSaved(p.link);
+      const bmFill = isSaved ? 'var(--accent)' : 'none';
+      const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+      const isRead = readSet.has(p.link);
+      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+      const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
+      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+      const cardImg = cardImgSrc
+        ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
+        : pixelFallback;
+      const actionBtns = `<div class="flex items-center gap-0.5 shrink-0 ml-auto">
+        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
+        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+      </div>`;
+      return `
+      <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
+        <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[1rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
+        ${authors}
+        ${fullDesc ? `<div class="text-[0.82rem] text-muted leading-relaxed mt-2">${escapeHtml(fullDesc)}</div>` : ''}
+        ${categories}
+        <div class="flex gap-2 flex-wrap items-center mt-3"><span class="text-[0.72rem] text-dim">${escapeHtml(sourceName)}</span>${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${actionBtns}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  } else if (feedViewMode === 'twitter') {
+    container.innerHTML = `<div style="column-span:all" class="flex flex-col max-w-[600px] mx-auto">` + visible.map((p, i) => {
+      const isHN = p.source === 'hn';
+      const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+      const sourceName = SOURCE_NAMES[p.source] || p.source;
+      const handle = (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return p.source; } })();
+      const isPoly = p.source === 'polymarket';
+      const snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
+      const isSaved = isPostSaved(p.link);
+      const bmFill = isSaved ? 'var(--accent)' : 'none';
+      const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+      const isRead = readSet.has(p.link);
+      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+      const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
+      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+      const avatar = cardImgSrc
+        ? `<img src="${cardImgSrc}" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
+        : pixelFallback;
+      const timeAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
+      const aiEntry = qfOn ? qCache[p.title] : null;
+      const aiScore = aiEntry?.s;
+      const hnPts = isHN ? p.hnScore || 0 : 0;
+      const citations = p.citations !== undefined ? p.citations : null;
+      const statsNum = isPoly ? `${p.polyYesPct}%` : isHN ? `${hnPts}` : (citations !== null ? `${citations}` : '');
+      const statsLabel = isPoly ? (p.polyYesPct >= 50 ? 'Yes' : 'No') : isHN ? (hnPts === 1 ? 'point' : 'points') : (citations !== null ? (citations === 1 ? 'citation' : 'citations') : '');
+      return `
+      <div class="py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
+        <div class="flex gap-3">
+          ${avatar}
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${newDot}
+              <span class="text-[0.88rem] font-bold ${isRead ? 'text-muted' : 'text-primary'}">${escapeHtml(sourceName)}</span>
+              <span class="text-[0.8rem] text-dimmer">@${escapeHtml(handle)}</span>
+              <span class="text-dimmer">·</span>
+              <span class="text-[0.8rem] text-dimmer">${escapeHtml(timeAgo)}</span>
+              ${aiScore != null ? `<span class="text-[0.72rem] text-dim ml-auto">${aiScore}% <span class="text-green-500">&#10003;</span></span>` : ''}
+            </div>
+            <div class="text-[0.92rem] ${isRead ? 'text-muted' : 'text-primary'} leading-snug mt-1 font-semibold">${renderTitle(p.title)}</div>
+            ${snippet ? `<div class="text-[0.84rem] text-muted leading-relaxed mt-1">${escapeHtml(snippet)}</div>` : ''}
+            ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2">${escapeHtml(p._quoteText)}</div>` : ''}
+            <div class="flex items-center justify-between mt-2.5 max-w-[400px]">
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation()">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+                <span class="text-[0.72rem]">${p.commentsUrl ? '' : ''}</span>
+              </button>
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-green-400 transition-colors" onclick="event.stopPropagation()">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+                <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
+              </button>
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--text-dimmer)' : 'var(--accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+              </button>
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>`;
     }).join('') + `</div>`;
   } else {
