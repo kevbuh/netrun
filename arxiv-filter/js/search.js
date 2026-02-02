@@ -601,6 +601,24 @@ function browseSaveToReadingList() {
   _browseUpdateSaveBtn();
 }
 
+function browseShare() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || tab.blank || !tab.url) return;
+  if (navigator.share) {
+    navigator.share({ title: tab.title, url: tab.url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(tab.url).then(() => {
+      const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>';
+        btn.classList.add('text-primary');
+        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-primary'); }, 1500);
+      }
+    });
+  }
+}
+
 function _browseUpdateSaveBtn() {
   const btn = document.getElementById('browse-save-btn');
   if (!btn) return;

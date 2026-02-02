@@ -486,6 +486,24 @@ async function confirmDeleteTeamView(teamId, name) {
   } catch (err) { /* ignore */ }
 }
 
+function toggleTeamSidebar() {
+  const grid = document.querySelector('#teams-view-detail .grid');
+  if (!grid) return;
+  grid.classList.toggle('team-sidebar-collapsed');
+  const collapsed = grid.classList.contains('team-sidebar-collapsed');
+  localStorage.setItem('teamSidebarCollapsed', collapsed ? '1' : '0');
+}
+
+function _restoreTeamSidebarState() {
+  const grid = document.querySelector('#teams-view-detail .grid');
+  if (!grid) return;
+  if (localStorage.getItem('teamSidebarCollapsed') === '1') {
+    grid.classList.add('team-sidebar-collapsed');
+  } else {
+    grid.classList.remove('team-sidebar-collapsed');
+  }
+}
+
 let _lastTeamDetailId = null;
 let _teamDetailData = null;
 
@@ -495,6 +513,7 @@ async function showTeamDetailView(teamId) {
   const detailEl = document.getElementById('teams-view-detail');
   if (listEl) listEl.classList.add('hidden');
   if (detailEl) detailEl.classList.remove('hidden');
+  _restoreTeamSidebarState();
 
   // Show loading in content pane
   const pane = document.getElementById('team-content-pane');
