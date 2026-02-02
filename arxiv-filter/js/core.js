@@ -93,8 +93,14 @@ function throttle(fn, ms) {
   };
 }
 
+// Track the last non-paper view for back navigation
+let _lastActiveView = 'feed';
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-experiments': 'experiments', 'sb-search': 'search', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-people': 'people' };
+
 // Sync active state between desktop sidebar and mobile bottom nav
 function setSidebarActive(id) {
+  // Track last view (skip paper view since it's not a "main" view)
+  if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
   // Desktop sidebar
   document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
   const desktopEl = document.getElementById(id);

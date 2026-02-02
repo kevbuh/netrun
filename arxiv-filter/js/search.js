@@ -439,6 +439,7 @@ function openBrowse(url) {
       if (tab && tab.url && !tab.blank) _initSidebarForUrl(tab.url);
     }
   }
+  _browseInstallPinchOverlay();
 }
 
 function browseNewTab(url) {
@@ -709,17 +710,60 @@ function browseReload() {
 let _browseZoomLevel = 1.0;
 function browseZoom(dir) {
   if (dir === 0) _browseZoomLevel = 1.0;
-  else _browseZoomLevel = Math.min(2.0, Math.max(0.25, _browseZoomLevel + dir * 0.1));
+  else _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + dir * 0.1));
+  _browseApplyZoom();
+}
+function _browseApplyZoom() {
   const el = _browseActiveEl();
   if (el) {
     if (_browseIsElectron && el.setZoomFactor) el.setZoomFactor(_browseZoomLevel);
-    else el.style.transform = `scale(${_browseZoomLevel})`;
-    el.style.transformOrigin = 'top left';
-    el.style.width = (100 / _browseZoomLevel) + '%';
-    el.style.height = (100 / _browseZoomLevel) + '%';
+    else {
+      el.style.transform = `scale(${_browseZoomLevel})`;
+      el.style.transformOrigin = 'top left';
+      el.style.width = (100 / _browseZoomLevel) + '%';
+      el.style.height = (100 / _browseZoomLevel) + '%';
+    }
   }
   const label = document.getElementById('browse-zoom-level');
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
+}
+// Pinch-to-zoom (trackpad pinch fires wheel with ctrlKey)
+document.addEventListener('wheel', function(e) {
+  if (!e.ctrlKey) return;
+  const browseView = document.getElementById('browse-view');
+  if (!browseView || browseView.style.display === 'none') return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.05 : 0.05;
+  _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
+  _browseApplyZoom();
+}, { passive: false });
+
+// Cmd+Plus / Cmd+Minus / Cmd+0 for zoom
+document.addEventListener('keydown', function(e) {
+  if (!(e.metaKey || e.ctrlKey)) return;
+  const browseView = document.getElementById('browse-view');
+  if (!browseView || browseView.style.display === 'none') return;
+  if (e.key === '=' || e.key === '+') { e.preventDefault(); browseZoom(1); }
+  else if (e.key === '-') { e.preventDefault(); browseZoom(-1); }
+  else if (e.key === '0') { e.preventDefault(); browseZoom(0); }
+});
+
+// Transparent overlay to capture pinch gestures over iframes
+function _browseInstallPinchOverlay() {
+  const container = document.getElementById('browse-content');
+  if (!container || container.querySelector('.browse-pinch-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'browse-pinch-overlay';
+  overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;pointer-events:none;';
+  container.appendChild(overlay);
+  // On pinch start (ctrlKey+wheel), temporarily capture events
+  container.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
+    _browseApplyZoom();
+  }, { passive: false });
 }
 
 function browseSaveToReadingList() {

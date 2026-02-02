@@ -170,10 +170,16 @@ let paperViewOrigin = 'arxiv';
 function paperViewGoBack() {
   cleanupPdfViewer();
   dismissPaperExpDropdown();
-  if (paperViewOrigin === 'saved') { openDashboard(); return; }
-  if (paperViewOrigin === 'search') { openSearch(); return; }
-  if (paperViewOrigin === 'browse') { openBrowse(); return; }
+  const nav = {
+    dashboard: openDashboard, feed: goHome, search: openSearch, browse: openBrowse,
+    inbox: () => typeof openInbox === 'function' && openInbox(),
+    calendar: () => typeof openCalendar === 'function' && openCalendar(),
+    settings: () => typeof openSettings === 'function' && openSettings(),
+    saved: openDashboard
+  };
   if (paperViewOrigin === 'experiment' && _paperOriginExpId) { openExperimentDetail(_paperOriginExpId); return; }
+  const fn = nav[paperViewOrigin];
+  if (fn) { fn(); return; }
   goHome();
 }
 
@@ -437,7 +443,9 @@ function showPaperView(paper, hashValue) {
   const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
 
   // ── Top bar: back + metadata compact ──
-  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>`;
+  const _backLabels = { saved: 'Reading List', search: 'Search', browse: 'Browse', experiment: 'Experiment', arxiv: 'Feed', feed: 'Feed', dashboard: 'Home', inbox: 'Inbox', calendar: 'Calendar', settings: 'Settings' };
+  const backLabel = _backLabels[paperViewOrigin] || 'Back';
+  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary shrink-0" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg><span class="text-[0.75rem]">${backLabel}</span></button>`;
   const sourceName = SOURCE_NAMES[paper.source] || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
 
   let metaParts = [];
@@ -1492,12 +1500,12 @@ function openPaper(index) {
 }
 
 function openPaperByUrl(url) {
-  paperViewOrigin = 'search';
+  paperViewOrigin = typeof _lastActiveView !== 'undefined' ? _lastActiveView : 'feed';
   const hashVal = 'view/' + encodeURIComponent(url);
   const cached = (searchResultsCache || []).find(r => r && r.link === url);
   if (cached) { showPaperView(cached, hashVal); return; }
   const savedEntry = getSavedPosts()[url];
-  if (savedEntry?.paper) { paperViewOrigin = 'saved'; showPaperView(savedEntry.paper, hashVal); return; }
+  if (savedEntry?.paper) { showPaperView(savedEntry.paper, hashVal); return; }
   const feedPaper = allPapers.find(p => p.link === url);
   if (feedPaper) { showPaperView(feedPaper, hashVal); return; }
   showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' }, hashVal);
