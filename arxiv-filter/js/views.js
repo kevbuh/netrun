@@ -225,6 +225,104 @@ function togglePaperSidebar() {
   sidebar.style.display = hidden ? '' : 'none';
 }
 
+function toggleBrowseSidebar() {
+  const sidebar = document.getElementById('browse-sidebar');
+  if (!sidebar) return;
+  const hidden = sidebar.style.display === 'none';
+  sidebar.style.display = hidden ? '' : 'none';
+}
+
+// ── Shared sidebar rendering ──
+function _renderSidebarHTML() {
+  const username = escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous');
+  const notesPanel = `
+    <div id="paper-notes-section">
+      <div id="paper-note-editor" class="hidden">
+        <div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div>
+        <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
+      </div>
+    </div>
+  `;
+  const chatPanel = `
+    <div class="flex-1 flex flex-col border-t border-border-card pt-2" id="doc-chat-section" style="min-height:0">
+      <div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()">
+        <span id="doc-chat-chevron">▾</span>
+        <span>Chat</span>
+        <span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span>
+      </div>
+      <div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
+        <div class="doc-chat-status" id="doc-chat-status"></div>
+        <div class="doc-chat-messages" id="doc-chat-messages"></div>
+        <div class="doc-chat-input-row">
+          <input id="doc-chat-input" placeholder="Ask about this document…" onkeydown="if(event.key==='Enter')sendDocMessage()" />
+          <button onclick="sendDocMessage()" id="doc-chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const commentsPanel = `
+    <div class="flex flex-col flex-1 min-h-0">
+      <div id="comments-list" class="flex-1 overflow-y-auto"></div>
+      <div class="border-t border-border-card pt-2 mt-2 shrink-0">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-[0.72rem] text-dim">Posting as</span>
+          <span class="text-[0.78rem] text-primary font-medium">${username}</span>
+        </div>
+        <textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea>
+        <button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button>
+      </div>
+    </div>
+  `;
+  return `
+    <div class="sidebar-tab-toolbar">
+      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-insights" class="sidebar-tab-btn" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg></button>
+    </div>
+    <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
+    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
+      <div id="pdf-highlights-section">
+        <div id="pdf-highlights-panel"></div>
+      </div>
+      ${notesPanel}
+    </div>
+    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
+      <div id="pdf-links-section"></div>
+      <div id="paper-insights"></div>
+    </div>
+    <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
+      ${chatPanel}
+    </div>
+    <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
+      ${commentsPanel}
+    </div>
+  `;
+}
+
+function _initSidebar(sidebarEl) {
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'sidebar-resize-handle';
+  sidebarEl.appendChild(resizeHandle);
+  _initSidebarResize(resizeHandle, sidebarEl);
+  const savedW = localStorage.getItem('paperSidebarWidth');
+  if (savedW) sidebarEl.style.width = savedW + 'px';
+}
+
+function _initSidebarForUrl(url) {
+  _paperNoteLink = url;
+  _docChatPaperUrl = url;
+  _docChatMessages = [];
+  _docText = '';
+  _docTextLoading = false;
+  _docChatExpanded = false;
+  if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
+  _paperNoteSelected = null;
+  fetchPaperNotes();
+  fetchPaperInsights(url);
+  fetchPaperComments();
+}
+
 // ── Add to experiment dropdown ──
 let _paperExpDropdown = null;
 
@@ -377,82 +475,12 @@ function showPaperView(paper, hashValue) {
   `;
 
   // ── Sidebar: notes + chat ──
-  const notesPanel = `
-    <div id="paper-notes-section">
-      <div id="paper-note-editor" class="hidden">
-        <div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div>
-        <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
-      </div>
-    </div>
-  `;
+  // Clear browse-sidebar to avoid duplicate IDs
+  const browseSb = document.getElementById('browse-sidebar');
+  if (browseSb) browseSb.innerHTML = '';
 
-  const chatPanel = `
-    <div class="flex-1 flex flex-col border-t border-border-card pt-2" id="doc-chat-section" style="min-height:0">
-      <div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()">
-        <span id="doc-chat-chevron">▾</span>
-        <span>Chat</span>
-        <span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span>
-      </div>
-      <div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
-        <div class="doc-chat-status" id="doc-chat-status"></div>
-        <div class="doc-chat-messages" id="doc-chat-messages"></div>
-        <div class="doc-chat-input-row">
-          <input id="doc-chat-input" placeholder="Ask about this document…" onkeydown="if(event.key==='Enter')sendDocMessage()" />
-          <button onclick="sendDocMessage()" id="doc-chat-send">Send</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const commentsPanel = `
-    <div class="flex flex-col flex-1 min-h-0">
-      <div id="comments-list" class="flex-1 overflow-y-auto"></div>
-      <div class="border-t border-border-card pt-2 mt-2 shrink-0">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-[0.72rem] text-dim">Posting as</span>
-          <span class="text-[0.78rem] text-primary font-medium">${escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous')}</span>
-        </div>
-        <textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea>
-        <button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button>
-      </div>
-    </div>
-  `;
-
-  sidebar.innerHTML = `
-    <div class="sidebar-tab-toolbar">
-      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-insights" class="sidebar-tab-btn" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg></button>
-    </div>
-    <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
-    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
-      <div id="pdf-highlights-section">
-        <div id="pdf-highlights-panel"></div>
-      </div>
-      ${notesPanel}
-    </div>
-    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
-      <div id="pdf-links-section"></div>
-      <div id="paper-insights"></div>
-    </div>
-    <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
-      ${chatPanel}
-    </div>
-    <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
-      ${commentsPanel}
-    </div>
-  `;
-
-  // Sidebar resize handle
-  const resizeHandle = document.createElement('div');
-  resizeHandle.className = 'sidebar-resize-handle';
-  sidebar.appendChild(resizeHandle);
-  _initSidebarResize(resizeHandle, sidebar);
-
-  // Restore saved sidebar width
-  const savedW = localStorage.getItem('paperSidebarWidth');
-  if (savedW) sidebar.style.width = savedW + 'px';
+  sidebar.innerHTML = _renderSidebarHTML();
+  _initSidebar(sidebar);
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
@@ -464,24 +492,10 @@ function showPaperView(paper, hashValue) {
     _tryRenderSavedContent(pdfContainer, paper);
   }
 
-  // Reset chat state
-  _docChatMessages = [];
-  _docText = '';
-  _docTextLoading = false;
-  _docChatExpanded = false;
-  if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
-  _docChatPaperUrl = paper.link;
-
-  // Load paper notes
-  _paperNoteSelected = null;
-  _paperNoteLink = paper.link;
-  fetchPaperNotes();
+  _initSidebarForUrl(paper.link);
 
   // Start scroll progress tracking
   _startScrollTracker(paper.link);
-
-  // Fetch paper insights (async, non-blocking)
-  fetchPaperInsights(paper.link);
 
   // Check for OpenReview link (async, non-blocking)
   checkOpenReview(paper.title);

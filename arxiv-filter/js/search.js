@@ -376,17 +376,34 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 
 function openBrowse(url) {
   hideAllViews();
+  // Clear paper-sidebar to avoid duplicate IDs
+  const paperSb = document.getElementById('paper-sidebar');
+  if (paperSb) paperSb.innerHTML = '';
+
   const view = document.getElementById('browse-view');
   view.classList.add('active');
   view.style.display = 'flex';
   view.style.flexDirection = 'column';
   window.location.hash = 'browse';
   setSidebarActive('sb-browse');
+
+  // Initialize browse sidebar
+  const browseSb = document.getElementById('browse-sidebar');
+  if (browseSb) {
+    browseSb.innerHTML = _renderSidebarHTML();
+    _initSidebar(browseSb);
+  }
+
   if (!_browseTabs.length) {
     browseNewTab(url);
   } else {
     if (url) browseNewTab(url);
-    else _browseRenderTabs();
+    else {
+      _browseRenderTabs();
+      // Update sidebar for current tab
+      const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+      if (tab && tab.url && !tab.blank) _initSidebarForUrl(tab.url);
+    }
   }
 }
 
@@ -439,6 +456,7 @@ function _browseBindFrame(tab) {
       const urlInput = document.getElementById('browse-url-input');
       if (urlInput) urlInput.value = e.url;
       _browseUpdateSaveBtn();
+      if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
     }
   });
   el.addEventListener('did-navigate-in-page', (e) => {
@@ -451,6 +469,7 @@ function _browseBindFrame(tab) {
       const urlInput = document.getElementById('browse-url-input');
       if (urlInput) urlInput.value = e.url;
       _browseUpdateSaveBtn();
+      if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
     }
   });
   el.addEventListener('page-title-updated', (e) => {
@@ -477,6 +496,10 @@ function browseSelectTab(id) {
   if (urlInput) urlInput.value = tab ? tab.url : '';
   _browseRenderTabs();
   _browseUpdateSaveBtn();
+  // Update sidebar for the selected tab
+  if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
+    _initSidebarForUrl(tab.url);
+  }
 }
 
 function browseCloseTab(id) {
@@ -549,6 +572,10 @@ function browseNavigate(input) {
   if (urlInput) urlInput.value = url;
   _browseRenderTabs();
   _browseUpdateSaveBtn();
+  // Update sidebar for the navigated URL
+  if (typeof _initSidebarForUrl === 'function') {
+    _initSidebarForUrl(url);
+  }
 }
 
 function _browseResolveUrl(input) {
