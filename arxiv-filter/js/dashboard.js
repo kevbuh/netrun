@@ -7,6 +7,17 @@ let _dashYear, _dashMonth;
   _dashMonth = _n.getMonth();
 }
 
+async function dashToggleTask(teamId, todoId, done) {
+  try {
+    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
+      method: 'PUT',
+      headers: _authHeaders(),
+      body: JSON.stringify({ done })
+    });
+    renderDashboard();
+  } catch (err) { /* ignore */ }
+}
+
 function dashRemoveSaved(link) {
   toggleSavePostByLink(link);
   renderDashboard();
@@ -23,13 +34,15 @@ async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
-  const [expResp, calResp] = await Promise.all([
+  const [expResp, calResp, tasksResp] = await Promise.all([
     fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => [])
+    fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
+    fetch('/api/my-tasks', { headers: _authHeaders() }).then(r => r.json()).catch(() => [])
   ]);
 
   const experiments = expResp || [];
   const events = calResp || [];
+  const myTasks = tasksResp || [];
 
   const mergedSaved = getSavedPosts();
 
@@ -290,6 +303,30 @@ async function renderDashboard() {
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No quotes yet. Open a page and use Post Quote in the sidebar.</div>';
 
+  // ── My Tasks (assigned team todos) ──
+  const _priColors = { high: '#f87171', medium: '#fbbf24', low: '#6ee7b7' };
+  const _priLabels = { high: 'High', medium: 'Med', low: 'Low' };
+  const myTasksHtml = myTasks.length ? `
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-[0.9rem] font-semibold text-primary">My Tasks</h3>
+        <span class="text-[0.72rem] text-dimmer">${myTasks.length} open</span>
+      </div>
+      ${myTasks.map(t => `
+        <div class="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-hover transition-colors group">
+          <input type="checkbox" onchange="dashToggleTask(${t.team_id}, '${t.id}', this.checked)" class="accent-[var(--accent)] cursor-pointer" />
+          <div class="flex-1 min-w-0 cursor-pointer" onclick="window.location.hash='teams'; setTimeout(()=>showTeamDetailView(${t.team_id}),100)">
+            <div class="flex items-center gap-2">
+              <span class="text-[0.82rem] text-primary">${escapeHtml(t.title)}</span>
+              <span class="text-[0.55rem] px-1.5 py-0.5 rounded-full font-medium" style="background:${_priColors[t.priority]}20;color:${_priColors[t.priority]}">${_priLabels[t.priority]}</span>
+            </div>
+            <div class="text-[0.7rem] text-dimmer">${escapeHtml(t.team_name)} · from ${escapeHtml(t.author)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">${getGreeting()}</h2>
 
@@ -297,6 +334,8 @@ async function renderDashboard() {
     <div class="mb-5">
       ${heatmapHtml}
     </div>
+
+    ${myTasksHtml}
 
     <!-- Two-column layout below calendar -->
     <div class="flex gap-5 items-start">

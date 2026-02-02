@@ -249,6 +249,7 @@ async function showTeamDetailView(teamId) {
     const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
     const openTodos = teamTodos.filter(t => !t.done);
     const doneTodos = teamTodos.filter(t => t.done);
+    const memberOpts = team.members.map(m => `<option value="${escapeAttr(m.google_id)}">${escapeHtml(m.username || 'unknown')}</option>`).join('');
 
     const todosHtml = `
       <div class="mb-6">
@@ -258,14 +259,18 @@ async function showTeamDetailView(teamId) {
             <div class="flex items-start gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 group">
               <input type="checkbox" onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--accent)] cursor-pointer" />
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-primary text-sm">${escapeHtml(todo.title)}</span>
                   <span class="text-[0.6rem] px-1.5 py-0.5 rounded-full font-medium" style="background:${priorityColors[todo.priority]}20;color:${priorityColors[todo.priority]}">${priorityLabels[todo.priority]}</span>
                 </div>
                 ${todo.description ? `<div class="text-dimmer text-xs mt-0.5">${escapeHtml(todo.description)}</div>` : ''}
                 <div class="text-dimmest text-[0.65rem] mt-1 flex items-center gap-2">
                   <span>${escapeHtml(todo.author)}</span>
-                  ${todo.assigned_username ? `<span>→ ${escapeHtml(todo.assigned_username)}</span>` : ''}
+                  <span class="text-dimmer">→</span>
+                  <select onchange="assignTeamTodo(${teamId}, '${todo.id}', this.value)" class="bg-transparent border-none text-[0.65rem] text-dimmest cursor-pointer outline-none p-0" style="appearance:auto">
+                    <option value="">Unassigned</option>
+                    ${team.members.map(m => `<option value="${escapeAttr(m.google_id)}" ${todo.assigned_to === m.google_id ? 'selected' : ''}>${escapeHtml(m.username || 'unknown')}</option>`).join('')}
+                  </select>
                 </div>
               </div>
               <button onclick="deleteTeamTodo(${teamId}, '${todo.id}')" class="text-red-400/40 hover:text-red-400 text-xs cursor-pointer bg-transparent border-none opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
@@ -288,6 +293,10 @@ async function showTeamDetailView(teamId) {
         </div>
         <div class="flex gap-2 mt-2">
           <input type="text" id="team-todo-title-${teamId}" placeholder="New task..." class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addTeamTodo(${teamId})}">
+          <select id="team-todo-assign-${teamId}" class="bg-input border border-border-input rounded-md px-2 py-1.5 text-primary text-xs outline-none focus:border-accent cursor-pointer">
+            <option value="">Assign to...</option>
+            ${memberOpts}
+          </select>
           <select id="team-todo-priority-${teamId}" class="bg-input border border-border-input rounded-md px-2 py-1.5 text-primary text-xs outline-none focus:border-accent cursor-pointer">
             <option value="medium">Med</option>
             <option value="high">High</option>
@@ -419,18 +428,32 @@ async function sendTeamChatMessage(teamId) {
 async function addTeamTodo(teamId) {
   const input = document.getElementById(`team-todo-title-${teamId}`);
   const priorityEl = document.getElementById(`team-todo-priority-${teamId}`);
+  const assignEl = document.getElementById(`team-todo-assign-${teamId}`);
   const title = (input?.value || '').trim();
   if (!title) return;
+  const body = { title, priority: priorityEl?.value || 'medium' };
+  if (assignEl?.value) body.assigned_to = assignEl.value;
   try {
     const resp = await fetch(`/api/teams/${teamId}/todos`, {
       method: 'POST',
       headers: _authHeaders(),
-      body: JSON.stringify({ title, priority: priorityEl?.value || 'medium' })
+      body: JSON.stringify(body)
     });
     if (resp.ok) {
       input.value = '';
+      if (assignEl) assignEl.value = '';
       showTeamDetailView(teamId);
     }
+  } catch (err) { /* ignore */ }
+}
+
+async function assignTeamTodo(teamId, todoId, assignedTo) {
+  try {
+    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
+      method: 'PUT',
+      headers: _authHeaders(),
+      body: JSON.stringify({ assigned_to: assignedTo || null })
+    });
   } catch (err) { /* ignore */ }
 }
 

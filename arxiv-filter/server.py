@@ -43,6 +43,7 @@ from persistence import (
     get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages,
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
+    get_my_assigned_todos,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -975,6 +976,13 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not a team member'}, 403)
                 return
             self._send_json(get_team_todos(team_id))
+
+        elif self.path == '/api/my-tasks':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_my_assigned_todos(google_id))
 
         elif self.path.startswith('/api/users'):
             google_id = self._get_user()

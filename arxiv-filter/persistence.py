@@ -1229,5 +1229,27 @@ def delete_team_todo(team_id, todo_id):
     return deleted
 
 
+def get_my_assigned_todos(google_id):
+    """Get all open team todos assigned to this user, across all teams."""
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT tt.id, tt.team_id, tt.google_id, tt.title, tt.done, tt.priority,
+               tt.assigned_to, tt.description, tt.timestamp,
+               u.username AS author, t.name AS team_name
+        FROM team_todos tt
+        JOIN users u ON u.google_id = tt.google_id
+        JOIN teams t ON t.id = tt.team_id
+        WHERE tt.assigned_to = ? AND tt.done = 0
+        ORDER BY
+            CASE tt.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+            tt.timestamp DESC
+    """, (google_id,)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'team_id': r['team_id'], 'title': r['title'],
+             'done': bool(r['done']), 'priority': r['priority'] or 'medium',
+             'description': r['description'] or '', 'timestamp': r['timestamp'],
+             'author': r['author'], 'team_name': r['team_name']} for r in rows]
+
+
 # Initialize DB on import
 init_db()
