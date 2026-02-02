@@ -369,7 +369,7 @@ function openOpenAlexPaper(i) {
   openPaperByUrl(r.link);
 }
 
-// ── Web Search (embedded iframe) ──
+// ── Web Search (embedded browser) ──
 let webSearchCollapsed = false;
 
 function toggleWebSearchCollapse() {
@@ -395,8 +395,15 @@ function renderWebSearchSection(query) {
     return;
   }
 
-  const iframeUrl = `https://www.google.com/search?igu=1&q=${encodeURIComponent(query)}`;
-  container.innerHTML = header + `<iframe class="web-search-iframe" src="${iframeUrl}" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+  const isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+
+  if (isElectron) {
+    container.innerHTML = header + `<webview class="web-search-iframe" src="${searchUrl}"></webview>`;
+  } else {
+    const ddgUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+    container.innerHTML = header + `<iframe class="web-search-iframe" src="${ddgUrl}" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+  }
 }
 
 // ── Search History (for search view) ──
