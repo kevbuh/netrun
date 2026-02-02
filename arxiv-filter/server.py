@@ -42,6 +42,7 @@ from persistence import (
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages, update_team_message, delete_team_message,
+    toggle_reaction,
     mark_team_chat_read, get_unread_team_chats, get_unread_team_chat_count,
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
@@ -2270,6 +2271,31 @@ ch.postMessage({type:'preview-ready'});
             team_id = int(m.group(1))
             mark_team_chat_read(team_id, google_id)
             self._send_json({'ok': True})
+
+        elif (m := self._match(r'^/api/teams/(\d+)/messages/([a-zA-Z0-9_-]+)/reactions$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            msg_id = m.group(2)
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            body = self._read_body()
+            emoji = (body.get('emoji') or '').strip()
+            if not emoji:
+                self._send_json({'error': 'emoji required'}, 400)
+                return
+            result = toggle_reaction(msg_id, google_id, emoji)
+            self._send_json(result)
 
         elif (m := self._match(r'^/api/teams/(\d+)/todos$')):
             google_id = self._get_user()

@@ -336,6 +336,16 @@ def init_db():
     if 'edited' not in tm_cols:
         conn.execute("ALTER TABLE team_messages ADD COLUMN edited INTEGER DEFAULT 0")
         conn.commit()
+    # Message reactions table
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS message_reactions (
+            message_id TEXT NOT NULL REFERENCES team_messages(id) ON DELETE CASCADE,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            emoji TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            PRIMARY KEY (message_id, google_id, emoji)
+        );
+    """)
     conn.close()
 
 
@@ -399,6 +409,7 @@ def delete_user(google_id):
         "SELECT id FROM teams WHERE owner_google_id = ?", (google_id,)
     ).fetchall()]
     # Delete per-user data
+    conn.execute("DELETE FROM message_reactions WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM calendar_events WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM todos WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM comments WHERE google_id = ?", (google_id,))
@@ -1126,6 +1137,74 @@ def get_user_by_username(username):
     return row['google_id'] if row else None
 
 
+# ── Message Reactions ──
+
+def toggle_reaction(message_id, google_id, emoji):
+    conn = _get_db()
+    existing = conn.execute(
+        "SELECT 1 FROM message_reactions WHERE message_id = ? AND google_id = ? AND emoji = ?",
+        (message_id, google_id, emoji)
+    ).fetchone()
+    if existing:
+        conn.execute(
+            "DELETE FROM message_reactions WHERE message_id = ? AND google_id = ? AND emoji = ?",
+            (message_id, google_id, emoji)
+        )
+        added = False
+    else:
+        conn.execute(
+            "INSERT INTO message_reactions (message_id, google_id, emoji, timestamp) VALUES (?, ?, ?, ?)",
+            (message_id, google_id, emoji, time.time() * 1000)
+        )
+        added = True
+    conn.commit()
+    reactions = get_message_reactions(conn, message_id)
+    conn.close()
+    return {'added': added, 'reactions': reactions}
+
+
+def get_message_reactions(conn, message_id):
+    rows = conn.execute("""
+        SELECT mr.emoji, mr.google_id, u.username
+        FROM message_reactions mr
+        JOIN users u ON u.google_id = mr.google_id
+        WHERE mr.message_id = ?
+        ORDER BY mr.timestamp ASC
+    """, (message_id,)).fetchall()
+    grouped = {}
+    for r in rows:
+        emoji = r['emoji']
+        if emoji not in grouped:
+            grouped[emoji] = {'emoji': emoji, 'count': 0, 'users': []}
+        grouped[emoji]['count'] += 1
+        grouped[emoji]['users'].append({'google_id': r['google_id'], 'username': r['username']})
+    return list(grouped.values())
+
+
+def get_messages_reactions_bulk(conn, message_ids):
+    if not message_ids:
+        return {}
+    placeholders = ','.join('?' for _ in message_ids)
+    rows = conn.execute(f"""
+        SELECT mr.message_id, mr.emoji, mr.google_id, u.username
+        FROM message_reactions mr
+        JOIN users u ON u.google_id = mr.google_id
+        WHERE mr.message_id IN ({placeholders})
+        ORDER BY mr.timestamp ASC
+    """, message_ids).fetchall()
+    result = {}
+    for r in rows:
+        mid = r['message_id']
+        emoji = r['emoji']
+        if mid not in result:
+            result[mid] = {}
+        if emoji not in result[mid]:
+            result[mid][emoji] = {'emoji': emoji, 'count': 0, 'users': []}
+        result[mid][emoji]['count'] += 1
+        result[mid][emoji]['users'].append({'google_id': r['google_id'], 'username': r['username']})
+    return {mid: list(emojis.values()) for mid, emojis in result.items()}
+
+
 # ── Team Messages ──
 
 def send_team_message(team_id, google_id, content):
@@ -1153,10 +1232,16 @@ def get_team_messages(team_id, limit=50):
         ORDER BY tm.timestamp ASC
         LIMIT ?
     """, (team_id, limit)).fetchall()
+    messages = [{'id': r['id'], 'username': r['username'], 'picture': r['picture'],
+                 'content': r['content'], 'timestamp': r['timestamp'],
+                 'google_id': r['google_id'], 'edited': bool(r['edited'])} for r in rows]
+    # Attach reactions
+    msg_ids = [m['id'] for m in messages]
+    reactions_map = get_messages_reactions_bulk(conn, msg_ids) if msg_ids else {}
     conn.close()
-    return [{'id': r['id'], 'username': r['username'], 'picture': r['picture'],
-             'content': r['content'], 'timestamp': r['timestamp'],
-             'google_id': r['google_id'], 'edited': bool(r['edited'])} for r in rows]
+    for m in messages:
+        m['reactions'] = reactions_map.get(m['id'], [])
+    return messages
 
 
 def update_team_message(team_id, message_id, google_id, content):

@@ -181,6 +181,65 @@ function _renderChatContent(content) {
   });
 }
 
+// ── Emoji Reactions ──
+
+const REACTION_EMOJIS = ['👍','👎','❤️','😂','😮','😢','🎉','🚀','👀','🔥','💯','✅','❌','🤔','👏','💪','🙏','⭐','💡','🎯'];
+
+function renderReactionsRow(teamId, msgId, reactions) {
+  const currentGid = _authUserInfo && _authUserInfo.google_id;
+  let html = '';
+  for (const r of reactions) {
+    const hasOwn = r.users.some(u => u.google_id === currentGid);
+    const cls = hasOwn ? 'border-accent bg-accent/10 text-primary' : 'bg-transparent border-border-input text-muted hover:border-accent';
+    const title = r.users.map(u => u.username).join(', ');
+    html += `<button onclick="toggleReaction(${teamId}, '${msgId}', '${r.emoji}')" title="${escapeAttr(title)}"
+      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border cursor-pointer transition-colors ${cls}"
+      style="line-height:1.4">${r.emoji} <span>${r.count}</span></button>`;
+  }
+  html += `<button onclick="showEmojiPicker(${teamId}, '${msgId}', this)"
+    class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs border border-border-input text-dimmest bg-transparent cursor-pointer hover:border-accent hover:text-muted transition-colors"
+    title="Add reaction">+</button>`;
+  return html;
+}
+
+async function toggleReaction(teamId, msgId, emoji) {
+  try {
+    const resp = await fetch(`/api/teams/${teamId}/messages/${msgId}/reactions`, {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ emoji })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const row = document.getElementById(`chat-reactions-${msgId}`);
+      if (row) row.innerHTML = renderReactionsRow(teamId, msgId, data.reactions);
+    }
+  } catch (err) { /* ignore */ }
+}
+
+function showEmojiPicker(teamId, msgId, btn) {
+  // Remove existing picker
+  const existing = document.getElementById('emoji-reaction-picker');
+  if (existing) { existing.remove(); return; }
+
+  const rect = btn.getBoundingClientRect();
+  const dd = document.createElement('div');
+  dd.id = 'emoji-reaction-picker';
+  dd.style.cssText = `position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:180px`;
+  // Position above button
+  dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  dd.style.left = Math.min(rect.left, window.innerWidth - 190) + 'px';
+
+  dd.innerHTML = REACTION_EMOJIS.map(e =>
+    `<button onclick="toggleReaction(${teamId}, '${msgId}', '${e}'); document.getElementById('emoji-reaction-picker')?.remove()"
+      class="w-8 h-8 flex items-center justify-center rounded cursor-pointer bg-transparent border-none text-base hover:bg-accent/10 transition-colors">${e}</button>`
+  ).join('');
+  document.body.appendChild(dd);
+
+  const close = (e) => { if (!dd.contains(e.target) && e.target !== btn) { dd.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+}
+
 // ── Inbox View ──
 
 function openInbox() {
@@ -604,6 +663,7 @@ async function showTeamDetailView(teamId) {
                   ${m.edited ? '<span class="text-[0.6rem] text-dimmest italic">(edited)</span>' : ''}
                 </div>
                 <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed" id="chat-msg-content-${m.id}" data-raw="${escapeAttr(m.content)}">${_renderChatContent(m.content)}</div>
+                <div class="flex flex-wrap gap-1 mt-1" id="chat-reactions-${m.id}">${renderReactionsRow(teamId, m.id, m.reactions || [])}</div>
                 ${ownActions}
               </div>
             </div>`;
@@ -660,6 +720,7 @@ async function sendTeamChatMessage(teamId) {
               <span class="text-[0.65rem] text-dimmest">just now</span>
             </div>
             <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${_renderChatContent(content)}</div>
+            <div class="flex flex-wrap gap-1 mt-1" id="chat-reactions-${msg.id}">${renderReactionsRow(teamId, msg.id, [])}</div>
           </div>
         `;
         chatEl.appendChild(div);
