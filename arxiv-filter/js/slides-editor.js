@@ -80,6 +80,7 @@ function renderSlidesEditor(fname, content) {
         <label class="text-[0.75rem] text-dimmer">Width</label>
         <input type="range" id="slides-stroke-width" min="1" max="20" value="2" class="w-16" style="accent-color:var(--accent)">
       </div>
+      ${fileShareButton()}
       <button class="draw-tool" onclick="_slidesExportPNG()" title="Export PNG">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>

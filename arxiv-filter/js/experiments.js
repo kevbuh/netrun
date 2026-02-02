@@ -1082,9 +1082,12 @@ function renderImageViewer(fname, dataUrl) {
   editor.innerHTML = `
     <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
       <span id="img-viewer-fname" class="text-[0.85rem] text-primary font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInViewer('${escapeHtml(fname)}')" title="Click to rename">${escapeHtml(fname)}</span>
-      <a href="${dataUrl}" download="${escapeHtml(fname)}" id="img-viewer-download" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </a>
+      <div class="flex items-center gap-1.5">
+        ${fileShareButton()}
+        <a href="${dataUrl}" download="${escapeHtml(fname)}" id="img-viewer-download" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </a>
+      </div>
     </div>
     <div class="flex items-center justify-center p-8 min-h-[300px]">
       <img src="${dataUrl}" class="max-w-full max-h-[70vh] rounded shadow-lg" alt="${escapeHtml(fname)}" />
@@ -1099,9 +1102,12 @@ function renderMediaViewer(fname, dataUrl, type) {
   editor.innerHTML = `
     <div class="flex items-center justify-between px-4 py-2 border-b border-border-dim bg-card/50">
       <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(fname)}</span>
-      <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </a>
+      <div class="flex items-center gap-1.5">
+        ${fileShareButton()}
+        <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </a>
+      </div>
     </div>
     <div class="flex items-center justify-center p-8 min-h-[300px]">
       ${tag}
@@ -1581,3 +1587,60 @@ openExperimentDetail = function(id) {
   _initExpSidebarDrop();
   setTimeout(() => initExpSidebarMobile(), 100);
 };
+
+// ── Share file to team chat ──
+
+const _fileShareSvg = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg>';
+
+function fileShareButton() {
+  return `<button onclick="toggleFileShareDropdown(this)" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary transition-colors" title="Share to team chat">${_fileShareSvg}</button>`;
+}
+
+async function toggleFileShareDropdown(btn) {
+  const existing = document.getElementById('file-share-dropdown');
+  if (existing) { existing.remove(); return; }
+  if (!currentFile || !currentExpId) return;
+
+  const dd = document.createElement('div');
+  dd.id = 'file-share-dropdown';
+  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
+  dd.innerHTML = '<div style="padding:4px 12px;color:var(--text-dimmer);font-size:11px">Loading teams...</div>';
+  document.body.appendChild(dd);
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.right = (window.innerWidth - rect.right) + 'px';
+
+  const close = (e) => { if (!dd.contains(e.target) && e.target !== btn) { dd.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+
+  if (!_cachedTeams.length) await fetchTeams();
+  if (!_cachedTeams.length) {
+    dd.innerHTML = '<div style="padding:8px 12px;color:var(--text-dimmer)">No teams yet</div>';
+    return;
+  }
+
+  dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
+    _cachedTeams.map(t => `
+      <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="shareFileToTeam(${t.id}, this)">
+        <div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div>
+        <span>${escapeHtml(t.name)}</span>
+      </div>
+    `).join('');
+}
+
+async function shareFileToTeam(teamId, el) {
+  if (!currentFile || !currentExpId) return;
+  if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
+  const content = '[file:' + currentExpId + '/' + currentFile + ']';
+  try {
+    await fetch(`/api/teams/${teamId}/messages`, {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    if (el) { el.innerHTML = '<span style="color:var(--accent);font-size:11px">Shared ✓</span>'; }
+    setTimeout(() => { const dd = document.getElementById('file-share-dropdown'); if (dd) dd.remove(); }, 800);
+  } catch {
+    if (el) { el.innerHTML = '<span style="color:var(--text-red-400);font-size:11px">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = '1'; }
+  }
+}

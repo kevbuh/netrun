@@ -40,6 +40,7 @@ function renderMarkdownEditor(fname, content) {
       <button onclick="_mdInsertLink()" class="md-tb-btn" title="Link (⌘K)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>
       <button onclick="_mdInsertHr()" class="md-tb-btn" title="Horizontal rule"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 11h20v2H2z"/></svg></button>
       <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity ml-auto" id="md-save-ind">Saved</span>
+      ${fileShareButton()}
     </div>
     <div id="md-preview" class="nb-rendered-md flex-1 overflow-y-auto px-4 py-3 cursor-text" onclick="_mdEnterEdit()">${marked.parse(content)}</div>
     <textarea id="md-editor-textarea" class="hidden flex-1 w-full px-4 py-2 bg-transparent text-primary text-[0.85rem] font-mono resize-none focus:outline-none border-none" spellcheck="false">${escapeHtml(content)}</textarea>`;
@@ -247,6 +248,7 @@ function renderLatexEditor(fname, content) {
       '<span id="tex-editor-fname" class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameTexFile(\'' + escapeHtml(fname) + '\')" title="Click to rename">' + escapeHtml(fname) + '</span>' +
       '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="tex-save-ind">Saved</span>' +
       '<div class="ml-auto flex items-center gap-2">' +
+        fileShareButton() +
         '<span id="tex-compile-status" class="text-[0.75rem] text-dimmer"></span>' +
         '<button onclick="cycleTexMode()" id="tex-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Cycle: Code → Split → Preview">Split</button>' +
         '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Compile PDF (⌘S)">Compile PDF</button>' +
@@ -679,6 +681,7 @@ function renderMermaidEditor(fname, content) {
       '<span id="mermaid-editor-fname" class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameMermaidFile(\'' + escapeHtml(fname).replace(/'/g, "\\'") + '\')" title="Click to rename">' + escapeHtml(fname) + '</span>' +
       '<span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity" id="mermaid-save-ind">Saved</span>' +
       '<div class="ml-auto flex items-center gap-2">' +
+        fileShareButton() +
         '<button onclick="cycleMermaidMode()" id="mermaid-toggle-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Cycle: Code / Split / Preview">Preview</button>' +
       '</div>' +
     '</div>' +
@@ -875,6 +878,7 @@ function renderPythonEditor(fname, content) {
       <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1 truncate"></span>
       <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
       <div class="ml-auto flex items-center gap-1.5 shrink-0">
+        ${fileShareButton()}
         <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></button>
         <div class="relative inline-flex items-center">
           <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="toggleVenvMenu()">Env</button>
