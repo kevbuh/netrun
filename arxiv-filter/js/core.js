@@ -1409,7 +1409,8 @@ const SYNC_KEYS = [
   'readPosts', 'qualityTestTitles', 'paperRatings', 'theme',
   'accentColor', 'spinner', 'userName', 'sidebarOrder',
   'clickSound', 'clickSoundType', 'rainNoiseType', 'rainVolume',
-  'editorTheme', 'rainSidebarVisible'
+  'editorTheme', 'rainSidebarVisible',
+  'pixelPet', 'pixelPetType', 'pixelPetMode'
 ];
 
 function _authHeaders() {
