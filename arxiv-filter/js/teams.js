@@ -19,27 +19,77 @@ async function renderInbox() {
   const container = document.getElementById('inbox-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
   try {
-    const resp = await fetch('/api/inbox', { headers: _authHeaders() });
-    _cachedInvites = await resp.json();
-    if (!_cachedInvites.length) {
-      container.innerHTML = '<div class="text-center py-20 text-dim text-sm">No pending invites</div>';
+    const [invResp, msgResp] = await Promise.all([
+      fetch('/api/inbox', { headers: _authHeaders() }),
+      fetch('/api/messages', { headers: _authHeaders() }),
+    ]);
+    _cachedInvites = await invResp.json();
+    const messages = msgResp.ok ? await msgResp.json() : [];
+
+    if (!_cachedInvites.length && !messages.length) {
+      container.innerHTML = '<div class="text-center py-20 text-dim text-sm">Nothing here yet</div>';
       return;
     }
-    container.innerHTML = _cachedInvites.map(inv => `
-      <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2">
-        <div>
-          <div class="text-primary text-sm font-medium">${escapeHtml(inv.from_username)} invited you to <span class="text-accent font-semibold">${escapeHtml(inv.team_name)}</span></div>
-          <div class="text-dimmer text-xs mt-0.5">${inv.created || ''}</div>
+
+    let html = '';
+
+    // Invites
+    if (_cachedInvites.length) {
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Team Invites</div>';
+      html += _cachedInvites.map(inv => `
+        <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2">
+          <div>
+            <div class="text-primary text-sm font-medium"><a href="#profile/${encodeURIComponent(inv.from_username)}" class="text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(inv.from_username)}</a> invited you to <span class="text-accent font-semibold">${escapeHtml(inv.team_name)}</span></div>
+            <div class="text-dimmer text-xs mt-0.5">${inv.created || ''}</div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="respondToInvite(${inv.id}, true)" class="px-3 py-1 rounded-md text-xs bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors">Accept</button>
+            <button onclick="respondToInvite(${inv.id}, false)" class="px-3 py-1 rounded-md text-xs border border-border-input text-muted bg-card cursor-pointer hover:text-primary transition-colors">Decline</button>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <button onclick="respondToInvite(${inv.id}, true)" class="px-3 py-1 rounded-md text-xs bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors">Accept</button>
-          <button onclick="respondToInvite(${inv.id}, false)" class="px-3 py-1 rounded-md text-xs border border-border-input text-muted bg-card cursor-pointer hover:text-primary transition-colors">Decline</button>
-        </div>
-      </div>
-    `).join('');
+      `).join('');
+    }
+
+    // Messages
+    if (messages.length) {
+      if (_cachedInvites.length) html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2 mt-5">Messages</div>';
+      html += messages.map(msg => {
+        const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(msg.timestamp) : '';
+        const unread = !msg.read;
+        return `
+        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg mb-2${unread ? ' border-l-accent border-l-2' : ''}" onclick="markMessageRead('${msg.id}', this)">
+          ${msg.from_picture
+            ? `<img src="${escapeAttr(msg.from_picture)}" class="w-8 h-8 rounded-full shrink-0" referrerpolicy="no-referrer" />`
+            : `<div class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold shrink-0">${escapeHtml((msg.from_username || '?')[0].toUpperCase())}</div>`
+          }
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <a href="#profile/${encodeURIComponent(msg.from_username)}" class="text-sm font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(msg.from_username)}</a>
+              <span class="text-dimmer text-[0.7rem]">${timeAgo}</span>
+              ${unread ? '<span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>' : ''}
+            </div>
+            <div class="text-[0.82rem] text-primary mt-1 leading-relaxed">${escapeHtml(msg.content)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    container.innerHTML = html;
   } catch (err) {
     container.innerHTML = `<div class="text-center py-20 text-red-400 text-sm">Failed to load inbox</div>`;
   }
+}
+
+async function markMessageRead(msgId, el) {
+  try {
+    await fetch(`/api/messages/${msgId}/read`, { method: 'POST', headers: _authHeaders() });
+    if (el) {
+      el.classList.remove('border-l-accent', 'border-l-2');
+      const dot = el.querySelector('.bg-accent.w-2');
+      if (dot) dot.remove();
+    }
+    refreshInboxBadge();
+  } catch (err) { /* ignore */ }
 }
 
 async function respondToInvite(id, accept) {
@@ -56,12 +106,12 @@ async function respondToInvite(id, accept) {
 
 async function refreshInboxBadge() {
   try {
-    const resp = await fetch('/api/inbox', { headers: _authHeaders() });
-    const invites = await resp.json();
+    const resp = await fetch('/api/messages/unread-count', { headers: _authHeaders() });
+    const data = await resp.json();
     const badge = document.getElementById('inbox-badge');
     if (badge) {
-      if (invites.length > 0) {
-        badge.textContent = invites.length;
+      if (data.total > 0) {
+        badge.textContent = data.total;
         badge.style.display = '';
       } else {
         badge.style.display = 'none';
@@ -149,14 +199,16 @@ async function showTeamDetailView(teamId) {
   const formEl = document.getElementById('teams-view-create-form');
   if (formEl) formEl.innerHTML = '';
   try {
-    const [teamResp, expResp, ownExpResp] = await Promise.all([
+    const [teamResp, expResp, ownExpResp, chatResp] = await Promise.all([
       fetch(`/api/teams/${teamId}`, { headers: _authHeaders() }),
       fetch('/api/team-experiments', { headers: _authHeaders() }),
       fetch('/api/experiments', { headers: _authHeaders() }),
+      fetch(`/api/teams/${teamId}/messages`, { headers: _authHeaders() }),
     ]);
     const team = await teamResp.json();
     const allTeamExps = expResp.ok ? await expResp.json() : [];
     const ownExps = ownExpResp.ok ? await ownExpResp.json() : [];
+    const chatMessages = chatResp.ok ? await chatResp.json() : [];
     const isOwner = team.owner_google_id === (_authUserInfo && _authUserInfo.google_id);
 
     // Merge: team experiments for this team + own experiments assigned to this team
@@ -219,7 +271,7 @@ async function showTeamDetailView(teamId) {
           </div>
         `).join('')}
       </div>
-      <div>
+      <div class="mb-6">
         <h4 class="text-muted text-xs font-semibold mb-2 uppercase tracking-wide">Invite Member</h4>
         <div class="flex gap-2">
           <input type="text" id="teams-view-invite-${teamId}" placeholder="Username" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();inviteToTeamView(${teamId})}">
@@ -227,10 +279,85 @@ async function showTeamDetailView(teamId) {
         </div>
         <div id="teams-view-invite-msg-${teamId}" class="text-xs mt-1.5 h-4"></div>
       </div>
+      <div>
+        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Team Chat</h4>
+        <div id="team-chat-messages-${teamId}" class="max-h-[400px] overflow-y-auto mb-3 flex flex-col gap-2">
+          ${chatMessages.length ? chatMessages.map(m => {
+            const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(m.timestamp) : '';
+            const currentUser = _authUserInfo && _authUserInfo.username;
+            const isOwn = m.username === currentUser;
+            return `<div class="flex items-start gap-2 ${isOwn ? 'flex-row-reverse' : ''}">
+              ${m.picture
+                ? `<img src="${escapeAttr(m.picture)}" class="w-6 h-6 rounded-full shrink-0" referrerpolicy="no-referrer" />`
+                : `<div class="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[0.6rem] font-bold shrink-0">${escapeHtml((m.username || '?')[0].toUpperCase())}</div>`
+              }
+              <div class="${isOwn ? 'bg-accent/15 border-accent/20' : 'bg-card border-border-card'} border rounded-lg px-3 py-2 max-w-[75%]">
+                <div class="flex items-center gap-1.5 ${isOwn ? 'flex-row-reverse' : ''}">
+                  <a href="#profile/${encodeURIComponent(m.username)}" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(m.username)}</a>
+                  <span class="text-[0.65rem] text-dimmest">${timeAgo}</span>
+                </div>
+                <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(m.content)}</div>
+              </div>
+            </div>`;
+          }).join('') : '<div class="text-dimmer text-xs text-center py-4">No messages yet. Start the conversation!</div>'}
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="team-chat-input-${teamId}" placeholder="Type a message..." class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();sendTeamChatMessage(${teamId})}">
+          <button onclick="sendTeamChatMessage(${teamId})" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Send</button>
+        </div>
+      </div>
     `;
+    // Scroll chat to bottom
+    setTimeout(() => {
+      const chatEl = document.getElementById('team-chat-messages-' + teamId);
+      if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+    }, 50);
   } catch (err) {
     container.innerHTML = `<div class="text-center py-10 text-red-400 text-sm">Failed to load team</div>`;
   }
+}
+
+async function sendTeamChatMessage(teamId) {
+  const input = document.getElementById(`team-chat-input-${teamId}`);
+  const content = (input?.value || '').trim();
+  if (!content) return;
+  try {
+    const res = await fetch(`/api/teams/${teamId}/messages`, {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ content })
+    });
+    if (res.ok) {
+      input.value = '';
+      // Append the new message inline instead of reloading everything
+      const msg = await res.json();
+      const chatEl = document.getElementById(`team-chat-messages-${teamId}`);
+      if (chatEl) {
+        // Remove empty state if present
+        const empty = chatEl.querySelector('.text-center.py-4');
+        if (empty) empty.remove();
+        const currentUser = _authUserInfo && _authUserInfo.username;
+        const pic = _authUserInfo && _authUserInfo.picture;
+        const div = document.createElement('div');
+        div.className = 'flex items-start gap-2 flex-row-reverse';
+        div.innerHTML = `
+          ${pic
+            ? `<img src="${escapeAttr(pic)}" class="w-6 h-6 rounded-full shrink-0" referrerpolicy="no-referrer" />`
+            : `<div class="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[0.6rem] font-bold shrink-0">${escapeHtml((currentUser || '?')[0].toUpperCase())}</div>`
+          }
+          <div class="bg-accent/15 border-accent/20 border rounded-lg px-3 py-2 max-w-[75%]">
+            <div class="flex items-center gap-1.5 flex-row-reverse">
+              <span class="text-[0.72rem] font-medium text-primary">${escapeHtml(currentUser)}</span>
+              <span class="text-[0.65rem] text-dimmest">just now</span>
+            </div>
+            <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(content)}</div>
+          </div>
+        `;
+        chatEl.appendChild(div);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+    }
+  } catch (err) { /* ignore */ }
 }
 
 async function removeTeamMemberView(teamId, googleId) {

@@ -39,6 +39,9 @@ from persistence import (
     db_get_comments, db_create_comment, db_delete_comment,
     get_public_user_info, get_user_public_stats, get_user_recent_comments,
     get_user_shared_experiments, search_users,
+    send_direct_message, get_direct_messages, mark_message_read,
+    get_unread_message_count, get_user_by_username,
+    send_team_message, get_team_messages,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -914,6 +917,41 @@ ch.postMessage({type:'preview-ready'});
                         result.append(meta)
             result.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
             self._send_json(result)
+
+        elif self.path == '/api/messages':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_direct_messages(google_id))
+
+        elif self.path == '/api/messages/unread-count':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            invites = len(get_pending_invites(google_id))
+            messages = get_unread_message_count(google_id)
+            self._send_json({'invites': invites, 'messages': messages, 'total': invites + messages})
+
+        elif (m := self._match(r'^/api/teams/(\d+)/messages$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            # Verify membership
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            self._send_json(get_team_messages(team_id))
 
         elif self.path.startswith('/api/users'):
             google_id = self._get_user()
@@ -2072,6 +2110,59 @@ ch.postMessage({type:'preview-ready'});
                 'savedAt': body.get('savedAt', int(time.time() * 1000))
             })
             self._send_json({'ok': True})
+
+        elif self.path == '/api/messages':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            to_username = (body.get('to_username') or '').strip()
+            content = (body.get('content') or '').strip()
+            if not to_username or not content:
+                self._send_json({'error': 'to_username and content required'}, 400)
+                return
+            to_google_id = get_user_by_username(to_username)
+            if not to_google_id:
+                self._send_json({'error': 'User not found'}, 404)
+                return
+            if to_google_id == google_id:
+                self._send_json({'error': 'Cannot message yourself'}, 400)
+                return
+            msg = send_direct_message(google_id, to_google_id, content)
+            self._send_json(msg)
+
+        elif (m := self._match(r'^/api/messages/([a-zA-Z0-9_-]+)/read$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            mark_message_read(google_id, m.group(1))
+            self._send_json({'ok': True})
+
+        elif (m := self._match(r'^/api/teams/(\d+)/messages$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            body = self._read_body()
+            content = (body.get('content') or '').strip()
+            if not content:
+                self._send_json({'error': 'content required'}, 400)
+                return
+            msg = send_team_message(team_id, google_id, content)
+            self._send_json(msg)
 
         else:
             self._send_json({'error': 'Not found'}, 404)

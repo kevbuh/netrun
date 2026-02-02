@@ -668,8 +668,11 @@ async function renderUserProfile(username) {
           <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username)}</h2>
           ${joinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${joinDate}</div>` : ''}
         </div>
-        ${isOwnProfile ? `<a href="#settings" class="ml-auto text-dim text-[0.78rem] hover:text-primary" style="text-decoration:none">Edit profile</a>` : ''}
+        <div class="ml-auto flex items-center gap-2">
+          ${isOwnProfile ? `<a href="#settings" class="text-dim text-[0.78rem] hover:text-primary" style="text-decoration:none">Edit profile</a>` : `<button onclick="showProfileMessageForm('${escapeAttr(profile.username)}')" class="px-3 py-1 rounded-md text-[0.78rem] bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors">Message</button>`}
+        </div>
       </div>
+      <div id="profile-message-form" class="hidden mb-6"></div>
 
       <div class="flex gap-6 mb-8 text-[0.82rem]">
         <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
@@ -718,6 +721,48 @@ async function renderUserProfile(username) {
   } catch (e) {
     console.error('Profile load error', e);
     el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Failed to load profile</div>';
+  }
+}
+
+function showProfileMessageForm(username) {
+  const el = document.getElementById('profile-message-form');
+  if (!el) return;
+  if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="p-4 rounded-lg border border-border-card bg-card">
+      <textarea id="profile-msg-textarea" class="w-full text-[0.82rem] bg-input border border-border-input rounded-lg px-3 py-2 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a message to ${escapeHtml(username)}..."></textarea>
+      <div class="flex items-center gap-2 mt-2">
+        <button onclick="sendProfileMessage('${escapeAttr(username)}')" class="px-3 py-1 rounded-md text-[0.78rem] bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors">Send</button>
+        <button onclick="document.getElementById('profile-message-form').classList.add('hidden')" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-transparent cursor-pointer hover:text-primary transition-colors">Cancel</button>
+        <span id="profile-msg-status" class="text-[0.75rem] ml-2"></span>
+      </div>
+    </div>
+  `;
+  setTimeout(() => document.getElementById('profile-msg-textarea')?.focus(), 50);
+}
+
+async function sendProfileMessage(username) {
+  const textarea = document.getElementById('profile-msg-textarea');
+  const status = document.getElementById('profile-msg-status');
+  const content = (textarea?.value || '').trim();
+  if (!content) return;
+  try {
+    const res = await fetch('/api/messages', {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ to_username: username, content })
+    });
+    const data = await res.json();
+    if (data.error) {
+      if (status) { status.style.color = 'var(--text-muted)'; status.textContent = data.error; }
+    } else {
+      if (status) { status.style.color = 'var(--accent)'; status.textContent = 'Message sent!'; }
+      textarea.value = '';
+      setTimeout(() => document.getElementById('profile-message-form')?.classList.add('hidden'), 1500);
+    }
+  } catch (err) {
+    if (status) { status.style.color = 'var(--text-muted)'; status.textContent = 'Failed to send'; }
   }
 }
 

@@ -287,6 +287,24 @@ def init_db():
             parent_id TEXT
         );
     """)
+    # Messaging tables
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS direct_messages (
+            id TEXT PRIMARY KEY,
+            from_google_id TEXT NOT NULL REFERENCES users(google_id),
+            to_google_id TEXT NOT NULL REFERENCES users(google_id),
+            content TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            read INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS team_messages (
+            id TEXT PRIMARY KEY,
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            content TEXT NOT NULL,
+            timestamp REAL NOT NULL
+        );
+    """)
     # Migration: add username column if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     if 'username' not in cols:
@@ -1021,6 +1039,101 @@ def search_users(query, limit=10):
     ).fetchall()
     conn.close()
     return [{'username': r['username'], 'picture': r['picture']} for r in rows]
+
+
+# ── Direct Messages ──
+
+def send_direct_message(from_google_id, to_google_id, content):
+    import uuid
+    mid = str(uuid.uuid4())
+    ts = int(time.time() * 1000)
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO direct_messages (id, from_google_id, to_google_id, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (mid, from_google_id, to_google_id, content, ts)
+    )
+    conn.commit()
+    conn.close()
+    return {'id': mid, 'from_google_id': from_google_id, 'to_google_id': to_google_id,
+            'content': content, 'timestamp': ts, 'read': False}
+
+
+def get_direct_messages(google_id):
+    """Get all messages sent to this user, newest first."""
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT dm.id, dm.from_google_id, dm.content, dm.timestamp, dm.read, u.username, u.picture
+        FROM direct_messages dm
+        JOIN users u ON u.google_id = dm.from_google_id
+        WHERE dm.to_google_id = ?
+        ORDER BY dm.timestamp DESC
+    """, (google_id,)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'from_username': r['username'], 'from_picture': r['picture'],
+             'content': r['content'], 'timestamp': r['timestamp'], 'read': bool(r['read'])} for r in rows]
+
+
+def mark_message_read(google_id, message_id):
+    conn = _get_db()
+    conn.execute(
+        "UPDATE direct_messages SET read = 1 WHERE id = ? AND to_google_id = ?",
+        (message_id, google_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_unread_message_count(google_id):
+    conn = _get_db()
+    count = conn.execute(
+        "SELECT COUNT(*) as c FROM direct_messages WHERE to_google_id = ? AND read = 0",
+        (google_id,)
+    ).fetchone()['c']
+    conn.close()
+    return count
+
+
+def get_user_by_username(username):
+    """Look up google_id by username (case-insensitive)."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT google_id FROM users WHERE lower(username) = ?",
+        (username.lower(),)
+    ).fetchone()
+    conn.close()
+    return row['google_id'] if row else None
+
+
+# ── Team Messages ──
+
+def send_team_message(team_id, google_id, content):
+    import uuid
+    mid = str(uuid.uuid4())
+    ts = int(time.time() * 1000)
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO team_messages (id, team_id, google_id, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (mid, team_id, google_id, content, ts)
+    )
+    conn.commit()
+    conn.close()
+    return {'id': mid, 'team_id': team_id, 'google_id': google_id,
+            'content': content, 'timestamp': ts}
+
+
+def get_team_messages(team_id, limit=50):
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT tm.id, tm.google_id, tm.content, tm.timestamp, u.username, u.picture
+        FROM team_messages tm
+        JOIN users u ON u.google_id = tm.google_id
+        WHERE tm.team_id = ?
+        ORDER BY tm.timestamp ASC
+        LIMIT ?
+    """, (team_id, limit)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'username': r['username'], 'picture': r['picture'],
+             'content': r['content'], 'timestamp': r['timestamp']} for r in rows]
 
 
 # Initialize DB on import
