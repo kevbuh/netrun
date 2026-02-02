@@ -181,9 +181,8 @@
         <h1 class="text-white_ text-[1.4rem] font-semibold mb-1">What do you want to read?</h1>
         <p class="text-muted text-[0.85rem] mb-5">Pick your sources. You can change these anytime in settings.</p>
         <div id="onboard-grid"></div>
-        <div class="mt-5 flex items-center justify-center gap-4">
+        <div class="mt-5 flex items-center justify-center">
           <button id="onboard-start-btn" disabled onclick="completeOnboarding()" class="px-6 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
-          <a href="#" onclick="completeOnboarding();return false" class="text-[0.8rem] text-dim hover:text-muted transition-colors">Skip</a>
         </div>
       </div>
     </div>
@@ -192,7 +191,7 @@
         <input type="hidden" id="search" value="" />
         <div class="text-[0.8rem] text-dim py-1 pb-3 flex items-center gap-2" id="stats-row">
           <span id="stats"></span>
-          <span id="eval-indicator" class="text-dim hidden"><span class="spinner"></span> Evaluating <span id="eval-count">0</span>…</span>
+          <span id="eval-indicator" class="text-dim hidden"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);animation:eval-pulse 1.2s ease-in-out infinite;vertical-align:middle;margin-right:4px"></span>Evaluating <span id="eval-count">0</span>…</span>
           <span id="refresh-countdown" class="tabular-nums text-dim ml-auto"></span>
         </div>
         <div id="trends-panel" style="display:none" class="pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
