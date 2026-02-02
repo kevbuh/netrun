@@ -172,6 +172,7 @@ function paperViewGoBack() {
   dismissPaperExpDropdown();
   if (paperViewOrigin === 'saved') { openDashboard(); return; }
   if (paperViewOrigin === 'search') { openSearch(); return; }
+  if (paperViewOrigin === 'browse') { openBrowse(); return; }
   if (paperViewOrigin === 'experiment' && _paperOriginExpId) { openExperimentDetail(_paperOriginExpId); return; }
   goHome();
 }
