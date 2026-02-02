@@ -9,6 +9,35 @@
     body.electron-app #sidebar-nav .sidebar-icon {
       -webkit-app-region: no-drag;
     }
+    body.electron-app #browse-tabs {
+      -webkit-app-region: drag;
+      padding-top: 6px;
+    }
+    body.electron-app #browse-tabs .browse-tab,
+    body.electron-app #browse-tabs .browse-tab-new {
+      -webkit-app-region: no-drag;
+    }
+    body.electron-app #browse-bar {
+      -webkit-app-region: drag;
+    }
+    body.electron-app #browse-bar button,
+    body.electron-app #browse-bar input {
+      -webkit-app-region: no-drag;
+    }
+    body.electron-app .view > .electron-drag-top {
+      -webkit-app-region: drag;
+      height: 12px;
+      flex-shrink: 0;
+    }
+    body.electron-app #paper-topbar {
+      -webkit-app-region: drag;
+    }
+    body.electron-app #paper-topbar button,
+    body.electron-app #paper-topbar a,
+    body.electron-app #paper-topbar input,
+    body.electron-app #paper-topbar select {
+      -webkit-app-region: no-drag;
+    }
 
     .reader-view {
       max-width: 720px;
