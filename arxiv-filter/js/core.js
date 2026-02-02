@@ -1498,7 +1498,8 @@ const SYNC_KEYS = [
   'accentColor', 'spinner', 'userName', 'sidebarOrder',
   'clickSound', 'clickSoundType', 'rainNoiseType', 'rainVolume',
   'editorTheme', 'rainSidebarVisible',
-  'pixelPet', 'pixelPetType', 'pixelPetMode'
+  'pixelPet', 'pixelPetType', 'pixelPetMode',
+  'feedNotifications', 'seenPostLinks'
 ];
 
 function _authHeaders() {

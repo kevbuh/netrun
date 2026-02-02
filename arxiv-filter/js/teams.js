@@ -267,12 +267,33 @@ async function renderInbox() {
     const tasks = tasksResp.ok ? await tasksResp.json() : [];
     const chats = chatsResp.ok ? await chatsResp.json() : [];
 
-    if (!_cachedInvites.length && !messages.length && !tasks.length && !chats.length) {
+    const feedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
+
+    if (!_cachedInvites.length && !messages.length && !tasks.length && !chats.length && !feedNotifs.length) {
       container.innerHTML = '<div class="text-center py-20 text-dim text-sm">Nothing here yet</div>';
       return;
     }
 
     let html = '';
+
+    // New Posts from feeds
+    if (feedNotifs.length) {
+      html += '<div class="flex items-center justify-between mb-2"><div class="text-[0.75rem] text-dim uppercase tracking-wide">New Posts</div><button onclick="clearAllFeedNotifications(); renderInbox()" class="text-[0.68rem] text-dimmer hover:text-accent bg-transparent border-none cursor-pointer">Dismiss all</button></div>';
+      html += feedNotifs.slice(0, 20).map(n => {
+        const sourceChip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : `<span class="text-dim text-xs">${escapeHtml(n.source)}</span>`;
+        return `
+        <div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 border-l-accent border-l-2 cursor-pointer hover:border-border-input transition-colors" onclick="clearFeedNotification('${escapeAttr(n.link)}'); window.location.hash='view/' + encodeURIComponent('${escapeAttr(n.link)}')">
+          <span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>
+          ${sourceChip}
+          <span class="text-[0.82rem] text-primary truncate flex-1">${escapeHtml(n.title)}</span>
+          ${n.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(n.date)}</span>` : ''}
+        </div>`;
+      }).join('');
+      if (feedNotifs.length > 20) {
+        html += `<div class="text-dimmer text-[0.7rem] text-center py-1">+${feedNotifs.length - 20} more</div>`;
+      }
+      html += '<div class="mb-5"></div>';
+    }
 
     // Invites
     if (_cachedInvites.length) {
@@ -400,8 +421,11 @@ async function refreshInboxBadge() {
     const data = await resp.json();
     const badge = document.getElementById('inbox-badge');
     if (badge) {
-      if (data.total > 0) {
-        badge.textContent = data.total;
+      badge.dataset.serverCount = data.total || 0;
+      const feedCount = typeof _getFeedNotifications === 'function' ? _getFeedNotifications().length : 0;
+      const total = (data.total || 0) + feedCount;
+      if (total > 0) {
+        badge.textContent = total;
         badge.style.display = '';
       } else {
         badge.style.display = 'none';

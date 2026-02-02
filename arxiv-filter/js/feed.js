@@ -41,6 +41,78 @@ function updateSavedBadge() {
   }
 }
 
+// ── Feed Notifications ──
+function _getSeenPostLinks() {
+  try { return new Set(JSON.parse(localStorage.getItem('seenPostLinks') || '[]')); } catch { return new Set(); }
+}
+function _setSeenPostLinks(set) {
+  localStorage.setItem('seenPostLinks', JSON.stringify([...set]));
+}
+function _getFeedNotifications() {
+  try { return JSON.parse(localStorage.getItem('feedNotifications') || '[]'); } catch { return []; }
+}
+function _setFeedNotifications(arr) {
+  localStorage.setItem('feedNotifications', JSON.stringify(arr));
+}
+
+function _detectNewPosts() {
+  const seen = _getSeenPostLinks();
+  const isFirstRun = seen.size === 0;
+  const notifications = isFirstRun ? [] : _getFeedNotifications();
+
+  if (!isFirstRun) {
+    const existingLinks = new Set(notifications.map(n => n.link));
+    for (const p of allPapers) {
+      if (p.source === 'quote') continue;
+      if (!seen.has(p.link) && !existingLinks.has(p.link)) {
+        notifications.push({
+          title: p.title,
+          link: p.link,
+          source: p.source,
+          date: p.date || '',
+          seenAt: Date.now()
+        });
+      }
+    }
+    // Cap at 50 most recent
+    if (notifications.length > 50) notifications.splice(0, notifications.length - 50);
+    _setFeedNotifications(notifications);
+  }
+
+  // Mark all current links as seen
+  const updatedSeen = new Set(seen);
+  for (const p of allPapers) {
+    if (p.link) updatedSeen.add(p.link);
+  }
+  _setSeenPostLinks(updatedSeen);
+  _updateInboxBadgeWithFeed();
+}
+
+function _updateInboxBadgeWithFeed() {
+  const feedCount = _getFeedNotifications().length;
+  const badge = document.getElementById('inbox-badge');
+  if (!badge) return;
+  const serverCount = parseInt(badge.dataset.serverCount || '0', 10);
+  const total = serverCount + feedCount;
+  if (total > 0) {
+    badge.textContent = total;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function clearFeedNotification(link) {
+  const notifications = _getFeedNotifications().filter(n => n.link !== link);
+  _setFeedNotifications(notifications);
+  _updateInboxBadgeWithFeed();
+}
+
+function clearAllFeedNotifications() {
+  _setFeedNotifications([]);
+  _updateInboxBadgeWithFeed();
+}
+
 function getHiddenPosts() {
   try { return JSON.parse(localStorage.getItem('hiddenPosts') || '[]'); } catch { return []; }
 }
@@ -673,6 +745,7 @@ async function loadAllFeeds() {
   renderTrends();
   renderPapers();
   if (isQualityFilterOn()) qualityFilterPapers();
+  _detectNewPosts();
   startRefreshTimer();
 }
 
