@@ -38,7 +38,8 @@ from persistence import (
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
     get_public_user_info, get_user_public_stats, get_user_recent_comments,
-    get_user_shared_experiments, search_users,
+    get_user_shared_experiments, get_user_public_teams, search_users,
+    rename_team,
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages, update_team_message, delete_team_message,
@@ -1017,6 +1018,15 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'error': 'User not found'}, 404)
                     return
                 self._send_json(get_user_recent_comments(info['google_id']))
+            # /api/users/{username}/teams
+            elif (m := self._match(r'^/api/users/([^/]+)/teams$')):
+                username = url_unquote(m.group(1))
+                info = get_public_user_info(username)
+                if not info:
+                    self._send_json({'error': 'User not found'}, 404)
+                    return
+                teams = get_user_public_teams(info['google_id'])
+                self._send_json(teams)
             # /api/users/{username}/experiments
             elif (m := self._match(r'^/api/users/([^/]+)/experiments$')):
                 username = url_unquote(m.group(1))
@@ -2407,6 +2417,23 @@ ch.postMessage({type:'preview-ready'});
                 with open(fpath, 'w') as f:
                     f.write(body.get('content', ''))
                 self._send_json({'ok': True})
+
+        elif m := self._match(r'^/api/teams/(\d+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            body = self._read_body()
+            new_name = body.get('name', '').strip()
+            if not new_name:
+                self._send_json({'error': 'Name required'}, 400)
+                return
+            if rename_team(team_id, new_name, google_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not team owner'}, 403)
+            return
 
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/team$'):
             google_id = self._get_user()

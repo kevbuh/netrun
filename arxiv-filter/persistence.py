@@ -575,6 +575,31 @@ def delete_team(team_id, google_id):
     return True
 
 
+def rename_team(team_id, new_name, google_id):
+    conn = _get_db()
+    team = conn.execute("SELECT owner_google_id FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team or team['owner_google_id'] != google_id:
+        conn.close()
+        return False
+    conn.execute("UPDATE teams SET name = ? WHERE id = ?", (new_name, team_id))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_user_public_teams(google_id):
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT t.id, t.name,
+               (SELECT COUNT(*) FROM team_members WHERE team_id = t.id) AS member_count
+        FROM teams t
+        JOIN team_members tm ON tm.team_id = t.id AND tm.google_id = ?
+        ORDER BY t.name
+    """, (google_id,)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'name': r['name'], 'member_count': r['member_count']} for r in rows]
+
+
 def invite_to_team(team_id, from_google_id, to_username):
     conn = _get_db()
     # Check team exists and inviter is a member

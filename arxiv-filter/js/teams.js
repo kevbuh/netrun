@@ -538,8 +538,8 @@ async function showTeamDetailView(teamId) {
     // Populate sidebar header (matches exp-detail-title style)
     if (sidebarHeader) {
       sidebarHeader.innerHTML = `
-        <div class="text-[1.1rem] font-semibold text-white_ mb-1 truncate">${escapeHtml(team.name)}</div>
-        <div class="text-dimmer text-[0.72rem] mb-2">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
+        <div id="team-name-display" class="text-[1.1rem] font-semibold text-white_ mb-1 truncate${isOwner ? ' cursor-pointer hover:text-accent transition-colors' : ''}"${isOwner ? ' onclick="startRenameTeam()" title="Click to rename"' : ''}>${escapeHtml(team.name)}</div>
+        <div class="text-dimmer text-[0.72rem] mb-2 cursor-pointer hover:text-accent transition-colors" onclick="switchTeamTab('members')">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
       `;
     }
 
@@ -569,6 +569,57 @@ async function showTeamDetailView(teamId) {
   } catch (err) {
     if (pane) pane.innerHTML = `<div class="text-center py-10 text-red-400 text-sm">Failed to load team</div>`;
   }
+}
+
+function startRenameTeam() {
+  if (!_teamDetailData || !_teamDetailData.isOwner) return;
+  const el = document.getElementById('team-name-display');
+  if (!el) return;
+  const currentName = _teamDetailData.team.name;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentName;
+  input.className = 'text-[1.1rem] font-semibold text-white_ bg-transparent border-b-2 border-accent outline-none w-full';
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finishRenameTeam(input); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelRenameTeam(); }
+  };
+  input.onblur = () => finishRenameTeam(input);
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+async function finishRenameTeam(input) {
+  if (!_teamDetailData) return;
+  const newName = input.value.trim();
+  if (!newName || newName === _teamDetailData.team.name) {
+    cancelRenameTeam();
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/teams/${_teamDetailData.teamId}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    });
+    if (resp.ok) {
+      _teamDetailData.team.name = newName;
+    }
+  } catch (e) { console.error('Rename team error', e); }
+  cancelRenameTeam();
+}
+
+function cancelRenameTeam() {
+  if (!_teamDetailData) return;
+  const sidebarHeader = document.getElementById('team-sidebar-header');
+  if (!sidebarHeader) return;
+  const team = _teamDetailData.team;
+  const isOwner = _teamDetailData.isOwner;
+  sidebarHeader.innerHTML = `
+    <div id="team-name-display" class="text-[1.1rem] font-semibold text-white_ mb-1 truncate${isOwner ? ' cursor-pointer hover:text-accent transition-colors' : ''}"${isOwner ? ' onclick="startRenameTeam()" title="Click to rename"' : ''}>${escapeHtml(team.name)}</div>
+    <div class="text-dimmer text-[0.72rem] mb-2 cursor-pointer hover:text-accent transition-colors" onclick="switchTeamTab('members')">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
+  `;
 }
 
 function switchTeamTab(tab) {

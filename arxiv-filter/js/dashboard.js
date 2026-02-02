@@ -34,15 +34,17 @@ async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
-  const [expResp, calResp, tasksResp] = await Promise.all([
+  const [expResp, calResp, tasksResp, teamsResp] = await Promise.all([
     fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/my-tasks', { headers: _authHeaders() }).then(r => r.json()).catch(() => [])
+    fetch('/api/my-tasks', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
+    fetch('/api/teams', { headers: _authHeaders() }).then(r => r.json()).catch(() => [])
   ]);
 
   const experiments = expResp || [];
   const events = calResp || [];
   const myTasks = tasksResp || [];
+  const teams = teamsResp || [];
 
   const mergedSaved = getSavedPosts();
 
@@ -366,6 +368,24 @@ async function renderDashboard() {
           </div>
           ${quotesHtml}
         </div>
+
+        ${teams.length ? `<div class="mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.9rem] font-semibold text-primary">Teams</h3>
+            <button onclick="openTeams()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
+          </div>
+          <div class="flex flex-col gap-2">${teams.map(t => `
+            <div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openTeams(); showTeamDetailView(${t.id})">
+              <div class="flex items-center gap-2.5">
+                ${typeof _pixelArt === 'function' ? _pixelArt(t.name) : ''}
+                <div class="min-w-0 flex-1">
+                  <div class="text-[0.85rem] font-medium text-primary truncate">${escapeHtml(t.name)}</div>
+                  <div class="text-[0.72rem] text-dimmer mt-0.5">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            </div>
+          `).join('')}</div>
+        </div>` : ''}
       </div>
     </div>
   `;

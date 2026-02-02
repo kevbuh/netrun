@@ -691,10 +691,11 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profileRes, commentsRes, experimentsRes] = await Promise.all([
+    const [profileRes, commentsRes, experimentsRes, teamsRes] = await Promise.all([
       fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
+      fetch('/api/users/' + encodeURIComponent(username) + '/teams', { headers: _authHeaders() }),
     ]);
 
     if (!profileRes.ok) {
@@ -705,6 +706,7 @@ async function renderUserProfile(username) {
     const profile = await profileRes.json();
     const comments = await commentsRes.json();
     const experiments = await experimentsRes.json();
+    const teams = teamsRes.ok ? await teamsRes.json() : [];
 
     const joinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
     const isOwnProfile = _authUserInfo && _authUserInfo.username === profile.username;
@@ -747,6 +749,21 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
+    // Teams section
+    if (teams.length) {
+      html += `<div class="mb-8">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Teams</h3>
+        <div class="flex flex-col gap-2">`;
+      for (const t of teams) {
+        html += `
+          <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="openTeams(); showTeamDetailView(${t.id})">
+            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
+            <div class="text-dimmer text-[0.75rem] mt-1">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
+          </div>`;
+      }
+      html += '</div></div>';
+    }
+
     // Recent comments section
     if (comments.length) {
       html += `<div class="mb-8">
@@ -764,7 +781,7 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
-    if (!experiments.length && !comments.length) {
+    if (!experiments.length && !comments.length && !teams.length) {
       html += '<div class="text-dimmer text-sm mt-4">No shared activity yet.</div>';
     }
 
