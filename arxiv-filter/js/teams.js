@@ -423,6 +423,10 @@ function openTeams() {
 }
 
 async function renderTeamsView() {
+  const listEl = document.getElementById('teams-view-list');
+  const detailEl = document.getElementById('teams-view-detail');
+  if (listEl) listEl.classList.remove('hidden');
+  if (detailEl) detailEl.classList.add('hidden');
   const container = document.getElementById('teams-view-content');
   if (!container) return;
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
@@ -483,14 +487,23 @@ async function confirmDeleteTeamView(teamId, name) {
 }
 
 let _lastTeamDetailId = null;
+let _teamDetailData = null;
 
 async function showTeamDetailView(teamId) {
   _lastTeamDetailId = teamId;
-  const container = document.getElementById('teams-view-content');
-  if (!container) return;
-  container.innerHTML = '<div class="text-center py-10 text-dim"><div class="spinner"></div></div>';
-  const formEl = document.getElementById('teams-view-create-form');
-  if (formEl) formEl.innerHTML = '';
+  const listEl = document.getElementById('teams-view-list');
+  const detailEl = document.getElementById('teams-view-detail');
+  if (listEl) listEl.classList.add('hidden');
+  if (detailEl) detailEl.classList.remove('hidden');
+
+  // Show loading in content pane
+  const pane = document.getElementById('team-content-pane');
+  if (pane) pane.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
+  const sidebarHeader = document.getElementById('team-sidebar-header');
+  const sidebarTabs = document.getElementById('team-sidebar-tabs');
+  if (sidebarHeader) sidebarHeader.innerHTML = '';
+  if (sidebarTabs) sidebarTabs.innerHTML = '';
+
   try {
     const [teamResp, expResp, ownExpResp, chatResp, todosResp] = await Promise.all([
       fetch(`/api/teams/${teamId}`, { headers: _authHeaders() }),
@@ -519,9 +532,69 @@ async function showTeamDetailView(teamId) {
       if (e.team_id === teamId && !seen.has(e.id)) { seen.add(e.id); teamExps.push(e); }
     }
 
-    const experimentsHtml = teamExps.length ? `
-      <div class="mb-6">
-        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Experiments</h4>
+    // Store data for tab switching
+    _teamDetailData = { teamId, team, teamExps, chatMessages, teamTodos, isOwner };
+
+    // Populate sidebar header
+    if (sidebarHeader) {
+      sidebarHeader.innerHTML = `
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-base font-bold">${escapeHtml(team.name[0].toUpperCase())}</div>
+          <div class="min-w-0">
+            <div class="text-white_ text-[0.85rem] font-semibold truncate">${escapeHtml(team.name)}</div>
+            <div class="text-dimmer text-[0.7rem]">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Populate sidebar tabs
+    const openTodos = teamTodos.filter(t => !t.done);
+    const tabs = [
+      { key: 'experiments', icon: '🧪', label: 'Experiments', count: teamExps.length },
+      { key: 'tasks', icon: '✓', label: 'Tasks', count: openTodos.length },
+      { key: 'members', icon: '👥', label: 'Members', count: team.members.length },
+      { key: 'chat', icon: '💬', label: 'Chat', count: chatMessages.length },
+    ];
+    if (sidebarTabs) {
+      sidebarTabs.innerHTML = tabs.map(t => `
+        <div id="team-tab-${t.key}" class="flex items-center gap-2.5 py-2 px-2 rounded-md cursor-pointer hover:bg-card/50 transition-colors text-[0.82rem]"
+             onclick="switchTeamTab('${t.key}')">
+          <span class="w-5 text-center text-[0.75rem]">${t.icon}</span>
+          <span class="text-primary flex-1">${t.label}</span>
+          <span class="text-dimmest text-[0.7rem]">${t.count}</span>
+        </div>
+      `).join('');
+    }
+
+    // Default to chat tab
+    switchTeamTab('chat');
+  } catch (err) {
+    if (pane) pane.innerHTML = `<div class="text-center py-10 text-red-400 text-sm">Failed to load team</div>`;
+  }
+}
+
+function switchTeamTab(tab) {
+  if (!_teamDetailData) return;
+  const { teamId, team, teamExps, chatMessages, teamTodos, isOwner } = _teamDetailData;
+  const pane = document.getElementById('team-content-pane');
+  if (!pane) return;
+
+  // Highlight active tab
+  ['experiments', 'tasks', 'members', 'chat'].forEach(k => {
+    const el = document.getElementById('team-tab-' + k);
+    if (el) {
+      if (k === tab) {
+        el.classList.add('bg-card');
+      } else {
+        el.classList.remove('bg-card');
+      }
+    }
+  });
+
+  if (tab === 'experiments') {
+    pane.innerHTML = teamExps.length ? `
+      <div class="px-4 pt-4">
         <div class="grid grid-cols-1 gap-2">
           ${teamExps.map(exp => `
             <a href="#experiment/${exp.id}" class="flex items-center gap-3 p-3 rounded-lg border border-border-card bg-card hover:border-border-input transition-colors" style="text-decoration:none">
@@ -534,22 +607,17 @@ async function showTeamDetailView(teamId) {
           `).join('')}
         </div>
       </div>
-    ` : `
-      <div class="mb-6">
-        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Experiments</h4>
-        <div class="text-dimmer text-xs">No experiments shared with this team yet. Assign a team to an experiment from the experiment detail page.</div>
-      </div>
-    `;
+    ` : `<div class="px-4 pt-4 text-dimmer text-xs">No experiments shared with this team yet. Assign a team to an experiment from the experiment detail page.</div>`;
 
+  } else if (tab === 'tasks') {
     const priorityColors = { high: '#f87171', medium: '#fbbf24', low: '#6ee7b7' };
     const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
     const openTodos = teamTodos.filter(t => !t.done);
     const doneTodos = teamTodos.filter(t => t.done);
     const memberOpts = team.members.map(m => `<option value="${escapeAttr(m.google_id)}">${escapeHtml(m.username || 'unknown')}</option>`).join('');
 
-    const todosHtml = `
-      <div class="mb-6">
-        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Tasks</h4>
+    pane.innerHTML = `
+      <div class="px-4 pt-4">
         <div id="team-todos-list-${teamId}">
           ${openTodos.length ? openTodos.map(todo => `
             <div class="flex items-start gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 group">
@@ -603,46 +671,39 @@ async function showTeamDetailView(teamId) {
       </div>
     `;
 
-    container.innerHTML = `
-      <div class="mb-4">
-        <button onclick="renderTeamsView()" class="text-xs text-muted hover:text-primary cursor-pointer bg-transparent border-none">&larr; Back to teams</button>
-      </div>
-      <div class="flex items-center gap-3 mb-6">
-        <div class="w-12 h-12 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-xl font-bold">${escapeHtml(team.name[0].toUpperCase())}</div>
-        <div>
-          <div class="text-white_ text-lg font-semibold">${escapeHtml(team.name)}</div>
-          <div class="text-dimmer text-xs">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
-        </div>
-      </div>
-      ${experimentsHtml}
-      ${todosHtml}
-      <div class="mb-6">
-        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Members</h4>
-        ${team.members.map(m => `
-          <div class="flex items-center justify-between py-2.5 px-1 border-b border-border-subtle last:border-0">
-            <div class="flex items-center gap-2.5">
-              ${m.picture
-                ? `<img src="${escapeAttr(m.picture)}" class="w-7 h-7 rounded-full" referrerpolicy="no-referrer" />`
-                : `<div class="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold">${escapeHtml((m.username || '?')[0].toUpperCase())}</div>`
-              }
-              <a href="#profile/${encodeURIComponent(m.username || 'unknown')}" class="text-primary text-sm hover:text-accent" style="text-decoration:none">${escapeHtml(m.username || 'unknown')}</a>
-              ${m.role === 'owner' ? '<span class="text-accent text-[0.65rem] font-medium ml-1">owner</span>' : ''}
+  } else if (tab === 'members') {
+    pane.innerHTML = `
+      <div class="px-4 pt-4">
+        <div class="mb-6">
+          ${team.members.map(m => `
+            <div class="flex items-center justify-between py-2.5 px-1 border-b border-border-subtle last:border-0">
+              <div class="flex items-center gap-2.5">
+                ${m.picture
+                  ? `<img src="${escapeAttr(m.picture)}" class="w-7 h-7 rounded-full" referrerpolicy="no-referrer" />`
+                  : `<div class="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold">${escapeHtml((m.username || '?')[0].toUpperCase())}</div>`
+                }
+                <a href="#profile/${encodeURIComponent(m.username || 'unknown')}" class="text-primary text-sm hover:text-accent" style="text-decoration:none">${escapeHtml(m.username || 'unknown')}</a>
+                ${m.role === 'owner' ? '<span class="text-accent text-[0.65rem] font-medium ml-1">owner</span>' : ''}
+              </div>
+              ${isOwner && m.role !== 'owner' ? `<button onclick="removeTeamMemberView(${teamId}, '${m.google_id}')" class="text-xs text-red-400/60 hover:text-red-400 cursor-pointer bg-transparent border-none">Remove</button>` : ''}
             </div>
-            ${isOwner && m.role !== 'owner' ? `<button onclick="removeTeamMemberView(${teamId}, '${m.google_id}')" class="text-xs text-red-400/60 hover:text-red-400 cursor-pointer bg-transparent border-none">Remove</button>` : ''}
-          </div>
-        `).join('')}
-      </div>
-      <div class="mb-6">
-        <h4 class="text-muted text-xs font-semibold mb-2 uppercase tracking-wide">Invite Member</h4>
-        <div class="flex gap-2">
-          <input type="text" id="teams-view-invite-${teamId}" placeholder="Username" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();inviteToTeamView(${teamId})}">
-          <button onclick="inviteToTeamView(${teamId})" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Invite</button>
+          `).join('')}
         </div>
-        <div id="teams-view-invite-msg-${teamId}" class="text-xs mt-1.5 h-4"></div>
+        <div class="mb-6">
+          <h4 class="text-muted text-xs font-semibold mb-2 uppercase tracking-wide">Invite Member</h4>
+          <div class="flex gap-2">
+            <input type="text" id="teams-view-invite-${teamId}" placeholder="Username" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();inviteToTeamView(${teamId})}">
+            <button onclick="inviteToTeamView(${teamId})" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Invite</button>
+          </div>
+          <div id="teams-view-invite-msg-${teamId}" class="text-xs mt-1.5 h-4"></div>
+        </div>
       </div>
-      <div>
-        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Team Chat</h4>
-        <div id="team-chat-messages-${teamId}" class="max-h-[400px] overflow-y-auto mb-3 flex flex-col gap-2">
+    `;
+
+  } else if (tab === 'chat') {
+    pane.innerHTML = `
+      <div class="flex flex-col h-full">
+        <div id="team-chat-messages-${teamId}" class="flex-1 overflow-y-auto px-4 pt-4 flex flex-col gap-2">
           ${chatMessages.length ? chatMessages.map(m => {
             const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(m.timestamp) : '';
             const currentUser = _authUserInfo && _authUserInfo.username;
@@ -669,7 +730,7 @@ async function showTeamDetailView(teamId) {
             </div>`;
           }).join('') : '<div class="text-dimmer text-xs text-center py-4">No messages yet. Start the conversation!</div>'}
         </div>
-        <div class="flex gap-2 items-center" style="position:relative">
+        <div class="flex gap-2 items-center px-4 py-3 border-t border-border-card" style="position:relative">
           <input type="text" id="team-chat-input-${teamId}" placeholder="Type a message..." class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();sendTeamChatMessage(${teamId})}">
           <button onclick="toggleFileRefPicker(${teamId}, this)" class="bg-transparent border border-border-input text-muted text-sm px-2 py-1.5 rounded-md cursor-pointer hover:text-primary hover:border-accent transition-colors" title="Reference a file" style="line-height:1">📎</button>
           <button onclick="sendTeamChatMessage(${teamId})" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Send</button>
@@ -681,8 +742,6 @@ async function showTeamDetailView(teamId) {
       const chatEl = document.getElementById('team-chat-messages-' + teamId);
       if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
     }, 50);
-  } catch (err) {
-    container.innerHTML = `<div class="text-center py-10 text-red-400 text-sm">Failed to load team</div>`;
   }
 }
 
