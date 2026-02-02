@@ -48,7 +48,7 @@ from persistence import (
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
-    get_public_user_info, get_user_public_stats, get_user_recent_comments,
+    get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, get_user_reposts,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
     set_profile_private, are_teammates,
@@ -1039,6 +1039,17 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json([])
                     return
                 self._send_json(get_user_recent_comments(info['google_id']))
+            # /api/users/{username}/reposts
+            elif (m := self._match(r'^/api/users/([^/]+)/reposts$')):
+                username = url_unquote(m.group(1))
+                info = get_public_user_info(username)
+                if not info:
+                    self._send_json({'error': 'User not found'}, 404)
+                    return
+                if info['profile_private'] and info['google_id'] != google_id and not are_teammates(google_id, info['google_id']):
+                    self._send_json([])
+                    return
+                self._send_json(get_user_reposts(info['google_id']))
             # /api/users/{username}/teams
             elif (m := self._match(r'^/api/users/([^/]+)/teams$')):
                 username = url_unquote(m.group(1))
@@ -2211,6 +2222,21 @@ ch.postMessage({type:'preview-ready'});
                 return
             comment = db_create_comment(google_id, body)
             self._send_json(comment, 201)
+
+        elif self.path == '/api/reposts':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            paper_link = body.get('paperLink', '').strip()
+            paper_title = body.get('paperTitle', '').strip()
+            username = body.get('username', '').strip()
+            if not paper_link:
+                self._send_json({'error': 'paperLink required'}, 400)
+                return
+            repost = create_repost(google_id, username, paper_link, paper_title)
+            self._send_json(repost, 201)
 
         elif self.path == '/api/saved-content':
             body = self._read_body()

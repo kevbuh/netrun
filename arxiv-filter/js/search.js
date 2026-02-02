@@ -403,6 +403,15 @@ function _browseRestoreTabs() {
   } catch { return false; }
 }
 
+let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
+
+function _browseGoBack() {
+  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openCalendar === 'function' ? openCalendar : null, settings: typeof openSettings === 'function' ? openSettings : null };
+  const fn = nav[_browseReturnView];
+  _browseReturnView = null;
+  if (fn) fn(); else goHome();
+}
+
 function openBrowse(url) {
   hideAllViews();
   // Clear paper-sidebar to avoid duplicate IDs
@@ -440,6 +449,9 @@ function openBrowse(url) {
     }
   }
   _browseInstallPinchOverlay();
+  // Show/hide return button
+  const retBtn = document.getElementById('browse-return-btn');
+  if (retBtn) retBtn.style.display = _browseReturnView ? '' : 'none';
 }
 
 function browseNewTab(url) {
@@ -708,6 +720,14 @@ function browseReload() {
 }
 
 let _browseZoomLevel = 1.0;
+let _browseZoomHideTimer = null;
+function _browseShowZoomControls() {
+  const controls = document.getElementById('browse-zoom-controls');
+  if (!controls) return;
+  controls.style.display = 'flex';
+  clearTimeout(_browseZoomHideTimer);
+  _browseZoomHideTimer = setTimeout(() => { controls.style.display = 'none'; }, 1500);
+}
 function browseZoom(dir) {
   if (dir === 0) _browseZoomLevel = 1.0;
   else _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + dir * 0.1));
@@ -726,6 +746,8 @@ function _browseApplyZoom() {
   }
   const label = document.getElementById('browse-zoom-level');
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
+  // Show zoom controls briefly
+  _browseShowZoomControls();
 }
 // Pinch-to-zoom (trackpad pinch fires wheel with ctrlKey)
 document.addEventListener('wheel', function(e) {

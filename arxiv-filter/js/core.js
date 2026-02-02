@@ -745,11 +745,12 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profileRes, commentsRes, experimentsRes, teamsRes] = await Promise.all([
+    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes] = await Promise.all([
       fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/teams', { headers: _authHeaders() }),
+      fetch('/api/users/' + encodeURIComponent(username) + '/reposts', { headers: _authHeaders() }),
     ]);
 
     if (!profileRes.ok) {
@@ -761,6 +762,7 @@ async function renderUserProfile(username) {
     const comments = await commentsRes.json();
     const experiments = await experimentsRes.json();
     const teams = teamsRes.ok ? await teamsRes.json() : [];
+    const reposts = repostsRes.ok ? await repostsRes.json() : [];
 
     // Handle private profiles
     if (profile.profile_private) {
@@ -800,6 +802,7 @@ async function renderUserProfile(username) {
 
       <div class="flex gap-6 mb-8 text-[0.82rem]">
         <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
+        <div><span class="text-white_ font-semibold">${profile.repost_count || 0}</span> <span class="text-dimmer">reposts</span></div>
         <div><span class="text-white_ font-semibold">${profile.team_count || 0}</span> <span class="text-dimmer">teams</span></div>
         <div><span class="text-white_ font-semibold">${profile.experiment_count || 0}</span> <span class="text-dimmer">experiments</span></div>
       </div>
@@ -853,7 +856,27 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
-    if (!experiments.length && !comments.length && !teams.length) {
+    // Reposts section
+    if (reposts.length) {
+      html += `<div class="mb-8">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Reposts</h3>
+        <div class="flex flex-col gap-2">`;
+      for (const r of reposts) {
+        const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
+        const hostname = (() => { try { return new URL(r.paperLink).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+        html += `
+          <a href="#view/${encodeURIComponent(r.paperLink)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-green-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+              <div class="text-[0.78rem] text-primary leading-relaxed truncate">${escapeHtml(r.paperTitle || r.paperLink)}</div>
+            </div>
+            <div class="text-dimmer text-[0.7rem] mt-1">${hostname ? escapeHtml(hostname) + ' · ' : ''}${timeAgo}</div>
+          </a>`;
+      }
+      html += '</div></div>';
+    }
+
+    if (!experiments.length && !comments.length && !teams.length && !reposts.length) {
       html += '<div class="text-dimmer text-sm mt-4">No shared activity yet.</div>';
     }
 

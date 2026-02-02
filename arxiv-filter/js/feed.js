@@ -1085,14 +1085,14 @@ function renderPapers() {
       const isRead = readSet.has(p.link);
       const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
       const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
-      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors group${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
-        ${newDot}${sourceChip}
-        <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
-        <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${isPostSaved(p.link) ? 'var(--accent)' : 'none'}" stroke="${isPostSaved(p.link) ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
-          <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
-        </span>
-        ${date}
+      return `<div class="group${isRead ? ' opacity-50' : ''}">
+        <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i})">
+          ${newDot}${sourceChip}
+          <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
+          <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i)}</span>
+          ${date}
+        </div>
+        ${_cardCommentContainer(p, i)}
       </div>`;
     }).join('') + `</div>`;
   } else if (feedViewMode === 'verbose') {
@@ -1124,17 +1124,14 @@ function renderPapers() {
       const cardImg = cardImgSrc
         ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
         : pixelFallback;
-      const actionBtns = `<div class="flex items-center gap-0.5 shrink-0 ml-auto">
-        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
-        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
-      </div>`;
       return `
       <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
         <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[1rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
         ${authors}
         ${fullDesc ? `<div class="text-[0.82rem] text-muted leading-relaxed mt-2">${escapeHtml(fullDesc)}</div>` : ''}
         ${categories}
-        <div class="flex gap-2 flex-wrap items-center mt-3"><span class="text-[0.72rem] text-dim">${escapeHtml(sourceName)}</span>${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${actionBtns}</div>
+        <div class="flex gap-2 flex-wrap items-center mt-3"><span class="text-[0.72rem] text-dim">${escapeHtml(sourceName)}</span>${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
+        ${_cardCommentContainer(p, i)}
       </div>`;
     }).join('') + `</div>`;
   } else if (feedViewMode === 'twitter') {
@@ -1184,7 +1181,7 @@ function renderPapers() {
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
                 <span class="text-[0.72rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${_tweetCommentCounts[p.link] || ''}</span>
               </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-green-400 transition-colors" onclick="event.stopPropagation(); _tweetRepost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}', this)">
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ${_isReposted(p.link) ? '' : 'text-dimmer hover:text-green-400'}" style="${_isReposted(p.link) ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
                 <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
               </button>
@@ -1223,13 +1220,6 @@ function renderPapers() {
       const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
       const userRating = getPaperRating(p.link);
       const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-      const isSaved = isPostSaved(p.link);
-      const bmFill = isSaved ? 'var(--accent)' : 'none';
-      const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
-      const actionBtns = `<div class="flex items-center gap-0.5 shrink-0 ml-auto">
-        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
-        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
-      </div>`;
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
       const isRead = readSet.has(p.link);
       const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
@@ -1243,27 +1233,26 @@ function renderPapers() {
       <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
         <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
         ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
-        <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${actionBtns}</div>
+        <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
+        ${_cardCommentContainer(p, i)}
       </div>`;
     }).join('');
   }
   fetchCitationsFor(visible);
-  // Twitter view: fetch comment counts & re-expand open sections
-  if (feedViewMode === 'twitter') {
-    _fetchTweetCommentCounts(visible);
-    visible.forEach((p, i) => {
-      if (_tweetCommentsOpen.has(p.link)) {
-        const container = document.getElementById('tweet-comments-' + i);
-        if (container) {
-          container.style.display = 'block';
-          fetch('/api/comments?paperLink=' + encodeURIComponent(p.link))
-            .then(r => r.json())
-            .then(comments => _renderTweetComments(container, comments, p.link, i))
-            .catch(() => {});
-        }
+  // Fetch comment counts & re-expand open comment sections
+  _fetchTweetCommentCounts(visible);
+  visible.forEach((p, i) => {
+    if (_tweetCommentsOpen.has(p.link)) {
+      const container = document.getElementById('tweet-comments-' + i);
+      if (container) {
+        container.style.display = 'block';
+        fetch('/api/comments?paperLink=' + encodeURIComponent(p.link))
+          .then(r => r.json())
+          .then(comments => _renderTweetComments(container, comments, p.link, i))
+          .catch(() => {});
       }
-    });
-  }
+    }
+  });
 }
 
 // ── Twitter view: inline comments & repost ──
@@ -1423,35 +1412,70 @@ function _hideTweetReply(id) {
   if (el) el.classList.add('hidden');
 }
 
-function _tweetRepost(link, title, btn) {
+function _getRepostedLinks() {
+  try { return JSON.parse(localStorage.getItem('repostedLinks') || '[]'); } catch { return []; }
+}
+function _isReposted(link) { return _getRepostedLinks().includes(link); }
+function _markReposted(link) {
+  const links = _getRepostedLinks();
+  if (!links.includes(link)) { links.push(link); localStorage.setItem('repostedLinks', JSON.stringify(links)); }
+}
+
+function _tweetRepost(idx, btn) {
+  const p = lastFilteredPapers[idx];
+  if (!p) return;
+  // Toggle: if already reposted, just ignore
+  if (_isReposted(p.link)) return;
   // Animate the repost icon
   const svg = btn.querySelector('svg');
   if (svg) {
-    btn.style.color = 'var(--accent)';
     svg.style.transition = 'transform 0.4s cubic-bezier(.4,2,.6,1)';
     svg.style.transform = 'scale(1.4) rotate(360deg)';
     setTimeout(() => {
       svg.style.transform = 'scale(1) rotate(0deg)';
-      setTimeout(() => { btn.style.color = ''; svg.style.transition = ''; }, 400);
+      setTimeout(() => { svg.style.transition = ''; }, 400);
     }, 400);
   }
-  if (navigator.share) {
-    navigator.share({ title, url: link }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(link).then(() => {
-      // Show "Copied!" tooltip
-      const tip = document.createElement('span');
-      tip.textContent = 'Copied!';
-      tip.style.cssText = 'position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);font-size:0.65rem;color:var(--accent);background:var(--bg-popup);border:1px solid var(--border-card);border-radius:4px;padding:2px 6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:50;';
-      btn.style.position = 'relative';
-      btn.appendChild(tip);
-      requestAnimationFrame(() => { tip.style.opacity = '1'; });
-      setTimeout(() => {
-        tip.style.opacity = '0';
-        setTimeout(() => tip.remove(), 200);
-      }, 1000);
-    });
-  }
+  // Keep it green
+  btn.style.color = 'rgb(74, 222, 128)';
+  btn.dataset.reposted = '1';
+  _markReposted(p.link);
+  // Save repost to server
+  const username = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
+  fetch('/api/reposts', {
+    method: 'POST',
+    headers: _authHeaders(),
+    body: JSON.stringify({ paperLink: p.link, paperTitle: p.title, username })
+  }).then(r => { if (!r.ok) console.error('Repost failed:', r.status); })
+    .catch(e => console.error('Repost error:', e));
+}
+
+// Shared comment & repost action buttons for all card views
+function _cardActionRow(p, i) {
+  const isSaved = isPostSaved(p.link);
+  const bmFill = isSaved ? 'var(--accent)' : 'none';
+  const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+  const commentCount = _tweetCommentCounts[p.link] || '';
+  const reposted = _isReposted(p.link);
+  return `<div class="flex items-center gap-3 shrink-0 ml-auto">
+    <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})" title="Comments">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+      <span class="text-[0.68rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${commentCount}</span>
+    </button>
+    <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ${reposted ? '' : 'text-dimmer hover:text-green-400'}" style="${reposted ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)" title="Repost">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+    </button>
+    <button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--text-dimmer)' : 'var(--accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+    </button>
+    <button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
+      <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+    </button>
+  </div>`;
+}
+
+function _cardCommentContainer(p, i) {
+  return `<div id="tweet-comments-${i}" style="display:${_tweetCommentsOpen.has(p.link) ? 'block' : 'none'}"></div>`;
 }
 
 // Infinite scroll

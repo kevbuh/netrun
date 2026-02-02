@@ -271,8 +271,7 @@ async function renderInbox() {
 
     if (!_cachedInvites.length && !messages.length && !tasks.length && !chats.length && !feedNotifs.length) {
       container.innerHTML = `<div class="py-10 max-w-md mx-auto">
-        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg">
-          <input type="checkbox" disabled class="mt-0.5 accent-accent shrink-0">
+        <div class="p-4 bg-card border border-border-card rounded-lg">
           <div class="text-[0.88rem] text-primary">Hello! Welcome to your inbox. New posts, invites, and messages will show up here.</div>
         </div>
       </div>`;
@@ -284,10 +283,10 @@ async function renderInbox() {
     // New Posts from feeds
     if (feedNotifs.length) {
       html += '<div class="flex items-center justify-between mb-2"><div class="text-[0.75rem] text-dim uppercase tracking-wide">New Posts</div><button onclick="clearAllFeedNotifications(); renderInbox()" class="text-[0.68rem] text-dimmer hover:text-accent bg-transparent border-none cursor-pointer">Dismiss all</button></div>';
-      html += feedNotifs.slice(0, 20).map(n => {
+      html += feedNotifs.slice().sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0)).slice(0, 20).map(n => {
         const sourceChip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : `<span class="text-dim text-xs">${escapeHtml(n.source)}</span>`;
         return `
-        <div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 border-l-accent border-l-2 cursor-pointer hover:border-border-input transition-colors" onclick="clearFeedNotification('${escapeAttr(n.link)}'); window.location.hash='view/' + encodeURIComponent('${escapeAttr(n.link)}')">
+        <div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 border-l-accent border-l-2 cursor-pointer hover:border-border-input transition-colors" onclick="clearFeedNotification('${escapeAttr(n.link)}'); _browseReturnView='inbox'; openBrowse('${escapeAttr(n.link)}')">
           <span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>
           ${sourceChip}
           <span class="text-[0.82rem] text-primary truncate flex-1">${escapeHtml(n.title)}</span>

@@ -1496,6 +1496,7 @@ function openPaper(index) {
   const paper = lastFilteredPapers[index];
   if (!paper) return;
   markPostAsRead(paper.link);
+  _browseReturnView = _lastActiveView || 'feed';
   openBrowse(paper.link);
 }
 

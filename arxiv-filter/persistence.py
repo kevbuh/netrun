@@ -6,6 +6,7 @@ import time
 import urllib.request
 import sqlite3
 import secrets
+import uuid
 
 DIR = os.environ.get('ARXIV_DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
 CACHE_TTL = 600  # 10 minutes
@@ -344,6 +345,15 @@ def init_db():
             emoji TEXT NOT NULL,
             timestamp REAL NOT NULL,
             PRIMARY KEY (message_id, google_id, emoji)
+        );
+
+        CREATE TABLE IF NOT EXISTS reposts (
+            id TEXT PRIMARY KEY,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            username TEXT,
+            paper_link TEXT NOT NULL,
+            paper_title TEXT,
+            timestamp REAL NOT NULL
         );
     """)
     # Migration: add profile_private column to users
@@ -1083,11 +1093,15 @@ def get_user_public_stats(google_id):
     experiment_count = conn.execute(
         "SELECT COUNT(*) as c FROM experiment_owners WHERE google_id = ?", (google_id,)
     ).fetchone()['c']
+    repost_count = conn.execute(
+        "SELECT COUNT(*) as c FROM reposts WHERE google_id = ?", (google_id,)
+    ).fetchone()['c']
     conn.close()
     return {
         'comment_count': comment_count,
         'team_count': team_count,
-        'experiment_count': experiment_count
+        'experiment_count': experiment_count,
+        'repost_count': repost_count
     }
 
 
@@ -1101,6 +1115,30 @@ def get_user_recent_comments(google_id, limit=20):
     conn.close()
     return [{'id': r['id'], 'paperLink': r['paper_link'], 'content': r['content'],
              'author': r['author'], 'timestamp': r['timestamp']} for r in rows]
+
+
+def create_repost(google_id, username, paper_link, paper_title):
+    conn = _get_db()
+    repost_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO reposts (id, google_id, username, paper_link, paper_title, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+        (repost_id, google_id, username, paper_link, paper_title, time.time() * 1000)
+    )
+    conn.commit()
+    conn.close()
+    return {'id': repost_id, 'paperLink': paper_link, 'paperTitle': paper_title,
+            'username': username, 'timestamp': time.time() * 1000}
+
+
+def get_user_reposts(google_id, limit=20):
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT id, paper_link, paper_title, username, timestamp FROM reposts WHERE google_id = ? ORDER BY timestamp DESC LIMIT ?",
+        (google_id, limit)
+    ).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'paperLink': r['paper_link'], 'paperTitle': r['paper_title'],
+             'username': r['username'], 'timestamp': r['timestamp']} for r in rows]
 
 
 def get_user_shared_experiments(viewer_google_id, target_google_id):
