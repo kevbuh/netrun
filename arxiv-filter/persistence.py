@@ -1457,5 +1457,244 @@ def get_my_assigned_todos(google_id):
              'author': r['author'], 'team_name': r['team_name']} for r in rows]
 
 
+# ── Ad Block Rules ──
+
+ADBLOCK_RULES_FILE = os.path.join(DIR, 'adblock_rules.json')
+
+DEFAULT_ADBLOCK_RULES = {
+    'domains': [
+        'doubleclick.net', 'googlesyndication.com', 'googletagmanager.com',
+        'googleadservices.com', 'google-analytics.com', 'adnxs.com',
+        'taboola.com', 'outbrain.com', 'hotjar.com', 'criteo.com',
+        'amazon-adsystem.com', 'facebook.net', 'fbcdn.net',
+        'scorecardresearch.com', 'quantserve.com', 'adsrvr.org',
+        'rubiconproject.com', 'pubmatic.com', 'casalemedia.com',
+        'moatads.com', 'chartbeat.com', 'newrelic.com', 'optimizely.com',
+        'mixpanel.com', 'segment.io', 'amplitude.com',
+    ],
+    'selectors': [
+        '[class*="advertisement"]', '[class*="ad-banner"]', '[class*="ad-slot"]',
+        '[class*="ad-container"]', '[class*="ad-wrapper"]', '[class*="ad-unit"]',
+        '[id*="google_ads"]', '[id*="ad-banner"]', '[id*="ad-slot"]',
+        '[class*="sponsored"]', '[class*="promotion"]', '[class*="promo-"]',
+        '[data-ad]', '[data-ad-slot]', '[data-google-query-id]',
+        '.adsbygoogle', '#carbonads', '.carbon-wrap',
+        '[class*="taboola"]', '[class*="outbrain"]',
+    ],
+    'scriptPatterns': [
+        r'/ads[./]', r'adsbygoogle', r'googletag', r'doubleclick',
+        r'analytics\.js', r'gtag/js', r'gtm\.js', r'fbevents',
+        r'hotjar', r'taboola', r'outbrain', r'chartbeat',
+    ],
+}
+
+
+def read_adblock_rules():
+    if os.path.exists(ADBLOCK_RULES_FILE):
+        try:
+            with open(ADBLOCK_RULES_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return DEFAULT_ADBLOCK_RULES
+
+
+def write_adblock_rules(rules):
+    with open(ADBLOCK_RULES_FILE, 'w') as f:
+        json.dump(rules, f, indent=2)
+
+
+def clean_html(html_str, base_url):
+    """Strip ads, trackers, and sponsored content from HTML.
+    Returns (cleaned_html, blocked_count)."""
+    from html.parser import HTMLParser
+    from urllib.parse import urljoin, urlparse
+
+    rules = read_adblock_rules()
+    blocked_domains = set(rules.get('domains', []))
+    selectors = rules.get('selectors', [])
+    script_patterns = [re.compile(p, re.IGNORECASE) for p in rules.get('scriptPatterns', [])]
+
+    # Build selector matchers: extract class/id substrings
+    _class_matches = []
+    _id_matches = []
+    _data_attrs = []
+    _class_exact = []
+    _id_exact = []
+    for sel in selectors:
+        m = re.match(r'\[class\*="([^"]+)"\]', sel)
+        if m:
+            _class_matches.append(m.group(1).lower())
+            continue
+        m = re.match(r'\[id\*="([^"]+)"\]', sel)
+        if m:
+            _id_matches.append(m.group(1).lower())
+            continue
+        m = re.match(r'\[(data-[a-z-]+)\]', sel)
+        if m:
+            _data_attrs.append(m.group(1).lower())
+            continue
+        if sel.startswith('.'):
+            _class_exact.append(sel[1:].lower())
+        elif sel.startswith('#'):
+            _id_exact.append(sel[1:].lower())
+
+    def _url_blocked(url):
+        if not url:
+            return False
+        try:
+            host = urlparse(url).hostname or ''
+        except Exception:
+            return False
+        for d in blocked_domains:
+            if host == d or host.endswith('.' + d):
+                return True
+        for pat in script_patterns:
+            if pat.search(url):
+                return True
+        return False
+
+    def _attrs_match_ad(attrs_dict):
+        cls = attrs_dict.get('class', '').lower()
+        eid = attrs_dict.get('id', '').lower()
+        for s in _class_matches:
+            if s in cls:
+                return True
+        for s in _id_matches:
+            if s in eid:
+                return True
+        for c in _class_exact:
+            if c in cls.split():
+                return True
+        for i in _id_exact:
+            if eid == i:
+                return True
+        for da in _data_attrs:
+            if da in attrs_dict:
+                return True
+        return False
+
+    blocked_count = 0
+    output = []
+    skip_depth = 0
+    skip_tag = None
+
+    class AdBlockParser(HTMLParser):
+        nonlocal blocked_count, skip_depth, skip_tag
+
+        def handle_starttag(self, tag, attrs):
+            nonlocal blocked_count, skip_depth, skip_tag
+            attrs_dict = dict(attrs)
+
+            if skip_depth > 0:
+                skip_depth += 1
+                return
+
+            # Block scripts/iframes with ad sources
+            if tag in ('script', 'iframe'):
+                src = attrs_dict.get('src', '')
+                if src and _url_blocked(src):
+                    blocked_count += 1
+                    skip_depth = 1
+                    skip_tag = tag
+                    return
+                # Block inline tracking scripts (no src but suspicious content handled in handle_data)
+                if tag == 'script' and not src:
+                    pass  # let it through, handle_data will check
+
+            # Block elements matching ad selectors
+            if _attrs_match_ad(attrs_dict):
+                blocked_count += 1
+                skip_depth = 1
+                skip_tag = tag
+                return
+
+            # Rewrite relative URLs to absolute
+            for url_attr in ('src', 'href', 'action', 'poster'):
+                if url_attr in attrs_dict and attrs_dict[url_attr]:
+                    val = attrs_dict[url_attr]
+                    if not val.startswith(('http://', 'https://', 'data:', 'javascript:', '#', 'mailto:')):
+                        attrs_dict[url_attr] = urljoin(base_url, val)
+
+            # Rewrite same-origin <a> links to go through proxy
+            if tag == 'a' and 'href' in attrs_dict:
+                href = attrs_dict['href']
+                try:
+                    parsed_base = urlparse(base_url)
+                    parsed_href = urlparse(href)
+                    if parsed_href.hostname and parsed_href.hostname == parsed_base.hostname:
+                        from urllib.parse import quote as _url_quote
+                        attrs_dict['href'] = '/api/browse-proxy?url=' + _url_quote(href, safe='')
+                except Exception:
+                    pass
+
+            # Reconstruct tag
+            attr_str = ''
+            for k, v in attrs_dict.items():
+                if v is None:
+                    attr_str += f' {k}'
+                else:
+                    attr_str += f' {k}="{v}"'
+            output.append(f'<{tag}{attr_str}>')
+
+        def handle_endtag(self, tag):
+            nonlocal skip_depth, skip_tag
+            if skip_depth > 0:
+                skip_depth -= 1
+                return
+            output.append(f'</{tag}>')
+
+        def handle_data(self, data):
+            if skip_depth > 0:
+                return
+            output.append(data)
+
+        def handle_comment(self, data):
+            if skip_depth > 0:
+                return
+            output.append(f'<!--{data}-->')
+
+        def handle_decl(self, decl):
+            output.append(f'<!{decl}>')
+
+        def handle_pi(self, data):
+            output.append(f'<?{data}>')
+
+        def handle_startendtag(self, tag, attrs):
+            nonlocal blocked_count
+            if skip_depth > 0:
+                return
+            attrs_dict = dict(attrs)
+            if tag in ('img', 'link') and _url_blocked(attrs_dict.get('src', '') or attrs_dict.get('href', '')):
+                blocked_count += 1
+                return
+            if _attrs_match_ad(attrs_dict):
+                blocked_count += 1
+                return
+            for url_attr in ('src', 'href'):
+                if url_attr in attrs_dict and attrs_dict[url_attr]:
+                    val = attrs_dict[url_attr]
+                    if not val.startswith(('http://', 'https://', 'data:', 'javascript:', '#', 'mailto:')):
+                        attrs_dict[url_attr] = urljoin(base_url, val)
+            attr_str = ''
+            for k, v in attrs_dict.items():
+                if v is None:
+                    attr_str += f' {k}'
+                else:
+                    attr_str += f' {k}="{v}"'
+            output.append(f'<{tag}{attr_str}/>')
+
+    parser = AdBlockParser(convert_charrefs=False)
+    parser.feed(html_str)
+
+    # Inject cosmetic CSS to hide ad elements
+    css_rules = ', '.join(selectors)
+    cosmetic = f'<style>{css_rules} {{ display: none !important; }}</style>'
+    # Inject blocked count as meta tag
+    meta = f'<meta name="adblock-count" content="{blocked_count}">'
+    result = meta + cosmetic + ''.join(output)
+    return result, blocked_count
+
+
 # Initialize DB on import
 init_db()

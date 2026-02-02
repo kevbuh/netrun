@@ -1535,8 +1535,14 @@ const SYNC_KEYS = [
   'clickSound', 'clickSoundType', 'rainNoiseType', 'rainVolume',
   'editorTheme', 'rainSidebarVisible',
   'pixelPet', 'pixelPetType', 'pixelPetMode',
-  'feedNotifications', 'seenPostLinks'
+  'feedNotifications', 'seenPostLinks',
+  'adBlockEnabled'
 ];
+
+// Default ad blocker to enabled
+if (localStorage.getItem('adBlockEnabled') === null) {
+  localStorage.setItem('adBlockEnabled', 'true');
+}
 
 function _authHeaders() {
   const h = { 'Content-Type': 'application/json' };

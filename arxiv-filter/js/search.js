@@ -466,14 +466,27 @@ function browseNewTab(url) {
   }, 50);
 }
 
+function _browseProxyUrl(url) {
+  if (localStorage.getItem('adBlockEnabled') === 'true' && !_browseIsElectron && url) {
+    return '/api/browse-proxy?url=' + encodeURIComponent(url);
+  }
+  return url;
+}
+
 function _browseCreateFrame(id, url) {
   const el = document.createElement(_browseIsElectron ? 'webview' : 'iframe');
   el.id = 'browse-frame-' + id;
-  el.src = url;
+  const proxied = _browseProxyUrl(url);
+  el.src = proxied;
+  el.dataset.originalUrl = url;
   el.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;';
   if (!_browseIsElectron) {
     el.sandbox = 'allow-scripts allow-same-origin allow-popups allow-forms';
     el.referrerPolicy = 'no-referrer';
+  }
+  // Fetch blocked count after load
+  if (proxied !== url) {
+    el.addEventListener('load', () => _browseUpdateAdBlockBadge(url), { once: true });
   }
   return el;
 }
@@ -606,13 +619,19 @@ function browseNavigate(input) {
     container.appendChild(tab.el);
     _browseBindFrame(tab);
   } else {
-    tab.el.src = url;
+    const proxied = _browseProxyUrl(url);
+    tab.el.dataset.originalUrl = url;
+    tab.el.src = proxied;
+    if (proxied !== url) {
+      tab.el.addEventListener('load', () => _browseUpdateAdBlockBadge(url), { once: true });
+    }
   }
   const urlInput = document.getElementById('browse-url-input');
   if (urlInput) urlInput.value = url;
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
+  _browseUpdateAdBlockBtn();
   // Update sidebar for the navigated URL
   if (typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(url);
@@ -913,6 +932,72 @@ function showSearchHistoryView() {
 function hideSearchHistoryView() {
   const dd = document.getElementById('search-history-dropdown-view');
   if (dd) dd.classList.add('hidden');
+}
+
+// ── Ad Blocker toggle & badge ──
+
+function toggleAdBlock() {
+  const on = localStorage.getItem('adBlockEnabled') === 'true';
+  localStorage.setItem('adBlockEnabled', on ? 'false' : 'true');
+  _browseUpdateAdBlockBtn();
+  // Reload current tab through/without proxy
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab && tab.url && !tab.blank && tab.el) {
+    const proxied = _browseProxyUrl(tab.url);
+    tab.el.dataset.originalUrl = tab.url;
+    tab.el.src = proxied;
+    if (proxied !== tab.url) {
+      tab.el.addEventListener('load', () => _browseUpdateAdBlockBadge(tab.url), { once: true });
+    } else {
+      // Cleared proxy — hide badge
+      const badge = document.getElementById('browse-adblock-badge');
+      if (badge) badge.style.display = 'none';
+    }
+  }
+}
+
+function _browseUpdateAdBlockBtn() {
+  const btn = document.getElementById('browse-adblock-btn');
+  if (!btn) return;
+  const on = localStorage.getItem('adBlockEnabled') === 'true';
+  btn.style.color = on ? 'var(--accent)' : '';
+  btn.title = on ? 'Ad Blocker (on)' : 'Ad Blocker (off)';
+  btn.classList.toggle('text-dimmer', !on);
+}
+
+function _browseUpdateAdBlockBadge(url) {
+  const badge = document.getElementById('browse-adblock-badge');
+  if (!badge) return;
+  if (localStorage.getItem('adBlockEnabled') !== 'true') {
+    badge.style.display = 'none';
+    return;
+  }
+  // Try to read the blocked count from the proxied iframe's meta tag (same-origin)
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab && tab.el) {
+    try {
+      const doc = tab.el.contentDocument;
+      if (doc) {
+        const meta = doc.querySelector('meta[name="adblock-count"]');
+        if (meta) {
+          const count = parseInt(meta.getAttribute('content') || '0', 10);
+          if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.style.display = 'flex';
+          } else {
+            badge.style.display = 'none';
+          }
+          return;
+        }
+      }
+    } catch (e) { /* cross-origin, fall through */ }
+  }
+  badge.style.display = 'none';
+}
+
+// Initialize button state on load
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', _browseUpdateAdBlockBtn);
 }
 
 

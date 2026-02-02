@@ -222,6 +222,23 @@ function renderSettingsView() {
       </div>
     </div>
 
+    <!-- AD BLOCKER -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center gap-3 mb-1">
+        <h3 class="text-white_ text-sm font-semibold">Ad Blocker</h3>
+        <label class="flex items-center gap-2 cursor-pointer ml-auto">
+          <span class="text-primary text-sm">Enable</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-adblock" ${localStorage.getItem('adBlockEnabled') === 'true' ? 'checked' : ''} onchange="setAdBlockEnabled(this.checked)">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <p class="text-dim text-[0.8rem] mb-3">Strips ads, tracking scripts, and sponsored content from pages in the browse tab via a server-side proxy.</p>
+      <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading rules info...</div>
+      <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Reset rules to defaults</button>
+    </div>
+
     <!-- AI QUALITY FILTER -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center gap-3 mb-1">
@@ -287,6 +304,11 @@ function renderSettingsView() {
   renderCustomFeedsList();
   renderBlockedWordsList();
   renderBlockedList();
+  // Load adblock rules info
+  fetch('/api/adblock-rules').then(r => r.json()).then(rules => {
+    const el = document.getElementById('adblock-rules-info');
+    if (el) el.textContent = `Blocking ${(rules.domains || []).length} tracker domains, ${(rules.selectors || []).length} ad selectors, ${(rules.scriptPatterns || []).length} script patterns.`;
+  }).catch(() => {});
   fetchTestTitlesFromServer().then(() => updateTestTitleCount());
   fetch('/api/quality-prompt').then(r => r.json()).then(data => {
     if (data.prompt) {
@@ -318,6 +340,20 @@ function setTheme(theme) {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });
+}
+
+function setAdBlockEnabled(on) {
+  localStorage.setItem('adBlockEnabled', on ? 'true' : 'false');
+  if (typeof _browseUpdateAdBlockBtn === 'function') _browseUpdateAdBlockBtn();
+}
+
+function resetAdBlockRules() {
+  fetch('/api/adblock-rules/reset', { method: 'POST' })
+    .then(r => r.json())
+    .then(rules => {
+      const el = document.getElementById('adblock-rules-info');
+      if (el) el.textContent = `Blocking ${(rules.domains || []).length} tracker domains, ${(rules.selectors || []).length} ad selectors, ${(rules.scriptPatterns || []).length} script patterns.`;
+    }).catch(() => {});
 }
 
 function setEditorTheme(theme) {

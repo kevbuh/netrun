@@ -58,6 +58,7 @@ from persistence import (
     mark_team_chat_read, get_unread_team_chats, get_unread_team_chat_count,
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
+    read_adblock_rules, write_adblock_rules, DEFAULT_ADBLOCK_RULES, clean_html,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -1068,6 +1069,33 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json(info)
             else:
                 self._send_json({'error': 'Not found'}, 404)
+
+        elif self.path.startswith('/api/browse-proxy'):
+            from urllib.parse import parse_qs, urlparse as _urlparse
+            qs = parse_qs(_urlparse(self.path).query)
+            url = qs.get('url', [''])[0]
+            if not url:
+                self._send_json({'error': 'Missing url parameter'}, 400)
+                return
+            try:
+                data = cached_fetch(url, timeout=20)
+                html_str = data.decode('utf-8', errors='replace')
+                cleaned, count = clean_html(html_str, url)
+                body = cleaned.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('X-Blocked-Count', str(count))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+            return
+
+        elif self.path == '/api/adblock-rules':
+            self._send_json(read_adblock_rules())
+            return
 
         else:
             super().do_GET()
@@ -2147,6 +2175,10 @@ ch.postMessage({type:'preview-ready'});
                 titles.append(title)
                 write_blocked_titles(titles)
             self._send_json({'ok': True})
+
+        elif self.path == '/api/adblock-rules/reset':
+            write_adblock_rules(DEFAULT_ADBLOCK_RULES)
+            self._send_json(DEFAULT_ADBLOCK_RULES)
 
         elif self.path == '/api/comments':
             google_id = self._get_user()
