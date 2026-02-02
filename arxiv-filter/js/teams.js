@@ -42,10 +42,82 @@ function _renderLinkCard(url) {
   </a>`;
 }
 
+function _renderAnnotatedCard(url, sections) {
+  let hostname = '';
+  try { hostname = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+  const favicon = (() => { try { return new URL(url).origin + '/favicon.ico'; } catch { return ''; } })();
+  const title = _resolveTitle(url);
+  const isArxiv = _isArxivUrl(url);
+  const href = _paperViewHash(url);
+
+  let annotHtml = '';
+  if (sections.highlights.length) {
+    annotHtml += `<div style="margin-top:8px;border-top:1px solid var(--border-card);padding-top:6px">
+      <div style="font-size:0.65rem;color:var(--text-dimmest);margin-bottom:4px;font-weight:600">${sections.highlights.length} Highlight${sections.highlights.length > 1 ? 's' : ''}</div>
+      ${sections.highlights.slice(0, 3).map(h => `<div style="font-size:0.75rem;color:var(--text-muted);border-left:2px solid var(--accent);padding-left:6px;margin-bottom:4px;line-height:1.35">
+        ${escapeHtml(h.text.length > 120 ? h.text.slice(0, 120) + '...' : h.text)}
+        ${h.note ? `<div style="font-size:0.7rem;color:var(--text-dimmer);margin-top:2px;font-style:italic">${escapeHtml(h.note)}</div>` : ''}
+      </div>`).join('')}
+      ${sections.highlights.length > 3 ? `<div style="font-size:0.65rem;color:var(--text-dimmest)">+${sections.highlights.length - 3} more</div>` : ''}
+    </div>`;
+  }
+  if (sections.notes) {
+    annotHtml += `<div style="margin-top:6px;border-top:1px solid var(--border-card);padding-top:6px">
+      <div style="font-size:0.65rem;color:var(--text-dimmest);margin-bottom:3px;font-weight:600">Notes</div>
+      <div style="font-size:0.75rem;color:var(--text-muted);line-height:1.4;white-space:pre-wrap">${escapeHtml(sections.notes.length > 300 ? sections.notes.slice(0, 300) + '...' : sections.notes)}</div>
+    </div>`;
+  }
+
+  return `<a href="${href}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
+    <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        ${favicon ? `<img src="${escapeAttr(favicon)}" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display='none'">` : ''}
+        <span style="font-size:0.65rem;color:var(--text-dimmest)">${escapeHtml(hostname)}</span>
+        ${isArxiv ? '<span style="font-size:0.6rem;color:var(--accent);font-weight:600">PDF</span>' : ''}
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;line-height:1.35">${escapeHtml(title || url)}</div>
+      ${annotHtml}
+    </div>
+  </a>`;
+}
+
+function _parseAnnotatedMessage(content) {
+  // Parse: URL\n--- Highlights ---\n> quote\n  Note: ...\n--- Notes ---\n...
+  const lines = content.split('\n');
+  const url = lines[0].trim();
+  if (!/^https?:\/\//.test(url)) return null;
+  const highlights = [];
+  let notes = '';
+  let section = '';
+  let currentHighlight = null;
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('--- Highlights ---')) { section = 'highlights'; continue; }
+    if (line.startsWith('--- Notes ---')) { section = 'notes'; continue; }
+    if (section === 'highlights') {
+      if (line.startsWith('> ')) {
+        if (currentHighlight) highlights.push(currentHighlight);
+        currentHighlight = { text: line.slice(2), note: '' };
+      } else if (line.startsWith('  Note: ') && currentHighlight) {
+        currentHighlight.note = line.slice(8);
+      }
+    } else if (section === 'notes') {
+      notes += (notes ? '\n' : '') + line;
+    }
+  }
+  if (currentHighlight) highlights.push(currentHighlight);
+  if (!highlights.length && !notes) return null;
+  return { url, highlights, notes: notes.trim() };
+}
+
 function _renderChatContent(content) {
   // Legacy: "📄 {title}\n{url}" format
   const shareMatch = content.match(/^📄 (.+)\n(https?:\/\/\S+)$/);
   if (shareMatch) return _renderLinkCard(shareMatch[2]);
+
+  // Check for annotated share (URL + highlights/notes)
+  const annotated = _parseAnnotatedMessage(content);
+  if (annotated) return _renderAnnotatedCard(annotated.url, annotated);
 
   // Bare URL as entire message
   const bareUrl = content.trim().match(/^(https?:\/\/\S+)$/);

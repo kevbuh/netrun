@@ -609,15 +609,59 @@ async function toggleShareToTeamDropdown() {
     dd.innerHTML = '<div style="padding:8px 12px;color:var(--text-dimmer)">No teams yet</div>';
     return;
   }
+
+  // Check if paper has highlights or notes
+  const paper = _currentPaperViewPaper;
+  const arxivId = paper ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
+  const highlights = arxivId && typeof loadPdfHighlights === 'function' ? loadPdfHighlights(arxivId) : [];
+  const note = _paperNotes.find(n => n.id === _paperNoteSelected);
+  const noteContent = note && note.content ? note.content.trim() : '';
+  const hasAnnotations = highlights.length > 0 || noteContent.length > 0;
+
   dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
-    _cachedTeams.map(t => `<div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', this)"><div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div><span>${escapeHtml(t.name)}</span></div>`).join('');
+    _cachedTeams.map(t => {
+      const teamRow = `<div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div><span>${escapeHtml(t.name)}</span></div>`;
+      if (!hasAnnotations) {
+        return `<div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary)" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this)">${teamRow}</div>`;
+      }
+      return `<div class="share-team-row" style="padding:6px 12px;color:var(--text-primary)">
+        ${teamRow}
+        <div style="display:flex;gap:6px;margin-top:6px;margin-left:32px">
+          <button onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this.closest('.share-team-row'))" style="font-size:0.68rem;padding:3px 8px;border-radius:4px;border:1px solid var(--border-input);background:transparent;color:var(--text-muted);cursor:pointer">Link only</button>
+          <button onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', true, this.closest('.share-team-row'))" style="font-size:0.68rem;padding:3px 8px;border-radius:4px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent);color:var(--accent);cursor:pointer">With notes</button>
+        </div>
+      </div>`;
+    }).join('');
 }
 
-async function sharePaperToTeam(teamId, teamName, el) {
+async function sharePaperToTeam(teamId, teamName, withNotes, el) {
   const paper = _currentPaperViewPaper;
   if (!paper) return;
   if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
-  const content = paper.link;
+
+  let content = paper.link;
+  if (withNotes) {
+    const arxivId = paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '';
+    const highlights = arxivId && typeof loadPdfHighlights === 'function' ? loadPdfHighlights(arxivId) : [];
+    const note = _paperNotes.find(n => n.id === _paperNoteSelected);
+    const noteContent = note && note.content ? note.content.trim() : '';
+    const parts = [paper.link];
+    if (highlights.length) {
+      parts.push('\n--- Highlights ---');
+      highlights.forEach(h => {
+        const quote = h.text.length > 200 ? h.text.slice(0, 200) + '...' : h.text;
+        let line = `> ${quote}`;
+        if (h.note) line += `\n  Note: ${h.note}`;
+        parts.push(line);
+      });
+    }
+    if (noteContent) {
+      parts.push('\n--- Notes ---');
+      parts.push(noteContent.length > 500 ? noteContent.slice(0, 500) + '...' : noteContent);
+    }
+    content = parts.join('\n');
+  }
+
   try {
     const resp = await fetch(`/api/teams/${teamId}/messages`, {
       method: 'POST',
