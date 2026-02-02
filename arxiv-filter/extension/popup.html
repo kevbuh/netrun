@@ -70,6 +70,22 @@
     }
     .btn:hover { opacity: 0.85; }
     .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-outline {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #444;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: #e0e0e0;
+      transition: all 0.15s;
+      margin-top: 6px;
+    }
+    .btn-outline:hover { border-color: #888; }
+    .btn-outline:disabled { opacity: 0.4; cursor: default; }
+    .btn-row { display: flex; flex-direction: column; gap: 0; }
     .msg {
       font-size: 12px;
       text-align: center;
@@ -89,6 +105,7 @@
   <div class="title" id="page-title">Loading...</div>
   <div class="url" id="page-url"></div>
   <button class="btn" id="save-btn">Save to Reading List</button>
+  <button class="btn-outline" id="follow-btn" style="display:none">Follow Site RSS</button>
   <div class="msg" id="msg"></div>
   <script src="popup.js"></script>
 </body>

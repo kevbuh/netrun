@@ -71,7 +71,104 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     msgEl.textContent = 'Server not running at localhost:8000';
     msgEl.className = 'msg err';
     saveBtn.disabled = true;
+    return;
   }
+
+  // Detect RSS feeds on the current page
+  try {
+    if (tab) {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: detectRssFeeds
+      });
+      if (results && results[0] && results[0].result && results[0].result.length) {
+        detectedFeeds = results[0].result;
+        const followBtn = document.getElementById('follow-btn');
+        followBtn.style.display = '';
+        if (detectedFeeds.length === 1) {
+          followBtn.textContent = 'Follow ' + (detectedFeeds[0].title || pageHostname);
+        } else {
+          followBtn.textContent = 'Follow Site (' + detectedFeeds.length + ' feeds)';
+        }
+      }
+    }
+  } catch {}
+});
+
+let detectedFeeds = [];
+
+function detectRssFeeds() {
+  const feeds = [];
+  // Check <link> tags for RSS/Atom feeds
+  document.querySelectorAll('link[rel="alternate"]').forEach(link => {
+    const type = (link.getAttribute('type') || '').toLowerCase();
+    if (type.includes('rss') || type.includes('atom') || type.includes('xml')) {
+      let href = link.getAttribute('href') || '';
+      if (href && !href.startsWith('http')) {
+        try { href = new URL(href, document.location.origin).href; } catch {}
+      }
+      if (href) {
+        feeds.push({ url: href, title: link.getAttribute('title') || '' });
+      }
+    }
+  });
+  // Common RSS URL patterns as fallback
+  if (!feeds.length) {
+    const origin = document.location.origin;
+    const hostname = document.location.hostname;
+    if (hostname.includes('substack.com')) {
+      feeds.push({ url: origin + '/feed', title: document.title || hostname });
+    }
+  }
+  return feeds;
+}
+
+document.getElementById('follow-btn').addEventListener('click', async () => {
+  if (!detectedFeeds.length || !apiBase) return;
+  const followBtn = document.getElementById('follow-btn');
+  followBtn.disabled = true;
+
+  // Use the first detected feed
+  const feed = detectedFeeds[0];
+  const feedName = feed.title || pageHostname;
+
+  try {
+    // First try to resolve the feed name via the server's RSS proxy
+    let resolvedName = feedName;
+    try {
+      const probeResp = await fetch(apiBase + '/api/rss-proxy?url=' + encodeURIComponent(feed.url), {
+        signal: AbortSignal.timeout(5000)
+      });
+      if (probeResp.ok) {
+        const xml = await probeResp.text();
+        const doc = new DOMParser().parseFromString(xml, 'text/xml');
+        const title = doc.querySelector('channel > title, feed > title');
+        if (title && title.textContent.trim()) resolvedName = title.textContent.trim();
+      }
+    } catch {}
+
+    const resp = await fetch(apiBase + '/api/custom-feeds', {
+      method: 'POST',
+      headers: apiHeaders(),
+      body: JSON.stringify({ url: feed.url, name: resolvedName })
+    });
+    const data = await resp.json();
+    if (data.exists) {
+      msgEl.textContent = 'Already following this feed';
+      msgEl.className = 'msg ok';
+    } else if (data.ok) {
+      msgEl.textContent = 'Following ' + (data.name || resolvedName);
+      msgEl.className = 'msg ok';
+      followBtn.textContent = 'Following ✓';
+    } else {
+      msgEl.textContent = data.error || 'Failed to follow';
+      msgEl.className = 'msg err';
+    }
+  } catch {
+    msgEl.textContent = 'Could not reach server';
+    msgEl.className = 'msg err';
+  }
+  followBtn.disabled = false;
 });
 
 function extractArticleText() {

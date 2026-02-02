@@ -2147,6 +2147,31 @@ ch.postMessage({type:'preview-ready'});
                 # No auth — just acknowledge (extension can still save content)
                 self._send_json({'ok': True})
 
+        elif self.path == '/api/custom-feeds':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            url = (body.get('url') or '').strip()
+            name = (body.get('name') or '').strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            data = get_all_user_data(google_id)
+            feeds = data.get('customFeeds', {}).get('value', [])
+            if isinstance(feeds, str):
+                try: feeds = json.loads(feeds)
+                except: feeds = []
+            if not isinstance(feeds, list):
+                feeds = []
+            if any(f.get('url') == url for f in feeds):
+                self._send_json({'exists': True})
+                return
+            feeds.append({'url': url, 'name': name or url, 'enabled': True})
+            set_user_data(google_id, 'customFeeds', feeds)
+            self._send_json({'ok': True, 'name': name or url})
+
         elif self.path == '/api/messages':
             google_id = self._get_user()
             if not google_id:
