@@ -105,7 +105,7 @@ async function saveMarkdown() {
   if (!currentFile || !currentExpId) return;
   const content = document.getElementById('md-editor-textarea').value;
   await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
+    method:'PUT', headers:{ ..._authHeaders(), 'Content-Type':'application/json'},
     body: JSON.stringify({content})
   });
   const ind = document.getElementById('md-save-ind');
@@ -1363,7 +1363,7 @@ async function _gotoDefInProject(token) {
   const pyFiles = _expFiles.filter(f => f.endsWith('.py') && f !== currentFile);
   for (const fname of pyFiles) {
     try {
-      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
+      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
       const data = await resp.json();
       if (data.error) continue;
       const text = data.content || '';
@@ -1483,7 +1483,7 @@ async function savePythonFile() {
   if (!currentFile || !currentExpId || !pyEditorCm) return;
   const content = pyEditorCm.getValue();
   await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
+    method:'PUT', headers:{ ..._authHeaders(), 'Content-Type':'application/json'},
     body: JSON.stringify({content})
   });
   const ind = document.getElementById('py-save-ind');

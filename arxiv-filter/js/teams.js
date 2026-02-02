@@ -110,7 +110,58 @@ function _parseAnnotatedMessage(content) {
   return { url, highlights, notes: notes.trim() };
 }
 
+function _renderFileRef(expId, filePath) {
+  const ext = filePath.split('.').pop().toLowerCase();
+  const langColors = { py: '#3572A5', js: '#f1e05a', ts: '#3178c6', md: '#083fa1', tex: '#3D6117', css: '#563d7c', html: '#e34c26', json: '#292929', ipynb: '#DA5B0B', sh: '#89e051' };
+  const color = langColors[ext] || 'var(--accent)';
+  const uid = 'fref-' + Math.random().toString(36).slice(2, 10);
+  // Lazy-load preview
+  setTimeout(async () => {
+    const el = document.getElementById(uid);
+    if (!el) return;
+    try {
+      const resp = await fetch(`/api/experiments/${encodeURIComponent(expId)}/files/${encodeURIComponent(filePath)}`, { headers: _authHeaders() });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data.binary) { el.textContent = '(binary file)'; return; }
+      const lines = (data.content || '').split('\n').slice(0, 8);
+      el.textContent = lines.join('\n') + (data.content.split('\n').length > 8 ? '\n…' : '');
+    } catch { el.textContent = '(could not load preview)'; }
+  }, 50);
+  const expLabel = expId.replace(/-/g, ' ');
+  return `<a href="#experiment/${encodeURIComponent(expId)}?file=${encodeURIComponent(filePath)}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
+    <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+        <span style="font-size:0.8rem;color:var(--text-primary);font-weight:500">${escapeHtml(filePath)}</span>
+        <span style="font-size:0.6rem;color:var(--text-dimmest);text-transform:uppercase;font-weight:600">${escapeHtml(ext)}</span>
+      </div>
+      <div style="font-size:0.65rem;color:var(--text-dimmest);margin-bottom:6px">${escapeHtml(expLabel)}</div>
+      <pre id="${uid}" style="font-size:0.7rem;color:var(--text-muted);background:var(--bg-input);border-radius:6px;padding:8px;margin:0;overflow-x:auto;max-height:160px;line-height:1.4;white-space:pre-wrap;word-break:break-all"><span style="color:var(--text-dimmest)">loading…</span></pre>
+    </div>
+  </a>`;
+}
+
 function _renderChatContent(content) {
+  // File references: [file:expId/path]
+  const fileRefRe = /\[file:([a-zA-Z0-9_-]+)\/(.+?)\]/g;
+  if (fileRefRe.test(content)) {
+    // Could be mixed text + file refs
+    fileRefRe.lastIndex = 0;
+    let result = '';
+    let lastIdx = 0;
+    let m;
+    while ((m = fileRefRe.exec(content)) !== null) {
+      const before = content.slice(lastIdx, m.index);
+      if (before.trim()) result += escapeHtml(before);
+      result += _renderFileRef(m[1], m[2]);
+      lastIdx = m.index + m[0].length;
+    }
+    const after = content.slice(lastIdx);
+    if (after.trim()) result += escapeHtml(after);
+    return result;
+  }
+
   // Legacy: "📄 {title}\n{url}" format
   const shareMatch = content.match(/^📄 (.+)\n(https?:\/\/\S+)$/);
   if (shareMatch) return _renderLinkCard(shareMatch[2]);
@@ -372,7 +423,10 @@ async function confirmDeleteTeamView(teamId, name) {
   } catch (err) { /* ignore */ }
 }
 
+let _lastTeamDetailId = null;
+
 async function showTeamDetailView(teamId) {
+  _lastTeamDetailId = teamId;
   const container = document.getElementById('teams-view-content');
   if (!container) return;
   container.innerHTML = '<div class="text-center py-10 text-dim"><div class="spinner"></div></div>';
@@ -555,8 +609,9 @@ async function showTeamDetailView(teamId) {
             </div>`;
           }).join('') : '<div class="text-dimmer text-xs text-center py-4">No messages yet. Start the conversation!</div>'}
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center" style="position:relative">
           <input type="text" id="team-chat-input-${teamId}" placeholder="Type a message..." class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();sendTeamChatMessage(${teamId})}">
+          <button onclick="toggleFileRefPicker(${teamId}, this)" class="bg-transparent border border-border-input text-muted text-sm px-2 py-1.5 rounded-md cursor-pointer hover:text-primary hover:border-accent transition-colors" title="Reference a file" style="line-height:1">📎</button>
           <button onclick="sendTeamChatMessage(${teamId})" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Send</button>
         </div>
       </div>
@@ -657,6 +712,96 @@ async function deleteTeamChatMsg(teamId, msgId) {
     });
     showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
+}
+
+async function toggleFileRefPicker(teamId, btn) {
+  // Remove existing picker
+  const existing = document.getElementById('file-ref-picker');
+  if (existing) { existing.remove(); return; }
+
+  const rect = btn.getBoundingClientRect();
+  const dd = document.createElement('div');
+  dd.id = 'file-ref-picker';
+  dd.style.cssText = `position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px;width:300px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
+  dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.innerHTML = '<div class="text-center py-4 text-dim text-xs"><div class="spinner"></div></div>';
+  document.body.appendChild(dd);
+
+  // Close on outside click
+  const close = (e) => { if (!dd.contains(e.target) && e.target !== btn) { dd.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+
+  // Fetch team experiments
+  try {
+    const [expResp, ownResp] = await Promise.all([
+      fetch('/api/team-experiments', { headers: _authHeaders() }),
+      fetch('/api/experiments', { headers: _authHeaders() }),
+    ]);
+    const teamExps = (await expResp.json()).filter(e => e.team_id === teamId);
+    const ownExps = (await ownResp.json()).filter(e => e.team_id === teamId);
+    const seen = new Set();
+    const exps = [];
+    for (const e of [...teamExps, ...ownExps]) {
+      if (!seen.has(e.id)) { seen.add(e.id); exps.push(e); }
+    }
+    if (!exps.length) {
+      dd.innerHTML = '<div class="text-dimmer text-xs text-center py-4">No experiments in this team</div>';
+      return;
+    }
+    dd.innerHTML = `<div class="text-[0.7rem] text-dim font-semibold uppercase tracking-wide mb-2">Pick experiment</div>` +
+      exps.map(e => `<div class="px-2 py-1.5 rounded cursor-pointer hover:bg-accent/10 text-sm text-primary truncate" onclick="fileRefPickExp('${escapeAttr(e.id)}', ${teamId})">${escapeHtml(e.name || e.id)}</div>`).join('');
+  } catch {
+    dd.innerHTML = '<div class="text-red-400 text-xs text-center py-4">Failed to load</div>';
+  }
+}
+
+async function fileRefPickExp(expId, teamId) {
+  const dd = document.getElementById('file-ref-picker');
+  if (!dd) return;
+  dd.innerHTML = '<div class="text-center py-4 text-dim text-xs"><div class="spinner"></div></div>';
+  try {
+    const resp = await fetch(`/api/experiments/${encodeURIComponent(expId)}/files`, { headers: _authHeaders() });
+    const data = await resp.json();
+    const files = (data.files || []).filter(f => !f.endsWith('/'));
+    if (!files.length) {
+      dd.innerHTML = '<div class="text-dimmer text-xs text-center py-4">No files in this experiment</div>';
+      return;
+    }
+    const extColors = { py: '#3572A5', js: '#f1e05a', ts: '#3178c6', md: '#083fa1', tex: '#3D6117', css: '#563d7c', html: '#e34c26', json: '#292929', ipynb: '#DA5B0B' };
+    dd.innerHTML = `<div class="text-[0.7rem] text-dim font-semibold uppercase tracking-wide mb-2" style="display:flex;align-items:center;gap:6px">
+        <span onclick="fileRefPickBack(${teamId})" class="cursor-pointer text-accent" style="font-size:0.8rem">←</span>
+        Pick file
+      </div>` +
+      files.map(f => {
+        const ext = f.split('.').pop().toLowerCase();
+        const dot = extColors[ext] || 'var(--text-dimmest)';
+        return `<div class="px-2 py-1.5 rounded cursor-pointer hover:bg-accent/10 text-sm text-primary truncate flex items-center gap-2" onclick="insertFileRef('${escapeAttr(expId)}', '${escapeAttr(f)}', ${teamId})">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+          ${escapeHtml(f)}
+        </div>`;
+      }).join('');
+  } catch {
+    dd.innerHTML = '<div class="text-red-400 text-xs text-center py-4">Failed to load files</div>';
+  }
+}
+
+function fileRefPickBack(teamId) {
+  const dd = document.getElementById('file-ref-picker');
+  if (dd) dd.remove();
+  const btn = document.querySelector(`#team-chat-input-${teamId}`)?.parentElement?.querySelector('[title="Reference a file"]');
+  if (btn) toggleFileRefPicker(teamId, btn);
+}
+
+function insertFileRef(expId, filePath, teamId) {
+  const dd = document.getElementById('file-ref-picker');
+  if (dd) dd.remove();
+  const input = document.getElementById(`team-chat-input-${teamId}`);
+  if (!input) return;
+  const ref = `[file:${expId}/${filePath}]`;
+  const pos = input.selectionStart || input.value.length;
+  input.value = input.value.slice(0, pos) + ref + input.value.slice(pos);
+  input.focus();
 }
 
 async function addTeamTodo(teamId) {

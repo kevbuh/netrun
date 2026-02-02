@@ -512,6 +512,14 @@ function openDashboard() {
   renderDashboard();
 }
 
+function expGoBack() {
+  if (_expBackAction && _expBackAction.fn) {
+    _expBackAction.fn();
+  } else {
+    openExperiments();
+  }
+}
+
 function openExperiments() {
   hideAllViews();
   const view = document.getElementById('experiments-view');
@@ -522,7 +530,39 @@ function openExperiments() {
   fetchExperiments();
 }
 
+let _expBackAction = null; // stores {fn, label} for context-aware back button
+let _prevRouteHash = ''; // the hash before the current route
+let _currentRouteHash = ''; // the current route hash
+
 function openExperimentDetail(id) {
+  // _prevRouteHash is set by routeFromHash for link-based navigation.
+  // For direct calls (onclick), the hash hasn't changed yet, so window.location.hash is the "previous".
+  const currentHash = window.location.hash;
+  const prevHash = currentHash.startsWith('#experiment/') ? (_prevRouteHash || '') : currentHash;
+  if (!prevHash.startsWith('#experiment/')) {
+    if (prevHash.startsWith('#teams') || prevHash.startsWith('#team/')) {
+      const teamId = typeof _lastTeamDetailId !== 'undefined' ? _lastTeamDetailId : null;
+      _expBackAction = { fn: () => { openTeams(); if (teamId) showTeamDetailView(teamId); }, label: 'Team' };
+    } else if (prevHash === '#saved' || prevHash === '#' || prevHash === '' || prevHash === '#dashboard') {
+      _expBackAction = { fn: () => openDashboard(), label: 'Home' };
+    } else if (prevHash === '#search') {
+      _expBackAction = { fn: () => openSearch(), label: 'Search' };
+    } else if (prevHash.startsWith('#view/') || prevHash.startsWith('#paper/')) {
+      _expBackAction = { fn: () => { window.location.hash = prevHash; routeFromHash(); }, label: 'Paper' };
+    } else if (prevHash === '#inbox') {
+      _expBackAction = { fn: () => openInbox(), label: 'Inbox' };
+    } else if (prevHash === '#experiments') {
+      _expBackAction = { fn: () => openExperiments(), label: 'Projects' };
+    } else {
+      _expBackAction = { fn: () => openExperiments(), label: 'Projects' };
+    }
+  }
+  // Update back button label
+  const backBtn = document.querySelector('#exp-sidebar .exp-back-btn');
+  if (backBtn) {
+    const lbl = backBtn.querySelector('.exp-sidebar-label');
+    if (lbl) lbl.textContent = (_expBackAction && _expBackAction.label) || 'Back';
+  }
   hideAllViews();
   const view = document.getElementById('exp-detail-view');
   view.classList.add('active');
@@ -557,6 +597,9 @@ function openExperimentDetail(id) {
 
 function routeFromHash() {
   const hash = window.location.hash;
+  const _oldHash = _currentRouteHash || '';
+  _currentRouteHash = hash;
+  _prevRouteHash = _oldHash;
   if (hash === '#experiments') openExperiments();
   else if (hash === '#settings' || hash === '#quality') openSettings();
   else if (hash === '#calendar') openCalendar();
@@ -568,7 +611,15 @@ else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#search') openSearch();
   else if (hash === '#feed') goHome();
-  else if (hash.startsWith('#experiment/')) openExperimentDetail(hash.slice('#experiment/'.length));
+  else if (hash.startsWith('#experiment/')) {
+    const expPart = hash.slice('#experiment/'.length);
+    const qIdx = expPart.indexOf('?');
+    const expId = qIdx >= 0 ? expPart.slice(0, qIdx) : expPart;
+    const params = qIdx >= 0 ? new URLSearchParams(expPart.slice(qIdx)) : null;
+    const autoFile = params && params.get('file');
+    openExperimentDetail(expId);
+    if (autoFile) setTimeout(() => { if (typeof openFile === 'function') openFile(decodeURIComponent(autoFile)); }, 600);
+  }
   else if (hash.startsWith('#paper/')) openPaperByUrl(decodeURIComponent(hash.slice('#paper/'.length)));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
   else openDashboard();

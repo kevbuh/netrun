@@ -185,7 +185,7 @@ async function createQuickProject() {
 
 async function deleteExperiment(id) {
   if (!confirm('Delete this project and all its runs?')) return;
-  await fetch(`/api/experiments/${id}`, { method: 'DELETE' });
+  await fetch(`/api/experiments/${id}`, { method: 'DELETE', headers: _authHeaders() });
   fetchExperiments();
 }
 
@@ -317,7 +317,7 @@ function removeExpPaper(link) {
   const papers = (currentExp.papers || []).filter(p => p.link !== link);
   fetch(`/api/experiments/${currentExpId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ papers })
   }).then(() => {
     currentExp.papers = papers;
@@ -347,7 +347,7 @@ async function finishRename(input) {
   const newTitle = input.value.trim();
   if (!newTitle || !currentExpId) { cancelRename(); return; }
   await fetch(`/api/experiments/${currentExpId}`, {
-    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    method: 'PUT', headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ title: newTitle })
   });
   currentExp.title = newTitle;
@@ -380,7 +380,7 @@ async function finishEditDesc(textarea) {
   editingDesc = false;
   const newDesc = textarea.value.trim();
   await fetch(`/api/experiments/${currentExpId}`, {
-    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    method: 'PUT', headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ desc: newDesc })
   });
   currentExp.desc = newDesc;
@@ -409,7 +409,7 @@ let _expFiles = [];
 async function fetchExpFiles() {
   if (!currentExpId) return;
   try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/files`);
+    const resp = await fetch(`/api/experiments/${currentExpId}/files`, { headers: _authHeaders() });
     const data = await resp.json();
     // Support both old (array) and new ({ files, emptyDirs }) response shapes
     const files = Array.isArray(data) ? data : data.files || [];
@@ -500,7 +500,7 @@ async function _bulkDeleteFiles() {
   if (!count || !confirm(`Delete ${count} file${count !== 1 ? 's' : ''}?`)) return;
   const files = [..._selectedFiles];
   for (const fname of files) {
-    await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { method: 'DELETE' });
+    await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { method: 'DELETE', headers: _authHeaders() });
     if (currentFile === fname) {
       closeFileEditor();
     }
@@ -524,7 +524,7 @@ async function _bulkMoveFiles() {
     if (oldPath === newPath) continue;
     const resp = await fetch(`/api/experiments/${currentExpId}/move-file`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath, newPath })
     });
     if (resp.ok && currentFile === oldPath) {
@@ -699,7 +699,7 @@ function startRenameFileInEditor(fname) {
     const newName = input.value.trim();
     if (newName && newName !== fname) {
       const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
+        method: 'PUT', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
         body: JSON.stringify({ rename: newName })
       });
       if (resp.ok) {
@@ -739,7 +739,7 @@ function startRenameFile(fname, spanEl) {
     const newName = input.value.trim();
     if (newName && newName !== fname) {
       const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
+        method: 'PUT', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
         body: JSON.stringify({ rename: newName })
       });
       if (resp.ok) {
@@ -778,7 +778,7 @@ async function createExpFile(ext, content, template) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
-  const resp = await fetch(`/api/experiments/${currentExpId}/files`);
+  const resp = await fetch(`/api/experiments/${currentExpId}/files`, { headers: _authHeaders() });
   const data = await resp.json();
   const existing = Array.isArray(data) ? data : data.files || [];
   const sep = ext === '.py' ? '_' : '-';
@@ -787,7 +787,7 @@ async function createExpFile(ext, content, template) {
   if (content !== undefined) payload.content = content;
   if (template) payload.template = template;
   const createResp = await fetch(`/api/experiments/${currentExpId}/files`, {
-    method: 'POST', headers: {'Content-Type':'application/json'},
+    method: 'POST', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
     body: JSON.stringify(payload)
   });
   const result = await createResp.json().catch(() => null);
@@ -831,7 +831,7 @@ async function submitCloneRepo() {
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/clone-repo`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
       signal: AbortSignal.timeout(120000)
     });
@@ -889,7 +889,7 @@ async function submitCreateFolder() {
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/create-folder`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
     });
     const data = await resp.json();
@@ -912,7 +912,7 @@ async function deleteExpFolder(folder) {
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/delete-folder`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ folder })
     });
     if (!resp.ok) {
@@ -950,7 +950,7 @@ function startRenameFolder(folderName, spanEl) {
       try {
         const resp = await fetch(`/api/experiments/${currentExpId}/rename-folder`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ oldName: folderName, newName })
         });
         if (resp.ok) {
@@ -990,7 +990,7 @@ async function _onFolderDrop(e, targetFolder) {
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/move-file`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath, newPath })
     });
     if (resp.ok) {
@@ -1008,12 +1008,12 @@ async function duplicateExpFile(fname) {
   const ext = fname.includes('.') ? '.' + fname.split('.').pop() : '';
   const base = fname.includes('.') ? fname.slice(0, fname.lastIndexOf('.')) : fname;
   const newName = base + '_copy' + ext;
-  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
+  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
   const data = await resp.json();
   if (data.error) return;
   await fetch(`/api/experiments/${currentExpId}/files/${newName}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: data.content })
   });
   fetchExpFiles();
@@ -1021,7 +1021,7 @@ async function duplicateExpFile(fname) {
 
 async function deleteExpFile(fname) {
   if (!confirm(`Delete ${fname}?`)) return;
-  await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {method:'DELETE'});
+  await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { method:'DELETE', headers: _authHeaders() });
   if (currentFile === fname) {
     closeFileEditor();
   }
@@ -1036,7 +1036,7 @@ async function openFile(fname) {
     cmInstances = [];
   }
   currentFile = fname;
-  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`);
+  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
   const data = await resp.json();
 
   document.getElementById('exp-default-content').style.display = 'none';
@@ -1141,7 +1141,7 @@ function startRenameFileInViewer(fname) {
     const newName = input.value.trim();
     if (newName && newName !== fname) {
       const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
+        method: 'PUT', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
         body: JSON.stringify({ rename: newName })
       });
       if (resp.ok) {
@@ -1257,7 +1257,7 @@ async function createUnstructuredFile(ext, template) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
-  const resp = await fetch('/api/experiments/_unstructured/files');
+  const resp = await fetch('/api/experiments/_unstructured/files', { headers: _authHeaders() });
   const data = await resp.json();
   const existing = Array.isArray(data) ? data : data.files || [];
   const sep = ext === '.py' ? '_' : '-';
@@ -1265,7 +1265,7 @@ async function createUnstructuredFile(ext, template) {
   const payload = { name };
   if (template) payload.template = template;
   const createResp = await fetch('/api/experiments/_unstructured/files', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
+    method: 'POST', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
     body: JSON.stringify(payload)
   });
   const result = await createResp.json().catch(() => null);
@@ -1278,7 +1278,7 @@ async function createUnstructuredFolder() {
   if (!name || !name.trim()) return;
   await fetch('/api/experiments/_unstructured/create-folder', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: name.trim() })
   });
   fetchUnstructuredFiles();
@@ -1286,7 +1286,7 @@ async function createUnstructuredFolder() {
 
 async function deleteUnstructuredFile(fname) {
   if (!confirm(`Delete ${fname}?`)) return;
-  await fetch(`/api/experiments/_unstructured/files/${fname}`, { method: 'DELETE' });
+  await fetch(`/api/experiments/_unstructured/files/${fname}`, { method: 'DELETE', headers: _authHeaders() });
   fetchUnstructuredFiles();
 }
 
@@ -1331,7 +1331,7 @@ function createNewProjectFromGithub() {
     if (!exp.id) { alert('Failed to create project'); return; }
     const cloneResp = await fetch(`/api/experiments/${exp.id}/clone-repo`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: url.trim() })
     });
     if (!cloneResp.ok) {
@@ -1484,6 +1484,7 @@ async function uploadExpFiles(files) {
   try {
     const resp = await fetch(`/api/experiments/${currentExpId}/upload`, {
       method: 'POST',
+      headers: { 'Authorization': _authHeaders()['Authorization'] },
       body: formData
     });
     if (!resp.ok) {
