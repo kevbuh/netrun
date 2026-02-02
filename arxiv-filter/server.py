@@ -132,7 +132,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return ' AND '.join(parts) if parts else 'all:*'
 
     def do_GET(self):
-        if self.path == '/favicon.ico':
+        if self.path == '/api/settings':
+            self._send_json({'ok': True})
+            return
+
+        elif self.path == '/favicon.ico':
             favicon = os.path.join(DIR, 'favicon.png')
             if os.path.exists(favicon):
                 with open(favicon, 'rb') as f:
@@ -2110,6 +2114,38 @@ ch.postMessage({type:'preview-ready'});
                 'savedAt': body.get('savedAt', int(time.time() * 1000))
             })
             self._send_json({'ok': True})
+
+        elif self.path == '/api/saved-posts':
+            body = self._read_body()
+            url = body.get('url', '').strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            title = body.get('title', url)
+            favicon = body.get('favicon', '')
+            hostname = body.get('hostname', '')
+            # Try to find an authenticated user; if not, save without user context
+            google_id = self._get_user()
+            if google_id:
+                # Merge into user's synced savedPosts
+                data = get_all_user_data(google_id)
+                saved = data.get('savedPosts', {}).get('value', {})
+                if isinstance(saved, str):
+                    try: saved = json.loads(saved)
+                    except: saved = {}
+                if url in saved:
+                    self._send_json({'exists': True})
+                    return
+                saved[url] = {
+                    'paper': {'title': title, 'link': url, 'favicon': favicon, 'hostname': hostname},
+                    'savedAt': int(time.time() * 1000),
+                    'read': False
+                }
+                set_user_data(google_id, 'savedPosts', saved)
+                self._send_json({'ok': True})
+            else:
+                # No auth — just acknowledge (extension can still save content)
+                self._send_json({'ok': True})
 
         elif self.path == '/api/messages':
             google_id = self._get_user()

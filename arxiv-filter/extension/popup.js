@@ -1,5 +1,6 @@
 const HOSTS = ['http://localhost:8000', 'http://127.0.0.1:8000'];
 let apiBase = null;
+let authToken = null;
 
 const titleEl = document.getElementById('page-title');
 const urlEl = document.getElementById('page-url');
@@ -17,10 +18,32 @@ async function findServer() {
   for (const host of HOSTS) {
     try {
       const resp = await fetch(host + '/api/settings', { signal: AbortSignal.timeout(2000) });
-      if (resp.ok) { apiBase = host; return true; }
+      if (resp.ok) {
+        apiBase = host;
+        // Try to get auth token from an open Alpha tab
+        try {
+          const tabs = await chrome.tabs.query({ url: host + '/*' });
+          if (tabs.length) {
+            const results = await chrome.scripting.executeScript({
+              target: { tabId: tabs[0].id },
+              func: () => localStorage.getItem('authToken')
+            });
+            if (results && results[0] && results[0].result) {
+              authToken = results[0].result;
+            }
+          }
+        } catch {}
+        return true;
+      }
     } catch {}
   }
   return false;
+}
+
+function apiHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+  return h;
 }
 
 chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
@@ -128,7 +151,7 @@ saveBtn.addEventListener('click', async () => {
     if (extractedText.length > 50) {
       await fetch(apiBase + '/api/saved-content', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify({
           url: pageUrl,
           title: pageTitle,
@@ -141,7 +164,7 @@ saveBtn.addEventListener('click', async () => {
     // Save to reading list
     const resp = await fetch(apiBase + '/api/saved-posts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders(),
       body: JSON.stringify({
         url: pageUrl,
         title: pageTitle,
