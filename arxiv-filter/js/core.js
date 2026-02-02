@@ -1063,7 +1063,10 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('settings-view').style.display === 'block') goHome();
   }
-  if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    if (typeof openBrowse === 'function') openBrowse();
+  } else if ((e.metaKey || e.ctrlKey) && e.key === 't') {
     const browseView = document.getElementById('browse-view');
     if (browseView && browseView.style.display !== 'none' && browseView.style.display !== '') {
       e.preventDefault();

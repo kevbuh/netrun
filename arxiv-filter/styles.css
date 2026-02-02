@@ -595,6 +595,23 @@
       background: var(--bg-hover);
       color: var(--text-primary);
     }
+    .browse-ntp {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-body);
+    }
+    .browse-ntp-text {
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+      color: var(--text-dimmest, var(--text-muted));
+      opacity: 0.3;
+      user-select: none;
+    }
 
     /* ── Finder pagination column span ── */
     .finder-pagination {

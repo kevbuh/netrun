@@ -548,9 +548,27 @@ function browseSelectTab(id) {
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
+  _browseUpdateNewTabPage(tab);
   // Update sidebar for the selected tab
   if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(tab.url);
+  }
+}
+
+function _browseUpdateNewTabPage(tab) {
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+  let ntp = container.querySelector('.browse-ntp');
+  if (tab && tab.blank) {
+    if (!ntp) {
+      ntp = document.createElement('div');
+      ntp.className = 'browse-ntp';
+      ntp.innerHTML = '<span class="browse-ntp-text">alpha</span>';
+      container.appendChild(ntp);
+    }
+    ntp.style.display = '';
+  } else if (ntp) {
+    ntp.style.display = 'none';
   }
 }
 
@@ -558,10 +576,12 @@ function browseCloseTab(id) {
   const idx = _browseTabs.findIndex(t => t.id === id);
   if (idx === -1) return;
   const tab = _browseTabs[idx];
+  const wasLast = _browseTabs.length === 1;
   if (tab.el) tab.el.remove();
   _browseTabs.splice(idx, 1);
   if (!_browseTabs.length) {
     browseNewTab();
+    if (wasLast) _browseAnimateBounce();
     return;
   }
   if (_browseActiveTab === id) {
@@ -571,6 +591,19 @@ function browseCloseTab(id) {
     _browseRenderTabs();
   }
   _browseSaveTabs();
+}
+
+function _browseAnimateBounce() {
+  const content = document.getElementById('browse-content');
+  if (!content) return;
+  content.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+  content.style.transform = 'translateX(-60px) scale(0.97)';
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      content.style.transform = '';
+      setTimeout(() => { content.style.transition = ''; }, 350);
+    }, 120);
+  });
 }
 
 function _browseRenderTabs() {
@@ -632,6 +665,7 @@ function browseNavigate(input) {
   _browseUpdateSaveBtn();
   _browseSaveTabs();
   _browseUpdateAdBlockBtn();
+  _browseUpdateNewTabPage(tab);
   // Update sidebar for the navigated URL
   if (typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(url);
