@@ -1180,11 +1180,11 @@ function renderPapers() {
             ${snippet ? `<div class="text-[0.84rem] text-muted leading-relaxed mt-1">${escapeHtml(snippet)}</div>` : ''}
             ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2">${escapeHtml(p._quoteText)}</div>` : ''}
             <div class="flex items-center justify-between mt-2.5 max-w-[400px]">
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation()">
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
-                <span class="text-[0.72rem]">${p.commentsUrl ? '' : ''}</span>
+                <span class="text-[0.72rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${_tweetCommentCounts[p.link] || ''}</span>
               </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-green-400 transition-colors" onclick="event.stopPropagation()">
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-green-400 transition-colors" onclick="event.stopPropagation(); _tweetRepost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}', this)">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
                 <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
               </button>
@@ -1195,6 +1195,7 @@ function renderPapers() {
                 <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
               </button>
             </div>
+            <div id="tweet-comments-${i}" style="display:${_tweetCommentsOpen.has(p.link) ? 'block' : 'none'}"></div>
           </div>
         </div>
       </div>`;
@@ -1247,6 +1248,210 @@ function renderPapers() {
     }).join('');
   }
   fetchCitationsFor(visible);
+  // Twitter view: fetch comment counts & re-expand open sections
+  if (feedViewMode === 'twitter') {
+    _fetchTweetCommentCounts(visible);
+    visible.forEach((p, i) => {
+      if (_tweetCommentsOpen.has(p.link)) {
+        const container = document.getElementById('tweet-comments-' + i);
+        if (container) {
+          container.style.display = 'block';
+          fetch('/api/comments?paperLink=' + encodeURIComponent(p.link))
+            .then(r => r.json())
+            .then(comments => _renderTweetComments(container, comments, p.link, i))
+            .catch(() => {});
+        }
+      }
+    });
+  }
+}
+
+// ── Twitter view: inline comments & repost ──
+
+const _tweetCommentCounts = {}; // link -> count
+const _tweetCommentsOpen = new Set(); // links with expanded comment sections
+
+async function _fetchTweetCommentCounts(papers) {
+  for (const p of papers) {
+    if (_tweetCommentCounts[p.link] !== undefined) continue;
+    try {
+      const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(p.link));
+      const comments = await resp.json();
+      _tweetCommentCounts[p.link] = comments.length;
+    } catch { _tweetCommentCounts[p.link] = 0; }
+  }
+  // Update count badges in-place
+  document.querySelectorAll('[data-tweet-comment-count]').forEach(el => {
+    const link = el.dataset.tweetCommentCount;
+    if (_tweetCommentCounts[link] !== undefined && _tweetCommentCounts[link] > 0) {
+      el.textContent = _tweetCommentCounts[link];
+    }
+  });
+}
+
+async function _toggleTweetComments(link, idx) {
+  const container = document.getElementById('tweet-comments-' + idx);
+  if (!container) return;
+  if (_tweetCommentsOpen.has(link)) {
+    _tweetCommentsOpen.delete(link);
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+  _tweetCommentsOpen.add(link);
+  container.style.display = 'block';
+  container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Loading...</div>';
+  try {
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const comments = await resp.json();
+    _tweetCommentCounts[link] = comments.length;
+    // Update badge
+    const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
+    if (badge) badge.textContent = comments.length || '';
+    _renderTweetComments(container, comments, link, idx);
+  } catch {
+    container.innerHTML = '<div class="text-red-400 text-[0.75rem] py-2">Failed to load comments</div>';
+  }
+}
+
+function _renderTweetComments(container, comments, link, idx) {
+  const topLevel = comments.filter(c => !c.parentId).sort((a, b) => a.timestamp - b.timestamp);
+  const byParent = {};
+  comments.forEach(c => { if (c.parentId) (byParent[c.parentId] = byParent[c.parentId] || []).push(c); });
+  const currentUser = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
+
+  function renderThread(c, depth) {
+    const replies = (byParent[c.id] || []).sort((a, b) => a.timestamp - b.timestamp);
+    const ml = depth > 0 ? `margin-left:${Math.min(depth, 4) * 16}px; border-left: 2px solid var(--border-card); padding-left: 8px;` : '';
+    const initial = (c.author || '?')[0].toUpperCase();
+    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+    const isOwn = c.author === currentUser;
+    const delBtn = isOwn ? `<button onclick="event.stopPropagation(); _deleteTweetComment('${c.id}', '${escapeAttr(link)}', ${idx})" class="text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer">x</button>` : '';
+    let html = `<div style="${ml}; margin-bottom: 6px;">
+      <div class="flex items-start gap-1.5">
+        <div style="width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${escapeHtml(initial)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5">
+            <a href="#profile/${encodeURIComponent(c.author)}" onclick="event.stopPropagation()" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(c.author)}</a>
+            <span class="text-[0.65rem] text-dimmer">${timeAgo}</span>${delBtn}
+          </div>
+          <div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(c.content).replace(/\n/g, '<br>')}</div>
+          <button onclick="event.stopPropagation(); _showTweetReply('${c.id}')" class="text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0">Reply</button>
+          <div id="tweet-reply-${c.id}" class="hidden mt-1">
+            <textarea id="tweet-reply-ta-${c.id}" onclick="event.stopPropagation()" class="w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent" rows="2" placeholder="Write a reply..."></textarea>
+            <div class="flex gap-1 mt-1">
+              <button onclick="event.stopPropagation(); _postTweetReply('${c.id}', '${escapeAttr(link)}', ${idx})" class="px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none">Reply</button>
+              <button onclick="event.stopPropagation(); _hideTweetReply('${c.id}')" class="px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    replies.forEach(r => { html += renderThread(r, depth + 1); });
+    html += '</div>';
+    return html;
+  }
+
+  const author = currentUser || 'Anonymous';
+  container.innerHTML = `
+    <div class="mt-2 pt-2 border-t border-border-card">
+      ${topLevel.length ? topLevel.map(c => renderThread(c, 0)).join('') : '<div class="text-dim text-[0.75rem] py-1">No comments yet</div>'}
+      <div class="flex gap-2 mt-2">
+        <textarea id="tweet-comment-input-${idx}" onclick="event.stopPropagation()" class="flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="1" placeholder="Add a comment..."></textarea>
+        <button onclick="event.stopPropagation(); _postTweetComment('${escapeAttr(link)}', ${idx})" class="px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0">Post</button>
+      </div>
+    </div>`;
+}
+
+async function _postTweetComment(link, idx) {
+  const ta = document.getElementById('tweet-comment-input-' + idx);
+  if (!ta) return;
+  const content = ta.value.trim();
+  if (!content) return;
+  const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
+  try {
+    await fetch('/api/comments', { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ paperLink: link, author, content, parentId: null }) });
+    ta.value = '';
+    // Re-fetch and re-render
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const comments = await resp.json();
+    _tweetCommentCounts[link] = comments.length;
+    const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
+    if (badge) badge.textContent = comments.length || '';
+    const container = document.getElementById('tweet-comments-' + idx);
+    if (container) _renderTweetComments(container, comments, link, idx);
+  } catch { /* silent */ }
+}
+
+async function _postTweetReply(parentId, link, idx) {
+  const ta = document.getElementById('tweet-reply-ta-' + parentId);
+  if (!ta) return;
+  const content = ta.value.trim();
+  if (!content) return;
+  const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
+  try {
+    await fetch('/api/comments', { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ paperLink: link, author, content, parentId }) });
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const comments = await resp.json();
+    _tweetCommentCounts[link] = comments.length;
+    const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
+    if (badge) badge.textContent = comments.length || '';
+    const container = document.getElementById('tweet-comments-' + idx);
+    if (container) _renderTweetComments(container, comments, link, idx);
+  } catch { /* silent */ }
+}
+
+async function _deleteTweetComment(commentId, link, idx) {
+  try {
+    await fetch('/api/comments/' + commentId, { method: 'DELETE', headers: _authHeaders() });
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const comments = await resp.json();
+    _tweetCommentCounts[link] = comments.length;
+    const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
+    if (badge) badge.textContent = comments.length || '';
+    const container = document.getElementById('tweet-comments-' + idx);
+    if (container) _renderTweetComments(container, comments, link, idx);
+  } catch { /* silent */ }
+}
+
+function _showTweetReply(id) {
+  const el = document.getElementById('tweet-reply-' + id);
+  if (el) { el.classList.remove('hidden'); el.querySelector('textarea')?.focus(); }
+}
+
+function _hideTweetReply(id) {
+  const el = document.getElementById('tweet-reply-' + id);
+  if (el) el.classList.add('hidden');
+}
+
+function _tweetRepost(link, title, btn) {
+  // Animate the repost icon
+  const svg = btn.querySelector('svg');
+  if (svg) {
+    btn.style.color = 'var(--accent)';
+    svg.style.transition = 'transform 0.4s cubic-bezier(.4,2,.6,1)';
+    svg.style.transform = 'scale(1.4) rotate(360deg)';
+    setTimeout(() => {
+      svg.style.transform = 'scale(1) rotate(0deg)';
+      setTimeout(() => { btn.style.color = ''; svg.style.transition = ''; }, 400);
+    }, 400);
+  }
+  if (navigator.share) {
+    navigator.share({ title, url: link }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(link).then(() => {
+      // Show "Copied!" tooltip
+      const tip = document.createElement('span');
+      tip.textContent = 'Copied!';
+      tip.style.cssText = 'position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);font-size:0.65rem;color:var(--accent);background:var(--bg-popup);border:1px solid var(--border-card);border-radius:4px;padding:2px 6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:50;';
+      btn.style.position = 'relative';
+      btn.appendChild(tip);
+      requestAnimationFrame(() => { tip.style.opacity = '1'; });
+      setTimeout(() => {
+        tip.style.opacity = '0';
+        setTimeout(() => tip.remove(), 200);
+      }, 1000);
+    });
+  }
 }
 
 // Infinite scroll

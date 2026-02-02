@@ -1852,6 +1852,10 @@ function _toggleUserMenu() {
       <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${escapeHtml(username)}</div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">${escapeHtml(email)}</div>
     </div>
+    <button onclick="_userMenuAction('profile')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z"/></svg>
+      View Profile
+    </button>
     <button onclick="_userMenuAction('settings')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
       Settings
@@ -1877,7 +1881,8 @@ function _toggleUserMenu() {
 
 function _userMenuAction(action) {
   document.getElementById('user-menu-popover').style.display = 'none';
-  if (action === 'settings') openSettings();
+  if (action === 'profile') openUserProfile(_authUserInfo?.username || '');
+  else if (action === 'settings') openSettings();
   else if (action === 'logout') _doLogout();
   else if (action === 'delete') _doDeleteAccount();
 }
