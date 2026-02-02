@@ -535,34 +535,31 @@ async function showTeamDetailView(teamId) {
     // Store data for tab switching
     _teamDetailData = { teamId, team, teamExps, chatMessages, teamTodos, isOwner };
 
-    // Populate sidebar header
+    // Populate sidebar header (matches exp-detail-title style)
     if (sidebarHeader) {
       sidebarHeader.innerHTML = `
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-base font-bold">${escapeHtml(team.name[0].toUpperCase())}</div>
-          <div class="min-w-0">
-            <div class="text-white_ text-[0.85rem] font-semibold truncate">${escapeHtml(team.name)}</div>
-            <div class="text-dimmer text-[0.7rem]">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
-          </div>
-        </div>
+        <div class="text-[1.1rem] font-semibold text-white_ mb-1 truncate">${escapeHtml(team.name)}</div>
+        <div class="text-dimmer text-[0.72rem] mb-2">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
       `;
     }
 
-    // Populate sidebar tabs
+    // Populate sidebar tabs (styled like exp-file-row items)
     const openTodos = teamTodos.filter(t => !t.done);
     const tabs = [
-      { key: 'experiments', icon: '🧪', label: 'Experiments', count: teamExps.length },
-      { key: 'tasks', icon: '✓', label: 'Tasks', count: openTodos.length },
-      { key: 'members', icon: '👥', label: 'Members', count: team.members.length },
-      { key: 'chat', icon: '💬', label: 'Chat', count: chatMessages.length },
+      { key: 'experiments', badge: 'EXP', badgeCls: 'bg-purple-500/15 text-purple-400', label: 'Experiments', count: teamExps.length },
+      { key: 'tasks', badge: 'TSK', badgeCls: 'bg-green-500/15 text-green-400', label: 'Tasks', count: openTodos.length },
+      { key: 'members', badge: 'MBR', badgeCls: 'bg-blue-500/15 text-blue-400', label: 'Members', count: team.members.length },
+      { key: 'chat', badge: 'MSG', badgeCls: 'bg-amber-500/15 text-amber-400', label: 'Chat', count: chatMessages.length },
     ];
     if (sidebarTabs) {
-      sidebarTabs.innerHTML = tabs.map(t => `
-        <div id="team-tab-${t.key}" class="flex items-center gap-2.5 py-2 px-2 rounded-md cursor-pointer hover:bg-card/50 transition-colors text-[0.82rem]"
+      sidebarTabs.innerHTML = `<div class="flex items-center justify-between mb-2 px-2"><span class="text-[0.75rem] text-dim uppercase tracking-wide">Sections</span></div>` + tabs.map(t => `
+        <div id="team-tab-${t.key}" class="flex items-center py-1.5 px-2 rounded-md cursor-pointer hover:bg-card/50 group transition-colors"
              onclick="switchTeamTab('${t.key}')">
-          <span class="w-5 text-center text-[0.75rem]">${t.icon}</span>
-          <span class="text-primary flex-1">${t.label}</span>
-          <span class="text-dimmest text-[0.7rem]">${t.count}</span>
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="text-[0.7rem] px-1 py-0.5 rounded shrink-0 ${t.badgeCls}">${t.badge}</span>
+            <span class="text-[0.8rem] text-primary truncate">${t.label}</span>
+          </div>
+          <span class="text-dimmest text-[0.65rem] shrink-0">${t.count}</span>
         </div>
       `).join('');
     }
