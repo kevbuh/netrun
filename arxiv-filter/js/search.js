@@ -810,6 +810,51 @@ function deleteTabSession(index) {
   _renderTabStateDropdown();
 }
 
+// ── Browse More Menu (three dots) ──
+
+function toggleBrowseMoreMenu() {
+  const dd = document.getElementById('browse-more-menu');
+  if (!dd) return;
+  if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+
+  dd.innerHTML = `<div style="position:absolute;right:0;top:calc(100% + 4px);min-width:160px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
+    <button onclick="browsePrintPage()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>
+      Print page
+    </button>
+  </div>`;
+  dd.style.display = '';
+
+  setTimeout(() => {
+    const handler = (e) => {
+      if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleBrowseMoreMenu"]')) {
+        dd.style.display = 'none';
+        document.removeEventListener('mousedown', handler);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+  }, 0);
+}
+
+function browsePrintPage() {
+  // Close the menu
+  const dd = document.getElementById('browse-more-menu');
+  if (dd) dd.style.display = 'none';
+
+  const el = _browseActiveEl();
+  if (!el) return;
+
+  if (_browseIsElectron && el.print) {
+    el.print();
+  } else {
+    try { el.contentWindow.print(); } catch (e) {
+      // Cross-origin iframe — open in new tab so user can print from there
+      const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+      if (tab && tab.url) window.open(tab.url, '_blank');
+    }
+  }
+}
+
 // ── Search History (for search view) ──
 function selectSearchHistory(index) {
   const hist = getSearchHistory();
