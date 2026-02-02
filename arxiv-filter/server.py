@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import http.server
 import urllib.request
 import ssl
@@ -15,6 +16,16 @@ import threading
 import tempfile
 import base64
 from urllib.parse import unquote as url_unquote
+
+# Parse args before importing persistence so ARXIV_DATA_DIR is set
+_parser = argparse.ArgumentParser(description='Alpha server')
+_parser.add_argument('--port', type=int, default=8000, help='Port to listen on')
+_parser.add_argument('--data-dir', default=None, help='Directory for user data (DB, experiments, etc.)')
+_parser.add_argument('--static-dir', default=None, help='Directory for static files to serve')
+_args = _parser.parse_args()
+
+if _args.data_dir:
+    os.environ['ARXIV_DATA_DIR'] = _args.data_dir
 
 from persistence import (
     DIR, CACHE_TTL, EXPERIMENTS_DIR, BLOCKED_TITLES_FILE, PROMPT_FILE,
@@ -54,7 +65,7 @@ from kernels import (
     _execute_code, _execute_code_streaming,
 )
 
-PORT = 8000
+PORT = _args.port
 GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
 
 # In-memory cache for extracted document text: url -> { text, pages }
@@ -75,9 +86,11 @@ if not os.path.isfile(_unstructured_meta):
         json.dump({'title': 'Unstructured Files', 'desc': '', 'created': None, 'runs': []}, f)
 
 
+_static_dir = _args.static_dir or DIR
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIR, **kwargs)
+        super().__init__(*args, directory=_static_dir, **kwargs)
 
     def _send_json(self, data, status=200):
         body = json.dumps(data).encode()
@@ -2691,7 +2704,6 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'error': 'Not found'}, 404)
 
 
-print(f'Serving at http://localhost:{PORT}')
 class ThreadingHTTPServer(http.server.HTTPServer):
     import socketserver
     _mixin = socketserver.ThreadingMixIn
@@ -2710,4 +2722,6 @@ class ThreadingHTTPServer(http.server.HTTPServer):
         t.daemon = True
         t.start()
 
-ThreadingHTTPServer(('', PORT), Handler).serve_forever()
+httpd = ThreadingHTTPServer(('', PORT), Handler)
+print(f'Serving at http://localhost:{PORT}')
+httpd.serve_forever()

@@ -1,3 +1,8 @@
+// ── Electron detection ──
+if (window.electronAPI && window.electronAPI.isElectron) {
+  document.body.classList.add('electron-app');
+}
+
 // ── Spinner system ──
 let _spinnerData = null;
 let _spinnerNames = [];
@@ -1517,7 +1522,7 @@ function _renderGoogleButton() {
       setTimeout(_renderGoogleButton, 200);
     } else {
       console.error('[auth] Google Identity Services failed to load after 50 attempts');
-      container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In failed to load. Check that accounts.google.com is reachable and <code>http://localhost:8000</code> is an authorized JavaScript origin in your Google Cloud Console.</p>';
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In failed to load. Check that accounts.google.com is reachable and the current origin is an authorized JavaScript origin in your Google Cloud Console.</p>';
     }
     return;
   }

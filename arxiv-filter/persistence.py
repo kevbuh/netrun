@@ -7,7 +7,7 @@ import urllib.request
 import sqlite3
 import secrets
 
-DIR = os.path.dirname(os.path.abspath(__file__))
+DIR = os.environ.get('ARXIV_DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
 CACHE_TTL = 600  # 10 minutes
 
 # In-memory cache: url -> (data_bytes, timestamp)

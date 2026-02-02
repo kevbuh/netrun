@@ -1,3 +1,14 @@
+    /* Electron: draggable title bar region */
+    body.electron-app #sidebar-nav {
+      -webkit-app-region: drag;
+    }
+    body.electron-app #sidebar-nav button,
+    body.electron-app #sidebar-nav canvas,
+    body.electron-app #sidebar-nav a,
+    body.electron-app #sidebar-nav .sidebar-icon {
+      -webkit-app-region: no-drag;
+    }
+
     .reader-view {
       max-width: 720px;
       margin: 0 auto;

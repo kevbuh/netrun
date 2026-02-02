@@ -1,0 +1,49 @@
+{
+  "name": "alpha",
+  "version": "1.0.0",
+  "description": "Alpha — feed reader, paper browser, and experiment tracker",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build-python": "pyinstaller --noconfirm --distpath dist --name arxiv-server arxiv-filter/server.py",
+    "dist": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.alpha.app",
+    "productName": "Alpha",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "entitlements": "build-resources/entitlements.mac.plist",
+      "entitlementsInherit": "build-resources/entitlements.mac.plist"
+    },
+    "extraResources": [
+      {
+        "from": "dist/arxiv-server",
+        "to": "arxiv-server",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "arxiv-filter",
+        "to": "arxiv-filter",
+        "filter": [
+          "**/*",
+          "!experiments/**",
+          "!*.db",
+          "!.pdf-cache/**",
+          "!saved_content/**",
+          "!quality_prompt.txt",
+          "!blocked_titles.json"
+        ]
+      }
+    ],
+    "files": [
+      "electron/**/*",
+      "!node_modules/**/*"
+    ]
+  }
+}
