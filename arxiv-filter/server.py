@@ -41,7 +41,7 @@ from persistence import (
     get_user_shared_experiments, search_users,
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
-    send_team_message, get_team_messages,
+    send_team_message, get_team_messages, update_team_message, delete_team_message,
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
 )
@@ -2401,6 +2401,24 @@ ch.postMessage({type:'preview-ready'});
             self._send_json(meta)
             return
 
+        elif (m := self._match(r'^/api/teams/(\d+)/messages/([a-zA-Z0-9_-]+)$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            msg_id = m.group(2)
+            body = self._read_body()
+            content = (body.get('content') or '').strip()
+            if not content:
+                self._send_json({'error': 'content required'}, 400)
+                return
+            if update_team_message(team_id, msg_id, google_id, content):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found or not yours'}, 404)
+            return
+
         elif (m := self._match(r'^/api/teams/(\d+)/todos/([a-zA-Z0-9_-]+)$')):
             google_id = self._get_user()
             if not google_id:
@@ -2562,6 +2580,18 @@ ch.postMessage({type:'preview-ready'});
                 return
             remove_experiment_team(m.group(1))
             self._send_json({'ok': True})
+
+        elif (m := self._match(r'^/api/teams/(\d+)/messages/([a-zA-Z0-9_-]+)$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            msg_id = m.group(2)
+            if delete_team_message(team_id, msg_id, google_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found or not yours'}, 404)
 
         elif (m := self._match(r'^/api/teams/(\d+)/todos/([a-zA-Z0-9_-]+)$')):
             google_id = self._get_user()

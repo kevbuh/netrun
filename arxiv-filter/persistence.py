@@ -325,6 +325,11 @@ def init_db():
     if 'picture' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN picture TEXT")
         conn.commit()
+    # Migration: add edited column to team_messages
+    tm_cols = [r[1] for r in conn.execute("PRAGMA table_info(team_messages)").fetchall()]
+    if 'edited' not in tm_cols:
+        conn.execute("ALTER TABLE team_messages ADD COLUMN edited INTEGER DEFAULT 0")
+        conn.commit()
     conn.close()
 
 
@@ -1135,7 +1140,7 @@ def send_team_message(team_id, google_id, content):
 def get_team_messages(team_id, limit=50):
     conn = _get_db()
     rows = conn.execute("""
-        SELECT tm.id, tm.google_id, tm.content, tm.timestamp, u.username, u.picture
+        SELECT tm.id, tm.google_id, tm.content, tm.timestamp, tm.edited, u.username, u.picture
         FROM team_messages tm
         JOIN users u ON u.google_id = tm.google_id
         WHERE tm.team_id = ?
@@ -1144,7 +1149,32 @@ def get_team_messages(team_id, limit=50):
     """, (team_id, limit)).fetchall()
     conn.close()
     return [{'id': r['id'], 'username': r['username'], 'picture': r['picture'],
-             'content': r['content'], 'timestamp': r['timestamp']} for r in rows]
+             'content': r['content'], 'timestamp': r['timestamp'],
+             'google_id': r['google_id'], 'edited': bool(r['edited'])} for r in rows]
+
+
+def update_team_message(team_id, message_id, google_id, content):
+    conn = _get_db()
+    cur = conn.execute(
+        "UPDATE team_messages SET content = ?, edited = 1 WHERE id = ? AND team_id = ? AND google_id = ?",
+        (content, message_id, team_id, google_id)
+    )
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated
+
+
+def delete_team_message(team_id, message_id, google_id):
+    conn = _get_db()
+    cur = conn.execute(
+        "DELETE FROM team_messages WHERE id = ? AND team_id = ? AND google_id = ?",
+        (message_id, team_id, google_id)
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
 
 
 # ── Team Todos ──

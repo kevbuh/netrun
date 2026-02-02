@@ -331,7 +331,7 @@ function showPaperView(paper, hashValue) {
   const topbar = document.getElementById('paper-topbar');
   const sidebar = document.getElementById('paper-sidebar');
   const isHN = paper.source === 'hn';
-  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/abs\//.test(paper.link);
+  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/(abs|pdf)\//.test(paper.link);
   const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
   _currentPaperViewPaper = paper;
   const isSaved = isPostSaved(paper.link);
@@ -457,7 +457,7 @@ function showPaperView(paper, hashValue) {
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
   pdfContainer.innerHTML = '';
-  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '') : '';
+  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
   if (arxivId) {
     initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
   } else {
@@ -617,7 +617,7 @@ async function sharePaperToTeam(teamId, teamName, el) {
   const paper = _currentPaperViewPaper;
   if (!paper) return;
   if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
-  const content = `📄 ${paper.title}\n${paper.link}`;
+  const content = paper.link;
   try {
     const resp = await fetch(`/api/teams/${teamId}/messages`, {
       method: 'POST',
@@ -687,8 +687,8 @@ async function generateCitation(fmt) {
   const paper = _currentPaperViewPaper;
   if (!paper) return;
 
-  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/abs\//.test(paper.link);
-  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/abs\/(\d+\.\d+)/) || [])[1] || '') : '';
+  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/(abs|pdf)\//.test(paper.link);
+  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
 
   let authors = paper.authors || '';
   let title = paper.title || '';

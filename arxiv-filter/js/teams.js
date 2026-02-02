@@ -3,26 +3,59 @@
 let _cachedTeams = [];
 let _cachedInvites = [];
 
-function _renderChatContent(content) {
-  // Detect shared paper: "📄 {title}\n{url}"
-  const shareMatch = content.match(/^📄 (.+)\n(https?:\/\/\S+)$/);
-  if (shareMatch) {
-    const title = shareMatch[1];
-    const url = shareMatch[2];
-    let hostname = '';
-    try { hostname = new URL(url).hostname.replace(/^www\./, ''); } catch {}
-    const favicon = (() => { try { return new URL(url).origin + '/favicon.ico'; } catch { return ''; } })();
-    return `<a href="#view/${encodeURIComponent(url)}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
-      <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          ${favicon ? `<img src="${escapeAttr(favicon)}" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display='none'">` : ''}
-          <span style="font-size:0.65rem;color:var(--text-dimmest)">${escapeHtml(hostname)}</span>
-        </div>
-        <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;line-height:1.35">${escapeHtml(title)}</div>
-      </div>
-    </a>`;
+function _isArxivUrl(url) {
+  return /^https?:\/\/(www\.)?arxiv\.org\/(abs|pdf)\//.test(url);
+}
+
+function _paperViewHash(url) {
+  return '#view/' + encodeURIComponent(url);
+}
+
+function _resolveTitle(url) {
+  // Try to find title from allPapers cache
+  if (typeof allPapers !== 'undefined' && allPapers.length) {
+    const match = allPapers.find(p => p.link === url || p.link === url.replace('/pdf/', '/abs/') || p.link === url.replace('/abs/', '/pdf/'));
+    if (match) return match.title;
   }
-  return escapeHtml(content);
+  // Try arxiv ID as fallback label
+  const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/([^\s?#]+)/);
+  if (arxivMatch) return 'arXiv:' + arxivMatch[1];
+  return null;
+}
+
+function _renderLinkCard(url) {
+  let hostname = '';
+  try { hostname = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+  const favicon = (() => { try { return new URL(url).origin + '/favicon.ico'; } catch { return ''; } })();
+  const title = _resolveTitle(url);
+  const isArxiv = _isArxivUrl(url);
+  const href = _paperViewHash(url);
+  return `<a href="${href}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
+    <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        ${favicon ? `<img src="${escapeAttr(favicon)}" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display='none'">` : ''}
+        <span style="font-size:0.65rem;color:var(--text-dimmest)">${escapeHtml(hostname)}</span>
+        ${isArxiv ? '<span style="font-size:0.6rem;color:var(--accent);font-weight:600">PDF</span>' : ''}
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;line-height:1.35">${escapeHtml(title || url)}</div>
+    </div>
+  </a>`;
+}
+
+function _renderChatContent(content) {
+  // Legacy: "📄 {title}\n{url}" format
+  const shareMatch = content.match(/^📄 (.+)\n(https?:\/\/\S+)$/);
+  if (shareMatch) return _renderLinkCard(shareMatch[2]);
+
+  // Bare URL as entire message
+  const bareUrl = content.trim().match(/^(https?:\/\/\S+)$/);
+  if (bareUrl) return _renderLinkCard(bareUrl[1]);
+
+  // For mixed text+URL, make URLs clickable
+  return escapeHtml(content).replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+    const href = _paperViewHash(url);
+    return `<a href="${href}" class="text-accent hover:underline" style="text-decoration:none" onclick="event.stopPropagation()">${escapeHtml(url)}</a>`;
+  });
 }
 
 // ── Inbox View ──
@@ -373,7 +406,11 @@ async function showTeamDetailView(teamId) {
             const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(m.timestamp) : '';
             const currentUser = _authUserInfo && _authUserInfo.username;
             const isOwn = m.username === currentUser;
-            return `<div class="flex items-start gap-2 ${isOwn ? 'flex-row-reverse' : ''}">
+            const ownActions = isOwn ? `<div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1 ${isOwn ? 'flex-row-reverse' : ''}">
+              <button onclick="editTeamChatMsg(${teamId}, '${m.id}', this)" class="text-[0.6rem] text-dimmest hover:text-primary bg-transparent border-none cursor-pointer p-0">edit</button>
+              <button onclick="deleteTeamChatMsg(${teamId}, '${m.id}')" class="text-[0.6rem] text-dimmest hover:text-red-400 bg-transparent border-none cursor-pointer p-0">delete</button>
+            </div>` : '';
+            return `<div class="flex items-start gap-2 group ${isOwn ? 'flex-row-reverse' : ''}">
               ${m.picture
                 ? `<img src="${escapeAttr(m.picture)}" class="w-6 h-6 rounded-full shrink-0" referrerpolicy="no-referrer" />`
                 : `<div class="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[0.6rem] font-bold shrink-0">${escapeHtml((m.username || '?')[0].toUpperCase())}</div>`
@@ -382,8 +419,10 @@ async function showTeamDetailView(teamId) {
                 <div class="flex items-center gap-1.5 ${isOwn ? 'flex-row-reverse' : ''}">
                   <a href="#profile/${encodeURIComponent(m.username)}" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(m.username)}</a>
                   <span class="text-[0.65rem] text-dimmest">${timeAgo}</span>
+                  ${m.edited ? '<span class="text-[0.6rem] text-dimmest italic">(edited)</span>' : ''}
                 </div>
-                <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${_renderChatContent(m.content)}</div>
+                <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed" id="chat-msg-content-${m.id}" data-raw="${escapeAttr(m.content)}">${_renderChatContent(m.content)}</div>
+                ${ownActions}
               </div>
             </div>`;
           }).join('') : '<div class="text-dimmer text-xs text-center py-4">No messages yet. Start the conversation!</div>'}
@@ -444,6 +483,51 @@ async function sendTeamChatMessage(teamId) {
         chatEl.scrollTop = chatEl.scrollHeight;
       }
     }
+  } catch (err) { /* ignore */ }
+}
+
+function editTeamChatMsg(teamId, msgId, btn) {
+  const contentEl = document.getElementById(`chat-msg-content-${msgId}`);
+  if (!contentEl) return;
+  const bubble = contentEl.closest('.border.rounded-lg');
+  const rawContent = contentEl.dataset.raw || contentEl.textContent.trim();
+  // Replace content with inline edit
+  const actionsDiv = bubble.querySelector('.group-hover\\:opacity-100');
+  if (actionsDiv) actionsDiv.style.display = 'none';
+  const rows = Math.max(2, rawContent.split('\n').length);
+  contentEl.innerHTML = `
+    <textarea id="chat-msg-edit-${msgId}" class="w-full bg-input border border-border-input rounded px-2 py-1 text-[0.8rem] text-primary resize-none outline-none focus:border-accent font-mono" rows="${rows}">${escapeHtml(rawContent)}</textarea>
+    <div class="flex gap-1.5 mt-1">
+      <button onclick="saveTeamChatMsg(${teamId}, '${msgId}')" class="text-[0.68rem] px-2 py-0.5 rounded bg-accent text-white border-none cursor-pointer">Save</button>
+      <button onclick="showTeamDetailView(${teamId})" class="text-[0.68rem] px-2 py-0.5 rounded border border-border-input text-muted bg-transparent cursor-pointer">Cancel</button>
+    </div>
+  `;
+  const ta = document.getElementById(`chat-msg-edit-${msgId}`);
+  if (ta) { ta.focus(); ta.selectionStart = ta.value.length; }
+}
+
+async function saveTeamChatMsg(teamId, msgId) {
+  const ta = document.getElementById(`chat-msg-edit-${msgId}`);
+  const content = (ta?.value || '').trim();
+  if (!content) return;
+  try {
+    await fetch(`/api/teams/${teamId}/messages/${msgId}`, {
+      method: 'PUT',
+      headers: _authHeaders(),
+      body: JSON.stringify({ content })
+    });
+    showTeamDetailView(teamId);
+  } catch (err) { /* ignore */ }
+}
+
+async function deleteTeamChatMsg(teamId, msgId) {
+  if (!confirm('Delete this message?')) return;
+  try {
+    await fetch(`/api/teams/${teamId}/messages/${msgId}`, {
+      method: 'DELETE',
+      headers: _authHeaders()
+    });
+    showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
 
