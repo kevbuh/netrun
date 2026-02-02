@@ -42,6 +42,7 @@ from persistence import (
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages, update_team_message, delete_team_message,
+    mark_team_chat_read, get_unread_team_chats, get_unread_team_chat_count,
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
 )
@@ -938,7 +939,9 @@ ch.postMessage({type:'preview-ready'});
                 return
             invites = len(get_pending_invites(google_id))
             messages = get_unread_message_count(google_id)
-            self._send_json({'invites': invites, 'messages': messages, 'total': invites + messages})
+            chats = get_unread_team_chat_count(google_id)
+            tasks = len(get_my_assigned_todos(google_id))
+            self._send_json({'invites': invites, 'messages': messages, 'chats': chats, 'tasks': tasks, 'total': invites + messages + chats + tasks})
 
         elif (m := self._match(r'^/api/teams/(\d+)/messages$')):
             google_id = self._get_user()
@@ -983,6 +986,13 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
             self._send_json(get_my_assigned_todos(google_id))
+
+        elif self.path == '/api/inbox-chats':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json(get_unread_team_chats(google_id))
 
         elif self.path.startswith('/api/users'):
             google_id = self._get_user()
@@ -2251,6 +2261,15 @@ ch.postMessage({type:'preview-ready'});
                 return
             msg = send_team_message(team_id, google_id, content)
             self._send_json(msg)
+
+        elif (m := self._match(r'^/api/teams/(\d+)/chat-read$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            mark_team_chat_read(team_id, google_id)
+            self._send_json({'ok': True})
 
         elif (m := self._match(r'^/api/teams/(\d+)/todos$')):
             google_id = self._get_user()

@@ -315,6 +315,12 @@ def init_db():
             description TEXT,
             timestamp REAL NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS team_chat_read (
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            last_read REAL NOT NULL DEFAULT 0,
+            PRIMARY KEY (team_id, google_id)
+        );
     """)
     # Migration: add username column if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
@@ -1175,6 +1181,55 @@ def delete_team_message(team_id, message_id, google_id):
     deleted = cur.rowcount > 0
     conn.close()
     return deleted
+
+
+def mark_team_chat_read(team_id, google_id):
+    conn = _get_db()
+    ts = int(time.time() * 1000)
+    conn.execute(
+        "INSERT INTO team_chat_read (team_id, google_id, last_read) VALUES (?, ?, ?) "
+        "ON CONFLICT(team_id, google_id) DO UPDATE SET last_read = ?",
+        (team_id, google_id, ts, ts)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_unread_team_chats(google_id):
+    """Get recent unread team chat messages across all teams the user is in (excluding own messages)."""
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT tm.id, tm.team_id, tm.google_id, tm.content, tm.timestamp,
+               u.username, u.picture, t.name AS team_name,
+               COALESCE(tcr.last_read, 0) AS last_read
+        FROM team_messages tm
+        JOIN team_members tmem ON tmem.team_id = tm.team_id AND tmem.google_id = ?
+        JOIN users u ON u.google_id = tm.google_id
+        JOIN teams t ON t.id = tm.team_id
+        LEFT JOIN team_chat_read tcr ON tcr.team_id = tm.team_id AND tcr.google_id = ?
+        WHERE tm.google_id != ?
+          AND tm.timestamp > COALESCE(tcr.last_read, 0)
+        ORDER BY tm.timestamp DESC
+        LIMIT 50
+    """, (google_id, google_id, google_id)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'team_id': r['team_id'], 'content': r['content'],
+             'timestamp': r['timestamp'], 'username': r['username'],
+             'picture': r['picture'], 'team_name': r['team_name']} for r in rows]
+
+
+def get_unread_team_chat_count(google_id):
+    conn = _get_db()
+    count = conn.execute("""
+        SELECT COUNT(*) as c
+        FROM team_messages tm
+        JOIN team_members tmem ON tmem.team_id = tm.team_id AND tmem.google_id = ?
+        LEFT JOIN team_chat_read tcr ON tcr.team_id = tm.team_id AND tcr.google_id = ?
+        WHERE tm.google_id != ?
+          AND tm.timestamp > COALESCE(tcr.last_read, 0)
+    """, (google_id, google_id, google_id)).fetchone()['c']
+    conn.close()
+    return count
 
 
 # ── Team Todos ──

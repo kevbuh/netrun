@@ -146,14 +146,18 @@ async function renderInbox() {
   const container = document.getElementById('inbox-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
   try {
-    const [invResp, msgResp] = await Promise.all([
+    const [invResp, msgResp, tasksResp, chatsResp] = await Promise.all([
       fetch('/api/inbox', { headers: _authHeaders() }),
       fetch('/api/messages', { headers: _authHeaders() }),
+      fetch('/api/my-tasks', { headers: _authHeaders() }),
+      fetch('/api/inbox-chats', { headers: _authHeaders() }),
     ]);
     _cachedInvites = await invResp.json();
     const messages = msgResp.ok ? await msgResp.json() : [];
+    const tasks = tasksResp.ok ? await tasksResp.json() : [];
+    const chats = chatsResp.ok ? await chatsResp.json() : [];
 
-    if (!_cachedInvites.length && !messages.length) {
+    if (!_cachedInvites.length && !messages.length && !tasks.length && !chats.length) {
       container.innerHTML = '<div class="text-center py-20 text-dim text-sm">Nothing here yet</div>';
       return;
     }
@@ -177,9 +181,58 @@ async function renderInbox() {
       `).join('');
     }
 
-    // Messages
+    // Assigned Tasks
+    if (tasks.length) {
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2 mt-5">Assigned Tasks</div>';
+      html += tasks.map(t => {
+        const priColors = { high: 'text-red-400', medium: 'text-yellow-400', low: 'text-green-400' };
+        const priColor = priColors[t.priority] || 'text-dim';
+        return `
+        <div class="flex items-center gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="openTeams(); showTeamDetailView(${t.team_id})">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-primary">${escapeHtml(t.title)}</span>
+              <span class="text-[0.65rem] ${priColor} uppercase font-semibold">${escapeHtml(t.priority)}</span>
+            </div>
+            <div class="text-dimmer text-xs mt-0.5">${escapeHtml(t.team_name)} · from ${escapeHtml(t.author)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Team Chats (unread)
+    if (chats.length) {
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2 mt-5">Team Chat</div>';
+      // Group by team
+      const byTeam = {};
+      for (const c of chats) {
+        if (!byTeam[c.team_id]) byTeam[c.team_id] = { team_name: c.team_name, team_id: c.team_id, msgs: [] };
+        byTeam[c.team_id].msgs.push(c);
+      }
+      for (const team of Object.values(byTeam)) {
+        const latest = team.msgs[0];
+        const count = team.msgs.length;
+        html += `
+        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="openTeams(); showTeamDetailView(${team.team_id})">
+          ${latest.picture
+            ? `<img src="${escapeAttr(latest.picture)}" class="w-8 h-8 rounded-full shrink-0" referrerpolicy="no-referrer" />`
+            : `<div class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold shrink-0">${escapeHtml((latest.username || '?')[0].toUpperCase())}</div>`
+          }
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-accent">${escapeHtml(team.team_name)}</span>
+              <span class="text-dimmer text-[0.7rem]">${count} new message${count > 1 ? 's' : ''}</span>
+              <span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>
+            </div>
+            <div class="text-[0.82rem] text-primary mt-1 leading-relaxed truncate"><span class="text-dim">${escapeHtml(latest.username)}:</span> ${escapeHtml(latest.content.length > 80 ? latest.content.slice(0, 80) + '…' : latest.content)}</div>
+          </div>
+        </div>`;
+      }
+    }
+
+    // Direct Messages
     if (messages.length) {
-      if (_cachedInvites.length) html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2 mt-5">Messages</div>';
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2 mt-5">Messages</div>';
       html += messages.map(msg => {
         const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(msg.timestamp) : '';
         const unread = !msg.read;
@@ -339,6 +392,9 @@ async function showTeamDetailView(teamId) {
     const chatMessages = chatResp.ok ? await chatResp.json() : [];
     const teamTodos = todosResp.ok ? await todosResp.json() : [];
     const isOwner = team.owner_google_id === (_authUserInfo && _authUserInfo.google_id);
+
+    // Mark team chat as read
+    fetch(`/api/teams/${teamId}/chat-read`, { method: 'POST', headers: _authHeaders() }).then(() => refreshInboxBadge()).catch(() => {});
 
     // Merge: team experiments for this team + own experiments assigned to this team
     const seen = new Set();
