@@ -614,6 +614,7 @@ function routeFromHash() {
   else if (hash.startsWith('#profile/')) openUserProfile(decodeURIComponent(hash.slice('#profile/'.length)));
 else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
+  else if (hash === '#browse') openBrowse();
   else if (hash === '#search') openSearch();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) {

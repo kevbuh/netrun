@@ -97,7 +97,7 @@
 <body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] bg-body text-primary min-h-screen">
 
   <!-- Desktop Left Sidebar -->
-  <nav id="sidebar-nav" class="w-[60px] bg-sidebar border-r border-border-sidebar flex flex-col items-center py-4 gap-1 fixed top-0 left-0 bottom-0 z-20">
+  <nav id="sidebar-nav" class="w-[72px] bg-sidebar border-r border-border-sidebar flex flex-col items-center py-4 gap-1 fixed top-0 left-0 bottom-0 z-20">
     <button class="sidebar-icon active w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-dashboard" onclick="openDashboard()">
       <span class="text-[1.1rem] font-bold" style="font-family:Georgia,serif">α</span>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Home</span>
@@ -109,6 +109,10 @@
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover sidebar-draggable" id="sb-experiments" onclick="openExperiments()" data-sb-order="1">
       <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Experiments</span>
+    </button>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover sidebar-draggable" id="sb-browse" onclick="openBrowse()" data-sb-order="2">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Browse</span>
     </button>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover sidebar-draggable" id="sb-search" onclick="openSearch()" data-sb-order="3">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -156,6 +160,10 @@
       <svg class="fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
       <span>Projects</span>
     </button>
+    <button class="mobile-nav-btn" id="mb-browse" onclick="openBrowse()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+      <span>Browse</span>
+    </button>
     <button class="mobile-nav-btn" id="mb-search" onclick="openSearch()">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
       <span>Search</span>
@@ -167,14 +175,14 @@
   </nav>
 
   <!-- Dashboard View -->
-  <div id="dashboard-view" class="hidden ml-[60px] view overflow-x-hidden">
+  <div id="dashboard-view" class="hidden ml-[72px] view overflow-x-hidden">
     <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16 overflow-hidden">
       <div id="dashboard-content"></div>
     </div>
   </div>
 
   <!-- Home Main Content -->
-  <div class="flex-1 ml-[60px] px-6 pt-6" id="home-main">
+  <div class="flex-1 ml-[72px] px-6 pt-6" id="home-main">
     <!-- Onboarding View -->
     <div id="onboard-view" style="display:none" class="py-6 overflow-y-auto">
       <div class="text-center max-w-[860px] mx-auto px-4">
@@ -208,7 +216,7 @@
   </div>
 
   <!-- Projects List View -->
-  <div id="experiments-view" class="hidden ml-[60px] view">
+  <div id="experiments-view" class="hidden ml-[72px] view">
     <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16">
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-[1.3rem] font-semibold text-white_">Projects</h2>
@@ -256,7 +264,7 @@
 
   <!-- Reading List View -->
   <!-- Paper Viewer View -->
-  <div id="paper-view" class="hidden ml-[60px] view">
+  <div id="paper-view" class="hidden ml-[72px] view">
     <div class="flex flex-col h-screen overflow-hidden">
       <div class="flex items-center gap-3 px-4 py-2 border-b border-border-card bg-card shrink-0 min-h-0 overflow-hidden" id="paper-topbar"></div>
       <div class="flex flex-1 min-h-0 overflow-hidden">
@@ -267,7 +275,7 @@
   </div>
 
   <!-- Project Detail View -->
-  <div id="exp-detail-view" class="hidden ml-[60px] view">
+  <div id="exp-detail-view" class="hidden ml-[72px] view">
     <div class="grid grid-cols-[260px_1px_1fr] h-screen overflow-hidden">
       <!-- Left Sidebar -->
       <div id="exp-sidebar" class="border-r border-border-card py-3 overflow-y-auto flex flex-col scrollbar-hide">
@@ -346,7 +354,7 @@
   </div>
 
   <!-- Search View -->
-  <div id="search-view" class="hidden ml-[60px] view">
+  <div id="search-view" class="hidden ml-[72px] view">
     <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16">
       <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
         <div class="relative max-w-[680px] mx-auto mb-4">
@@ -367,26 +375,42 @@
       <div id="search-feed-results"></div>
       <div id="search-arxiv-results"></div>
       <div id="search-openalex-results"></div>
-      <div id="search-web-results"></div>
     </div>
   </div>
 
+  <!-- Browse View -->
+  <div id="browse-view" class="hidden ml-[72px] view" style="height:100vh;display:none;">
+    <div id="browse-bar" class="flex items-center gap-2 px-4 py-2 border-b border-border-sidebar bg-sidebar">
+      <button class="shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer hover:border-accent hover:text-primary flex items-center justify-center" onclick="browseBack()" title="Back">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      </button>
+      <button class="shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer hover:border-accent hover:text-primary flex items-center justify-center" onclick="browseForward()" title="Forward">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+      </button>
+      <button class="shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer hover:border-accent hover:text-primary flex items-center justify-center" onclick="browseReload()" title="Reload">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      </button>
+      <input id="browse-url-input" type="text" class="flex-1 bg-card border border-border-input rounded-lg px-3 py-1.5 text-[0.85rem] text-primary outline-none focus:border-accent" placeholder="Search Google or enter URL..." onkeydown="if(event.key==='Enter')browseNavigate(this.value)">
+    </div>
+    <div id="browse-content" style="flex:1;overflow:hidden;"></div>
+  </div>
+
   <!-- Settings View -->
-  <div id="settings-view" class="hidden ml-[60px] view">
+  <div id="settings-view" class="hidden ml-[72px] view">
     <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
       <div id="settings-view-content"></div>
     </div>
   </div>
 
   <!-- Calendar View -->
-  <div id="calendar-view" class="hidden ml-[60px] view">
+  <div id="calendar-view" class="hidden ml-[72px] view">
     <div class="max-w-[900px] mx-auto px-8 pt-6 pb-16">
       <div id="calendar-view-content"></div>
     </div>
   </div>
 
   <!-- Inbox View -->
-  <div id="inbox-view" class="hidden ml-[60px] view">
+  <div id="inbox-view" class="hidden ml-[72px] view">
     <div class="max-w-[700px] mx-auto px-8 pt-6 pb-16">
       <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Inbox</h2>
       <div id="inbox-content"></div>
@@ -394,12 +418,12 @@
   </div>
 
   <!-- Profile View -->
-  <div id="profile-view" class="hidden ml-[60px] view">
+  <div id="profile-view" class="hidden ml-[72px] view">
     <div class="max-w-[720px] mx-auto px-6 pt-6 pb-16" id="profile-content"></div>
   </div>
 
   <!-- Teams View -->
-  <div id="teams-view" class="hidden ml-[60px] view">
+  <div id="teams-view" class="hidden ml-[72px] view">
     <!-- List mode (teams listing) -->
     <div id="teams-view-list" class="max-w-[700px] mx-auto px-8 pt-6 pb-16">
       <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Teams</h2>

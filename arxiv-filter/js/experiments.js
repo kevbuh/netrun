@@ -197,7 +197,7 @@ async function fetchExperimentDetail(id) {
   try {
     const resp = await fetch(`/api/experiments/${id}`, { headers: _authHeaders() });
     currentExp = await resp.json();
-    if (currentExp.error) { document.getElementById('exp-detail-view').innerHTML = `<div class="text-dimmer text-sm mt-12 text-center ml-[60px]">${escapeHtml(currentExp.error)}</div>`; return; }
+    if (currentExp.error) { document.getElementById('exp-detail-view').innerHTML = `<div class="text-dimmer text-sm mt-12 text-center ml-[72px]">${escapeHtml(currentExp.error)}</div>`; return; }
     document.getElementById('exp-detail-title').innerHTML = marked.parseInline(currentExp.title);
     renderLatexIn('exp-detail-title');
     const descEl = document.getElementById('exp-detail-desc');

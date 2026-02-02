@@ -47,8 +47,6 @@ function submitSearch() {
   // Show collapsed OpenAlex header
   const oaContainer = document.getElementById('search-openalex-results');
   if (oaContainer) renderOpenAlexHeader(oaContainer, false);
-  // Show web search section
-  renderWebSearchSection(query);
 }
 
 function renderSearchFeedResults(query) {
@@ -369,41 +367,67 @@ function openOpenAlexPaper(i) {
   openPaperByUrl(r.link);
 }
 
-// ── Web Search (embedded browser) ──
-let webSearchCollapsed = false;
+// ── Browse View (embedded browser tab) ──
 
-function toggleWebSearchCollapse() {
-  webSearchCollapsed = !webSearchCollapsed;
-  renderWebSearchSection(searchCurrentQuery);
+function openBrowse(url) {
+  hideAllViews();
+  const view = document.getElementById('browse-view');
+  view.classList.add('active');
+  view.style.display = 'flex';
+  view.style.flexDirection = 'column';
+  window.location.hash = 'browse';
+  setSidebarActive('sb-browse');
+  if (url) {
+    browseNavigate(url);
+  } else if (!document.getElementById('browse-content').children.length) {
+    browseNavigate('https://www.google.com');
+  }
 }
 
-function renderWebSearchSection(query) {
-  const container = document.getElementById('search-web-results');
+function browseNavigate(input) {
+  const url = _browseResolveUrl(input);
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput) urlInput.value = url;
+  const container = document.getElementById('browse-content');
   if (!container) return;
-  if (!query) { container.innerHTML = ''; return; }
-
-  const chevron = webSearchCollapsed
-    ? '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>'
-    : '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>';
-  const globeIcon = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
-  const header = `<div class="flex items-center gap-2 mb-3 mt-4">
-    <button class="flex items-center gap-1 text-[0.75rem] text-dimmer uppercase tracking-wide cursor-pointer bg-transparent border-none hover:text-primary transition-colors" onclick="toggleWebSearchCollapse()">${chevron} ${globeIcon} Web Search</button>
-  </div>`;
-
-  if (webSearchCollapsed) {
-    container.innerHTML = header;
-    return;
-  }
 
   const isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
-  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-
   if (isElectron) {
-    container.innerHTML = header + `<webview class="web-search-iframe" src="${searchUrl}"></webview>`;
+    container.innerHTML = `<webview id="browse-webview" src="${url}" style="width:100%;height:100%;"></webview>`;
+    const wv = document.getElementById('browse-webview');
+    wv.addEventListener('did-navigate', (e) => { if (urlInput) urlInput.value = e.url; });
+    wv.addEventListener('did-navigate-in-page', (e) => { if (urlInput && e.isMainFrame) urlInput.value = e.url; });
   } else {
-    const ddgUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
-    container.innerHTML = header + `<iframe class="web-search-iframe" src="${ddgUrl}" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+    container.innerHTML = `<iframe id="browse-iframe" src="${url}" style="width:100%;height:100%;border:none;" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
   }
+}
+
+function _browseResolveUrl(input) {
+  input = input.trim();
+  if (/^https?:\/\//i.test(input)) return input;
+  if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input)) return 'https://' + input;
+  return 'https://www.google.com/search?q=' + encodeURIComponent(input);
+}
+
+function browseBack() {
+  const wv = document.getElementById('browse-webview');
+  if (wv && wv.canGoBack && wv.canGoBack()) { wv.goBack(); return; }
+  const ifr = document.getElementById('browse-iframe');
+  if (ifr) { try { ifr.contentWindow.history.back(); } catch(e) {} }
+}
+
+function browseForward() {
+  const wv = document.getElementById('browse-webview');
+  if (wv && wv.canGoForward && wv.canGoForward()) { wv.goForward(); return; }
+  const ifr = document.getElementById('browse-iframe');
+  if (ifr) { try { ifr.contentWindow.history.forward(); } catch(e) {} }
+}
+
+function browseReload() {
+  const wv = document.getElementById('browse-webview');
+  if (wv && wv.reload) { wv.reload(); return; }
+  const ifr = document.getElementById('browse-iframe');
+  if (ifr) { try { ifr.contentWindow.location.reload(); } catch(e) {} }
 }
 
 // ── Search History (for search view) ──
