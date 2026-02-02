@@ -438,6 +438,7 @@ function _browseBindFrame(tab) {
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
       if (urlInput) urlInput.value = e.url;
+      _browseUpdateSaveBtn();
     }
   });
   el.addEventListener('did-navigate-in-page', (e) => {
@@ -449,6 +450,7 @@ function _browseBindFrame(tab) {
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
       if (urlInput) urlInput.value = e.url;
+      _browseUpdateSaveBtn();
     }
   });
   el.addEventListener('page-title-updated', (e) => {
@@ -474,6 +476,7 @@ function browseSelectTab(id) {
   const urlInput = document.getElementById('browse-url-input');
   if (urlInput) urlInput.value = tab ? tab.url : '';
   _browseRenderTabs();
+  _browseUpdateSaveBtn();
 }
 
 function browseCloseTab(id) {
@@ -545,6 +548,7 @@ function browseNavigate(input) {
   const urlInput = document.getElementById('browse-url-input');
   if (urlInput) urlInput.value = url;
   _browseRenderTabs();
+  _browseUpdateSaveBtn();
 }
 
 function _browseResolveUrl(input) {
@@ -579,6 +583,34 @@ function browseReload() {
   if (!el) return;
   if (_browseIsElectron && el.reload) { el.reload(); return; }
   if (!_browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
+}
+
+function browseSaveToReadingList() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || tab.blank || !tab.url) return;
+  const paper = { title: tab.title, link: tab.url, source: 'browse', description: '', authors: '', date: '' };
+  const saved = getSavedPosts();
+  if (saved[tab.url]) {
+    delete saved[tab.url];
+  } else {
+    saved[tab.url] = { paper, savedAt: Date.now(), read: false };
+    if (typeof petReact === 'function') petReact('happy');
+  }
+  savePosts(saved);
+  updateSavedBadge();
+  _browseUpdateSaveBtn();
+}
+
+function _browseUpdateSaveBtn() {
+  const btn = document.getElementById('browse-save-btn');
+  if (!btn) return;
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const saved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
+  const svg = btn.querySelector('svg');
+  if (svg) {
+    svg.setAttribute('fill', saved ? 'var(--accent)' : 'none');
+    svg.setAttribute('stroke', saved ? 'var(--accent)' : 'currentColor');
+  }
 }
 
 // ── Search History (for search view) ──

@@ -392,6 +392,9 @@
         <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
       </button>
       <input id="browse-url-input" type="text" class="flex-1 bg-hover border border-transparent rounded-lg px-2.5 py-1 text-[0.8rem] text-primary outline-none focus:bg-card focus:border-accent" placeholder="Search Google or enter URL..." onkeydown="if(event.key==='Enter')browseNavigate(this.value)">
+      <button id="browse-save-btn" class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseSaveToReadingList()" title="Save to Reading List">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+      </button>
     </div>
     <div id="browse-content" style="flex:1;overflow:hidden;position:relative;"></div>
   </div>
