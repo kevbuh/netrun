@@ -42,6 +42,7 @@ from persistence import (
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages,
+    get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -956,6 +957,24 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not a team member'}, 403)
                 return
             self._send_json(get_team_messages(team_id))
+
+        elif (m := self._match(r'^/api/teams/(\d+)/todos$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            self._send_json(get_team_todos(team_id))
 
         elif self.path.startswith('/api/users'):
             google_id = self._get_user()
@@ -2225,6 +2244,30 @@ ch.postMessage({type:'preview-ready'});
             msg = send_team_message(team_id, google_id, content)
             self._send_json(msg)
 
+        elif (m := self._match(r'^/api/teams/(\d+)/todos$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            body = self._read_body()
+            title = (body.get('title') or '').strip()
+            if not title:
+                self._send_json({'error': 'title required'}, 400)
+                return
+            todo = create_team_todo(team_id, google_id, body)
+            self._send_json(todo)
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 
@@ -2348,6 +2391,31 @@ ch.postMessage({type:'preview-ready'});
             write_meta(exp_id, meta)
             meta['id'] = exp_id
             self._send_json(meta)
+            return
+
+        elif (m := self._match(r'^/api/teams/(\d+)/todos/([a-zA-Z0-9_-]+)$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            todo_id = m.group(2)
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            body = self._read_body()
+            result = update_team_todo(team_id, todo_id, body)
+            if result:
+                self._send_json(result)
+            else:
+                self._send_json({'error': 'Not found'}, 404)
             return
 
         else:
@@ -2486,6 +2554,28 @@ ch.postMessage({type:'preview-ready'});
                 return
             remove_experiment_team(m.group(1))
             self._send_json({'ok': True})
+
+        elif (m := self._match(r'^/api/teams/(\d+)/todos/([a-zA-Z0-9_-]+)$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            todo_id = m.group(2)
+            from persistence import _get_db
+            conn = _get_db()
+            member = conn.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (team_id, google_id)
+            ).fetchone()
+            conn.close()
+            if not member:
+                self._send_json({'error': 'Not a team member'}, 403)
+                return
+            if delete_team_todo(team_id, todo_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
 
         else:
             self._send_json({'error': 'Not found'}, 404)

@@ -199,16 +199,18 @@ async function showTeamDetailView(teamId) {
   const formEl = document.getElementById('teams-view-create-form');
   if (formEl) formEl.innerHTML = '';
   try {
-    const [teamResp, expResp, ownExpResp, chatResp] = await Promise.all([
+    const [teamResp, expResp, ownExpResp, chatResp, todosResp] = await Promise.all([
       fetch(`/api/teams/${teamId}`, { headers: _authHeaders() }),
       fetch('/api/team-experiments', { headers: _authHeaders() }),
       fetch('/api/experiments', { headers: _authHeaders() }),
       fetch(`/api/teams/${teamId}/messages`, { headers: _authHeaders() }),
+      fetch(`/api/teams/${teamId}/todos`, { headers: _authHeaders() }),
     ]);
     const team = await teamResp.json();
     const allTeamExps = expResp.ok ? await expResp.json() : [];
     const ownExps = ownExpResp.ok ? await ownExpResp.json() : [];
     const chatMessages = chatResp.ok ? await chatResp.json() : [];
+    const teamTodos = todosResp.ok ? await todosResp.json() : [];
     const isOwner = team.owner_google_id === (_authUserInfo && _authUserInfo.google_id);
 
     // Merge: team experiments for this team + own experiments assigned to this team
@@ -243,6 +245,59 @@ async function showTeamDetailView(teamId) {
       </div>
     `;
 
+    const priorityColors = { high: '#f87171', medium: '#fbbf24', low: '#6ee7b7' };
+    const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
+    const openTodos = teamTodos.filter(t => !t.done);
+    const doneTodos = teamTodos.filter(t => t.done);
+
+    const todosHtml = `
+      <div class="mb-6">
+        <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Tasks</h4>
+        <div id="team-todos-list-${teamId}">
+          ${openTodos.length ? openTodos.map(todo => `
+            <div class="flex items-start gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 group">
+              <input type="checkbox" onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--accent)] cursor-pointer" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-primary text-sm">${escapeHtml(todo.title)}</span>
+                  <span class="text-[0.6rem] px-1.5 py-0.5 rounded-full font-medium" style="background:${priorityColors[todo.priority]}20;color:${priorityColors[todo.priority]}">${priorityLabels[todo.priority]}</span>
+                </div>
+                ${todo.description ? `<div class="text-dimmer text-xs mt-0.5">${escapeHtml(todo.description)}</div>` : ''}
+                <div class="text-dimmest text-[0.65rem] mt-1 flex items-center gap-2">
+                  <span>${escapeHtml(todo.author)}</span>
+                  ${todo.assigned_username ? `<span>→ ${escapeHtml(todo.assigned_username)}</span>` : ''}
+                </div>
+              </div>
+              <button onclick="deleteTeamTodo(${teamId}, '${todo.id}')" class="text-red-400/40 hover:text-red-400 text-xs cursor-pointer bg-transparent border-none opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            </div>
+          `).join('') : '<div class="text-dimmer text-xs mb-2">No open tasks</div>'}
+          ${doneTodos.length ? `
+            <details class="mt-2">
+              <summary class="text-dimmest text-[0.7rem] cursor-pointer hover:text-muted">${doneTodos.length} completed</summary>
+              <div class="mt-1.5">
+                ${doneTodos.map(todo => `
+                  <div class="flex items-start gap-2.5 p-2.5 bg-card/50 border border-border-card/50 rounded-lg mb-1 opacity-50">
+                    <input type="checkbox" checked onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--accent)] cursor-pointer" />
+                    <span class="text-primary text-sm line-through flex-1">${escapeHtml(todo.title)}</span>
+                    <button onclick="deleteTeamTodo(${teamId}, '${todo.id}')" class="text-red-400/40 hover:text-red-400 text-xs cursor-pointer bg-transparent border-none">✕</button>
+                  </div>
+                `).join('')}
+              </div>
+            </details>
+          ` : ''}
+        </div>
+        <div class="flex gap-2 mt-2">
+          <input type="text" id="team-todo-title-${teamId}" placeholder="New task..." class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addTeamTodo(${teamId})}">
+          <select id="team-todo-priority-${teamId}" class="bg-input border border-border-input rounded-md px-2 py-1.5 text-primary text-xs outline-none focus:border-accent cursor-pointer">
+            <option value="medium">Med</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+          <button onclick="addTeamTodo(${teamId})" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Add</button>
+        </div>
+      </div>
+    `;
+
     container.innerHTML = `
       <div class="mb-4">
         <button onclick="renderTeamsView()" class="text-xs text-muted hover:text-primary cursor-pointer bg-transparent border-none">&larr; Back to teams</button>
@@ -255,6 +310,7 @@ async function showTeamDetailView(teamId) {
         </div>
       </div>
       ${experimentsHtml}
+      ${todosHtml}
       <div class="mb-6">
         <h4 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Members</h4>
         ${team.members.map(m => `
@@ -357,6 +413,45 @@ async function sendTeamChatMessage(teamId) {
         chatEl.scrollTop = chatEl.scrollHeight;
       }
     }
+  } catch (err) { /* ignore */ }
+}
+
+async function addTeamTodo(teamId) {
+  const input = document.getElementById(`team-todo-title-${teamId}`);
+  const priorityEl = document.getElementById(`team-todo-priority-${teamId}`);
+  const title = (input?.value || '').trim();
+  if (!title) return;
+  try {
+    const resp = await fetch(`/api/teams/${teamId}/todos`, {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ title, priority: priorityEl?.value || 'medium' })
+    });
+    if (resp.ok) {
+      input.value = '';
+      showTeamDetailView(teamId);
+    }
+  } catch (err) { /* ignore */ }
+}
+
+async function toggleTeamTodo(teamId, todoId, done) {
+  try {
+    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
+      method: 'PUT',
+      headers: _authHeaders(),
+      body: JSON.stringify({ done })
+    });
+    showTeamDetailView(teamId);
+  } catch (err) { /* ignore */ }
+}
+
+async function deleteTeamTodo(teamId, todoId) {
+  try {
+    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
+      method: 'DELETE',
+      headers: _authHeaders()
+    });
+    showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
 

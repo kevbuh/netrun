@@ -304,6 +304,17 @@ def init_db():
             content TEXT NOT NULL,
             timestamp REAL NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS team_todos (
+            id TEXT PRIMARY KEY,
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            title TEXT NOT NULL,
+            done INTEGER DEFAULT 0,
+            priority TEXT DEFAULT 'medium',
+            assigned_to TEXT,
+            description TEXT,
+            timestamp REAL NOT NULL
+        );
     """)
     # Migration: add username column if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
@@ -1134,6 +1145,88 @@ def get_team_messages(team_id, limit=50):
     conn.close()
     return [{'id': r['id'], 'username': r['username'], 'picture': r['picture'],
              'content': r['content'], 'timestamp': r['timestamp']} for r in rows]
+
+
+# ── Team Todos ──
+
+def get_team_todos(team_id):
+    conn = _get_db()
+    rows = conn.execute("""
+        SELECT tt.id, tt.team_id, tt.google_id, tt.title, tt.done, tt.priority,
+               tt.assigned_to, tt.description, tt.timestamp, u.username, u.picture,
+               ua.username AS assigned_username
+        FROM team_todos tt
+        JOIN users u ON u.google_id = tt.google_id
+        LEFT JOIN users ua ON ua.google_id = tt.assigned_to
+        WHERE tt.team_id = ?
+        ORDER BY tt.done ASC, tt.timestamp DESC
+    """, (team_id,)).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'team_id': r['team_id'], 'google_id': r['google_id'],
+             'title': r['title'], 'done': bool(r['done']), 'priority': r['priority'] or 'medium',
+             'assigned_to': r['assigned_to'], 'assigned_username': r['assigned_username'],
+             'description': r['description'] or '', 'timestamp': r['timestamp'],
+             'author': r['username'], 'author_picture': r['picture']} for r in rows]
+
+
+def create_team_todo(team_id, google_id, data):
+    import uuid
+    tid = str(uuid.uuid4())
+    ts = int(time.time() * 1000)
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO team_todos (id, team_id, google_id, title, done, priority, assigned_to, description, timestamp) "
+        "VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)",
+        (tid, team_id, google_id, data['title'], data.get('priority', 'medium'),
+         data.get('assigned_to'), data.get('description', ''), ts)
+    )
+    conn.commit()
+    conn.close()
+    return {'id': tid, 'team_id': team_id, 'google_id': google_id,
+            'title': data['title'], 'done': False, 'priority': data.get('priority', 'medium'),
+            'assigned_to': data.get('assigned_to'), 'description': data.get('description', ''),
+            'timestamp': ts}
+
+
+def update_team_todo(team_id, todo_id, updates):
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT id FROM team_todos WHERE id = ? AND team_id = ?",
+        (todo_id, team_id)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return None
+    allowed = {'title': 'title', 'done': 'done', 'priority': 'priority',
+               'assigned_to': 'assigned_to', 'description': 'description'}
+    sets = []
+    vals = []
+    for js_key, db_col in allowed.items():
+        if js_key in updates:
+            sets.append(f"{db_col} = ?")
+            val = updates[js_key]
+            if db_col == 'done':
+                val = 1 if val else 0
+            vals.append(val)
+    if sets:
+        vals.append(todo_id)
+        vals.append(team_id)
+        conn.execute(f"UPDATE team_todos SET {', '.join(sets)} WHERE id = ? AND team_id = ?", vals)
+        conn.commit()
+    conn.close()
+    return {'ok': True}
+
+
+def delete_team_todo(team_id, todo_id):
+    conn = _get_db()
+    cur = conn.execute(
+        "DELETE FROM team_todos WHERE id = ? AND team_id = ?",
+        (todo_id, team_id)
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
 
 
 # Initialize DB on import
