@@ -367,7 +367,12 @@ function openOpenAlexPaper(i) {
   openPaperByUrl(r.link);
 }
 
-// ── Browse View (embedded browser tab) ──
+// ── Browse View (multi-tab embedded browser) ──
+
+let _browseTabs = []; // { id, url, title, el }
+let _browseActiveTab = null;
+let _browseNextId = 1;
+const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
 function openBrowse(url) {
   hideAllViews();
@@ -377,57 +382,203 @@ function openBrowse(url) {
   view.style.flexDirection = 'column';
   window.location.hash = 'browse';
   setSidebarActive('sb-browse');
-  if (url) {
-    browseNavigate(url);
-  } else if (!document.getElementById('browse-content').children.length) {
-    browseNavigate('https://www.google.com');
+  if (!_browseTabs.length) {
+    browseNewTab(url);
+  } else {
+    if (url) browseNewTab(url);
+    else _browseRenderTabs();
   }
+}
+
+function browseNewTab(url) {
+  const id = _browseNextId++;
+  const isBlank = !url;
+  const resolved = isBlank ? '' : _browseResolveUrl(url);
+
+  let el = null;
+  if (!isBlank) {
+    const container = document.getElementById('browse-content');
+    el = _browseCreateFrame(id, resolved);
+    el.style.display = 'none';
+    container.appendChild(el);
+  }
+
+  const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank };
+  _browseTabs.push(tab);
+  if (el) _browseBindFrame(tab);
+
+  browseSelectTab(id);
+  setTimeout(() => {
+    const urlInput = document.getElementById('browse-url-input');
+    if (urlInput) { urlInput.focus(); urlInput.select(); }
+  }, 50);
+}
+
+function _browseCreateFrame(id, url) {
+  const el = document.createElement(_browseIsElectron ? 'webview' : 'iframe');
+  el.id = 'browse-frame-' + id;
+  el.src = url;
+  el.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;';
+  if (!_browseIsElectron) {
+    el.sandbox = 'allow-scripts allow-same-origin allow-popups allow-forms';
+    el.referrerPolicy = 'no-referrer';
+  }
+  return el;
+}
+
+function _browseBindFrame(tab) {
+  const el = tab.el;
+  if (!el || !_browseIsElectron) return;
+  el.addEventListener('did-navigate', (e) => {
+    tab.url = e.url;
+    tab.title = _browseTitleFromUrl(e.url);
+    tab.favicon = _browseFaviconUrl(e.url);
+    tab.blank = false;
+    _browseRenderTabs();
+    if (_browseActiveTab === tab.id) {
+      const urlInput = document.getElementById('browse-url-input');
+      if (urlInput) urlInput.value = e.url;
+    }
+  });
+  el.addEventListener('did-navigate-in-page', (e) => {
+    if (!e.isMainFrame) return;
+    tab.url = e.url;
+    tab.title = _browseTitleFromUrl(e.url);
+    tab.favicon = _browseFaviconUrl(e.url);
+    _browseRenderTabs();
+    if (_browseActiveTab === tab.id) {
+      const urlInput = document.getElementById('browse-url-input');
+      if (urlInput) urlInput.value = e.url;
+    }
+  });
+  el.addEventListener('page-title-updated', (e) => {
+    tab.title = e.title || _browseTitleFromUrl(tab.url);
+    _browseRenderTabs();
+  });
+  el.addEventListener('page-favicon-updated', (e) => {
+    if (e.favicons && e.favicons.length) tab.favicon = e.favicons[0];
+    _browseRenderTabs();
+  });
+  el.addEventListener('new-window', (e) => {
+    e.preventDefault();
+    browseNewTab(e.url);
+  });
+}
+
+function browseSelectTab(id) {
+  _browseActiveTab = id;
+  const tab = _browseTabs.find(t => t.id === id);
+  _browseTabs.forEach(t => {
+    if (t.el) t.el.style.display = t.id === id ? '' : 'none';
+  });
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput) urlInput.value = tab ? tab.url : '';
+  _browseRenderTabs();
+}
+
+function browseCloseTab(id) {
+  const idx = _browseTabs.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  const tab = _browseTabs[idx];
+  if (tab.el) tab.el.remove();
+  _browseTabs.splice(idx, 1);
+  if (!_browseTabs.length) {
+    browseNewTab();
+    return;
+  }
+  if (_browseActiveTab === id) {
+    const nextIdx = Math.min(idx, _browseTabs.length - 1);
+    browseSelectTab(_browseTabs[nextIdx].id);
+  } else {
+    _browseRenderTabs();
+  }
+}
+
+function _browseRenderTabs() {
+  const bar = document.getElementById('browse-tabs');
+  if (!bar) return;
+  bar.innerHTML = _browseTabs.map(t => {
+    const active = t.id === _browseActiveTab;
+    const title = escapeHtml(t.title.length > 24 ? t.title.slice(0, 22) + '...' : t.title);
+    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+    return `<div class="browse-tab ${active ? 'active' : ''}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
+      ${fav}<span class="browse-tab-title">${title}</span>
+      <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
+    </div>`;
+  }).join('') + `<button class="browse-tab-new" onclick="browseNewTab()" title="New tab">+</button>`;
+}
+
+function _browseTitleFromUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'www.google.com' && u.pathname === '/search') {
+      const q = u.searchParams.get('q');
+      return q ? q + ' - Google' : 'Google';
+    }
+    return u.hostname.replace(/^www\./, '');
+  } catch { return url; }
+}
+
+function _browseFaviconUrl(url) {
+  try {
+    const u = new URL(url);
+    return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`;
+  } catch { return ''; }
 }
 
 function browseNavigate(input) {
   const url = _browseResolveUrl(input);
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab) { browseNewTab(url); return; }
+  tab.url = url;
+  tab.title = _browseTitleFromUrl(url);
+  tab.favicon = _browseFaviconUrl(url);
+  tab.blank = false;
+  if (!tab.el) {
+    const container = document.getElementById('browse-content');
+    tab.el = _browseCreateFrame(tab.id, url);
+    container.appendChild(tab.el);
+    _browseBindFrame(tab);
+  } else {
+    tab.el.src = url;
+  }
   const urlInput = document.getElementById('browse-url-input');
   if (urlInput) urlInput.value = url;
-  const container = document.getElementById('browse-content');
-  if (!container) return;
-
-  const isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
-  if (isElectron) {
-    container.innerHTML = `<webview id="browse-webview" src="${url}" style="width:100%;height:100%;"></webview>`;
-    const wv = document.getElementById('browse-webview');
-    wv.addEventListener('did-navigate', (e) => { if (urlInput) urlInput.value = e.url; });
-    wv.addEventListener('did-navigate-in-page', (e) => { if (urlInput && e.isMainFrame) urlInput.value = e.url; });
-  } else {
-    container.innerHTML = `<iframe id="browse-iframe" src="${url}" style="width:100%;height:100%;border:none;" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
-  }
+  _browseRenderTabs();
 }
 
 function _browseResolveUrl(input) {
-  input = input.trim();
+  input = (input || '').trim();
+  if (!input) return 'https://www.google.com';
   if (/^https?:\/\//i.test(input)) return input;
   if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input)) return 'https://' + input;
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }
 
+function _browseActiveEl() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  return tab ? tab.el : null;
+}
+
 function browseBack() {
-  const wv = document.getElementById('browse-webview');
-  if (wv && wv.canGoBack && wv.canGoBack()) { wv.goBack(); return; }
-  const ifr = document.getElementById('browse-iframe');
-  if (ifr) { try { ifr.contentWindow.history.back(); } catch(e) {} }
+  const el = _browseActiveEl();
+  if (!el) return;
+  if (_browseIsElectron && el.canGoBack && el.canGoBack()) { el.goBack(); return; }
+  if (!_browseIsElectron) { try { el.contentWindow.history.back(); } catch(e) {} }
 }
 
 function browseForward() {
-  const wv = document.getElementById('browse-webview');
-  if (wv && wv.canGoForward && wv.canGoForward()) { wv.goForward(); return; }
-  const ifr = document.getElementById('browse-iframe');
-  if (ifr) { try { ifr.contentWindow.history.forward(); } catch(e) {} }
+  const el = _browseActiveEl();
+  if (!el) return;
+  if (_browseIsElectron && el.canGoForward && el.canGoForward()) { el.goForward(); return; }
+  if (!_browseIsElectron) { try { el.contentWindow.history.forward(); } catch(e) {} }
 }
 
 function browseReload() {
-  const wv = document.getElementById('browse-webview');
-  if (wv && wv.reload) { wv.reload(); return; }
-  const ifr = document.getElementById('browse-iframe');
-  if (ifr) { try { ifr.contentWindow.location.reload(); } catch(e) {} }
+  const el = _browseActiveEl();
+  if (!el) return;
+  if (_browseIsElectron && el.reload) { el.reload(); return; }
+  if (!_browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
 }
 
 // ── Search History (for search view) ──

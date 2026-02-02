@@ -1027,6 +1027,20 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('settings-view').style.display === 'block') goHome();
   }
+  if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+    const browseView = document.getElementById('browse-view');
+    if (browseView && browseView.style.display !== 'none' && browseView.style.display !== '') {
+      e.preventDefault();
+      browseNewTab();
+    }
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+    const browseView = document.getElementById('browse-view');
+    if (browseView && browseView.style.display !== 'none' && browseView.style.display !== '' && typeof _browseActiveTab !== 'undefined' && _browseActiveTab !== null) {
+      e.preventDefault();
+      browseCloseTab(_browseActiveTab);
+    }
+  }
 });
 
 // ── Sidebar drag-to-reorder ──
