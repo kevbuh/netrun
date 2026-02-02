@@ -709,6 +709,7 @@ function browseReload() {
 function browseSaveToReadingList() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank || !tab.url) return;
+  const wasAdding = !getSavedPosts()[tab.url];
   const paper = { title: tab.title, link: tab.url, source: 'browse', description: '', authors: '', date: '' };
   const saved = getSavedPosts();
   if (saved[tab.url]) {
@@ -720,6 +721,13 @@ function browseSaveToReadingList() {
   savePosts(saved);
   updateSavedBadge();
   _browseUpdateSaveBtn();
+  if (wasAdding) {
+    const btn = document.getElementById('browse-save-btn');
+    if (btn && typeof _showBookmarkToast === 'function') {
+      const r = btn.getBoundingClientRect();
+      _showBookmarkToast({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
+    }
+  }
 }
 
 function browseShare() {

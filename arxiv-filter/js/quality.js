@@ -127,7 +127,7 @@ function clearQualityCache() {
 }
 function resetEverything() {
   localStorage.removeItem('qualityPrompt');
-  localStorage.setItem('qualityThreshold', '70');
+  localStorage.setItem('qualityThreshold', '30');
   fetch('/api/quality-prompt', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -193,7 +193,7 @@ function setQualityFilter(on) {
 }
 function getQualityThreshold() {
   const v = parseInt(localStorage.getItem('qualityThreshold'), 10);
-  return isNaN(v) ? 70 : Math.min(v, 100);
+  return isNaN(v) ? 30 : Math.min(v, 100);
 }
 function setQualityThreshold(val) {
   localStorage.setItem('qualityThreshold', String(val));
