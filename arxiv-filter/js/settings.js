@@ -115,9 +115,9 @@ function renderSettingsView() {
         <span class="text-primary text-sm">Pixel Pet</span>
         <div class="flex items-center gap-2">
           <div class="flex gap-1">
-            ${['cat','dog','bunny','froog','pacman'].map(t => {
+            ${[['cat','cat'],['blackCat','black cat'],['dog','dog'],['poodle','poodle'],['bunny','bunny'],['froog','froog'],['pacman','pacman']].map(([t,label]) => {
               const sel = (localStorage.getItem('pixelPetType') || 'cat') === t;
-              return `<button onclick="setPixelPetType('${t}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${t}</button>`;
+              return `<button onclick="setPixelPetType('${t}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${label}</button>`;
             }).join('')}
           </div>
           <label class="toggle-switch">

@@ -173,6 +173,92 @@
         }
       }
     },
+    blackCat: {
+      outline: '#111', body: '#1a1a1a', dark: '#000', inner: '#333', eye: '#7cfc00', nose: '#444',
+      draw(px, o) {
+        const B = this.body, D = this.dark, I = this.inner, O = this.outline, E = this.eye, N = this.nose;
+        // Ears — pointy
+        px(4,2,O); px(5,1,O); px(6,2,O); px(5,2,I);
+        px(9,2,O); px(10,1,O); px(11,2,O); px(10,2,I);
+        // Head
+        for(let x=4;x<=11;x++) px(x,3,O);
+        px(3,4,O); px(12,4,O); px(3,5,O); px(12,5,O); px(3,6,O); px(12,6,O);
+        for(let x=4;x<=11;x++) px(x,7,O);
+        for(let y=4;y<=6;y++) for(let x=4;x<=11;x++) px(x,y,B);
+        // Eyes — green glow
+        if(o.blink){px(6,5,I);px(10,5,I)} else{px(6,5,E);px(10,5,E)}
+        px(8,6,N);
+        if(o.tired && !o.blink){px(6,4,I);px(10,4,I)}
+        if(o.sleeping){
+          for(let x=3;x<=12;x++)px(x,8,O); for(let x=4;x<=11;x++)px(x,8,B);
+          for(let x=3;x<=12;x++)px(x,9,O);
+          px(12,7,I);px(13,7,I);px(13,6,I); return;
+        }
+        if(o.sitting){
+          px(4,8,O);px(11,8,O); for(let x=5;x<=10;x++)px(x,8,B);
+          for(let x=4;x<=11;x++)px(x,9,O);
+          px(4,10,O);px(5,10,O);px(10,10,O);px(11,10,O);
+          // Tail curls up when sitting
+          px(12,8,I);px(13,8,I);px(14,7,I);px(14,6,I); return;
+        }
+        // Body
+        for(let y=8;y<=10;y++){px(4,y,O);px(11,y,O);for(let x=5;x<=10;x++)px(x,y,B);}
+        // Legs
+        if(o.legFrame===1){px(5,11,O);px(6,11,O);px(9,11,O);px(10,11,O);px(5,12,O);px(10,12,O)}
+        else{px(4,11,O);px(5,11,O);px(10,11,O);px(11,11,O);px(4,12,O);px(11,12,O)}
+        // Tail
+        px(12,9,I);px(13,9,I);px(14,8,I);
+      }
+    },
+    poodle: {
+      outline: '#994400', body: '#E87830', dark: '#CC6020', inner: '#F5A060', eye: '#2a2a2a', nose: '#222', puff: '#F09048',
+      draw(px, o) {
+        const B = this.body, D = this.dark, I = this.inner, O = this.outline, E = this.eye, N = this.nose, P = this.puff;
+        // Poofy head — cloud of curls
+        px(5,1,P);px(6,1,P);px(9,1,P);px(10,1,P);
+        px(4,2,P);px(5,2,P);px(6,2,P);px(7,2,P);px(8,2,P);px(9,2,P);px(10,2,P);px(11,2,P);
+        px(3,3,P);px(4,3,P);px(11,3,P);px(12,3,P);
+        // Head
+        for(let x=4;x<=11;x++) px(x,4,O);
+        px(3,4,O); px(12,4,O);
+        px(3,5,O); px(12,5,O); px(3,6,O); px(12,6,O); px(3,7,O); px(12,7,O);
+        for(let x=4;x<=11;x++) px(x,8,O);
+        for(let y=5;y<=7;y++) for(let x=4;x<=11;x++) px(x,y,B);
+        // Floppy ear poofs
+        px(2,5,P);px(2,6,P);px(3,5,P);px(3,6,P);
+        px(12,5,P);px(12,6,P);px(13,5,P);px(13,6,P);
+        // Eyes + nose
+        if(o.blink){px(6,6,D);px(10,6,D)} else{px(6,6,E);px(10,6,E)}
+        px(8,7,N);
+        if(o.tired && !o.blink){px(6,5,D);px(10,5,D)}
+        if(o.sleeping){
+          for(let x=4;x<=11;x++)px(x,9,O); for(let x=5;x<=10;x++)px(x,9,B);
+          for(let x=4;x<=11;x++)px(x,10,O);
+          // Poof tail
+          px(12,9,P);px(13,8,P);px(13,9,P); return;
+        }
+        if(o.sitting){
+          px(4,9,O);px(11,9,O); for(let x=5;x<=10;x++)px(x,9,B);
+          for(let x=4;x<=11;x++)px(x,10,O);
+          // Poofy feet
+          px(3,10,P);px(4,11,P);px(5,11,P);px(10,11,P);px(11,11,P);px(12,10,P);
+          // Poof tail
+          px(12,9,P);px(13,8,P);px(13,9,P);px(14,8,P); return;
+        }
+        // Slim body
+        for(let y=9;y<=10;y++){px(4,y,O);px(11,y,O);for(let x=5;x<=10;x++)px(x,y,B);}
+        // Thin legs with poofy feet
+        if(o.legFrame===1){
+          px(5,11,O);px(6,11,O);px(9,11,O);px(10,11,O);
+          px(4,12,P);px(5,12,P);px(6,12,P);px(9,12,P);px(10,12,P);px(11,12,P);
+        } else {
+          px(4,11,O);px(5,11,O);px(10,11,O);px(11,11,O);
+          px(3,12,P);px(4,12,P);px(5,12,P);px(10,12,P);px(11,12,P);px(12,12,P);
+        }
+        // Poof tail
+        px(12,9,P);px(13,8,P);px(14,8,P);px(13,9,P);
+      }
+    },
     pacman: {
       outline: '#b8860b', body: '#ffd700', dark: '#e6c200', eye: '#2a2a2a',
       draw(px, o) {
@@ -302,6 +388,35 @@
     if (Math.random() < 0.2) {
       petTargetX = margin + Math.random() * (w - margin * 2);
       petTargetY = margin + Math.random() * (h - margin * 2);
+    }
+  }
+
+  // ── Pixelated pet bed (drawn behind pet in sidebar mode) ──
+  function drawPetBed(ctx) {
+    const s = S;
+    const bed = '#6B4226';    // dark brown frame
+    const bedL = '#8B5E3C';   // lighter brown
+    const cush = '#c0392b';   // red cushion
+    const cushL = '#e74c3c';  // lighter red highlight
+    const cushD = '#a93226';  // darker red shadow
+
+    // Bed base — rounded rectangle frame (rows 12-15, cols 1-14)
+    // Back rim (row 11)
+    for(let x=2;x<=13;x++) { ctx.fillStyle=bed; ctx.fillRect(x*s,11*s,s,s); }
+    // Left/right walls (rows 12-13)
+    for(let y=12;y<=14;y++) {
+      ctx.fillStyle=bed; ctx.fillRect(1*s,y*s,s,s); ctx.fillRect(14*s,y*s,s,s);
+      ctx.fillStyle=bedL; ctx.fillRect(2*s,y*s,s,s); ctx.fillRect(13*s,y*s,s,s);
+    }
+    // Front rim (row 15)
+    for(let x=1;x<=14;x++) { ctx.fillStyle=bed; ctx.fillRect(x*s,15*s,s,s); }
+
+    // Cushion fill (rows 12-14, cols 3-12)
+    for(let y=12;y<=14;y++) {
+      for(let x=3;x<=12;x++) {
+        ctx.fillStyle = (y===12) ? cushL : (y===14) ? cushD : cush;
+        ctx.fillRect(x*s,y*s,s,s);
+      }
     }
   }
 
@@ -544,6 +659,9 @@
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, CPX, CPX);
 
+    // Draw pet bed behind the pet
+    drawPetBed(ctx);
+
     const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
     const sitting = petState === 'sit' || petState === 'read';
     const sleeping = petState === 'sleep';
@@ -681,29 +799,6 @@
       drawPetFree();
       return;
     }
-
-    // Vertical drag within sidebar → reorder
-    if (!_sbDragReordering && Math.abs(dy) > 5) {
-      _sbDragReordering = true;
-      sbEl.style.opacity = '0.3';
-      _sbDragGhost = sbEl.cloneNode(true);
-      _sbDragGhost.style.cssText = `position:fixed;left:${nav.getBoundingClientRect().left}px;pointer-events:none;z-index:999;opacity:0.9;display:flex;`;
-      document.body.appendChild(_sbDragGhost);
-    }
-
-    if (_sbDragReordering && _sbDragGhost) {
-      _sbDragGhost.style.top = (e.clientY - 22) + 'px';
-      // Find drop target among sidebar-draggable
-      const spacer = nav.querySelector('.mt-auto');
-      const btns = Array.from(nav.querySelectorAll('.sidebar-draggable'));
-      for (const b of btns) {
-        if (b === sbEl) continue;
-        const r = b.getBoundingClientRect();
-        const mid = r.top + r.height / 2;
-        if (e.clientY < mid) { nav.insertBefore(sbEl, b); return; }
-      }
-      if (spacer) nav.insertBefore(sbEl, spacer);
-    }
   }
 
   function onSidebarDragEnd(e) {
@@ -719,6 +814,7 @@
       _sbDragFloating = false;
       // Dropped outside sidebar → switch to free mode
       if (!_isOverSidebar(e.clientX)) {
+        if (sbEl) sbEl.style.visibility = '';
         petX = Math.max(70, Math.min(window.innerWidth - 60, petX));
         petY = Math.max(20, Math.min(window.innerHeight - 60, petY));
         petTargetX = petX;
@@ -726,12 +822,11 @@
         window.setPixelPetMode('free');
         return;
       }
-      // Snap back
+      // Snap back to nest → restart in sidebar mode
       const freeEl = document.getElementById('pixel-pet');
       if (freeEl) freeEl.style.display = 'none';
       if (sbEl) sbEl.style.visibility = '';
-      petState = _dragPrevState;
-      petStateTimer = PET_FPS * 2;
+      window.setPixelPetMode('sidebar');
       return;
     }
 
@@ -813,7 +908,18 @@
         sbContainer.onclick = onPetClick;
       }
     } else {
-      if (sbContainer) sbContainer.style.display = 'none';
+      // Show empty bed in sidebar even when pet is free-floating
+      if (sbContainer) {
+        sbContainer.style.display = '';
+        sbContainer.onmousedown = null;
+        sbContainer.onclick = function() { window.setPixelPetMode('sidebar'); };
+        const sbCanvas = document.getElementById('pet-canvas-sb');
+        if (sbCanvas) {
+          const sbCtx = sbCanvas.getContext('2d');
+          sbCtx.clearRect(0, 0, CPX, CPX);
+          drawPetBed(sbCtx);
+        }
+      }
       if (freeContainer) {
         freeContainer.style.display = '';
         freeContainer.style.cursor = 'grab';
