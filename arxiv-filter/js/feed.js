@@ -55,15 +55,23 @@ function _setFeedNotifications(arr) {
   localStorage.setItem('feedNotifications', JSON.stringify(arr));
 }
 
+function _getFeedNotifSources() {
+  try { return JSON.parse(localStorage.getItem('feedNotifSources') || '{}'); } catch { return {}; }
+}
+
 function _detectNewPosts() {
   const seen = _getSeenPostLinks();
   const isFirstRun = seen.size === 0;
   const notifications = isFirstRun ? [] : _getFeedNotifications();
 
   if (!isFirstRun) {
+    const notifSources = _getFeedNotifSources();
+    const hasNotifConfig = Object.keys(notifSources).length > 0;
     const existingLinks = new Set(notifications.map(n => n.link));
     for (const p of allPapers) {
       if (p.source === 'quote') continue;
+      // Skip sources with notifications disabled (if config exists)
+      if (hasNotifConfig && notifSources[p.source] === false) continue;
       if (!seen.has(p.link) && !existingLinks.has(p.link)) {
         notifications.push({
           title: p.title,
@@ -539,6 +547,7 @@ FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
 function hasOnboarded() { return localStorage.getItem('feedSources') !== null; }
 
 const onboardSelected = new Set();
+const onboardNotifSelected = new Set();
 
 function renderOnboardGrid() {
   const grid = document.getElementById('onboard-grid');
@@ -551,37 +560,84 @@ function renderOnboardGrid() {
     <div class="text-left mt-4">
       <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-1.5 pl-1">${cat}</div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        ${catMap[cat].map(f => `
+        ${catMap[cat].map(f => {
+          const inFeed = onboardSelected.has(f.key);
+          const notifOn = onboardNotifSelected.has(f.key);
+          return `
           <div class="onboard-card cursor-pointer rounded-lg border-2 border-border-card bg-card px-3 py-2.5 transition-all duration-150 hover:border-dimmer flex items-center gap-2.5" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
             <div class="shrink-0">${catalogLogo(f, 'onboard')}</div>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <div class="text-white_ text-[0.82rem] font-medium leading-tight">${f.name}</div>
               <div class="text-muted text-[0.7rem] leading-snug truncate">${f.desc}</div>
             </div>
-          </div>
-        `).join('')}
+            <button class="onboard-bell shrink-0 w-6 h-6 flex items-center justify-center rounded transition-opacity ${inFeed ? 'opacity-100' : 'opacity-30 pointer-events-none'}" data-bell="${f.key}" title="Toggle notifications" onclick="event.stopPropagation(); toggleOnboardNotif('${f.key}')" style="color: ${inFeed && notifOn ? 'var(--accent)' : 'var(--text-dim)'}">
+              ${inFeed && notifOn
+                ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M5.85 3.5a.75.75 0 00-1.117-1 9.719 9.719 0 00-2.348 4.876.75.75 0 001.479.248A8.219 8.219 0 015.85 3.5zM19.267 2.5a.75.75 0 10-1.118 1 8.22 8.22 0 011.987 4.124.75.75 0 001.48-.248A9.72 9.72 0 0019.266 2.5z"/><path fill-rule="evenodd" d="M12 2.25A6.75 6.75 0 005.25 9v.75a8.217 8.217 0 01-2.119 5.52.75.75 0 00.298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 007.48 0 24.583 24.583 0 004.83-1.244.75.75 0 00.298-1.205 8.217 8.217 0 01-2.118-5.52V9A6.75 6.75 0 0012 2.25zM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 004.496 0l.002.1a2.25 2.25 0 01-4.5 0z" clip-rule="evenodd"/></svg>'
+                : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>'}
+            </button>
+          </div>`;
+        }).join('')}
       </div>
     </div>
   `).join('');
 }
 
 function toggleOnboardSource(key) {
-  if (onboardSelected.has(key)) onboardSelected.delete(key);
-  else onboardSelected.add(key);
+  if (onboardSelected.has(key)) {
+    onboardSelected.delete(key);
+    onboardNotifSelected.delete(key);
+  } else {
+    onboardSelected.add(key);
+    // Notifications default to OFF — user must explicitly enable via bell
+  }
+  _updateOnboardCardStates();
+}
+
+function toggleOnboardNotif(key) {
+  if (!onboardSelected.has(key)) return;
+  if (onboardNotifSelected.has(key)) onboardNotifSelected.delete(key);
+  else onboardNotifSelected.add(key);
+  _updateOnboardCardStates();
+}
+
+function _updateOnboardCardStates() {
   document.querySelectorAll('.onboard-card').forEach(card => {
-    const selected = onboardSelected.has(card.dataset.source);
+    const k = card.dataset.source;
+    const selected = onboardSelected.has(k);
+    const notifOn = onboardNotifSelected.has(k);
     card.style.borderColor = selected ? 'var(--accent)' : '';
+    const bell = card.querySelector('.onboard-bell');
+    if (bell) {
+      bell.classList.toggle('opacity-30', !selected);
+      bell.classList.toggle('opacity-100', selected);
+      bell.classList.toggle('pointer-events-none', !selected);
+      bell.style.color = selected && notifOn ? 'var(--accent)' : 'var(--text-dim)';
+      bell.innerHTML = selected && notifOn
+        ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M5.85 3.5a.75.75 0 00-1.117-1 9.719 9.719 0 00-2.348 4.876.75.75 0 001.479.248A8.219 8.219 0 015.85 3.5zM19.267 2.5a.75.75 0 10-1.118 1 8.22 8.22 0 011.987 4.124.75.75 0 001.48-.248A9.72 9.72 0 0019.266 2.5z"/><path fill-rule="evenodd" d="M12 2.25A6.75 6.75 0 005.25 9v.75a8.217 8.217 0 01-2.119 5.52.75.75 0 00.298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 007.48 0 24.583 24.583 0 004.83-1.244.75.75 0 00.298-1.205 8.217 8.217 0 01-2.118-5.52V9A6.75 6.75 0 0012 2.25zM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 004.496 0l.002.1a2.25 2.25 0 01-4.5 0z" clip-rule="evenodd"/></svg>'
+        : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>';
+    }
   });
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
 
 function showOnboarding() {
+  onboardSelected.clear();
+  onboardNotifSelected.clear();
   if (hasOnboarded()) {
     const sources = getFeedSources();
-    FEED_CATALOG.forEach(f => { if (sources[f.key]) onboardSelected.add(f.key); });
+    const notifSources = _getFeedNotifSources();
+    FEED_CATALOG.forEach(f => {
+      if (sources[f.key]) {
+        onboardSelected.add(f.key);
+        // If notifSources not yet set, default notifications on for enabled sources
+        if (notifSources[f.key] !== false) onboardNotifSelected.add(f.key);
+      }
+    });
   } else {
-    // Select all sources by default for new users
-    FEED_CATALOG.forEach(f => onboardSelected.add(f.key));
+    // Select all sources by default for new users (notifications off by default)
+    FEED_CATALOG.forEach(f => {
+      onboardSelected.add(f.key);
+    });
   }
   renderOnboardGrid();
   document.querySelectorAll('.onboard-card').forEach(card => {
@@ -594,8 +650,13 @@ function showOnboarding() {
 
 function completeOnboarding() {
   const sources = {};
-  FEED_CATALOG.forEach(f => { sources[f.key] = onboardSelected.has(f.key); });
+  const notifSources = {};
+  FEED_CATALOG.forEach(f => {
+    sources[f.key] = onboardSelected.has(f.key);
+    notifSources[f.key] = onboardNotifSelected.has(f.key);
+  });
   localStorage.setItem('feedSources', JSON.stringify(sources));
+  localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('home-feed-section').style.display = '';
   loadAllFeeds();
@@ -1420,14 +1481,29 @@ function _markReposted(link) {
   const links = _getRepostedLinks();
   if (!links.includes(link)) { links.push(link); localStorage.setItem('repostedLinks', JSON.stringify(links)); }
 }
+function _unmarkReposted(link) {
+  const links = _getRepostedLinks().filter(l => l !== link);
+  localStorage.setItem('repostedLinks', JSON.stringify(links));
+}
 
 function _tweetRepost(idx, btn) {
   const p = lastFilteredPapers[idx];
   if (!p) return;
-  // Toggle: if already reposted, just ignore
-  if (_isReposted(p.link)) return;
-  // Animate the repost icon
   const svg = btn.querySelector('svg');
+  // Undo repost
+  if (_isReposted(p.link)) {
+    _unmarkReposted(p.link);
+    btn.style.color = '';
+    btn.className = btn.className.replace(/(?:^|\s)text-dimmer\s+hover:text-green-400/g, '') + ' text-dimmer hover:text-green-400';
+    delete btn.dataset.reposted;
+    fetch('/api/reposts', {
+      method: 'DELETE',
+      headers: _authHeaders(),
+      body: JSON.stringify({ paperLink: p.link })
+    }).catch(e => console.error('Unrepost error:', e));
+    return;
+  }
+  // Animate the repost icon
   if (svg) {
     svg.style.transition = 'transform 0.4s cubic-bezier(.4,2,.6,1)';
     svg.style.transform = 'scale(1.4) rotate(360deg)';

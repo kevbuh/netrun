@@ -48,7 +48,7 @@ from persistence import (
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
-    get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, get_user_reposts,
+    get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, delete_repost, get_user_reposts,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
     set_profile_private, are_teammates,
@@ -2650,7 +2650,21 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'error': 'Not found'}, 404)
 
     def do_DELETE(self):
-        if m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
+        if self.path == '/api/reposts':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            paper_link = body.get('paperLink', '').strip()
+            if not paper_link:
+                self._send_json({'error': 'paperLink required'}, 400)
+                return
+            delete_repost(google_id, paper_link)
+            self._send_json({'ok': True})
+            return
+
+        elif m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):
             google_id = self._get_user()
             if not google_id:
                 self._send_json({'error': 'Not authenticated'}, 401)

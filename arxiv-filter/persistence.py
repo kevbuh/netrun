@@ -1141,6 +1141,14 @@ def get_user_reposts(google_id, limit=20):
              'username': r['username'], 'timestamp': r['timestamp']} for r in rows]
 
 
+def delete_repost(google_id, paper_link):
+    conn = _get_db()
+    conn.execute("DELETE FROM reposts WHERE google_id = ? AND paper_link = ?", (google_id, paper_link))
+    conn.commit()
+    conn.close()
+    return True
+
+
 def get_user_shared_experiments(viewer_google_id, target_google_id):
     """Returns experiment_ids that target owns AND are shared via a team where viewer is also a member."""
     conn = _get_db()

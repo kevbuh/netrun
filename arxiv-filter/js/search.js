@@ -449,6 +449,7 @@ function openBrowse(url) {
     }
   }
   _browseInstallPinchOverlay();
+  _browseInstallKeyGuard();
   // Show/hide return button
   const retBtn = document.getElementById('browse-return-btn');
   if (retBtn) retBtn.style.display = _browseReturnView ? '' : 'none';
@@ -760,7 +761,7 @@ document.addEventListener('wheel', function(e) {
   _browseApplyZoom();
 }, { passive: false });
 
-// Cmd+Plus / Cmd+Minus / Cmd+0 for zoom
+// Cmd+Plus / Cmd+Minus / Cmd+0 / Cmd+T / Cmd+W for browse view
 document.addEventListener('keydown', function(e) {
   if (!(e.metaKey || e.ctrlKey)) return;
   const browseView = document.getElementById('browse-view');
@@ -769,6 +770,13 @@ document.addEventListener('keydown', function(e) {
   else if (e.key === '-') { e.preventDefault(); browseZoom(-1); }
   else if (e.key === '0') { e.preventDefault(); browseZoom(0); }
 });
+
+// Cmd+W / Cmd+T work when the parent document has focus (clicking tab bar, URL bar,
+// sidebar, etc.). When a cross-origin iframe has focus, browser security prevents
+// intercepting these shortcuts — this is the same limitation every web app faces.
+// No-op stubs kept so callers don't break.
+function _browseInstallKeyGuard() {}
+function _browseRemoveKeyGuard() {}
 
 // Transparent overlay to capture pinch gestures over iframes
 function _browseInstallPinchOverlay() {
