@@ -56,6 +56,16 @@ function renderSettingsView() {
           <div class="text-dim text-[0.75rem]">${escapeHtml(_authUserInfo?.email || '')}</div>
         </div>
       </div>
+      <div class="flex items-center justify-between mt-4 mb-4">
+        <div>
+          <span class="text-primary text-sm">Private profile</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Hide your profile from search and browse. Only teammates can see your full profile.</p>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" ${_authUserInfo?.profile_private ? 'checked' : ''} onchange="toggleProfilePrivacy(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
       <div class="flex gap-2">
         <button onclick="_doLogout()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Sign Out</button>
         <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
@@ -345,6 +355,19 @@ function setTheme(theme) {
 function setAdBlockEnabled(on) {
   localStorage.setItem('adBlockEnabled', on ? 'true' : 'false');
   if (typeof _browseUpdateAdBlockBtn === 'function') _browseUpdateAdBlockBtn();
+}
+
+async function toggleProfilePrivacy(on) {
+  try {
+    const resp = await fetch('/api/users/me/privacy', {
+      method: 'PUT',
+      headers: _authHeaders(),
+      body: JSON.stringify({ profile_private: on })
+    });
+    if (resp.ok && _authUserInfo) {
+      _authUserInfo.profile_private = on;
+    }
+  } catch (err) { /* ignore */ }
 }
 
 function resetAdBlockRules() {

@@ -51,6 +51,8 @@ from persistence import (
     get_public_user_info, get_user_public_stats, get_user_recent_comments,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
+    set_profile_private, are_teammates,
+    set_team_private, set_team_parent, get_team_children, get_team_ancestors,
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages, update_team_message, delete_team_message,
@@ -898,6 +900,8 @@ ch.postMessage({type:'preview-ready'});
             if not team:
                 self._send_json({'error': 'Not found'}, 404)
                 return
+            team['children'] = get_team_children(team['id'])
+            team['ancestors'] = get_team_ancestors(team['id'])
             self._send_json(team)
 
         elif self.path == '/api/inbox':
@@ -1031,6 +1035,9 @@ ch.postMessage({type:'preview-ready'});
                 if not info:
                     self._send_json({'error': 'User not found'}, 404)
                     return
+                if info['profile_private'] and info['google_id'] != google_id and not are_teammates(google_id, info['google_id']):
+                    self._send_json([])
+                    return
                 self._send_json(get_user_recent_comments(info['google_id']))
             # /api/users/{username}/teams
             elif (m := self._match(r'^/api/users/([^/]+)/teams$')):
@@ -1039,7 +1046,7 @@ ch.postMessage({type:'preview-ready'});
                 if not info:
                     self._send_json({'error': 'User not found'}, 404)
                     return
-                teams = get_user_public_teams(info['google_id'])
+                teams = get_user_public_teams(info['google_id'], viewer_google_id=google_id)
                 self._send_json(teams)
             # /api/users/{username}/experiments
             elif (m := self._match(r'^/api/users/([^/]+)/experiments$')):
@@ -1047,6 +1054,9 @@ ch.postMessage({type:'preview-ready'});
                 info = get_public_user_info(username)
                 if not info:
                     self._send_json({'error': 'User not found'}, 404)
+                    return
+                if info['profile_private'] and info['google_id'] != google_id and not are_teammates(google_id, info['google_id']):
+                    self._send_json([])
                     return
                 exp_ids = get_user_shared_experiments(google_id, info['google_id'])
                 result = []
@@ -1062,6 +1072,10 @@ ch.postMessage({type:'preview-ready'});
                 info = get_public_user_info(username)
                 if not info:
                     self._send_json({'error': 'User not found'}, 404)
+                    return
+                # If profile is private and viewer is not a teammate, return limited info
+                if info['profile_private'] and info['google_id'] != google_id and not are_teammates(google_id, info['google_id']):
+                    self._send_json({'username': info['username'], 'picture': info['picture'], 'profile_private': True})
                     return
                 stats = get_user_public_stats(info['google_id'])
                 info.update(stats)
@@ -1221,7 +1235,11 @@ ch.postMessage({type:'preview-ready'});
             if not name:
                 self._send_json({'error': 'Team name required'}, 400)
                 return
-            team_id = create_team(name, google_id)
+            private = bool(body.get('private', False))
+            parent_id = body.get('parent_id')
+            if parent_id is not None:
+                parent_id = int(parent_id)
+            team_id = create_team(name, google_id, private=private, parent_id=parent_id)
             self._send_json({'ok': True, 'id': team_id})
             return
 
@@ -2559,6 +2577,47 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json(result)
             else:
                 self._send_json({'error': 'Not found'}, 404)
+            return
+
+        elif self.path == '/api/users/me/privacy':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            private = bool(body.get('profile_private', False))
+            set_profile_private(google_id, private)
+            self._send_json({'ok': True, 'profile_private': private})
+            return
+
+        elif (m := self._match(r'^/api/teams/(\d+)/privacy$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            body = self._read_body()
+            private = bool(body.get('private', False))
+            if set_team_private(team_id, private, google_id):
+                self._send_json({'ok': True, 'private': private})
+            else:
+                self._send_json({'error': 'Not team owner'}, 403)
+            return
+
+        elif (m := self._match(r'^/api/teams/(\d+)/parent$')):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            team_id = int(m.group(1))
+            body = self._read_body()
+            parent_id = body.get('parent_id')
+            if parent_id is not None:
+                parent_id = int(parent_id)
+            if set_team_parent(team_id, parent_id, google_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not allowed or circular reference'}, 403)
             return
 
         else:

@@ -750,6 +750,23 @@ async function renderUserProfile(username) {
     const experiments = await experimentsRes.json();
     const teams = teamsRes.ok ? await teamsRes.json() : [];
 
+    // Handle private profiles
+    if (profile.profile_private) {
+      el.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-16">
+          ${profile.picture
+            ? `<img src="${escapeAttr(profile.picture)}" class="w-20 h-20 rounded-full mb-4 opacity-60" referrerpolicy="no-referrer" />`
+            : `<div class="w-20 h-20 rounded-full bg-accent/10 text-accent/40 flex items-center justify-center text-3xl font-bold mb-4">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
+          }
+          <h2 class="text-[1.2rem] font-semibold text-white_ mb-2">${escapeHtml(profile.username)}</h2>
+          <div class="flex items-center gap-1.5 text-dimmer text-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            This profile is private
+          </div>
+        </div>`;
+      return;
+    }
+
     const joinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
     const isOwnProfile = _authUserInfo && _authUserInfo.username === profile.username;
 
@@ -797,9 +814,10 @@ async function renderUserProfile(username) {
         <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Teams</h3>
         <div class="flex flex-col gap-2">`;
       for (const t of teams) {
+        const lockIcon = t.private ? ' <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
         html += `
           <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="openTeams(); showTeamDetailView(${t.id})">
-            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
+            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}${lockIcon}</div>
             <div class="text-dimmer text-[0.75rem] mt-1">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
           </div>`;
       }

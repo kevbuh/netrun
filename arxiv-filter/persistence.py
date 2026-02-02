@@ -346,6 +346,18 @@ def init_db():
             PRIMARY KEY (message_id, google_id, emoji)
         );
     """)
+    # Migration: add profile_private column to users
+    if 'profile_private' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN profile_private INTEGER DEFAULT 0")
+        conn.commit()
+    # Migration: add private and parent_id columns to teams
+    team_cols = [r[1] for r in conn.execute("PRAGMA table_info(teams)").fetchall()]
+    if 'private' not in team_cols:
+        conn.execute("ALTER TABLE teams ADD COLUMN private INTEGER DEFAULT 0")
+        conn.commit()
+    if 'parent_id' not in team_cols:
+        conn.execute("ALTER TABLE teams ADD COLUMN parent_id INTEGER")
+        conn.commit()
     conn.close()
 
 
@@ -369,11 +381,11 @@ def upsert_google_user(google_id, email, name, picture=None):
 
 def get_user_info(google_id):
     conn = _get_db()
-    row = conn.execute("SELECT google_id, email, name, username, picture FROM users WHERE google_id = ?", (google_id,)).fetchone()
+    row = conn.execute("SELECT google_id, email, name, username, picture, profile_private FROM users WHERE google_id = ?", (google_id,)).fetchone()
     conn.close()
     if not row:
         return None
-    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username'], 'picture': row['picture']}
+    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username'], 'picture': row['picture'], 'profile_private': bool(row['profile_private'])}
 
 
 def set_username(google_id, username):
@@ -508,11 +520,11 @@ def set_user_data_bulk(google_id, data):
 
 # ── Teams ──
 
-def create_team(name, owner_google_id):
+def create_team(name, owner_google_id, private=0, parent_id=None):
     conn = _get_db()
     cur = conn.execute(
-        "INSERT INTO teams (name, owner_google_id) VALUES (?, ?)",
-        (name, owner_google_id)
+        "INSERT INTO teams (name, owner_google_id, private, parent_id) VALUES (?, ?, ?, ?)",
+        (name, owner_google_id, 1 if private else 0, parent_id)
     )
     team_id = cur.lastrowid
     conn.execute(
@@ -527,19 +539,19 @@ def create_team(name, owner_google_id):
 def get_user_teams(google_id):
     conn = _get_db()
     rows = conn.execute("""
-        SELECT t.id, t.name, tm.role,
+        SELECT t.id, t.name, t.private, t.parent_id, tm.role,
                (SELECT COUNT(*) FROM team_members WHERE team_id = t.id) AS member_count
         FROM teams t
         JOIN team_members tm ON tm.team_id = t.id AND tm.google_id = ?
         ORDER BY t.name
     """, (google_id,)).fetchall()
     conn.close()
-    return [{'id': r['id'], 'name': r['name'], 'role': r['role'], 'member_count': r['member_count']} for r in rows]
+    return [{'id': r['id'], 'name': r['name'], 'private': bool(r['private']), 'parent_id': r['parent_id'], 'role': r['role'], 'member_count': r['member_count']} for r in rows]
 
 
 def get_team(team_id):
     conn = _get_db()
-    team = conn.execute("SELECT id, name, owner_google_id, created FROM teams WHERE id = ?", (team_id,)).fetchone()
+    team = conn.execute("SELECT id, name, owner_google_id, created, private, parent_id FROM teams WHERE id = ?", (team_id,)).fetchone()
     if not team:
         conn.close()
         return None
@@ -556,6 +568,8 @@ def get_team(team_id):
         'name': team['name'],
         'owner_google_id': team['owner_google_id'],
         'created': team['created'],
+        'private': bool(team['private']),
+        'parent_id': team['parent_id'],
         'members': [{'google_id': m['google_id'], 'username': m['username'], 'picture': m['picture'], 'role': m['role']} for m in members]
     }
 
@@ -587,17 +601,32 @@ def rename_team(team_id, new_name, google_id):
     return True
 
 
-def get_user_public_teams(google_id):
+def get_user_public_teams(google_id, viewer_google_id=None):
     conn = _get_db()
     rows = conn.execute("""
-        SELECT t.id, t.name,
+        SELECT t.id, t.name, t.private,
                (SELECT COUNT(*) FROM team_members WHERE team_id = t.id) AS member_count
         FROM teams t
         JOIN team_members tm ON tm.team_id = t.id AND tm.google_id = ?
         ORDER BY t.name
     """, (google_id,)).fetchall()
     conn.close()
-    return [{'id': r['id'], 'name': r['name'], 'member_count': r['member_count']} for r in rows]
+    result = []
+    for r in rows:
+        if r['private'] and viewer_google_id:
+            # Only show private teams if viewer is also a member
+            conn2 = _get_db()
+            is_member = conn2.execute(
+                "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
+                (r['id'], viewer_google_id)
+            ).fetchone()
+            conn2.close()
+            if not is_member:
+                continue
+        elif r['private']:
+            continue
+        result.append({'id': r['id'], 'name': r['name'], 'member_count': r['member_count'], 'private': bool(r['private'])})
+    return result
 
 
 def invite_to_team(team_id, from_google_id, to_username):
@@ -1024,10 +1053,10 @@ def db_delete_comment(google_id, cid):
 # ── User Profiles (public) ──
 
 def get_public_user_info(username):
-    """Case-insensitive lookup. Returns {username, picture, created} or None."""
+    """Case-insensitive lookup. Returns {username, picture, created, profile_private} or None."""
     conn = _get_db()
     row = conn.execute(
-        "SELECT google_id, username, picture, created FROM users WHERE lower(username) = ?",
+        "SELECT google_id, username, picture, created, profile_private FROM users WHERE lower(username) = ?",
         (username.lower(),)
     ).fetchone()
     conn.close()
@@ -1037,7 +1066,8 @@ def get_public_user_info(username):
         'google_id': row['google_id'],
         'username': row['username'],
         'picture': row['picture'],
-        'created': row['created']
+        'created': row['created'],
+        'profile_private': bool(row['profile_private'])
     }
 
 
@@ -1089,10 +1119,10 @@ def get_user_shared_experiments(viewer_google_id, target_google_id):
 
 
 def search_users(query, limit=10):
-    """Search users by username prefix. Returns list of {username, picture}."""
+    """Search users by username prefix. Returns list of {username, picture}. Excludes private profiles."""
     conn = _get_db()
     rows = conn.execute(
-        "SELECT username, picture FROM users WHERE username IS NOT NULL AND username LIKE ? LIMIT ?",
+        "SELECT username, picture FROM users WHERE username IS NOT NULL AND profile_private = 0 AND username LIKE ? LIMIT ?",
         (query + '%', limit)
     ).fetchall()
     conn.close()
@@ -1100,10 +1130,10 @@ def search_users(query, limit=10):
 
 
 def list_users(limit=50):
-    """Return all users with a username, newest first. Returns list of {username, picture, created}."""
+    """Return all users with a username, newest first. Excludes private profiles."""
     conn = _get_db()
     rows = conn.execute(
-        "SELECT username, picture, created FROM users WHERE username IS NOT NULL ORDER BY created DESC LIMIT ?",
+        "SELECT username, picture, created FROM users WHERE username IS NOT NULL AND profile_private = 0 ORDER BY created DESC LIMIT ?",
         (limit,)
     ).fetchall()
     conn.close()
@@ -1455,6 +1485,100 @@ def get_my_assigned_todos(google_id):
              'done': bool(r['done']), 'priority': r['priority'] or 'medium',
              'description': r['description'] or '', 'timestamp': r['timestamp'],
              'author': r['author'], 'team_name': r['team_name']} for r in rows]
+
+
+# ── Profile & Team Privacy ──
+
+def set_profile_private(google_id, private):
+    conn = _get_db()
+    conn.execute("UPDATE users SET profile_private = ? WHERE google_id = ?", (1 if private else 0, google_id))
+    conn.commit()
+    conn.close()
+
+
+def are_teammates(gid_a, gid_b):
+    """Check if two users share any team membership."""
+    conn = _get_db()
+    row = conn.execute("""
+        SELECT 1 FROM team_members tm1
+        JOIN team_members tm2 ON tm1.team_id = tm2.team_id
+        WHERE tm1.google_id = ? AND tm2.google_id = ?
+        LIMIT 1
+    """, (gid_a, gid_b)).fetchone()
+    conn.close()
+    return bool(row)
+
+
+def set_team_private(team_id, private, google_id):
+    """Owner-only toggle for team privacy."""
+    conn = _get_db()
+    team = conn.execute("SELECT owner_google_id FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team or team['owner_google_id'] != google_id:
+        conn.close()
+        return False
+    conn.execute("UPDATE teams SET private = ? WHERE id = ?", (1 if private else 0, team_id))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def set_team_parent(team_id, parent_id, google_id):
+    """Owner-only set parent team. Returns False if not owner or circular reference."""
+    conn = _get_db()
+    team = conn.execute("SELECT owner_google_id FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team or team['owner_google_id'] != google_id:
+        conn.close()
+        return False
+    # Check circular reference by walking the parent chain
+    if parent_id is not None:
+        visited = {team_id}
+        current = parent_id
+        depth = 0
+        while current is not None and depth < 10:
+            if current in visited:
+                conn.close()
+                return False
+            visited.add(current)
+            row = conn.execute("SELECT parent_id FROM teams WHERE id = ?", (current,)).fetchone()
+            if not row:
+                break
+            current = row['parent_id']
+            depth += 1
+    conn.execute("UPDATE teams SET parent_id = ? WHERE id = ?", (parent_id, team_id))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_team_children(team_id):
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT id, name, private FROM teams WHERE parent_id = ? ORDER BY name",
+        (team_id,)
+    ).fetchall()
+    conn.close()
+    return [{'id': r['id'], 'name': r['name'], 'private': bool(r['private'])} for r in rows]
+
+
+def get_team_ancestors(team_id):
+    """Walk parent chain up to 10 levels. Returns list from root to immediate parent."""
+    conn = _get_db()
+    ancestors = []
+    current = team_id
+    depth = 0
+    while depth < 10:
+        row = conn.execute("SELECT id, name, parent_id FROM teams WHERE id = ?", (current,)).fetchone()
+        if not row or row['parent_id'] is None:
+            break
+        parent = conn.execute("SELECT id, name, parent_id FROM teams WHERE id = ?", (row['parent_id'],)).fetchone()
+        if not parent:
+            break
+        ancestors.append({'id': parent['id'], 'name': parent['name']})
+        current = parent['id']
+        depth += 1
+    conn.close()
+    ancestors.reverse()
+    return ancestors
 
 
 # ── Ad Block Rules ──

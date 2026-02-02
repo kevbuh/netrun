@@ -459,12 +459,13 @@ async function renderTeamsView() {
   if (!_cachedTeams.length) {
     container.innerHTML = '<div class="text-dimmer text-sm mb-4">No teams yet. Create one to start collaborating.</div>';
   } else {
+    const _lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     container.innerHTML = _cachedTeams.map(t => `
       <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id})">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-base font-bold">${escapeHtml(t.name[0].toUpperCase())}</div>
           <div>
-            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
+            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}${t.private ? ' ' + _lockSvg : ''}</div>
             <div class="text-dimmer text-xs">${t.member_count} member${t.member_count !== 1 ? 's' : ''} · ${escapeHtml(t.role)}</div>
           </div>
         </div>
@@ -480,6 +481,13 @@ async function renderTeamsView() {
   if (formEl) formEl.innerHTML = `
     <div class="flex gap-2 mt-4">
       <input type="text" id="teams-view-new-name" placeholder="New team name" class="flex-1 bg-input border border-border-input rounded-md px-3 py-2 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();createTeamFromView()}">
+      <select id="teams-view-parent-team" class="bg-input border border-border-input rounded-md px-2 py-2 text-primary text-xs outline-none focus:border-accent cursor-pointer">
+        <option value="">No parent</option>
+        ${_cachedTeams.filter(t => t.role === 'owner').map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+      </select>
+      <label class="flex items-center gap-1.5 text-dimmer text-xs cursor-pointer whitespace-nowrap">
+        <input type="checkbox" id="teams-view-private" class="accent-[var(--accent)]"> Private
+      </label>
       <button onclick="createTeamFromView()" class="bg-accent text-white text-sm px-4 py-2 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Create Team</button>
     </div>
   `;
@@ -489,11 +497,16 @@ async function createTeamFromView() {
   const input = document.getElementById('teams-view-new-name');
   const name = (input?.value || '').trim();
   if (!name) return;
+  const privateCheck = document.getElementById('teams-view-private');
+  const parentSelect = document.getElementById('teams-view-parent-team');
+  const body = { name };
+  if (privateCheck?.checked) body.private = true;
+  if (parentSelect?.value) body.parent_id = parseInt(parentSelect.value);
   try {
     const resp = await fetch('/api/teams', {
       method: 'POST',
       headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
+      body: JSON.stringify(body)
     });
     if (resp.ok) {
       input.value = '';
@@ -576,13 +589,24 @@ async function showTeamDetailView(teamId) {
     }
 
     // Store data for tab switching
-    _teamDetailData = { teamId, team, teamExps, chatMessages, teamTodos, isOwner };
+    const teamChildren = team.children || [];
+    _teamDetailData = { teamId, team, teamExps, chatMessages, teamTodos, isOwner, teamChildren };
 
     // Populate sidebar header (matches exp-detail-title style)
     if (sidebarHeader) {
+      const lockSvg = team.private ? ' <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
+      const ancestorBreadcrumb = (team.ancestors && team.ancestors.length)
+        ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id})">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
+        : '';
       sidebarHeader.innerHTML = `
-        <div id="team-name-display" class="text-[1.1rem] font-semibold text-white_ mb-1 truncate${isOwner ? ' cursor-pointer hover:text-accent transition-colors' : ''}"${isOwner ? ' onclick="startRenameTeam()" title="Click to rename"' : ''}>${escapeHtml(team.name)}</div>
+        ${ancestorBreadcrumb}
+        <div id="team-name-display" class="text-[1.1rem] font-semibold text-white_ mb-1 truncate${isOwner ? ' cursor-pointer hover:text-accent transition-colors' : ''}"${isOwner ? ' onclick="startRenameTeam()" title="Click to rename"' : ''}>${escapeHtml(team.name)}${lockSvg}</div>
         <div class="text-dimmer text-[0.72rem] mb-2 cursor-pointer hover:text-accent transition-colors" onclick="switchTeamTab('members')">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
+        ${isOwner ? `<div class="flex items-center gap-2 mb-2">
+          <label class="flex items-center gap-1.5 text-dimmer text-[0.7rem] cursor-pointer">
+            <input type="checkbox" ${team.private ? 'checked' : ''} onchange="toggleTeamPrivacy(${teamId}, this.checked)" class="accent-[var(--accent)]"> Private
+          </label>
+        </div>` : ''}
       `;
     }
 
@@ -594,6 +618,9 @@ async function showTeamDetailView(teamId) {
       { key: 'members', badge: 'MBR', badgeCls: 'bg-blue-500/15 text-blue-400', label: 'Members', count: team.members.length },
       { key: 'chat', badge: 'MSG', badgeCls: 'bg-amber-500/15 text-amber-400', label: 'Chat', count: chatMessages.length },
     ];
+    if (teamChildren.length) {
+      tabs.push({ key: 'subteams', badge: 'SUB', badgeCls: 'bg-cyan-500/15 text-cyan-400', label: 'Sub-teams', count: teamChildren.length });
+    }
     if (sidebarTabs) {
       sidebarTabs.innerHTML = `<div class="flex items-center justify-between mb-2 px-2"><span class="text-[0.75rem] text-dim uppercase tracking-wide">Sections</span></div>` + tabs.map(t => `
         <div id="team-tab-${t.key}" class="flex items-center py-1.5 px-2 rounded-md cursor-pointer hover:bg-card/50 group transition-colors"
@@ -659,20 +686,30 @@ function cancelRenameTeam() {
   if (!sidebarHeader) return;
   const team = _teamDetailData.team;
   const isOwner = _teamDetailData.isOwner;
+  const lockSvg = team.private ? ' <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
+  const ancestorBreadcrumb = (team.ancestors && team.ancestors.length)
+    ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id})">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
+    : '';
   sidebarHeader.innerHTML = `
-    <div id="team-name-display" class="text-[1.1rem] font-semibold text-white_ mb-1 truncate${isOwner ? ' cursor-pointer hover:text-accent transition-colors' : ''}"${isOwner ? ' onclick="startRenameTeam()" title="Click to rename"' : ''}>${escapeHtml(team.name)}</div>
+    ${ancestorBreadcrumb}
+    <div id="team-name-display" class="text-[1.1rem] font-semibold text-white_ mb-1 truncate${isOwner ? ' cursor-pointer hover:text-accent transition-colors' : ''}"${isOwner ? ' onclick="startRenameTeam()" title="Click to rename"' : ''}>${escapeHtml(team.name)}${lockSvg}</div>
     <div class="text-dimmer text-[0.72rem] mb-2 cursor-pointer hover:text-accent transition-colors" onclick="switchTeamTab('members')">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
+    ${isOwner ? `<div class="flex items-center gap-2 mb-2">
+      <label class="flex items-center gap-1.5 text-dimmer text-[0.7rem] cursor-pointer">
+        <input type="checkbox" ${team.private ? 'checked' : ''} onchange="toggleTeamPrivacy(${_teamDetailData.teamId}, this.checked)" class="accent-[var(--accent)]"> Private
+      </label>
+    </div>` : ''}
   `;
 }
 
 function switchTeamTab(tab) {
   if (!_teamDetailData) return;
-  const { teamId, team, teamExps, chatMessages, teamTodos, isOwner } = _teamDetailData;
+  const { teamId, team, teamExps, chatMessages, teamTodos, isOwner, teamChildren } = _teamDetailData;
   const pane = document.getElementById('team-content-pane');
   if (!pane) return;
 
   // Highlight active tab
-  ['experiments', 'tasks', 'members', 'chat'].forEach(k => {
+  ['experiments', 'tasks', 'members', 'chat', 'subteams'].forEach(k => {
     const el = document.getElementById('team-tab-' + k);
     if (el) {
       if (k === tab) {
@@ -833,6 +870,21 @@ function switchTeamTab(tab) {
       const chatEl = document.getElementById('team-chat-messages-' + teamId);
       if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
     }, 50);
+
+  } else if (tab === 'subteams') {
+    const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    pane.innerHTML = (teamChildren || []).length ? `
+      <div class="px-4 pt-4">
+        <div class="flex flex-col gap-2">
+          ${teamChildren.map(c => `
+            <div class="flex items-center gap-3 p-3 rounded-lg border border-border-card bg-card hover:border-border-input transition-colors cursor-pointer" onclick="showTeamDetailView(${c.id})">
+              <div class="w-8 h-8 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">${escapeHtml(c.name[0].toUpperCase())}</div>
+              <div class="text-primary text-sm font-medium">${escapeHtml(c.name)}${c.private ? ' ' + lockSvg : ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : `<div class="px-4 pt-4 text-dimmer text-xs">No sub-teams</div>`;
   }
 }
 
@@ -1103,6 +1155,19 @@ async function inviteToTeamView(teamId) {
   }
 }
 
+async function toggleTeamPrivacy(teamId, isPrivate) {
+  try {
+    await fetch(`/api/teams/${teamId}/privacy`, {
+      method: 'PUT',
+      headers: _authHeaders(),
+      body: JSON.stringify({ private: isPrivate })
+    });
+    if (_teamDetailData && _teamDetailData.team) {
+      _teamDetailData.team.private = isPrivate;
+    }
+  } catch (err) { /* ignore */ }
+}
+
 // ── Teams Section (for settings) ──
 
 async function fetchTeams() {
@@ -1122,12 +1187,13 @@ function renderTeamsSection() {
   if (!_cachedTeams.length) {
     container.innerHTML = '<div class="text-dimmer text-xs mb-3">No teams yet</div>';
   } else {
+    const _lockSvgSm = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     container.innerHTML = _cachedTeams.map(t => `
       <div class="flex items-center justify-between p-3 bg-card border border-border-card rounded-lg mb-2 group">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">${escapeHtml(t.name[0].toUpperCase())}</div>
           <div>
-            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
+            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}${t.private ? ' ' + _lockSvgSm : ''}</div>
             <div class="text-dimmer text-xs">${t.member_count} member${t.member_count !== 1 ? 's' : ''} · ${t.role}</div>
           </div>
         </div>
@@ -1144,6 +1210,13 @@ function renderTeamsSection() {
   if (formEl) formEl.innerHTML = `
     <div class="flex gap-2 mt-3">
       <input type="text" id="new-team-name" placeholder="Team name" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();createTeamFromForm()}">
+      <select id="new-team-parent" class="bg-input border border-border-input rounded-md px-2 py-1.5 text-primary text-xs outline-none focus:border-accent cursor-pointer">
+        <option value="">No parent</option>
+        ${_cachedTeams.filter(t => t.role === 'owner').map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+      </select>
+      <label class="flex items-center gap-1.5 text-dimmer text-xs cursor-pointer whitespace-nowrap">
+        <input type="checkbox" id="new-team-private" class="accent-[var(--accent)]"> Private
+      </label>
       <button onclick="createTeamFromForm()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Create</button>
     </div>
   `;
@@ -1153,11 +1226,16 @@ async function createTeamFromForm() {
   const input = document.getElementById('new-team-name');
   const name = (input?.value || '').trim();
   if (!name) return;
+  const privateCheck = document.getElementById('new-team-private');
+  const parentSelect = document.getElementById('new-team-parent');
+  const body = { name };
+  if (privateCheck?.checked) body.private = true;
+  if (parentSelect?.value) body.parent_id = parseInt(parentSelect.value);
   try {
     const resp = await fetch('/api/teams', {
       method: 'POST',
       headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
+      body: JSON.stringify(body)
     });
     if (resp.ok) {
       input.value = '';
