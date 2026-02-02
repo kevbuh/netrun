@@ -270,7 +270,12 @@ async function renderInbox() {
     const feedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
 
     if (!_cachedInvites.length && !messages.length && !tasks.length && !chats.length && !feedNotifs.length) {
-      container.innerHTML = '<div class="text-center py-20 text-dim text-sm">Nothing here yet</div>';
+      container.innerHTML = `<div class="py-10 max-w-md mx-auto">
+        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg">
+          <input type="checkbox" disabled class="mt-0.5 accent-accent shrink-0">
+          <div class="text-[0.88rem] text-primary">Hello! Welcome to your inbox. New posts, invites, and messages will show up here.</div>
+        </div>
+      </div>`;
       return;
     }
 

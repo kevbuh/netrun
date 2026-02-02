@@ -573,15 +573,18 @@ function toggleOnboardSource(key) {
 }
 
 function showOnboarding() {
-  renderOnboardGrid();
   if (hasOnboarded()) {
     const sources = getFeedSources();
     FEED_CATALOG.forEach(f => { if (sources[f.key]) onboardSelected.add(f.key); });
-    document.querySelectorAll('.onboard-card').forEach(card => {
-      if (onboardSelected.has(card.dataset.source)) card.style.borderColor = 'var(--accent)';
-    });
-    document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
+  } else {
+    // Select all sources by default for new users
+    FEED_CATALOG.forEach(f => onboardSelected.add(f.key));
   }
+  renderOnboardGrid();
+  document.querySelectorAll('.onboard-card').forEach(card => {
+    if (onboardSelected.has(card.dataset.source)) card.style.borderColor = 'var(--accent)';
+  });
+  document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
   document.getElementById('onboard-view').style.display = '';
   document.getElementById('home-feed-section').style.display = 'none';
 }
