@@ -236,7 +236,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         markets = q['state']['data'].get('markets', [])
                         break
                 top5 = []
-                for m in markets[:5]:
+                for m in markets:
                     slug = m.get('slug', '')
                     prices = m.get('outcomePrices', ['0', '0'])
                     yes_pct = round(float(prices[0]) * 100)

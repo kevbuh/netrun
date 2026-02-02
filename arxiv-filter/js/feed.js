@@ -521,7 +521,8 @@ async function fetchPolymarketFeed() {
         polyYesPct: m.yesPct,
         polyChangePct: m.changePct,
         polyVolume: m.volume,
-        polyImage: m.image
+        polyImage: m.image,
+        polySlug: m.slug
       };
     });
   } catch (e) {
@@ -1093,8 +1094,8 @@ function renderPapers() {
       const isHN = p.source === 'hn';
       const isArxiv = p.source === 'arxiv';
       const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-      const sourceChip = _hasExternalLink ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="inline-flex items-center gap-1 text-[0.75rem] text-dim"><img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=32" class="w-4 h-4 rounded" alt="">${escapeHtml(h)}</span>`; } catch { return getSourceChip(p.source, p.arxivId); } })() : getSourceChip(p.source, p.arxivId);
-      const viaLine = _hasExternalLink ? `<div class="flex items-center gap-1 text-[0.68rem] text-dimmer mt-0.5">${SOURCE_LOGO_INLINE[p.source] || ''}via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</div>` : '';
+      const sourceChip = _hasExternalLink ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="text-[0.75rem] text-dim">${escapeHtml(h)}</span>`; } catch { return `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`; } })() : `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`;
+      const viaInfo = _hasExternalLink ? `<span class="text-[0.68rem] text-dimmer">via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</span>` : '';
       const aiEntry = qfOn ? qCache[p.title] : null;
       const aiVerdict = aiEntry?.v || aiEntry;
       const aiScore = aiEntry?.s;
@@ -1107,7 +1108,6 @@ function renderPapers() {
         : isPoly
         ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
         : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
-      const catChips = '';
       const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
       const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
       const userRating = getPaperRating(p.link);
@@ -1115,21 +1115,24 @@ function renderPapers() {
       const isSaved = isPostSaved(p.link);
       const bmFill = isSaved ? 'var(--accent)' : 'none';
       const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
-      const actionBtns = `<div class="absolute top-3 right-3 flex items-center z-10">
-        ${dateChip ? `<span class="text-[0.68rem] text-dim mr-1.5">${escapeHtml(p.date)}</span>` : ''}
-        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
-        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+      const actionBtns = `<div class="flex items-center gap-0.5 shrink-0 ml-auto">
+        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>
+        <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})"><svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
       </div>`;
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
       const isRead = readSet.has(p.link);
-      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-1 shrink-0" title="New"></span>' : '';
+      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+      // Card image: polymarket uses polyImage, others use favicon, fallback to pixel art
+      const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
+      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+      const cardImg = cardImgSrc
+        ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
+        : pixelFallback;
       return `
-      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150 relative${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
-        ${actionBtns}
-        <div class="flex gap-1.5 flex-wrap items-center mb-0.5 pr-20">${newDot}${sourceChip}${aiChip}${statsChips}${ratingChip}${catChips}</div>
-        ${viaLine}
-        <div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} mb-1.5 leading-snug pr-12 ${viaLine ? 'mt-1.5' : 'mt-1'}">${renderTitle(p.title)}</div>
-        ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed">${escapeHtml(snippet)}</div>` : ''}
+      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
+        <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
+        ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
+        <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${actionBtns}</div>
       </div>`;
     }).join('');
   }
