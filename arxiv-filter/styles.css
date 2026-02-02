@@ -494,6 +494,15 @@
       background-position: right 6px center;
     }
 
+    /* ── Web Search iframe ── */
+    .web-search-iframe {
+      width: 100%;
+      height: 600px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+    }
+
     /* ── Finder pagination column span ── */
     .finder-pagination {
       column-span: all;

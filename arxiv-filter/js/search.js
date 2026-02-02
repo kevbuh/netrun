@@ -47,6 +47,8 @@ function submitSearch() {
   // Show collapsed OpenAlex header
   const oaContainer = document.getElementById('search-openalex-results');
   if (oaContainer) renderOpenAlexHeader(oaContainer, false);
+  // Show web search section
+  renderWebSearchSection(query);
 }
 
 function renderSearchFeedResults(query) {
@@ -365,6 +367,36 @@ function openOpenAlexPaper(i) {
   const r = openalexResultsSorted[i];
   if (!r || !r.link) return;
   openPaperByUrl(r.link);
+}
+
+// ── Web Search (embedded iframe) ──
+let webSearchCollapsed = false;
+
+function toggleWebSearchCollapse() {
+  webSearchCollapsed = !webSearchCollapsed;
+  renderWebSearchSection(searchCurrentQuery);
+}
+
+function renderWebSearchSection(query) {
+  const container = document.getElementById('search-web-results');
+  if (!container) return;
+  if (!query) { container.innerHTML = ''; return; }
+
+  const chevron = webSearchCollapsed
+    ? '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>'
+    : '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>';
+  const globeIcon = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
+  const header = `<div class="flex items-center gap-2 mb-3 mt-4">
+    <button class="flex items-center gap-1 text-[0.75rem] text-dimmer uppercase tracking-wide cursor-pointer bg-transparent border-none hover:text-primary transition-colors" onclick="toggleWebSearchCollapse()">${chevron} ${globeIcon} Web Search</button>
+  </div>`;
+
+  if (webSearchCollapsed) {
+    container.innerHTML = header;
+    return;
+  }
+
+  const iframeUrl = `https://www.google.com/search?igu=1&q=${encodeURIComponent(query)}`;
+  container.innerHTML = header + `<iframe class="web-search-iframe" src="${iframeUrl}" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
 }
 
 // ── Search History (for search view) ──
