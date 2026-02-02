@@ -650,7 +650,7 @@ function openUserProfile(username) {
   } else {
     window.location.hash = 'profile';
   }
-  setSidebarActive('');
+  setSidebarActive(username ? '' : 'sb-people');
   renderUserProfile(username);
 }
 
@@ -658,13 +658,43 @@ async function renderUserProfile(username) {
   const el = document.getElementById('profile-content');
   if (!el) return;
 
-  // No username → search mode
+  // No username → search/browse mode
   if (!username) {
     el.innerHTML = `
       <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Find a user</h2>
       <input type="text" id="profile-search-input" placeholder="Search by username..." class="w-full bg-input border border-border-input rounded-lg px-4 py-2.5 text-primary text-sm outline-none focus:border-accent mb-4">
       <div id="profile-search-results"></div>
+      <div id="profile-all-users"></div>
     `;
+
+    function renderUserGrid(container, users) {
+      if (!users.length) { container.innerHTML = '<div class="text-dimmer text-sm">No users yet</div>'; return; }
+      container.innerHTML = `<div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))">` +
+        users.map(u => {
+          const joinDate = u.created ? new Date(u.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short' }) : '';
+          return `<a href="#profile/${encodeURIComponent(u.username)}" class="flex flex-col items-center gap-2 px-4 py-4 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            ${u.picture
+              ? `<img src="${escapeAttr(u.picture)}" class="w-12 h-12 rounded-full" referrerpolicy="no-referrer" />`
+              : `<div class="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold">${escapeHtml((u.username || '?')[0].toUpperCase())}</div>`
+            }
+            <span class="text-primary text-sm font-medium">${escapeHtml(u.username)}</span>
+            ${joinDate ? `<span class="text-dimmer text-[0.7rem]">Joined ${joinDate}</span>` : ''}
+          </a>`;
+        }).join('') + '</div>';
+    }
+
+    // Load all users immediately
+    const allUsersEl = document.getElementById('profile-all-users');
+    allUsersEl.innerHTML = '<div class="text-dimmer text-sm">Loading users...</div>';
+    try {
+      const res = await fetch('/api/users', { headers: _authHeaders() });
+      const users = await res.json();
+      renderUserGrid(allUsersEl, users);
+    } catch (e) {
+      allUsersEl.innerHTML = '<div class="text-dimmer text-sm">Failed to load users</div>';
+      console.error('Load users error', e);
+    }
+
     const input = document.getElementById('profile-search-input');
     let debounce = null;
     input.addEventListener('input', () => {
@@ -672,7 +702,13 @@ async function renderUserProfile(username) {
       debounce = setTimeout(async () => {
         const q = input.value.trim();
         const results = document.getElementById('profile-search-results');
-        if (!q) { results.innerHTML = ''; return; }
+        const allUsers = document.getElementById('profile-all-users');
+        if (!q) {
+          results.innerHTML = '';
+          allUsers.style.display = '';
+          return;
+        }
+        allUsers.style.display = 'none';
         try {
           const res = await fetch('/api/users?q=' + encodeURIComponent(q), { headers: _authHeaders() });
           const users = await res.json();

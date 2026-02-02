@@ -1099,6 +1099,17 @@ def search_users(query, limit=10):
     return [{'username': r['username'], 'picture': r['picture']} for r in rows]
 
 
+def list_users(limit=50):
+    """Return all users with a username, newest first. Returns list of {username, picture, created}."""
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT username, picture, created FROM users WHERE username IS NOT NULL ORDER BY created DESC LIMIT ?",
+        (limit,)
+    ).fetchall()
+    conn.close()
+    return [{'username': r['username'], 'picture': r['picture'], 'created': r['created']} for r in rows]
+
+
 # ── Direct Messages ──
 
 def send_direct_message(from_google_id, to_google_id, content):

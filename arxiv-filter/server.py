@@ -49,7 +49,7 @@ from persistence import (
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
     get_public_user_info, get_user_public_stats, get_user_recent_comments,
-    get_user_shared_experiments, get_user_public_teams, search_users,
+    get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
@@ -1014,13 +1014,13 @@ ch.postMessage({type:'preview-ready'});
             if not google_id:
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            # /api/users?q=... — search users
-            if self.path.startswith('/api/users?'):
+            # /api/users?q=... — search users, or list all if no q
+            if self.path.startswith('/api/users?') or self.path == '/api/users':
                 from urllib.parse import urlparse, parse_qs
                 qs = parse_qs(urlparse(self.path).query)
                 q = qs.get('q', [''])[0].strip()
                 if not q:
-                    self._send_json([])
+                    self._send_json(list_users())
                     return
                 self._send_json(search_users(q))
             # /api/users/{username}/comments
