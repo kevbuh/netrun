@@ -479,11 +479,17 @@ function hideAllViews() {
 }
 
 function goHome() {
+  const alreadyOnFeed = window.location.hash === '#feed';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
   document.getElementById('home-main').style.display = '';
   window.location.hash = 'feed';
   setSidebarActive('sb-home');
-  if (!allPapers.length) loadAllFeeds();
+  if (alreadyOnFeed) {
+    // Reset source filter pills
+    if (typeof hiddenSourceFilters !== 'undefined') hiddenSourceFilters.clear();
+    if (typeof renderSourceBubbles === 'function') renderSourceBubbles();
+    if (allPapers.length) loadAllFeeds();
+  } else if (!allPapers.length) loadAllFeeds();
 }
 
 function openSearch() {

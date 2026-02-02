@@ -706,6 +706,22 @@ function browseReload() {
   if (!_browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
 }
 
+let _browseZoomLevel = 1.0;
+function browseZoom(dir) {
+  if (dir === 0) _browseZoomLevel = 1.0;
+  else _browseZoomLevel = Math.min(2.0, Math.max(0.25, _browseZoomLevel + dir * 0.1));
+  const el = _browseActiveEl();
+  if (el) {
+    if (_browseIsElectron && el.setZoomFactor) el.setZoomFactor(_browseZoomLevel);
+    else el.style.transform = `scale(${_browseZoomLevel})`;
+    el.style.transformOrigin = 'top left';
+    el.style.width = (100 / _browseZoomLevel) + '%';
+    el.style.height = (100 / _browseZoomLevel) + '%';
+  }
+  const label = document.getElementById('browse-zoom-level');
+  if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
+}
+
 function browseSaveToReadingList() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank || !tab.url) return;

@@ -1,7 +1,7 @@
     /* Electron: draggable title bar region + space for traffic lights */
     body.electron-app #sidebar-nav {
       -webkit-app-region: drag;
-      padding-top: 40px;
+      padding-top: 44px;
     }
     body.electron-app #sidebar-nav button,
     body.electron-app #sidebar-nav canvas,

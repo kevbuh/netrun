@@ -349,12 +349,7 @@ function toggleSavePostByLink(link) {
 
 function openSavedPaper(link) {
   markPostRead(link);
-  const saved = getSavedPosts();
-  const entry = saved[link];
-  if (!entry) return;
-  const paper = entry.paper;
-  paperViewOrigin = 'saved';
-  showPaperView(paper, 'view/' + encodeURIComponent(link));
+  openBrowse(link);
 }
 
 // ── arXiv Feed (loads on startup) ──
@@ -1064,7 +1059,16 @@ function renderPapers() {
   const container = document.getElementById('papers');
   if (!filtered.length && pendingCount > 0) return;
   if (!filtered.length) {
-    container.innerHTML = '<div class="text-center py-20 text-dim">No papers match your filter.</div>';
+    const threshold = qfOn ? getQualityThreshold() : 0;
+    const filledDots = Math.round(threshold / 10);
+    const dots = Array.from({ length: 10 }, (_, i) =>
+      `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px;background:${i < filledDots ? 'var(--accent)' : 'var(--border-card)'};transition:background 0.2s" title="${(i + 1) * 10}%"></span>`
+    ).join('');
+    container.innerHTML = `<div style="column-span:all;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 0;gap:16px">
+      <div class="text-dim" style="font-size:0.9rem">No papers match your filter</div>
+      ${qfOn ? `<div style="display:flex;align-items:center;justify-content:center">${dots}</div>
+      <div class="text-dimmer" style="font-size:0.75rem">Quality threshold: ${threshold}%</div>` : ''}
+    </div>`;
     return;
   }
   if (feedViewMode === 'compact') {
