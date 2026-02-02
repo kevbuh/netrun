@@ -1485,37 +1485,10 @@ document.addEventListener('mousedown', function(e) {
 });
 
 function openPaper(index) {
-  paperViewOrigin = 'arxiv';
   const paper = lastFilteredPapers[index];
   if (!paper) return;
   markPostAsRead(paper.link);
-  const hashVal = 'view/' + encodeURIComponent(paper.link);
-  if (paper.source === 'arxiv') {
-    showPaperView(paper, hashVal);
-  } else {
-    // Check if we have saved content (reader view) — if so, always open in paper view
-    // Otherwise check if the site allows iframe embedding
-    fetch(`/api/saved-content?url=${encodeURIComponent(paper.link)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data && data.text && data.text.length > 50) {
-          showPaperView(paper, hashVal);
-        } else {
-          return fetch(`/api/check-embed?url=${encodeURIComponent(paper.link)}`)
-            .then(r => r.json())
-            .then(d => {
-              if (d.embeddable) {
-                showPaperView(paper, hashVal);
-              } else {
-                window.open(paper.link, '_blank');
-              }
-            });
-        }
-      })
-      .catch(() => {
-        window.open(paper.link, '_blank');
-      });
-  }
+  openBrowse(paper.link);
 }
 
 function openPaperByUrl(url) {
