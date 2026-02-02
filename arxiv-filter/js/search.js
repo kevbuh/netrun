@@ -374,6 +374,35 @@ let _browseActiveTab = null;
 let _browseNextId = 1;
 const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
+function _browseSaveTabs() {
+  const data = _browseTabs
+    .filter(t => !t.blank && t.url)
+    .map(t => ({ id: t.id, url: t.url, title: t.title }));
+  localStorage.setItem('browseTabs', JSON.stringify({ tabs: data, activeTab: _browseActiveTab, nextId: _browseNextId }));
+}
+
+function _browseRestoreTabs() {
+  try {
+    const raw = localStorage.getItem('browseTabs');
+    if (!raw) return false;
+    const { tabs, activeTab, nextId } = JSON.parse(raw);
+    if (!tabs || !tabs.length) return false;
+    _browseNextId = nextId || (Math.max(...tabs.map(t => t.id)) + 1);
+    const container = document.getElementById('browse-content');
+    for (const saved of tabs) {
+      const el = _browseCreateFrame(saved.id, saved.url);
+      el.style.display = 'none';
+      container.appendChild(el);
+      const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false };
+      _browseTabs.push(tab);
+      _browseBindFrame(tab);
+    }
+    const target = _browseTabs.find(t => t.id === activeTab) ? activeTab : _browseTabs[0].id;
+    browseSelectTab(target);
+    return true;
+  } catch { return false; }
+}
+
 function openBrowse(url) {
   hideAllViews();
   // Clear paper-sidebar to avoid duplicate IDs
@@ -387,15 +416,20 @@ function openBrowse(url) {
   window.location.hash = 'browse';
   setSidebarActive('sb-browse');
 
-  // Initialize browse sidebar
+  // Initialize browse sidebar (hidden by default)
   const browseSb = document.getElementById('browse-sidebar');
   if (browseSb) {
     browseSb.innerHTML = _renderSidebarHTML();
     _initSidebar(browseSb);
+    browseSb.style.display = 'none';
   }
 
   if (!_browseTabs.length) {
-    browseNewTab(url);
+    if (!url && !_browseRestoreTabs()) {
+      browseNewTab(url);
+    } else if (url) {
+      browseNewTab(url);
+    }
   } else {
     if (url) browseNewTab(url);
     else {
@@ -425,6 +459,7 @@ function browseNewTab(url) {
   if (el) _browseBindFrame(tab);
 
   browseSelectTab(id);
+  _browseSaveTabs();
   setTimeout(() => {
     const urlInput = document.getElementById('browse-url-input');
     if (urlInput) { urlInput.focus(); urlInput.select(); }
@@ -452,6 +487,7 @@ function _browseBindFrame(tab) {
     tab.favicon = _browseFaviconUrl(e.url);
     tab.blank = false;
     _browseRenderTabs();
+    _browseSaveTabs();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
       if (urlInput) urlInput.value = e.url;
@@ -465,6 +501,7 @@ function _browseBindFrame(tab) {
     tab.title = _browseTitleFromUrl(e.url);
     tab.favicon = _browseFaviconUrl(e.url);
     _browseRenderTabs();
+    _browseSaveTabs();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
       if (urlInput) urlInput.value = e.url;
@@ -475,6 +512,7 @@ function _browseBindFrame(tab) {
   el.addEventListener('page-title-updated', (e) => {
     tab.title = e.title || _browseTitleFromUrl(tab.url);
     _browseRenderTabs();
+    _browseSaveTabs();
   });
   el.addEventListener('page-favicon-updated', (e) => {
     if (e.favicons && e.favicons.length) tab.favicon = e.favicons[0];
@@ -496,6 +534,7 @@ function browseSelectTab(id) {
   if (urlInput) urlInput.value = tab ? tab.url : '';
   _browseRenderTabs();
   _browseUpdateSaveBtn();
+  _browseSaveTabs();
   // Update sidebar for the selected tab
   if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(tab.url);
@@ -518,6 +557,7 @@ function browseCloseTab(id) {
   } else {
     _browseRenderTabs();
   }
+  _browseSaveTabs();
 }
 
 function _browseRenderTabs() {
@@ -572,6 +612,7 @@ function browseNavigate(input) {
   if (urlInput) urlInput.value = url;
   _browseRenderTabs();
   _browseUpdateSaveBtn();
+  _browseSaveTabs();
   // Update sidebar for the navigated URL
   if (typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(url);
@@ -656,6 +697,117 @@ function _browseUpdateSaveBtn() {
     svg.setAttribute('fill', saved ? 'var(--accent)' : 'none');
     svg.setAttribute('stroke', saved ? 'var(--accent)' : 'currentColor');
   }
+}
+
+// ── Tab Sessions (save/restore named tab groups) ──
+
+function _getTabSessions() {
+  try { return JSON.parse(localStorage.getItem('browseTabSessions') || '[]'); } catch { return []; }
+}
+
+function _saveTabSessions(sessions) {
+  localStorage.setItem('browseTabSessions', JSON.stringify(sessions));
+}
+
+function toggleTabStateDropdown() {
+  const dd = document.getElementById('tab-state-dropdown');
+  if (!dd) return;
+  if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+  _renderTabStateDropdown();
+  dd.style.display = '';
+  setTimeout(() => {
+    const ni = document.getElementById('tab-session-name-input');
+    if (ni) ni.focus();
+  }, 50);
+  setTimeout(() => {
+    const handler = (e) => {
+      if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleTabStateDropdown"]')) {
+        dd.style.display = 'none';
+        document.removeEventListener('mousedown', handler);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+  }, 0);
+}
+
+function _renderTabStateDropdown() {
+  const dd = document.getElementById('tab-state-dropdown');
+  if (!dd) return;
+  const sessions = _getTabSessions();
+  const openTabs = _browseTabs.filter(t => !t.blank && t.url);
+  const canSave = openTabs.length > 0;
+
+  let html = `<div style="position:absolute;right:0;top:calc(100% + 4px);min-width:260px;max-height:360px;overflow-y:auto;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">`;
+
+  // Save current tabs section
+  html += `<div style="padding:6px 12px;border-bottom:1px solid var(--border-subtle);">
+    <div id="tab-session-save-row" style="display:flex;align-items:center;gap:4px;">
+      <input id="tab-session-name-input" type="text" placeholder="Session name…" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--border-input);background:var(--bg-input);color:var(--text-primary);font-size:0.78rem;border-radius:6px;outline:none;" onkeydown="if(event.key==='Enter')confirmSaveTabSession()" ${canSave ? '' : 'disabled'}>
+      <button onclick="confirmSaveTabSession()" style="padding:5px 10px;border:none;background:${canSave ? 'var(--accent)' : 'var(--bg-hover)'};color:${canSave ? '#fff' : 'var(--text-dimmest)'};font-size:0.78rem;border-radius:6px;cursor:${canSave ? 'pointer' : 'default'};white-space:nowrap;" ${canSave ? '' : 'disabled'}>Save ${openTabs.length} tab${openTabs.length !== 1 ? 's' : ''}</button>
+    </div>
+  </div>`;
+
+  if (!sessions.length) {
+    html += `<div style="padding:12px;font-size:0.75rem;color:var(--text-dimmest);text-align:center">No saved sessions</div>`;
+  } else {
+    for (let i = 0; i < sessions.length; i++) {
+      const s = sessions[i];
+      const count = s.tabs.length;
+      const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      html += `<div class="tab-session-row" style="display:flex;align-items:center;gap:6px;padding:6px 12px;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+        <button onclick="loadTabSession(${i})" style="flex:1;min-width:0;text-align:left;border:none;background:none;cursor:pointer;padding:0;display:flex;flex-direction:column;gap:1px;">
+          <span style="font-size:0.8rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${escapeHtml(s.name)}</span>
+          <span style="font-size:0.68rem;color:var(--text-dimmer)">${count} tab${count !== 1 ? 's' : ''} · ${date}</span>
+        </button>
+        <button onclick="event.stopPropagation();deleteTabSession(${i})" style="border:none;background:none;color:var(--text-dimmest);cursor:pointer;padding:2px;font-size:0.9rem;line-height:1;flex-shrink:0;" title="Delete session" onmouseenter="this.style.color='var(--text-primary)'" onmouseleave="this.style.color='var(--text-dimmest)'">&times;</button>
+      </div>`;
+    }
+  }
+
+  html += '</div>';
+  dd.innerHTML = html;
+}
+
+function confirmSaveTabSession() {
+  const input = document.getElementById('tab-session-name-input');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  const openTabs = _browseTabs.filter(t => !t.blank && t.url);
+  if (!openTabs.length) return;
+  const sessions = _getTabSessions();
+  sessions.unshift({
+    name,
+    tabs: openTabs.map(t => ({ url: t.url, title: t.title })),
+    savedAt: Date.now()
+  });
+  _saveTabSessions(sessions);
+  _renderTabStateDropdown();
+  // Focus the new input after re-render
+  setTimeout(() => {
+    const ni = document.getElementById('tab-session-name-input');
+    if (ni) ni.value = '';
+  }, 0);
+}
+
+function loadTabSession(index) {
+  const sessions = _getTabSessions();
+  const session = sessions[index];
+  if (!session) return;
+  // Close dropdown
+  const dd = document.getElementById('tab-state-dropdown');
+  if (dd) dd.style.display = 'none';
+  // Open each tab from the session
+  for (const saved of session.tabs) {
+    browseNewTab(saved.url);
+  }
+}
+
+function deleteTabSession(index) {
+  const sessions = _getTabSessions();
+  sessions.splice(index, 1);
+  _saveTabSessions(sessions);
+  _renderTabStateDropdown();
 }
 
 // ── Search History (for search view) ──
