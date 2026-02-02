@@ -1360,6 +1360,29 @@ document.addEventListener('mouseup', function(e) {
   popup.appendChild(askBtn);
   popup.appendChild(quoteBtn);
 
+  // If selection is in PDF text layer → add Highlight button
+  const sel2 = window.getSelection();
+  if (sel2 && sel2.rangeCount > 0) {
+    const range = sel2.getRangeAt(0);
+    const ancestor = range.commonAncestorContainer;
+    const inTextLayer = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
+    if (inTextLayer && typeof createHighlight === 'function') {
+      const hlBtn = document.createElement('button');
+      hlBtn.className = 'doc-selection-popup-btn';
+      hlBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg> Highlight';
+      hlBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+      hlBtn.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        popup.remove();
+        // Save range and trigger highlight with default color (yellow)
+        _pdfSavedRange = range.cloneRange();
+        const defaultColor = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS[0] : { name: 'yellow', bg: 'rgba(255,235,59,0.35)', solid: '#ffeb3b' };
+        createHighlight(defaultColor);
+      });
+      popup.appendChild(hlBtn);
+    }
+  }
+
   // Single word → add Lookup button
   const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
   if (isSingleWord) {

@@ -147,6 +147,7 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    icon: path.join(__dirname, '..', 'build-resources', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -163,7 +164,14 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) {
+    const iconPath = path.join(__dirname, '..', 'build-resources', 'icon.png');
+    const { nativeImage } = require('electron');
+    app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
+  createWindow();
+});
 
 app.on('window-all-closed', async () => {
   await killPython();
