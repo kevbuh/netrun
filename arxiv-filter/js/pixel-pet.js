@@ -173,6 +173,63 @@
         }
       }
     },
+    pacman: {
+      outline: '#b8860b', body: '#ffd700', dark: '#e6c200', eye: '#2a2a2a',
+      draw(px, o) {
+        const B = this.body, D = this.dark, O = this.outline, E = this.eye;
+        const mouthOpen = (o.legFrame === 1);
+        // Build a set of mouth-hole pixels to skip when mouth is open
+        const skip = new Set();
+        if (mouthOpen) {
+          // Wedge cut from right side: rows 5-9, deeper toward center at row 7
+          [12,11,10].forEach(x => skip.add(x+',7'));
+          [12,11].forEach(x => { skip.add(x+',6'); skip.add(x+',8'); });
+          [12].forEach(x => { skip.add(x+',5'); skip.add(x+',9'); });
+        }
+        const mpx = (x,y,c) => { if (!skip.has(x+','+y)) px(x,y,c); };
+        // Circle outline + fill (rows 2-12, centered around x=7.5, y=7)
+        // Row 2
+        for(let x=6;x<=9;x++) mpx(x,2,O);
+        // Row 3
+        mpx(4,3,O); mpx(5,3,O); mpx(10,3,O); mpx(11,3,O);
+        for(let x=5;x<=10;x++) mpx(x,3,B);
+        // Row 4
+        mpx(3,4,O); mpx(12,4,O);
+        for(let x=4;x<=11;x++) mpx(x,4,B);
+        // Rows 5-9: widest part
+        for(let y=5;y<=9;y++) {
+          mpx(2,y,O); mpx(13,y,O);
+          for(let x=3;x<=12;x++) mpx(x,y,B);
+        }
+        // Row 10
+        mpx(3,10,O); mpx(12,10,O);
+        for(let x=4;x<=11;x++) mpx(x,10,B);
+        // Row 11
+        mpx(4,11,O); mpx(5,11,O); mpx(10,11,O); mpx(11,11,O);
+        for(let x=5;x<=10;x++) mpx(x,11,B);
+        // Row 12
+        for(let x=6;x<=9;x++) mpx(x,12,O);
+        // Eye
+        if (!o.blink) { px(9,4,E); px(10,4,E); }
+        if (o.tired && !o.blink) { px(9,3,D); px(10,3,D); }
+        // Mouth outline edges when open
+        if (mouthOpen) {
+          px(13,5,O); px(12,5,O);
+          px(13,9,O); px(12,9,O);
+          px(11,6,O); px(11,8,O);
+          px(10,7,O);
+        } else {
+          // Closed mouth - horizontal line
+          for(let x=9;x<=13;x++) px(x,7,O);
+        }
+        // Sleeping zzz
+        if (o.sleeping) return;
+        // Dots being eaten (when walking/running)
+        if (!o.sitting && !o.sleeping) {
+          px(15,7,'#ffb8b8');
+        }
+      }
+    },
   };
 
   function getPetType() {
