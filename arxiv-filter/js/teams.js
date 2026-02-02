@@ -476,29 +476,61 @@ async function renderTeamsView() {
     `).join('');
   }
 
-  // Create team form
+  // Clear form container — button is now in the heading
   const formEl = document.getElementById('teams-view-create-form');
-  if (formEl) formEl.innerHTML = `
-    <div class="flex gap-2 mt-4">
-      <input type="text" id="teams-view-new-name" placeholder="New team name" class="flex-1 bg-input border border-border-input rounded-md px-3 py-2 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();createTeamFromView()}">
-      <select id="teams-view-parent-team" class="bg-input border border-border-input rounded-md px-2 py-2 text-primary text-xs outline-none focus:border-accent cursor-pointer">
-        <option value="">No parent</option>
-        ${_cachedTeams.filter(t => t.role === 'owner').map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
-      </select>
-      <label class="flex items-center gap-1.5 text-dimmer text-xs cursor-pointer whitespace-nowrap">
-        <input type="checkbox" id="teams-view-private" class="accent-[var(--accent)]"> Private
-      </label>
-      <button onclick="createTeamFromView()" class="bg-accent text-white text-sm px-4 py-2 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Create Team</button>
-    </div>
-  `;
+  if (formEl) formEl.innerHTML = '';
 }
 
-async function createTeamFromView() {
-  const input = document.getElementById('teams-view-new-name');
+let _createTeamPopupSource = null;
+
+function showCreateTeamPopup(source) {
+  // Remove existing popup
+  const existing = document.getElementById('create-team-popup');
+  if (existing) { existing.remove(); return; }
+
+  _createTeamPopupSource = source;
+  const parentOpts = _cachedTeams.filter(t => t.role === 'owner').map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'create-team-popup';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:var(--overlay-bg, rgba(0,0,0,0.4))';
+  overlay.innerHTML = `
+    <div class="bg-card border border-border-card rounded-xl shadow-xl" style="width:380px;max-width:90vw;padding:24px" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-white_ text-sm font-semibold">Create Team</h3>
+        <button onclick="document.getElementById('create-team-popup')?.remove()" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-lg leading-none">&times;</button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <input type="text" id="create-team-popup-name" placeholder="Team name" class="bg-input border border-border-input rounded-md px-3 py-2 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();submitCreateTeamPopup()}" autofocus>
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <label class="text-dimmer text-[0.7rem] mb-1 block">Parent team</label>
+            <select id="create-team-popup-parent" class="w-full bg-input border border-border-input rounded-md px-2 py-1.5 text-primary text-xs outline-none focus:border-accent cursor-pointer">
+              <option value="">None</option>
+              ${parentOpts}
+            </select>
+          </div>
+          <div class="flex items-end pb-1">
+            <label class="flex items-center gap-1.5 text-dimmer text-xs cursor-pointer whitespace-nowrap">
+              <input type="checkbox" id="create-team-popup-private" class="accent-[var(--accent)]"> Private
+            </label>
+          </div>
+        </div>
+        <button onclick="submitCreateTeamPopup()" class="bg-accent text-white text-sm px-4 py-2 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors mt-1">Create</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('create-team-popup-name')?.focus(), 50);
+}
+
+async function submitCreateTeamPopup() {
+  const input = document.getElementById('create-team-popup-name');
   const name = (input?.value || '').trim();
   if (!name) return;
-  const privateCheck = document.getElementById('teams-view-private');
-  const parentSelect = document.getElementById('teams-view-parent-team');
+  const privateCheck = document.getElementById('create-team-popup-private');
+  const parentSelect = document.getElementById('create-team-popup-parent');
   const body = { name };
   if (privateCheck?.checked) body.private = true;
   if (parentSelect?.value) body.parent_id = parseInt(parentSelect.value);
@@ -509,8 +541,13 @@ async function createTeamFromView() {
       body: JSON.stringify(body)
     });
     if (resp.ok) {
-      input.value = '';
-      renderTeamsView();
+      document.getElementById('create-team-popup')?.remove();
+      if (_createTeamPopupSource === 'view') {
+        renderTeamsView();
+      } else {
+        await fetchTeams();
+        renderTeamsSection();
+      }
     }
   } catch (err) { /* ignore */ }
 }
@@ -1205,45 +1242,12 @@ function renderTeamsSection() {
     `).join('');
   }
 
-  // Create team form
+  // Clear form container — button is now in the heading
   const formEl = document.getElementById('create-team-form');
-  if (formEl) formEl.innerHTML = `
-    <div class="flex gap-2 mt-3">
-      <input type="text" id="new-team-name" placeholder="Team name" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();createTeamFromForm()}">
-      <select id="new-team-parent" class="bg-input border border-border-input rounded-md px-2 py-1.5 text-primary text-xs outline-none focus:border-accent cursor-pointer">
-        <option value="">No parent</option>
-        ${_cachedTeams.filter(t => t.role === 'owner').map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
-      </select>
-      <label class="flex items-center gap-1.5 text-dimmer text-xs cursor-pointer whitespace-nowrap">
-        <input type="checkbox" id="new-team-private" class="accent-[var(--accent)]"> Private
-      </label>
-      <button onclick="createTeamFromForm()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover transition-colors">Create</button>
-    </div>
-  `;
+  if (formEl) formEl.innerHTML = '';
 }
 
-async function createTeamFromForm() {
-  const input = document.getElementById('new-team-name');
-  const name = (input?.value || '').trim();
-  if (!name) return;
-  const privateCheck = document.getElementById('new-team-private');
-  const parentSelect = document.getElementById('new-team-parent');
-  const body = { name };
-  if (privateCheck?.checked) body.private = true;
-  if (parentSelect?.value) body.parent_id = parseInt(parentSelect.value);
-  try {
-    const resp = await fetch('/api/teams', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if (resp.ok) {
-      input.value = '';
-      await fetchTeams();
-      renderTeamsSection();
-    }
-  } catch (err) { /* ignore */ }
-}
+// createTeamFromForm is now handled by showCreateTeamPopup('settings') + submitCreateTeamPopup()
 
 async function confirmDeleteTeam(teamId, name) {
   if (!confirm(`Delete team "${name}"? All members will lose access.`)) return;

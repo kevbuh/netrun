@@ -464,7 +464,10 @@
   <div id="teams-view" class="hidden ml-[72px] view">
     <!-- List mode (teams listing) -->
     <div id="teams-view-list" class="max-w-[700px] mx-auto px-8 pt-6 pb-16">
-      <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">Teams</h2>
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-[1.3rem] font-semibold text-white_">Teams</h2>
+        <button onclick="showCreateTeamPopup('view')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-xl leading-none p-0" title="Create team">+</button>
+      </div>
       <div id="teams-view-content"></div>
       <div id="teams-view-create-form"></div>
     </div>

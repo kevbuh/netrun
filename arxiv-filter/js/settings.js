@@ -25,7 +25,7 @@ function renderSettingsView() {
     catMap[f.cat].push(f);
   });
 
-  const currentTheme = localStorage.getItem('theme') || 'dark';
+  const currentTheme = localStorage.getItem('theme') || 'light';
   const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
   const accentColors = [
     { color: '#b4451a', name: 'Orange' },
@@ -74,7 +74,10 @@ function renderSettingsView() {
 
     <!-- TEAMS -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Teams</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-white_ text-sm font-semibold">Teams</h3>
+        <button onclick="showCreateTeamPopup('settings')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-lg leading-none p-0" title="Create team">+</button>
+      </div>
       <div id="teams-section-content"></div>
       <div id="create-team-form"></div>
     </div>
@@ -340,7 +343,9 @@ function renderSettingsView() {
 function setTheme(theme) {
   localStorage.setItem('theme', theme);
   stopDaylightTheme();
-  if (theme === 'dark') {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (theme === 'dark') {
     document.documentElement.removeAttribute('data-theme');
   } else {
     document.documentElement.setAttribute('data-theme', theme);
@@ -833,7 +838,7 @@ function applyAccentColor(color) {
 }
 
 function applyStoredAppearance() {
-  const theme = localStorage.getItem('theme') || 'dark';
+  const theme = localStorage.getItem('theme') || 'light';
   if (theme !== 'dark') document.documentElement.setAttribute('data-theme', theme);
   if (theme === 'daylight') startDaylightTheme();
   const accent = localStorage.getItem('accentColor');
