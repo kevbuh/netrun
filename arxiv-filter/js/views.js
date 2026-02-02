@@ -368,7 +368,10 @@ function showPaperView(paper, hashValue) {
     </div>
     <span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>
     ${bookmarkBtn}
-    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div class="relative shrink-0" id="paper-share-btn-wrap">
+      <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareToTeamDropdown()" title="Share to team"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
@@ -574,6 +577,64 @@ async function checkOpenReview(title) {
       _renderPdfLinks();
     }
   } catch {}
+}
+
+// ── Share to Team ──
+let _shareDropdownOpen = false;
+
+async function toggleShareToTeamDropdown() {
+  const wrap = document.getElementById('paper-share-btn-wrap');
+  if (!wrap) return;
+  const existing = document.querySelector('.share-team-dropdown');
+  if (existing) { existing.remove(); _shareDropdownOpen = false; return; }
+
+  _shareDropdownOpen = true;
+  const dd = document.createElement('div');
+  dd.className = 'share-team-dropdown';
+  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px';
+  dd.innerHTML = '<div style="padding:4px 12px;color:var(--text-dimmer);font-size:11px">Loading teams...</div>';
+  document.body.appendChild(dd);
+  const btnRect = wrap.getBoundingClientRect();
+  dd.style.top = (btnRect.bottom + 4) + 'px';
+  dd.style.right = (window.innerWidth - btnRect.right) + 'px';
+
+  // Close on outside click
+  const closeHandler = (e) => {
+    if (!dd.contains(e.target) && !wrap.contains(e.target)) { dd.remove(); _shareDropdownOpen = false; document.removeEventListener('click', closeHandler, true); }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+
+  if (!_cachedTeams.length) await fetchTeams();
+  if (!_cachedTeams.length) {
+    dd.innerHTML = '<div style="padding:8px 12px;color:var(--text-dimmer)">No teams yet</div>';
+    return;
+  }
+  dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
+    _cachedTeams.map(t => `<div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', this)"><div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div><span>${escapeHtml(t.name)}</span></div>`).join('');
+}
+
+async function sharePaperToTeam(teamId, teamName, el) {
+  const paper = _currentPaperViewPaper;
+  if (!paper) return;
+  if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
+  const content = `📄 ${paper.title}\n${paper.link}`;
+  try {
+    const resp = await fetch(`/api/teams/${teamId}/messages`, {
+      method: 'POST',
+      headers: _authHeaders(),
+      body: JSON.stringify({ content })
+    });
+    if (resp.ok) {
+      if (el) { el.innerHTML = `<span style="color:var(--accent)">Shared to ${escapeHtml(teamName)}</span>`; }
+      setTimeout(() => {
+        const dd = document.querySelector('.share-team-dropdown');
+        if (dd) dd.remove();
+        _shareDropdownOpen = false;
+      }, 800);
+    }
+  } catch (err) {
+    if (el) { el.innerHTML = '<span style="color:#f87171">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = ''; }
+  }
 }
 
 // ── Cite Paper ──

@@ -3,6 +3,28 @@
 let _cachedTeams = [];
 let _cachedInvites = [];
 
+function _renderChatContent(content) {
+  // Detect shared paper: "📄 {title}\n{url}"
+  const shareMatch = content.match(/^📄 (.+)\n(https?:\/\/\S+)$/);
+  if (shareMatch) {
+    const title = shareMatch[1];
+    const url = shareMatch[2];
+    let hostname = '';
+    try { hostname = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+    const favicon = (() => { try { return new URL(url).origin + '/favicon.ico'; } catch { return ''; } })();
+    return `<a href="#view/${encodeURIComponent(url)}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
+      <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          ${favicon ? `<img src="${escapeAttr(favicon)}" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display='none'">` : ''}
+          <span style="font-size:0.65rem;color:var(--text-dimmest)">${escapeHtml(hostname)}</span>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;line-height:1.35">${escapeHtml(title)}</div>
+      </div>
+    </a>`;
+  }
+  return escapeHtml(content);
+}
+
 // ── Inbox View ──
 
 function openInbox() {
@@ -361,7 +383,7 @@ async function showTeamDetailView(teamId) {
                   <a href="#profile/${encodeURIComponent(m.username)}" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(m.username)}</a>
                   <span class="text-[0.65rem] text-dimmest">${timeAgo}</span>
                 </div>
-                <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(m.content)}</div>
+                <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${_renderChatContent(m.content)}</div>
               </div>
             </div>`;
           }).join('') : '<div class="text-dimmer text-xs text-center py-4">No messages yet. Start the conversation!</div>'}
@@ -415,7 +437,7 @@ async function sendTeamChatMessage(teamId) {
               <span class="text-[0.72rem] font-medium text-primary">${escapeHtml(currentUser)}</span>
               <span class="text-[0.65rem] text-dimmest">just now</span>
             </div>
-            <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(content)}</div>
+            <div class="text-[0.8rem] text-primary mt-0.5 leading-relaxed">${_renderChatContent(content)}</div>
           </div>
         `;
         chatEl.appendChild(div);
