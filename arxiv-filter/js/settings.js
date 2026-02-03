@@ -218,6 +218,8 @@ function renderSettingsView() {
         <div><kbd class="kbd-key">⌘0</kbd> Reset zoom</div>
 
         <div class="text-dimmer mt-2">PDF Viewer</div><div></div>
+        <div><kbd class="kbd-key">←</kbd> Previous page</div>
+        <div><kbd class="kbd-key">→</kbd> Next page</div>
         <div><kbd class="kbd-key">⌘F</kbd> Find in document</div>
         <div><kbd class="kbd-key">H</kbd> Highlight mode</div>
         <div><kbd class="kbd-key">P</kbd> Pen mode</div>
@@ -390,6 +392,7 @@ function setAdBlockEnabled(on) {
   localStorage.setItem('adBlockEnabled', on ? 'true' : 'false');
   if (typeof _browseUpdateAdBlockBtn === 'function') _browseUpdateAdBlockBtn();
 }
+
 
 async function toggleProfilePrivacy(on) {
   try {

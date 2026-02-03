@@ -763,6 +763,26 @@ function togglePdfPen() {
 }
 
 document.addEventListener('keydown', function(e) {
+  // Only handle if PDF viewer is active
+  if (!_pdfPagesContainer) return;
+
+  // Check if user is typing in an input/textarea
+  const tag = e.target.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+
+  // Arrow key navigation for PDF pages
+  if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    pdfScrollToPage(-1);
+    return;
+  }
+  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    pdfScrollToPage(1);
+    return;
+  }
+
+  // Pen mode undo/redo
   if (!_pdfPenMode) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
     e.preventDefault();

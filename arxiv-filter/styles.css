@@ -765,6 +765,139 @@
       user-select: none;
     }
 
+    /* ── Download Indicator ── */
+    .browse-download-ring {
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      pointer-events: none;
+      animation: download-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes download-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .browse-downloads-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      width: 320px;
+      max-height: 400px;
+      overflow-y: auto;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px var(--shadow-popup);
+      z-index: 1000;
+      padding: 8px 0;
+    }
+    .browse-download-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .browse-download-item:hover {
+      background: var(--bg-hover);
+    }
+    .browse-download-item-icon {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-input);
+      border-radius: 6px;
+      color: var(--text-muted);
+    }
+    .browse-download-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .browse-download-item-name {
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .browse-download-item-status {
+      font-size: 0.7rem;
+      color: var(--text-dimmer);
+    }
+    .browse-download-item-progress {
+      width: 100%;
+      height: 3px;
+      background: var(--border-input);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .browse-download-item-progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .browse-download-item-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .browse-download-item-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--text-dimmer);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .browse-download-item-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .browse-downloads-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-dimmer);
+      font-size: 0.8rem;
+    }
+    .browse-downloads-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 4px;
+    }
+    .browse-downloads-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .browse-downloads-clear {
+      font-size: 0.7rem;
+      color: var(--text-dimmer);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .browse-downloads-clear:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
     /* ── Tab Overview (2D Grid - Niri-style) ── */
     .browse-tab-overview {
       position: absolute;

@@ -725,7 +725,7 @@ async function fetchPaperInsights(url) {
     html += '</div>';
     el.innerHTML = html;
 
-    // Add click handlers for authors
+    // Add click handlers for authors - open in browse view
     if (hasAuthors && window._insightAuthors) {
       const authorsList = document.getElementById('paper-authors-list');
       if (authorsList) {
@@ -735,13 +735,18 @@ async function fetchPaperInsights(url) {
             e.stopPropagation();
             const idx = parseInt(this.dataset.idx);
             const author = window._insightAuthors[idx];
-            if (author && author.authorId) {
-              window.location.hash = 'author/' + author.authorId;
-            } else if (author && author.url) {
-              window.open(author.url, '_blank');
+            let url = '';
+            if (author && author.url) {
+              url = author.url;
+            } else if (author && author.authorId) {
+              url = 'https://www.semanticscholar.org/author/' + author.authorId;
             } else if (author && author.name) {
-              // Fallback: search Semantic Scholar
-              window.open('https://www.semanticscholar.org/search?q=' + encodeURIComponent(author.name), '_blank');
+              url = 'https://www.semanticscholar.org/search?q=' + encodeURIComponent(author.name);
+            }
+            if (url && typeof openBrowse === 'function') {
+              openBrowse(url);
+            } else if (url) {
+              window.open(url, '_blank');
             }
           });
         });

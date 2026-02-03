@@ -423,6 +423,16 @@ function _browseSaveTabs() {
   }));
 }
 
+// Check if URL is a heavy video site that should be lazy-loaded
+function _isHeavyVideoSite(url) {
+  if (!url) return false;
+  const heavyDomains = ['youtube.com', 'youtu.be', 'vimeo.com', 'twitch.tv', 'netflix.com', 'dailymotion.com'];
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return heavyDomains.some(d => hostname.includes(d));
+  } catch { return false; }
+}
+
 function _browseRestoreTabs() {
   try {
     // Try new multi-window format first (user-specific key)
@@ -437,12 +447,19 @@ function _browseRestoreTabs() {
       for (const savedWin of windows) {
         const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab };
         for (const saved of savedWin.tabs) {
-          const el = _browseCreateFrame(saved.id, saved.url);
-          el.style.display = 'none';
-          container.appendChild(el);
-          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false };
+          // Lazy load: don't create frame for heavy video sites in background tabs
+          const isActiveTab = saved.id === savedWin.activeTab && savedWin.id === activeWindow;
+          const shouldDefer = !isActiveTab && _isHeavyVideoSite(saved.url);
+
+          let el = null;
+          if (!shouldDefer) {
+            el = _browseCreateFrame(saved.id, saved.url);
+            el.style.display = 'none';
+            container.appendChild(el);
+          }
+          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, deferred: shouldDefer };
           win.tabs.push(tab);
-          _browseBindFrame(tab);
+          if (el) _browseBindFrame(tab);
         }
         _browseWindows.push(win);
       }
@@ -777,9 +794,278 @@ function _browseCreateFrame(id, url) {
   return el;
 }
 
+// ── Download Manager ──
+let _browseDownloads = []; // { id, filename, url, state: 'progressing'|'completed'|'cancelled', receivedBytes, totalBytes, startTime }
+let _browseDownloadIdCounter = 0;
+
+// Load downloads from localStorage (filter to last hour)
+function _loadBrowseDownloads() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('browseDownloads') || '[]');
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    _browseDownloads = saved.filter(d => d.startTime > oneHourAgo);
+    // Find max ID
+    _browseDownloads.forEach(d => {
+      const num = parseInt(d.id.replace('dl-', ''));
+      if (num > _browseDownloadIdCounter) _browseDownloadIdCounter = num;
+    });
+  } catch (e) {
+    _browseDownloads = [];
+  }
+}
+
+// Save downloads to localStorage
+function _saveBrowseDownloads() {
+  try {
+    // Keep only downloads from last hour
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const toSave = _browseDownloads.filter(d => d.startTime > oneHourAgo);
+    localStorage.setItem('browseDownloads', JSON.stringify(toSave));
+  } catch (e) {}
+}
+
+// Initialize downloads on load
+_loadBrowseDownloads();
+// Update UI after a short delay (DOM may not be ready)
+setTimeout(() => {
+  _browseUpdateDownloadBadge();
+  _browseRenderDownloads();
+}, 100);
+
+function _browseShowDownloadBtn() {
+  // Download button is always visible; this function kept for compatibility
+  _saveBrowseDownloads();
+}
+
+// Start tracking a download (can be called from Electron main process or anywhere)
+function browseStartDownload(url, filename, totalBytes) {
+  const dl = {
+    id: 'dl-' + (++_browseDownloadIdCounter),
+    filename: filename || url.split('/').pop().split('?')[0] || 'download',
+    url: url || '',
+    state: 'progressing',
+    receivedBytes: 0,
+    totalBytes: totalBytes || 0,
+    startTime: Date.now(),
+    savePath: ''
+  };
+  _browseDownloads.unshift(dl);
+  _browseShowDownloadBtn();
+  _browseUpdateDownloadBadge();
+  _browseRenderDownloads();
+  return dl.id;
+}
+
+// Update download progress
+function browseUpdateDownload(id, receivedBytes, totalBytes) {
+  const dl = _browseDownloads.find(d => d.id === id);
+  if (dl) {
+    dl.receivedBytes = receivedBytes;
+    if (totalBytes) dl.totalBytes = totalBytes;
+    _browseUpdateDownloadBadge();
+    _browseRenderDownloads();
+  }
+}
+
+// Complete a download
+function browseCompleteDownload(id, savePath) {
+  const dl = _browseDownloads.find(d => d.id === id);
+  if (dl) {
+    dl.state = 'completed';
+    dl.receivedBytes = dl.totalBytes || dl.receivedBytes;
+    if (savePath) dl.savePath = savePath;
+    _browseUpdateDownloadBadge();
+    _browseRenderDownloads();
+    _saveBrowseDownloads();
+  }
+}
+
+// Check if URL looks like a downloadable file
+function _isDownloadableUrl(url) {
+  if (!url) return false;
+  const ext = url.split('?')[0].split('.').pop().toLowerCase();
+  const downloadExts = ['pdf', 'zip', 'tar', 'gz', 'rar', '7z', 'exe', 'dmg', 'pkg', 'deb', 'rpm',
+    'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt',
+    'mp3', 'mp4', 'mov', 'avi', 'mkv', 'wav', 'flac',
+    'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico',
+    'iso', 'img', 'bin', 'apk', 'ipa'];
+  return downloadExts.includes(ext);
+}
+
+function _browseUpdateDownloadBadge() {
+  // Update progress ring (pulsing border when download active)
+  const ring = document.getElementById('browse-download-progress-ring');
+  if (ring) {
+    const hasActive = _browseDownloads.some(d => d.state === 'progressing');
+    ring.style.display = hasActive ? 'block' : 'none';
+  }
+}
+
+function _browseRenderDownloads() {
+  const dropdown = document.getElementById('browse-downloads-dropdown');
+  if (!dropdown) return;
+
+  if (_browseDownloads.length === 0) {
+    dropdown.innerHTML = '<div class="browse-downloads-empty">No downloads</div>';
+    return;
+  }
+
+  let html = `<div class="browse-downloads-header">
+    <span class="browse-downloads-title">Downloads</span>
+    <button class="browse-downloads-clear" onclick="clearBrowseDownloads()">Clear all</button>
+  </div>`;
+
+  for (const dl of _browseDownloads) {
+    const icon = dl.state === 'completed'
+      ? '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+      : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+
+    const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
+    const size = dl.totalBytes > 0 ? _formatBytes(dl.totalBytes) : '';
+    const status = dl.state === 'completed' ? 'Completed' + (size ? ' · ' + size : '')
+      : dl.state === 'cancelled' ? 'Cancelled'
+      : pct + '% · ' + _formatBytes(dl.receivedBytes) + (dl.totalBytes > 0 ? ' / ' + size : '');
+
+    const progressBar = dl.state === 'progressing'
+      ? `<div class="browse-download-item-progress"><div class="browse-download-item-progress-bar" style="width:${pct}%"></div></div>`
+      : '';
+
+    html += `<div class="browse-download-item" onclick="openDownloadFile('${dl.id}')">
+      <div class="browse-download-item-icon">${icon}</div>
+      <div class="browse-download-item-info">
+        <div class="browse-download-item-name">${escapeHtml(dl.filename)}</div>
+        <div class="browse-download-item-status">${status}</div>
+        ${progressBar}
+      </div>
+      <div class="browse-download-item-actions">
+        ${dl.state === 'completed' ? `<button class="browse-download-item-btn" onclick="event.stopPropagation();showDownloadInFolder('${dl.id}')" title="Show in folder"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></button>` : ''}
+        <button class="browse-download-item-btn" onclick="event.stopPropagation();removeBrowseDownload('${dl.id}')" title="Remove"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+    </div>`;
+  }
+
+  dropdown.innerHTML = html;
+}
+
+function _formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+function toggleBrowseDownloads() {
+  const dropdown = document.getElementById('browse-downloads-dropdown');
+  if (!dropdown) return;
+  if (dropdown.style.display === 'none') {
+    _browseRenderDownloads();
+    dropdown.style.display = 'block';
+    setTimeout(() => document.addEventListener('click', _closeBrowseDownloadsOnClick), 0);
+  } else {
+    dropdown.style.display = 'none';
+    document.removeEventListener('click', _closeBrowseDownloadsOnClick);
+  }
+}
+
+function _closeBrowseDownloadsOnClick(e) {
+  const btn = document.getElementById('browse-downloads-btn');
+  if (btn && !btn.contains(e.target)) {
+    const dropdown = document.getElementById('browse-downloads-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    document.removeEventListener('click', _closeBrowseDownloadsOnClick);
+  }
+}
+
+function clearBrowseDownloads() {
+  _browseDownloads = _browseDownloads.filter(d => d.state === 'progressing');
+  _browseUpdateDownloadBadge();
+  _browseRenderDownloads();
+  _saveBrowseDownloads();
+}
+
+function removeBrowseDownload(id) {
+  _browseDownloads = _browseDownloads.filter(d => d.id !== id);
+  _browseUpdateDownloadBadge();
+  _browseRenderDownloads();
+  _saveBrowseDownloads();
+}
+
+function openDownloadFile(id) {
+  const dl = _browseDownloads.find(d => d.id === id);
+  if (dl && dl.state === 'completed' && dl.savePath && window.electronAPI) {
+    window.electronAPI.openPath(dl.savePath);
+  }
+}
+
+function showDownloadInFolder(id) {
+  const dl = _browseDownloads.find(d => d.id === id);
+  if (dl && dl.savePath && window.electronAPI) {
+    window.electronAPI.showItemInFolder(dl.savePath);
+  }
+}
+
+// Initialize download event listeners from Electron main process
+function _initBrowseDownloads() {
+  if (!window.electronAPI) return;
+
+  // Listen for download-started event from main process
+  if (window.electronAPI.onDownloadStarted) {
+    window.electronAPI.onDownloadStarted((event, data) => {
+      const dl = {
+        id: 'dl-' + (++_browseDownloadIdCounter),
+        filename: data.filename || 'download',
+        url: data.url || '',
+        state: 'progressing',
+        receivedBytes: 0,
+        totalBytes: data.totalBytes || 0,
+        startTime: Date.now(),
+        savePath: data.savePath || ''
+      };
+      _browseDownloads.unshift(dl);
+      _browseShowDownloadBtn();
+      _browseUpdateDownloadBadge();
+      _browseRenderDownloads();
+    });
+  }
+
+  // Listen for download-progress event
+  if (window.electronAPI.onDownloadProgress) {
+    window.electronAPI.onDownloadProgress((event, data) => {
+      const dl = _browseDownloads.find(d => d.savePath === data.savePath);
+      if (dl) {
+        dl.receivedBytes = data.receivedBytes || 0;
+        dl.totalBytes = data.totalBytes || dl.totalBytes;
+        _browseUpdateDownloadBadge();
+        _browseRenderDownloads();
+      }
+    });
+  }
+
+  // Listen for download-completed event
+  if (window.electronAPI.onDownloadCompleted) {
+    window.electronAPI.onDownloadCompleted((event, data) => {
+      const dl = _browseDownloads.find(d => d.savePath === data.savePath);
+      if (dl) {
+        dl.state = data.state || 'completed';
+        dl.receivedBytes = dl.totalBytes;
+        _browseUpdateDownloadBadge();
+        _browseRenderDownloads();
+      }
+    });
+  }
+}
+
+// Initialize downloads on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initBrowseDownloads);
+} else {
+  _initBrowseDownloads();
+}
+
 function _browseBindFrame(tab) {
   const el = tab.el;
   if (!el || !_browseIsElectron) return;
+
   el.addEventListener('did-navigate', (e) => {
     tab.url = e.url;
     tab.title = _browseTitleFromUrl(e.url);
@@ -838,30 +1124,45 @@ function _browseBindFrame(tab) {
     _updateAudioIndicator();
   });
 
-  // Context menu for links (right-click)
+  // Context menu for links and images (right-click)
   el.addEventListener('context-menu', (e) => {
-    if (e.linkURL) {
+    if (e.linkURL || e.srcURL) {
       e.preventDefault();
-      _showBrowseLinkMenu(e.x, e.y, e.linkURL, e.linkText || '');
+      _showBrowseContextMenu(e.x, e.y, {
+        linkUrl: e.linkURL || '',
+        linkText: e.linkText || '',
+        imgUrl: e.srcURL || '',
+        mediaType: e.mediaType || ''
+      });
     }
   });
 
-  // Inject right-click handler after page loads (for context menu on links)
+  // Inject right-click handler after page loads (for context menu on links and images)
   el.addEventListener('dom-ready', () => {
     el.executeJavaScript(`
       (function(){
-        if(window.__alphaLinkMenuInjected)return;
-        window.__alphaLinkMenuInjected=true;
+        if(window.__alphaContextMenuInjected)return;
+        window.__alphaContextMenuInjected=true;
         document.addEventListener('contextmenu',function(e){
+          var data = {x:e.screenX,y:e.screenY};
           var a=e.target.closest('a[href]');
           if(a){
             var h=a.getAttribute('href');
             if(h&&h.indexOf('javascript:')!==0&&h.charAt(0)!=='#'){
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('__ALPHA_LINK__'+JSON.stringify({href:h,text:a.textContent.trim().slice(0,100),x:e.screenX,y:e.screenY}));
-              return false;
+              data.linkUrl=h;
+              data.linkText=a.textContent.trim().slice(0,100);
             }
+          }
+          var img=e.target.closest('img');
+          if(img && img.src){
+            data.imgUrl=img.src;
+            data.imgAlt=img.alt||'';
+          }
+          if(data.linkUrl||data.imgUrl){
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('__ALPHA_CONTEXT__'+JSON.stringify(data));
+            return false;
           }
         },true);
         // Close menu when left-clicking anywhere in the page
@@ -872,56 +1173,91 @@ function _browseBindFrame(tab) {
     `).catch(()=>{});
   });
 
-  // Listen for link clicks via console message
+  // Listen for context menu via console message
   el.addEventListener('console-message', (e) => {
     if (e.message === '__ALPHA_CLOSE_MENU__') {
-      _hideBrowseLinkMenu();
+      _hideBrowseContextMenu();
+    } else if (e.message && e.message.startsWith('__ALPHA_CONTEXT__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__ALPHA_CONTEXT__'.length));
+        const x = data.x - window.screenX;
+        const y = data.y - window.screenY;
+        _showBrowseContextMenu(x, y, data);
+      } catch (err) {}
     } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {
+      // Legacy support
       try {
         const data = JSON.parse(e.message.slice('__ALPHA_LINK__'.length));
         if (data.href) {
-          // Convert screen coordinates to window coordinates
           const x = data.x - window.screenX;
           const y = data.y - window.screenY;
-          _showBrowseLinkMenu(x, y, data.href, data.text || '');
+          _showBrowseContextMenu(x, y, { linkUrl: data.href, linkText: data.text || '' });
         }
       } catch (err) {}
     }
   });
 }
 
-// Link context menu for Browse view
-let _browseLinkMenu = null;
+// Context menu for Browse view (links and images)
+let _browseContextMenu = null;
+let _browseContextData = null;
 
-function _hideBrowseLinkMenu() {
-  if (_browseLinkMenu) {
-    _browseLinkMenu.remove();
-    _browseLinkMenu = null;
+function _hideBrowseContextMenu() {
+  if (_browseContextMenu) {
+    _browseContextMenu.remove();
+    _browseContextMenu = null;
   }
+  _browseContextData = null;
 }
 
-function _showBrowseLinkMenu(x, y, url, text) {
-  _hideBrowseLinkMenu();
+// Legacy alias
+function _hideBrowseLinkMenu() { _hideBrowseContextMenu(); }
+
+function _showBrowseContextMenu(x, y, data) {
+  _hideBrowseContextMenu();
+  _browseContextData = data;
 
   const menu = document.createElement('div');
   menu.className = 'browse-link-menu';
 
-  const truncatedText = text.length > 25 ? text.slice(0, 22) + '...' : text;
+  let html = '';
+  const linkUrl = data.linkUrl || '';
+  const linkText = data.linkText || '';
+  const imgUrl = data.imgUrl || '';
 
-  menu.innerHTML = `
-    <div class="blm-item" data-action="newtab">Open Link in New Tab</div>
-    <div class="blm-item" data-action="here">Open Link Here</div>
-    <div class="blm-sep"></div>
-    <div class="blm-item" data-action="copylink">Copy Link Address</div>
-    ${text ? '<div class="blm-item" data-action="copytext">Copy Link Text</div>' : ''}
-    ${text ? '<div class="blm-sep"></div>' : ''}
-    ${text ? `<div class="blm-item" data-action="search">Search Google for "${escapeHtml(truncatedText)}"</div>` : ''}
-  `;
+  // Link options
+  if (linkUrl) {
+    const truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
+    html += `<div class="blm-item" data-action="newtab">Open Link in New Tab</div>`;
+    html += `<div class="blm-item" data-action="here">Open Link Here</div>`;
+    html += `<div class="blm-sep"></div>`;
+    html += `<div class="blm-item" data-action="savelink">Save Link As...</div>`;
+    html += `<div class="blm-item" data-action="copylink">Copy Link Address</div>`;
+    if (linkText) {
+      html += `<div class="blm-item" data-action="copytext">Copy Link Text</div>`;
+    }
+  }
 
+  // Image options
+  if (imgUrl) {
+    if (linkUrl) html += `<div class="blm-sep"></div>`;
+    html += `<div class="blm-item" data-action="openimg">Open Image in New Tab</div>`;
+    html += `<div class="blm-item" data-action="saveimg">Save Image As...</div>`;
+    html += `<div class="blm-item" data-action="copyimg">Copy Image Address</div>`;
+  }
+
+  // Search option
+  if (linkText && linkUrl) {
+    const truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
+    html += `<div class="blm-sep"></div>`;
+    html += `<div class="blm-item" data-action="search">Search Google for "${escapeHtml(truncatedText)}"</div>`;
+  }
+
+  menu.innerHTML = html;
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
   document.body.appendChild(menu);
-  _browseLinkMenu = menu;
+  _browseContextMenu = menu;
 
   // Adjust if off screen
   const rect = menu.getBoundingClientRect();
@@ -934,36 +1270,133 @@ function _showBrowseLinkMenu(x, y, url, text) {
     const action = item.dataset.action;
 
     if (action === 'newtab') {
-      browseNewTab(url);
+      browseNewTab(linkUrl);
     } else if (action === 'here') {
-      const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-      if (tab && tab.el) {
-        if (_browseIsElectron) tab.el.loadURL(url);
-        else browseNavigate(url);
-      }
+      browseNavigate(linkUrl);
+    } else if (action === 'savelink') {
+      _browseSaveLink(linkUrl);
     } else if (action === 'copylink') {
-      navigator.clipboard.writeText(url).catch(() => {});
+      navigator.clipboard.writeText(linkUrl).catch(() => {});
     } else if (action === 'copytext') {
-      navigator.clipboard.writeText(text).catch(() => {});
+      navigator.clipboard.writeText(linkText).catch(() => {});
     } else if (action === 'search') {
-      browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(text));
+      browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(linkText));
+    } else if (action === 'openimg') {
+      browseNewTab(imgUrl);
+    } else if (action === 'saveimg') {
+      _browseSaveImage(imgUrl);
+    } else if (action === 'copyimg') {
+      navigator.clipboard.writeText(imgUrl).catch(() => {});
     }
-    _hideBrowseLinkMenu();
+    _hideBrowseContextMenu();
   });
+}
+
+// Save image using Electron or download link
+function _browseSaveImage(url) {
+  const filename = url.split('/').pop().split('?')[0] || 'image';
+
+  // Create download entry to show in UI
+  const dl = {
+    id: 'dl-' + (++_browseDownloadIdCounter),
+    filename: filename,
+    url: url,
+    state: 'progressing',
+    receivedBytes: 0,
+    totalBytes: 0,
+    startTime: Date.now(),
+    savePath: ''
+  };
+  _browseDownloads.unshift(dl);
+  _browseShowDownloadBtn();
+  _browseUpdateDownloadBadge();
+  _browseRenderDownloads();
+  _saveBrowseDownloads();
+
+  if (window.electronAPI && window.electronAPI.downloadURL) {
+    window.electronAPI.downloadURL(url);
+  } else {
+    // Fallback: trigger download via anchor
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Mark as completed after a short delay (we can't track actual progress in browser)
+    setTimeout(() => {
+      dl.state = 'completed';
+      dl.receivedBytes = dl.totalBytes = 1;
+      _browseUpdateDownloadBadge();
+      _browseRenderDownloads();
+      _saveBrowseDownloads();
+    }, 1500);
+  }
+}
+
+// Save link (download file) using Electron or download link
+function _browseSaveLink(url) {
+  const filename = url.split('/').pop().split('?')[0] || 'download';
+
+  // Create download entry to show in UI
+  const dl = {
+    id: 'dl-' + (++_browseDownloadIdCounter),
+    filename: filename,
+    url: url,
+    state: 'progressing',
+    receivedBytes: 0,
+    totalBytes: 0,
+    startTime: Date.now(),
+    savePath: ''
+  };
+  _browseDownloads.unshift(dl);
+  _browseShowDownloadBtn();
+  _browseUpdateDownloadBadge();
+  _browseRenderDownloads();
+  _saveBrowseDownloads();
+
+  if (window.electronAPI && window.electronAPI.downloadURL) {
+    window.electronAPI.downloadURL(url);
+  } else {
+    // Fallback: trigger download via anchor
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Mark as completed after a short delay (we can't track actual progress in browser)
+    setTimeout(() => {
+      dl.state = 'completed';
+      dl.receivedBytes = dl.totalBytes = 1;
+      _browseUpdateDownloadBadge();
+      _browseRenderDownloads();
+      _saveBrowseDownloads();
+    }, 1500);
+  }
+}
+
+// Legacy alias
+function _showBrowseLinkMenu(x, y, url, text) {
+  _showBrowseContextMenu(x, y, { linkUrl: url, linkText: text });
 }
 
 // Close menu on click outside or escape
 document.addEventListener('mousedown', (e) => {
-  if (_browseLinkMenu && !_browseLinkMenu.contains(e.target)) {
-    _hideBrowseLinkMenu();
+  if (_browseContextMenu && !_browseContextMenu.contains(e.target)) {
+    _hideBrowseContextMenu();
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') _hideBrowseLinkMenu();
+  if (e.key === 'Escape') _hideBrowseContextMenu();
 });
 // Close menu when webview gets focus (user clicked inside it)
 window.addEventListener('blur', () => {
-  _hideBrowseLinkMenu();
+  _hideBrowseContextMenu();
 });
 
 function browseSelectTab(id) {
@@ -971,6 +1404,16 @@ function browseSelectTab(id) {
   if (!win) return;
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
+
+  // Load deferred tab if needed (lazy loading for YouTube etc.)
+  if (tab && tab.deferred && !tab.el && tab.url) {
+    const container = document.getElementById('browse-content');
+    tab.el = _browseCreateFrame(tab.id, tab.url);
+    container.appendChild(tab.el);
+    _browseBindFrame(tab);
+    tab.deferred = false;
+  }
+
   win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
