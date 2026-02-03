@@ -640,16 +640,39 @@ async function fetchPaperInsights(url) {
     if (data.error) throw new Error(data.error);
     const hasRepos = data.repos && data.repos.length > 0;
     const hasInsights = data.insights && data.insights.length > 0;
+    const hasAuthors = data.authors && data.authors.length > 0;
     // Merge repo links from insights API into the unified PDF links section
     if (hasRepos) {
       for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
       _renderPdfLinks();
     }
-    if (!hasInsights) {
+    if (!hasInsights && !hasAuthors) {
       el.innerHTML = '';
       return;
     }
-    let html = '<div class="space-y-2">';
+    let html = '';
+
+    // Render authors section
+    if (hasAuthors) {
+      html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-2">';
+      for (const author of data.authors) {
+        const hasDetails = author.hIndex || author.paperCount || author.affiliation;
+        html += `<div class="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors${author.url ? ' cursor-pointer' : ''}" data-q="${escapeHtml(author.name)}" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()"${author.url ? ` onclick="window.open('${escapeHtml(author.url)}', '_blank')"` : ''}>
+          <div class="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-[0.75rem] font-medium flex-shrink-0">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[0.8rem] font-medium text-primary truncate">${escapeHtml(author.name)}</div>
+            ${author.affiliation ? `<div class="text-[0.7rem] text-muted truncate">${escapeHtml(author.affiliation)}</div>` : ''}
+            ${hasDetails ? `<div class="flex items-center gap-2 mt-1 text-[0.65rem] text-dimmer">
+              ${author.hIndex ? `<span title="h-index">h: ${author.hIndex}</span>` : ''}
+              ${author.paperCount ? `<span title="Papers">${author.paperCount} papers</span>` : ''}
+            </div>` : ''}
+          </div>
+        </div>`;
+      }
+      html += '</div></div>';
+    }
+
+    html += '<div class="space-y-2">';
     if (hasInsights) {
       // Wait for PDF text layers to render before verifying quotes
       const verified = await _verifyInsightsInPdf(data.insights);

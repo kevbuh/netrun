@@ -1822,6 +1822,60 @@ ch.postMessage({type:'preview-ready'});
                         text = '\n'.join(extractor.parts)
                         _extract_cache[url] = {'text': text, 'pages': 1}
 
+                # 0. Extract authors (for arXiv papers, fetch from API)
+                authors = []
+                is_arxiv = 'arxiv.org' in url
+                if is_arxiv:
+                    try:
+                        # Extract arXiv ID from URL
+                        arxiv_match = re.search(r'(\d{4}\.\d{4,5}(?:v\d+)?)', url)
+                        if arxiv_match:
+                            arxiv_id = arxiv_match.group(1)
+                            api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
+                            api_req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            ctx = ssl._create_unverified_context()
+                            with urllib.request.urlopen(api_req, timeout=15, context=ctx) as api_resp:
+                                api_xml = api_resp.read().decode('utf-8')
+                            # Parse authors from XML
+                            import xml.etree.ElementTree as ET
+                            root = ET.fromstring(api_xml)
+                            ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                            for entry in root.findall('atom:entry', ns):
+                                for author_el in entry.findall('atom:author', ns):
+                                    name_el = author_el.find('atom:name', ns)
+                                    if name_el is not None and name_el.text:
+                                        author_name = name_el.text.strip()
+                                        authors.append({'name': author_name})
+                    except Exception as author_err:
+                        print(f"[insights] Author extraction failed: {author_err}")
+
+                # Fetch author details from Semantic Scholar
+                if authors:
+                    try:
+                        # Look up paper on Semantic Scholar for author details
+                        arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
+                        if arxiv_match:
+                            arxiv_id = arxiv_match.group(1)
+                            s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount'
+                            s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            with urllib.request.urlopen(s2_req, timeout=10) as s2_resp:
+                                s2_data = json.loads(s2_resp.read())
+                            if 'authors' in s2_data:
+                                authors = []
+                                for a in s2_data['authors']:
+                                    author_info = {'name': a.get('name', '')}
+                                    if a.get('affiliations'):
+                                        author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
+                                    if a.get('hIndex'):
+                                        author_info['hIndex'] = a['hIndex']
+                                    if a.get('paperCount'):
+                                        author_info['paperCount'] = a['paperCount']
+                                    if a.get('url'):
+                                        author_info['url'] = a['url']
+                                    authors.append(author_info)
+                    except Exception as s2_err:
+                        print(f"[insights] Semantic Scholar author lookup failed: {s2_err}")
+
                 # 1. Extract repo URLs (heuristic — regex)
                 repos = []
                 if allow_heuristics:
@@ -1951,7 +2005,7 @@ ch.postMessage({type:'preview-ready'});
                             'gpus': unique_gpus,
                         })
 
-                result = {'repos': repos, 'insights': insights}
+                result = {'repos': repos, 'insights': insights, 'authors': authors}
                 _insights_cache[_cache_key] = result
                 self._send_json(result)
             except Exception as e:
