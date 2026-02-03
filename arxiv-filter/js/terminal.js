@@ -163,7 +163,7 @@ function openTerminal() {
   _applyTerminalSettingsUI();
 }
 
-function createTerminal(name) {
+function createTerminal(name, skipLayoutUpdate = false) {
   const id = ++_terminalIdCounter;
   const termName = name || `Terminal ${id}`;
 
@@ -204,19 +204,19 @@ function createTerminal(name) {
 
   _terminals.push(termObj);
 
-  // If this is the first terminal or no layout exists, create simple layout
-  if (!_terminalLayout) {
-    _terminalLayout = { type: 'terminal', terminalId: id };
-  } else if (_terminalLayout.type === 'terminal') {
-    // Single terminal -> wrap in a tab structure (don't auto-split)
-    // Just replace with new terminal
-    _terminalLayout = { type: 'terminal', terminalId: id };
-  }
+  if (!skipLayoutUpdate) {
+    // If this is the first terminal or no layout exists, create simple layout
+    if (!_terminalLayout) {
+      _terminalLayout = { type: 'terminal', terminalId: id };
+    }
+    // For additional tabs (not splits), we keep the layout pointing to the new terminal
+    // The old terminals remain in _terminals array for the tab bar
 
-  _activeTerminalId = id;
-  _renderTabs();
-  _renderLayout();
-  _saveTerminalState();
+    _activeTerminalId = id;
+    _renderTabs();
+    _renderLayout();
+    _saveTerminalState();
+  }
 
   return termObj;
 }
@@ -500,8 +500,8 @@ function splitTerminal(direction) {
   const activeT = _terminals.find(t => t.id === _activeTerminalId);
   if (!activeT) return;
 
-  // Create new terminal
-  const newT = createTerminal();
+  // Create new terminal without modifying layout
+  const newT = createTerminal(null, true);
 
   // Find active terminal in layout and wrap in split
   function findAndSplit(node, parent, key) {
@@ -531,6 +531,10 @@ function splitTerminal(direction) {
   }
 
   findAndSplit(_terminalLayout, null, null);
+
+  // Select the new terminal in the split
+  _activeTerminalId = newT.id;
+  _renderTabs();
   _renderLayout();
   _saveTerminalState();
 }

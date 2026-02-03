@@ -26,6 +26,17 @@ function onSearchInput() {
 function submitSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query) return;
+
+  // Handle user: search - open user profile directly
+  const userMatch = query.match(/^user:(.+)$/i);
+  if (userMatch) {
+    const username = userMatch[1].trim();
+    if (username && typeof openUserProfile === 'function') {
+      openUserProfile(username);
+      return;
+    }
+  }
+
   if (typeof saveSearchHistory === 'function') saveSearchHistory(query);
   hideSearchHistoryView();
   const hints = document.getElementById('search-hints');
@@ -491,7 +502,8 @@ function _browseRefreshScheme() {
 }
 
 function _browseProxyUrl(url) {
-  if (localStorage.getItem('adBlockEnabled') === 'true' && !_browseIsElectron && url) {
+  // Always proxy in browser mode (not Electron) to enable link context menu and ad blocking
+  if (!_browseIsElectron && url) {
     const scheme = typeof getThemeColorScheme === 'function' ? getThemeColorScheme() : 'light';
     return '/api/browse-proxy?url=' + encodeURIComponent(url) + '&scheme=' + scheme;
   }
@@ -560,7 +572,134 @@ function _browseBindFrame(tab) {
     e.preventDefault();
     browseNewTab(e.url);
   });
+
+  // Context menu for links (right-click)
+  el.addEventListener('context-menu', (e) => {
+    if (e.linkURL) {
+      e.preventDefault();
+      _showBrowseLinkMenu(e.x, e.y, e.linkURL, e.linkText || '');
+    }
+  });
+
+  // Inject right-click handler after page loads (for context menu on links)
+  el.addEventListener('dom-ready', () => {
+    el.executeJavaScript(`
+      (function(){
+        if(window.__alphaLinkMenuInjected)return;
+        window.__alphaLinkMenuInjected=true;
+        document.addEventListener('contextmenu',function(e){
+          var a=e.target.closest('a[href]');
+          if(a){
+            var h=a.getAttribute('href');
+            if(h&&h.indexOf('javascript:')!==0&&h.charAt(0)!=='#'){
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('__ALPHA_LINK__'+JSON.stringify({href:h,text:a.textContent.trim().slice(0,100),x:e.screenX,y:e.screenY}));
+              return false;
+            }
+          }
+        },true);
+        // Close menu when left-clicking anywhere in the page
+        document.addEventListener('mousedown',function(e){
+          if(e.button===0) console.log('__ALPHA_CLOSE_MENU__');
+        },true);
+      })();
+    `).catch(()=>{});
+  });
+
+  // Listen for link clicks via console message
+  el.addEventListener('console-message', (e) => {
+    if (e.message === '__ALPHA_CLOSE_MENU__') {
+      _hideBrowseLinkMenu();
+    } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__ALPHA_LINK__'.length));
+        if (data.href) {
+          // Convert screen coordinates to window coordinates
+          const x = data.x - window.screenX;
+          const y = data.y - window.screenY;
+          _showBrowseLinkMenu(x, y, data.href, data.text || '');
+        }
+      } catch (err) {}
+    }
+  });
 }
+
+// Link context menu for Browse view
+let _browseLinkMenu = null;
+
+function _hideBrowseLinkMenu() {
+  if (_browseLinkMenu) {
+    _browseLinkMenu.remove();
+    _browseLinkMenu = null;
+  }
+}
+
+function _showBrowseLinkMenu(x, y, url, text) {
+  _hideBrowseLinkMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'browse-link-menu';
+
+  const truncatedText = text.length > 25 ? text.slice(0, 22) + '...' : text;
+
+  menu.innerHTML = `
+    <div class="blm-item" data-action="newtab">Open Link in New Tab</div>
+    <div class="blm-item" data-action="here">Open Link Here</div>
+    <div class="blm-sep"></div>
+    <div class="blm-item" data-action="copylink">Copy Link Address</div>
+    ${text ? '<div class="blm-item" data-action="copytext">Copy Link Text</div>' : ''}
+    ${text ? '<div class="blm-sep"></div>' : ''}
+    ${text ? `<div class="blm-item" data-action="search">Search Google for "${escapeHtml(truncatedText)}"</div>` : ''}
+  `;
+
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  document.body.appendChild(menu);
+  _browseLinkMenu = menu;
+
+  // Adjust if off screen
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('.blm-item');
+    if (!item) return;
+    const action = item.dataset.action;
+
+    if (action === 'newtab') {
+      browseNewTab(url);
+    } else if (action === 'here') {
+      const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+      if (tab && tab.el) {
+        if (_browseIsElectron) tab.el.loadURL(url);
+        else browseNavigate(url);
+      }
+    } else if (action === 'copylink') {
+      navigator.clipboard.writeText(url).catch(() => {});
+    } else if (action === 'copytext') {
+      navigator.clipboard.writeText(text).catch(() => {});
+    } else if (action === 'search') {
+      browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(text));
+    }
+    _hideBrowseLinkMenu();
+  });
+}
+
+// Close menu on click outside or escape
+document.addEventListener('mousedown', (e) => {
+  if (_browseLinkMenu && !_browseLinkMenu.contains(e.target)) {
+    _hideBrowseLinkMenu();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') _hideBrowseLinkMenu();
+});
+// Close menu when webview gets focus (user clicked inside it)
+window.addEventListener('blur', () => {
+  _hideBrowseLinkMenu();
+});
 
 function browseSelectTab(id) {
   _browseActiveTab = id;
