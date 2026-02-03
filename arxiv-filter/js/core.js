@@ -877,14 +877,42 @@ else if (hash === '#saved-all') openAllSaved();
   }
   else if (hash.startsWith('#paper/')) openPaperByUrl(decodeURIComponent(hash.slice('#paper/'.length)));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
+  else if (hash.startsWith('#author/')) openAuthorProfile(hash.slice('#author/'.length));
   else openDashboard();
 }
 
-window.addEventListener('hashchange', routeFromHash);
+// Save hash to localStorage for "remember where we left off"
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash;
+  if (hash && hash !== '#' && hash !== '#feed') {
+    localStorage.setItem('lastHash', hash);
+  }
+  routeFromHash();
+});
+
+// On page load, restore last hash if no hash specified
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', routeFromHash);
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!window.location.hash || window.location.hash === '#') {
+      const lastHash = localStorage.getItem('lastHash');
+      if (lastHash) {
+        window.location.hash = lastHash;
+        return;
+      }
+    }
+    routeFromHash();
+  });
 } else {
-  setTimeout(routeFromHash, 0);
+  setTimeout(() => {
+    if (!window.location.hash || window.location.hash === '#') {
+      const lastHash = localStorage.getItem('lastHash');
+      if (lastHash) {
+        window.location.hash = lastHash;
+        return;
+      }
+    }
+    routeFromHash();
+  }, 0);
 }
 
 // ── User Profile ──

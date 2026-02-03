@@ -1856,7 +1856,7 @@ ch.postMessage({type:'preview-ready'});
                         arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
                         if arxiv_match:
                             arxiv_id = arxiv_match.group(1)
-                            s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount'
+                            s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount,authors.citationCount,authors.authorId'
                             s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
                             with urllib.request.urlopen(s2_req, timeout=10) as s2_resp:
                                 s2_data = json.loads(s2_resp.read())
@@ -1864,12 +1864,16 @@ ch.postMessage({type:'preview-ready'});
                                 authors = []
                                 for a in s2_data['authors']:
                                     author_info = {'name': a.get('name', '')}
+                                    if a.get('authorId'):
+                                        author_info['authorId'] = a['authorId']
                                     if a.get('affiliations'):
                                         author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
                                     if a.get('hIndex'):
                                         author_info['hIndex'] = a['hIndex']
                                     if a.get('paperCount'):
                                         author_info['paperCount'] = a['paperCount']
+                                    if a.get('citationCount'):
+                                        author_info['citationCount'] = a['citationCount']
                                     if a.get('url'):
                                         author_info['url'] = a['url']
                                     authors.append(author_info)
@@ -2007,6 +2011,40 @@ ch.postMessage({type:'preview-ready'});
 
                 result = {'repos': repos, 'insights': insights, 'authors': authors}
                 _insights_cache[_cache_key] = result
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/author-details':
+            try:
+                body = self._read_body()
+                author_id = body.get('authorId', '').strip()
+                if not author_id:
+                    self._send_json({'error': 'authorId required'}, 400)
+                    return
+                # Fetch author details from Semantic Scholar
+                s2_url = f'https://api.semanticscholar.org/graph/v1/author/{author_id}?fields=name,affiliations,homepage,hIndex,citationCount,paperCount,url'
+                s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(s2_req, timeout=15) as s2_resp:
+                    author_data = json.loads(s2_resp.read())
+                # Fetch author's top papers
+                papers_url = f'https://api.semanticscholar.org/graph/v1/author/{author_id}/papers?fields=title,year,citationCount,url,venue&limit=10'
+                papers_req = urllib.request.Request(papers_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(papers_req, timeout=15) as papers_resp:
+                    papers_data = json.loads(papers_resp.read())
+                # Sort papers by citation count
+                papers = papers_data.get('data', [])
+                papers.sort(key=lambda p: p.get('citationCount', 0) or 0, reverse=True)
+                result = {
+                    'name': author_data.get('name', ''),
+                    'affiliations': author_data.get('affiliations', []),
+                    'homepage': author_data.get('homepage'),
+                    'hIndex': author_data.get('hIndex'),
+                    'citationCount': author_data.get('citationCount'),
+                    'paperCount': author_data.get('paperCount'),
+                    'url': author_data.get('url'),
+                    'papers': papers[:10]
+                }
                 self._send_json(result)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)

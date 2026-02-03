@@ -311,6 +311,22 @@ function togglePaperSidebar() {
   sidebar.style.display = hidden ? '' : 'none';
 }
 
+// ── Enable notetaking mode ──
+function enableNotetakingMode() {
+  const sidebar = document.getElementById('paper-sidebar');
+  if (sidebar) sidebar.style.display = '';
+  switchSidebarTab('notes');
+  // Focus on note textarea if empty
+  setTimeout(() => {
+    const textarea = document.getElementById('paper-note-textarea');
+    const rendered = document.getElementById('paper-note-rendered');
+    if (textarea && rendered && rendered.classList.contains('hidden')) {
+      textarea.classList.remove('hidden');
+      textarea.focus();
+    }
+  }, 100);
+}
+
 function toggleBrowseSidebar() {
   const sidebar = document.getElementById('browse-sidebar');
   if (!sidebar) return;
@@ -361,21 +377,21 @@ function _renderSidebarHTML() {
   `;
   return `
     <div class="sidebar-tab-toolbar">
-      <button id="sidebar-tab-notes" class="sidebar-tab-btn active" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-insights" class="sidebar-tab-btn" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg></button>
     </div>
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
-    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
+    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
+      <div id="paper-insights"></div>
+      <div id="pdf-links-section"></div>
+    </div>
+    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
       <div id="pdf-highlights-section">
         <div id="pdf-highlights-panel"></div>
       </div>
       ${notesPanel}
-    </div>
-    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
-      <div id="pdf-links-section"></div>
-      <div id="paper-insights"></div>
     </div>
     <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${chatPanel}
@@ -404,9 +420,16 @@ function _initSidebarForUrl(url) {
   _docChatExpanded = false;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _paperNoteSelected = null;
+  // Reset scroll positions for new paper
+  _sidebarScrollPositions = {};
   fetchPaperNotes();
   fetchPaperInsights(url);
   fetchPaperComments();
+  // Restore saved sidebar tab
+  const savedTab = localStorage.getItem('sidebarTab');
+  if (savedTab && ['insights', 'notes', 'chat', 'comments'].includes(savedTab)) {
+    setTimeout(() => switchSidebarTab(savedTab), 0);
+  }
 }
 
 // ── Add to project dropdown ──
@@ -543,6 +566,7 @@ function showPaperView(paper, hashValue) {
 
   // Action items: each has label (for overflow menu), html (inline button), and optional id
   const _topbarActions = [
+    { label: 'Notetaking mode', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="enableNotetakingMode()" title="Notetaking mode"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'enableNotetakingMode()' },
     { label: 'Add to project', html: `<div class="relative shrink-0" id="paper-exp-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to project"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg></button></div>`, action: 'togglePaperExpDropdown()' },
     { label: 'Rate', html: `<span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>`, noOverflow: true },
     { label: isSaved ? 'Unsave' : 'Save', html: bookmarkBtn, action: 'togglePaperViewBookmark()' },
@@ -654,10 +678,11 @@ async function fetchPaperInsights(url) {
 
     // Render authors section
     if (hasAuthors) {
-      html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-2">';
-      for (const author of data.authors) {
+      html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-2" id="paper-authors-list">';
+      for (let i = 0; i < data.authors.length; i++) {
+        const author = data.authors[i];
         const hasDetails = author.hIndex || author.paperCount || author.affiliation;
-        html += `<div class="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors${author.url ? ' cursor-pointer' : ''}" data-q="${escapeHtml(author.name)}" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()"${author.url ? ` onclick="window.open('${escapeHtml(author.url)}', '_blank')"` : ''}>
+        html += `<div class="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer" data-q="${escapeHtml(author.name)}" data-idx="${i}" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()">
           <div class="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-[0.75rem] font-medium flex-shrink-0">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
           <div class="flex-1 min-w-0">
             <div class="text-[0.8rem] font-medium text-primary truncate">${escapeHtml(author.name)}</div>
@@ -670,6 +695,8 @@ async function fetchPaperInsights(url) {
         </div>`;
       }
       html += '</div></div>';
+      // Store authors data for click handling
+      window._insightAuthors = data.authors;
     }
 
     html += '<div class="space-y-2">';
@@ -690,15 +717,223 @@ async function fetchPaperInsights(url) {
           ${extraHtml}
         </div>`;
       }
-      if (!verified.length) {
+      if (!verified.length && !hasAuthors) {
         el.innerHTML = '';
         return;
       }
     }
     html += '</div>';
     el.innerHTML = html;
+
+    // Add click handlers for authors
+    if (hasAuthors && window._insightAuthors) {
+      const authorsList = document.getElementById('paper-authors-list');
+      if (authorsList) {
+        authorsList.querySelectorAll('[data-idx]').forEach(card => {
+          card.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(this.dataset.idx);
+            const author = window._insightAuthors[idx];
+            if (author && author.authorId) {
+              window.location.hash = 'author/' + author.authorId;
+            } else if (author && author.url) {
+              window.open(author.url, '_blank');
+            } else if (author && author.name) {
+              // Fallback: search Semantic Scholar
+              window.open('https://www.semanticscholar.org/search?q=' + encodeURIComponent(author.name), '_blank');
+            }
+          });
+        });
+      }
+    }
   } catch (e) {
     el.innerHTML = '';
+  }
+}
+
+// ── Author Profile Page ──
+async function openAuthorProfile(authorId) {
+  hideAllViews();
+  const view = document.getElementById('author-profile-view');
+  const content = document.getElementById('author-profile-content');
+  view.classList.add('active');
+  view.style.display = 'block';
+  window.location.hash = `author/${authorId}`;
+  setSidebarActive('');
+
+  content.innerHTML = `
+    <div class="flex items-center justify-center py-16">
+      <span class="spinner"></span>
+      <span class="ml-3 text-muted">Loading researcher profile...</span>
+    </div>
+  `;
+
+  try {
+    const resp = await fetch('/api/author-details', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorId })
+    });
+    if (!resp.ok) throw new Error('Failed to fetch author details');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    let html = `
+      <button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary mb-6" onclick="history.back()">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        <span class="text-[0.75rem]">Back</span>
+      </button>
+
+      <div class="flex items-start gap-6 mb-8">
+        <div class="w-20 h-20 rounded-full bg-accent flex items-center justify-center text-white text-3xl font-semibold flex-shrink-0">
+          ${(data.name || '?')[0].toUpperCase()}
+        </div>
+        <div class="flex-1">
+          <h1 class="text-2xl font-bold text-primary mb-1">${escapeHtml(data.name || 'Unknown')}</h1>
+          ${data.affiliations && data.affiliations.length ? `<p class="text-muted text-sm">${escapeHtml(data.affiliations.join(' · '))}</p>` : ''}
+          <div class="flex items-center gap-3 mt-3">
+            ${data.homepage ? `<a href="${escapeHtml(data.homepage)}" target="_blank" class="text-sm text-accent hover:underline">Homepage</a>` : ''}
+            ${data.url ? `<a href="${escapeHtml(data.url)}" target="_blank" class="text-sm text-accent hover:underline">Semantic Scholar</a>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="bg-card border border-border-card rounded-xl p-5 text-center">
+          <div class="text-3xl font-bold text-accent">${data.hIndex || '—'}</div>
+          <div class="text-xs text-muted uppercase tracking-wide mt-1">h-index</div>
+        </div>
+        <div class="bg-card border border-border-card rounded-xl p-5 text-center">
+          <div class="text-3xl font-bold text-accent">${data.citationCount ? data.citationCount.toLocaleString() : '—'}</div>
+          <div class="text-xs text-muted uppercase tracking-wide mt-1">Citations</div>
+        </div>
+        <div class="bg-card border border-border-card rounded-xl p-5 text-center">
+          <div class="text-3xl font-bold text-accent">${data.paperCount ? data.paperCount.toLocaleString() : '—'}</div>
+          <div class="text-xs text-muted uppercase tracking-wide mt-1">Papers</div>
+        </div>
+      </div>
+    `;
+
+    // Papers section
+    if (data.papers && data.papers.length) {
+      html += `
+        <div class="mb-4">
+          <h2 class="text-lg font-semibold text-primary mb-4">Top Papers</h2>
+          <div class="space-y-3">
+      `;
+      for (const paper of data.papers) {
+        const citations = paper.citationCount || 0;
+        html += `
+          <div class="bg-card border border-border-card rounded-lg p-4 hover:border-accent/50 transition-colors cursor-pointer" onclick="${paper.url ? `window.open('${escapeHtml(paper.url)}', '_blank')` : ''}">
+            <div class="font-medium text-primary mb-2">${escapeHtml(paper.title || 'Untitled')}</div>
+            <div class="flex items-center gap-4 text-xs text-muted">
+              ${paper.year ? `<span>${paper.year}</span>` : ''}
+              ${paper.venue ? `<span class="truncate max-w-[200px]">${escapeHtml(paper.venue)}</span>` : ''}
+              <span class="ml-auto font-medium ${citations > 100 ? 'text-accent' : ''}">${citations.toLocaleString()} citations</span>
+            </div>
+          </div>
+        `;
+      }
+      html += '</div></div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = `
+      <button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary mb-6" onclick="history.back()">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        <span class="text-[0.75rem]">Back</span>
+      </button>
+      <div class="text-center py-16">
+        <div class="text-muted mb-2">Failed to load researcher profile</div>
+        <div class="text-dimmer text-sm">${escapeHtml(e.message)}</div>
+      </div>
+    `;
+  }
+}
+
+// ── Author Popup (deprecated, now uses profile page) ──
+async function openAuthorPopup(authorId, authorName) {
+  // Remove existing popup
+  document.querySelector('.author-popup-overlay')?.remove();
+
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'author-popup-overlay';
+  overlay.innerHTML = `
+    <div class="author-popup">
+      <button class="author-popup-close" onclick="this.closest('.author-popup-overlay').remove()">&times;</button>
+      <div class="author-popup-header">
+        <div class="author-popup-avatar">${(authorName || '?')[0].toUpperCase()}</div>
+        <div class="author-popup-name">${escapeHtml(authorName)}</div>
+      </div>
+      <div class="author-popup-content">
+        <div class="flex items-center justify-center py-8"><span class="spinner"></span></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+  try {
+    const resp = await fetch('/api/author-details', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorId })
+    });
+    if (!resp.ok) throw new Error('Failed to fetch author details');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const content = overlay.querySelector('.author-popup-content');
+    let html = '';
+
+    // Stats row
+    html += '<div class="author-popup-stats">';
+    if (data.hIndex) html += `<div class="author-stat"><div class="author-stat-value">${data.hIndex}</div><div class="author-stat-label">h-index</div></div>`;
+    if (data.citationCount) html += `<div class="author-stat"><div class="author-stat-value">${data.citationCount.toLocaleString()}</div><div class="author-stat-label">Citations</div></div>`;
+    if (data.paperCount) html += `<div class="author-stat"><div class="author-stat-value">${data.paperCount.toLocaleString()}</div><div class="author-stat-label">Papers</div></div>`;
+    html += '</div>';
+
+    // Affiliations
+    if (data.affiliations && data.affiliations.length) {
+      html += `<div class="author-popup-section"><div class="author-popup-section-title">Affiliations</div>`;
+      for (const aff of data.affiliations) {
+        html += `<div class="text-[0.8rem] text-muted">${escapeHtml(aff)}</div>`;
+      }
+      html += '</div>';
+    }
+
+    // Links
+    if (data.homepage || data.url) {
+      html += '<div class="author-popup-links">';
+      if (data.homepage) html += `<a href="${escapeHtml(data.homepage)}" target="_blank" class="author-popup-link">Homepage</a>`;
+      if (data.url) html += `<a href="${escapeHtml(data.url)}" target="_blank" class="author-popup-link">Semantic Scholar</a>`;
+      html += '</div>';
+    }
+
+    // Top papers
+    if (data.papers && data.papers.length) {
+      html += `<div class="author-popup-section"><div class="author-popup-section-title">Top Papers</div><div class="author-popup-papers">`;
+      for (const paper of data.papers) {
+        const citations = paper.citationCount || 0;
+        html += `<div class="author-paper" onclick="window.open('${escapeHtml(paper.url || '')}', '_blank')">
+          <div class="author-paper-title">${escapeHtml(paper.title || 'Untitled')}</div>
+          <div class="author-paper-meta">
+            ${paper.year ? `<span>${paper.year}</span>` : ''}
+            ${paper.venue ? `<span>${escapeHtml(paper.venue)}</span>` : ''}
+            <span>${citations.toLocaleString()} citations</span>
+          </div>
+        </div>`;
+      }
+      html += '</div></div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    const content = overlay.querySelector('.author-popup-content');
+    content.innerHTML = `<div class="text-center text-muted py-4">Failed to load author details</div>`;
   }
 }
 
@@ -1275,16 +1510,38 @@ let _docChatAbort = null;
 let _docChatExpanded = false;
 let _docChatPaperUrl = '';
 
+// Store scroll positions per sidebar tab
+let _sidebarScrollPositions = {};
+
 function switchSidebarTab(tab) {
   const panes = ['insights', 'notes', 'chat', 'comments'];
+
+  // Save current tab's scroll position before switching
+  panes.forEach(p => {
+    const pane = document.getElementById('sidebar-pane-' + p);
+    if (pane && pane.style.display !== 'none') {
+      _sidebarScrollPositions[p] = pane.scrollTop;
+    }
+  });
+
+  // Switch tabs
   panes.forEach(p => {
     const pane = document.getElementById('sidebar-pane-' + p);
     const btn = document.getElementById('sidebar-tab-' + p);
     if (pane) pane.style.display = p === tab ? '' : 'none';
     if (btn) btn.classList.toggle('active', p === tab);
   });
+
+  // Restore scroll position for the new tab
+  const newPane = document.getElementById('sidebar-pane-' + tab);
+  if (newPane && _sidebarScrollPositions[tab] !== undefined) {
+    setTimeout(() => { newPane.scrollTop = _sidebarScrollPositions[tab]; }, 0);
+  }
+
   if (tab === 'chat' && !_docChatExpanded) toggleDocChat();
   if (tab === 'comments') fetchPaperComments();
+  // Remember the active tab
+  localStorage.setItem('sidebarTab', tab);
 }
 
 function toggleDocChat() {
