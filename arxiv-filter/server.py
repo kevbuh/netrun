@@ -51,6 +51,7 @@ from persistence import (
     get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, delete_repost, get_user_reposts,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
+    update_user_picture, update_user_profile_bg, get_user_accent_color,
     set_profile_private, are_teammates,
     set_team_private, set_team_parent, get_team_children, get_team_ancestors,
     send_direct_message, get_direct_messages, mark_message_read,
@@ -79,6 +80,10 @@ _insights_cache = {}
 _pdf_cache_dir = os.path.join(DIR, '.pdf-cache')
 os.makedirs(_pdf_cache_dir, exist_ok=True)
 _pdf_cache = {}  # url -> pdf_path
+
+# Uploads directory for profile pictures and backgrounds
+UPLOADS_DIR = os.path.join(DIR, 'uploads')
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # Auto-create _unstructured pseudo-experiment for loose files
 _unstructured_dir = os.path.join(EXPERIMENTS_DIR, '_unstructured')
@@ -1090,6 +1095,7 @@ ch.postMessage({type:'preview-ready'});
                     return
                 stats = get_user_public_stats(info['google_id'])
                 info.update(stats)
+                info['accent_color'] = get_user_accent_color(info['google_id'])
                 del info['google_id']
                 self._send_json(info)
             else:
@@ -2604,6 +2610,59 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json(result)
             else:
                 self._send_json({'error': 'Not found'}, 404)
+            return
+
+        elif self.path == '/api/users/me/picture':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            image_data = body.get('image', '')
+            if not image_data or not image_data.startswith('data:image/'):
+                self._send_json({'error': 'Invalid image data'}, 400)
+                return
+            # Extract format and base64 content
+            header, b64 = image_data.split(',', 1)
+            ext = 'jpg'
+            if 'png' in header:
+                ext = 'png'
+            elif 'webp' in header:
+                ext = 'webp'
+            import hashlib
+            fname = hashlib.sha256(google_id.encode()).hexdigest()[:16] + '_pic.' + ext
+            fpath = os.path.join(UPLOADS_DIR, fname)
+            with open(fpath, 'wb') as f:
+                f.write(base64.b64decode(b64))
+            picture_url = '/uploads/' + fname
+            update_user_picture(google_id, picture_url)
+            self._send_json({'ok': True, 'picture': picture_url})
+            return
+
+        elif self.path == '/api/users/me/background':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            image_data = body.get('image', '')
+            if not image_data or not image_data.startswith('data:image/'):
+                self._send_json({'error': 'Invalid image data'}, 400)
+                return
+            header, b64 = image_data.split(',', 1)
+            ext = 'jpg'
+            if 'png' in header:
+                ext = 'png'
+            elif 'webp' in header:
+                ext = 'webp'
+            import hashlib
+            fname = hashlib.sha256(google_id.encode()).hexdigest()[:16] + '_bg.' + ext
+            fpath = os.path.join(UPLOADS_DIR, fname)
+            with open(fpath, 'wb') as f:
+                f.write(base64.b64decode(b64))
+            bg_url = '/uploads/' + fname
+            update_user_profile_bg(google_id, bg_url)
+            self._send_json({'ok': True, 'profile_bg': bg_url})
             return
 
         elif self.path == '/api/users/me/privacy':

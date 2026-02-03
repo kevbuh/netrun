@@ -360,6 +360,10 @@ def init_db():
     if 'profile_private' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN profile_private INTEGER DEFAULT 0")
         conn.commit()
+    # Migration: add profile_bg column to users
+    if 'profile_bg' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN profile_bg TEXT")
+        conn.commit()
     # Migration: add private and parent_id columns to teams
     team_cols = [r[1] for r in conn.execute("PRAGMA table_info(teams)").fetchall()]
     if 'private' not in team_cols:
@@ -1063,10 +1067,10 @@ def db_delete_comment(google_id, cid):
 # ── User Profiles (public) ──
 
 def get_public_user_info(username):
-    """Case-insensitive lookup. Returns {username, picture, created, profile_private} or None."""
+    """Case-insensitive lookup. Returns {username, picture, created, profile_private, profile_bg} or None."""
     conn = _get_db()
     row = conn.execute(
-        "SELECT google_id, username, picture, created, profile_private FROM users WHERE lower(username) = ?",
+        "SELECT google_id, username, picture, created, profile_private, profile_bg FROM users WHERE lower(username) = ?",
         (username.lower(),)
     ).fetchone()
     conn.close()
@@ -1077,7 +1081,8 @@ def get_public_user_info(username):
         'username': row['username'],
         'picture': row['picture'],
         'created': row['created'],
-        'profile_private': bool(row['profile_private'])
+        'profile_private': bool(row['profile_private']),
+        'profile_bg': row['profile_bg'],
     }
 
 
@@ -1534,6 +1539,36 @@ def get_my_assigned_todos(google_id):
 
 
 # ── Profile & Team Privacy ──
+
+def update_user_picture(google_id, picture_url):
+    conn = _get_db()
+    conn.execute("UPDATE users SET picture = ? WHERE google_id = ?", (picture_url, google_id))
+    conn.commit()
+    conn.close()
+
+
+def update_user_profile_bg(google_id, bg_url):
+    conn = _get_db()
+    conn.execute("UPDATE users SET profile_bg = ? WHERE google_id = ?", (bg_url, google_id))
+    conn.commit()
+    conn.close()
+
+
+def get_user_accent_color(google_id):
+    """Read the user's accent color from the synced user_data table."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT value FROM user_data WHERE google_id = ? AND key = 'accentColor'",
+        (google_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return '#b4451a'
+    try:
+        return json.loads(row['value'])
+    except (json.JSONDecodeError, ValueError):
+        return '#b4451a'
+
 
 def set_profile_private(google_id, private):
     conn = _get_db()

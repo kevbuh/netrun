@@ -774,7 +774,9 @@ async function renderUserProfile(username) {
             ? `<img src="${escapeAttr(profile.picture)}" class="w-20 h-20 rounded-full mb-4 opacity-60" referrerpolicy="no-referrer" />`
             : `<div class="w-20 h-20 rounded-full bg-accent/10 text-accent/40 flex items-center justify-center text-3xl font-bold mb-4">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
           }
-          <h2 class="text-[1.2rem] font-semibold text-white_ mb-2">${escapeHtml(profile.username)}</h2>
+          <div class="flex items-center gap-2 mb-2">
+            <h2 class="text-[1.2rem] font-semibold text-white_">${escapeHtml(profile.username)}</h2>
+          </div>
           <div class="flex items-center gap-1.5 text-dimmer text-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             This profile is private
@@ -785,15 +787,30 @@ async function renderUserProfile(username) {
 
     const joinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
     const isOwnProfile = _authUserInfo && _authUserInfo.username === profile.username;
+    const accentColor = profile.accent_color || '#b4451a';
 
     let html = `
-      <div class="flex items-center gap-4 mb-6">
-        ${profile.picture
-          ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full" referrerpolicy="no-referrer" />`
-          : `<div class="w-16 h-16 rounded-full bg-accent/20 text-accent flex items-center justify-center text-2xl font-bold">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
-        }
+      <div class="relative rounded-xl overflow-hidden mb-6" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${accentColor}33, ${accentColor}11)`}">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--bg-body),transparent)"></div>
+        ${isOwnProfile ? `<button onclick="_uploadProfileBg()" class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors" title="Change background">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>` : ''}
+      </div>
+      <div class="flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2">
+        <div class="relative group">
+          ${profile.picture
+            ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--bg-body)" referrerpolicy="no-referrer" />`
+            : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--bg-body);background:${accentColor}33;color:${accentColor}">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
+          }
+          ${isOwnProfile ? `<button onclick="_uploadProfilePic()" class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>` : ''}
+        </div>
         <div>
-          <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username)}</h2>
+          <div class="flex items-center gap-2">
+            <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username)}</h2>
+            <div class="w-3 h-3 rounded-full" style="background:${accentColor}" title="Accent color"></div>
+          </div>
           ${joinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${joinDate}</div>` : ''}
         </div>
         <div class="ml-auto flex items-center gap-2">
@@ -929,6 +946,61 @@ async function sendProfileMessage(username) {
   } catch (err) {
     if (status) { status.style.color = 'var(--text-muted)'; status.textContent = 'Failed to send'; }
   }
+}
+
+function _uploadProfilePic() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const res = await fetch('/api/users/me/picture', {
+          method: 'PUT',
+          headers: _authHeaders(),
+          body: JSON.stringify({ image: reader.result })
+        });
+        const data = await res.json();
+        if (data.picture) {
+          if (_authUserInfo) _authUserInfo.picture = data.picture;
+          const hash = window.location.hash;
+          if (hash.startsWith('#profile')) renderUserProfile(_authUserInfo?.username);
+          if (hash === '#settings' && typeof renderSettingsView === 'function') renderSettingsView();
+        }
+      } catch (e) { console.error('Picture upload error', e); }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function _uploadProfileBg() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const res = await fetch('/api/users/me/background', {
+          method: 'PUT',
+          headers: _authHeaders(),
+          body: JSON.stringify({ image: reader.result })
+        });
+        const data = await res.json();
+        if (data.profile_bg) {
+          renderUserProfile(_authUserInfo?.username);
+        }
+      } catch (e) { console.error('Background upload error', e); }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
 }
 
 // ── Greeting system ──

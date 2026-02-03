@@ -32,10 +32,15 @@ function renderSettingsView() {
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
       <div class="flex items-center gap-4 mb-4">
-        ${_authUserInfo?.picture
-          ? `<img src="${escapeAttr(_authUserInfo.picture)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
-          : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;flex-shrink:0;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
-        }
+        <div class="relative group cursor-pointer" onclick="_uploadProfilePic()" title="Change profile picture" style="flex-shrink:0">
+          ${_authUserInfo?.picture
+            ? `<img src="${escapeAttr(_authUserInfo.picture)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
+            : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
+          }
+          <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+        </div>
         <div>
           <div class="text-primary font-semibold text-[0.95rem]">${escapeHtml(_authUserInfo?.username || '')}</div>
           <div class="text-dim text-[0.8rem]">${escapeHtml(_authUserInfo?.name || '')}</div>
