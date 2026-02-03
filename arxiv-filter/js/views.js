@@ -264,6 +264,7 @@ function paperViewGoBack() {
 
 let _currentPaperViewPaper = null;
 let _paperOriginExpId = null;
+let _paperInsightsLoaded = false;
 function togglePaperViewBookmark() {
   if (!_currentPaperViewPaper) return;
   toggleSavePost(_currentPaperViewPaper);
@@ -420,10 +421,10 @@ function _initSidebarForUrl(url) {
   _docChatExpanded = false;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _paperNoteSelected = null;
+  _paperInsightsLoaded = false; // Reset insights loaded flag for new paper
   // Reset scroll positions for new paper
   _sidebarScrollPositions = {};
   fetchPaperNotes();
-  fetchPaperInsights(url);
   fetchPaperComments();
   // Restore saved sidebar tab
   const savedTab = localStorage.getItem('sidebarTab');
@@ -752,8 +753,10 @@ async function fetchPaperInsights(url) {
         });
       }
     }
+    _paperInsightsLoaded = true;
   } catch (e) {
     el.innerHTML = '';
+    _paperInsightsLoaded = true;
   }
 }
 
@@ -1461,6 +1464,10 @@ function switchSidebarTab(tab) {
 
   if (tab === 'chat' && !_docChatExpanded) toggleDocChat();
   if (tab === 'comments') fetchPaperComments();
+  // Lazy load insights only when tab is opened
+  if (tab === 'insights' && !_paperInsightsLoaded && _currentPaperViewPaper) {
+    fetchPaperInsights(_currentPaperViewPaper.link);
+  }
   // Remember the active tab
   localStorage.setItem('sidebarTab', tab);
 }

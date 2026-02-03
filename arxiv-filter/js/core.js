@@ -566,6 +566,14 @@ const FEED_CATALOG = [
   { key: 'mjg59', name: 'Matthew Garrett', desc: 'Linux, firmware, and security', cat: 'HN Top Blogs 2025', url: 'https://mjg59.dreamwidth.org/data/rss', letter: 'M', bg: '#374151', fg: '#fb923c', favicon: 'mjg59.dreamwidth.org' },
   { key: 'computerrip', name: 'computer.rip', desc: 'Telecom, networking, and computing history', cat: 'HN Top Blogs 2025', url: 'https://computer.rip/rss.xml', letter: 'C', bg: '#1a1a1a', fg: '#7dd3fc', favicon: 'computer.rip' },
   { key: 'tedunangst', name: 'Ted Unangst', desc: 'OpenBSD and systems programming', cat: 'HN Top Blogs 2025', url: 'https://www.tedunangst.com/flak/rss', letter: 'T', bg: '#1e293b', fg: '#fde68a', favicon: 'tedunangst.com' },
+  // Atom Format Feeds
+  { key: 'github', name: 'GitHub Blog', desc: 'Developer platform news and features (Atom)', cat: 'Programming', url: 'https://github.blog/feed/', letter: 'G', bg: '#24292e', fg: '#fff', favicon: 'github.com' },
+  { key: 'stackoverflow', name: 'Stack Overflow Blog', desc: 'Programming Q&A and developer insights (Atom)', cat: 'Programming', url: 'https://stackoverflow.blog/feed/', letter: 'SO', bg: '#f48024', fg: '#fff', favicon: 'stackoverflow.com' },
+  { key: 'reddit-programming', name: 'r/programming', desc: 'Programming subreddit discussions (Atom)', cat: 'Programming', url: 'https://www.reddit.com/r/programming/.rss', letter: 'R', bg: '#ff4500', fg: '#fff', favicon: 'reddit.com' },
+  { key: 'reddit-machinelearning', name: 'r/MachineLearning', desc: 'ML research and discussions (Atom)', cat: 'AI & Machine Learning', url: 'https://www.reddit.com/r/MachineLearning/.rss', letter: 'R', bg: '#ff4500', fg: '#fff', favicon: 'reddit.com' },
+  { key: 'medium-engineering', name: 'Medium Engineering', desc: 'Engineering blog from Medium (Atom)', cat: 'Programming', url: 'https://medium.engineering/feed', letter: 'M', bg: '#12100e', fg: '#fff', favicon: 'medium.com' },
+  { key: 'chromium', name: 'Chromium Blog', desc: 'Chrome and Chromium development (Atom)', cat: 'Programming', url: 'https://blog.chromium.org/feeds/posts/default', letter: 'C', bg: '#4285f4', fg: '#fff', favicon: 'blog.chromium.org' },
+  { key: 'android-developers', name: 'Android Developers', desc: 'Official Android development blog (Atom)', cat: 'Programming', url: 'https://android-developers.googleblog.com/feeds/posts/default', letter: 'A', bg: '#3ddc84', fg: '#000', favicon: 'developer.android.com' },
 ];
 
 function catalogLogo(entry, size) {

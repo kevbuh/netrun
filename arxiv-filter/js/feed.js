@@ -1057,22 +1057,97 @@ function extractArxivId(link) {
 }
 
 function parseFeed(xml) {
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
-  const arxivItems = Array.from(doc.querySelectorAll('item')).map(item => {
-    const title = (item.querySelector('title')?.textContent || '').trim();
-    const link = (item.querySelector('link')?.textContent || '').trim();
-    const description = (item.querySelector('description')?.textContent || '').trim();
-    const creators = item.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'creator');
-    const authors = Array.from(creators).map(c => c.textContent.trim()).join(', ') || extractAuthors(description);
-    const categories = Array.from(item.querySelectorAll('category')).map(c => c.textContent.trim());
-    categories.forEach(c => allCategories.add(c));
-    const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
-    const dateStr = pubDate ? formatDate(new Date(pubDate)) : '';
-    const arxivId = extractArxivId(link);
-    const cleanDesc = stripHtml(description).replace(/^arXiv:\S+\s+Announce Type:\s*\w+\s+Abstract:\s*/i, '');
-    return { source: 'arxiv', title, link, authors, categories, description: cleanDesc, date: dateStr, pubDate, arxivId };
-  });
-  return arxivItems;
+  try {
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+
+    // Check for parsing errors
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) {
+      console.error('Feed parsing error:', parserError.textContent);
+      return [];
+    }
+
+    // Try RSS format first
+    let items = Array.from(doc.querySelectorAll('item'));
+
+    // Fall back to Atom format if no RSS items
+    if (items.length === 0) {
+      items = Array.from(doc.querySelectorAll('entry'));
+    }
+
+    const parsedItems = items.map(item => {
+      // Extract title
+      const title = (item.querySelector('title')?.textContent || '').trim();
+      if (!title) return null; // Skip items without titles
+
+      // Extract link (different for RSS vs Atom)
+      let link = item.querySelector('link')?.textContent?.trim();
+      if (!link) {
+        // Try Atom format (link is an attribute)
+        const linkEl = item.querySelector('link[href]');
+        link = linkEl?.getAttribute('href') || '';
+      }
+
+      // Extract description/summary
+      const description = (
+        item.querySelector('description')?.textContent ||
+        item.querySelector('summary')?.textContent ||
+        item.querySelector('content')?.textContent ||
+        ''
+      ).trim();
+
+      // Extract authors (try multiple formats)
+      const creators = item.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'creator');
+      let authors = Array.from(creators).map(c => c.textContent.trim()).join(', ');
+      if (!authors) {
+        const authorEls = item.querySelectorAll('author name');
+        authors = Array.from(authorEls).map(a => a.textContent.trim()).join(', ');
+      }
+      if (!authors) {
+        authors = extractAuthors(description);
+      }
+
+      // Extract categories
+      const categories = Array.from(item.querySelectorAll('category'))
+        .map(c => c.textContent.trim() || c.getAttribute('term') || '')
+        .filter(Boolean);
+      categories.forEach(c => allCategories.add(c));
+
+      // Extract date (try multiple formats)
+      const pubDate = (
+        item.querySelector('pubDate')?.textContent ||
+        item.querySelector('published')?.textContent ||
+        item.querySelector('updated')?.textContent ||
+        ''
+      ).trim();
+      const dateStr = pubDate ? formatDate(new Date(pubDate)) : '';
+
+      // Extract arXiv ID
+      const arxivId = extractArxivId(link);
+
+      // Clean description
+      const cleanDesc = stripHtml(description)
+        .replace(/^arXiv:\S+\s+Announce Type:\s*\w+\s+Abstract:\s*/i, '')
+        .trim();
+
+      return {
+        source: 'arxiv',
+        title,
+        link,
+        authors,
+        categories,
+        description: cleanDesc,
+        date: dateStr,
+        pubDate,
+        arxivId
+      };
+    }).filter(Boolean); // Remove null entries
+
+    return parsedItems;
+  } catch (e) {
+    console.error('Error parsing feed:', e);
+    return [];
+  }
 }
 
 async function fetchCitationsFor(papers) {
