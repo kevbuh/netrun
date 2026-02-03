@@ -795,15 +795,16 @@ function _browseCreateFrame(id, url) {
 }
 
 // ── Download Manager ──
+const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
+
 let _browseDownloads = []; // { id, filename, url, state: 'progressing'|'completed'|'cancelled', receivedBytes, totalBytes, startTime }
 let _browseDownloadIdCounter = 0;
-let _browseDownloadsLastSeenCount = 0; // Track when user has seen downloads
+let _browseDownloadsLastSeenCount = 0;
 
-// Load downloads from localStorage (filter to last hour)
 function _loadBrowseDownloads() {
   try {
     const saved = JSON.parse(localStorage.getItem('browseDownloads') || '[]');
-    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const oneHourAgo = Date.now() - DOWNLOAD_RETENTION_MS;
     _browseDownloads = saved.filter(d => d.startTime > oneHourAgo);
     // Find max ID
     _browseDownloads.forEach(d => {
@@ -818,11 +819,9 @@ function _loadBrowseDownloads() {
   }
 }
 
-// Save downloads to localStorage
 function _saveBrowseDownloads() {
   try {
-    // Keep only downloads from last hour
-    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const oneHourAgo = Date.now() - DOWNLOAD_RETENTION_MS;
     const toSave = _browseDownloads.filter(d => d.startTime > oneHourAgo);
     localStorage.setItem('browseDownloads', JSON.stringify(toSave));
     // Save last seen count
@@ -851,18 +850,18 @@ function _isDownloadableUrl(url) {
 }
 
 function _browseUpdateDownloadBadge() {
-  // Show/hide download button based on whether there are any downloads
   const btn = document.getElementById('browse-downloads-btn');
-  if (btn) {
-    const hasDownloads = _browseDownloads.length > 0;
-    btn.style.display = hasDownloads ? 'block' : 'none';
-  }
-
-  // Update download count badge - only show if there are NEW downloads
   const badge = document.getElementById('browse-download-badge');
+  const ring = document.getElementById('browse-download-progress-ring');
+
+  const count = _browseDownloads.length;
+  const newDownloads = count - _browseDownloadsLastSeenCount;
+
+  // Show/hide download button
+  if (btn) btn.style.display = count > 0 ? 'block' : 'none';
+
+  // Show badge only for new downloads
   if (badge) {
-    const count = _browseDownloads.length;
-    const newDownloads = count - _browseDownloadsLastSeenCount;
     if (newDownloads > 0) {
       badge.textContent = newDownloads > 99 ? '99+' : newDownloads;
       badge.style.display = 'flex';
@@ -870,12 +869,9 @@ function _browseUpdateDownloadBadge() {
       badge.style.display = 'none';
     }
   }
-  
-  // Update progress ring (pulsing border when NEW download is active)
-  const ring = document.getElementById('browse-download-progress-ring');
+
+  // Show progress ring only for new active downloads
   if (ring) {
-    const count = _browseDownloads.length;
-    const newDownloads = count - _browseDownloadsLastSeenCount;
     const hasNewActive = newDownloads > 0 && _browseDownloads.some(d => d.state === 'progressing');
     ring.style.display = hasNewActive ? 'block' : 'none';
   }
@@ -937,49 +933,49 @@ function _formatBytes(bytes) {
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
+function _closeBrowseDownloadsDropdown() {
+  const dropdown = document.getElementById('browse-downloads-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+  document.removeEventListener('click', _closeBrowseDownloadsOnClick);
+  window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
+}
+
 function toggleBrowseDownloads(event) {
-  // Stop the event from bubbling to prevent immediate close
   if (event) event.stopPropagation();
 
   const dropdown = document.getElementById('browse-downloads-dropdown');
-  const badge = document.getElementById('browse-download-badge');
   if (!dropdown) return;
 
   if (dropdown.style.display === 'none') {
     _browseRenderDownloads();
     dropdown.style.display = 'block';
-    // Mark downloads as seen and hide badge
+
+    // Mark all downloads as seen
     _browseDownloadsLastSeenCount = _browseDownloads.length;
-    _saveBrowseDownloads(); // Persist the seen count
+    _saveBrowseDownloads();
+
+    const badge = document.getElementById('browse-download-badge');
     if (badge) badge.style.display = 'none';
-    // Add click listener on next frame to avoid immediate trigger
+
+    // Add close listeners
     requestAnimationFrame(() => {
       document.addEventListener('click', _closeBrowseDownloadsOnClick);
     });
-    // Also close when webview gets focus
     window.addEventListener('blur', _closeBrowseDownloadsOnBlur);
   } else {
-    dropdown.style.display = 'none';
-    document.removeEventListener('click', _closeBrowseDownloadsOnClick);
-    window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
+    _closeBrowseDownloadsDropdown();
   }
 }
 
 function _closeBrowseDownloadsOnClick(e) {
   const btn = document.getElementById('browse-downloads-btn');
   if (btn && !btn.contains(e.target)) {
-    const dropdown = document.getElementById('browse-downloads-dropdown');
-    if (dropdown) dropdown.style.display = 'none';
-    document.removeEventListener('click', _closeBrowseDownloadsOnClick);
-    window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
+    _closeBrowseDownloadsDropdown();
   }
 }
 
 function _closeBrowseDownloadsOnBlur() {
-  const dropdown = document.getElementById('browse-downloads-dropdown');
-  if (dropdown) dropdown.style.display = 'none';
-  document.removeEventListener('click', _closeBrowseDownloadsOnClick);
-  window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
+  _closeBrowseDownloadsDropdown();
 }
 
 function clearBrowseDownloads() {
@@ -1308,19 +1304,19 @@ function _showBrowseContextMenu(x, y, data) {
   });
 }
 
-// Save image using Electron or download link
-function _browseSaveImage(url) {
-  const filename = url.split('/').pop().split('?')[0] || 'image';
+// Helper to trigger download
+function _browseDownloadFile(url, defaultFilename = 'download') {
+  const filename = url.split('/').pop().split('?')[0] || defaultFilename;
 
   if (window.electronAPI && window.electronAPI.downloadURL) {
-    // Electron will handle download tracking via download-started event
+    // Electron handles download tracking via download-started event
     window.electronAPI.downloadURL(url);
   } else {
-    // Fallback: create manual download entry for browser mode
+    // Browser fallback: create manual download entry
     const dl = {
       id: 'dl-' + (++_browseDownloadIdCounter),
-      filename: filename,
-      url: url,
+      filename,
+      url,
       state: 'progressing',
       receivedBytes: 0,
       totalBytes: 0,
@@ -1341,7 +1337,7 @@ function _browseSaveImage(url) {
     a.click();
     document.body.removeChild(a);
 
-    // Mark as completed after a short delay (we can't track actual progress in browser)
+    // Mark as completed (can't track progress in browser)
     setTimeout(() => {
       dl.state = 'completed';
       dl.receivedBytes = dl.totalBytes = 1;
@@ -1352,48 +1348,12 @@ function _browseSaveImage(url) {
   }
 }
 
-// Save link (download file) using Electron or download link
+function _browseSaveImage(url) {
+  _browseDownloadFile(url, 'image');
+}
+
 function _browseSaveLink(url) {
-  const filename = url.split('/').pop().split('?')[0] || 'download';
-
-  if (window.electronAPI && window.electronAPI.downloadURL) {
-    // Electron will handle download tracking via download-started event
-    window.electronAPI.downloadURL(url);
-  } else {
-    // Fallback: create manual download entry for browser mode
-    const dl = {
-      id: 'dl-' + (++_browseDownloadIdCounter),
-      filename: filename,
-      url: url,
-      state: 'progressing',
-      receivedBytes: 0,
-      totalBytes: 0,
-      startTime: Date.now(),
-      savePath: ''
-    };
-    _browseDownloads.unshift(dl);
-    _browseUpdateDownloadBadge();
-    _browseRenderDownloads();
-    _saveBrowseDownloads();
-
-    // Trigger download via anchor
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    // Mark as completed after a short delay (we can't track actual progress in browser)
-    setTimeout(() => {
-      dl.state = 'completed';
-      dl.receivedBytes = dl.totalBytes = 1;
-      _browseUpdateDownloadBadge();
-      _browseRenderDownloads();
-      _saveBrowseDownloads();
-    }, 1500);
-  }
+  _browseDownloadFile(url, 'download');
 }
 
 // Close menu on click outside or escape
