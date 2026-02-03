@@ -792,7 +792,8 @@ async function createExpFile(ext, content, template) {
   });
   const result = await createResp.json().catch(() => null);
   const actualName = result?.name || name;
-  fetchExpFiles();
+  await fetchExpFiles();
+  openFile(actualName);
   return actualName;
 }
 
