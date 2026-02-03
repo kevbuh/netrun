@@ -105,6 +105,132 @@ function setSidebarLoading(id) {
   setTimeout(() => el.classList.remove('sb-loading'), 350);
 }
 
+// ── Sidebar Keyboard Navigation ──
+let _sidebarFocused = false;
+let _sidebarSelectedIndex = -1;
+
+function _getSidebarItems() {
+  const nav = document.getElementById('sidebar-nav');
+  if (!nav) return [];
+  // Get all visible sidebar icons in DOM order
+  return Array.from(nav.querySelectorAll('.sidebar-icon')).filter(el => {
+    // Filter out hidden elements
+    return el.offsetParent !== null;
+  });
+}
+
+function _focusSidebar() {
+  _sidebarFocused = true;
+  const nav = document.getElementById('sidebar-nav');
+  if (nav) nav.classList.add('sidebar-focused');
+
+  // If no selection, select the currently active item
+  if (_sidebarSelectedIndex < 0) {
+    const items = _getSidebarItems();
+    const activeIdx = items.findIndex(el => el.classList.contains('active'));
+    _sidebarSelectedIndex = activeIdx >= 0 ? activeIdx : 0;
+  }
+  _renderSidebarSelection();
+}
+
+function _blurSidebar() {
+  _sidebarFocused = false;
+  _sidebarSelectedIndex = -1;
+  const nav = document.getElementById('sidebar-nav');
+  if (nav) nav.classList.remove('sidebar-focused');
+  _getSidebarItems().forEach(el => el.classList.remove('sidebar-kbd-selected'));
+}
+
+function _renderSidebarSelection() {
+  const items = _getSidebarItems();
+  items.forEach((el, i) => {
+    el.classList.toggle('sidebar-kbd-selected', i === _sidebarSelectedIndex);
+  });
+  // Scroll into view if needed
+  if (_sidebarSelectedIndex >= 0 && items[_sidebarSelectedIndex]) {
+    items[_sidebarSelectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function _sidebarNavigate(direction) {
+  const items = _getSidebarItems();
+  if (!items.length) return;
+
+  _sidebarSelectedIndex += direction;
+  if (_sidebarSelectedIndex < 0) _sidebarSelectedIndex = items.length - 1;
+  if (_sidebarSelectedIndex >= items.length) _sidebarSelectedIndex = 0;
+  _renderSidebarSelection();
+}
+
+function _sidebarActivateSelected() {
+  const items = _getSidebarItems();
+  if (_sidebarSelectedIndex >= 0 && items[_sidebarSelectedIndex]) {
+    items[_sidebarSelectedIndex].click();
+  }
+}
+
+// Install global keyboard handler for sidebar navigation
+(function initSidebarKeyNav() {
+  document.addEventListener('keydown', (e) => {
+    // Don't intercept if typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
+    // Press [ to focus sidebar
+    if (e.key === '[' && !_sidebarFocused) {
+      e.preventDefault();
+      _focusSidebar();
+      return;
+    }
+
+    if (!_sidebarFocused) return;
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _sidebarNavigate(-1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _sidebarNavigate(1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      _sidebarActivateSelected();
+      _blurSidebar();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      _blurSidebar();
+    }
+  });
+
+  // Click outside sidebar blurs it
+  document.addEventListener('mousedown', (e) => {
+    if (!_sidebarFocused) return;
+    const nav = document.getElementById('sidebar-nav');
+    if (nav && !nav.contains(e.target)) {
+      _blurSidebar();
+    }
+  });
+})();
+
+// Hook into sidebar icon clicks to enable keyboard navigation
+function _installSidebarClickFocus() {
+  document.querySelectorAll('.sidebar-icon').forEach(el => {
+    el.addEventListener('click', () => {
+      const items = _getSidebarItems();
+      const idx = items.indexOf(el);
+      if (idx >= 0) {
+        _sidebarSelectedIndex = idx;
+        _focusSidebar();
+      }
+    });
+  });
+}
+
+// Initialize on DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _installSidebarClickFocus);
+} else {
+  _installSidebarClickFocus();
+}
+
 // ── Performance Optimizations ──
 
 // Lazy load images using IntersectionObserver

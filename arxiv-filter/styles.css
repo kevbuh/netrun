@@ -407,6 +407,14 @@
       100% { transform: scale(1); }
     }
 
+    /* ── Sidebar keyboard navigation ── */
+    .sidebar-icon.sidebar-kbd-selected {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .sidebar-icon.active.sidebar-kbd-selected {
+      box-shadow: inset 3px 0 0 var(--accent), 0 0 0 2px var(--accent);
+    }
+
     /* ── Sidebar drag ghost ── */
     .sidebar-drag-ghost {
       background: var(--bg-hover);
