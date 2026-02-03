@@ -258,17 +258,8 @@ let paperViewOrigin = 'arxiv';
 function paperViewGoBack() {
   cleanupPdfViewer();
   dismissPaperExpDropdown();
-  const nav = {
-    dashboard: openDashboard, feed: goHome, search: openSearch, browse: openBrowse,
-    inbox: () => typeof openInbox === 'function' && openInbox(),
-    calendar: () => typeof openCalendar === 'function' && openCalendar(),
-    settings: () => typeof openSettings === 'function' && openSettings(),
-    saved: openDashboard
-  };
-  if (paperViewOrigin === 'experiment' && _paperOriginExpId) { openExperimentDetail(_paperOriginExpId); return; }
-  const fn = nav[paperViewOrigin];
-  if (fn) { fn(); return; }
-  goHome();
+  // Use browser history to go back to wherever we came from
+  window.history.back();
 }
 
 let _currentPaperViewPaper = null;
