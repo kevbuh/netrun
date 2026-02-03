@@ -820,3 +820,190 @@ document.addEventListener('click', (e) => {
 function _escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// ── Bottom Terminal Panel (Cmd+J) ──
+
+let _bottomTerminal = null;
+let _bottomTerminalVisible = false;
+
+function toggleBottomTerminal() {
+  const panel = document.getElementById('bottom-terminal-panel');
+  if (!panel) return;
+
+  _bottomTerminalVisible = !_bottomTerminalVisible;
+
+  if (_bottomTerminalVisible) {
+    panel.style.display = 'flex';
+    _initBottomTerminal();
+  } else {
+    panel.style.display = 'none';
+    if (_bottomTerminal && _bottomTerminal.term) {
+      _bottomTerminal.term.blur();
+    }
+  }
+}
+
+function _initBottomTerminal() {
+  const container = document.getElementById('bottom-terminal-container');
+  if (!container) return;
+
+  // Already initialized
+  if (_bottomTerminal && _bottomTerminal.term) {
+    setTimeout(() => {
+      _bottomTerminal.fitAddon.fit();
+      _bottomTerminal.term.focus();
+    }, 50);
+    // Reconnect WebSocket if needed
+    if (!_bottomTerminal.ws || _bottomTerminal.ws.readyState !== WebSocket.OPEN) {
+      _connectBottomTerminalWs();
+    }
+    return;
+  }
+
+  const theme = TERMINAL_THEMES[_termSettings.theme] || TERMINAL_THEMES.dark;
+  const term = new Terminal({
+    cursorBlink: _termSettings.cursorBlink,
+    cursorStyle: _termSettings.cursorStyle,
+    fontSize: _termSettings.fontSize,
+    fontFamily: _termSettings.fontFamily,
+    scrollback: _termSettings.scrollback,
+    theme: theme,
+    allowProposedApi: true,
+  });
+
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+
+  let searchAddon = null;
+  if (typeof SearchAddon !== 'undefined') {
+    searchAddon = new SearchAddon.SearchAddon();
+    term.loadAddon(searchAddon);
+  }
+
+  _bottomTerminal = {
+    term,
+    fitAddon,
+    searchAddon,
+    ws: null,
+  };
+
+  term.open(container);
+  fitAddon.fit();
+
+  // Connect WebSocket
+  _connectBottomTerminalWs();
+
+  // Auto-fit on resize
+  const ro = new ResizeObserver(() => {
+    try { fitAddon.fit(); } catch (_) {}
+  });
+  ro.observe(container);
+
+  // Send resize to server
+  term.onResize(({ cols, rows }) => {
+    if (_bottomTerminal.ws && _bottomTerminal.ws.readyState === WebSocket.OPEN) {
+      _bottomTerminal.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+    }
+  });
+
+  setTimeout(() => {
+    fitAddon.fit();
+    term.focus();
+  }, 50);
+}
+
+function _connectBottomTerminalWs() {
+  if (!_bottomTerminal) return;
+
+  if (_bottomTerminal.ws) {
+    try { _bottomTerminal.ws.close(); } catch (_) {}
+  }
+
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${wsProto}//${location.host}/ws/terminal`;
+  console.log('[bottom-terminal] connecting to', wsUrl);
+
+  const ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+  _bottomTerminal.ws = ws;
+
+  ws.onopen = () => {
+    console.log('[bottom-terminal] ws open');
+    _bottomTerminal.fitAddon.fit();
+    const { cols, rows } = _bottomTerminal.term;
+    ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+  };
+
+  ws.onmessage = (ev) => {
+    if (!_bottomTerminal.term) return;
+    if (ev.data instanceof ArrayBuffer) {
+      _bottomTerminal.term.write(new Uint8Array(ev.data));
+    } else {
+      _bottomTerminal.term.write(ev.data);
+    }
+  };
+
+  ws.onerror = (e) => {
+    console.error('[bottom-terminal] ws error', e);
+  };
+
+  ws.onclose = (ev) => {
+    console.log('[bottom-terminal] ws close', ev.code, ev.reason);
+    if (_bottomTerminal.term) _bottomTerminal.term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n');
+  };
+
+  _bottomTerminal.term.onData((data) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(data);
+  });
+}
+
+function clearBottomTerminal() {
+  if (_bottomTerminal && _bottomTerminal.term) {
+    _bottomTerminal.term.clear();
+  }
+}
+
+// Bottom terminal resize handle
+(function initBottomTerminalResize() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const handle = document.getElementById('bottom-terminal-resize');
+    const panel = document.getElementById('bottom-terminal-panel');
+    if (!handle || !panel) return;
+
+    let startY = 0;
+    let startHeight = 0;
+
+    const onMove = (e) => {
+      const delta = startY - e.clientY;
+      const newHeight = Math.max(100, Math.min(window.innerHeight - 100, startHeight + delta));
+      panel.style.height = newHeight + 'px';
+      if (_bottomTerminal && _bottomTerminal.fitAddon) {
+        _bottomTerminal.fitAddon.fit();
+      }
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startY = e.clientY;
+      startHeight = panel.offsetHeight;
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+})();
+
+// Global Cmd+J shortcut (works from anywhere)
+document.addEventListener('keydown', (e) => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+
+  if (cmdKey && e.key === 'j') {
+    e.preventDefault();
+    toggleBottomTerminal();
+  }
+});
