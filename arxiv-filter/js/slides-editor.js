@@ -117,6 +117,9 @@ function renderSlidesEditor(fname, content) {
     <button class="draw-tool" data-tool="image" onclick="_slidesPickImage()" title="Image (I)">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
     </button>
+    <button class="draw-tool" data-tool="latex" onclick="_setSlidesTool('latex')" title="LaTeX (M)">
+      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4l-2 8h4l-2 8 7-10h-4l3-6z"/></svg>
+    </button>
     <span class="draw-sep"></span>
     <button class="draw-tool" onclick="_slidesDeleteSelected()" title="Delete (Del)">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -207,6 +210,7 @@ function _initSlidesCanvas() {
   _slidesCanvas.on('mouse:down', _slidesMouseDown);
   _slidesCanvas.on('mouse:move', _slidesMouseMove);
   _slidesCanvas.on('mouse:up', _slidesMouseUp);
+  _slidesCanvas.on('mouse:dblclick', _slidesMouseDblClick);
 
   // Keyboard shortcuts
   _slidesKeyHandler = function(e) {
@@ -233,6 +237,7 @@ function _initSlidesCanvas() {
     else if (key === 'p') _setSlidesTool('pen');
     else if (key === 't') _setSlidesTool('text');
     else if (key === 'i') _slidesPickImage();
+    else if (key === 'm') _setSlidesTool('latex');
     else if (key === 'pagedown') { e.preventDefault(); if (_slidesCurrentIdx < _slidesData.slides.length - 1) _slidesSwitchTo(_slidesCurrentIdx + 1); }
     else if (key === 'pageup') { e.preventDefault(); if (_slidesCurrentIdx > 0) _slidesSwitchTo(_slidesCurrentIdx - 1); }
     else if (key === 'arrowleft') {
@@ -316,7 +321,7 @@ function _slidesSaveCurrentCanvas() {
   if (!_slidesCanvas || !_slidesData) return;
   const slide = _slidesCurrentSlide();
   if (!slide) return;
-  const json = _slidesCanvas.toJSON();
+  const json = _slidesCanvas.toJSON(['_latexSrc']);
   slide.objects = json.objects || [];
   slide.background = json.background || null;
 }
@@ -344,7 +349,7 @@ function _slidesLoadSlide(idx) {
 
     // Init undo stack for this slide if needed
     if (!_slidesUndoStacks[slide.id]) {
-      _slidesUndoStacks[slide.id] = [JSON.stringify(_slidesCanvas.toJSON())];
+      _slidesUndoStacks[slide.id] = [JSON.stringify(_slidesCanvas.toJSON(['_latexSrc']))];
       _slidesRedoStacks[slide.id] = [];
     }
   });
@@ -550,6 +555,13 @@ function _slidesMouseDown(opt) {
     return;
   }
 
+  if (tool === 'latex') {
+    const pointer = _slidesCanvas.getPointer(opt.e);
+    _slidesShowLatexInput(pointer.x, pointer.y);
+    _setSlidesTool('select');
+    return;
+  }
+
   if (tool === 'image') return;
 
   const pointer = _slidesCanvas.getPointer(opt.e);
@@ -748,7 +760,7 @@ function _slidesPushUndo() {
   if (!_slidesCanvas || !_slidesData) return;
   const slide = _slidesCurrentSlide();
   if (!slide) return;
-  const state = JSON.stringify(_slidesCanvas.toJSON());
+  const state = JSON.stringify(_slidesCanvas.toJSON(['_latexSrc']));
   if (!_slidesUndoStacks[slide.id]) _slidesUndoStacks[slide.id] = [];
   const stack = _slidesUndoStacks[slide.id];
   if (stack.length > 0 && stack[stack.length - 1] === state) return;
@@ -867,6 +879,165 @@ async function _slidesExportPDF() {
 
   offscreen.remove();
   pdf.save(_slidesFname.replace('.slides', '') + '.pdf');
+}
+
+// ── LaTeX Tool ──
+
+function _slidesMouseDblClick(opt) {
+  const obj = opt.target;
+  if (obj && obj._latexSrc) {
+    _slidesShowLatexInput(obj.left, obj.top, obj);
+  }
+}
+
+function _slidesShowLatexInput(x, y, existingObj) {
+  // Remove any existing popup
+  const old = document.getElementById('slides-latex-popup');
+  if (old) old.remove();
+
+  const wrap = document.getElementById('slides-canvas-wrap');
+  if (!wrap || !_slidesCanvas) return;
+
+  const canvasEl = _slidesCanvas.getElement();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  const zoom = _slidesCanvas.getZoom ? _slidesCanvas.getZoom() : 1;
+  const screenX = canvasRect.left + x * zoom;
+  const screenY = canvasRect.top + y * zoom;
+
+  const popup = document.createElement('div');
+  popup.id = 'slides-latex-popup';
+  popup.style.cssText = `position:fixed;z-index:10001;left:${screenX}px;top:${screenY}px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:280px;`;
+  popup.innerHTML = `
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-[0.7rem] text-dimmer uppercase tracking-wide">LaTeX</span>
+      <span class="text-[0.65rem] text-dimmest ml-auto">Enter to insert · Esc to cancel</span>
+    </div>
+    <input id="slides-latex-input" type="text" class="w-full bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-[0.85rem] font-mono outline-none focus:border-accent" spellcheck="false" placeholder="e.g. E = mc^2" value="${existingObj ? escapeHtml(existingObj._latexSrc) : ''}">
+    <div id="slides-latex-preview" class="mt-2 text-center min-h-[32px] text-primary"></div>
+    <div id="slides-latex-error" class="text-red-400 text-[0.7rem] mt-1" style="display:none"></div>
+  `;
+  document.body.appendChild(popup);
+
+  // Keep popup within viewport
+  requestAnimationFrame(() => {
+    const pr = popup.getBoundingClientRect();
+    if (pr.right > window.innerWidth - 8) popup.style.left = (window.innerWidth - pr.width - 8) + 'px';
+    if (pr.bottom > window.innerHeight - 8) popup.style.top = (window.innerHeight - pr.height - 8) + 'px';
+  });
+
+  const input = document.getElementById('slides-latex-input');
+  input.focus();
+  if (existingObj) input.select();
+
+  // Live preview
+  const updatePreview = () => {
+    const val = input.value.trim();
+    const preview = document.getElementById('slides-latex-preview');
+    const error = document.getElementById('slides-latex-error');
+    if (!val) { preview.innerHTML = ''; error.style.display = 'none'; return; }
+    try {
+      preview.innerHTML = katex.renderToString(val, { throwOnError: true, displayMode: true });
+      error.style.display = 'none';
+    } catch (e) {
+      error.textContent = e.message.replace(/^KaTeX parse error:\s*/i, '');
+      error.style.display = '';
+    }
+  };
+  input.addEventListener('input', updatePreview);
+  updatePreview();
+
+  const closePopup = () => { popup.remove(); document.removeEventListener('keydown', keyHandler); };
+
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); closePopup(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = input.value.trim();
+      if (!val) { closePopup(); return; }
+      try {
+        katex.renderToString(val, { throwOnError: true });
+      } catch { return; }
+      _slidesInsertLatex(val, x, y, existingObj);
+      closePopup();
+    }
+  };
+  document.addEventListener('keydown', keyHandler, true);
+
+  // Close on click outside
+  setTimeout(() => {
+    const outside = (e) => {
+      if (!popup.contains(e.target)) { closePopup(); document.removeEventListener('mousedown', outside); }
+    };
+    document.addEventListener('mousedown', outside);
+  }, 0);
+}
+
+async function _slidesInsertLatex(latex, x, y, existingObj) {
+  if (!_slidesCanvas) return;
+  const colors = _getSlidesColors();
+  const fillColor = colors.fill || '#ffffff';
+
+  // Wait for MathJax to be ready
+  if (typeof MathJax === 'undefined' || !MathJax.tex2svgPromise) return;
+
+  try {
+    const wrapper = await MathJax.tex2svgPromise(latex, { display: true });
+    const svgEl = wrapper.querySelector('svg');
+    if (!svgEl) return;
+
+    // Color the SVG paths
+    svgEl.style.color = fillColor;
+    svgEl.querySelectorAll('path, rect, line').forEach(el => {
+      if (el.getAttribute('fill') && el.getAttribute('fill') !== 'none') el.setAttribute('fill', fillColor);
+      if (el.getAttribute('stroke') && el.getAttribute('stroke') !== 'none') el.setAttribute('stroke', fillColor);
+    });
+    // Also set fill on the top-level g elements
+    svgEl.querySelectorAll('g[fill]').forEach(el => el.setAttribute('fill', fillColor));
+    if (!svgEl.getAttribute('fill') || svgEl.getAttribute('fill') === 'currentColor') {
+      svgEl.setAttribute('fill', fillColor);
+    }
+
+    // Set explicit width/height from the viewBox or ex-based dimensions
+    const vb = svgEl.getAttribute('viewBox');
+    if (vb) {
+      const parts = vb.split(/\s+/);
+      const vbW = parseFloat(parts[2]) || 100;
+      const vbH = parseFloat(parts[3]) || 40;
+      // MathJax viewBox is in milliems; scale to reasonable pixel size for slides
+      const scaleFactor = 0.075;
+      svgEl.setAttribute('width', vbW * scaleFactor);
+      svgEl.setAttribute('height', vbH * scaleFactor);
+    }
+
+    // Add xmlns if missing
+    if (!svgEl.getAttribute('xmlns')) svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    const svgStr = svgEl.outerHTML;
+
+    // Load SVG directly into fabric.js as vector (no rasterization, no tainted canvas)
+    fabric.loadSVGFromString(svgStr, (objects, options) => {
+      if (!objects || !objects.length) return;
+      const group = fabric.util.groupSVGElements(objects, options);
+      group.set({ left: x, top: y, _latexSrc: latex });
+
+      if (existingObj) {
+        const idx = _slidesCanvas.getObjects().indexOf(existingObj);
+        _slidesCanvas.remove(existingObj);
+        group.set({ left: existingObj.left, top: existingObj.top, scaleX: existingObj.scaleX, scaleY: existingObj.scaleY });
+        _slidesCanvas.insertAt(group, idx);
+      } else {
+        _slidesCanvas.add(group);
+      }
+      _slidesCanvas.setActiveObject(group);
+      _slidesCanvas.renderAll();
+
+      // Clean up MathJax output cache
+      MathJax.startup.document.clear();
+      MathJax.startup.document.updateDocument();
+    });
+  } catch (e) {
+    console.warn('LaTeX render failed:', e);
+  }
 }
 
 // ── Share & Export Menu ──
