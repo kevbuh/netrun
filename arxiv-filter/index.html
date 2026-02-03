@@ -428,8 +428,9 @@
               <button id="blog-bookmark-btn" onclick="toggleBlogBookmark()" class="blog-action-btn" title="Bookmark">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
               </button>
-              <button onclick="copyBlogToVault()" class="blog-action-btn" title="Fork to my vault">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+              <button id="blog-fork-btn" onclick="copyBlogToVault()" class="blog-action-btn" title="Fork to my vault">
+                <svg class="w-5 h-5 blog-fork-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v1a2 2 0 01-2 2H8a2 2 0 01-2-2V9"/><path d="M12 12v3"/></svg>
+                <svg class="w-5 h-5 blog-fork-check" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
               </button>
               <button id="blog-unpost-btn" onclick="unpublishBlog()" class="blog-action-btn blog-action-btn-danger" title="Unpublish" style="display:none;">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
@@ -789,6 +790,25 @@
   <script src="/js/slides-editor.js"></script>
   <script src="/js/terminal.js"></script>
   <script src="/js/vault.js"></script>
+
+  <!-- New Folder Modal -->
+  <div id="vault-folder-modal" class="vault-modal-overlay" style="display:none;">
+    <div class="vault-modal">
+      <div class="vault-modal-header">
+        <span class="text-[0.9rem] font-semibold text-primary">New Folder</span>
+        <button onclick="hideVaultFolderModal()" class="vault-modal-close">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="vault-modal-body">
+        <input type="text" id="vault-folder-name-input" class="vault-modal-input" placeholder="Folder name" autocomplete="off">
+      </div>
+      <div class="vault-modal-footer">
+        <button onclick="hideVaultFolderModal()" class="vault-modal-btn-cancel">Cancel</button>
+        <button onclick="confirmVaultNewFolder()" class="vault-modal-btn-confirm">Create</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Login Gate (shown when not authenticated) -->
   <div id="login-gate" class="login-gate">

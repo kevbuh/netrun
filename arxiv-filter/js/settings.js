@@ -165,6 +165,18 @@ function renderSettingsView() {
       </div>
     </div>
 
+    <!-- VAULT -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Vault</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Set a custom folder for your notes. Uses ~/Documents/Vault by default.</p>
+      <div class="flex items-center gap-2">
+        <input type="text" id="vault-path-input" class="flex-1 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent" placeholder="Loading...">
+        <button onclick="saveVaultPath()" class="px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Save</button>
+        <button onclick="resetVaultPath()" class="px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Reset</button>
+      </div>
+      <div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>
+    </div>
+
     <!-- AD BLOCKER -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center gap-3 mb-1">
@@ -228,6 +240,95 @@ function renderSettingsView() {
   }).catch(() => {});
   // Start spinner preview
   updateSpinnerPreview(getSelectedSpinner());
+  // Load vault path
+  loadVaultPath();
+}
+
+async function loadVaultPath() {
+  const input = document.getElementById('vault-path-input');
+  const status = document.getElementById('vault-path-status');
+  if (!input) return;
+  try {
+    const res = await fetch('/api/vault/path', { headers: _authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      input.value = data.path || '';
+      input.placeholder = data.default || '';
+      if (status) {
+        status.textContent = data.isCustom ? 'Using custom path' : 'Using default path';
+        status.className = 'text-[0.75rem] mt-2 ' + (data.isCustom ? 'text-accent' : 'text-dimmer');
+      }
+    }
+  } catch (e) {
+    if (status) status.textContent = 'Failed to load vault path';
+  }
+}
+
+async function saveVaultPath() {
+  const input = document.getElementById('vault-path-input');
+  const status = document.getElementById('vault-path-status');
+  if (!input) return;
+  const path = input.value.trim();
+  try {
+    const res = await fetch('/api/vault/path', {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      input.value = data.path || '';
+      if (status) {
+        status.textContent = data.message;
+        status.className = 'text-[0.75rem] mt-2 text-green-500';
+      }
+      // Reload vault if open
+      if (window.location.hash === '#vault') {
+        loadVaultNotes();
+        renderVaultFileTree();
+      }
+    } else {
+      if (status) {
+        status.textContent = data.error || 'Failed to save';
+        status.className = 'text-[0.75rem] mt-2 text-red-400';
+      }
+    }
+  } catch (e) {
+    if (status) {
+      status.textContent = 'Failed to save vault path';
+      status.className = 'text-[0.75rem] mt-2 text-red-400';
+    }
+  }
+}
+
+async function resetVaultPath() {
+  const input = document.getElementById('vault-path-input');
+  const status = document.getElementById('vault-path-status');
+  try {
+    const res = await fetch('/api/vault/path', {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: '' })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      loadVaultPath();
+      if (status) {
+        status.textContent = 'Reset to default';
+        status.className = 'text-[0.75rem] mt-2 text-green-500';
+      }
+      // Reload vault if open
+      if (window.location.hash === '#vault') {
+        loadVaultNotes();
+        renderVaultFileTree();
+      }
+    }
+  } catch (e) {
+    if (status) {
+      status.textContent = 'Failed to reset';
+      status.className = 'text-[0.75rem] mt-2 text-red-400';
+    }
+  }
 }
 
 // Map each theme to its underlying color scheme (dark or light)

@@ -260,7 +260,8 @@ function renderVaultFileTree(filter = '') {
   Object.keys(folders).sort().forEach(folder => {
     const notes = folders[folder].sort((a, b) => a.title.localeCompare(b.title));
     html += `
-      <div class="vault-folder" data-folder="${escapeAttr(folder)}">
+      <div class="vault-folder" data-folder="${escapeAttr(folder)}"
+           ondragover="vaultDragOver(event)" ondragleave="vaultDragLeave(event)" ondrop="vaultDropOnFolder(event, '${escapeAttr(folder)}')">
         <div class="vault-folder-header" onclick="toggleVaultFolder(this.parentElement)" oncontextmenu="showVaultFolderMenu(event, '${escapeAttr(folder)}')">
           <svg class="vault-folder-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
           <svg class="vault-folder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
@@ -279,12 +280,29 @@ function renderVaultFileTree(filter = '') {
   });
 
   container.innerHTML = html || '<div class="text-dimmer text-[0.75rem] px-3 py-2">No notes yet</div>';
+
+  // Setup root drop zone for moving notes out of folders
+  container.ondragover = (e) => { e.preventDefault(); container.classList.add('vault-drop-target'); };
+  container.ondragleave = (e) => { if (e.target === container) container.classList.remove('vault-drop-target'); };
+  container.ondrop = (e) => {
+    e.preventDefault();
+    container.classList.remove('vault-drop-target');
+    const noteId = e.dataTransfer.getData('text/plain');
+    if (noteId && !e.target.closest('.vault-folder')) {
+      vaultMoveNoteToFolder(noteId, null);
+    }
+  };
 }
 
 function renderVaultFileItem(note) {
   const isActive = _vaultCurrentNote?.id === note.id;
   return `
-    <div class="vault-file-item ${isActive ? 'active' : ''}" data-note-id="${note.id}" onclick="openVaultNote('${note.id}')" oncontextmenu="showVaultNoteMenu(event, '${note.id}')">
+    <div class="vault-file-item ${isActive ? 'active' : ''}" data-note-id="${note.id}"
+         onclick="openVaultNote('${note.id}')"
+         oncontextmenu="showVaultNoteMenu(event, '${note.id}')"
+         draggable="true"
+         ondragstart="vaultDragStart(event, '${note.id}')"
+         ondragend="vaultDragEnd(event)">
       <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
       <span class="truncate">${escapeHtml(note.title || 'Untitled')}</span>
     </div>
@@ -293,6 +311,96 @@ function renderVaultFileItem(note) {
 
 function toggleVaultFolder(el) {
   el.classList.toggle('collapsed');
+}
+
+// Drag and drop handlers
+let _vaultDraggedNoteId = null;
+
+function vaultDragStart(e, noteId) {
+  _vaultDraggedNoteId = noteId;
+  e.dataTransfer.setData('text/plain', noteId);
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.classList.add('vault-dragging');
+}
+
+function vaultDragEnd(e) {
+  _vaultDraggedNoteId = null;
+  e.target.classList.remove('vault-dragging');
+  document.querySelectorAll('.vault-drop-target').forEach(el => el.classList.remove('vault-drop-target'));
+}
+
+function vaultDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const folder = e.target.closest('.vault-folder');
+  if (folder) folder.classList.add('vault-drop-target');
+}
+
+function vaultDragLeave(e) {
+  const folder = e.target.closest('.vault-folder');
+  if (folder && !folder.contains(e.relatedTarget)) {
+    folder.classList.remove('vault-drop-target');
+  }
+}
+
+function vaultDropOnFolder(e, folderName) {
+  e.preventDefault();
+  e.stopPropagation();
+  const folder = e.target.closest('.vault-folder');
+  if (folder) folder.classList.remove('vault-drop-target');
+
+  const noteId = e.dataTransfer.getData('text/plain');
+  if (noteId) {
+    vaultMoveNoteToFolder(noteId, folderName);
+  }
+}
+
+async function vaultMoveNoteToFolder(noteId, folderName) {
+  const note = _vaultNotes.find(n => n.id === noteId);
+  if (!note) return;
+
+  // Don't move if already in the target folder
+  if (note.folder === folderName) return;
+
+  try {
+    const res = await fetch(`/api/vault/notes/${noteId}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: folderName })
+    });
+
+    if (res.ok) {
+      note.folder = folderName;
+      renderVaultFileTree();
+    }
+  } catch (e) {
+    console.error('Failed to move note', e);
+  }
+}
+
+// Delete folder with confirmation (called from hover button)
+async function vaultDeleteFolderWithConfirm(folderName) {
+  const notesInFolder = _vaultNotes.filter(n => n.folder === folderName);
+  const msg = notesInFolder.length > 0
+    ? `Delete folder "${folderName}"?\n\nThis will move ${notesInFolder.length} note(s) to the root level.`
+    : `Delete empty folder "${folderName}"?`;
+
+  if (!confirm(msg)) return;
+
+  // Move notes to root (remove folder)
+  for (const note of notesInFolder) {
+    try {
+      await fetch(`/api/vault/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: null })
+      });
+      note.folder = null;
+    } catch (e) {
+      console.error('Failed to move note', e);
+    }
+  }
+  renderVaultFileTree();
 }
 
 // Context menu for folders
@@ -304,18 +412,14 @@ function showVaultFolderMenu(e, folderName) {
   const menu = document.createElement('div');
   menu.className = 'vault-context-menu';
   menu.innerHTML = `
-    <div class="vault-menu-item" onclick="vaultNewNoteInFolder('${escapeAttr(folderName)}')">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-      New note in folder
-    </div>
     <div class="vault-menu-item" onclick="vaultRenameFolder('${escapeAttr(folderName)}')">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/></svg>
-      Rename folder
+      Rename
     </div>
     <div class="vault-menu-sep"></div>
     <div class="vault-menu-item vault-menu-danger" onclick="vaultDeleteFolder('${escapeAttr(folderName)}')">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-      Delete folder
+      Delete
     </div>
   `;
   menu.style.left = e.clientX + 'px';
@@ -342,18 +446,18 @@ function showVaultNoteMenu(e, noteId) {
   const menu = document.createElement('div');
   menu.className = 'vault-context-menu';
   menu.innerHTML = `
-    <div class="vault-menu-item" onclick="openVaultNote('${noteId}')">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-      Open
+    <div class="vault-menu-item" onclick="vaultRenameNotePrompt('${noteId}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/></svg>
+      Rename
     </div>
     <div class="vault-menu-item" onclick="vaultMoveNote('${noteId}')">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
-      Move to folder...
+      Move to folder
     </div>
     <div class="vault-menu-sep"></div>
     <div class="vault-menu-item vault-menu-danger" onclick="vaultDeleteNote('${noteId}')">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-      Delete note
+      Delete
     </div>
   `;
   menu.style.left = e.clientX + 'px';
@@ -369,6 +473,36 @@ function showVaultNoteMenu(e, noteId) {
 
 function hideVaultContextMenu() {
   document.querySelectorAll('.vault-context-menu').forEach(m => m.remove());
+}
+
+// Rename note via prompt
+async function vaultRenameNotePrompt(noteId) {
+  hideVaultContextMenu();
+  const note = _vaultNotes.find(n => n.id === noteId);
+  if (!note) return;
+
+  const newName = prompt('Rename note:', note.title);
+  if (!newName || newName.trim() === note.title) return;
+
+  try {
+    const res = await fetch(`/api/vault/notes/${noteId}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newName.trim() })
+    });
+
+    if (res.ok) {
+      note.title = newName.trim();
+      renderVaultFileTree();
+      // Update title input if this note is currently open
+      if (_vaultCurrentNote?.id === noteId) {
+        const titleInput = document.getElementById('vault-title-input');
+        if (titleInput) titleInput.value = newName.trim();
+      }
+    }
+  } catch (e) {
+    console.error('Failed to rename note', e);
+  }
 }
 
 // Create note in specific folder
@@ -569,23 +703,57 @@ function vaultDeleteCurrentNote() {
   vaultDeleteNote(_vaultCurrentNote.id);
 }
 
-// Create new folder (prompts for name and creates a note inside)
-async function vaultNewFolder() {
-  const name = prompt('New folder name:');
-  if (!name || !name.trim()) return;
+// Show new folder modal
+function vaultNewFolder() {
+  const modal = document.getElementById('vault-folder-modal');
+  const input = document.getElementById('vault-folder-name-input');
+  if (modal && input) {
+    input.value = '';
+    modal.style.display = 'flex';
+    setTimeout(() => input.focus(), 50);
 
-  const folderName = name.trim();
+    // Add keyboard handlers
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmVaultNewFolder();
+      } else if (e.key === 'Escape') {
+        hideVaultFolderModal();
+      }
+    };
+
+    // Click outside to close
+    modal.onclick = (e) => {
+      if (e.target === modal) hideVaultFolderModal();
+    };
+  }
+}
+
+// Hide new folder modal
+function hideVaultFolderModal() {
+  const modal = document.getElementById('vault-folder-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Confirm folder creation from modal
+async function confirmVaultNewFolder() {
+  const input = document.getElementById('vault-folder-name-input');
+  const name = input?.value?.trim();
+  if (!name) return;
+
+  hideVaultFolderModal();
 
   // Create a new note in the folder
   try {
     const res = await fetch('/api/vault/notes', {
       method: 'POST',
       headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Untitled', content: '', folder: folderName })
+      body: JSON.stringify({ title: 'Untitled', content: '', folder: name })
     });
 
     if (res.ok) {
       const note = await res.json();
+      note._isNew = true;
       _vaultNotes.push(note);
       renderVaultFileTree();
       openVaultNote(note.id);
@@ -1243,11 +1411,19 @@ function updateBlogBookmarkButton() {
 async function copyBlogToVault() {
   if (!_currentBlogPost) return;
 
+  const btn = document.getElementById('blog-fork-btn');
+  if (!btn || btn.classList.contains('forking')) return;
+
   // Parse current blog URL to get author and slug
   const hash = window.location.hash.slice(1); // "blog/username/slug"
   const parts = hash.split('/');
   const author = parts[1];
   const slug = parts[2];
+
+  // Start animation
+  btn.classList.add('forking');
+  const forkIcon = btn.querySelector('.blog-fork-icon');
+  const checkIcon = btn.querySelector('.blog-fork-check');
 
   try {
     const res = await fetch('/api/vault/notes', {
@@ -1266,19 +1442,24 @@ async function copyBlogToVault() {
     });
 
     if (res.ok) {
-      const note = await res.json();
-      // Show success feedback
-      const btn = event.target.closest('button');
-      const originalTitle = btn.title;
+      // Show success animation
+      if (forkIcon) forkIcon.style.display = 'none';
+      if (checkIcon) checkIcon.style.display = '';
+      btn.classList.add('forked');
       btn.title = 'Forked!';
-      btn.classList.add('active');
+
       setTimeout(() => {
-        btn.title = originalTitle;
-        btn.classList.remove('active');
+        if (forkIcon) forkIcon.style.display = '';
+        if (checkIcon) checkIcon.style.display = 'none';
+        btn.classList.remove('forking', 'forked');
+        btn.title = 'Fork to my vault';
       }, 2000);
+    } else {
+      btn.classList.remove('forking');
     }
   } catch (e) {
     console.error('Failed to fork to vault', e);
+    btn.classList.remove('forking');
   }
 }
 

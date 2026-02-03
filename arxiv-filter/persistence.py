@@ -527,6 +527,21 @@ def get_all_user_data(google_id):
     return result
 
 
+def get_user_data(google_id, key):
+    """Get a single user data value by key. Returns None if not found."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT value FROM user_data WHERE google_id = ? AND key = ?", (google_id, key)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    try:
+        return json.loads(row['value'])
+    except json.JSONDecodeError:
+        return row['value']
+
+
 def set_user_data(google_id, key, value, updated=None):
     if updated is None:
         updated = time.time()

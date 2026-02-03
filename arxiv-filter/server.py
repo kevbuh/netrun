@@ -39,7 +39,7 @@ from persistence import (
     classify_title, cached_fetch,
     upsert_google_user, get_user_info, create_session,
     get_session_user, delete_session, set_username, delete_user,
-    get_all_user_data, set_user_data, set_user_data_bulk,
+    get_all_user_data, get_user_data, set_user_data, set_user_data_bulk,
     create_team, get_user_teams, get_team, delete_team,
     invite_to_team, get_pending_invites, respond_to_invite,
     remove_team_member, set_experiment_team, remove_experiment_team,
@@ -121,6 +121,76 @@ def _write_vault_md(fpath, note):
         f.write(frontmatter)
         f.write('---\n')
         f.write(content)
+
+
+def _sanitize_vault_filename(title):
+    """Sanitize a note title to be a valid filename."""
+    import re
+    # Remove or replace invalid characters
+    name = re.sub(r'[<>:"/\\|?*]', '', title)
+    # Replace multiple spaces/underscores with single space
+    name = re.sub(r'[\s_]+', ' ', name).strip()
+    # Limit length
+    if len(name) > 100:
+        name = name[:100].rsplit(' ', 1)[0]
+    return name or 'Untitled'
+
+
+def _find_vault_note_by_id(user_vault, note_id):
+    """Find a vault note file by its ID. Returns (filepath, note) or (None, None)."""
+    if not os.path.isdir(user_vault):
+        return None, None
+    for fname in os.listdir(user_vault):
+        if not fname.endswith('.md'):
+            continue
+        fpath = os.path.join(user_vault, fname)
+        try:
+            note = _read_vault_md(fpath)
+            if note and note.get('id') == note_id:
+                return fpath, note
+        except:
+            pass
+    return None, None
+
+
+def _get_user_vault_path(google_id):
+    """Get the vault path for a user, checking for custom path first."""
+    # Check for custom vault path in user data
+    custom_path = get_user_data(google_id, 'vaultPath')
+    if custom_path and os.path.isdir(custom_path):
+        return custom_path
+    # Default to standard vault directory
+    default_path = os.path.join(VAULT_DIR, google_id)
+    os.makedirs(default_path, exist_ok=True)
+    return default_path
+
+
+def _set_user_vault_path(google_id, path):
+    """Set a custom vault path for a user. Returns success status and message."""
+    if not path:
+        # Clear custom path, revert to default
+        set_user_data(google_id, 'vaultPath', None)
+        return True, 'Vault path reset to default'
+    # Expand user path (e.g., ~/Documents)
+    expanded_path = os.path.expanduser(path)
+    # Check if path exists or can be created
+    if not os.path.exists(expanded_path):
+        try:
+            os.makedirs(expanded_path, exist_ok=True)
+        except Exception as e:
+            return False, f'Cannot create directory: {str(e)}'
+    if not os.path.isdir(expanded_path):
+        return False, 'Path is not a directory'
+    # Check if writable
+    test_file = os.path.join(expanded_path, '.vault_test')
+    try:
+        with open(test_file, 'w') as f:
+            f.write('test')
+        os.remove(test_file)
+    except Exception as e:
+        return False, f'Directory is not writable: {str(e)}'
+    set_user_data(google_id, 'vaultPath', expanded_path)
+    return True, f'Vault path set to {expanded_path}'
 
 
 # Auto-create _unstructured pseudo-experiment for loose files
@@ -601,32 +671,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not google_id:
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            user_vault = os.path.join(VAULT_DIR, google_id)
-            os.makedirs(user_vault, exist_ok=True)
+            user_vault = _get_user_vault_path(google_id)
             notes = []
-            for fname in os.listdir(user_vault):
-                fpath = os.path.join(user_vault, fname)
-                # Support both .md (new) and .json (legacy)
-                if fname.endswith('.md'):
+            if os.path.isdir(user_vault):
+                for fname in os.listdir(user_vault):
+                    if not fname.endswith('.md'):
+                        continue
+                    fpath = os.path.join(user_vault, fname)
                     try:
                         note = _read_vault_md(fpath)
                         if note:
                             notes.append(note)
                     except:
                         pass
-                elif fname.endswith('.json'):
-                    # Legacy format - migrate to .md
-                    try:
-                        with open(fpath, 'r') as f:
-                            note = json.load(f)
-                            notes.append(note)
-                            # Migrate to .md format
-                            _write_vault_md(os.path.join(user_vault, f"{note['id']}.md"), note)
-                            os.remove(fpath)
-                    except:
-                        pass
             notes.sort(key=lambda n: n.get('updated', 0), reverse=True)
             self._send_json(notes)
+
+        # ── Vault Path API ──
+        elif self.path == '/api/vault/path':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            custom_path = get_user_data(google_id, 'vaultPath')
+            default_path = os.path.join(VAULT_DIR, google_id)
+            self._send_json({
+                'path': custom_path or default_path,
+                'isCustom': bool(custom_path),
+                'default': default_path
+            })
 
         elif m := self._match(r'^/api/vault/notes/([a-zA-Z0-9_-]+)$'):
             note_id = m.group(1)
@@ -634,22 +707,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not google_id:
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            # Try .md first, fall back to .json
-            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.md')
-            if os.path.exists(note_path):
-                note = _read_vault_md(note_path)
-                if note:
-                    self._send_json(note)
-                else:
-                    self._send_json({'error': 'Invalid note format'}, 500)
+            user_vault = _get_user_vault_path(google_id)
+            note_path, note = _find_vault_note_by_id(user_vault, note_id)
+            if note:
+                self._send_json(note)
             else:
-                # Legacy .json fallback
-                json_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
-                if os.path.exists(json_path):
-                    with open(json_path, 'r') as f:
-                        self._send_json(json.load(f))
-                else:
-                    self._send_json({'error': 'Not found'}, 404)
+                self._send_json({'error': 'Not found'}, 404)
 
         # ── Public Blog API (no auth required) ──
         elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)$'):
@@ -661,20 +724,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': 'User not found'}, 404)
                 return
             google_id = user_info['google_id']
-            user_vault = os.path.join(VAULT_DIR, google_id)
-            # Get viewer's google_id if logged in (for vote status)
+            user_vault = _get_user_vault_path(google_id)
             viewer_google_id = self._get_user()
-            # Find published note with matching slug (supports both .md and .json)
             if os.path.isdir(user_vault):
                 for fname in os.listdir(user_vault):
+                    if not fname.endswith('.md'):
+                        continue
                     fpath = os.path.join(user_vault, fname)
-                    note = None
                     try:
-                        if fname.endswith('.md'):
-                            note = _read_vault_md(fpath)
-                        elif fname.endswith('.json'):
-                            with open(fpath, 'r') as f:
-                                note = json.load(f)
+                        note = _read_vault_md(fpath)
                         if note and note.get('published') and note.get('slug') == slug:
                             votes = get_blog_votes(username, slug, viewer_google_id)
                             self._send_json({
@@ -700,18 +758,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'error': 'User not found'}, 404)
                 return
             google_id = user_info['google_id']
-            user_vault = os.path.join(VAULT_DIR, google_id)
+            user_vault = _get_user_vault_path(google_id)
             posts = []
             if os.path.isdir(user_vault):
                 for fname in os.listdir(user_vault):
+                    if not fname.endswith('.md'):
+                        continue
                     fpath = os.path.join(user_vault, fname)
-                    note = None
                     try:
-                        if fname.endswith('.md'):
-                            note = _read_vault_md(fpath)
-                        elif fname.endswith('.json'):
-                            with open(fpath, 'r') as f:
-                                note = json.load(f)
+                        note = _read_vault_md(fpath)
                         if note and note.get('published'):
                             posts.append({
                                 'title': note.get('title', 'Untitled'),
@@ -2380,21 +2435,42 @@ ch.postMessage({type:'preview-ready'});
                 return
             body = self._read_body()
             note_id = str(uuid.uuid4())[:8]
+            title = body.get('title', 'Untitled')
             note = {
                 'id': note_id,
-                'title': body.get('title', 'Untitled'),
+                'title': title,
                 'content': body.get('content', ''),
                 'folder': body.get('folder'),
                 'created': int(time.time()),
                 'updated': int(time.time())
             }
-            # Handle forked_from for blog forks
             if body.get('forked_from'):
                 note['forked_from'] = body['forked_from']
-            user_vault = os.path.join(VAULT_DIR, google_id)
-            os.makedirs(user_vault, exist_ok=True)
-            _write_vault_md(os.path.join(user_vault, f'{note_id}.md'), note)
+            user_vault = _get_user_vault_path(google_id)
+            base_fname = _sanitize_vault_filename(title)
+            fname = f'{base_fname}.md'
+            fpath = os.path.join(user_vault, fname)
+            counter = 1
+            while os.path.exists(fpath):
+                fname = f'{base_fname} {counter}.md'
+                fpath = os.path.join(user_vault, fname)
+                counter += 1
+            _write_vault_md(fpath, note)
             self._send_json(note, 201)
+
+        # ── Vault Path API (PUT) ──
+        elif self.path == '/api/vault/path':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            path = body.get('path', '').strip()
+            success, message = _set_user_vault_path(google_id, path if path else None)
+            if success:
+                self._send_json({'ok': True, 'message': message, 'path': _get_user_vault_path(google_id)})
+            else:
+                self._send_json({'error': message}, 400)
 
         # ── Blog Vote API ──
         elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)/vote$'):
@@ -2420,34 +2496,23 @@ ch.postMessage({type:'preview-ready'});
                 return
             username = m.group(1)
             slug = m.group(2)
-            # Verify the user owns this blog post
             user_info = get_user_info(google_id)
             if not user_info or user_info.get('username') != username:
                 self._send_json({'error': 'Not authorized'}, 403)
                 return
-            # Find the note with matching slug
-            user_vault = os.path.join(VAULT_DIR, google_id)
+            user_vault = _get_user_vault_path(google_id)
             if os.path.isdir(user_vault):
                 for fname in os.listdir(user_vault):
+                    if not fname.endswith('.md'):
+                        continue
                     fpath = os.path.join(user_vault, fname)
-                    note = None
                     try:
-                        if fname.endswith('.md'):
-                            note = _read_vault_md(fpath)
-                        elif fname.endswith('.json'):
-                            with open(fpath, 'r') as f:
-                                note = json.load(f)
+                        note = _read_vault_md(fpath)
                         if note and note.get('published') and note.get('slug') == slug:
-                            # Unpublish
                             note['published'] = False
                             note['published_at'] = None
                             note['updated'] = int(time.time())
-                            # Save as .md
-                            md_path = os.path.join(user_vault, f"{note['id']}.md")
-                            _write_vault_md(md_path, note)
-                            # Remove old .json if exists
-                            if fname.endswith('.json'):
-                                os.remove(fpath)
+                            _write_vault_md(fpath, note)
                             self._send_json({'ok': True})
                             return
                     except:
@@ -2757,21 +2822,15 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
             note_id = m.group(1)
-            # Try .md first, fall back to .json
-            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.md')
-            json_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
-            if os.path.exists(note_path):
-                note = _read_vault_md(note_path)
-            elif os.path.exists(json_path):
-                with open(json_path, 'r') as f:
-                    note = json.load(f)
-                # Will migrate to .md on save
-                os.remove(json_path)
-            else:
+            user_vault = _get_user_vault_path(google_id)
+            note_path, note = _find_vault_note_by_id(user_vault, note_id)
+            if not note:
                 self._send_json({'error': 'Not found'}, 404)
                 return
             body = self._read_body()
-            note['title'] = body.get('title', note.get('title', 'Untitled'))
+            old_title = note.get('title', 'Untitled')
+            new_title = body.get('title', old_title)
+            note['title'] = new_title
             note['content'] = body.get('content', note.get('content', ''))
             if 'folder' in body:
                 note['folder'] = body['folder']
@@ -2779,13 +2838,26 @@ ch.postMessage({type:'preview-ready'});
             if 'published' in body:
                 note['published'] = body['published']
                 if body['published']:
-                    # Generate slug from title
                     note['slug'] = slugify(note['title']) or note_id
                     note['published_at'] = note.get('published_at') or int(time.time())
                 else:
                     note['published_at'] = None
             note['updated'] = int(time.time())
-            _write_vault_md(note_path, note)
+            # Determine new filename based on title
+            base_fname = _sanitize_vault_filename(new_title)
+            new_fname = f'{base_fname}.md'
+            new_path = os.path.join(user_vault, new_fname)
+            # Handle conflicts (but allow keeping same file)
+            if new_path != note_path and os.path.exists(new_path):
+                counter = 1
+                while os.path.exists(new_path):
+                    new_fname = f'{base_fname} {counter}.md'
+                    new_path = os.path.join(user_vault, new_fname)
+                    counter += 1
+            # Remove old file if path changed
+            if note_path and note_path != new_path and os.path.exists(note_path):
+                os.remove(note_path)
+            _write_vault_md(new_path, note)
             self._send_json(note)
             return
 
@@ -3091,17 +3163,10 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
             note_id = m.group(1)
-            # Try both .md and .json
-            md_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.md')
-            json_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
-            deleted = False
-            if os.path.exists(md_path):
-                os.remove(md_path)
-                deleted = True
-            if os.path.exists(json_path):
-                os.remove(json_path)
-                deleted = True
-            if deleted:
+            user_vault = _get_user_vault_path(google_id)
+            note_path, note = _find_vault_note_by_id(user_vault, note_id)
+            if note_path and os.path.exists(note_path):
+                os.remove(note_path)
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not found'}, 404)
