@@ -1,4 +1,5 @@
 function openSettings() {
+  setSidebarLoading('sb-settings');
   hideAllViews();
   const view = document.getElementById('settings-view');
   view.classList.add('active');

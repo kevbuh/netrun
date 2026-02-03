@@ -424,6 +424,7 @@ function _browseGoBack() {
 }
 
 function openBrowse(url) {
+  setSidebarLoading('sb-browse');
   hideAllViews();
   // Clear paper-sidebar to avoid duplicate IDs
   const paperSb = document.getElementById('paper-sidebar');

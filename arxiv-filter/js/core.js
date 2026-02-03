@@ -86,9 +86,23 @@ const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-exp
 
 function setSidebarActive(id) {
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
-  document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sidebar-icon').forEach(b => {
+    b.classList.remove('active');
+    // Don't remove sb-loading here - let animation finish on its own
+  });
   const desktopEl = document.getElementById(id);
   if (desktopEl) desktopEl.classList.add('active');
+}
+
+function setSidebarLoading(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Reset animation by removing and re-adding class
+  el.classList.remove('sb-loading');
+  void el.offsetWidth; // Force reflow
+  el.classList.add('sb-loading');
+  // Remove class after animation completes
+  setTimeout(() => el.classList.remove('sb-loading'), 350);
 }
 
 // ── Performance Optimizations ──
@@ -447,6 +461,7 @@ function hideAllViews() {
 }
 
 function goHome() {
+  setSidebarLoading('sb-home');
   const alreadyOnFeed = window.location.hash === '#feed';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
   document.getElementById('home-main').style.display = '';
@@ -461,6 +476,7 @@ function goHome() {
 }
 
 function openSearch() {
+  setSidebarLoading('sb-search');
   hideAllViews();
   const view = document.getElementById('search-view');
   view.classList.add('active');
@@ -482,6 +498,7 @@ function openSearch() {
 }
 
 function openDashboard() {
+  setSidebarLoading('sb-dashboard');
   hideAllViews();
   const view = document.getElementById('dashboard-view');
   view.classList.add('active');
@@ -500,6 +517,7 @@ function expGoBack() {
 }
 
 function openExperiments() {
+  setSidebarLoading('sb-experiments');
   hideAllViews();
   const view = document.getElementById('experiments-view');
   view.classList.add('active');

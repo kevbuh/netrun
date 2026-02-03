@@ -243,6 +243,7 @@ function showEmojiPicker(teamId, msgId, btn) {
 // ── Inbox View ──
 
 function openInbox() {
+  setSidebarLoading('sb-inbox');
   hideAllViews();
   const view = document.getElementById('inbox-view');
   view.classList.add('active');
@@ -482,6 +483,7 @@ async function dismissDirectMessage(msgId, btn) {
 // ── Teams View (standalone page) ──
 
 function openTeams() {
+  setSidebarLoading('sb-teams');
   hideAllViews();
   const view = document.getElementById('teams-view');
   view.classList.add('active');

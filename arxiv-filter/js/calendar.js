@@ -11,12 +11,13 @@ let calendarShowForm = false;
 }
 
 function openCalendar() {
+  setSidebarLoading('sb-calendar');
   hideAllViews();
   const view = document.getElementById('calendar-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'calendar';
-  setSidebarActive('sb-home');
+  setSidebarActive('sb-calendar');
   fetchCalendarEvents();
 }
 

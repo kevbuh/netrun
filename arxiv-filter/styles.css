@@ -395,6 +395,17 @@
       box-shadow: inset 3px 0 0 var(--accent);
     }
 
+    /* ── Sidebar icon click animation ── */
+    .sidebar-icon.sb-loading > svg,
+    .sidebar-icon.sb-loading > span:first-child:not(.sidebar-tooltip) {
+      animation: sb-icon-bounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes sb-icon-bounce {
+      0% { transform: scale(1); }
+      40% { transform: scale(0.7); }
+      100% { transform: scale(1); }
+    }
+
     /* ── Sidebar drag ghost ── */
     .sidebar-drag-ghost {
       background: var(--bg-hover);

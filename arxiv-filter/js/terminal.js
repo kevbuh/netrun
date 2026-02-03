@@ -137,6 +137,7 @@ let _termSettings = {
 };
 
 function openTerminal() {
+  setSidebarLoading('sb-terminal');
   hideAllViews();
   const view = document.getElementById('terminal-view');
   view.style.display = 'flex';
