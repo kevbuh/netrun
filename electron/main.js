@@ -324,7 +324,6 @@ app.on('web-contents-created', (event, contents) => {
         });
       } catch (e) {
         // Silently ignore errors from destroyed objects
-        console.log('Download handler error (object destroyed):', e.message);
       }
       });
     }

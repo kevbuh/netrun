@@ -996,9 +996,7 @@ function _closeBrowseDownloadsOnClick(e) {
 }
 
 function clearBrowseDownloads() {
-  console.log('Clearing downloads, before:', _browseDownloads.length);
   _browseDownloads = [];
-  console.log('After clearing:', _browseDownloads.length);
   _browseUpdateDownloadBadge();
   _browseRenderDownloads();
   _saveBrowseDownloads();
@@ -1030,37 +1028,12 @@ let _downloadsInitialized = false;
 
 function _initBrowseDownloads() {
   if (!window.electronAPI) return;
-  if (_downloadsInitialized) return; // Prevent multiple initializations
+  if (_downloadsInitialized) return;
   _downloadsInitialized = true;
 
-  // Remove any existing listeners first
-  if (window.electronAPI.removeDownloadListeners) {
-    window.electronAPI.removeDownloadListeners();
-  }
-
-  // Listen for download-started event from main process
+  // Listen for download-started event
   if (window.electronAPI.onDownloadStarted) {
     window.electronAPI.onDownloadStarted((event, data) => {
-      // Check if this download already exists by ID
-      const existingById = _browseDownloads.find(d => d.id === data.id);
-      if (existingById) {
-        console.log('Download with same ID already exists, skipping:', data.id);
-        return;
-      }
-
-      // Also check for recent duplicate by URL and filename (within last 5 seconds)
-      const now = Date.now();
-      const recentDuplicate = _browseDownloads.find(d =>
-        d.url === data.url &&
-        d.filename === data.filename &&
-        (now - d.startTime) < 5000
-      );
-      if (recentDuplicate) {
-        console.log('Recent duplicate download detected, skipping:', data.filename);
-        return;
-      }
-
-      // Use the ID from main process directly
       const dl = {
         id: data.id,
         filename: data.filename || 'download',
@@ -1075,21 +1048,18 @@ function _initBrowseDownloads() {
       _browseShowDownloadBtn();
       _browseUpdateDownloadBadge();
       _browseRenderDownloads();
-      console.log('Download started:', dl.id, dl.filename);
     });
   }
 
   // Listen for download-progress event
   if (window.electronAPI.onDownloadProgress) {
     window.electronAPI.onDownloadProgress((event, data) => {
-      // Match by ID from main process
       const dl = _browseDownloads.find(d => d.id === data.id);
       if (dl) {
         dl.receivedBytes = data.receivedBytes || 0;
         dl.totalBytes = data.totalBytes || dl.totalBytes;
         _browseUpdateDownloadBadge();
         _browseRenderDownloads();
-        console.log('Download progress:', dl.id, dl.receivedBytes, '/', dl.totalBytes);
       }
     });
   }
@@ -1104,7 +1074,6 @@ function _initBrowseDownloads() {
         dl.receivedBytes = dl.totalBytes;
         _browseUpdateDownloadBadge();
         _browseRenderDownloads();
-        console.log('Download completed:', dl.id, dl.state);
       }
     });
   }
