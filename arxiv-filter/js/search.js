@@ -1125,7 +1125,7 @@ function _browseRenderTabs() {
     const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
     const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
       ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
-    return `<div class="browse-tab ${active ? 'active' : ''} ${hasAudio ? 'has-audio' : ''}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
+    return `<div class="browse-tab ${active ? 'active' : ''} ${hasAudio ? 'has-audio' : ''}" onclick="_focusBrowseTabBar();browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
       ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
       <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
     </div>`;
@@ -1146,21 +1146,36 @@ function toggleBrowseTabOverview() {
 }
 
 // Tab overview keyboard navigation state
-let _overviewSelectedWindow = 0;
-let _overviewSelectedTab = 0;
+let _overviewSelectedIndex = 0; // Flat index across all tabs
 let _overviewKeyHandler = null;
+
+// Get flat list of all selectable items (tabs + new tab cards)
+function _getOverviewItems() {
+  const items = [];
+  _browseWindows.forEach((win, winIdx) => {
+    win.tabs.forEach((tab, tabIdx) => {
+      items.push({ type: 'tab', windowId: win.id, tabId: tab.id, winIdx, tabIdx });
+    });
+    // Add new tab card for this window
+    items.push({ type: 'newTab', windowId: win.id, winIdx, tabIdx: win.tabs.length });
+  });
+  return items;
+}
 
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = true;
 
-  // Initialize selection to current window/tab
-  _overviewSelectedWindow = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-  if (_overviewSelectedWindow < 0) _overviewSelectedWindow = 0;
-  const win = _browseWindows[_overviewSelectedWindow];
-  _overviewSelectedTab = win ? win.tabs.findIndex(t => t.id === win.activeTab) : 0;
-  if (_overviewSelectedTab < 0) _overviewSelectedTab = 0;
+  // Initialize selection to current active tab
+  const items = _getOverviewItems();
+  const currentWin = _browseWindows.find(w => w.id === _browseActiveWindow);
+  if (currentWin) {
+    _overviewSelectedIndex = items.findIndex(item =>
+      item.type === 'tab' && item.windowId === currentWin.id && item.tabId === currentWin.activeTab
+    );
+  }
+  if (_overviewSelectedIndex < 0) _overviewSelectedIndex = 0;
 
   _renderBrowseTabOverview();
   overlay.style.display = 'block';
@@ -1197,35 +1212,17 @@ function _installOverviewKeyHandler() {
     if (!_browseTabOverviewVisible) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    const win = _browseWindows[_overviewSelectedWindow];
-    const tabCount = win ? win.tabs.length + 1 : 1; // +1 for new tab card
+    const items = _getOverviewItems();
+    const totalItems = items.length;
 
-    if (e.key === 'ArrowRight') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
-      _overviewSelectedTab = Math.min(_overviewSelectedTab + 1, tabCount - 1);
+      _overviewSelectedIndex = Math.min(_overviewSelectedIndex + 1, totalItems - 1);
       _updateOverviewSelection();
-    } else if (e.key === 'ArrowLeft') {
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      _overviewSelectedTab = Math.max(_overviewSelectedTab - 1, 0);
+      _overviewSelectedIndex = Math.max(_overviewSelectedIndex - 1, 0);
       _updateOverviewSelection();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (_overviewSelectedWindow < _browseWindows.length - 1) {
-        _overviewSelectedWindow++;
-        const newWin = _browseWindows[_overviewSelectedWindow];
-        const newTabCount = newWin ? newWin.tabs.length + 1 : 1;
-        _overviewSelectedTab = Math.min(_overviewSelectedTab, newTabCount - 1);
-        _updateOverviewSelection();
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (_overviewSelectedWindow > 0) {
-        _overviewSelectedWindow--;
-        const newWin = _browseWindows[_overviewSelectedWindow];
-        const newTabCount = newWin ? newWin.tabs.length + 1 : 1;
-        _overviewSelectedTab = Math.min(_overviewSelectedTab, newTabCount - 1);
-        _updateOverviewSelection();
-      }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       _selectOverviewItem();
@@ -1250,29 +1247,31 @@ function _updateOverviewSelection() {
   if (!overlay) return;
   overlay.querySelectorAll('.keyboard-selected').forEach(el => el.classList.remove('keyboard-selected'));
 
-  // Find and highlight the selected item
+  // Find the item at the current index
+  const items = _getOverviewItems();
+  const item = items[_overviewSelectedIndex];
+  if (!item) return;
+
+  // Find and highlight the selected card
   const sections = overlay.querySelectorAll('.browse-window-section');
-  if (sections[_overviewSelectedWindow]) {
-    const cards = sections[_overviewSelectedWindow].querySelectorAll('.browse-tab-card');
-    if (cards[_overviewSelectedTab]) {
-      cards[_overviewSelectedTab].classList.add('keyboard-selected');
-      cards[_overviewSelectedTab].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (sections[item.winIdx]) {
+    const cards = sections[item.winIdx].querySelectorAll('.browse-tab-card');
+    if (cards[item.tabIdx]) {
+      cards[item.tabIdx].classList.add('keyboard-selected');
+      cards[item.tabIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 }
 
 function _selectOverviewItem() {
-  const win = _browseWindows[_overviewSelectedWindow];
-  if (!win) return;
+  const items = _getOverviewItems();
+  const item = items[_overviewSelectedIndex];
+  if (!item) return;
 
-  // Check if selecting new tab card (last position)
-  if (_overviewSelectedTab >= win.tabs.length) {
-    _newTabInWindowFromOverview(win.id);
+  if (item.type === 'newTab') {
+    _newTabInWindowFromOverview(item.windowId);
   } else {
-    const tab = win.tabs[_overviewSelectedTab];
-    if (tab) {
-      _selectTabFromOverview(win.id, tab.id);
-    }
+    _selectTabFromOverview(item.windowId, item.tabId);
   }
 }
 
@@ -1375,9 +1374,9 @@ function _renderBrowseTabOverview() {
     </div>
   `;
 
-  // Apply keyboard selection highlight
+  // Apply keyboard selection highlight after render
   if (_browseTabOverviewVisible) {
-    setTimeout(() => _updateOverviewSelection(), 0);
+    requestAnimationFrame(() => _updateOverviewSelection());
   }
 }
 
@@ -1617,6 +1616,8 @@ document.addEventListener('keydown', function(e) {
 // No-op stubs kept so callers don't break.
 let _browseKeyHandler = null;
 
+let _browseTabBarFocused = false;
+
 function _browseInstallKeyGuard() {
   if (_browseKeyHandler) return;
   _browseKeyHandler = (e) => {
@@ -1624,19 +1625,107 @@ function _browseInstallKeyGuard() {
     const browseView = document.getElementById('browse-view');
     if (!browseView || browseView.style.display === 'none') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    // Don't handle if tab overview is open (it has its own handler)
+    if (_browseTabOverviewVisible) return;
+    // Only handle arrow keys if tab bar is focused
+    if (!_browseTabBarFocused) return;
 
-    // Ctrl+Arrow up/down to switch windows (works on Mac and Windows)
-    if (_browseWindows.length > 1 && e.ctrlKey) {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        switchWindowUp();
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        switchWindowDown();
-      }
+    const win = _getCurrentWindow();
+    if (!win) return;
+
+    // Arrow keys for navigation when tab bar is focused
+    if (e.key === 'ArrowUp' && _browseWindows.length > 1) {
+      e.preventDefault();
+      switchWindowUp();
+    } else if (e.key === 'ArrowDown' && _browseWindows.length > 1) {
+      e.preventDefault();
+      switchWindowDown();
+    } else if (e.key === 'ArrowLeft' && win.tabs.length > 1) {
+      e.preventDefault();
+      _switchTabLeft();
+    } else if (e.key === 'ArrowRight' && win.tabs.length > 1) {
+      e.preventDefault();
+      _switchTabRight();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      _blurBrowseTabBar();
     }
   };
   document.addEventListener('keydown', _browseKeyHandler);
+
+  // Click on content area blurs tab bar
+  document.addEventListener('mousedown', (e) => {
+    if (!_browseTabBarFocused) return;
+    const tabBar = document.getElementById('browse-tabs');
+    const switcher = e.target.closest('.browse-window-switcher');
+    if (tabBar && !tabBar.contains(e.target) && !switcher) {
+      _blurBrowseTabBar();
+    }
+  });
+}
+
+function _focusBrowseTabBar() {
+  _browseTabBarFocused = true;
+  const tabBar = document.getElementById('browse-tabs');
+  if (tabBar) tabBar.classList.add('tab-bar-focused');
+}
+
+function _blurBrowseTabBar() {
+  _browseTabBarFocused = false;
+  const tabBar = document.getElementById('browse-tabs');
+  if (tabBar) tabBar.classList.remove('tab-bar-focused');
+}
+
+function _switchTabLeft() {
+  const win = _getCurrentWindow();
+  if (!win || win.tabs.length < 2) return;
+  const idx = win.tabs.findIndex(t => t.id === win.activeTab);
+  if (idx > 0) {
+    _animateTabSwitch('left', () => {
+      browseSelectTab(win.tabs[idx - 1].id);
+    });
+  }
+}
+
+function _switchTabRight() {
+  const win = _getCurrentWindow();
+  if (!win || win.tabs.length < 2) return;
+  const idx = win.tabs.findIndex(t => t.id === win.activeTab);
+  if (idx < win.tabs.length - 1) {
+    _animateTabSwitch('right', () => {
+      browseSelectTab(win.tabs[idx + 1].id);
+    });
+  }
+}
+
+function _animateTabSwitch(direction, callback) {
+  const content = document.getElementById('browse-content');
+  if (!content) { callback(); return; }
+
+  const offset = direction === 'left' ? '30px' : '-30px';
+  const offsetIn = direction === 'left' ? '-30px' : '30px';
+
+  content.style.transition = 'transform 0.12s ease-out, opacity 0.12s ease-out';
+  content.style.transform = `translateX(${offset})`;
+  content.style.opacity = '0.5';
+
+  setTimeout(() => {
+    callback();
+    content.style.transition = 'none';
+    content.style.transform = `translateX(${offsetIn})`;
+
+    requestAnimationFrame(() => {
+      content.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
+      content.style.transform = 'translateX(0)';
+      content.style.opacity = '1';
+
+      setTimeout(() => {
+        content.style.transition = '';
+        content.style.transform = '';
+        content.style.opacity = '';
+      }, 150);
+    });
+  }, 120);
 }
 
 function _browseRemoveKeyGuard() {

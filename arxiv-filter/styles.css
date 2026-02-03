@@ -579,6 +579,10 @@
       border-color: var(--border-card);
       box-shadow: 0 1px 4px rgba(0,0,0,.15);
     }
+    /* Tab bar focused state - shows arrow key navigation is active */
+    #browse-tabs.tab-bar-focused .browse-tab.active {
+      box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.15);
+    }
     .browse-tab-favicon {
       width: 14px;
       height: 14px;
