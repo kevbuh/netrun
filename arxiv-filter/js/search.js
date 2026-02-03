@@ -832,54 +832,6 @@ setTimeout(() => {
   _browseRenderDownloads();
 }, 100);
 
-function _browseShowDownloadBtn() {
-  // Download button is always visible; this function kept for compatibility
-  _saveBrowseDownloads();
-}
-
-// Start tracking a download (can be called from Electron main process or anywhere)
-function browseStartDownload(url, filename, totalBytes) {
-  const dl = {
-    id: 'dl-' + (++_browseDownloadIdCounter),
-    filename: filename || url.split('/').pop().split('?')[0] || 'download',
-    url: url || '',
-    state: 'progressing',
-    receivedBytes: 0,
-    totalBytes: totalBytes || 0,
-    startTime: Date.now(),
-    savePath: ''
-  };
-  _browseDownloads.unshift(dl);
-  _browseShowDownloadBtn();
-  _browseUpdateDownloadBadge();
-  _browseRenderDownloads();
-  return dl.id;
-}
-
-// Update download progress
-function browseUpdateDownload(id, receivedBytes, totalBytes) {
-  const dl = _browseDownloads.find(d => d.id === id);
-  if (dl) {
-    dl.receivedBytes = receivedBytes;
-    if (totalBytes) dl.totalBytes = totalBytes;
-    _browseUpdateDownloadBadge();
-    _browseRenderDownloads();
-  }
-}
-
-// Complete a download
-function browseCompleteDownload(id, savePath) {
-  const dl = _browseDownloads.find(d => d.id === id);
-  if (dl) {
-    dl.state = 'completed';
-    dl.receivedBytes = dl.totalBytes || dl.receivedBytes;
-    if (savePath) dl.savePath = savePath;
-    _browseUpdateDownloadBadge();
-    _browseRenderDownloads();
-    _saveBrowseDownloads();
-  }
-}
-
 // Check if URL looks like a downloadable file
 function _isDownloadableUrl(url) {
   if (!url) return false;
@@ -1045,9 +997,9 @@ function _initBrowseDownloads() {
         savePath: data.savePath || ''
       };
       _browseDownloads.unshift(dl);
-      _browseShowDownloadBtn();
       _browseUpdateDownloadBadge();
       _browseRenderDownloads();
+      _saveBrowseDownloads();
     });
   }
 
@@ -1336,7 +1288,6 @@ function _browseSaveImage(url) {
       savePath: ''
     };
     _browseDownloads.unshift(dl);
-    _browseShowDownloadBtn();
     _browseUpdateDownloadBadge();
     _browseRenderDownloads();
     _saveBrowseDownloads();
@@ -1381,7 +1332,6 @@ function _browseSaveLink(url) {
       savePath: ''
     };
     _browseDownloads.unshift(dl);
-    _browseShowDownloadBtn();
     _browseUpdateDownloadBadge();
     _browseRenderDownloads();
     _saveBrowseDownloads();
@@ -1404,11 +1354,6 @@ function _browseSaveLink(url) {
       _saveBrowseDownloads();
     }, 1500);
   }
-}
-
-// Legacy alias
-function _showBrowseLinkMenu(x, y, url, text) {
-  _showBrowseContextMenu(x, y, { linkUrl: url, linkText: text });
 }
 
 // Close menu on click outside or escape
