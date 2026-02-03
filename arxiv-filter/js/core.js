@@ -986,13 +986,14 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes, feedsRes] = await Promise.all([
+    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes, feedsRes, blogRes] = await Promise.all([
       fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/teams', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/reposts', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/feeds', { headers: _authHeaders() }),
+      fetch('/api/blog/' + encodeURIComponent(username)),
     ]);
 
     if (!profileRes.ok) {
@@ -1006,6 +1007,8 @@ async function renderUserProfile(username) {
     const teams = teamsRes.ok ? await teamsRes.json() : [];
     const reposts = repostsRes.ok ? await repostsRes.json() : [];
     const feedsData = feedsRes.ok ? await feedsRes.json() : { catalogFeeds: [], customFeeds: [] };
+    const blogData = blogRes.ok ? await blogRes.json() : { posts: [] };
+    const blogPosts = blogData.posts || [];
 
     // Handle private profiles
     if (profile.profile_private) {
@@ -1071,16 +1074,36 @@ async function renderUserProfile(username) {
       <div id="profile-message-form" class="hidden mb-6"></div>
 
       <div class="flex gap-6 mb-8 text-[0.82rem]">
-        <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
-        <div><span class="text-white_ font-semibold">${profile.repost_count || 0}</span> <span class="text-dimmer">reposts</span></div>
-        <div><span class="text-white_ font-semibold">${profile.team_count || 0}</span> <span class="text-dimmer">teams</span></div>
-        <div><span class="text-white_ font-semibold">${profile.experiment_count || 0}</span> <span class="text-dimmer">projects</span></div>
+        ${blogPosts.length ? `<a href="#profile-section-posts" onclick="document.getElementById('profile-section-posts')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${blogPosts.length}</span> <span class="text-dimmer">posts</span></a>` : ''}
+        ${comments.length ? `<a href="#profile-section-comments" onclick="document.getElementById('profile-section-comments')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${comments.length}</span> <span class="text-dimmer">comments</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">comments</span></div>`}
+        ${reposts.length ? `<a href="#profile-section-reposts" onclick="document.getElementById('profile-section-reposts')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${reposts.length}</span> <span class="text-dimmer">reposts</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">reposts</span></div>`}
+        ${teams.filter(t => !t.private).length ? `<a href="#profile-section-teams" onclick="document.getElementById('profile-section-teams')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${teams.filter(t => !t.private).length}</span> <span class="text-dimmer">teams</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">teams</span></div>`}
+        ${experiments.length ? `<a href="#profile-section-projects" onclick="document.getElementById('profile-section-projects')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${experiments.length}</span> <span class="text-dimmer">projects</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">projects</span></div>`}
       </div>
     `;
 
+    // Blog posts section
+    if (blogPosts.length) {
+      html += `<div class="mb-8" id="profile-section-posts">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Blog Posts</h3>
+        <div class="flex flex-col gap-2">`;
+      for (const post of blogPosts) {
+        const pubDate = post.published_at ? new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        html += `
+          <a href="#blog/${encodeURIComponent(username)}/${encodeURIComponent(post.slug)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+              <div class="text-primary text-sm font-medium">${escapeHtml(post.title)}</div>
+            </div>
+            ${pubDate ? `<div class="text-dimmer text-[0.7rem] mt-1">${pubDate}</div>` : ''}
+          </a>`;
+      }
+      html += '</div></div>';
+    }
+
     // Shared experiments section
     if (experiments.length) {
-      html += `<div class="mb-8">
+      html += `<div class="mb-8" id="profile-section-projects">
         <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Shared Projects</h3>
         <div class="flex flex-col gap-2">`;
       for (const exp of experiments) {
@@ -1093,16 +1116,16 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
-    // Teams section
-    if (teams.length) {
-      html += `<div class="mb-8">
+    // Teams section (exclude private teams from public profile)
+    const publicTeams = teams.filter(t => !t.private);
+    if (publicTeams.length) {
+      html += `<div class="mb-8" id="profile-section-teams">
         <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Teams</h3>
         <div class="flex flex-col gap-2">`;
-      for (const t of teams) {
-        const lockIcon = t.private ? ' <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
+      for (const t of publicTeams) {
         html += `
           <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="showTeamDetailView(${t.id})">
-            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}${lockIcon}</div>
+            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
             <div class="text-dimmer text-[0.75rem] mt-1">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
           </div>`;
       }
@@ -1144,7 +1167,7 @@ async function renderUserProfile(username) {
 
     // Recent comments section
     if (comments.length) {
-      html += `<div class="mb-8">
+      html += `<div class="mb-8" id="profile-section-comments">
         <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Recent Comments</h3>
         <div class="flex flex-col gap-2">`;
       for (const c of comments) {
@@ -1161,7 +1184,7 @@ async function renderUserProfile(username) {
 
     // Reposts section
     if (reposts.length) {
-      html += `<div class="mb-8">
+      html += `<div class="mb-8" id="profile-section-reposts">
         <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Reposts</h3>
         <div class="flex flex-col gap-2">`;
       for (const r of reposts) {
