@@ -203,17 +203,24 @@ async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
-  const [expResp, calResp, tasksResp, teamsResp] = await Promise.all([
+  const _uname = _authUserInfo?.username;
+  const [expResp, calResp, tasksResp, teamsResp, profileResp, commentsResp, repostsResp] = await Promise.all([
     fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     fetch('/api/my-tasks', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/teams', { headers: _authHeaders() }).then(r => r.json()).catch(() => [])
+    fetch('/api/teams', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
+    _uname ? fetch('/api/users/' + encodeURIComponent(_uname), { headers: _authHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
+    _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/comments', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([]),
+    _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/reposts', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([])
   ]);
 
   const experiments = expResp || [];
   const events = calResp || [];
   const myTasks = tasksResp || [];
   const teams = teamsResp || [];
+  const profile = profileResp || {};
+  const myComments = commentsResp || [];
+  const myReposts = repostsResp || [];
 
   const mergedSaved = getSavedPosts();
 
@@ -498,8 +505,48 @@ async function renderDashboard() {
     </div>
   ` : '';
 
+  // ── Profile header ──
+  const _pAccent = profile.accent_color || '#b4451a';
+  const _pJoinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
+  const profileHeaderHtml = `
+    <div class="relative rounded-xl overflow-hidden mb-6" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${_pAccent}33, ${_pAccent}11)`}">
+      <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--bg-body),transparent)"></div>
+      <button onclick="_uploadProfileBg()" class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors" title="Change background">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+    </div>
+    <div class="flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2">
+      <div class="relative group">
+        ${profile.picture
+          ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--bg-body)" referrerpolicy="no-referrer" />`
+          : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--bg-body);background:${_pAccent}33;color:${_pAccent}">${escapeHtml((profile.username || _authUserInfo?.username || '?')[0].toUpperCase())}</div>`
+        }
+        <button onclick="_uploadProfilePic()" class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username || _authUserInfo?.username || '')}</h2>
+          <div class="w-3 h-3 rounded-full" style="background:${_pAccent}" title="Accent color"></div>
+        </div>
+        ${_pJoinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${_pJoinDate}</div>` : ''}
+      </div>
+      <div class="ml-auto">
+        <button onclick="openSettings()" class="w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors" title="Settings"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg></button>
+      </div>
+    </div>
+    <div class="flex gap-6 mb-6 text-[0.82rem]">
+      <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
+      <div><span class="text-white_ font-semibold">${profile.repost_count || 0}</span> <span class="text-dimmer">reposts</span></div>
+      <div><span class="text-white_ font-semibold">${profile.team_count || 0}</span> <span class="text-dimmer">teams</span></div>
+      <div><span class="text-white_ font-semibold">${profile.experiment_count || 0}</span> <span class="text-dimmer">projects</span></div>
+    </div>
+    <h3 class="text-[0.95rem] font-medium text-dimmer mb-4">${getGreeting()}</h3>
+  `;
+
   container.innerHTML = `
-    <h2 class="text-[1.3rem] font-semibold text-white_ mb-5">${getGreeting()}</h2>
+    ${profileHeaderHtml}
 
     <!-- Search bar -->
     <div class="mb-5">
@@ -565,6 +612,41 @@ async function renderDashboard() {
           `).join('')}</div>
         </div>` : ''}
       </div>
+    </div>
+
+    <!-- Comments & Reposts -->
+    <div class="flex gap-5 items-start mt-1">
+      ${myComments.length ? `<div class="flex-1 min-w-0 mb-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[0.9rem] font-semibold text-primary">Recent Comments</h3>
+          <span class="text-[0.72rem] text-dimmer">${myComments.length}</span>
+        </div>
+        <div class="flex flex-col gap-2">${myComments.slice(0, 6).map(c => {
+          const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+          const contentPreview = (c.content || '').length > 120 ? c.content.slice(0, 120) + '...' : c.content;
+          return `<a href="#paper/${encodeURIComponent(c.paperLink)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            <div class="text-[0.78rem] text-primary leading-relaxed">${escapeHtml(contentPreview)}</div>
+            <div class="text-dimmer text-[0.7rem] mt-1">${timeAgo}</div>
+          </a>`;
+        }).join('')}</div>
+      </div>` : ''}
+      ${myReposts.length ? `<div class="flex-1 min-w-0 mb-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[0.9rem] font-semibold text-primary">Reposts</h3>
+          <span class="text-[0.72rem] text-dimmer">${myReposts.length}</span>
+        </div>
+        <div class="flex flex-col gap-2">${myReposts.slice(0, 6).map(r => {
+          const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
+          const hostname = (() => { try { return new URL(r.paperLink).hostname.replace(/^www\\./, ''); } catch { return ''; } })();
+          return `<a href="#view/${encodeURIComponent(r.paperLink)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-green-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+              <div class="text-[0.78rem] text-primary leading-relaxed truncate">${escapeHtml(r.paperTitle || r.paperLink)}</div>
+            </div>
+            <div class="text-dimmer text-[0.7rem] mt-1">${hostname ? escapeHtml(hostname) + ' · ' : ''}${timeAgo}</div>
+          </a>`;
+        }).join('')}</div>
+      </div>` : ''}
     </div>
   `;
 

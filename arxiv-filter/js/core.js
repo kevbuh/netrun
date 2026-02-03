@@ -625,7 +625,11 @@ function routeFromHash() {
   else if (hash === '#inbox') openInbox();
   else if (hash === '#teams') openTeams();
   else if (hash === '#profile') openUserProfile('');
-  else if (hash.startsWith('#profile/')) openUserProfile(decodeURIComponent(hash.slice('#profile/'.length)));
+  else if (hash.startsWith('#profile/')) {
+    const profileUser = decodeURIComponent(hash.slice('#profile/'.length));
+    if (_authUserInfo && profileUser === _authUserInfo.username) { openDashboard(); }
+    else openUserProfile(profileUser);
+  }
 else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#browse') openBrowse();
@@ -655,6 +659,10 @@ if (document.readyState === 'loading') {
 // ── User Profile ──
 
 function openUserProfile(username) {
+  if (username && _authUserInfo && username === _authUserInfo.username) {
+    openDashboard();
+    return;
+  }
   hideAllViews();
   const view = document.getElementById('profile-view');
   view.classList.add('active');
