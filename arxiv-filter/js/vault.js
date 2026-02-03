@@ -905,7 +905,7 @@ function renderVaultMarkdown(content) {
   html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
 
   // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
   // Paragraphs (double newlines)
   html = html.replace(/\n\n/g, '</p><p>');

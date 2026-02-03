@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -11,6 +11,22 @@ let serverPort = null;
 const isDev = !app.isPackaged;
 
 const PREFERRED_PORT = 8000;
+
+// Ensure only one instance of the app
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('Another instance is already running. Quitting.');
+  app.quit();
+  process.exit(0);
+}
+
+app.on('second-instance', () => {
+  // Someone tried to run a second instance, focus the first
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
 function findFreePort() {
   return new Promise((resolve, reject) => {
@@ -131,15 +147,52 @@ function killPython() {
   });
 }
 
+async function killProcessOnPort(port) {
+  return new Promise((resolve) => {
+    let cmd;
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      cmd = `lsof -ti:${port} | xargs kill -9 2>/dev/null || true`;
+    } else {
+      // Windows
+      cmd = `FOR /F "tokens=5" %a in ('netstat -ano ^| findstr :${port}') do taskkill /F /PID %a 2>nul || echo.`;
+    }
+    
+    const { exec } = require('child_process');
+    exec(cmd, (error) => {
+      if (error) {
+        // Process might not exist, that's ok
+        console.log(`No process found on port ${port} or could not kill it`);
+      } else {
+        console.log(`Killed process on port ${port}`);
+      }
+      // Give the OS a moment to release the port
+      setTimeout(resolve, 500);
+    });
+  });
+}
+
 async function createWindow() {
-  // Try preferred port first (matches Google OAuth authorized origin),
-  // fall back to a random port if it's already in use
-  try {
-    serverPort = await tryStartPythonServer(PREFERRED_PORT);
-  } catch (e) {
-    console.log(`Port ${PREFERRED_PORT} failed, trying random port...`);
-    const randomPort = await findFreePort();
-    serverPort = await tryStartPythonServer(randomPort);
+  // Must use port 8000 for Google OAuth to work (authorized origin)
+  // First, kill any existing process on port 8000
+  await killProcessOnPort(PREFERRED_PORT);
+  
+  // Keep retrying until port 8000 is available
+  let retries = 0;
+  const maxRetries = 30;
+  
+  while (retries < maxRetries) {
+    try {
+      serverPort = await tryStartPythonServer(PREFERRED_PORT);
+      break;
+    } catch (e) {
+      retries++;
+      if (retries >= maxRetries) {
+        console.error(`Failed to start server on port ${PREFERRED_PORT} after ${maxRetries} attempts`);
+        throw new Error(`Port ${PREFERRED_PORT} is unavailable. Please close any other instances of the app and try again.`);
+      }
+      console.log(`Port ${PREFERRED_PORT} in use, waiting... (${retries}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
   await waitForServer(serverPort);
@@ -160,9 +213,117 @@ async function createWindow() {
 
   mainWindow.loadURL(`http://localhost:${serverPort}/`);
 
+  // Handle keyboard shortcuts for browse view (Cmd+T, Cmd+W)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && (input.meta || input.control)) {
+      if (input.key.toLowerCase() === 't') {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'new-tab');
+      } else if (input.key.toLowerCase() === 'w') {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'close-tab');
+      }
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+// Handle keyboard shortcuts in all web contents (including webviews)
+app.on('web-contents-created', (event, contents) => {
+  // Only handle webviews (they have a different type of webContents)
+  if (contents.getType && contents.getType() === 'webview') {
+    contents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && (input.meta || input.control)) {
+        const key = input.key.toLowerCase();
+        if (key === 't') {
+          event.preventDefault();
+          // Send to parent window
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'new-tab');
+          }
+        } else if (key === 'w') {
+          event.preventDefault();
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'close-tab');
+          }
+        }
+      }
+    });
+  }
+});
+
+function createMenu() {
+  const template = [
+    {
+      label: app.getName(),
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Window',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => createWindow()
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' },
+        { type: 'separator' },
+        { label: 'Speech', submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload', accelerator: 'CmdOrCtrl+R' },
+        { role: 'forceReload', accelerator: 'CmdOrCtrl+Shift+R' },
+        { role: 'toggleDevTools', accelerator: 'CmdOrCtrl+Option+I' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 }
 
 app.whenReady().then(() => {
@@ -171,6 +332,7 @@ app.whenReady().then(() => {
     const { nativeImage } = require('electron');
     app.dock.setIcon(nativeImage.createFromPath(iconPath));
   }
+  createMenu();
   createWindow();
 });
 

@@ -2956,4 +2956,20 @@ if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', _browseUpdateAdBlockBtn);
 }
 
+// Listen for browse commands from Electron main process (for Cmd+T and Cmd+W)
+if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.onBrowseCommand) {
+  window.electronAPI.onBrowseCommand((event, command) => {
+    const browseView = document.getElementById('browse-view');
+    if (!browseView || browseView.style.display === 'none') return;
+    
+    if (command === 'new-tab') {
+      browseNewTab();
+    } else if (command === 'close-tab') {
+      const win = _getCurrentWindow();
+      if (win && win.activeTab) {
+        browseCloseTab(win.activeTab);
+      }
+    }
+  });
+}
 
