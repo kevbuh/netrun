@@ -25,6 +25,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
   tailwind.config = {
@@ -133,6 +136,10 @@
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover sidebar-draggable" id="sb-people" onclick="openUserProfile('')" data-sb-order="7">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
       <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">People</span>
+    </button>
+    <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover sidebar-draggable" id="sb-terminal" onclick="openTerminal()" data-sb-order="8">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3M5.25 20.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+      <span class="sidebar-tooltip absolute left-14 top-1/2 -translate-y-1/2 bg-tooltip text-primary text-[0.78rem] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-30 border border-tooltip-border">Terminal</span>
     </button>
     <div class="mt-auto"></div>
     <button class="sidebar-icon w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer transition-colors duration-150 relative border-none bg-transparent text-primary hover:bg-hover" id="sb-rain" title="White noise">
@@ -504,6 +511,11 @@
 
 
 
+  <!-- Terminal View -->
+  <div id="terminal-view" class="hidden ml-[76px] view" style="height:100vh;display:none;flex-direction:column;">
+    <div id="terminal-container" style="width:100%;flex:1;background:#0d0d0d;"></div>
+  </div>
+
   <div id="pixel-pet" style="display:none">
     <canvas id="pet-canvas" width="32" height="32"></canvas>
   </div>
@@ -525,6 +537,7 @@
   <script src="/js/notebook-editor.js"></script>
   <script src="/js/draw-editor.js"></script>
   <script src="/js/slides-editor.js"></script>
+  <script src="/js/terminal.js"></script>
 
   <!-- Login Gate (shown when not authenticated) -->
   <div id="login-gate" class="login-gate">

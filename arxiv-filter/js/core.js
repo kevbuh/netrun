@@ -82,7 +82,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-experiments': 'experiments', 'sb-search': 'search', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-people': 'people' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-experiments': 'experiments', 'sb-search': 'search', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-people': 'people', 'sb-terminal': 'terminal' };
 
 function setSidebarActive(id) {
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
@@ -595,6 +595,7 @@ else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#browse') openBrowse();
   else if (hash === '#search') openSearch();
+  else if (hash === '#terminal') openTerminal();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) {
     const expPart = hash.slice('#experiment/'.length);

@@ -101,6 +101,40 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=_static_dir, **kwargs)
 
+    def handle_one_request(self):
+        """Override to intercept WebSocket upgrades before normal HTTP processing."""
+        try:
+            self.raw_requestline = self.rfile.readline(65537)
+            if len(self.raw_requestline) > 65536:
+                self.requestline = ''
+                self.request_version = ''
+                self.command = ''
+                self.send_error(414)
+                return
+            if not self.raw_requestline:
+                self.close_connection = True
+                return
+            if not self.parse_request():
+                return
+
+            # Check for WebSocket upgrade BEFORE calling the method
+            if self.path == '/ws/terminal' and self.headers.get('Upgrade', '').lower() == 'websocket':
+                from terminal_server import handle_websocket_upgrade_raw
+                handle_websocket_upgrade_raw(self)
+                return
+
+            mname = 'do_' + self.command
+            if not hasattr(self, mname):
+                self.send_error(501, "Unsupported method (%r)" % self.command)
+                return
+            method = getattr(self, mname)
+            method()
+            self.wfile.flush()
+        except TimeoutError as e:
+            self.log_error("Request timed out: %r", e)
+            self.close_connection = True
+            return
+
     def _send_json(self, data, status=200):
         body = json.dumps(data).encode()
         self.send_response(status)
@@ -159,6 +193,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return ' AND '.join(parts) if parts else 'all:*'
 
     def do_GET(self):
+        # WebSocket upgrade is handled in handle_one_request() before we get here
+        if self.path == '/ws/terminal':
+            self._send_json({'error': 'Expected WebSocket upgrade'}, 400)
+            return
+
         if self.path == '/api/settings':
             self._send_json({'ok': True})
             return
@@ -2951,7 +2990,11 @@ class ThreadingHTTPServer(http.server.HTTPServer):
         except Exception:
             pass
         finally:
-            self.shutdown_request(request)
+            from terminal_server import hijacked_sockets
+            if id(request) in hijacked_sockets:
+                hijacked_sockets.discard(id(request))
+            else:
+                self.shutdown_request(request)
     def process_request(self, request, client_address):
         import threading
         t = threading.Thread(target=self.process_request_thread, args=(request, client_address))
