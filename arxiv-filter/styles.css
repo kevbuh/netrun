@@ -702,8 +702,10 @@
       border-radius: 10px;
       margin-left: 8px;
     }
-    /* Keep the tab overview button above the overlay */
-    #browse-tab-overview-btn {
+    /* Keep the tab overview button and panel buttons above the overlay */
+    #browse-tab-overview-btn,
+    #browse-toolbar-sessions,
+    #browse-toolbar-newwin {
       position: relative;
       z-index: 101;
     }
@@ -781,6 +783,9 @@
       display: flex;
       flex-direction: column;
       gap: 24px;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
     }
     .browse-window-section {
       background: var(--bg-card);
@@ -821,8 +826,14 @@
       padding: 2px 8px;
       border-radius: 8px;
     }
-    .browse-window-close {
+    .browse-window-actions {
       margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .browse-window-save,
+    .browse-window-close {
       width: 28px;
       height: 28px;
       display: flex;
@@ -832,13 +843,111 @@
       border: none;
       border-radius: 6px;
       color: var(--text-muted);
-      font-size: 1.2rem;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
+    }
+    .browse-window-close {
+      font-size: 1.2rem;
+    }
+    .browse-window-save:hover {
+      background: var(--bg-hover);
+      color: var(--accent);
     }
     .browse-window-close:hover {
       background: rgba(220,50,50,0.15);
       color: #dc3232;
+    }
+    /* Save input row for windows */
+    .browse-window-save-input {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      margin-top: 8px;
+      background: var(--bg-hover);
+      border-radius: 8px;
+    }
+    .browse-window-save-input input {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--border-input);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      border-radius: 6px;
+      outline: none;
+    }
+    .browse-window-save-input input:focus {
+      border-color: var(--accent);
+    }
+    .browse-window-save-input .save-confirm {
+      padding: 6px 12px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.78rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .browse-window-save-input .save-cancel {
+      padding: 6px 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .browse-window-save-input .save-cancel:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    /* Session input row */
+    .browse-session-input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: var(--bg-hover);
+      border-radius: 8px;
+    }
+    .browse-session-input-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--border-input);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 0.78rem;
+      border-radius: 6px;
+      outline: none;
+    }
+    .browse-session-input-row input:focus {
+      border-color: var(--accent);
+    }
+    .browse-session-input-row .save-confirm {
+      padding: 5px 10px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .browse-session-input-row .save-cancel {
+      padding: 4px 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .browse-session-input-row .save-cancel:hover {
+      background: var(--bg-card);
+      color: var(--text-primary);
     }
     .browse-window-rename-input {
       font-size: 1rem;
@@ -867,6 +976,168 @@
     }
     .browse-new-window-btn:hover {
       background: var(--bg-card);
+    }
+
+    /* Panel-only buttons (hidden until panel view is open) */
+    .browse-panel-btn {
+      display: none !important;
+    }
+    .browse-panel-btn.visible {
+      display: flex !important;
+    }
+
+    /* Toolbar button */
+    .browse-toolbar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .browse-toolbar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* Sessions dropdown in toolbar */
+    .browse-sessions-dropdown {
+      position: relative;
+    }
+    .browse-sessions-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      font-size: 0.75rem;
+      color: var(--text-dimmer);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .browse-sessions-toggle:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .browse-sessions-toggle.open {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .browse-sessions-toggle .chevron {
+      transition: transform 0.2s;
+    }
+    .browse-sessions-toggle.open .chevron {
+      transform: rotate(180deg);
+    }
+    .browse-sessions-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      width: 240px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px var(--shadow-popup);
+      z-index: 100;
+    }
+    .browse-sessions-menu-header {
+      padding: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .browse-save-session-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .browse-save-session-btn:hover { opacity: 0.9; }
+    .browse-save-session-btn:disabled {
+      background: var(--bg-hover);
+      color: var(--text-dimmest);
+      cursor: default;
+      opacity: 1;
+    }
+    .browse-sessions-list {
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .browse-sessions-empty {
+      font-size: 0.75rem;
+      color: var(--text-dimmest);
+      text-align: center;
+      padding: 16px 8px;
+    }
+    .browse-session-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      transition: background 0.1s;
+    }
+    .browse-session-item:hover {
+      background: var(--bg-hover);
+    }
+    .browse-session-info {
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .browse-session-name {
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .browse-session-meta {
+      font-size: 0.65rem;
+      color: var(--text-dimmer);
+    }
+    .browse-session-add,
+    .browse-session-delete {
+      flex-shrink: 0;
+      border: none;
+      background: none;
+      color: var(--text-dimmest);
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      line-height: 1;
+      transition: color 0.1s, background 0.1s;
+    }
+    .browse-session-add:hover,
+    .browse-session-delete:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
     }
 
     /* ── Audio indicator on tabs ── */
@@ -1061,6 +1332,34 @@
     }
     .browse-tab-card-close:hover {
       background: rgba(220,50,50,0.9);
+    }
+    .browse-tab-card-audio {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: audio-pulse 1.5s ease-in-out infinite;
+      z-index: 2;
+    }
+    .browse-tab-card-audio.muted {
+      background: var(--text-muted);
+      animation: none;
+    }
+    @keyframes audio-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .browse-tab-card.has-audio {
+      box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(0,0,0,0.1);
     }
     .browse-tab-card-new {
       display: flex;
