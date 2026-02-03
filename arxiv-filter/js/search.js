@@ -378,40 +378,158 @@ function openOpenAlexPaper(i) {
   openPaperByUrl(r.link);
 }
 
-// ── Browse View (multi-tab embedded browser) ──
+// ── Browse View (multi-window, multi-tab embedded browser) ──
 
-let _browseTabs = []; // { id, url, title, el }
-let _browseActiveTab = null;
-let _browseNextId = 1;
+let _browseWindows = []; // { id, name, tabs: [], activeTab }
+let _browseActiveWindow = null;
+let _browseNextWindowId = 1;
+let _browseNextTabId = 1;
 const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
+// Convenience getters for current window's tabs
+function _getCurrentWindow() {
+  return _browseWindows.find(w => w.id === _browseActiveWindow);
+}
+// For backward compatibility
+Object.defineProperty(window, '_browseTabs', {
+  get() { const w = _getCurrentWindow(); return w ? w.tabs : []; },
+  set(v) { const w = _getCurrentWindow(); if (w) w.tabs = v; }
+});
+Object.defineProperty(window, '_browseActiveTab', {
+  get() { const w = _getCurrentWindow(); return w ? w.activeTab : null; },
+  set(v) { const w = _getCurrentWindow(); if (w) w.activeTab = v; }
+});
+
 function _browseSaveTabs() {
-  const data = _browseTabs
-    .filter(t => !t.blank && t.url)
-    .map(t => ({ id: t.id, url: t.url, title: t.title }));
-  localStorage.setItem('browseTabs', JSON.stringify({ tabs: data, activeTab: _browseActiveTab, nextId: _browseNextId }));
+  const data = _browseWindows.map(w => ({
+    id: w.id,
+    name: w.name,
+    activeTab: w.activeTab,
+    tabs: w.tabs.filter(t => !t.blank && t.url).map(t => ({ id: t.id, url: t.url, title: t.title }))
+  }));
+  localStorage.setItem('browseWindows', JSON.stringify({
+    windows: data,
+    activeWindow: _browseActiveWindow,
+    nextWindowId: _browseNextWindowId,
+    nextTabId: _browseNextTabId
+  }));
 }
 
 function _browseRestoreTabs() {
   try {
-    const raw = localStorage.getItem('browseTabs');
-    if (!raw) return false;
-    const { tabs, activeTab, nextId } = JSON.parse(raw);
-    if (!tabs || !tabs.length) return false;
-    _browseNextId = nextId || (Math.max(...tabs.map(t => t.id)) + 1);
-    const container = document.getElementById('browse-content');
-    for (const saved of tabs) {
-      const el = _browseCreateFrame(saved.id, saved.url);
-      el.style.display = 'none';
-      container.appendChild(el);
-      const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false };
-      _browseTabs.push(tab);
-      _browseBindFrame(tab);
+    // Try new multi-window format first
+    let raw = localStorage.getItem('browseWindows');
+    if (raw) {
+      const { windows, activeWindow, nextWindowId, nextTabId } = JSON.parse(raw);
+      if (!windows || !windows.length) return false;
+      _browseNextWindowId = nextWindowId || 1;
+      _browseNextTabId = nextTabId || 1;
+      const container = document.getElementById('browse-content');
+
+      for (const savedWin of windows) {
+        const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab };
+        for (const saved of savedWin.tabs) {
+          const el = _browseCreateFrame(saved.id, saved.url);
+          el.style.display = 'none';
+          container.appendChild(el);
+          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false };
+          win.tabs.push(tab);
+          _browseBindFrame(tab);
+        }
+        _browseWindows.push(win);
+      }
+      _browseActiveWindow = _browseWindows.find(w => w.id === activeWindow) ? activeWindow : _browseWindows[0].id;
+      const win = _getCurrentWindow();
+      if (win && win.tabs.length) {
+        const target = win.tabs.find(t => t.id === win.activeTab) ? win.activeTab : win.tabs[0].id;
+        browseSelectTab(target);
+      }
+      return true;
     }
-    const target = _browseTabs.find(t => t.id === activeTab) ? activeTab : _browseTabs[0].id;
-    browseSelectTab(target);
-    return true;
+
+    // Fallback to old single-window format
+    raw = localStorage.getItem('browseTabs');
+    if (raw) {
+      const { tabs, activeTab, nextId } = JSON.parse(raw);
+      if (!tabs || !tabs.length) return false;
+      _browseNextTabId = nextId || 1;
+      const container = document.getElementById('browse-content');
+      const win = { id: _browseNextWindowId++, name: 'Window 1', tabs: [], activeTab: null };
+      for (const saved of tabs) {
+        const el = _browseCreateFrame(saved.id, saved.url);
+        el.style.display = 'none';
+        container.appendChild(el);
+        const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false };
+        win.tabs.push(tab);
+        _browseBindFrame(tab);
+      }
+      win.activeTab = win.tabs.find(t => t.id === activeTab) ? activeTab : win.tabs[0]?.id;
+      _browseWindows.push(win);
+      _browseActiveWindow = win.id;
+      if (win.activeTab) browseSelectTab(win.activeTab);
+      localStorage.removeItem('browseTabs'); // Migrate to new format
+      _browseSaveTabs();
+      return true;
+    }
+    return false;
   } catch { return false; }
+}
+
+// Window management
+function browseCreateWindow(name) {
+  const id = _browseNextWindowId++;
+  const win = { id, name: name || `Window ${id}`, tabs: [], activeTab: null };
+  _browseWindows.push(win);
+  browseSelectWindow(id);
+  browseNewTab(); // Create initial tab
+  _browseSaveTabs();
+  return win;
+}
+
+function browseSelectWindow(id) {
+  const win = _browseWindows.find(w => w.id === id);
+  if (!win) return;
+
+  // Hide all tabs from other windows
+  _browseWindows.forEach(w => {
+    w.tabs.forEach(t => { if (t.el) t.el.style.display = 'none'; });
+  });
+
+  _browseActiveWindow = id;
+  _browseRenderTabs();
+
+  // Show active tab of this window
+  if (win.activeTab) {
+    const tab = win.tabs.find(t => t.id === win.activeTab);
+    if (tab && tab.el) tab.el.style.display = '';
+  }
+  _browseUpdateNewTabPage(win.tabs.find(t => t.id === win.activeTab));
+  _browseSaveTabs();
+}
+
+function browseCloseWindow(id) {
+  const idx = _browseWindows.findIndex(w => w.id === id);
+  if (idx === -1) return;
+
+  const win = _browseWindows[idx];
+  // Remove all tab elements
+  win.tabs.forEach(t => { if (t.el) t.el.remove(); });
+  _browseWindows.splice(idx, 1);
+
+  if (_browseWindows.length === 0) {
+    browseCreateWindow();
+  } else if (_browseActiveWindow === id) {
+    browseSelectWindow(_browseWindows[Math.min(idx, _browseWindows.length - 1)].id);
+  }
+  _browseSaveTabs();
+}
+
+function browseRenameWindow(id, name) {
+  const win = _browseWindows.find(w => w.id === id);
+  if (win) {
+    win.name = name;
+    _browseSaveTabs();
+  }
 }
 
 let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
@@ -445,18 +563,18 @@ function openBrowse(url) {
     browseSb.style.display = 'none';
   }
 
-  if (!_browseTabs.length) {
-    if (!url && !_browseRestoreTabs()) {
-      browseNewTab(url);
-    } else if (url) {
-      browseNewTab(url);
+  if (!_browseWindows.length) {
+    if (!_browseRestoreTabs()) {
+      browseCreateWindow();
     }
+    if (url) browseNewTab(url);
   } else {
     if (url) browseNewTab(url);
     else {
       _browseRenderTabs();
       // Update sidebar for current tab
-      const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+      const win = _getCurrentWindow();
+      const tab = win?.tabs.find(t => t.id === win.activeTab);
       if (tab && tab.url && !tab.blank) _initSidebarForUrl(tab.url);
     }
   }
@@ -468,7 +586,10 @@ function openBrowse(url) {
 }
 
 function browseNewTab(url) {
-  const id = _browseNextId++;
+  const win = _getCurrentWindow();
+  if (!win) return;
+
+  const id = _browseNextTabId++;
   const isBlank = !url;
   const resolved = isBlank ? '' : _browseResolveUrl(url);
 
@@ -481,7 +602,7 @@ function browseNewTab(url) {
   }
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank };
-  _browseTabs.push(tab);
+  win.tabs.push(tab);
   if (el) _browseBindFrame(tab);
 
   browseSelectTab(id);
@@ -494,11 +615,13 @@ function browseNewTab(url) {
 
 function _browseRefreshScheme() {
   // Reload all proxied browse tabs with the updated color scheme
-  if (!_browseTabs.length) return;
-  for (const tab of _browseTabs) {
-    if (!tab.el || tab.blank || !tab.url) continue;
-    const newSrc = _browseProxyUrl(tab.url);
-    if (tab.el.src !== newSrc) tab.el.src = newSrc;
+  if (!_browseWindows.length) return;
+  for (const win of _browseWindows) {
+    for (const tab of win.tabs) {
+      if (!tab.el || tab.blank || !tab.url) continue;
+      const newSrc = _browseProxyUrl(tab.url);
+      if (tab.el.src !== newSrc) tab.el.src = newSrc;
+    }
   }
 }
 
@@ -703,9 +826,11 @@ window.addEventListener('blur', () => {
 });
 
 function browseSelectTab(id) {
-  _browseActiveTab = id;
-  const tab = _browseTabs.find(t => t.id === id);
-  _browseTabs.forEach(t => {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  win.activeTab = id;
+  const tab = win.tabs.find(t => t.id === id);
+  win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
@@ -738,20 +863,22 @@ function _browseUpdateNewTabPage(tab) {
 }
 
 function browseCloseTab(id) {
-  const idx = _browseTabs.findIndex(t => t.id === id);
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const idx = win.tabs.findIndex(t => t.id === id);
   if (idx === -1) return;
-  const tab = _browseTabs[idx];
-  const wasLast = _browseTabs.length === 1;
+  const tab = win.tabs[idx];
+  const wasLast = win.tabs.length === 1;
   if (tab.el) tab.el.remove();
-  _browseTabs.splice(idx, 1);
-  if (!_browseTabs.length) {
+  win.tabs.splice(idx, 1);
+  if (!win.tabs.length) {
     browseNewTab();
     if (wasLast) _browseAnimateBounce();
     return;
   }
-  if (_browseActiveTab === id) {
-    const nextIdx = Math.min(idx, _browseTabs.length - 1);
-    browseSelectTab(_browseTabs[nextIdx].id);
+  if (win.activeTab === id) {
+    const nextIdx = Math.min(idx, win.tabs.length - 1);
+    browseSelectTab(win.tabs[nextIdx].id);
   } else {
     _browseRenderTabs();
   }
@@ -774,8 +901,21 @@ function _browseAnimateBounce() {
 function _browseRenderTabs() {
   const bar = document.getElementById('browse-tabs');
   if (!bar) return;
-  bar.innerHTML = _browseTabs.map(t => {
-    const active = t.id === _browseActiveTab;
+  const win = _getCurrentWindow();
+  const tabs = win ? win.tabs : [];
+  const activeTab = win ? win.activeTab : null;
+
+  // Window selector (if multiple windows)
+  let windowSelector = '';
+  if (_browseWindows.length > 1) {
+    windowSelector = `<div class="browse-window-selector" onclick="toggleBrowseTabOverview()" title="Switch window">
+      <span class="browse-window-name">${escapeHtml(win?.name || 'Window')}</span>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+    </div>`;
+  }
+
+  bar.innerHTML = windowSelector + tabs.map(t => {
+    const active = t.id === activeTab;
     const title = escapeHtml(t.title.length > 24 ? t.title.slice(0, 22) + '...' : t.title);
     const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
     return `<div class="browse-tab ${active ? 'active' : ''}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
@@ -783,9 +923,11 @@ function _browseRenderTabs() {
       <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
     </div>`;
   }).join('') + `<button class="browse-tab-new" onclick="browseNewTab()" title="New tab">+</button>`;
-  // Update tab count badge on overview button
+
+  // Update tab count on overview button
+  const totalTabs = _browseWindows.reduce((sum, w) => sum + w.tabs.length, 0);
   const countBadge = document.getElementById('browse-tab-overview-btn');
-  if (countBadge) countBadge.title = `Show all tabs (${_browseTabs.length})`;
+  if (countBadge) countBadge.title = `Show all tabs (${totalTabs} tabs, ${_browseWindows.length} windows)`;
 }
 
 // ── Tab Overview (Safari iPad style) ──
@@ -847,74 +989,176 @@ function _renderBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
 
-  const cards = _browseTabs.map(t => {
-    const isActive = t.id === _browseActiveTab;
-    const title = escapeHtml(t.title);
-    const fav = t.favicon ? `<img class="browse-tab-card-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
-    let urlDisplay = '';
-    try {
-      const u = new URL(t.url);
-      urlDisplay = u.hostname.replace(/^www\./, '');
-    } catch { urlDisplay = t.url || 'New Tab'; }
+  const totalTabs = _browseWindows.reduce((sum, w) => sum + w.tabs.length, 0);
 
-    // Preview: use favicon as placeholder for now
-    const previewContent = t.blank
-      ? '<span class="browse-tab-card-preview-placeholder">+</span>'
-      : (t.favicon ? `<img src="${escapeHtml(t.favicon)}" style="width:48px;height:48px;opacity:0.5;">` : `<span class="browse-tab-card-preview-placeholder">${escapeHtml(urlDisplay.charAt(0).toUpperCase())}</span>`);
+  // Render each window's tabs
+  const windowSections = _browseWindows.map(win => {
+    const isActiveWindow = win.id === _browseActiveWindow;
+
+    const cards = win.tabs.map(t => {
+      const isActiveTab = isActiveWindow && t.id === win.activeTab;
+      const title = escapeHtml(t.title);
+      const fav = t.favicon ? `<img class="browse-tab-card-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+      let urlDisplay = '';
+      try {
+        const u = new URL(t.url);
+        urlDisplay = u.hostname.replace(/^www\./, '');
+      } catch { urlDisplay = t.url || 'New Tab'; }
+
+      const previewContent = t.blank
+        ? '<span class="browse-tab-card-preview-placeholder">+</span>'
+        : (t.favicon ? `<img src="${escapeHtml(t.favicon)}" style="width:48px;height:48px;opacity:0.5;">` : `<span class="browse-tab-card-preview-placeholder">${escapeHtml(urlDisplay.charAt(0).toUpperCase())}</span>`);
+
+      return `
+        <div class="browse-tab-card ${isActiveTab ? 'active' : ''}" onclick="event.stopPropagation();_selectTabFromOverview(${win.id}, ${t.id})">
+          <button class="browse-tab-card-close" onclick="event.stopPropagation();_closeTabFromOverview(${win.id}, ${t.id})" title="Close">&times;</button>
+          <div class="browse-tab-card-preview">${previewContent}</div>
+          <div class="browse-tab-card-info">
+            ${fav}
+            <div style="flex:1;overflow:hidden;">
+              <div class="browse-tab-card-title">${title}</div>
+              <div class="browse-tab-card-url">${escapeHtml(urlDisplay)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // New tab card for this window
+    const newTabCard = `
+      <div class="browse-tab-card browse-tab-card-new" onclick="event.stopPropagation();_newTabInWindowFromOverview(${win.id})">
+        <span class="browse-tab-card-new-icon">+</span>
+      </div>
+    `;
 
     return `
-      <div class="browse-tab-card ${isActive ? 'active' : ''}" onclick="_selectTabFromOverview(${t.id})">
-        <button class="browse-tab-card-close" onclick="event.stopPropagation();_closeTabFromOverview(${t.id})" title="Close">&times;</button>
-        <div class="browse-tab-card-preview">${previewContent}</div>
-        <div class="browse-tab-card-info">
-          ${fav}
-          <div style="flex:1;overflow:hidden;">
-            <div class="browse-tab-card-title">${title}</div>
-            <div class="browse-tab-card-url">${escapeHtml(urlDisplay)}</div>
-          </div>
+      <div class="browse-window-section ${isActiveWindow ? 'active' : ''}" onclick="_selectWindowFromOverview(${win.id}, event)">
+        <div class="browse-window-header">
+          <span class="browse-window-title" ondblclick="event.stopPropagation();_startRenameWindow(${win.id}, this)">${escapeHtml(win.name)}</span>
+          <span class="browse-window-tab-count">${win.tabs.length} tab${win.tabs.length !== 1 ? 's' : ''}</span>
+          ${_browseWindows.length > 1 ? `<button class="browse-window-close" onclick="event.stopPropagation();_closeWindowFromOverview(${win.id})" title="Close window">&times;</button>` : ''}
+        </div>
+        <div class="browse-tab-overview-grid">
+          ${cards}
+          ${newTabCard}
         </div>
       </div>
     `;
   }).join('');
 
-  // New tab card
-  const newTabCard = `
-    <div class="browse-tab-card browse-tab-card-new" onclick="_newTabFromOverview()">
-      <span class="browse-tab-card-new-icon">+</span>
-    </div>
+  // New window button
+  const newWindowBtn = `
+    <button class="browse-new-window-btn" onclick="_newWindowFromOverview()">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      New Window
+    </button>
   `;
 
   overlay.innerHTML = `
     <div class="browse-tab-overview-header">
       <div style="display:flex;align-items:center;">
-        <span class="browse-tab-overview-title">Tabs</span>
-        <span class="browse-tab-overview-count">${_browseTabs.length}</span>
+        <span class="browse-tab-overview-title">${_browseWindows.length} Window${_browseWindows.length !== 1 ? 's' : ''}</span>
+        <span class="browse-tab-overview-count">${totalTabs} tab${totalTabs !== 1 ? 's' : ''}</span>
       </div>
+      ${newWindowBtn}
     </div>
-    <div class="browse-tab-overview-grid">
-      ${cards}
-      ${newTabCard}
+    <div class="browse-tab-overview-windows">
+      ${windowSections}
     </div>
   `;
 }
 
-function _selectTabFromOverview(id) {
-  browseSelectTab(id);
+function _selectWindowFromOverview(windowId, event) {
+  // Don't trigger if clicking on a tab card or button
+  if (event.target.closest('.browse-tab-card') || event.target.closest('button')) return;
+
+  const win = _browseWindows.find(w => w.id === windowId);
+  if (!win || !win.tabs.length) return;
+
+  browseSelectWindow(windowId);
+  // Select the last active tab or the first tab
+  const tabId = win.activeTab || win.tabs[0].id;
+  browseSelectTab(tabId);
   hideBrowseTabOverview();
 }
 
-function _closeTabFromOverview(id) {
-  browseCloseTab(id);
-  if (_browseTabs.length === 0) {
-    hideBrowseTabOverview();
-  } else {
-    _renderBrowseTabOverview();
+function _selectTabFromOverview(windowId, tabId) {
+  if (_browseActiveWindow !== windowId) {
+    browseSelectWindow(windowId);
   }
+  browseSelectTab(tabId);
+  hideBrowseTabOverview();
 }
 
-function _newTabFromOverview() {
+function _closeTabFromOverview(windowId, tabId) {
+  const win = _browseWindows.find(w => w.id === windowId);
+  if (!win) return;
+
+  const idx = win.tabs.findIndex(t => t.id === tabId);
+  if (idx === -1) return;
+
+  const tab = win.tabs[idx];
+  if (tab.el) tab.el.remove();
+  win.tabs.splice(idx, 1);
+
+  // If window is now empty, close it or create new tab
+  if (win.tabs.length === 0) {
+    if (_browseWindows.length > 1) {
+      browseCloseWindow(windowId);
+    } else {
+      // Last window - create a new tab
+      _browseActiveWindow = windowId;
+      browseNewTab();
+    }
+  } else if (win.activeTab === tabId) {
+    win.activeTab = win.tabs[Math.min(idx, win.tabs.length - 1)].id;
+  }
+
+  _browseSaveTabs();
+  _renderBrowseTabOverview();
+}
+
+function _newTabInWindowFromOverview(windowId) {
+  browseSelectWindow(windowId);
   browseNewTab();
   hideBrowseTabOverview();
+}
+
+function _newWindowFromOverview() {
+  browseCreateWindow();
+  hideBrowseTabOverview();
+}
+
+function _closeWindowFromOverview(windowId) {
+  browseCloseWindow(windowId);
+  _renderBrowseTabOverview();
+}
+
+function _startRenameWindow(windowId, el) {
+  const win = _browseWindows.find(w => w.id === windowId);
+  if (!win) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = win.name;
+  input.className = 'browse-window-rename-input';
+
+  const finish = () => {
+    const newName = input.value.trim() || win.name;
+    browseRenameWindow(windowId, newName);
+    _renderBrowseTabOverview();
+  };
+
+  input.onblur = finish;
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = win.name; input.blur(); }
+  };
+
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus();
+  input.select();
 }
 
 function _browseTitleFromUrl(url) {
