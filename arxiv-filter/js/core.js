@@ -687,6 +687,8 @@ function switchResearchTab(tab) {
     const input = document.getElementById('user-search-query');
     if (input) setTimeout(() => input.focus(), 50);
     renderResearchUsers();
+  } else if (tab === 'teams') {
+    renderResearchTeams();
   }
 }
 
@@ -837,6 +839,10 @@ function routeFromHash() {
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#inbox') openInbox();
   else if (hash === '#teams') openTeams();
+  else if (hash.startsWith('#team/')) {
+    const teamId = parseInt(hash.slice('#team/'.length), 10);
+    if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId);
+  }
   else if (hash === '#profile') openUserProfile('');
   else if (hash.startsWith('#profile/')) {
     const profileUser = decodeURIComponent(hash.slice('#profile/'.length));
@@ -1084,7 +1090,7 @@ async function renderUserProfile(username) {
       for (const t of teams) {
         const lockIcon = t.private ? ' <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
         html += `
-          <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="openTeams(); showTeamDetailView(${t.id})">
+          <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="showTeamDetailView(${t.id})">
             <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}${lockIcon}</div>
             <div class="text-dimmer text-[0.75rem] mt-1">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
           </div>`;

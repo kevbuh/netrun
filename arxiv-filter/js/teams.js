@@ -327,7 +327,7 @@ async function renderInbox() {
         const priColors = { high: 'text-red-400', medium: 'text-yellow-400', low: 'text-green-400' };
         const priColor = priColors[t.priority] || 'text-dim';
         return `
-        <div class="flex items-center gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="openTeams(); showTeamDetailView(${t.team_id})">
+        <div class="flex items-center gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="showTeamDetailView(${t.team_id})">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-primary">${escapeHtml(t.title)}</span>
@@ -353,7 +353,7 @@ async function renderInbox() {
         const latest = team.msgs[0];
         const count = team.msgs.length;
         html += `
-        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="openTeams(); showTeamDetailView(${team.team_id})">
+        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="showTeamDetailView(${team.team_id})">
           ${latest.picture
             ? `<img src="${escapeAttr(latest.picture)}" class="w-8 h-8 rounded-full shrink-0" referrerpolicy="no-referrer" />`
             : `<div class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold shrink-0">${escapeHtml((latest.username || '?')[0].toUpperCase())}</div>`
@@ -480,18 +480,41 @@ async function dismissDirectMessage(msgId, btn) {
   refreshInboxBadge();
 }
 
-// ── Teams View (standalone page) ──
+// ── Teams View (now in Research tab) ──
 
 function openTeams() {
-  setSidebarLoading('sb-teams');
-  hideAllViews();
-  const view = document.getElementById('teams-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'teams';
-  setSidebarActive('sb-teams');
-  renderTeamsView();
+  openResearch('teams');
 }
+
+// Render teams in Research panel
+async function renderResearchTeams() {
+  const container = document.getElementById('research-teams-content');
+  if (!container) return;
+  container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
+  await fetchTeams();
+
+  if (!_cachedTeams.length) {
+    container.innerHTML = '<div class="text-dimmer text-sm mb-4">No teams yet. Create one to start collaborating.</div>';
+  } else {
+    const _lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    container.innerHTML = _cachedTeams.map(t => `
+      <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id})">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-base font-bold">${escapeHtml(t.name[0].toUpperCase())}</div>
+          <div>
+            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}${t.private ? ' ' + _lockSvg : ''}</div>
+            <div class="text-dimmer text-xs">${t.member_count} member${t.member_count !== 1 ? 's' : ''} · ${escapeHtml(t.role)}</div>
+          </div>
+        </div>
+        <div class="flex gap-1.5" onclick="event.stopPropagation()">
+          ${t.role === 'owner' ? `<button onclick="confirmDeleteTeamView(${t.id}, '${escapeAttr(t.name)}')" class="px-2 py-1 rounded text-xs border border-red-800/50 text-red-400/70 bg-transparent cursor-pointer hover:text-red-400 transition-colors">Delete</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// Legacy standalone view functions (kept for team detail view)
 
 async function renderTeamsView() {
   const listEl = document.getElementById('teams-view-list');
@@ -589,8 +612,8 @@ async function submitCreateTeamPopup() {
     });
     if (resp.ok) {
       document.getElementById('create-team-popup')?.remove();
-      if (_createTeamPopupSource === 'view') {
-        renderTeamsView();
+      if (_createTeamPopupSource === 'view' || _createTeamPopupSource === 'research') {
+        openTeams();
       } else {
         await fetchTeams();
         renderTeamsSection();
@@ -603,7 +626,7 @@ async function confirmDeleteTeamView(teamId, name) {
   if (!confirm(`Delete team "${name}"? All members will lose access.`)) return;
   try {
     await fetch(`/api/teams/${teamId}`, { method: 'DELETE', headers: _authHeaders() });
-    renderTeamsView();
+    openTeams();
   } catch (err) { /* ignore */ }
 }
 
@@ -630,6 +653,17 @@ let _teamDetailData = null;
 
 async function showTeamDetailView(teamId) {
   _lastTeamDetailId = teamId;
+
+  // Open the standalone teams view for the detail
+  hideAllViews();
+  const view = document.getElementById('teams-view');
+  if (view) {
+    view.classList.add('active');
+    view.style.display = 'block';
+  }
+  window.location.hash = 'team/' + teamId;
+  setSidebarActive('sb-research');
+
   const listEl = document.getElementById('teams-view-list');
   const detailEl = document.getElementById('teams-view-detail');
   if (listEl) listEl.classList.add('hidden');
