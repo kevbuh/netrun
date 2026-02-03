@@ -225,18 +225,22 @@
     <div class="max-w-[960px] mx-auto px-8 pt-6 pb-16">
       <!-- Tab Bar -->
       <div class="flex items-center gap-1 mb-5">
-        <button id="research-tab-search" class="research-tab active" onclick="switchResearchTab('search')">
+        <button id="research-tab-search" class="research-tab" onclick="switchResearchTab('search')">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
           Search
         </button>
-        <button id="research-tab-projects" class="research-tab" onclick="switchResearchTab('projects')">
+        <button id="research-tab-projects" class="research-tab active" onclick="switchResearchTab('projects')">
           <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
           Projects
+        </button>
+        <button id="research-tab-users" class="research-tab" onclick="switchResearchTab('users')">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+          Users
         </button>
       </div>
 
       <!-- Search Panel -->
-      <div id="research-panel-search" class="research-panel">
+      <div id="research-panel-search" class="research-panel" style="display:none;">
         <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
           <div class="relative max-w-[680px] mx-auto mb-4">
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -260,7 +264,7 @@
       </div>
 
       <!-- Projects Panel -->
-      <div id="research-panel-projects" class="research-panel" style="display:none;">
+      <div id="research-panel-projects" class="research-panel">
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-[1.1rem] font-semibold text-white_">Projects</h2>
         <div class="flex items-center gap-2">
@@ -302,6 +306,17 @@
         </div>
         <div id="unstructured-files" class="grid grid-cols-2 gap-3"></div>
       </div>
+      </div>
+
+      <!-- Users Panel -->
+      <div id="research-panel-users" class="research-panel" style="display:none;">
+        <form id="user-search-form" onsubmit="event.preventDefault(); submitUserSearch()">
+          <div class="relative max-w-[680px] mx-auto mb-4">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+            <input type="text" id="user-search-query" placeholder="Search users..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="clearTimeout(_userSearchDebounce); _userSearchDebounce = setTimeout(submitUserSearch, 300)" />
+          </div>
+        </form>
+        <div id="user-search-results" class="max-w-[680px] mx-auto"></div>
       </div>
     </div>
   </div>

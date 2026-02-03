@@ -127,7 +127,7 @@ let _lastActiveView = 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal' };
 
 // Research view tab state
-let _researchActiveTab = 'search';
+let _researchActiveTab = 'projects';
 
 function setSidebarActive(id) {
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
@@ -683,6 +683,52 @@ function switchResearchTab(tab) {
     if (input) setTimeout(() => input.focus(), 50);
   } else if (tab === 'projects') {
     fetchExperiments();
+  } else if (tab === 'users') {
+    const input = document.getElementById('user-search-query');
+    if (input) setTimeout(() => input.focus(), 50);
+    renderResearchUsers();
+  }
+}
+
+// User search in Research view
+let _userSearchDebounce = null;
+async function submitUserSearch() {
+  const input = document.getElementById('user-search-query');
+  const query = input?.value.trim() || '';
+  renderResearchUsers(query);
+}
+
+async function renderResearchUsers(query = '') {
+  const container = document.getElementById('user-search-results');
+  if (!container) return;
+
+  container.innerHTML = '<div class="text-dimmer text-sm">Loading users...</div>';
+
+  try {
+    const url = query ? '/api/users?q=' + encodeURIComponent(query) : '/api/users';
+    const res = await fetch(url, { headers: _authHeaders() });
+    const users = await res.json();
+
+    if (!users.length) {
+      container.innerHTML = '<div class="text-dimmer text-sm py-4">No users found</div>';
+      return;
+    }
+
+    container.innerHTML = `<div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))">` +
+      users.map(u => {
+        const joinDate = u.created ? new Date(u.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short' }) : '';
+        return `<a href="#profile/${encodeURIComponent(u.username)}" class="flex flex-col items-center gap-2 px-4 py-4 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
+          ${u.picture
+            ? `<img src="${escapeAttr(u.picture)}" class="w-12 h-12 rounded-full" referrerpolicy="no-referrer" />`
+            : `<div class="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold">${escapeHtml((u.username || '?')[0].toUpperCase())}</div>`
+          }
+          <span class="text-primary text-sm font-medium">${escapeHtml(u.username)}</span>
+          ${joinDate ? `<span class="text-dimmer text-[0.7rem]">Joined ${joinDate}</span>` : ''}
+        </a>`;
+      }).join('') + '</div>';
+  } catch (e) {
+    container.innerHTML = '<div class="text-dimmer text-sm">Failed to load users</div>';
+    console.error('User search error', e);
   }
 }
 
