@@ -986,7 +986,7 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes, feedsRes, blogRes] = await Promise.all([
+    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes, feedsRes, blogRes, achievementsRes] = await Promise.all([
       fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
@@ -994,6 +994,7 @@ async function renderUserProfile(username) {
       fetch('/api/users/' + encodeURIComponent(username) + '/reposts', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/feeds', { headers: _authHeaders() }),
       fetch('/api/blog/' + encodeURIComponent(username)),
+      fetch('/api/achievements/' + encodeURIComponent(username)),
     ]);
 
     if (!profileRes.ok) {
@@ -1009,6 +1010,8 @@ async function renderUserProfile(username) {
     const feedsData = feedsRes.ok ? await feedsRes.json() : { catalogFeeds: [], customFeeds: [] };
     const blogData = blogRes.ok ? await blogRes.json() : { posts: [] };
     const blogPosts = blogData.posts || [];
+    const achievementsData = achievementsRes.ok ? await achievementsRes.json() : { achievements: [] };
+    const achievements = achievementsData.achievements || [];
 
     // Handle private profiles
     if (profile.profile_private) {
@@ -1081,6 +1084,29 @@ async function renderUserProfile(username) {
         ${experiments.length ? `<a href="#profile-section-projects" onclick="document.getElementById('profile-section-projects')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${experiments.length}</span> <span class="text-dimmer">projects</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">projects</span></div>`}
       </div>
     `;
+
+    // Achievements section
+    if (achievements.length) {
+      html += `<div class="mb-8" id="profile-section-achievements">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Achievements</h3>
+        <div class="flex flex-wrap gap-2">`;
+      for (const ach of achievements) {
+        const unlockedDate = ach.unlocked_at ? new Date(ach.unlocked_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        html += `
+          <div class="inline-flex items-center gap-3 px-4 py-2.5 rounded-lg border border-accent/30 bg-accent/5" title="${escapeAttr(ach.description)}${unlockedDate ? ' · Unlocked ' + unlockedDate : ''}">
+            <div class="achievement-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-primary text-sm font-medium">${escapeHtml(ach.name)}</div>
+              <div class="text-dimmer text-[0.7rem]">${escapeHtml(ach.description)}</div>
+            </div>
+          </div>`;
+      }
+      html += '</div></div>';
+    }
 
     // Blog posts section
     if (blogPosts.length) {

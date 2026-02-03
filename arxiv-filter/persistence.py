@@ -366,6 +366,13 @@ def init_db():
             timestamp REAL NOT NULL,
             PRIMARY KEY (blog_author, blog_slug, voter_google_id)
         );
+
+        CREATE TABLE IF NOT EXISTS achievements (
+            google_id TEXT NOT NULL REFERENCES users(google_id),
+            achievement_id TEXT NOT NULL,
+            unlocked_at REAL NOT NULL,
+            PRIMARY KEY (google_id, achievement_id)
+        );
     """)
     # Migration: add profile_private column to users
     if 'profile_private' not in cols:
@@ -1275,6 +1282,91 @@ def get_blog_votes(blog_author, blog_slug, viewer_google_id=None):
             user_vote = row[0]
     conn.close()
     return {'upvotes': up, 'downvotes': down, 'userVote': user_vote}
+
+
+# ── Achievements ──
+
+# Achievement definitions
+ACHIEVEMENTS = {
+    'first_blog': {
+        'id': 'first_blog',
+        'name': 'First Post',
+        'description': 'Published your first blog post',
+        'icon': '📝',
+    },
+    'prolific_writer': {
+        'id': 'prolific_writer',
+        'name': 'Prolific Writer',
+        'description': 'Published 10 blog posts',
+        'icon': '✍️',
+    },
+    'first_note': {
+        'id': 'first_note',
+        'name': 'Note Taker',
+        'description': 'Created your first note',
+        'icon': '📓',
+    },
+    'vault_master': {
+        'id': 'vault_master',
+        'name': 'Vault Master',
+        'description': 'Created 50 notes',
+        'icon': '🗄️',
+    },
+}
+
+
+def get_user_achievements(google_id):
+    """Get all achievements for a user."""
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT achievement_id, unlocked_at FROM achievements WHERE google_id = ? ORDER BY unlocked_at DESC",
+        (google_id,)
+    ).fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        ach_id = row['achievement_id']
+        if ach_id in ACHIEVEMENTS:
+            result.append({
+                **ACHIEVEMENTS[ach_id],
+                'unlocked_at': row['unlocked_at']
+            })
+    return result
+
+
+def grant_achievement(google_id, achievement_id):
+    """Grant an achievement to a user. Returns the achievement if newly granted, None if already had it."""
+    if achievement_id not in ACHIEVEMENTS:
+        return None
+    conn = _get_db()
+    # Check if already has it
+    existing = conn.execute(
+        "SELECT 1 FROM achievements WHERE google_id = ? AND achievement_id = ?",
+        (google_id, achievement_id)
+    ).fetchone()
+    if existing:
+        conn.close()
+        return None
+    # Grant it
+    unlocked_at = time.time()
+    conn.execute(
+        "INSERT INTO achievements (google_id, achievement_id, unlocked_at) VALUES (?, ?, ?)",
+        (google_id, achievement_id, unlocked_at)
+    )
+    conn.commit()
+    conn.close()
+    return {**ACHIEVEMENTS[achievement_id], 'unlocked_at': unlocked_at}
+
+
+def has_achievement(google_id, achievement_id):
+    """Check if user has a specific achievement."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT 1 FROM achievements WHERE google_id = ? AND achievement_id = ?",
+        (google_id, achievement_id)
+    ).fetchone()
+    conn.close()
+    return row is not None
 
 
 def get_user_shared_experiments(viewer_google_id, target_google_id):

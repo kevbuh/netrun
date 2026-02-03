@@ -464,7 +464,7 @@
     const idleMs = now - _lastActivity;
 
     // Temporary state expiry
-    if (['happy','run','read'].includes(petState)) {
+    if (['happy','run','read','celebrate'].includes(petState)) {
       petTempTimer--;
       if (petTempTimer <= 0) petState = prevBaseState;
     }
@@ -560,7 +560,7 @@
     const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
     const sitting = petState === 'sit' || petState === 'read';
     const sleeping = petState === 'sleep';
-    const jump = (petState === 'happy' && (petFrame % 6 < 3));
+    const jump = ((petState === 'happy' || petState === 'celebrate') && (petFrame % 6 < 3));
     const tired = isTired() && !sleeping && petState !== 'happy';
     const floating = _dragging;
     const yOff = floating ? -3 : (jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0)));
@@ -588,6 +588,12 @@
     ctx.restore();
 
     if (petState === 'happy') drawParticle(ctx, 'heart', 1, 2, petFrame);
+    if (petState === 'celebrate') {
+      // Multiple hearts for celebration
+      drawParticle(ctx, 'heart', -1, 3, petFrame);
+      drawParticle(ctx, 'heart', 10, 2, petFrame + 5);
+      drawParticle(ctx, 'heart', 4, 0, petFrame + 10);
+    }
     if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
   }
 
@@ -625,7 +631,7 @@
     const now = Date.now();
     const idleMs = now - _lastActivity;
 
-    if (['happy','run'].includes(petState)) {
+    if (['happy','run','celebrate'].includes(petState)) {
       petTempTimer--;
       if (petTempTimer <= 0) petState = prevBaseState;
     }
@@ -665,8 +671,8 @@
     const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
     const sitting = petState === 'sit' || petState === 'read';
     const sleeping = petState === 'sleep';
-    const jump = petState === 'happy' && (petFrame % 6 < 3);
-    const tired = isTired() && !sleeping && petState !== 'happy';
+    const jump = (petState === 'happy' || petState === 'celebrate') && (petFrame % 6 < 3);
+    const tired = isTired() && !sleeping && petState !== 'happy' && petState !== 'celebrate';
     const yOff = jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0));
 
     const pet = PET_TYPES[getPetType()] || PET_TYPES.cat;
@@ -677,6 +683,11 @@
     pet.draw(pxFn, { blink, legFrame: 0, sitting, sleeping, jump, eyeDir: petEyeDir, tired });
 
     if (petState === 'happy') drawParticle(ctx, 'heart', 1, 2, petFrame);
+    if (petState === 'celebrate') {
+      drawParticle(ctx, 'heart', -1, 3, petFrame);
+      drawParticle(ctx, 'heart', 10, 2, petFrame + 5);
+      drawParticle(ctx, 'heart', 4, 0, petFrame + 10);
+    }
     if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
   }
 
@@ -972,6 +983,16 @@
       if (petState !== 'happy') prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
       petState = 'happy'; petTempTimer = PET_FPS * 2;
     }
+  };
+
+  // Celebration state for achievements - longer, more excited animation
+  window.petCelebrate = function() {
+    if (localStorage.getItem('pixelPet') !== 'on') return;
+    if (!['celebrate','happy'].includes(petState)) {
+      prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
+    }
+    petState = 'celebrate';
+    petTempTimer = PET_FPS * 4; // 4 seconds of celebration
   };
 
   // Track activity

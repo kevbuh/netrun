@@ -50,6 +50,7 @@ from persistence import (
     db_get_comments, db_create_comment, db_delete_comment,
     get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, delete_repost, get_user_reposts, get_user_feed_sources,
     set_blog_vote, get_blog_votes,
+    ACHIEVEMENTS, get_user_achievements, grant_achievement, has_achievement,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
     update_user_picture, update_user_profile_bg, get_user_accent_color,
@@ -777,6 +778,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         pass
             posts.sort(key=lambda p: p.get('published_at', 0), reverse=True)
             self._send_json({'posts': posts, 'author': username, 'picture': user_info.get('picture')})
+
+        # ── Achievements API ──
+        elif self.path == '/api/achievements':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            achievements = get_user_achievements(google_id)
+            self._send_json({'achievements': achievements})
+
+        elif m := self._match(r'^/api/achievements/([^/]+)$'):
+            # Get achievements for a specific user by username
+            username = m.group(1)
+            user_info = get_public_user_info(username)
+            if not user_info:
+                self._send_json({'error': 'User not found'}, 404)
+                return
+            achievements = get_user_achievements(user_info['google_id'])
+            self._send_json({'achievements': achievements})
 
         elif self.path == '/api/experiments':
             google_id = self._get_user()
@@ -2835,11 +2855,16 @@ ch.postMessage({type:'preview-ready'});
             if 'folder' in body:
                 note['folder'] = body['folder']
             # Handle publishing
+            new_achievement = None
             if 'published' in body:
+                was_published = note.get('published', False)
                 note['published'] = body['published']
                 if body['published']:
                     note['slug'] = slugify(note['title']) or note_id
                     note['published_at'] = note.get('published_at') or int(time.time())
+                    # Check for first_blog achievement
+                    if not was_published:
+                        new_achievement = grant_achievement(google_id, 'first_blog')
                 else:
                     note['published_at'] = None
             note['updated'] = int(time.time())
@@ -2858,7 +2883,10 @@ ch.postMessage({type:'preview-ready'});
             if note_path and note_path != new_path and os.path.exists(note_path):
                 os.remove(note_path)
             _write_vault_md(new_path, note)
-            self._send_json(note)
+            response = dict(note)
+            if new_achievement:
+                response['achievement'] = new_achievement
+            self._send_json(response)
             return
 
         if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):

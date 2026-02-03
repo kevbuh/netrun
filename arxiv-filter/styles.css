@@ -3562,6 +3562,87 @@
       color: var(--text-primary);
     }
 
+    /* ── Achievement Toast ── */
+    .achievement-toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-120px);
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      z-index: 10001;
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+    }
+    .achievement-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .achievement-toast-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      animation: achievement-bounce 0.6s ease infinite;
+    }
+    .achievement-toast-icon svg {
+      width: 28px;
+      height: 28px;
+      color: white;
+    }
+    @keyframes achievement-bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .achievement-toast-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .achievement-toast-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+    .achievement-toast-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .achievement-toast-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Profile Achievement Icon ── */
+    .achievement-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .achievement-icon svg {
+      width: 20px;
+      height: 20px;
+      color: white;
+    }
+
     /* ── Blog View ── */
     .blog-layout {
       height: 100%;

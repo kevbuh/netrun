@@ -650,6 +650,12 @@ function clearVaultEditor() {
   document.getElementById('vault-tags-list').innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No tags</div>';
   const pubSection = document.getElementById('vault-published-section');
   if (pubSection) pubSection.style.display = 'none';
+  // Reset publish button
+  const pubBtn = document.getElementById('vault-publish-btn');
+  if (pubBtn) {
+    pubBtn.classList.remove('active');
+    pubBtn.title = 'Publish as blog';
+  }
 }
 
 // Save current note
@@ -1236,6 +1242,14 @@ async function vaultTogglePublish() {
           vaultShowPublishModal(url);
         }
       }
+
+      // Check for achievement unlock
+      if (note.achievement) {
+        // Trigger pixel pet celebration
+        if (typeof petCelebrate === 'function') petCelebrate();
+        // Show achievement toast
+        vaultShowAchievementToast(note.achievement);
+      }
     }
   } catch (e) {
     console.error('Failed to toggle publish', e);
@@ -1246,8 +1260,12 @@ async function vaultTogglePublish() {
 function updateVaultPublishButton() {
   const btn = document.getElementById('vault-publish-btn');
   if (btn) {
-    const isPublished = _vaultCurrentNote?.published;
-    btn.classList.toggle('active', isPublished);
+    const isPublished = _vaultCurrentNote?.published === true;
+    if (isPublished) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
     btn.title = isPublished ? 'Unpublish' : 'Publish as blog';
   }
 
@@ -1292,13 +1310,40 @@ function vaultShowPublishModal(url) {
         <button onclick="navigator.clipboard.writeText('${escapeAttr(url)}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500)">Copy</button>
       </div>
       <div class="vault-publish-actions">
-        <button onclick="window.open('${escapeAttr(url)}', '_blank')">View Post</button>
+        <button onclick="location.hash='${escapeAttr(url.split('#')[1])}'; this.closest('.vault-publish-modal').remove()">View Post</button>
         <button onclick="this.closest('.vault-publish-modal').remove()">Close</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+// Show achievement toast notification
+function vaultShowAchievementToast(achievement) {
+  if (!achievement) return;
+  const toast = document.createElement('div');
+  toast.className = 'achievement-toast';
+  toast.innerHTML = `
+    <div class="achievement-toast-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/>
+      </svg>
+    </div>
+    <div class="achievement-toast-content">
+      <div class="achievement-toast-title">Achievement Unlocked!</div>
+      <div class="achievement-toast-name">${achievement.name || 'Achievement'}</div>
+      <div class="achievement-toast-desc">${achievement.description || ''}</div>
+    </div>
+  `;
+  document.body.appendChild(toast);
+  // Trigger animation
+  requestAnimationFrame(() => toast.classList.add('show'));
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
 }
 
 // Open blog view (public)
