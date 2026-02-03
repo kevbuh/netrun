@@ -56,7 +56,7 @@ from persistence import (
     touch_last_seen, update_user_status,
     set_team_private, set_team_parent, get_team_children, get_team_ancestors,
     send_direct_message, get_direct_messages, mark_message_read,
-    get_unread_message_count, get_user_by_username,
+    delete_direct_message, get_unread_message_count, get_user_by_username,
     send_team_message, get_team_messages, update_team_message, delete_team_message,
     toggle_reaction,
     mark_team_chat_read, get_unread_team_chats, get_unread_team_chat_count,
@@ -2907,6 +2907,16 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not a team member'}, 403)
                 return
             if delete_team_todo(team_id, todo_id):
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
+
+        elif m := self._match(r'^/api/messages/([a-zA-Z0-9_-]+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            if delete_direct_message(google_id, m.group(1)):
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not found'}, 404)

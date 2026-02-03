@@ -268,8 +268,10 @@ async function renderInbox() {
     const chats = chatsResp.ok ? await chatsResp.json() : [];
 
     const feedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
+    const dismissedTasks = JSON.parse(localStorage.getItem('dismissedInboxTasks') || '[]');
+    const filteredTasks = tasks.filter(t => !dismissedTasks.includes(t.id));
 
-    if (!_cachedInvites.length && !messages.length && !tasks.length && !chats.length && !feedNotifs.length) {
+    if (!_cachedInvites.length && !messages.length && !filteredTasks.length && !chats.length && !feedNotifs.length) {
       container.innerHTML = `<div class="py-10 max-w-md mx-auto">
         <div class="p-4 bg-card border border-border-card rounded-lg">
           <div class="text-[0.88rem] text-primary">Hello! Welcome to your inbox. New posts, invites, and messages will show up here.</div>
@@ -291,6 +293,7 @@ async function renderInbox() {
           ${sourceChip}
           <span class="text-[0.82rem] text-primary truncate flex-1">${escapeHtml(n.title)}</span>
           ${n.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(n.date)}</span>` : ''}
+          <button onclick="event.stopPropagation(); dismissFeedNotification('${escapeAttr(n.link)}', this)" class="text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-1 shrink-0" title="Dismiss">&times;</button>
         </div>`;
       }).join('');
       if (feedNotifs.length > 20) {
@@ -317,9 +320,9 @@ async function renderInbox() {
     }
 
     // Assigned Tasks
-    if (tasks.length) {
+    if (filteredTasks.length) {
       html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2 mt-5">Assigned Tasks</div>';
-      html += tasks.map(t => {
+      html += filteredTasks.map(t => {
         const priColors = { high: 'text-red-400', medium: 'text-yellow-400', low: 'text-green-400' };
         const priColor = priColors[t.priority] || 'text-dim';
         return `
@@ -331,6 +334,7 @@ async function renderInbox() {
             </div>
             <div class="text-dimmer text-xs mt-0.5">${escapeHtml(t.team_name)} · from ${escapeHtml(t.author)}</div>
           </div>
+          <button onclick="event.stopPropagation(); dismissInboxTask('${escapeAttr(t.id)}', this)" class="text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-1 shrink-0" title="Dismiss">&times;</button>
         </div>`;
       }).join('');
     }
@@ -361,6 +365,7 @@ async function renderInbox() {
             </div>
             <div class="text-[0.82rem] text-primary mt-1 leading-relaxed truncate"><span class="text-dim">${escapeHtml(latest.username)}:</span> ${escapeHtml(latest.content.length > 80 ? latest.content.slice(0, 80) + '…' : latest.content)}</div>
           </div>
+          <button onclick="event.stopPropagation(); dismissTeamChat(${team.team_id}, this)" class="text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-1 shrink-0 mt-1" title="Dismiss">&times;</button>
         </div>`;
       }
     }
@@ -385,6 +390,7 @@ async function renderInbox() {
             </div>
             <div class="text-[0.82rem] text-primary mt-1 leading-relaxed">${escapeHtml(msg.content)}</div>
           </div>
+          <button onclick="event.stopPropagation(); dismissDirectMessage('${escapeAttr(msg.id)}', this)" class="text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-1 shrink-0 mt-1" title="Delete">&times;</button>
         </div>`;
       }).join('');
     }
@@ -436,6 +442,41 @@ async function refreshInboxBadge() {
       }
     }
   } catch (err) { /* ignore */ }
+}
+
+function dismissFeedNotification(link, btn) {
+  clearFeedNotification(link);
+  const card = btn.closest('.flex');
+  if (card) card.remove();
+  refreshInboxBadge();
+}
+
+function dismissInboxTask(taskId, btn) {
+  const dismissed = JSON.parse(localStorage.getItem('dismissedInboxTasks') || '[]');
+  if (!dismissed.includes(taskId)) {
+    dismissed.push(taskId);
+    localStorage.setItem('dismissedInboxTasks', JSON.stringify(dismissed));
+  }
+  const card = btn.closest('.flex');
+  if (card) card.remove();
+}
+
+async function dismissTeamChat(teamId, btn) {
+  try {
+    await fetch(`/api/teams/${teamId}/chat-read`, { method: 'POST', headers: _authHeaders() });
+  } catch (err) { /* ignore */ }
+  const card = btn.closest('.flex');
+  if (card) card.remove();
+  refreshInboxBadge();
+}
+
+async function dismissDirectMessage(msgId, btn) {
+  try {
+    await fetch(`/api/messages/${msgId}`, { method: 'DELETE', headers: _authHeaders() });
+  } catch (err) { /* ignore */ }
+  const card = btn.closest('.flex');
+  if (card) card.remove();
+  refreshInboxBadge();
 }
 
 // ── Teams View (standalone page) ──

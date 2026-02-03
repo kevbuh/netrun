@@ -1261,6 +1261,18 @@ def mark_message_read(google_id, message_id):
     conn.close()
 
 
+def delete_direct_message(google_id, message_id):
+    conn = _get_db()
+    cur = conn.execute(
+        "DELETE FROM direct_messages WHERE id = ? AND to_google_id = ?",
+        (message_id, google_id)
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
+
+
 def get_unread_message_count(google_id):
     conn = _get_db()
     count = conn.execute(
