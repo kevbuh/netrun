@@ -893,6 +893,25 @@ function _isDownloadableUrl(url) {
 }
 
 function _browseUpdateDownloadBadge() {
+  // Show/hide download button based on whether there are any downloads
+  const btn = document.getElementById('browse-downloads-btn');
+  if (btn) {
+    const hasDownloads = _browseDownloads.length > 0;
+    btn.style.display = hasDownloads ? 'block' : 'none';
+  }
+  
+  // Update download count badge
+  const badge = document.getElementById('browse-download-badge');
+  if (badge) {
+    const count = _browseDownloads.length;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  
   // Update progress ring (pulsing border when download active)
   const ring = document.getElementById('browse-download-progress-ring');
   if (ring) {
@@ -912,7 +931,7 @@ function _browseRenderDownloads() {
 
   let html = `<div class="browse-downloads-header">
     <span class="browse-downloads-title">Downloads</span>
-    <button class="browse-downloads-clear" onclick="clearBrowseDownloads()">Clear all</button>
+    <button class="browse-downloads-clear" onclick="event.stopPropagation();clearBrowseDownloads()">Clear all</button>
   </div>`;
 
   for (const dl of _browseDownloads) {
@@ -977,7 +996,9 @@ function _closeBrowseDownloadsOnClick(e) {
 }
 
 function clearBrowseDownloads() {
-  _browseDownloads = _browseDownloads.filter(d => d.state === 'progressing');
+  console.log('Clearing downloads, before:', _browseDownloads.length);
+  _browseDownloads = [];
+  console.log('After clearing:', _browseDownloads.length);
   _browseUpdateDownloadBadge();
   _browseRenderDownloads();
   _saveBrowseDownloads();
@@ -1011,8 +1032,9 @@ function _initBrowseDownloads() {
   // Listen for download-started event from main process
   if (window.electronAPI.onDownloadStarted) {
     window.electronAPI.onDownloadStarted((event, data) => {
+      // Use the ID from main process directly
       const dl = {
-        id: 'dl-' + (++_browseDownloadIdCounter),
+        id: data.id,
         filename: data.filename || 'download',
         url: data.url || '',
         state: 'progressing',
@@ -1025,18 +1047,21 @@ function _initBrowseDownloads() {
       _browseShowDownloadBtn();
       _browseUpdateDownloadBadge();
       _browseRenderDownloads();
+      console.log('Download started:', dl.id, dl.filename);
     });
   }
 
   // Listen for download-progress event
   if (window.electronAPI.onDownloadProgress) {
     window.electronAPI.onDownloadProgress((event, data) => {
-      const dl = _browseDownloads.find(d => d.savePath === data.savePath);
+      // Match by ID from main process
+      const dl = _browseDownloads.find(d => d.id === data.id);
       if (dl) {
         dl.receivedBytes = data.receivedBytes || 0;
         dl.totalBytes = data.totalBytes || dl.totalBytes;
         _browseUpdateDownloadBadge();
         _browseRenderDownloads();
+        console.log('Download progress:', dl.id, dl.receivedBytes, '/', dl.totalBytes);
       }
     });
   }
@@ -1044,12 +1069,14 @@ function _initBrowseDownloads() {
   // Listen for download-completed event
   if (window.electronAPI.onDownloadCompleted) {
     window.electronAPI.onDownloadCompleted((event, data) => {
-      const dl = _browseDownloads.find(d => d.savePath === data.savePath);
+      const dl = _browseDownloads.find(d => d.id === data.id);
       if (dl) {
         dl.state = data.state || 'completed';
+        dl.savePath = data.savePath || dl.savePath;
         dl.receivedBytes = dl.totalBytes;
         _browseUpdateDownloadBadge();
         _browseRenderDownloads();
+        console.log('Download completed:', dl.id, dl.state);
       }
     });
   }

@@ -254,6 +254,72 @@ app.on('web-contents-created', (event, contents) => {
         }
       }
     });
+    
+    // Handle downloads from webviews
+    contents.session.on('will-download', (event, item, webContents) => {
+      try {
+        // Check if webContents is still valid
+        if (!webContents || webContents.isDestroyed()) return;
+        
+        const parent = webContents.getOwnerBrowserWindow();
+        if (!parent) return;
+        
+        const downloadId = Date.now().toString();
+        const filename = item.getFilename();
+        const totalBytes = item.getTotalBytes();
+        
+        // Store parent id to safely reference it later
+        const parentId = parent.id;
+        
+        // Helper to safely send message to parent window
+        const safeSend = (channel, data) => {
+          try {
+            const win = BrowserWindow.fromId(parentId);
+            if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+              win.webContents.send(channel, data);
+            }
+          } catch (e) {
+            // Window was destroyed, ignore
+          }
+        };
+        
+        // Notify renderer that download started
+        safeSend('download-started', {
+          id: downloadId,
+          filename: filename,
+          url: item.getURL(),
+          totalBytes: totalBytes
+        });
+        
+        // Track download progress
+        item.on('updated', (event, state) => {
+          if (state === 'progressing') {
+            safeSend('download-progress', {
+              id: downloadId,
+              receivedBytes: item.getReceivedBytes(),
+              totalBytes: item.getTotalBytes()
+            });
+          }
+        });
+        
+        // Track download completion
+        item.once('done', (event, state) => {
+          try {
+            const savePath = item.getSavePath();
+            safeSend('download-completed', {
+              id: downloadId,
+              state: state,
+              savePath: savePath
+            });
+          } catch (e) {
+            // Ignore errors during completion
+          }
+        });
+      } catch (e) {
+        // Silently ignore errors from destroyed objects
+        console.log('Download handler error (object destroyed):', e.message);
+      }
+    });
   }
 });
 
