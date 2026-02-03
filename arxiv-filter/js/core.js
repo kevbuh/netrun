@@ -124,7 +124,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal' };
 
 // Research view tab state
 let _researchActiveTab = 'projects';
@@ -689,6 +689,8 @@ function switchResearchTab(tab) {
     renderResearchUsers();
   } else if (tab === 'teams') {
     renderResearchTeams();
+  } else if (tab === 'vault') {
+    if (typeof initVault === 'function') initVault();
   }
 }
 
@@ -839,6 +841,7 @@ function routeFromHash() {
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#inbox') openInbox();
   else if (hash === '#teams') openTeams();
+  else if (hash === '#vault') openVault();
   else if (hash.startsWith('#team/')) {
     const teamId = parseInt(hash.slice('#team/'.length), 10);
     if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId);

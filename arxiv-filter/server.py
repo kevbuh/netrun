@@ -28,7 +28,7 @@ if _args.data_dir:
     os.environ['ARXIV_DATA_DIR'] = _args.data_dir
 
 from persistence import (
-    DIR, CACHE_TTL, EXPERIMENTS_DIR, BLOCKED_TITLES_FILE, PROMPT_FILE,
+    DIR, CACHE_TTL, EXPERIMENTS_DIR, BLOCKED_TITLES_FILE, PROMPT_FILE, VAULT_DIR,
     _cache,
     read_blocked_titles, write_blocked_titles,
     read_saved_content, write_saved_content,
@@ -557,6 +557,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(data)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
+
+        # ── Vault Notes API ──
+        elif self.path == '/api/vault/notes':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            user_vault = os.path.join(VAULT_DIR, google_id)
+            os.makedirs(user_vault, exist_ok=True)
+            notes = []
+            for fname in os.listdir(user_vault):
+                if fname.endswith('.json'):
+                    try:
+                        with open(os.path.join(user_vault, fname), 'r') as f:
+                            note = json.load(f)
+                            notes.append(note)
+                    except:
+                        pass
+            notes.sort(key=lambda n: n.get('updated', 0), reverse=True)
+            self._send_json(notes)
+
+        elif m := self._match(r'^/api/vault/notes/([a-zA-Z0-9_-]+)$'):
+            note_id = m.group(1)
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+            if os.path.exists(note_path):
+                with open(note_path, 'r') as f:
+                    self._send_json(json.load(f))
+            else:
+                self._send_json({'error': 'Not found'}, 404)
 
         elif self.path == '/api/experiments':
             google_id = self._get_user()
@@ -2207,6 +2240,28 @@ ch.postMessage({type:'preview-ready'});
             shutil.move(src, dst)
             self._send_json({'ok': True})
 
+        # ── Vault Notes API (POST) ──
+        elif self.path == '/api/vault/notes':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            note_id = str(uuid.uuid4())[:8]
+            note = {
+                'id': note_id,
+                'title': body.get('title', 'Untitled'),
+                'content': body.get('content', ''),
+                'folder': body.get('folder'),
+                'created': int(time.time()),
+                'updated': int(time.time())
+            }
+            user_vault = os.path.join(VAULT_DIR, google_id)
+            os.makedirs(user_vault, exist_ok=True)
+            with open(os.path.join(user_vault, f'{note_id}.json'), 'w') as f:
+                json.dump(note, f, indent=2)
+            self._send_json(note, 201)
+
         elif self.path == '/api/experiments':
             google_id = self._get_user()
             if not google_id:
@@ -2503,6 +2558,30 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not found'}, 404)
             return
 
+        # ── Vault Notes API (PUT) ──
+        if m := self._match(r'^/api/vault/notes/([a-zA-Z0-9_-]+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            note_id = m.group(1)
+            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+            if not os.path.exists(note_path):
+                self._send_json({'error': 'Not found'}, 404)
+                return
+            with open(note_path, 'r') as f:
+                note = json.load(f)
+            body = self._read_body()
+            note['title'] = body.get('title', note.get('title', 'Untitled'))
+            note['content'] = body.get('content', note.get('content', ''))
+            if 'folder' in body:
+                note['folder'] = body['folder']
+            note['updated'] = int(time.time())
+            with open(note_path, 'w') as f:
+                json.dump(note, f, indent=2)
+            self._send_json(note)
+            return
+
         if m := self._match(r'^/api/calendar/([a-zA-Z0-9_-]+)$'):
             google_id = self._get_user()
             if not google_id:
@@ -2796,6 +2875,21 @@ ch.postMessage({type:'preview-ready'});
                 return
             delete_repost(google_id, paper_link)
             self._send_json({'ok': True})
+            return
+
+        # ── Vault Notes API (DELETE) ──
+        elif m := self._match(r'^/api/vault/notes/([a-zA-Z0-9_-]+)$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            note_id = m.group(1)
+            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+            if os.path.exists(note_path):
+                os.remove(note_path)
+                self._send_json({'ok': True})
+            else:
+                self._send_json({'error': 'Not found'}, 404)
             return
 
         elif m := self._match(r'^/api/todos/([a-zA-Z0-9_-]+)$'):

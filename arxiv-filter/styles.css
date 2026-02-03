@@ -634,6 +634,13 @@
       background-position: right 6px center;
     }
 
+    /* ── Research view ── */
+    #research-view {
+      position: relative;
+      height: 100vh;
+      overflow: hidden;
+    }
+
     /* ── Browse view ── */
     #browse-view {
       height: 100vh;
@@ -2958,6 +2965,293 @@
       color: var(--text-muted);
       min-width: 20px;
       text-align: center;
+    }
+
+    /* ── Vault (Obsidian-style notes) ── */
+    .vault-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr 240px;
+      height: 100%;
+      background: var(--bg-body);
+    }
+    .vault-sidebar {
+      border-right: 1px solid var(--border-card);
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-sidebar);
+    }
+    .vault-sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 12px 8px;
+    }
+    .vault-sidebar-btn {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .vault-sidebar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .vault-search {
+      position: relative;
+      padding: 0 8px 8px;
+    }
+    .vault-search-input {
+      width: 100%;
+      padding: 6px 8px 6px 28px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.78rem;
+      outline: none;
+    }
+    .vault-search-input:focus {
+      border-color: var(--accent);
+    }
+    .vault-file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .vault-file-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      transition: all 0.1s;
+    }
+    .vault-file-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .vault-file-item.active {
+      background: var(--accent-bg, rgba(180, 69, 26, 0.15));
+      color: var(--accent);
+    }
+    .vault-file-item svg {
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+    .vault-folder {
+      padding: 5px 12px;
+    }
+    .vault-folder-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      color: var(--text-dimmer);
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .vault-folder-header:hover {
+      color: var(--text-muted);
+    }
+    .vault-folder-children {
+      margin-left: 12px;
+      margin-top: 2px;
+    }
+    .vault-folder.collapsed .vault-folder-children {
+      display: none;
+    }
+
+    /* Editor */
+    .vault-editor {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg-body);
+    }
+    .vault-editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-card);
+      background: var(--bg-card);
+    }
+    .vault-title-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 1.1rem;
+      font-weight: 600;
+      outline: none;
+    }
+    .vault-title-input::placeholder {
+      color: var(--text-dimmer);
+    }
+    .vault-toolbar-btn {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .vault-toolbar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .vault-toolbar-btn.active {
+      background: var(--accent-bg, rgba(180, 69, 26, 0.15));
+      color: var(--accent);
+    }
+    .vault-editor-content, .vault-preview-content, .vault-graph-content {
+      flex: 1;
+      overflow: auto;
+    }
+    .vault-textarea {
+      width: 100%;
+      height: 100%;
+      padding: 16px 24px;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      resize: none;
+      outline: none;
+    }
+    .vault-textarea::placeholder {
+      color: var(--text-dimmest);
+    }
+    .vault-preview-content {
+      padding: 16px 24px;
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+    .vault-preview-content h1 { font-size: 1.5rem; font-weight: 700; margin: 1em 0 0.5em; color: var(--text-primary); }
+    .vault-preview-content h2 { font-size: 1.25rem; font-weight: 600; margin: 1em 0 0.5em; color: var(--text-primary); }
+    .vault-preview-content h3 { font-size: 1.1rem; font-weight: 600; margin: 1em 0 0.5em; color: var(--text-primary); }
+    .vault-preview-content p { margin: 0.5em 0; }
+    .vault-preview-content a { color: var(--accent); }
+    .vault-preview-content code { background: var(--bg-hover); padding: 2px 5px; border-radius: 3px; font-size: 0.85em; }
+    .vault-preview-content pre { background: var(--bg-card); padding: 12px; border-radius: 6px; overflow-x: auto; }
+    .vault-preview-content pre code { background: none; padding: 0; }
+    .vault-preview-content blockquote { border-left: 3px solid var(--accent); margin: 1em 0; padding-left: 1em; color: var(--text-muted); }
+    .vault-preview-content ul, .vault-preview-content ol { margin: 0.5em 0; padding-left: 1.5em; }
+    .vault-wiki-link {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dashed var(--accent);
+      cursor: pointer;
+    }
+    .vault-wiki-link:hover {
+      border-bottom-style: solid;
+    }
+    .vault-wiki-link.broken {
+      color: var(--text-dimmer);
+      border-color: var(--text-dimmer);
+    }
+    .vault-tag {
+      color: var(--accent);
+      font-size: 0.85em;
+    }
+
+    /* Graph */
+    .vault-graph-content {
+      position: relative;
+    }
+    .vault-graph-content svg {
+      width: 100%;
+      height: 100%;
+    }
+    .vault-graph-node {
+      cursor: pointer;
+    }
+    .vault-graph-node circle {
+      fill: var(--accent);
+      transition: r 0.2s;
+    }
+    .vault-graph-node:hover circle {
+      r: 8;
+    }
+    .vault-graph-node.current circle {
+      fill: var(--text-primary);
+      r: 8;
+    }
+    .vault-graph-node text {
+      fill: var(--text-muted);
+      font-size: 10px;
+      pointer-events: none;
+    }
+    .vault-graph-link {
+      stroke: var(--border-card);
+      stroke-width: 1;
+    }
+
+    /* Backlinks */
+    .vault-backlinks {
+      border-left: 1px solid var(--border-card);
+      background: var(--bg-sidebar);
+      overflow-y: auto;
+    }
+    .vault-backlinks-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .vault-backlinks-list, .vault-tags-list {
+      padding: 8px 0;
+    }
+    .vault-backlink-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .vault-backlink-item:hover {
+      background: var(--bg-hover);
+    }
+    .vault-backlink-title {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .vault-backlink-context {
+      font-size: 0.72rem;
+      color: var(--text-dimmer);
+      line-height: 1.4;
+    }
+    .vault-tag-item {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 2px 4px;
+      background: var(--bg-hover);
+      border-radius: 10px;
+      font-size: 0.72rem;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .vault-tag-item:hover {
+      background: var(--accent-bg, rgba(180, 69, 26, 0.15));
     }
 
     /* ── Sidebar resize handle ── */
