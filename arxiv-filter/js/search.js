@@ -635,6 +635,33 @@ function _browseGoBack() {
 }
 
 function openBrowse(url) {
+  // Block Browse view when not in Electron
+  if (!_browseIsElectron) {
+    hideAllViews();
+    const view = document.getElementById('browse-view');
+    view.classList.add('active');
+    view.style.display = 'flex';
+    view.style.flexDirection = 'column';
+    window.location.hash = 'browse';
+    setSidebarActive('sb-browse');
+
+    // Show desktop-only message
+    view.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--bg-body);">
+        <div style="max-width:480px;text-align:center;padding:32px;">
+          <svg style="width:80px;height:80px;margin:0 auto 24px;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/>
+          </svg>
+          <h2 style="font-size:1.5rem;font-weight:700;color:var(--text-white);margin-bottom:12px;">Browse is Desktop-Only</h2>
+          <p style="font-size:0.95rem;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">The built-in browser requires the desktop app for full functionality including ad blocking, privacy features, and native performance.</p>
+          <a href="https://github.com/yourusername/alpha/releases" target="_blank" style="display:inline-block;padding:12px 24px;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Download Desktop App</a>
+          <button onclick="openDashboard()" style="display:block;margin:16px auto 0;padding:8px 16px;background:transparent;border:1px solid var(--border-input);color:var(--text-muted);border-radius:6px;cursor:pointer;font-size:0.85rem;transition:all 0.2s;" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--text-dim)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border-input)'">Back to Home</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   setSidebarLoading('sb-browse');
   hideAllViews();
   // Clear paper-sidebar to avoid duplicate IDs

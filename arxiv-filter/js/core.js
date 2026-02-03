@@ -3,6 +3,48 @@ if (window.electronAPI && window.electronAPI.isElectron) {
   document.body.classList.add('electron-app');
 }
 
+// ── Download app banner (web only) ──
+function showDownloadBanner() {
+  const isElectron = window.electronAPI && window.electronAPI.isElectron;
+  const dismissed = localStorage.getItem('downloadBannerDismissed') === 'true';
+  if (!isElectron && !dismissed) {
+    const banner = document.getElementById('download-app-banner');
+    if (banner) banner.classList.remove('hidden');
+  }
+}
+
+function dismissDownloadBanner() {
+  localStorage.setItem('downloadBannerDismissed', 'true');
+  const banner = document.getElementById('download-app-banner');
+  if (banner) {
+    banner.style.animation = 'slideUp 0.3s ease-out';
+    setTimeout(() => banner.classList.add('hidden'), 300);
+  }
+}
+
+// Update Browse button tooltip when not in Electron
+function updateBrowseButtonTooltip() {
+  const isElectron = window.electronAPI && window.electronAPI.isElectron;
+  if (!isElectron) {
+    const browseBtn = document.getElementById('sb-browse');
+    const tooltip = browseBtn?.querySelector('.sidebar-tooltip');
+    if (tooltip) {
+      tooltip.textContent = 'Browse (Desktop only)';
+    }
+  }
+}
+
+// Show banner after DOM is loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    showDownloadBanner();
+    updateBrowseButtonTooltip();
+  });
+} else {
+  showDownloadBanner();
+  updateBrowseButtonTooltip();
+}
+
 // ── Spinner system ──
 let _spinnerData = null;
 let _spinnerNames = [];
