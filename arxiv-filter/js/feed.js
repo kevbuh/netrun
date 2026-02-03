@@ -740,6 +740,127 @@ function toggleCustomFeed(index, enabled) {
 }
 
 
+// ── Quality Filter Panel (feed page) ──
+
+function toggleQualityPanel() {
+  const panel = document.getElementById('quality-filter-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    document.getElementById('quality-filter-btn')?.classList.remove('border-accent', 'text-accent');
+  } else {
+    panel.style.display = '';
+    document.getElementById('quality-filter-btn')?.classList.add('border-accent', 'text-accent');
+    renderQualityPanel();
+  }
+}
+
+function _toggleBlockedPostsList() {
+  const list = document.getElementById('quality-blocked-list');
+  const chevron = document.getElementById('blocked-posts-chevron');
+  if (!list) return;
+  const hidden = list.style.display === 'none';
+  list.style.display = hidden ? '' : 'none';
+  if (chevron) chevron.style.transform = hidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+  if (hidden) renderBlockedList();
+}
+
+function _editVerdictPrompt() {
+  document.getElementById('verdict-prompt-readonly').style.display = 'none';
+  document.getElementById('verdict-prompt-actions').style.display = 'none';
+  const ta = document.getElementById('quality-prompt-input');
+  ta.style.display = '';
+  ta.focus();
+  document.getElementById('verdict-prompt-edit-actions').style.display = 'flex';
+}
+
+function _cancelEditVerdictPrompt() {
+  document.getElementById('quality-prompt-input').style.display = 'none';
+  document.getElementById('verdict-prompt-edit-actions').style.display = 'none';
+  document.getElementById('verdict-prompt-readonly').style.display = '';
+  document.getElementById('verdict-prompt-actions').style.display = 'flex';
+  // Reset textarea to current saved value
+  document.getElementById('quality-prompt-input').value = getQualityPrompt();
+}
+
+function renderQualityPanel() {
+  const panel = document.getElementById('quality-filter-panel');
+  if (!panel) return;
+  const cache = getQualityCache();
+  const cacheEntries = Object.entries(cache);
+  const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
+  const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
+
+  panel.innerHTML = `
+    <div class="flex items-center gap-3 mb-3">
+      <h3 class="text-white_ text-sm font-semibold">AI Quality Filter</h3>
+      <span class="text-dimmer text-[0.68rem]">qwen2.5:7b</span>
+      <label class="flex items-center gap-2 cursor-pointer ml-auto">
+        <span class="text-primary text-sm">Enable</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
+          <span class="slider"></span>
+        </span>
+      </label>
+    </div>
+    <p class="text-dim text-[0.8rem] mb-4">Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.</p>
+
+    <div class="mb-5">
+      <div class="flex items-center gap-2 mb-2">
+        <h4 class="text-muted text-[0.8rem] font-medium">Verdict Prompt</h4>
+        ${getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<span class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5">Edited</span>' : ''}
+      </div>
+      <p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>
+      <div id="verdict-prompt-readonly" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto">${escapeHtml(getQualityPrompt())}</div>
+      <textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">${escapeHtml(getQualityPrompt())}</textarea>
+      <div id="verdict-prompt-actions" class="flex items-center gap-2 justify-end">
+        <button onclick="_editVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Edit</button>
+        ${getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<button onclick="resetQualityPrompt(); renderQualityPanel()" class="text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset</button>' : ''}
+      </div>
+      <div id="verdict-prompt-edit-actions" class="flex items-center gap-2 justify-end" style="display:none">
+        <button onclick="_cancelEditVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors">Cancel</button>
+        <button onclick="saveQualityPrompt().then(function(){ renderQualityPanel(); })" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save</button>
+      </div>
+    </div>
+
+    <div class="mb-5">
+      <h4 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Prompt & Threshold</h4>
+      <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>
+      <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>
+      <div class="flex items-center gap-3">
+        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
+        <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${getQualityThreshold()}%</span>
+      </div>
+      <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
+    </div>
+
+    <div class="mb-5">
+      <button onclick="_toggleBlockedPostsList()" class="flex items-center gap-2 text-muted text-[0.8rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors">
+        <svg id="blocked-posts-chevron" class="w-3.5 h-3.5 transition-transform" style="transform:rotate(-90deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+        Blocked Posts
+      </button>
+      <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>
+    </div>
+
+    <div class="flex items-center justify-between">
+      <div class="text-dim text-[0.78rem]">
+        Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
+      </div>
+      <button onclick="resetEverything()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
+    </div>
+  `;
+
+  fetch('/api/quality-prompt').then(r => r.json()).then(data => {
+    if (data.prompt) {
+      localStorage.setItem('qualityPrompt', data.prompt);
+      const el = document.getElementById('quality-prompt-input');
+      if (el) el.value = data.prompt;
+    }
+    const scoringEl = document.getElementById('scoring-prompt-display');
+    if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
+  }).catch(() => {});
+}
+
 function toggleFeedSource(key, value) {
   const sources = getFeedSources();
   sources[key] = value;

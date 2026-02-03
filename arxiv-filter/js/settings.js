@@ -10,20 +10,7 @@ function openSettings() {
 
 function renderSettingsView() {
   const container = document.getElementById('settings-view-content');
-  const sources = getFeedSources();
-  const bypassMap = getQualityBypass();
-  const cache = getQualityCache();
-  const cacheEntries = Object.entries(cache);
-  const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
-  const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
-  const testTitles = getTestTitles();
   const blockedWords = getBlockedWords();
-
-  const cats = []; const catMap = {};
-  FEED_CATALOG.forEach(f => {
-    if (!catMap[f.cat]) { catMap[f.cat] = []; cats.push(f.cat); }
-    catMap[f.cat].push(f);
-  });
 
   const currentTheme = localStorage.getItem('theme') || 'light';
   const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
@@ -211,84 +198,13 @@ function renderSettingsView() {
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Reset rules to defaults</button>
     </div>
 
-    <!-- AI QUALITY FILTER -->
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center gap-3 mb-1">
-        <h3 class="text-white_ text-sm font-semibold">AI Quality Filter</h3>
-        <span class="text-dimmer text-[0.68rem]">qwen2.5:7b</span>
-        <label class="flex items-center gap-2 cursor-pointer ml-auto">
-          <span class="text-primary text-sm">Enable</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <p class="text-dim text-[0.8rem] mb-4">Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.</p>
-
-      <div class="mb-5">
-        <h4 class="text-muted text-[0.8rem] font-medium mb-2">Verdict Prompt</h4>
-        <p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>
-        <textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false">${escapeHtml(getQualityPrompt())}</textarea>
-        <div class="flex items-center justify-end mt-2">
-          <button onclick="saveQualityPrompt()" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save prompt</button>
-        </div>
-      </div>
-
-      <div class="mb-5">
-        <h4 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Prompt & Threshold</h4>
-        <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0–100%. Below threshold = hidden.</p>
-        <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading…</div>
-        <div class="flex items-center gap-3">
-          <input type="range" id="quality-threshold-slider" min="0" max="100" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
-          <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${getQualityThreshold()}%</span>
-        </div>
-        <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
-      </div>
-
-      <div class="mb-5">
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-muted text-[0.8rem] font-medium">Prompt Test Suite <span class="text-dim font-normal">(<span id="test-title-count">${testTitles.length}</span> titles)</span></h4>
-          <button onclick="clearTestTitles()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear tests</button>
-        </div>
-        <p class="text-dimmer text-[0.72rem] mb-2">Titles hidden with ✕ are collected here. All should be classified as SKIP.</p>
-        <button onclick="runPromptTest()" class="bg-input border border-border-input text-primary text-[0.78rem] px-3 py-1.5 rounded-md cursor-pointer hover:border-accent mb-2">Run test</button>
-        <div id="prompt-test-results"></div>
-      </div>
-
-      <div class="mb-5">
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-muted text-[0.8rem] font-medium">Blocked Posts</h4>
-          <button onclick="clearAllBlockedPosts()" class="text-dim text-[0.72rem] hover:text-red-400 bg-transparent border-none cursor-pointer">Clear manual blocks</button>
-        </div>
-        <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto"></div>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <div class="text-dim text-[0.78rem]">
-          Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
-        </div>
-        <button onclick="resetEverything()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
-      </div>
-    </div>
   `;
 
   renderBlockedWordsList();
-  renderBlockedList();
   // Load adblock rules info
   fetch('/api/adblock-rules').then(r => r.json()).then(rules => {
     const el = document.getElementById('adblock-rules-info');
     if (el) el.textContent = `Blocking ${(rules.domains || []).length} tracker domains, ${(rules.selectors || []).length} ad selectors, ${(rules.scriptPatterns || []).length} script patterns.`;
-  }).catch(() => {});
-  fetchTestTitlesFromServer().then(() => updateTestTitleCount());
-  fetch('/api/quality-prompt').then(r => r.json()).then(data => {
-    if (data.prompt) {
-      localStorage.setItem('qualityPrompt', data.prompt);
-      const el = document.getElementById('quality-prompt-input');
-      if (el) el.value = data.prompt;
-    }
-    const scoringEl = document.getElementById('scoring-prompt-display');
-    if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
   }).catch(() => {});
   // Start spinner preview
   updateSpinnerPreview(getSelectedSpinner());

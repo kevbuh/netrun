@@ -4,7 +4,8 @@ function clearAllBlockedPosts() {
   localStorage.removeItem('hiddenPosts');
   clearTestTitles();
   renderPapers();
-  if (document.getElementById('settings-view').style.display === 'block') renderSettingsView();
+  const qPanel = document.getElementById('quality-filter-panel');
+  if (qPanel && qPanel.style.display !== 'none') renderQualityPanel();
 }
 
 const DEFAULT_QUALITY_PROMPT =
