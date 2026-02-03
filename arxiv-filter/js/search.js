@@ -797,6 +797,7 @@ function _browseCreateFrame(id, url) {
 // ── Download Manager ──
 let _browseDownloads = []; // { id, filename, url, state: 'progressing'|'completed'|'cancelled', receivedBytes, totalBytes, startTime }
 let _browseDownloadIdCounter = 0;
+let _browseDownloadsLastSeenCount = 0; // Track when user has seen downloads
 
 // Load downloads from localStorage (filter to last hour)
 function _loadBrowseDownloads() {
@@ -809,6 +810,9 @@ function _loadBrowseDownloads() {
       const num = parseInt(d.id.replace('dl-', ''));
       if (num > _browseDownloadIdCounter) _browseDownloadIdCounter = num;
     });
+    // Load last seen count
+    const lastSeen = parseInt(localStorage.getItem('browseDownloadsLastSeen') || '0');
+    _browseDownloadsLastSeenCount = Math.min(lastSeen, _browseDownloads.length);
   } catch (e) {
     _browseDownloads = [];
   }
@@ -821,6 +825,8 @@ function _saveBrowseDownloads() {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
     const toSave = _browseDownloads.filter(d => d.startTime > oneHourAgo);
     localStorage.setItem('browseDownloads', JSON.stringify(toSave));
+    // Save last seen count
+    localStorage.setItem('browseDownloadsLastSeen', _browseDownloadsLastSeenCount.toString());
   } catch (e) {}
 }
 
@@ -851,24 +857,27 @@ function _browseUpdateDownloadBadge() {
     const hasDownloads = _browseDownloads.length > 0;
     btn.style.display = hasDownloads ? 'block' : 'none';
   }
-  
-  // Update download count badge
+
+  // Update download count badge - only show if there are NEW downloads
   const badge = document.getElementById('browse-download-badge');
   if (badge) {
     const count = _browseDownloads.length;
-    if (count > 0) {
-      badge.textContent = count > 99 ? '99+' : count;
+    const newDownloads = count - _browseDownloadsLastSeenCount;
+    if (newDownloads > 0) {
+      badge.textContent = newDownloads > 99 ? '99+' : newDownloads;
       badge.style.display = 'flex';
     } else {
       badge.style.display = 'none';
     }
   }
   
-  // Update progress ring (pulsing border when download active)
+  // Update progress ring (pulsing border when NEW download is active)
   const ring = document.getElementById('browse-download-progress-ring');
   if (ring) {
-    const hasActive = _browseDownloads.some(d => d.state === 'progressing');
-    ring.style.display = hasActive ? 'block' : 'none';
+    const count = _browseDownloads.length;
+    const newDownloads = count - _browseDownloadsLastSeenCount;
+    const hasNewActive = newDownloads > 0 && _browseDownloads.some(d => d.state === 'progressing');
+    ring.style.display = hasNewActive ? 'block' : 'none';
   }
 }
 
@@ -916,6 +925,9 @@ function _browseRenderDownloads() {
   }
 
   dropdown.innerHTML = html;
+
+  // Stop propagation on clicks inside dropdown to prevent closing
+  dropdown.onclick = (e) => e.stopPropagation();
 }
 
 function _formatBytes(bytes) {
@@ -925,16 +937,31 @@ function _formatBytes(bytes) {
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
-function toggleBrowseDownloads() {
+function toggleBrowseDownloads(event) {
+  // Stop the event from bubbling to prevent immediate close
+  if (event) event.stopPropagation();
+
   const dropdown = document.getElementById('browse-downloads-dropdown');
+  const badge = document.getElementById('browse-download-badge');
   if (!dropdown) return;
+
   if (dropdown.style.display === 'none') {
     _browseRenderDownloads();
     dropdown.style.display = 'block';
-    setTimeout(() => document.addEventListener('click', _closeBrowseDownloadsOnClick), 0);
+    // Mark downloads as seen and hide badge
+    _browseDownloadsLastSeenCount = _browseDownloads.length;
+    _saveBrowseDownloads(); // Persist the seen count
+    if (badge) badge.style.display = 'none';
+    // Add click listener on next frame to avoid immediate trigger
+    requestAnimationFrame(() => {
+      document.addEventListener('click', _closeBrowseDownloadsOnClick);
+    });
+    // Also close when webview gets focus
+    window.addEventListener('blur', _closeBrowseDownloadsOnBlur);
   } else {
     dropdown.style.display = 'none';
     document.removeEventListener('click', _closeBrowseDownloadsOnClick);
+    window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
   }
 }
 
@@ -944,11 +971,20 @@ function _closeBrowseDownloadsOnClick(e) {
     const dropdown = document.getElementById('browse-downloads-dropdown');
     if (dropdown) dropdown.style.display = 'none';
     document.removeEventListener('click', _closeBrowseDownloadsOnClick);
+    window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
   }
+}
+
+function _closeBrowseDownloadsOnBlur() {
+  const dropdown = document.getElementById('browse-downloads-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+  document.removeEventListener('click', _closeBrowseDownloadsOnClick);
+  window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
 }
 
 function clearBrowseDownloads() {
   _browseDownloads = [];
+  _browseDownloadsLastSeenCount = 0;
   _browseUpdateDownloadBadge();
   _browseRenderDownloads();
   _saveBrowseDownloads();
@@ -956,6 +992,10 @@ function clearBrowseDownloads() {
 
 function removeBrowseDownload(id) {
   _browseDownloads = _browseDownloads.filter(d => d.id !== id);
+  // Adjust seen count if we're below it
+  if (_browseDownloads.length < _browseDownloadsLastSeenCount) {
+    _browseDownloadsLastSeenCount = _browseDownloads.length;
+  }
   _browseUpdateDownloadBadge();
   _browseRenderDownloads();
   _saveBrowseDownloads();
