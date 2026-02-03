@@ -480,9 +480,20 @@ function browseNewTab(url) {
   }, 50);
 }
 
+function _browseRefreshScheme() {
+  // Reload all proxied browse tabs with the updated color scheme
+  if (!_browseTabs.length) return;
+  for (const tab of _browseTabs) {
+    if (!tab.el || tab.blank || !tab.url) continue;
+    const newSrc = _browseProxyUrl(tab.url);
+    if (tab.el.src !== newSrc) tab.el.src = newSrc;
+  }
+}
+
 function _browseProxyUrl(url) {
   if (localStorage.getItem('adBlockEnabled') === 'true' && !_browseIsElectron && url) {
-    return '/api/browse-proxy?url=' + encodeURIComponent(url);
+    const scheme = typeof getThemeColorScheme === 'function' ? getThemeColorScheme() : 'light';
+    return '/api/browse-proxy?url=' + encodeURIComponent(url) + '&scheme=' + scheme;
   }
   return url;
 }

@@ -88,6 +88,7 @@ function renderSettingsView() {
       <div class="flex items-center justify-between mb-4">
         <span class="text-primary text-sm">Theme</span>
         <div class="flex gap-1.5">
+          <button onclick="setTheme('auto')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'auto' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-auto">Auto</button>
           <button onclick="setTheme('dark')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'dark' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-dark">Dark</button>
           <button onclick="setTheme('light')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-light">Light</button>
           <button onclick="setTheme('sepia')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'sepia' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-sepia">Sepia</button>
@@ -316,18 +317,56 @@ function renderSettingsView() {
   }
 }
 
-function setTheme(theme) {
-  localStorage.setItem('theme', theme);
+// Map each theme to its underlying color scheme (dark or light)
+const THEME_COLOR_SCHEME = {
+  dark: 'dark',
+  light: 'light',
+  sepia: 'light',
+  daylight: 'light',
+  thermal: 'dark',
+};
+
+function _systemColorScheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function getThemeColorScheme() {
+  const theme = localStorage.getItem('theme') || 'light';
+  if (theme === 'auto') return _systemColorScheme();
+  return THEME_COLOR_SCHEME[theme] || 'light';
+}
+
+// Resolve 'auto' to the actual theme name based on system preference
+function _resolveAutoTheme() {
+  return _systemColorScheme() === 'dark' ? 'dark' : 'light';
+}
+
+// Apply the resolved theme to the DOM (shared by setTheme and the system listener)
+function _applyResolvedTheme(resolved) {
   stopDaylightTheme();
-  if (theme === 'light') {
+  if (resolved === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
-  } else if (theme === 'dark') {
+  } else if (resolved === 'dark') {
     document.documentElement.removeAttribute('data-theme');
   } else {
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', resolved);
   }
-  if (theme === 'daylight') startDaylightTheme();
-  ['dark', 'light', 'sepia', 'daylight', 'thermal'].forEach(t => {
+  if (resolved === 'daylight') startDaylightTheme();
+  if (typeof _browseRefreshScheme === 'function') _browseRefreshScheme();
+}
+
+// Listen for system color scheme changes to update 'auto' theme in real time
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if ((localStorage.getItem('theme') || 'light') === 'auto') {
+    _applyResolvedTheme(_resolveAutoTheme());
+  }
+});
+
+function setTheme(theme) {
+  localStorage.setItem('theme', theme);
+  const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
+  _applyResolvedTheme(resolved);
+  ['auto', 'dark', 'light', 'sepia', 'daylight', 'thermal'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });
@@ -815,8 +854,10 @@ function applyAccentColor(color) {
 
 function applyStoredAppearance() {
   const theme = localStorage.getItem('theme') || 'light';
-  if (theme !== 'dark') document.documentElement.setAttribute('data-theme', theme);
-  if (theme === 'daylight') startDaylightTheme();
+  const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
+  if (resolved !== 'dark') document.documentElement.setAttribute('data-theme', resolved);
+  else document.documentElement.removeAttribute('data-theme');
+  if (resolved === 'daylight') startDaylightTheme();
   const accent = localStorage.getItem('accentColor');
   if (accent) applyAccentColor(accent);
   const edTheme = localStorage.getItem('editorTheme');

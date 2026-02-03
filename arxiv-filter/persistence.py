@@ -1674,7 +1674,7 @@ def write_adblock_rules(rules):
         json.dump(rules, f, indent=2)
 
 
-def clean_html(html_str, base_url):
+def clean_html(html_str, base_url, color_scheme=''):
     """Strip ads, trackers, and sponsored content from HTML.
     Returns (cleaned_html, blocked_count)."""
     from html.parser import HTMLParser
@@ -1862,7 +1862,31 @@ def clean_html(html_str, base_url):
     cosmetic = f'<style>{css_rules} {{ display: none !important; }}</style>'
     # Inject blocked count as meta tag
     meta = f'<meta name="adblock-count" content="{blocked_count}">'
-    result = meta + cosmetic + ''.join(output)
+
+    # Inject color-scheme preference so pages adapt to dark/light mode
+    scheme_injection = ''
+    if color_scheme in ('dark', 'light'):
+        scheme_injection = (
+            f'<meta name="color-scheme" content="{color_scheme}">'
+            f'<style>:root {{ color-scheme: {color_scheme}; }}</style>'
+            '<script>'
+            '(function(){'
+            f'var s="{color_scheme}";'
+            'var orig=window.matchMedia;'
+            'window.matchMedia=function(q){'
+            'var r=orig.call(window,q);'
+            'if(q==="(prefers-color-scheme: dark)"||q==="(prefers-color-scheme:dark)"){'
+            'return Object.defineProperty(Object.create(r),\"matches\",{get:function(){return s===\"dark\"}})'
+            '}'
+            'if(q==="(prefers-color-scheme: light)"||q==="(prefers-color-scheme:light)"){'
+            'return Object.defineProperty(Object.create(r),\"matches\",{get:function(){return s===\"light\"}})'
+            '}'
+            'return r;};'
+            '})();'
+            '</script>'
+        )
+
+    result = meta + scheme_injection + cosmetic + ''.join(output)
     return result, blocked_count
 
 

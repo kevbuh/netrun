@@ -1102,10 +1102,11 @@ ch.postMessage({type:'preview-ready'});
             if not url:
                 self._send_json({'error': 'Missing url parameter'}, 400)
                 return
+            color_scheme = qs.get('scheme', [''])[0] or ''
             try:
                 data = cached_fetch(url, timeout=20)
                 html_str = data.decode('utf-8', errors='replace')
-                cleaned, count = clean_html(html_str, url)
+                cleaned, count = clean_html(html_str, url, color_scheme=color_scheme)
                 body = cleaned.encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
