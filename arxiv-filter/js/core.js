@@ -806,14 +806,14 @@ async function renderUserProfile(username) {
         <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
         <div><span class="text-white_ font-semibold">${profile.repost_count || 0}</span> <span class="text-dimmer">reposts</span></div>
         <div><span class="text-white_ font-semibold">${profile.team_count || 0}</span> <span class="text-dimmer">teams</span></div>
-        <div><span class="text-white_ font-semibold">${profile.experiment_count || 0}</span> <span class="text-dimmer">experiments</span></div>
+        <div><span class="text-white_ font-semibold">${profile.experiment_count || 0}</span> <span class="text-dimmer">projects</span></div>
       </div>
     `;
 
     // Shared experiments section
     if (experiments.length) {
       html += `<div class="mb-8">
-        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Shared Experiments</h3>
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Shared Projects</h3>
         <div class="flex flex-col gap-2">`;
       for (const exp of experiments) {
         html += `

@@ -454,7 +454,7 @@ async function renderDashboard() {
         ${exp.team_name ? `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">${escapeHtml(exp.team_name)}</span>` : ''}
       </div>
     </div>`;
-  }).join('') : '<div class="text-[0.8rem] text-dimmer">No experiments yet</div>';
+  }).join('') : '<div class="text-[0.8rem] text-dimmer">No projects yet</div>';
 
   // ── User Quotes ──
   const userQuotes = typeof _getUserQuotes === 'function' ? _getUserQuotes() : [];
@@ -529,11 +529,11 @@ async function renderDashboard() {
         </div>
       </div>
 
-      <!-- Right column: Recent Experiments, Quotes -->
+      <!-- Right column: Recent Projects, Quotes -->
       <div class="flex-1 min-w-0">
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Recent Experiments</h3>
+            <h3 class="text-[0.9rem] font-semibold text-primary">Recent Projects</h3>
             <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
           </div>
           <div class="flex flex-col gap-2">${expsHtml}</div>

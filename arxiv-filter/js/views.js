@@ -418,7 +418,7 @@ function _initSidebarForUrl(url) {
   fetchPaperComments();
 }
 
-// ── Add to experiment dropdown ──
+// ── Add to project dropdown ──
 let _paperExpDropdown = null;
 
 function togglePaperExpDropdown() {
@@ -440,7 +440,7 @@ function togglePaperExpDropdown() {
   fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).then(exps => {
     dropdown.innerHTML = '';
     if (!exps.length) {
-      dropdown.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">No experiments yet</div>';
+      dropdown.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">No projects yet</div>';
       return;
     }
     const paper = _currentPaperViewPaper;
@@ -461,7 +461,7 @@ function togglePaperExpDropdown() {
         const unlinkBtn = document.createElement('button');
         unlinkBtn.style.cssText = 'border:none;background:none;color:var(--text-dimmest);cursor:pointer;padding:0 2px;font-size:0.9rem;line-height:1;flex-shrink:0;';
         unlinkBtn.innerHTML = '&times;';
-        unlinkBtn.title = 'Remove from experiment';
+        unlinkBtn.title = 'Remove from project';
         unlinkBtn.onmouseenter = () => unlinkBtn.style.color = 'var(--text-primary)';
         unlinkBtn.onmouseleave = () => unlinkBtn.style.color = 'var(--text-dimmest)';
         unlinkBtn.onclick = (e) => { e.stopPropagation(); togglePaperInExperiment(exp.id, paper, true, papers); };
@@ -531,7 +531,7 @@ function showPaperView(paper, hashValue) {
   const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
 
   // ── Top bar: back + metadata compact ──
-  const _backLabels = { saved: 'Reading List', search: 'Search', browse: 'Browse', experiment: 'Experiment', arxiv: 'Feed', feed: 'Feed', dashboard: 'Home', inbox: 'Inbox', calendar: 'Calendar', settings: 'Settings' };
+  const _backLabels = { saved: 'Reading List', search: 'Search', browse: 'Browse', experiment: 'Project', arxiv: 'Feed', feed: 'Feed', dashboard: 'Home', inbox: 'Inbox', calendar: 'Calendar', settings: 'Settings' };
   const backLabel = _backLabels[paperViewOrigin] || 'Back';
   const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary shrink-0" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg><span class="text-[0.75rem]">${backLabel}</span></button>`;
   const sourceName = SOURCE_NAMES[paper.source] || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
@@ -552,7 +552,7 @@ function showPaperView(paper, hashValue) {
 
   // Action items: each has label (for overflow menu), html (inline button), and optional id
   const _topbarActions = [
-    { label: 'Add to experiment', html: `<div class="relative shrink-0" id="paper-exp-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to experiment"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg></button></div>`, action: 'togglePaperExpDropdown()' },
+    { label: 'Add to project', html: `<div class="relative shrink-0" id="paper-exp-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to project"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg></button></div>`, action: 'togglePaperExpDropdown()' },
     { label: 'Rate', html: `<span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>`, noOverflow: true },
     { label: isSaved ? 'Unsave' : 'Save', html: bookmarkBtn, action: 'togglePaperViewBookmark()' },
     { label: 'Share to team', html: `<div class="relative shrink-0" id="paper-share-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareToTeamDropdown()" title="Share to team"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`, action: 'toggleShareToTeamDropdown()' },
@@ -1341,6 +1341,8 @@ async function sendDocMessage(prefill) {
   if (input) input.value = '';
 
   _docChatMessages.push({ role: 'user', content: text });
+  // Add a thinking placeholder that will be replaced when tokens arrive
+  _docChatMessages.push({ role: 'assistant', content: '', _thinking: true });
   renderDocChatMessages();
 
   const setButtonDisabled = (v) => {
@@ -1359,8 +1361,8 @@ async function sendDocMessage(prefill) {
     });
 
     let aiText = '';
-    _docChatMessages.push({ role: 'assistant', content: '' });
     const aiIdx = _docChatMessages.length - 1;
+    _docChatMessages[aiIdx]._thinking = false;
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -1421,6 +1423,9 @@ function renderDocChatMessages(final) {
   container.innerHTML = _docChatMessages.map((m, i) => {
     if (m.role === 'user') {
       return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
+    }
+    if (m._thinking) {
+      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
     }
     const isLast = i === _docChatMessages.length - 1;
     const content = (final || !isLast) && typeof marked !== 'undefined'

@@ -1164,6 +1164,18 @@
     .doc-msg-ai code { background: rgba(255,255,255,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
     .doc-msg-ai pre { background: rgba(255,255,255,0.04); padding: 0.6em; border-radius: 4px; overflow-x: auto; margin: 0.3em 0; }
     .doc-msg-ai pre code { background: none; padding: 0; }
+    .doc-chat-thinking { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; }
+    .doc-chat-thinking .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text-dimmer);
+      animation: chat-dots 1.4s ease-in-out infinite;
+    }
+    .doc-chat-thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+    .doc-chat-thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes chat-dots {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
     .doc-chat-input-row {
       display: flex;
       gap: 6px;
