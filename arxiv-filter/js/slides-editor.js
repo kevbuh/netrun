@@ -18,6 +18,22 @@ var _slidesSaveTimer = null;
 var _slidesPresentOverlay = null;
 var _slidesPresentCanvas = null;
 var _slidesPresentIdx = 0;
+
+// ── Presentation Themes ──
+var _slidesThemes = [
+  { id: 'midnight',  name: 'Midnight',   bg: '#1a1a2e', fill: '#e0e0e0', stroke: '#e0e0e0', accent: '#b4451a', preview: ['#1a1a2e','#e0e0e0'] },
+  { id: 'dark',      name: 'Dark',       bg: '#111111', fill: '#ffffff', stroke: '#ffffff', accent: '#3b82f6', preview: ['#111111','#ffffff'] },
+  { id: 'light',     name: 'Light',      bg: '#ffffff', fill: '#1a1a1a', stroke: '#1a1a1a', accent: '#b4451a', preview: ['#ffffff','#1a1a1a'] },
+  { id: 'paper',     name: 'Paper',      bg: '#f5f0e8', fill: '#2c2416', stroke: '#2c2416', accent: '#8b6914', preview: ['#f5f0e8','#2c2416'] },
+  { id: 'ocean',     name: 'Ocean',      bg: '#0f2027', fill: '#a8d8ea', stroke: '#a8d8ea', accent: '#38b2ac', preview: ['#0f2027','#a8d8ea'] },
+  { id: 'forest',    name: 'Forest',     bg: '#1a2e1a', fill: '#c8e6c9', stroke: '#c8e6c9', accent: '#4caf50', preview: ['#1a2e1a','#c8e6c9'] },
+  { id: 'sunset',    name: 'Sunset',     bg: '#2d1b30', fill: '#f8d7da', stroke: '#f8d7da', accent: '#e76f51', preview: ['#2d1b30','#f8d7da'] },
+  { id: 'nord',      name: 'Nord',       bg: '#2e3440', fill: '#d8dee9', stroke: '#d8dee9', accent: '#88c0d0', preview: ['#2e3440','#d8dee9'] },
+  { id: 'lavender',  name: 'Lavender',   bg: '#1e1b2e', fill: '#d4c5f9', stroke: '#d4c5f9', accent: '#9b59b6', preview: ['#1e1b2e','#d4c5f9'] },
+  { id: 'chalk',     name: 'Chalk',      bg: '#2d4a3e', fill: '#e8e0d0', stroke: '#e8e0d0', accent: '#f0c040', preview: ['#2d4a3e','#e8e0d0'] },
+  { id: 'mono',      name: 'Mono',       bg: '#fafafa', fill: '#222222', stroke: '#222222', accent: '#222222', preview: ['#fafafa','#222222'] },
+  { id: 'neon',      name: 'Neon',       bg: '#0a0a0a', fill: '#39ff14', stroke: '#39ff14', accent: '#ff00ff', preview: ['#0a0a0a','#39ff14'] },
+];
 var _slidesPresentKeyHandler = null;
 
 function _cleanupSlidesEditor() {
@@ -119,6 +135,9 @@ function renderSlidesEditor(fname, content) {
     </button>
     <button class="draw-tool" data-tool="latex" onclick="_setSlidesTool('latex')" title="LaTeX (M)">
       <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4l-2 8h4l-2 8 7-10h-4l3-6z"/></svg>
+    </button>
+    <button class="draw-tool" onclick="_slidesShowThemePicker(this)" title="Themes">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.8-.1 2.6-.4a1 1 0 00.6-1.2l-.5-1.8a1 1 0 01.6-1.2A6 6 0 0018 12c0-3.3-2.7-6-6-6" stroke-linecap="round"/><circle cx="7.5" cy="11" r="1.5" fill="currentColor"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor"/><circle cx="16.5" cy="11" r="1.5" fill="currentColor"/></svg>
     </button>
     <span class="draw-sep"></span>
     <button class="draw-tool" onclick="_slidesDeleteSelected()" title="Delete (Del)">
@@ -368,10 +387,11 @@ function _slidesSwitchTo(idx) {
 function _slidesAddSlide() {
   if (!_slidesData) return;
   _slidesSaveCurrentCanvas();
+  const currentBg = _slidesData.slides[_slidesCurrentIdx]?.background || null;
   const newSlide = {
     id: 'slide-' + Date.now(),
     objects: [],
-    background: null,
+    background: currentBg,
   };
   _slidesData.slides.splice(_slidesCurrentIdx + 1, 0, newSlide);
   _slidesCurrentIdx = _slidesCurrentIdx + 1;
@@ -503,6 +523,95 @@ function _getSlidesColors() {
     stroke: stroke ? stroke.value : '#e0e0e0',
     strokeWidth: sw ? parseInt(sw.value) : 2,
   };
+}
+
+function _slidesShowThemePicker(btn) {
+  // Close if already open
+  const existing = document.getElementById('slides-theme-picker');
+  if (existing) { existing.remove(); return; }
+
+  const rect = btn.getBoundingClientRect();
+  const picker = document.createElement('div');
+  picker.id = 'slides-theme-picker';
+  picker.style.cssText = `position:fixed;top:${rect.bottom + 6}px;left:${rect.left}px;z-index:9999;background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);width:280px`;
+
+  let html = '<div style="font-size:0.75rem;color:var(--text-dimmer);margin-bottom:8px;font-weight:600">Slide Theme</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">';
+  for (const t of _slidesThemes) {
+    html += `<button onclick="_slidesApplyTheme('${t.id}')" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;border-radius:6px;border:1px solid var(--border-card);background:transparent;cursor:pointer;transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-card)'">
+      <div style="width:48px;height:27px;border-radius:3px;background:${t.preview[0]};display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(128,128,128,0.2)">
+        <div style="width:20px;height:3px;border-radius:1px;background:${t.preview[1]}"></div>
+      </div>
+      <span style="font-size:0.6rem;color:var(--text-dimmer)">${t.name}</span>
+    </button>`;
+  }
+  html += '</div>';
+
+  // "Apply to all slides" checkbox
+  html += `<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:0.7rem;color:var(--text-dim);cursor:pointer">
+    <input type="checkbox" id="slides-theme-all" checked style="accent-color:var(--accent)"> Apply to all slides
+  </label>`;
+
+  picker.innerHTML = html;
+  document.body.appendChild(picker);
+
+  // Close on outside click
+  const close = (e) => {
+    if (!picker.contains(e.target) && e.target !== btn) {
+      picker.remove();
+      document.removeEventListener('mousedown', close);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+}
+
+function _slidesApplyTheme(themeId) {
+  const theme = _slidesThemes.find(t => t.id === themeId);
+  if (!theme || !_slidesCanvas || !_slidesData) return;
+
+  const applyAll = document.getElementById('slides-theme-all')?.checked;
+
+  // Update color inputs
+  const fillInput = document.getElementById('slides-fill');
+  const strokeInput = document.getElementById('slides-stroke');
+  if (fillInput) fillInput.value = theme.fill;
+  if (strokeInput) strokeInput.value = theme.stroke;
+
+  if (applyAll) {
+    // Save current slide first
+    _slidesSaveCurrentCanvas();
+    // Apply to every slide
+    for (let i = 0; i < _slidesData.slides.length; i++) {
+      _slidesData.slides[i].background = theme.bg;
+      // Recolor text objects in each slide
+      if (_slidesData.slides[i].objects) {
+        for (const obj of _slidesData.slides[i].objects) {
+          if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+            obj.fill = theme.fill;
+          }
+        }
+      }
+    }
+    // Reload current slide
+    _slidesLoadSlide(_slidesCurrentIdx);
+  } else {
+    // Apply to current slide only
+    _slidesCanvas.setBackgroundColor(theme.bg, () => _slidesCanvas.renderAll());
+    // Recolor text objects on current canvas
+    _slidesCanvas.getObjects().forEach(obj => {
+      if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+        obj.set('fill', theme.fill);
+      }
+    });
+    _slidesCanvas.renderAll();
+  }
+
+  _slidesOnChange();
+  _renderSlidesThumbnails();
+
+  // Close picker
+  const picker = document.getElementById('slides-theme-picker');
+  if (picker) picker.remove();
 }
 
 function _setSlidesTool(tool) {
