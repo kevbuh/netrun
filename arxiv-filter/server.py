@@ -49,6 +49,7 @@ from persistence import (
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
     get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, delete_repost, get_user_reposts, get_user_feed_sources,
+    set_blog_vote, get_blog_votes,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
     update_user_picture, update_user_profile_bg, get_user_accent_color,
@@ -602,6 +603,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             google_id = user_info['google_id']
             user_vault = os.path.join(VAULT_DIR, google_id)
+            # Get viewer's google_id if logged in (for vote status)
+            viewer_google_id = self._get_user()
             # Find published note with matching slug
             if os.path.isdir(user_vault):
                 for fname in os.listdir(user_vault):
@@ -610,12 +613,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             with open(os.path.join(user_vault, fname), 'r') as f:
                                 note = json.load(f)
                                 if note.get('published') and note.get('slug') == slug:
+                                    votes = get_blog_votes(username, slug, viewer_google_id)
                                     self._send_json({
                                         'title': note.get('title', 'Untitled'),
                                         'content': note.get('content', ''),
                                         'author': username,
                                         'published_at': note.get('published_at'),
-                                        'picture': user_info.get('picture')
+                                        'picture': user_info.get('picture'),
+                                        'upvotes': votes['upvotes'],
+                                        'downvotes': votes['downvotes'],
+                                        'userVote': votes['userVote']
                                     })
                                     return
                         except:
@@ -2314,11 +2321,30 @@ ch.postMessage({type:'preview-ready'});
                 'created': int(time.time()),
                 'updated': int(time.time())
             }
+            # Handle forked_from for blog forks
+            if body.get('forked_from'):
+                note['forked_from'] = body['forked_from']
             user_vault = os.path.join(VAULT_DIR, google_id)
             os.makedirs(user_vault, exist_ok=True)
             with open(os.path.join(user_vault, f'{note_id}.json'), 'w') as f:
                 json.dump(note, f, indent=2)
             self._send_json(note, 201)
+
+        # ── Blog Vote API ──
+        elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)/vote$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            username = m.group(1)
+            slug = m.group(2)
+            body = self._read_body()
+            vote = body.get('vote', 0)  # 1 = upvote, -1 = downvote, 0 = remove
+            if vote not in (-1, 0, 1):
+                self._send_json({'error': 'Invalid vote'}, 400)
+                return
+            result = set_blog_vote(username, slug, google_id, vote)
+            self._send_json(result)
 
         elif self.path == '/api/experiments':
             google_id = self._get_user()

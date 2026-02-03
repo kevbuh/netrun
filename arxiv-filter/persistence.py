@@ -357,6 +357,15 @@ def init_db():
             paper_title TEXT,
             timestamp REAL NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS blog_votes (
+            blog_author TEXT NOT NULL,
+            blog_slug TEXT NOT NULL,
+            voter_google_id TEXT NOT NULL REFERENCES users(google_id),
+            vote INTEGER NOT NULL,
+            timestamp REAL NOT NULL,
+            PRIMARY KEY (blog_author, blog_slug, voter_google_id)
+        );
     """)
     # Migration: add profile_private column to users
     if 'profile_private' not in cols:
@@ -1199,6 +1208,58 @@ def delete_repost(google_id, paper_link):
     conn.commit()
     conn.close()
     return True
+
+
+# ── Blog Votes ──
+
+def set_blog_vote(blog_author, blog_slug, voter_google_id, vote):
+    """Set a vote (+1 upvote, -1 downvote, 0 to remove). Returns new vote counts."""
+    conn = _get_db()
+    if vote == 0:
+        conn.execute(
+            "DELETE FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?",
+            (blog_author, blog_slug, voter_google_id)
+        )
+    else:
+        conn.execute(
+            "INSERT OR REPLACE INTO blog_votes (blog_author, blog_slug, voter_google_id, vote, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (blog_author, blog_slug, voter_google_id, vote, time.time())
+        )
+    conn.commit()
+    # Get new totals
+    up = conn.execute(
+        "SELECT COUNT(*) FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1",
+        (blog_author, blog_slug)
+    ).fetchone()[0]
+    down = conn.execute(
+        "SELECT COUNT(*) FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1",
+        (blog_author, blog_slug)
+    ).fetchone()[0]
+    conn.close()
+    return {'upvotes': up, 'downvotes': down}
+
+
+def get_blog_votes(blog_author, blog_slug, viewer_google_id=None):
+    """Get vote counts and optionally the viewer's vote."""
+    conn = _get_db()
+    up = conn.execute(
+        "SELECT COUNT(*) FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1",
+        (blog_author, blog_slug)
+    ).fetchone()[0]
+    down = conn.execute(
+        "SELECT COUNT(*) FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1",
+        (blog_author, blog_slug)
+    ).fetchone()[0]
+    user_vote = 0
+    if viewer_google_id:
+        row = conn.execute(
+            "SELECT vote FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?",
+            (blog_author, blog_slug, viewer_google_id)
+        ).fetchone()
+        if row:
+            user_vote = row[0]
+    conn.close()
+    return {'upvotes': up, 'downvotes': down, 'userVote': user_vote}
 
 
 def get_user_shared_experiments(viewer_google_id, target_google_id):

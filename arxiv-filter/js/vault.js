@@ -604,7 +604,20 @@ function updateVaultPreview() {
 
   const content = document.getElementById('vault-editor').value;
   const preview = document.getElementById('vault-preview-container');
-  preview.innerHTML = renderVaultMarkdown(content);
+
+  let html = '';
+
+  // Show forked from banner if note was forked from a blog
+  if (_vaultCurrentNote?.forked_from) {
+    const fork = _vaultCurrentNote.forked_from;
+    html += `<div class="vault-fork-banner">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>
+      Forked from <a href="#blog/${encodeURIComponent(fork.author)}/${encodeURIComponent(fork.slug)}" class="vault-fork-link">${escapeHtml(fork.author)}'s "${escapeHtml(fork.title)}"</a>
+    </div>`;
+  }
+
+  html += renderVaultMarkdown(content);
+  preview.innerHTML = html;
 }
 
 // Render markdown with wiki links
@@ -1039,7 +1052,9 @@ async function openBlogPost(username, slug) {
   document.getElementById('blog-date').textContent = '';
 
   try {
-    const res = await fetch(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
+    const res = await fetch(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`, {
+      headers: _authHeaders()
+    });
     if (res.ok) {
       const post = await res.json();
       _currentBlogPost = post;
@@ -1053,6 +1068,7 @@ async function openBlogPost(username, slug) {
         document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       }
       updateBlogBookmarkButton();
+      updateBlogVoteButtons();
     } else {
       document.getElementById('blog-title').textContent = 'Post not found';
       document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
@@ -1116,9 +1132,15 @@ function updateBlogBookmarkButton() {
   btn?.classList.toggle('active', !!savedPosts[url]);
 }
 
-// Copy blog post to user's vault
+// Copy blog post to user's vault (fork)
 async function copyBlogToVault() {
   if (!_currentBlogPost) return;
+
+  // Parse current blog URL to get author and slug
+  const hash = window.location.hash.slice(1); // "blog/username/slug"
+  const parts = hash.split('/');
+  const author = parts[1];
+  const slug = parts[2];
 
   try {
     const res = await fetch('/api/vault/notes', {
@@ -1127,7 +1149,12 @@ async function copyBlogToVault() {
       body: JSON.stringify({
         title: _currentBlogPost.title,
         content: _currentBlogPost.content,
-        folder: 'Saved'
+        folder: 'Saved',
+        forked_from: {
+          author: author,
+          slug: slug,
+          title: _currentBlogPost.title
+        }
       })
     });
 
@@ -1136,7 +1163,7 @@ async function copyBlogToVault() {
       // Show success feedback
       const btn = event.target.closest('button');
       const originalTitle = btn.title;
-      btn.title = 'Copied!';
+      btn.title = 'Forked!';
       btn.classList.add('active');
       setTimeout(() => {
         btn.title = originalTitle;
@@ -1144,7 +1171,57 @@ async function copyBlogToVault() {
       }, 2000);
     }
   } catch (e) {
-    console.error('Failed to copy to vault', e);
+    console.error('Failed to fork to vault', e);
+  }
+}
+
+// Update blog vote button states
+function updateBlogVoteButtons() {
+  if (!_currentBlogPost) return;
+
+  const upBtn = document.getElementById('blog-upvote-btn');
+  const downBtn = document.getElementById('blog-downvote-btn');
+  const upCount = document.getElementById('blog-upvote-count');
+  const downCount = document.getElementById('blog-downvote-count');
+
+  if (upCount) upCount.textContent = _currentBlogPost.upvotes || 0;
+  if (downCount) downCount.textContent = _currentBlogPost.downvotes || 0;
+
+  upBtn?.classList.toggle('active', _currentBlogPost.userVote === 1);
+  downBtn?.classList.toggle('active', _currentBlogPost.userVote === -1);
+}
+
+// Vote on current blog post
+async function voteBlog(vote) {
+  if (!_currentBlogPost) return;
+
+  // Parse current blog URL to get author and slug
+  const hash = window.location.hash.slice(1);
+  const parts = hash.split('/');
+  const author = parts[1];
+  const slug = parts[2];
+
+  // Toggle vote if clicking same button
+  if (_currentBlogPost.userVote === vote) {
+    vote = 0; // Remove vote
+  }
+
+  try {
+    const res = await fetch(`/api/blog/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/vote`, {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vote })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      _currentBlogPost.upvotes = data.upvotes;
+      _currentBlogPost.downvotes = data.downvotes;
+      _currentBlogPost.userVote = vote;
+      updateBlogVoteButtons();
+    }
+  } catch (e) {
+    console.error('Failed to vote', e);
   }
 }
 

@@ -3250,6 +3250,30 @@
       font-size: 0.85em;
     }
 
+    .vault-fork-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .vault-fork-banner svg {
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .vault-fork-link {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .vault-fork-link:hover {
+      text-decoration: underline;
+    }
+
     /* Graph */
     .vault-graph-content {
       position: relative;
@@ -3483,6 +3507,38 @@
     }
     .blog-author a:hover {
       text-decoration: underline;
+    }
+    .blog-votes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .blog-vote-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .blog-vote-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .blog-vote-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .blog-vote-btn svg {
+      width: 16px;
+      height: 16px;
     }
     .blog-content {
       font-size: 1.05rem;
