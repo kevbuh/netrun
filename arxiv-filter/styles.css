@@ -2946,6 +2946,20 @@
       display: none;
     }
 
+    /* ── Keyboard shortcut keys (settings) ── */
+    .kbd-key {
+      display: inline-block;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-input);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      min-width: 20px;
+      text-align: center;
+    }
+
     /* ── Sidebar resize handle ── */
     .exp-sidebar-resize-handle {
       cursor: col-resize;

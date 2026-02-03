@@ -182,6 +182,43 @@ function renderSettingsView() {
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Reset rules to defaults</button>
     </div>
 
+    <!-- KEYBOARD SHORTCUTS -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
+      <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-[0.78rem]">
+        <div class="text-dimmer">Global</div><div></div>
+        <div><kbd class="kbd-key">Esc</kbd> Close panel / Go home</div>
+        <div><kbd class="kbd-key">⌘T</kbd> New browser tab</div>
+        <div><kbd class="kbd-key">⌘W</kbd> Close browser tab</div>
+        <div><kbd class="kbd-key">⌘⇧\\</kbd> Tab overview panel</div>
+
+        <div class="text-dimmer mt-2">Tab Overview</div><div></div>
+        <div><kbd class="kbd-key">←→</kbd> Switch windows</div>
+        <div><kbd class="kbd-key">↑↓</kbd> Switch tabs</div>
+        <div><kbd class="kbd-key">Enter</kbd> Select tab</div>
+        <div><kbd class="kbd-key">N</kbd> New window</div>
+        <div><kbd class="kbd-key">T</kbd> New tab</div>
+        <div><kbd class="kbd-key">Esc</kbd> Close panel</div>
+
+        <div class="text-dimmer mt-2">Browser</div><div></div>
+        <div><kbd class="kbd-key">⌘+</kbd> Zoom in</div>
+        <div><kbd class="kbd-key">⌘-</kbd> Zoom out</div>
+        <div><kbd class="kbd-key">⌘0</kbd> Reset zoom</div>
+
+        <div class="text-dimmer mt-2">PDF Viewer</div><div></div>
+        <div><kbd class="kbd-key">⌘F</kbd> Find in document</div>
+        <div><kbd class="kbd-key">H</kbd> Highlight mode</div>
+        <div><kbd class="kbd-key">P</kbd> Pen mode</div>
+        <div><kbd class="kbd-key">Esc</kbd> Exit mode</div>
+
+        <div class="text-dimmer mt-2">Editors</div><div></div>
+        <div><kbd class="kbd-key">⌘S</kbd> Save</div>
+        <div><kbd class="kbd-key">⌘Z</kbd> Undo</div>
+        <div><kbd class="kbd-key">⌘⇧Z</kbd> Redo</div>
+        <div><kbd class="kbd-key">⇧Enter</kbd> Run cell (notebook)</div>
+      </div>
+    </div>
+
   `;
 
   // Load adblock rules info
