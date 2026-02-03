@@ -386,6 +386,9 @@ let _browseNextWindowId = 1;
 let _browseNextTabId = 1;
 const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
+// Audio tracking: { tabId: { windowId, muted } }
+let _browseAudioTabs = new Map();
+
 // Convenience getters for current window's tabs
 function _getCurrentWindow() {
   return _browseWindows.find(w => w.id === _browseActiveWindow);
@@ -697,6 +700,22 @@ function _browseBindFrame(tab) {
     browseNewTab(e.url);
   });
 
+  // Audio tracking
+  el.addEventListener('media-started-playing', () => {
+    // Find which window this tab belongs to
+    const winId = _browseWindows.find(w => w.tabs.some(t => t.id === tab.id))?.id;
+    if (winId) {
+      _browseAudioTabs.set(tab.id, { windowId: winId, muted: false });
+      _browseRenderTabs();
+      _updateAudioIndicator();
+    }
+  });
+  el.addEventListener('media-paused', () => {
+    _browseAudioTabs.delete(tab.id);
+    _browseRenderTabs();
+    _updateAudioIndicator();
+  });
+
   // Context menu for links (right-click)
   el.addEventListener('context-menu', (e) => {
     if (e.linkURL) {
@@ -839,6 +858,7 @@ function browseSelectTab(id) {
   _browseUpdateSaveBtn();
   _browseSaveTabs();
   _browseUpdateNewTabPage(tab);
+  _updateAudioIndicator();
   // Update sidebar for the selected tab
   if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(tab.url);
@@ -870,6 +890,9 @@ function browseCloseTab(id) {
   const tab = win.tabs[idx];
   const wasLast = win.tabs.length === 1;
   if (tab.el) tab.el.remove();
+  // Clean up audio tracking
+  _browseAudioTabs.delete(id);
+  _updateAudioIndicator();
   win.tabs.splice(idx, 1);
   if (!win.tabs.length) {
     browseNewTab();
@@ -898,6 +921,127 @@ function _browseAnimateBounce() {
   });
 }
 
+// ── Audio Tracking ──
+
+function toggleTabMute(tabId) {
+  const audioInfo = _browseAudioTabs.get(tabId);
+  if (!audioInfo) return;
+
+  // Find the tab element
+  for (const win of _browseWindows) {
+    const tab = win.tabs.find(t => t.id === tabId);
+    if (tab && tab.el && _browseIsElectron) {
+      const newMuted = !audioInfo.muted;
+      tab.el.setAudioMuted(newMuted);
+      audioInfo.muted = newMuted;
+      _browseAudioTabs.set(tabId, audioInfo);
+      _browseRenderTabs();
+      _updateAudioIndicator();
+      return;
+    }
+  }
+}
+
+function goToAudioTab() {
+  // Go to the first tab playing audio
+  const entry = _browseAudioTabs.entries().next().value;
+  if (!entry) return;
+
+  const [tabId, info] = entry;
+  if (info.windowId !== _browseActiveWindow) {
+    browseSelectWindow(info.windowId);
+  }
+  browseSelectTab(tabId);
+
+  // If not in browse view, navigate there
+  if (!document.getElementById('browse-view')?.style.display || document.getElementById('browse-view').style.display === 'none') {
+    openBrowse();
+  }
+}
+
+function toggleAllAudio() {
+  // Check if all are muted
+  const allMuted = [..._browseAudioTabs.values()].every(info => info.muted);
+  const newMuted = !allMuted;
+
+  for (const [tabId, info] of _browseAudioTabs) {
+    for (const win of _browseWindows) {
+      const tab = win.tabs.find(t => t.id === tabId);
+      if (tab && tab.el && _browseIsElectron) {
+        tab.el.setAudioMuted(newMuted);
+        info.muted = newMuted;
+        _browseAudioTabs.set(tabId, info);
+      }
+    }
+  }
+  _browseRenderTabs();
+  _updateAudioIndicator();
+}
+
+function _updateAudioIndicator() {
+  let indicator = document.getElementById('audio-indicator');
+
+  if (_browseAudioTabs.size === 0) {
+    if (indicator) indicator.style.display = 'none';
+    return;
+  }
+
+  // Create indicator if it doesn't exist
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'audio-indicator';
+    indicator.className = 'audio-indicator';
+    document.body.appendChild(indicator);
+  }
+
+  // Get info about playing tabs
+  const playingTabs = [];
+  for (const [tabId, info] of _browseAudioTabs) {
+    for (const win of _browseWindows) {
+      const tab = win.tabs.find(t => t.id === tabId);
+      if (tab) {
+        playingTabs.push({ tab, win, muted: info.muted, tabId });
+        break;
+      }
+    }
+  }
+
+  const firstTab = playingTabs[0];
+  if (!firstTab) {
+    indicator.style.display = 'none';
+    return;
+  }
+
+  // Hide if we're already on this tab in the browse view
+  const browseView = document.getElementById('browse-view');
+  const isOnBrowseView = browseView && browseView.style.display !== 'none';
+  const isCurrentTab = isOnBrowseView &&
+    firstTab.win.id === _browseActiveWindow &&
+    firstTab.tab.id === firstTab.win.activeTab;
+
+  if (isCurrentTab) {
+    indicator.style.display = 'none';
+    return;
+  }
+
+  const allMuted = playingTabs.every(p => p.muted);
+
+  indicator.innerHTML = `
+    <button class="audio-indicator-icon" onclick="toggleAllAudio()" title="${allMuted ? 'Unmute audio' : 'Mute audio'}">
+      <svg class="w-4 h-4 ${allMuted ? '' : 'audio-playing'}" fill="currentColor" viewBox="0 0 24 24">
+        ${allMuted
+          ? '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>'
+          : '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>'}
+      </svg>
+    </button>
+    <button class="audio-indicator-title-btn" onclick="goToAudioTab()" title="Go to tab">
+      ${escapeHtml(firstTab.tab.title.slice(0, 25) || 'Audio')}
+    </button>
+  `;
+
+  indicator.style.display = 'flex';
+}
+
 function _browseRenderTabs() {
   const bar = document.getElementById('browse-tabs');
   if (!bar) return;
@@ -916,10 +1060,15 @@ function _browseRenderTabs() {
 
   bar.innerHTML = windowSelector + tabs.map(t => {
     const active = t.id === activeTab;
+    const hasAudio = _browseAudioTabs.has(t.id);
+    const audioInfo = _browseAudioTabs.get(t.id);
+    const isMuted = audioInfo?.muted;
     const title = escapeHtml(t.title.length > 24 ? t.title.slice(0, 22) + '...' : t.title);
     const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
-    return `<div class="browse-tab ${active ? 'active' : ''}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
-      ${fav}<span class="browse-tab-title">${title}</span>
+    const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
+      ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
+    return `<div class="browse-tab ${active ? 'active' : ''} ${hasAudio ? 'has-audio' : ''}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
+      ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
       <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
     </div>`;
   }).join('') + `<button class="browse-tab-new" onclick="browseNewTab()" title="New tab">+</button>`;

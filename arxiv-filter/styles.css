@@ -819,6 +819,100 @@
     .browse-new-window-btn:hover {
       background: var(--bg-card);
     }
+
+    /* ── Audio indicator on tabs ── */
+    .browse-tab-audio {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .browse-tab-audio:hover {
+      background: var(--bg-hover);
+    }
+    .browse-tab-audio.muted {
+      color: var(--text-muted);
+    }
+    .browse-tab.has-audio {
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+    .browse-tab.has-audio.active {
+      background: color-mix(in srgb, var(--accent) 15%, var(--bg-card));
+    }
+
+    /* ── Floating audio indicator ── */
+    .audio-indicator {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      z-index: 9999;
+      animation: audio-indicator-in 0.3s ease;
+    }
+    @keyframes audio-indicator-in {
+      from { opacity: 0; transform: translateY(20px) scale(0.9); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .audio-indicator-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .audio-indicator-icon:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .audio-indicator-icon svg.audio-playing {
+      color: var(--accent);
+      animation: audio-pulse 1s ease-in-out infinite;
+    }
+    @keyframes audio-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .audio-indicator-title-btn {
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .audio-indicator-title-btn:hover {
+      background: var(--bg-hover);
+    }
     .browse-tab-overview-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
