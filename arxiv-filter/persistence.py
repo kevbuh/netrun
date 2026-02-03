@@ -1091,6 +1091,23 @@ def update_user_status(google_id, emoji, text):
     conn.close()
 
 
+def get_user_feed_sources(google_id):
+    """Read feedSources and customFeeds from user_data for a given user."""
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT key, value FROM user_data WHERE google_id = ? AND key IN ('feedSources', 'customFeeds')",
+        (google_id,)
+    ).fetchall()
+    conn.close()
+    result = {'feedSources': {}, 'customFeeds': []}
+    for row in rows:
+        try:
+            result[row['key']] = json.loads(row['value'])
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return result
+
+
 def get_public_user_info(username):
     """Case-insensitive lookup. Returns {username, picture, created, profile_private, profile_bg, last_seen, status_emoji, status_text} or None."""
     conn = _get_db()

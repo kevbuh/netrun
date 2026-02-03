@@ -716,12 +716,13 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes] = await Promise.all([
+    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes, feedsRes] = await Promise.all([
       fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/teams', { headers: _authHeaders() }),
       fetch('/api/users/' + encodeURIComponent(username) + '/reposts', { headers: _authHeaders() }),
+      fetch('/api/users/' + encodeURIComponent(username) + '/feeds', { headers: _authHeaders() }),
     ]);
 
     if (!profileRes.ok) {
@@ -734,6 +735,7 @@ async function renderUserProfile(username) {
     const experiments = await experimentsRes.json();
     const teams = teamsRes.ok ? await teamsRes.json() : [];
     const reposts = repostsRes.ok ? await repostsRes.json() : [];
+    const feedsData = feedsRes.ok ? await feedsRes.json() : { catalogFeeds: [], customFeeds: [] };
 
     // Handle private profiles
     if (profile.profile_private) {
@@ -837,6 +839,39 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
+    // Feeds section
+    const catalogFeeds = feedsData.catalogFeeds || [];
+    const customFeeds = feedsData.customFeeds || [];
+    if (catalogFeeds.length || customFeeds.length) {
+      const myFeedSources = typeof getFeedSources === 'function' ? getFeedSources() : {};
+      html += `<div class="mb-8">
+        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Feeds</h3>
+        <div class="flex flex-wrap gap-2">`;
+      for (const key of catalogFeeds) {
+        const chip = getSourceChip(key);
+        const subscribed = !!myFeedSources[key];
+        if (chip) {
+          html += `<div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-card bg-card text-sm">${chip}`;
+          if (!subscribed) {
+            html += ` <button onclick="window._profileSubscribeFeed('${escapeHtml(key)}', this)" class="text-[0.65rem] text-accent hover:underline ml-1">+ Subscribe</button>`;
+          }
+          html += '</div>';
+        } else {
+          const entry = FEED_CATALOG.find(f => f.key === key);
+          const name = entry ? entry.name : key;
+          html += `<div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-card bg-card text-sm text-primary">${escapeHtml(name)}`;
+          if (!subscribed) {
+            html += ` <button onclick="window._profileSubscribeFeed('${escapeHtml(key)}', this)" class="text-[0.65rem] text-accent hover:underline ml-1">+ Subscribe</button>`;
+          }
+          html += '</div>';
+        }
+      }
+      for (const cf of customFeeds) {
+        html += `<div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-card bg-card text-sm text-primary">${escapeHtml(cf.name || cf.url)}</div>`;
+      }
+      html += '</div></div>';
+    }
+
     // Recent comments section
     if (comments.length) {
       html += `<div class="mb-8">
@@ -874,7 +909,7 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
-    if (!experiments.length && !comments.length && !teams.length && !reposts.length) {
+    if (!experiments.length && !comments.length && !teams.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
       html += '<div class="text-dimmer text-sm mt-4">No shared activity yet.</div>';
     }
 
@@ -892,6 +927,17 @@ async function renderUserProfile(username) {
     el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Failed to load profile</div>';
   }
 }
+
+window._profileSubscribeFeed = function(key, btn) {
+  const sources = typeof getFeedSources === 'function' ? getFeedSources() : {};
+  sources[key] = true;
+  localStorage.setItem('feedSources', JSON.stringify(sources));
+  if (typeof syncToServer === 'function') syncToServer();
+  btn.replaceWith(Object.assign(document.createElement('span'), {
+    className: 'text-[0.65rem] text-green-400 ml-1',
+    textContent: 'Subscribed'
+  }));
+};
 
 function showProfileMessageForm(username) {
   const el = document.getElementById('profile-message-form');

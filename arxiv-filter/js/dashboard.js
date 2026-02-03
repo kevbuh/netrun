@@ -619,6 +619,24 @@ async function renderDashboard() {
             </div>
           `).join('')}</div>
         </div>` : ''}
+
+        ${(() => {
+          const myFeeds = typeof getFeedSources === 'function' ? getFeedSources() : {};
+          const enabledKeys = FEED_CATALOG.filter(f => myFeeds[f.key]).map(f => f.key);
+          if (!enabledKeys.length) return '';
+          return `<div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-[0.9rem] font-semibold text-primary">Feeds</h3>
+              <button onclick="openSettings()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">Manage</button>
+            </div>
+            <div class="flex flex-wrap gap-1.5">${enabledKeys.map(key => {
+              const chip = getSourceChip(key);
+              if (chip) return `<div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border-card bg-card text-sm">${chip}</div>`;
+              const entry = FEED_CATALOG.find(f => f.key === key);
+              return `<div class="inline-flex items-center px-2.5 py-1.5 rounded-lg border border-border-card bg-card text-[0.78rem] text-primary">${escapeHtml(entry ? entry.name : key)}</div>`;
+            }).join('')}</div>
+          </div>`;
+        })()}
       </div>
     </div>
 

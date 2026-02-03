@@ -48,7 +48,7 @@ from persistence import (
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
     get_user_todos, create_todo, update_todo, delete_todo,
     db_get_comments, db_create_comment, db_delete_comment,
-    get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, delete_repost, get_user_reposts,
+    get_public_user_info, get_user_public_stats, get_user_recent_comments, create_repost, delete_repost, get_user_reposts, get_user_feed_sources,
     get_user_shared_experiments, get_user_public_teams, search_users, list_users,
     rename_team,
     update_user_picture, update_user_profile_bg, get_user_accent_color,
@@ -1034,6 +1034,21 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json(list_users())
                     return
                 self._send_json(search_users(q))
+            # /api/users/{username}/feeds
+            elif (m := self._match(r'^/api/users/([^/]+)/feeds$')):
+                username = url_unquote(m.group(1))
+                info = get_public_user_info(username)
+                if not info:
+                    self._send_json({'error': 'User not found'}, 404)
+                    return
+                if info['profile_private'] and info['google_id'] != google_id and not are_teammates(google_id, info['google_id']):
+                    self._send_json({'catalogFeeds': [], 'customFeeds': []})
+                    return
+                data = get_user_feed_sources(info['google_id'])
+                catalog_keys = [k for k, v in data.get('feedSources', {}).items() if v]
+                custom = [f for f in data.get('customFeeds', []) if f.get('enabled')]
+                custom_out = [{'name': f.get('name', f.get('url', '')), 'url': f.get('url', '')} for f in custom]
+                self._send_json({'catalogFeeds': catalog_keys, 'customFeeds': custom_out})
             # /api/users/{username}/comments
             elif (m := self._match(r'^/api/users/([^/]+)/comments$')):
                 username = url_unquote(m.group(1))
