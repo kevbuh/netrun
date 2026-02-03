@@ -130,14 +130,12 @@ function renderSettingsView() {
         <div class="flex items-center gap-2">
           <div class="flex gap-1">
             ${[['cat','cat'],['blackCat','black cat'],['dog','dog'],['poodle','poodle'],['bunny','bunny'],['froog','froog'],['pacman','pacman']].map(([t,label]) => {
-              const sel = (localStorage.getItem('pixelPetType') || 'cat') === t;
-              return `<button onclick="setPixelPetType('${t}')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${label}</button>`;
+              const petOn = localStorage.getItem('pixelPet') === 'on';
+              const sel = petOn && (localStorage.getItem('pixelPetType') || 'cat') === t;
+              return `<button onclick="togglePixelPet(true); setPixelPetType('${t}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${label}</button>`;
             }).join('')}
+            <button onclick="togglePixelPet(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${localStorage.getItem('pixelPet') !== 'on' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
           </div>
-          <label class="toggle-switch">
-            <input type="checkbox" ${localStorage.getItem('pixelPet') === 'on' ? 'checked' : ''} onchange="togglePixelPet(this.checked)">
-            <span class="slider"></span>
-          </label>
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
@@ -146,14 +144,11 @@ function renderSettingsView() {
           <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono cursor-ns-resize select-none" title="Drag up/down to adjust volume" onmousedown="_rainVolDragStart(event)">${Math.round(_rainVolume * 100)}%</span>
           <div class="flex gap-1">
             ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
-              const sel = _rainNoiseType === key;
-              return `<button onclick="setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
+              const sel = isRainSidebarVisible() && _rainNoiseType === key;
+              return `<button onclick="setRainSidebarVisible(true); setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
             }).join('')}
+            <button onclick="setRainSidebarVisible(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${!isRainSidebarVisible() ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
           </div>
-          <label class="toggle-switch">
-            <input type="checkbox" ${isRainSidebarVisible() ? 'checked' : ''} onchange="setRainSidebarVisible(this.checked)" title="Show in sidebar">
-            <span class="slider"></span>
-          </label>
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
@@ -161,14 +156,11 @@ function renderSettingsView() {
         <div class="flex items-center gap-2">
           <div class="flex gap-1">
             ${Object.entries(CLICK_SOUND_PRESETS).map(([key, p]) => {
-              const sel = (localStorage.getItem('clickSoundType') || 'thud') === key;
-              return `<button onclick="setClickSoundType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
+              const sel = _clickSoundOn && (localStorage.getItem('clickSoundType') || 'thud') === key;
+              return `<button onclick="toggleClickSound(true); setClickSoundType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
             }).join('')}
+            <button onclick="toggleClickSound(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
           </div>
-          <label class="toggle-switch">
-            <input type="checkbox" ${_clickSoundOn ? 'checked' : ''} onchange="toggleClickSound(this.checked)">
-            <span class="slider"></span>
-          </label>
         </div>
       </div>
     </div>
