@@ -197,6 +197,14 @@
           <button id="onboard-start-btn" disabled onclick="completeOnboarding()" class="px-6 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
         </div>
         <div id="onboard-grid"></div>
+        <div class="text-left mt-6 pt-5 border-t border-border-subtle">
+          <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-1.5 pl-1">Custom RSS Feeds</div>
+          <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
+          <div class="flex gap-2">
+            <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomFeed()}">
+            <button onclick="addCustomFeed()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -165,16 +165,6 @@ function renderSettingsView() {
       </div>
     </div>
 
-    <!-- CUSTOM RSS FEEDS -->
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Custom RSS Feeds</h3>
-      <div id="custom-feeds-list" class="flex flex-col gap-2 mb-3"></div>
-      <div class="flex gap-2">
-        <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomFeed()}">
-        <button onclick="addCustomFeed()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
-      </div>
-    </div>
-
     <!-- BLOCKED WORDS -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-2">Blocked Words</h3>
@@ -283,7 +273,6 @@ function renderSettingsView() {
     </div>
   `;
 
-  renderCustomFeedsList();
   renderBlockedWordsList();
   renderBlockedList();
   // Load adblock rules info

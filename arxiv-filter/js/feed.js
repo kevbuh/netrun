@@ -646,6 +646,7 @@ function showOnboarding() {
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
   document.getElementById('onboard-view').style.display = '';
   document.getElementById('home-feed-section').style.display = 'none';
+  renderCustomFeedsList();
 }
 
 function completeOnboarding() {
@@ -674,6 +675,7 @@ function getCustomFeeds() {
 
 function renderCustomFeedsList() {
   const list = document.getElementById('custom-feeds-list');
+  if (!list) return;
   const feeds = getCustomFeeds();
   if (!feeds.length) { list.innerHTML = '<div class="text-dim text-[0.78rem]">No custom feeds added.</div>'; return; }
   list.innerHTML = feeds.map((f, i) => `
