@@ -535,6 +535,55 @@ function browseRenameWindow(id, name) {
   }
 }
 
+function switchWindowUp() {
+  const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+  if (idx > 0) {
+    _animateWindowSwitch('up', () => {
+      browseSelectWindow(_browseWindows[idx - 1].id);
+    });
+  }
+}
+
+function switchWindowDown() {
+  const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+  if (idx < _browseWindows.length - 1) {
+    _animateWindowSwitch('down', () => {
+      browseSelectWindow(_browseWindows[idx + 1].id);
+    });
+  }
+}
+
+function _animateWindowSwitch(direction, callback) {
+  const content = document.getElementById('browse-content');
+  if (!content) { callback(); return; }
+
+  const offset = direction === 'up' ? '30px' : '-30px';
+  const offsetIn = direction === 'up' ? '-30px' : '30px';
+
+  content.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
+  content.style.transform = `translateY(${offset})`;
+  content.style.opacity = '0';
+
+  setTimeout(() => {
+    callback();
+    content.style.transition = 'none';
+    content.style.transform = `translateY(${offsetIn})`;
+    content.style.opacity = '0';
+
+    requestAnimationFrame(() => {
+      content.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+      content.style.transform = 'translateY(0)';
+      content.style.opacity = '1';
+
+      setTimeout(() => {
+        content.style.transition = '';
+        content.style.transform = '';
+        content.style.opacity = '';
+      }, 200);
+    });
+  }, 150);
+}
+
 let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
 
 function _browseGoBack() {
@@ -1049,12 +1098,21 @@ function _browseRenderTabs() {
   const tabs = win ? win.tabs : [];
   const activeTab = win ? win.activeTab : null;
 
-  // Window selector (if multiple windows)
+  // Window switcher (if multiple windows)
   let windowSelector = '';
   if (_browseWindows.length > 1) {
-    windowSelector = `<div class="browse-window-selector" onclick="toggleBrowseTabOverview()" title="Switch window">
-      <span class="browse-window-name">${escapeHtml(win?.name || 'Window')}</span>
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+    const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+    windowSelector = `<div class="browse-window-switcher" data-window-idx="${winIdx}">
+      <div class="browse-window-switcher-inner">
+        <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="switchWindowUp()" title="Previous window">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
+        </button>
+        <span class="browse-window-name" onclick="toggleBrowseTabOverview()">${escapeHtml(win?.name || 'Window')}</span>
+        <button class="browse-window-arrow down ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="switchWindowDown()" title="Next window">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+        </button>
+      </div>
+      <span class="browse-window-counter">${winIdx + 1}/${_browseWindows.length}</span>
     </div>`;
   }
 
@@ -1087,15 +1145,30 @@ function toggleBrowseTabOverview() {
   _browseTabOverviewVisible ? hideBrowseTabOverview() : showBrowseTabOverview();
 }
 
+// Tab overview keyboard navigation state
+let _overviewSelectedWindow = 0;
+let _overviewSelectedTab = 0;
+let _overviewKeyHandler = null;
+
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = true;
+
+  // Initialize selection to current window/tab
+  _overviewSelectedWindow = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+  if (_overviewSelectedWindow < 0) _overviewSelectedWindow = 0;
+  const win = _browseWindows[_overviewSelectedWindow];
+  _overviewSelectedTab = win ? win.tabs.findIndex(t => t.id === win.activeTab) : 0;
+  if (_overviewSelectedTab < 0) _overviewSelectedTab = 0;
+
   _renderBrowseTabOverview();
   overlay.style.display = 'block';
   // Update button state
   const btn = document.getElementById('browse-tab-overview-btn');
   if (btn) btn.classList.add('active', 'bg-hover', 'text-primary');
+  // Install keyboard handler
+  _installOverviewKeyHandler();
   // Trigger animation
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -1108,6 +1181,7 @@ function hideBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = false;
+  _removeOverviewKeyHandler();
   overlay.classList.remove('visible');
   // Update button state
   const btn = document.getElementById('browse-tab-overview-btn');
@@ -1115,6 +1189,91 @@ function hideBrowseTabOverview() {
   setTimeout(() => {
     overlay.style.display = 'none';
   }, 250);
+}
+
+function _installOverviewKeyHandler() {
+  if (_overviewKeyHandler) return;
+  _overviewKeyHandler = (e) => {
+    if (!_browseTabOverviewVisible) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    const win = _browseWindows[_overviewSelectedWindow];
+    const tabCount = win ? win.tabs.length + 1 : 1; // +1 for new tab card
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      _overviewSelectedTab = Math.min(_overviewSelectedTab + 1, tabCount - 1);
+      _updateOverviewSelection();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      _overviewSelectedTab = Math.max(_overviewSelectedTab - 1, 0);
+      _updateOverviewSelection();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (_overviewSelectedWindow < _browseWindows.length - 1) {
+        _overviewSelectedWindow++;
+        const newWin = _browseWindows[_overviewSelectedWindow];
+        const newTabCount = newWin ? newWin.tabs.length + 1 : 1;
+        _overviewSelectedTab = Math.min(_overviewSelectedTab, newTabCount - 1);
+        _updateOverviewSelection();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (_overviewSelectedWindow > 0) {
+        _overviewSelectedWindow--;
+        const newWin = _browseWindows[_overviewSelectedWindow];
+        const newTabCount = newWin ? newWin.tabs.length + 1 : 1;
+        _overviewSelectedTab = Math.min(_overviewSelectedTab, newTabCount - 1);
+        _updateOverviewSelection();
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      _selectOverviewItem();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideBrowseTabOverview();
+    }
+  };
+  document.addEventListener('keydown', _overviewKeyHandler);
+}
+
+function _removeOverviewKeyHandler() {
+  if (_overviewKeyHandler) {
+    document.removeEventListener('keydown', _overviewKeyHandler);
+    _overviewKeyHandler = null;
+  }
+}
+
+function _updateOverviewSelection() {
+  // Remove all keyboard-selected classes
+  const overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  overlay.querySelectorAll('.keyboard-selected').forEach(el => el.classList.remove('keyboard-selected'));
+
+  // Find and highlight the selected item
+  const sections = overlay.querySelectorAll('.browse-window-section');
+  if (sections[_overviewSelectedWindow]) {
+    const cards = sections[_overviewSelectedWindow].querySelectorAll('.browse-tab-card');
+    if (cards[_overviewSelectedTab]) {
+      cards[_overviewSelectedTab].classList.add('keyboard-selected');
+      cards[_overviewSelectedTab].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
+
+function _selectOverviewItem() {
+  const win = _browseWindows[_overviewSelectedWindow];
+  if (!win) return;
+
+  // Check if selecting new tab card (last position)
+  if (_overviewSelectedTab >= win.tabs.length) {
+    _newTabInWindowFromOverview(win.id);
+  } else {
+    const tab = win.tabs[_overviewSelectedTab];
+    if (tab) {
+      _selectTabFromOverview(win.id, tab.id);
+    }
+  }
 }
 
 // Keyboard shortcut for tab overview (Cmd+Shift+\)
@@ -1215,6 +1374,11 @@ function _renderBrowseTabOverview() {
       ${windowSections}
     </div>
   `;
+
+  // Apply keyboard selection highlight
+  if (_browseTabOverviewVisible) {
+    setTimeout(() => _updateOverviewSelection(), 0);
+  }
 }
 
 function _selectWindowFromOverview(windowId, event) {
@@ -1451,8 +1615,36 @@ document.addEventListener('keydown', function(e) {
 // sidebar, etc.). When a cross-origin iframe has focus, browser security prevents
 // intercepting these shortcuts — this is the same limitation every web app faces.
 // No-op stubs kept so callers don't break.
-function _browseInstallKeyGuard() {}
-function _browseRemoveKeyGuard() {}
+let _browseKeyHandler = null;
+
+function _browseInstallKeyGuard() {
+  if (_browseKeyHandler) return;
+  _browseKeyHandler = (e) => {
+    // Only handle if browse view is visible and not typing in an input
+    const browseView = document.getElementById('browse-view');
+    if (!browseView || browseView.style.display === 'none') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
+    // Ctrl+Arrow up/down to switch windows (works on Mac and Windows)
+    if (_browseWindows.length > 1 && e.ctrlKey) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        switchWindowUp();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        switchWindowDown();
+      }
+    }
+  };
+  document.addEventListener('keydown', _browseKeyHandler);
+}
+
+function _browseRemoveKeyGuard() {
+  if (_browseKeyHandler) {
+    document.removeEventListener('keydown', _browseKeyHandler);
+    _browseKeyHandler = null;
+  }
+}
 
 // Transparent overlay to capture pinch gestures over iframes
 function _browseInstallPinchOverlay() {

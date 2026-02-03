@@ -15,7 +15,7 @@
     }
     body.electron-app #browse-tabs .browse-tab,
     body.electron-app #browse-tabs .browse-tab-new,
-    body.electron-app #browse-tabs .browse-window-selector {
+    body.electron-app #browse-tabs .browse-window-switcher {
       -webkit-app-region: no-drag;
     }
     body.electron-app #browse-bar {
@@ -696,35 +696,72 @@
       z-index: 101;
     }
 
-    /* Window selector in tab bar */
-    .browse-window-selector {
+    /* Window switcher in tab bar */
+    .browse-window-switcher {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 6px 12px;
-      margin-right: 8px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: var(--text-muted);
+      gap: 2px;
+      margin-right: 6px;
+      padding: 2px 4px;
       background: var(--bg-hover);
-      border: 1px solid var(--border-card);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      border-radius: 6px;
       flex-shrink: 0;
       position: relative;
       z-index: 5;
+      -webkit-app-region: no-drag;
     }
-    .browse-window-selector:hover {
-      background: var(--bg-card);
+    .browse-window-switcher-inner {
+      display: flex;
+      align-items: center;
+    }
+    .browse-window-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 20px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      transition: color 0.15s, transform 0.1s;
+    }
+    .browse-window-arrow svg {
+      width: 10px;
+      height: 10px;
+    }
+    .browse-window-arrow:hover:not(.disabled) {
       color: var(--text-primary);
-      border-color: var(--accent);
+    }
+    .browse-window-arrow:active:not(.disabled) {
+      transform: scale(0.85);
+    }
+    .browse-window-arrow.disabled {
+      opacity: 0.25;
+      cursor: default;
     }
     .browse-window-name {
-      max-width: 100px;
+      padding: 2px 4px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      max-width: 80px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .browse-window-name:hover {
+      background: var(--bg-card);
+    }
+    .browse-window-counter {
+      font-size: 0.6rem;
+      color: var(--text-dimmest);
+      margin-left: 2px;
     }
 
     /* Window sections in overview */
@@ -935,6 +972,11 @@
     .browse-tab-card.active {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px var(--accent);
+    }
+    .browse-tab-card.keyboard-selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent), 0 8px 24px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
     }
     .browse-tab-card-preview {
       height: 160px;
