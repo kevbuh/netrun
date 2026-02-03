@@ -403,6 +403,11 @@ Object.defineProperty(window, '_browseActiveTab', {
   set(v) { const w = _getCurrentWindow(); if (w) w.activeTab = v; }
 });
 
+function _getBrowseStorageKey(baseKey) {
+  const username = (typeof _authUserInfo !== 'undefined' && _authUserInfo?.username) || null;
+  return username ? `${baseKey}_${username}` : baseKey;
+}
+
 function _browseSaveTabs() {
   const data = _browseWindows.map(w => ({
     id: w.id,
@@ -410,7 +415,7 @@ function _browseSaveTabs() {
     activeTab: w.activeTab,
     tabs: w.tabs.filter(t => !t.blank && t.url).map(t => ({ id: t.id, url: t.url, title: t.title }))
   }));
-  localStorage.setItem('browseWindows', JSON.stringify({
+  localStorage.setItem(_getBrowseStorageKey('browseWindows'), JSON.stringify({
     windows: data,
     activeWindow: _browseActiveWindow,
     nextWindowId: _browseNextWindowId,
@@ -420,8 +425,8 @@ function _browseSaveTabs() {
 
 function _browseRestoreTabs() {
   try {
-    // Try new multi-window format first
-    let raw = localStorage.getItem('browseWindows');
+    // Try new multi-window format first (user-specific key)
+    let raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
     if (raw) {
       const { windows, activeWindow, nextWindowId, nextTabId } = JSON.parse(raw);
       if (!windows || !windows.length) return false;
@@ -1976,11 +1981,11 @@ function _browseUpdateSaveBtn() {
 // ── Tab Sessions (save/restore named tab groups) ──
 
 function _getTabSessions() {
-  try { return JSON.parse(localStorage.getItem('browseTabSessions') || '[]'); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(_getBrowseStorageKey('browseTabSessions')) || '[]'); } catch { return []; }
 }
 
 function _saveTabSessions(sessions) {
-  localStorage.setItem('browseTabSessions', JSON.stringify(sessions));
+  localStorage.setItem(_getBrowseStorageKey('browseTabSessions'), JSON.stringify(sessions));
 }
 
 function toggleTabStateDropdown() {

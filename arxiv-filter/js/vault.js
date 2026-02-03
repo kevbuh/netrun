@@ -1029,6 +1029,9 @@ async function openBlogPost(username, slug) {
   window.location.hash = `blog/${username}/${slug}`;
   setSidebarActive('');
 
+  // Reset current post
+  _currentBlogPost = null;
+
   // Load blog post
   document.getElementById('blog-title').textContent = 'Loading...';
   document.getElementById('blog-content').innerHTML = '';
@@ -1039,6 +1042,7 @@ async function openBlogPost(username, slug) {
     const res = await fetch(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
     if (res.ok) {
       const post = await res.json();
+      _currentBlogPost = post;
       document.getElementById('blog-title').textContent = post.title;
       document.getElementById('blog-content').innerHTML = renderBlogMarkdown(post.content);
       document.getElementById('blog-author').innerHTML = `
@@ -1048,6 +1052,7 @@ async function openBlogPost(username, slug) {
       if (post.published_at) {
         document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       }
+      updateBlogBookmarkButton();
     } else {
       document.getElementById('blog-title').textContent = 'Post not found';
       document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
@@ -1055,6 +1060,91 @@ async function openBlogPost(username, slug) {
   } catch (e) {
     document.getElementById('blog-title').textContent = 'Error';
     document.getElementById('blog-content').innerHTML = '<p>Failed to load post.</p>';
+  }
+}
+
+// Current blog post data (for actions)
+let _currentBlogPost = null;
+
+// Toggle bookmark for current blog post
+function toggleBlogBookmark() {
+  if (!_currentBlogPost) return;
+
+  const url = window.location.hash.slice(1); // e.g., "blog/username/slug"
+  const fullUrl = window.location.origin + '/#' + url;
+
+  // Use the existing savedPosts system
+  let savedPosts = {};
+  try {
+    savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+  } catch (e) {}
+
+  const btn = document.getElementById('blog-bookmark-btn');
+
+  if (savedPosts[fullUrl]) {
+    delete savedPosts[fullUrl];
+    btn?.classList.remove('active');
+  } else {
+    savedPosts[fullUrl] = {
+      paper: {
+        title: _currentBlogPost.title,
+        link: fullUrl,
+        source: 'blog',
+        authors: _currentBlogPost.author
+      },
+      savedAt: Date.now(),
+      read: false
+    };
+    btn?.classList.add('active');
+  }
+
+  localStorage.setItem('savedPosts', JSON.stringify(savedPosts));
+  if (typeof syncToServer === 'function') syncToServer();
+}
+
+// Update bookmark button state
+function updateBlogBookmarkButton() {
+  if (!_currentBlogPost) return;
+
+  const url = window.location.origin + '/#' + window.location.hash.slice(1);
+  let savedPosts = {};
+  try {
+    savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+  } catch (e) {}
+
+  const btn = document.getElementById('blog-bookmark-btn');
+  btn?.classList.toggle('active', !!savedPosts[url]);
+}
+
+// Copy blog post to user's vault
+async function copyBlogToVault() {
+  if (!_currentBlogPost) return;
+
+  try {
+    const res = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: _currentBlogPost.title,
+        content: _currentBlogPost.content,
+        folder: 'Saved'
+      })
+    });
+
+    if (res.ok) {
+      const note = await res.json();
+      // Show success feedback
+      const btn = event.target.closest('button');
+      const originalTitle = btn.title;
+      btn.title = 'Copied!';
+      btn.classList.add('active');
+      setTimeout(() => {
+        btn.title = originalTitle;
+        btn.classList.remove('active');
+      }, 2000);
+    }
+  } catch (e) {
+    console.error('Failed to copy to vault', e);
   }
 }
 
