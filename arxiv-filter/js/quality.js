@@ -6,6 +6,8 @@ function clearAllBlockedPosts() {
   renderPapers();
   const qPanel = document.getElementById('quality-filter-panel');
   if (qPanel && qPanel.style.display !== 'none') renderQualityPanel();
+  const qView = document.getElementById('quality-view');
+  if (qView && !qView.classList.contains('hidden')) renderQualityView();
 }
 
 const DEFAULT_QUALITY_PROMPT =
@@ -147,7 +149,8 @@ function resetEverything() {
       btn.innerHTML = orig;
       btn.classList.remove('text-green-400');
       btn.classList.add('text-red-400/80');
-      if (document.getElementById('settings-view').style.display === 'block') renderSettingsView();
+      const qView = document.getElementById('quality-view');
+      if (qView && !qView.classList.contains('hidden')) renderQualityView();
     }, 1500);
   }
 }

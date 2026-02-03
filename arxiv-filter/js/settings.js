@@ -10,7 +10,6 @@ function openSettings() {
 
 function renderSettingsView() {
   const container = document.getElementById('settings-view-content');
-  const blockedWords = getBlockedWords();
 
   const currentTheme = localStorage.getItem('theme') || 'light';
   const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
@@ -57,16 +56,6 @@ function renderSettingsView() {
         <button onclick="_doLogout()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Sign Out</button>
         <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
       </div>
-    </div>
-
-    <!-- TEAMS -->
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-white_ text-sm font-semibold">Teams</h3>
-        <button onclick="showCreateTeamPopup('settings')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-lg leading-none p-0" title="Create team">+</button>
-      </div>
-      <div id="teams-section-content"></div>
-      <div id="create-team-form"></div>
     </div>
 
     <!-- APPEARANCE -->
@@ -152,17 +141,6 @@ function renderSettingsView() {
       </div>
     </div>
 
-    <!-- BLOCKED WORDS -->
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-2">Blocked Words</h3>
-      <p class="text-dimmer text-[0.75rem] mb-3">Posts with titles containing any of these words will be automatically hidden.</p>
-      <div class="flex gap-2 mb-3">
-        <input type="text" id="blocked-word-input" placeholder="e.g. politics, lawsuit, review" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addBlockedWord()}">
-        <button onclick="addBlockedWord()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
-      </div>
-      <div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div>
-    </div>
-
     <!-- PAPER INSIGHTS -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Paper Insights</h3>
@@ -200,7 +178,6 @@ function renderSettingsView() {
 
   `;
 
-  renderBlockedWordsList();
   // Load adblock rules info
   fetch('/api/adblock-rules').then(r => r.json()).then(rules => {
     const el = document.getElementById('adblock-rules-info');
@@ -208,10 +185,6 @@ function renderSettingsView() {
   }).catch(() => {});
   // Start spinner preview
   updateSpinnerPreview(getSelectedSpinner());
-  // Load teams section
-  if (typeof fetchTeams === 'function') {
-    fetchTeams().then(() => renderTeamsSection());
-  }
 }
 
 // Map each theme to its underlying color scheme (dark or light)

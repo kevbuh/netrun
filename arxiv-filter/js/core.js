@@ -619,7 +619,8 @@ function routeFromHash() {
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
   if (hash === '#experiments') openExperiments();
-  else if (hash === '#settings' || hash === '#quality') openSettings();
+  else if (hash === '#settings') openSettings();
+  else if (hash === '#quality') openQualityView();
   else if (hash === '#calendar') openCalendar();
   else if (hash === '#inbox') openInbox();
   else if (hash === '#teams') openTeams();
