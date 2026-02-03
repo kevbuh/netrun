@@ -87,6 +87,42 @@ _pdf_cache = {}  # url -> pdf_path
 UPLOADS_DIR = os.path.join(DIR, 'uploads')
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
+
+# ── Vault .md file helpers (YAML frontmatter + content) ──
+def _read_vault_md(fpath):
+    """Read a vault note from .md file with YAML frontmatter."""
+    with open(fpath, 'r', encoding='utf-8') as f:
+        content = f.read()
+    if not content.startswith('---\n'):
+        return None
+    parts = content.split('---\n', 2)
+    if len(parts) < 3:
+        return None
+    # Parse YAML frontmatter
+    import yaml
+    try:
+        meta = yaml.safe_load(parts[1])
+    except:
+        return None
+    if not isinstance(meta, dict):
+        return None
+    meta['content'] = parts[2].strip('\n') if len(parts) > 2 else ''
+    return meta
+
+
+def _write_vault_md(fpath, note):
+    """Write a vault note to .md file with YAML frontmatter."""
+    import yaml
+    content = note.get('content', '')
+    meta = {k: v for k, v in note.items() if k != 'content' and v is not None}
+    frontmatter = yaml.dump(meta, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    with open(fpath, 'w', encoding='utf-8') as f:
+        f.write('---\n')
+        f.write(frontmatter)
+        f.write('---\n')
+        f.write(content)
+
+
 # Auto-create _unstructured pseudo-experiment for loose files
 _unstructured_dir = os.path.join(EXPERIMENTS_DIR, '_unstructured')
 os.makedirs(_unstructured_dir, exist_ok=True)
@@ -569,11 +605,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             os.makedirs(user_vault, exist_ok=True)
             notes = []
             for fname in os.listdir(user_vault):
-                if fname.endswith('.json'):
+                fpath = os.path.join(user_vault, fname)
+                # Support both .md (new) and .json (legacy)
+                if fname.endswith('.md'):
                     try:
-                        with open(os.path.join(user_vault, fname), 'r') as f:
+                        note = _read_vault_md(fpath)
+                        if note:
+                            notes.append(note)
+                    except:
+                        pass
+                elif fname.endswith('.json'):
+                    # Legacy format - migrate to .md
+                    try:
+                        with open(fpath, 'r') as f:
                             note = json.load(f)
                             notes.append(note)
+                            # Migrate to .md format
+                            _write_vault_md(os.path.join(user_vault, f"{note['id']}.md"), note)
+                            os.remove(fpath)
                     except:
                         pass
             notes.sort(key=lambda n: n.get('updated', 0), reverse=True)
@@ -585,12 +634,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not google_id:
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
-            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+            # Try .md first, fall back to .json
+            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.md')
             if os.path.exists(note_path):
-                with open(note_path, 'r') as f:
-                    self._send_json(json.load(f))
+                note = _read_vault_md(note_path)
+                if note:
+                    self._send_json(note)
+                else:
+                    self._send_json({'error': 'Invalid note format'}, 500)
             else:
-                self._send_json({'error': 'Not found'}, 404)
+                # Legacy .json fallback
+                json_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+                if os.path.exists(json_path):
+                    with open(json_path, 'r') as f:
+                        self._send_json(json.load(f))
+                else:
+                    self._send_json({'error': 'Not found'}, 404)
 
         # ── Public Blog API (no auth required) ──
         elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)$'):
@@ -605,28 +664,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             user_vault = os.path.join(VAULT_DIR, google_id)
             # Get viewer's google_id if logged in (for vote status)
             viewer_google_id = self._get_user()
-            # Find published note with matching slug
+            # Find published note with matching slug (supports both .md and .json)
             if os.path.isdir(user_vault):
                 for fname in os.listdir(user_vault):
-                    if fname.endswith('.json'):
-                        try:
-                            with open(os.path.join(user_vault, fname), 'r') as f:
+                    fpath = os.path.join(user_vault, fname)
+                    note = None
+                    try:
+                        if fname.endswith('.md'):
+                            note = _read_vault_md(fpath)
+                        elif fname.endswith('.json'):
+                            with open(fpath, 'r') as f:
                                 note = json.load(f)
-                                if note.get('published') and note.get('slug') == slug:
-                                    votes = get_blog_votes(username, slug, viewer_google_id)
-                                    self._send_json({
-                                        'title': note.get('title', 'Untitled'),
-                                        'content': note.get('content', ''),
-                                        'author': username,
-                                        'published_at': note.get('published_at'),
-                                        'picture': user_info.get('picture'),
-                                        'upvotes': votes['upvotes'],
-                                        'downvotes': votes['downvotes'],
-                                        'userVote': votes['userVote']
-                                    })
-                                    return
-                        except:
-                            pass
+                        if note and note.get('published') and note.get('slug') == slug:
+                            votes = get_blog_votes(username, slug, viewer_google_id)
+                            self._send_json({
+                                'title': note.get('title', 'Untitled'),
+                                'content': note.get('content', ''),
+                                'author': username,
+                                'published_at': note.get('published_at'),
+                                'picture': user_info.get('picture'),
+                                'upvotes': votes['upvotes'],
+                                'downvotes': votes['downvotes'],
+                                'userVote': votes['userVote']
+                            })
+                            return
+                    except:
+                        pass
             self._send_json({'error': 'Post not found'}, 404)
 
         elif m := self._match(r'^/api/blog/([^/]+)$'):
@@ -641,18 +704,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             posts = []
             if os.path.isdir(user_vault):
                 for fname in os.listdir(user_vault):
-                    if fname.endswith('.json'):
-                        try:
-                            with open(os.path.join(user_vault, fname), 'r') as f:
+                    fpath = os.path.join(user_vault, fname)
+                    note = None
+                    try:
+                        if fname.endswith('.md'):
+                            note = _read_vault_md(fpath)
+                        elif fname.endswith('.json'):
+                            with open(fpath, 'r') as f:
                                 note = json.load(f)
-                                if note.get('published'):
-                                    posts.append({
-                                        'title': note.get('title', 'Untitled'),
-                                        'slug': note.get('slug'),
-                                        'published_at': note.get('published_at')
-                                    })
-                        except:
-                            pass
+                        if note and note.get('published'):
+                            posts.append({
+                                'title': note.get('title', 'Untitled'),
+                                'slug': note.get('slug'),
+                                'published_at': note.get('published_at')
+                            })
+                    except:
+                        pass
             posts.sort(key=lambda p: p.get('published_at', 0), reverse=True)
             self._send_json({'posts': posts, 'author': username, 'picture': user_info.get('picture')})
 
@@ -2326,8 +2393,7 @@ ch.postMessage({type:'preview-ready'});
                 note['forked_from'] = body['forked_from']
             user_vault = os.path.join(VAULT_DIR, google_id)
             os.makedirs(user_vault, exist_ok=True)
-            with open(os.path.join(user_vault, f'{note_id}.json'), 'w') as f:
-                json.dump(note, f, indent=2)
+            _write_vault_md(os.path.join(user_vault, f'{note_id}.md'), note)
             self._send_json(note, 201)
 
         # ── Blog Vote API ──
@@ -2345,6 +2411,48 @@ ch.postMessage({type:'preview-ready'});
                 return
             result = set_blog_vote(username, slug, google_id, vote)
             self._send_json(result)
+
+        # ── Blog Unpublish API ──
+        elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)/unpublish$'):
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            username = m.group(1)
+            slug = m.group(2)
+            # Verify the user owns this blog post
+            user_info = get_user_info(google_id)
+            if not user_info or user_info.get('username') != username:
+                self._send_json({'error': 'Not authorized'}, 403)
+                return
+            # Find the note with matching slug
+            user_vault = os.path.join(VAULT_DIR, google_id)
+            if os.path.isdir(user_vault):
+                for fname in os.listdir(user_vault):
+                    fpath = os.path.join(user_vault, fname)
+                    note = None
+                    try:
+                        if fname.endswith('.md'):
+                            note = _read_vault_md(fpath)
+                        elif fname.endswith('.json'):
+                            with open(fpath, 'r') as f:
+                                note = json.load(f)
+                        if note and note.get('published') and note.get('slug') == slug:
+                            # Unpublish
+                            note['published'] = False
+                            note['published_at'] = None
+                            note['updated'] = int(time.time())
+                            # Save as .md
+                            md_path = os.path.join(user_vault, f"{note['id']}.md")
+                            _write_vault_md(md_path, note)
+                            # Remove old .json if exists
+                            if fname.endswith('.json'):
+                                os.remove(fpath)
+                            self._send_json({'ok': True})
+                            return
+                    except:
+                        pass
+            self._send_json({'error': 'Post not found'}, 404)
 
         elif self.path == '/api/experiments':
             google_id = self._get_user()
@@ -2649,12 +2757,19 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
             note_id = m.group(1)
-            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
-            if not os.path.exists(note_path):
+            # Try .md first, fall back to .json
+            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.md')
+            json_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+            if os.path.exists(note_path):
+                note = _read_vault_md(note_path)
+            elif os.path.exists(json_path):
+                with open(json_path, 'r') as f:
+                    note = json.load(f)
+                # Will migrate to .md on save
+                os.remove(json_path)
+            else:
                 self._send_json({'error': 'Not found'}, 404)
                 return
-            with open(note_path, 'r') as f:
-                note = json.load(f)
             body = self._read_body()
             note['title'] = body.get('title', note.get('title', 'Untitled'))
             note['content'] = body.get('content', note.get('content', ''))
@@ -2670,8 +2785,7 @@ ch.postMessage({type:'preview-ready'});
                 else:
                     note['published_at'] = None
             note['updated'] = int(time.time())
-            with open(note_path, 'w') as f:
-                json.dump(note, f, indent=2)
+            _write_vault_md(note_path, note)
             self._send_json(note)
             return
 
@@ -2977,9 +3091,17 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': 'Not authenticated'}, 401)
                 return
             note_id = m.group(1)
-            note_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
-            if os.path.exists(note_path):
-                os.remove(note_path)
+            # Try both .md and .json
+            md_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.md')
+            json_path = os.path.join(VAULT_DIR, google_id, f'{note_id}.json')
+            deleted = False
+            if os.path.exists(md_path):
+                os.remove(md_path)
+                deleted = True
+            if os.path.exists(json_path):
+                os.remove(json_path)
+                deleted = True
+            if deleted:
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not found'}, 404)

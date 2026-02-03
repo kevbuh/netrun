@@ -39,7 +39,7 @@ async function initVault() {
     clearVaultEditor();
   }
 
-  // Setup editor auto-save
+  // Setup editor auto-save and blur-to-preview
   const editor = document.getElementById('vault-editor');
   if (editor && !editor._vaultInitialized) {
     editor._vaultInitialized = true;
@@ -48,12 +48,42 @@ async function initVault() {
       _vaultSaveTimeout = setTimeout(saveCurrentNote, 1000);
       updateVaultPreview();
     });
+    // Blur to switch back to preview mode
+    editor.addEventListener('blur', (e) => {
+      // Small delay to allow clicking on toolbar buttons
+      setTimeout(() => {
+        if (!document.activeElement || !document.activeElement.closest('.vault-toolbar')) {
+          if (!_vaultPreviewMode && !_vaultGraphMode) {
+            _vaultPreviewMode = true;
+            const btn = document.getElementById('vault-preview-btn');
+            const editorCont = document.getElementById('vault-editor-container');
+            const previewCont = document.getElementById('vault-preview-container');
+            if (btn) btn.classList.add('active');
+            if (editorCont) editorCont.style.display = 'none';
+            if (previewCont) previewCont.style.display = '';
+            updateVaultPreview();
+          }
+        }
+      }, 150);
+    });
+  }
+
+  // Setup click-to-edit on preview container
+  const previewContainer = document.getElementById('vault-preview-container');
+  if (previewContainer && !previewContainer._vaultClickInitialized) {
+    previewContainer._vaultClickInitialized = true;
+    previewContainer.addEventListener('click', (e) => {
+      // Don't switch to edit mode if clicking a link
+      if (e.target.closest('a')) return;
+      if (_vaultPreviewMode && !_vaultGraphMode) {
+        vaultSwitchToEdit();
+      }
+    });
   }
 
   // Apply default preview state
   const previewBtn = document.getElementById('vault-preview-btn');
   const editorContainer = document.getElementById('vault-editor-container');
-  const previewContainer = document.getElementById('vault-preview-container');
   if (previewBtn && _vaultPreviewMode) {
     previewBtn.classList.add('active');
     if (editorContainer) editorContainer.style.display = 'none';
@@ -447,12 +477,27 @@ async function openVaultNote(noteId) {
     el.classList.toggle('active', el.dataset.noteId === noteId);
   });
 
+  // If note is empty or newly created, switch to edit mode to show placeholder
+  const isEmpty = !note.content || !note.content.trim();
+  const isNew = note._isNew;
+  if (isNew) delete note._isNew; // Clear the flag after use
+  if ((isEmpty || isNew) && _vaultPreviewMode) {
+    _vaultPreviewMode = false;
+    const btn = document.getElementById('vault-preview-btn');
+    const editorContainer = document.getElementById('vault-editor-container');
+    const previewContainer = document.getElementById('vault-preview-container');
+    if (btn) btn.classList.remove('active');
+    if (editorContainer) editorContainer.style.display = '';
+    if (previewContainer) previewContainer.style.display = 'none';
+    document.getElementById('vault-editor')?.focus();
+  }
+
   updateVaultPreview();
   updateVaultBacklinks();
   updateVaultTags();
   updateVaultPublishButton();
 
-  // Reset to editor view
+  // Reset graph view if active
   if (_vaultGraphMode) {
     _vaultGraphMode = false;
     document.getElementById('vault-graph-btn').classList.remove('active');
@@ -469,6 +514,8 @@ function clearVaultEditor() {
   document.getElementById('vault-editor').value = '';
   document.getElementById('vault-backlinks-list').innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>';
   document.getElementById('vault-tags-list').innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No tags</div>';
+  const pubSection = document.getElementById('vault-published-section');
+  if (pubSection) pubSection.style.display = 'none';
 }
 
 // Save current note
@@ -506,6 +553,7 @@ async function vaultNewNote(folder = null) {
 
     if (res.ok) {
       const note = await res.json();
+      note._isNew = true; // Mark as newly created
       _vaultNotes.push(note);
       renderVaultFileTree();
       openVaultNote(note.id);
@@ -513,6 +561,12 @@ async function vaultNewNote(folder = null) {
   } catch (e) {
     console.error('Failed to create note', e);
   }
+}
+
+// Delete current note from toolbar
+function vaultDeleteCurrentNote() {
+  if (!_vaultCurrentNote) return;
+  vaultDeleteNote(_vaultCurrentNote.id);
 }
 
 // Create new folder (prompts for name and creates a note inside)
@@ -595,7 +649,26 @@ function vaultTogglePreview() {
 
   if (_vaultPreviewMode) {
     updateVaultPreview();
+  } else {
+    // Focus editor when switching to edit mode
+    document.getElementById('vault-editor')?.focus();
   }
+}
+
+// Switch to edit mode (called when clicking on preview)
+function vaultSwitchToEdit() {
+  if (!_vaultPreviewMode || _vaultGraphMode) return;
+
+  _vaultPreviewMode = false;
+  const btn = document.getElementById('vault-preview-btn');
+  const editorContainer = document.getElementById('vault-editor-container');
+  const previewContainer = document.getElementById('vault-preview-container');
+  const editor = document.getElementById('vault-editor');
+
+  if (btn) btn.classList.remove('active');
+  if (editorContainer) editorContainer.style.display = '';
+  if (previewContainer) previewContainer.style.display = 'none';
+  if (editor) editor.focus();
 }
 
 // Update preview content
@@ -1001,14 +1074,41 @@ async function vaultTogglePublish() {
   }
 }
 
-// Update publish button state
+// Update publish button state and sidebar section
 function updateVaultPublishButton() {
   const btn = document.getElementById('vault-publish-btn');
-  if (!btn) return;
+  if (btn) {
+    const isPublished = _vaultCurrentNote?.published;
+    btn.classList.toggle('active', isPublished);
+    btn.title = isPublished ? 'Unpublish' : 'Publish as blog';
+  }
 
-  const isPublished = _vaultCurrentNote?.published;
-  btn.classList.toggle('active', isPublished);
-  btn.title = isPublished ? 'Unpublish' : 'Publish as blog';
+  // Update sidebar published section
+  const section = document.getElementById('vault-published-section');
+  const info = document.getElementById('vault-published-info');
+  if (!section || !info) return;
+
+  if (_vaultCurrentNote?.published && _vaultCurrentNote?.slug) {
+    const username = _authUserInfo?.username;
+    if (username) {
+      const url = `#blog/${encodeURIComponent(username)}/${encodeURIComponent(_vaultCurrentNote.slug)}`;
+      const pubDate = _vaultCurrentNote.published_at
+        ? new Date(_vaultCurrentNote.published_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+      section.style.display = '';
+      info.innerHTML = `
+        <div class="vault-published-date">${pubDate}</div>
+        <a href="${url}" class="vault-published-link" onclick="location.hash='${url}';return false;">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+          View published post
+        </a>
+      `;
+    } else {
+      section.style.display = 'none';
+    }
+  } else {
+    section.style.display = 'none';
+  }
 }
 
 // Show modal with public URL
@@ -1069,9 +1169,16 @@ async function openBlogPost(username, slug) {
       }
       updateBlogBookmarkButton();
       updateBlogVoteButtons();
+      loadBlogComments();
+      // Show unpost button if user is the author
+      const unpostBtn = document.getElementById('blog-unpost-btn');
+      const isAuthor = _authUserInfo && _authUserInfo.username === post.author;
+      if (unpostBtn) unpostBtn.style.display = isAuthor ? '' : 'none';
     } else {
       document.getElementById('blog-title').textContent = 'Post not found';
       document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
+      const unpostBtn = document.getElementById('blog-unpost-btn');
+      if (unpostBtn) unpostBtn.style.display = 'none';
     }
   } catch (e) {
     document.getElementById('blog-title').textContent = 'Error';
@@ -1225,6 +1332,34 @@ async function voteBlog(vote) {
   }
 }
 
+// Unpublish the current blog post
+async function unpublishBlog() {
+  if (!_currentBlogPost) return;
+  if (!confirm('Unpublish this post? It will no longer be visible to others.')) return;
+
+  const hash = window.location.hash.slice(1);
+  const parts = hash.split('/');
+  const author = parts[1];
+  const slug = parts[2];
+
+  try {
+    const res = await fetch(`/api/blog/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/unpublish`, {
+      method: 'POST',
+      headers: _authHeaders()
+    });
+
+    if (res.ok) {
+      // Redirect to vault
+      window.location.hash = 'vault';
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to unpublish');
+    }
+  } catch (e) {
+    console.error('Failed to unpublish', e);
+  }
+}
+
 // Render markdown for blog (similar to vault but without wiki links interaction)
 function renderBlogMarkdown(content) {
   if (!content) return '';
@@ -1266,4 +1401,171 @@ function renderBlogMarkdown(content) {
   html = html.replace(/\n/g, '<br>');
 
   return html;
+}
+
+// ── Blog Comments ──
+
+let _blogComments = [];
+
+function _getBlogLink() {
+  // Get blog link from current URL hash (e.g., "blog/username/slug")
+  return window.location.hash.slice(1); // Remove #
+}
+
+async function loadBlogComments() {
+  const blogLink = _getBlogLink();
+  if (!blogLink) return;
+
+  try {
+    const res = await fetch(`/api/comments?paperLink=${encodeURIComponent(blogLink)}`);
+    if (res.ok) {
+      _blogComments = await res.json();
+      renderBlogComments();
+    }
+  } catch (e) {
+    console.error('Failed to load blog comments', e);
+  }
+}
+
+function renderBlogComments() {
+  const list = document.getElementById('blog-comments-list');
+  const countEl = document.getElementById('blog-comment-count');
+  if (!list) return;
+
+  if (countEl) countEl.textContent = _blogComments.length;
+
+  if (!_blogComments.length) {
+    list.innerHTML = '<div class="blog-comments-empty">No comments yet. Be the first to comment!</div>';
+    return;
+  }
+
+  // Build threaded tree
+  const topLevel = _blogComments.filter(c => !c.parentId);
+  const byParent = {};
+  _blogComments.forEach(c => {
+    if (c.parentId) {
+      (byParent[c.parentId] = byParent[c.parentId] || []).push(c);
+    }
+  });
+  topLevel.sort((a, b) => a.timestamp - b.timestamp);
+
+  function renderComment(comment, isReply = false) {
+    const replies = (byParent[comment.id] || []).sort((a, b) => a.timestamp - b.timestamp);
+    const initial = (comment.author || '?')[0].toUpperCase();
+    const timeAgo = _blogRelativeTime(comment.timestamp);
+    const currentUsername = (_authUserInfo && _authUserInfo.username) || '';
+    const isOwn = comment.author === currentUsername;
+
+    let html = `
+      <div class="blog-comment-item" data-comment-id="${comment.id}">
+        <div class="blog-comment-avatar">${escapeHtml(initial)}</div>
+        <div class="blog-comment-body">
+          <div class="blog-comment-header">
+            <a href="#profile/${encodeURIComponent(comment.author)}" class="blog-comment-author">${escapeHtml(comment.author)}</a>
+            <span class="blog-comment-time">${timeAgo}</span>
+            ${isOwn ? `<button onclick="deleteBlogComment('${comment.id}')" class="blog-comment-delete" title="Delete">×</button>` : ''}
+          </div>
+          <div class="blog-comment-text">${escapeHtml(comment.content).replace(/\n/g, '<br>')}</div>
+          <div class="blog-comment-actions">
+            <button onclick="showBlogReplyForm('${comment.id}')" class="blog-comment-reply-btn">Reply</button>
+          </div>
+          <div id="blog-reply-form-${comment.id}" class="blog-reply-form">
+            <textarea id="blog-reply-textarea-${comment.id}" class="blog-reply-textarea" placeholder="Write a reply..." rows="2"></textarea>
+            <div class="blog-reply-actions">
+              <button onclick="postBlogReply('${comment.id}')" class="blog-reply-submit">Reply</button>
+              <button onclick="hideBlogReplyForm('${comment.id}')" class="blog-reply-cancel">Cancel</button>
+            </div>
+          </div>
+          ${replies.length ? `<div class="blog-comment-replies">${replies.map(r => renderComment(r, true)).join('')}</div>` : ''}
+        </div>
+      </div>`;
+    return html;
+  }
+
+  list.innerHTML = topLevel.map(c => renderComment(c)).join('');
+}
+
+function _blogRelativeTime(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return days + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
+async function postBlogComment() {
+  const input = document.getElementById('blog-comment-input');
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) return;
+
+  const author = (_authUserInfo && _authUserInfo.username) || 'Anonymous';
+  const blogLink = _getBlogLink();
+
+  try {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+      body: JSON.stringify({ paperLink: blogLink, author, content, parentId: null })
+    });
+    if (res.ok) {
+      input.value = '';
+      loadBlogComments();
+    }
+  } catch (e) {
+    console.error('Failed to post comment', e);
+  }
+}
+
+async function postBlogReply(parentId) {
+  const textarea = document.getElementById('blog-reply-textarea-' + parentId);
+  if (!textarea) return;
+  const content = textarea.value.trim();
+  if (!content) return;
+
+  const author = (_authUserInfo && _authUserInfo.username) || 'Anonymous';
+  const blogLink = _getBlogLink();
+
+  try {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+      body: JSON.stringify({ paperLink: blogLink, author, content, parentId })
+    });
+    if (res.ok) {
+      textarea.value = '';
+      hideBlogReplyForm(parentId);
+      loadBlogComments();
+    }
+  } catch (e) {
+    console.error('Failed to post reply', e);
+  }
+}
+
+async function deleteBlogComment(id) {
+  try {
+    const res = await fetch('/api/comments/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (res.ok) {
+      loadBlogComments();
+    }
+  } catch (e) {
+    console.error('Failed to delete comment', e);
+  }
+}
+
+function showBlogReplyForm(id) {
+  const form = document.getElementById('blog-reply-form-' + id);
+  if (form) {
+    form.classList.add('visible');
+    form.querySelector('textarea')?.focus();
+  }
+}
+
+function hideBlogReplyForm(id) {
+  const form = document.getElementById('blog-reply-form-' + id);
+  if (form) form.classList.remove('visible');
 }
