@@ -61,19 +61,6 @@ _spinnerMO.observe(document.documentElement, { childList: true, subtree: true })
 
 loadSpinners();
 
-// ── Mobile utilities ──
-function isMobile() {
-  return window.innerWidth < 768;
-}
-
-function isTablet() {
-  return window.innerWidth >= 768 && window.innerWidth < 1024;
-}
-
-function isDesktop() {
-  return window.innerWidth >= 1024;
-}
-
 function debounce(fn, ms) {
   let timeout;
   return function(...args) {
@@ -97,37 +84,12 @@ function throttle(fn, ms) {
 let _lastActiveView = 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-experiments': 'experiments', 'sb-search': 'search', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-people': 'people' };
 
-// Sync active state between desktop sidebar and mobile bottom nav
 function setSidebarActive(id) {
-  // Track last view (skip paper view since it's not a "main" view)
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
-  // Desktop sidebar
   document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
   const desktopEl = document.getElementById(id);
   if (desktopEl) desktopEl.classList.add('active');
-
-  // Mobile bottom nav (map sb-* to mb-*)
-  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
-  const mobileId = id.replace('sb-', 'mb-');
-  const mobileEl = document.getElementById(mobileId);
-  if (mobileEl) mobileEl.classList.add('active');
 }
-
-// Enhance mobile navigation on window resize
-function enhanceMobileNav() {
-  const nav = document.getElementById('mobile-bottom-nav');
-  if (!nav) return;
-
-  if (isMobile()) {
-    nav.style.display = 'flex';
-  } else {
-    nav.style.display = 'none';
-  }
-}
-
-// Call on load and resize
-enhanceMobileNav();
-window.addEventListener('resize', debounce(enhanceMobileNav, 300));
 
 // ── Performance Optimizations ──
 
@@ -223,8 +185,7 @@ if (typeof window !== 'undefined') {
 // Debounced window resize handler
 window.addEventListener('resize', debounce(() => {
   batchDOMUpdate(() => {
-    enhanceMobileNav();
-    // Other resize-dependent updates
+    // Resize-dependent updates
   });
 }, 300));
 
