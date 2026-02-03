@@ -164,6 +164,94 @@ function _renderReaderView(container, data) {
   container.appendChild(div);
 }
 
+// ── Topbar overflow (three-dots menu) ──
+let _topbarOverflowRO = null;
+
+function _setupTopbarOverflow(topbar) {
+  if (_topbarOverflowRO) _topbarOverflowRO.disconnect();
+  _topbarOverflowRO = new ResizeObserver(() => _updateTopbarOverflow(topbar));
+  _topbarOverflowRO.observe(topbar);
+  // Run once immediately after layout
+  requestAnimationFrame(() => _updateTopbarOverflow(topbar));
+}
+
+function _updateTopbarOverflow(topbar) {
+  const actionsWrap = topbar.querySelector('#topbar-actions');
+  const overflowWrap = topbar.querySelector('#topbar-overflow-wrap');
+  const menu = topbar.querySelector('#topbar-overflow-menu');
+  if (!actionsWrap || !overflowWrap) return;
+
+  const actions = topbar._topbarActions || [];
+  const items = actionsWrap.querySelectorAll('.topbar-action');
+
+  // First show all to measure
+  items.forEach(el => el.style.display = '');
+  overflowWrap.style.display = 'none';
+
+  // Also hide meta on very narrow screens
+  const meta = topbar.querySelector('.topbar-meta');
+  if (meta) meta.style.display = '';
+
+  const topbarWidth = topbar.clientWidth;
+  const topbarScroll = topbar.scrollWidth;
+
+  // If everything fits, done
+  if (topbarScroll <= topbarWidth + 2) return;
+
+  // Hide meta first if needed
+  if (meta && topbarScroll > topbarWidth + 2) {
+    meta.style.display = 'none';
+    if (topbar.scrollWidth <= topbarWidth + 2) return;
+  }
+
+  // Show overflow button, then hide actions from the end until it fits
+  overflowWrap.style.display = '';
+  const overflowed = [];
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (topbar.scrollWidth <= topbarWidth + 2) break;
+    // Don't overflow items marked noOverflow (star rating needs inline interaction)
+    if (actions[i]?.noOverflow) continue;
+    items[i].style.display = 'none';
+    overflowed.unshift(i);
+  }
+
+  if (!overflowed.length) {
+    overflowWrap.style.display = 'none';
+    return;
+  }
+
+  // Build menu items
+  menu.innerHTML = overflowed.map(i => {
+    const a = actions[i];
+    if (a.href) {
+      return `<a href="${escapeHtml(a.href)}" target="_blank" rel="noopener" class="flex items-center gap-2 px-3 py-1.5 text-[0.78rem] text-primary hover:bg-hover cursor-pointer" style="text-decoration:none" onclick="_closeTopbarOverflow()">${escapeHtml(a.label)}</a>`;
+    }
+    return `<div class="flex items-center gap-2 px-3 py-1.5 text-[0.78rem] text-primary hover:bg-hover cursor-pointer" onclick="${a.action}; _closeTopbarOverflow()">${escapeHtml(a.label)}</div>`;
+  }).join('');
+}
+
+function _toggleTopbarOverflow() {
+  const menu = document.getElementById('topbar-overflow-menu');
+  if (!menu) return;
+  if (menu.style.display !== 'none') {
+    _closeTopbarOverflow();
+  } else {
+    menu.style.display = '';
+    setTimeout(() => document.addEventListener('click', _topbarOverflowOutside), 0);
+  }
+}
+
+function _closeTopbarOverflow() {
+  const menu = document.getElementById('topbar-overflow-menu');
+  if (menu) menu.style.display = 'none';
+  document.removeEventListener('click', _topbarOverflowOutside);
+}
+
+function _topbarOverflowOutside(e) {
+  const wrap = document.getElementById('topbar-overflow-wrap');
+  if (wrap && !wrap.contains(e.target)) _closeTopbarOverflow();
+}
+
 // ── Paper Viewer (shared) ──
 let paperViewOrigin = 'arxiv';
 
@@ -462,26 +550,37 @@ function showPaperView(paper, hashValue) {
 
   const sidebarToggleBtn = `<button id="paper-view-sidebar-toggle" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebarMobile()" title="Show notes" style="display:none"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
 
+  // Action items: each has label (for overflow menu), html (inline button), and optional id
+  const _topbarActions = [
+    { label: 'Add to experiment', html: `<div class="relative shrink-0" id="paper-exp-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to experiment"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg></button></div>`, action: 'togglePaperExpDropdown()' },
+    { label: 'Rate', html: `<span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>`, noOverflow: true },
+    { label: isSaved ? 'Unsave' : 'Save', html: bookmarkBtn, action: 'togglePaperViewBookmark()' },
+    { label: 'Share to team', html: `<div class="relative shrink-0" id="paper-share-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareToTeamDropdown()" title="Share to team"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`, action: 'toggleShareToTeamDropdown()' },
+    { label: 'Cite', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'showCitePopup()' },
+    { label: 'Toggle sidebar', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'togglePaperSidebar()' },
+    { label: 'Open in new tab', html: `<a href="${paper.link}" target="_blank" rel="noopener" class="inline-flex items-center p-1.5 text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`, href: paper.link },
+  ];
+
   topbar.innerHTML = `
     ${backBtn}
     <span class="w-px h-5 bg-border-dim shrink-0"></span>
     <span class="text-[0.82rem] font-semibold text-white_ truncate topbar-scroll-span">${renderTitle(paper.title)}</span>
-    <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto">${metaParts.join('<span class="text-dimmest shrink-0">·</span>')}</span>
+    <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto topbar-meta">${metaParts.join('<span class="text-dimmest shrink-0">·</span>')}</span>
     ${sidebarToggleBtn}
-    <div class="relative shrink-0" id="paper-exp-btn-wrap">
-      <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to experiment">
-        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
+    <span id="topbar-actions" class="flex items-center gap-0.5 shrink-0">
+      ${_topbarActions.map((a, i) => `<span class="topbar-action" data-idx="${i}">${a.html}</span>`).join('')}
+    </span>
+    <div class="relative shrink-0" id="topbar-overflow-wrap" style="display:none">
+      <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="_toggleTopbarOverflow()" title="More actions">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
+      <div id="topbar-overflow-menu" style="display:none" class="absolute right-0 top-full mt-1 w-48 py-1 rounded-lg border border-border-card bg-card shadow-lg z-[9999]"></div>
     </div>
-    <span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>
-    ${bookmarkBtn}
-    <div class="relative shrink-0" id="paper-share-btn-wrap">
-      <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareToTeamDropdown()" title="Share to team"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    </div>
-    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <a href="${paper.link}" target="_blank" rel="noopener" class="text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   `;
+
+  // Store actions data for overflow menu
+  topbar._topbarActions = _topbarActions;
+  _setupTopbarOverflow(topbar);
 
   // ── Sidebar: notes + chat ──
   // Clear browse-sidebar to avoid duplicate IDs

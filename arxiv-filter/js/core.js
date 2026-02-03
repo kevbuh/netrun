@@ -1443,7 +1443,7 @@ function isRainSidebarVisible() {
     const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
     if (tooltip) {
       delete tooltip.dataset.volDrag;
-      tooltip.textContent = 'Rain';
+      tooltip.textContent = 'White noise';
       tooltip.style.opacity = '';
       tooltip.style.visibility = '';
     }
@@ -1813,6 +1813,8 @@ function _onLoginSuccess() {
     refreshInboxBadge();
     setInterval(refreshInboxBadge, 60000);
   }
+  // Route to the correct view now that auth is resolved
+  routeFromHash();
 }
 
 async function authLogout() {

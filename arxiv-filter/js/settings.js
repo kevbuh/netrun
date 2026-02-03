@@ -115,7 +115,7 @@ function renderSettingsView() {
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Ambient Sound</span>
+        <span class="text-primary text-sm">White Noise</span>
         <div class="flex items-center gap-2">
           <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono cursor-ns-resize select-none" title="Drag up/down to adjust volume" onmousedown="_rainVolDragStart(event)">${Math.round(_rainVolume * 100)}%</span>
           <div class="flex gap-1">
