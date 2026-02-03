@@ -1026,12 +1026,40 @@ function showDownloadInFolder(id) {
 }
 
 // Initialize download event listeners from Electron main process
+let _downloadsInitialized = false;
+
 function _initBrowseDownloads() {
   if (!window.electronAPI) return;
+  if (_downloadsInitialized) return; // Prevent multiple initializations
+  _downloadsInitialized = true;
+
+  // Remove any existing listeners first
+  if (window.electronAPI.removeDownloadListeners) {
+    window.electronAPI.removeDownloadListeners();
+  }
 
   // Listen for download-started event from main process
   if (window.electronAPI.onDownloadStarted) {
     window.electronAPI.onDownloadStarted((event, data) => {
+      // Check if this download already exists by ID
+      const existingById = _browseDownloads.find(d => d.id === data.id);
+      if (existingById) {
+        console.log('Download with same ID already exists, skipping:', data.id);
+        return;
+      }
+
+      // Also check for recent duplicate by URL and filename (within last 5 seconds)
+      const now = Date.now();
+      const recentDuplicate = _browseDownloads.find(d =>
+        d.url === data.url &&
+        d.filename === data.filename &&
+        (now - d.startTime) < 5000
+      );
+      if (recentDuplicate) {
+        console.log('Recent duplicate download detected, skipping:', data.filename);
+        return;
+      }
+
       // Use the ID from main process directly
       const dl = {
         id: data.id,
@@ -1323,27 +1351,28 @@ function _showBrowseContextMenu(x, y, data) {
 function _browseSaveImage(url) {
   const filename = url.split('/').pop().split('?')[0] || 'image';
 
-  // Create download entry to show in UI
-  const dl = {
-    id: 'dl-' + (++_browseDownloadIdCounter),
-    filename: filename,
-    url: url,
-    state: 'progressing',
-    receivedBytes: 0,
-    totalBytes: 0,
-    startTime: Date.now(),
-    savePath: ''
-  };
-  _browseDownloads.unshift(dl);
-  _browseShowDownloadBtn();
-  _browseUpdateDownloadBadge();
-  _browseRenderDownloads();
-  _saveBrowseDownloads();
-
   if (window.electronAPI && window.electronAPI.downloadURL) {
+    // Electron will handle download tracking via download-started event
     window.electronAPI.downloadURL(url);
   } else {
-    // Fallback: trigger download via anchor
+    // Fallback: create manual download entry for browser mode
+    const dl = {
+      id: 'dl-' + (++_browseDownloadIdCounter),
+      filename: filename,
+      url: url,
+      state: 'progressing',
+      receivedBytes: 0,
+      totalBytes: 0,
+      startTime: Date.now(),
+      savePath: ''
+    };
+    _browseDownloads.unshift(dl);
+    _browseShowDownloadBtn();
+    _browseUpdateDownloadBadge();
+    _browseRenderDownloads();
+    _saveBrowseDownloads();
+
+    // Trigger download via anchor
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -1367,27 +1396,28 @@ function _browseSaveImage(url) {
 function _browseSaveLink(url) {
   const filename = url.split('/').pop().split('?')[0] || 'download';
 
-  // Create download entry to show in UI
-  const dl = {
-    id: 'dl-' + (++_browseDownloadIdCounter),
-    filename: filename,
-    url: url,
-    state: 'progressing',
-    receivedBytes: 0,
-    totalBytes: 0,
-    startTime: Date.now(),
-    savePath: ''
-  };
-  _browseDownloads.unshift(dl);
-  _browseShowDownloadBtn();
-  _browseUpdateDownloadBadge();
-  _browseRenderDownloads();
-  _saveBrowseDownloads();
-
   if (window.electronAPI && window.electronAPI.downloadURL) {
+    // Electron will handle download tracking via download-started event
     window.electronAPI.downloadURL(url);
   } else {
-    // Fallback: trigger download via anchor
+    // Fallback: create manual download entry for browser mode
+    const dl = {
+      id: 'dl-' + (++_browseDownloadIdCounter),
+      filename: filename,
+      url: url,
+      state: 'progressing',
+      receivedBytes: 0,
+      totalBytes: 0,
+      startTime: Date.now(),
+      savePath: ''
+    };
+    _browseDownloads.unshift(dl);
+    _browseShowDownloadBtn();
+    _browseUpdateDownloadBadge();
+    _browseRenderDownloads();
+    _saveBrowseDownloads();
+
+    // Trigger download via anchor
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;

@@ -231,6 +231,9 @@ async function createWindow() {
   });
 }
 
+// Track sessions that already have download handlers to prevent duplicates
+const sessionsWithDownloadHandlers = new WeakSet();
+
 // Handle keyboard shortcuts in all web contents (including webviews)
 app.on('web-contents-created', (event, contents) => {
   // Only handle webviews (they have a different type of webContents)
@@ -254,9 +257,13 @@ app.on('web-contents-created', (event, contents) => {
         }
       }
     });
-    
-    // Handle downloads from webviews
-    contents.session.on('will-download', (event, item, webContents) => {
+
+    // Handle downloads from webviews - but only attach once per session
+    const session = contents.session;
+    if (!sessionsWithDownloadHandlers.has(session)) {
+      sessionsWithDownloadHandlers.add(session);
+
+      session.on('will-download', (event, item, webContents) => {
       try {
         // Check if webContents is still valid
         if (!webContents || webContents.isDestroyed()) return;
@@ -319,7 +326,8 @@ app.on('web-contents-created', (event, contents) => {
         // Silently ignore errors from destroyed objects
         console.log('Download handler error (object destroyed):', e.message);
       }
-    });
+      });
+    }
   }
 });
 
