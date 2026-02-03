@@ -80,12 +80,11 @@ function renderSlidesEditor(fname, content) {
         <label class="text-[0.75rem] text-dimmer">Width</label>
         <input type="range" id="slides-stroke-width" min="1" max="20" value="2" class="w-16" style="accent-color:var(--accent)">
       </div>
-      ${fileShareButton()}
-      <button class="draw-tool" onclick="_slidesExportPNG()" title="Export PNG">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </button>
       <button class="draw-tool" onclick="_slidesPresentMode()" title="Present (F5)">
         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="draw-tool" onclick="_toggleSlidesShareMenu(this)" title="Share & Export">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>`;
   editor.appendChild(topBar);
@@ -823,13 +822,132 @@ function _slidesSave() {
   }, 600);
 }
 
-function _slidesExportPNG() {
+async function _slidesExportPDF() {
+  if (!_slidesData || !_slidesCanvas) return;
+  _slidesSaveCurrentCanvas();
+
+  const { jsPDF } = window.jspdf;
+  // 16:9 landscape in mm (roughly 254mm x 143mm)
+  const pw = 254;
+  const ph = pw * 9 / 16;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [pw, ph] });
+
+  const editW = _slidesCanvas.width || 960;
+  const editH = _slidesCanvas.height || 540;
+  // Off-screen static canvas for rendering each slide
+  const offscreen = document.createElement('canvas');
+  offscreen.id = '_slides-export-canvas';
+  offscreen.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+  document.body.appendChild(offscreen);
+
+  const renderW = 1920;
+  const renderH = 1080;
+  const exportCanvas = new fabric.StaticCanvas('_slides-export-canvas', {
+    width: renderW, height: renderH, backgroundColor: '#1a1a2e',
+  });
+  const scale = renderW / editW;
+
+  for (let i = 0; i < _slidesData.slides.length; i++) {
+    if (i > 0) pdf.addPage([pw, ph], 'landscape');
+    const slide = _slidesData.slides[i];
+    const loadData = {
+      objects: slide.objects || [],
+      background: slide.background || '#1a1a2e',
+    };
+    await new Promise(resolve => {
+      exportCanvas.loadFromJSON(loadData, () => {
+        exportCanvas.setZoom(scale);
+        exportCanvas.renderAll();
+        resolve();
+      });
+    });
+    const imgData = exportCanvas.toDataURL({ format: 'png', multiplier: 1 });
+    pdf.addImage(imgData, 'PNG', 0, 0, pw, ph);
+  }
+
+  offscreen.remove();
+  pdf.save(_slidesFname.replace('.slides', '') + '.pdf');
+}
+
+// ── Share & Export Menu ──
+
+function _toggleSlidesShareMenu(btn) {
+  const existing = document.getElementById('slides-share-menu');
+  if (existing) { existing.remove(); return; }
+
+  const dd = document.createElement('div');
+  dd.id = 'slides-share-menu';
+  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px 0;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
+  document.body.appendChild(dd);
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.right = (window.innerWidth - rect.right) + 'px';
+
+  const close = (e) => { if (!dd.contains(e.target) && e.target !== btn) { dd.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+
+  dd.innerHTML = `
+    <div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Export</div>
+    <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="_slidesExportPDF(); document.getElementById('slides-share-menu')?.remove()">
+      <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Download PDF</span>
+    </div>
+    <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="_slidesExportCurrentPNG(); document.getElementById('slides-share-menu')?.remove()">
+      <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Download slide as PNG</span>
+    </div>
+    <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="_slidesCopyLink(); document.getElementById('slides-share-menu')?.remove()">
+      <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-4.122a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.374" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Copy link</span>
+    </div>
+    <div style="margin:4px 12px;border-top:1px solid var(--border-dim)"></div>
+    <div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team</div>
+    <div id="slides-share-teams" style="padding:2px 0">
+      <div style="padding:6px 12px;color:var(--text-dimmer);font-size:11px">Loading...</div>
+    </div>
+  `;
+
+  // Load teams
+  _loadSlidesShareTeams();
+}
+
+async function _loadSlidesShareTeams() {
+  const container = document.getElementById('slides-share-teams');
+  if (!container) return;
+  if (typeof _cachedTeams !== 'undefined' && !_cachedTeams.length && typeof fetchTeams === 'function') await fetchTeams();
+  const teams = typeof _cachedTeams !== 'undefined' ? _cachedTeams : [];
+  if (!teams.length) {
+    container.innerHTML = '<div style="padding:6px 12px;color:var(--text-dimmer);font-size:11px">No teams yet</div>';
+    return;
+  }
+  container.innerHTML = teams.map(t => `
+    <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="shareFileToTeam(${t.id}, this)">
+      <div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div>
+      <span>${escapeHtml(t.name)}</span>
+    </div>
+  `).join('');
+}
+
+function _slidesExportCurrentPNG() {
   if (!_slidesCanvas) return;
   const dataUrl = _slidesCanvas.toDataURL({ format: 'png', multiplier: 2 });
   const link = document.createElement('a');
   link.download = _slidesFname.replace('.slides', '') + '_slide' + (_slidesCurrentIdx + 1) + '.png';
   link.href = dataUrl;
   link.click();
+}
+
+function _slidesCopyLink() {
+  if (!currentExpId || !_slidesFname) return;
+  const url = `${window.location.origin}/#experiment/${encodeURIComponent(currentExpId)}?file=${encodeURIComponent(_slidesFname)}`;
+  navigator.clipboard.writeText(url).then(() => {
+    // Brief toast
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 16px;border-radius:8px;font-size:13px;z-index:10002;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+    toast.textContent = 'Link copied to clipboard';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+  });
 }
 
 // ── Present Mode ──
