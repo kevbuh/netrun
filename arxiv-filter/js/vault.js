@@ -450,6 +450,7 @@ async function openVaultNote(noteId) {
   updateVaultPreview();
   updateVaultBacklinks();
   updateVaultTags();
+  updateVaultPublishButton();
 
   // Reset to editor view
   if (_vaultGraphMode) {
@@ -946,4 +947,156 @@ function renderVaultGraph() {
 // Helper: escape regex special chars
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ── Blog Publishing ──
+
+// Toggle publish state for current note
+async function vaultTogglePublish() {
+  if (!_vaultCurrentNote) return;
+
+  const isPublished = _vaultCurrentNote.published;
+
+  if (isPublished) {
+    // Unpublish
+    if (!confirm('Unpublish this post? The public URL will no longer work.')) return;
+  }
+
+  try {
+    const res = await fetch(`/api/vault/notes/${_vaultCurrentNote.id}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ published: !isPublished })
+    });
+
+    if (res.ok) {
+      const note = await res.json();
+      Object.assign(_vaultCurrentNote, note);
+      updateVaultPublishButton();
+
+      if (note.published) {
+        // Show the public URL
+        const username = _authUserInfo?.username;
+        if (username) {
+          const url = `${location.origin}/#blog/${username}/${note.slug}`;
+          vaultShowPublishModal(url);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to toggle publish', e);
+  }
+}
+
+// Update publish button state
+function updateVaultPublishButton() {
+  const btn = document.getElementById('vault-publish-btn');
+  if (!btn) return;
+
+  const isPublished = _vaultCurrentNote?.published;
+  btn.classList.toggle('active', isPublished);
+  btn.title = isPublished ? 'Unpublish' : 'Publish as blog';
+}
+
+// Show modal with public URL
+function vaultShowPublishModal(url) {
+  const modal = document.createElement('div');
+  modal.className = 'vault-publish-modal';
+  modal.innerHTML = `
+    <div class="vault-publish-modal-content">
+      <h3>Published!</h3>
+      <p>Your post is now live at:</p>
+      <div class="vault-publish-url">
+        <input type="text" value="${escapeAttr(url)}" readonly onclick="this.select()">
+        <button onclick="navigator.clipboard.writeText('${escapeAttr(url)}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500)">Copy</button>
+      </div>
+      <div class="vault-publish-actions">
+        <button onclick="window.open('${escapeAttr(url)}', '_blank')">View Post</button>
+        <button onclick="this.closest('.vault-publish-modal').remove()">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+// Open blog view (public)
+async function openBlogPost(username, slug) {
+  hideAllViews();
+  const view = document.getElementById('blog-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  window.location.hash = `blog/${username}/${slug}`;
+  setSidebarActive('');
+
+  // Load blog post
+  document.getElementById('blog-title').textContent = 'Loading...';
+  document.getElementById('blog-content').innerHTML = '';
+  document.getElementById('blog-author').textContent = '';
+  document.getElementById('blog-date').textContent = '';
+
+  try {
+    const res = await fetch(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
+    if (res.ok) {
+      const post = await res.json();
+      document.getElementById('blog-title').textContent = post.title;
+      document.getElementById('blog-content').innerHTML = renderBlogMarkdown(post.content);
+      document.getElementById('blog-author').innerHTML = `
+        ${post.picture ? `<img src="${escapeAttr(post.picture)}" class="blog-author-pic">` : ''}
+        <a href="#profile/${encodeURIComponent(post.author)}">${escapeHtml(post.author)}</a>
+      `;
+      if (post.published_at) {
+        document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+    } else {
+      document.getElementById('blog-title').textContent = 'Post not found';
+      document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
+    }
+  } catch (e) {
+    document.getElementById('blog-title').textContent = 'Error';
+    document.getElementById('blog-content').innerHTML = '<p>Failed to load post.</p>';
+  }
+}
+
+// Render markdown for blog (similar to vault but without wiki links interaction)
+function renderBlogMarkdown(content) {
+  if (!content) return '';
+  let html = escapeHtml(content);
+
+  // Remove wiki link syntax, just show text
+  html = html.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, target, display) => escapeHtml(display || target));
+
+  // Tags
+  html = html.replace(/#([a-zA-Z0-9_-]+)/g, '<span class="blog-tag">#$1</span>');
+
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold and italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Blockquotes
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  // Paragraphs
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p><\/p>/g, '');
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
 }

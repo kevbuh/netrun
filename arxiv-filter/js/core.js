@@ -842,6 +842,14 @@ function routeFromHash() {
   else if (hash === '#inbox') openInbox();
   else if (hash === '#teams') openTeams();
   else if (hash === '#vault') openVault();
+  else if (hash.startsWith('#blog/')) {
+    const parts = hash.slice('#blog/'.length).split('/');
+    if (parts.length >= 2) {
+      const username = decodeURIComponent(parts[0]);
+      const slug = decodeURIComponent(parts.slice(1).join('/'));
+      if (typeof openBlogPost === 'function') openBlogPost(username, slug);
+    }
+  }
   else if (hash.startsWith('#team/')) {
     const teamId = parseInt(hash.slice('#team/'.length), 10);
     if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId);

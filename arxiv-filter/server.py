@@ -591,6 +591,64 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             else:
                 self._send_json({'error': 'Not found'}, 404)
 
+        # ── Public Blog API (no auth required) ──
+        elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)$'):
+            username = m.group(1)
+            slug = m.group(2)
+            # Find user by username
+            user_info = get_public_user_info(username)
+            if not user_info:
+                self._send_json({'error': 'User not found'}, 404)
+                return
+            google_id = user_info['google_id']
+            user_vault = os.path.join(VAULT_DIR, google_id)
+            # Find published note with matching slug
+            if os.path.isdir(user_vault):
+                for fname in os.listdir(user_vault):
+                    if fname.endswith('.json'):
+                        try:
+                            with open(os.path.join(user_vault, fname), 'r') as f:
+                                note = json.load(f)
+                                if note.get('published') and note.get('slug') == slug:
+                                    self._send_json({
+                                        'title': note.get('title', 'Untitled'),
+                                        'content': note.get('content', ''),
+                                        'author': username,
+                                        'published_at': note.get('published_at'),
+                                        'picture': user_info.get('picture')
+                                    })
+                                    return
+                        except:
+                            pass
+            self._send_json({'error': 'Post not found'}, 404)
+
+        elif m := self._match(r'^/api/blog/([^/]+)$'):
+            # List all published posts by username
+            username = m.group(1)
+            user_info = get_public_user_info(username)
+            if not user_info:
+                self._send_json({'error': 'User not found'}, 404)
+                return
+            google_id = user_info['google_id']
+            user_vault = os.path.join(VAULT_DIR, google_id)
+            posts = []
+            if os.path.isdir(user_vault):
+                for fname in os.listdir(user_vault):
+                    if fname.endswith('.json'):
+                        try:
+                            with open(os.path.join(user_vault, fname), 'r') as f:
+                                note = json.load(f)
+                                if note.get('published'):
+                                    posts.append({
+                                        'title': note.get('title', 'Untitled'),
+                                        'slug': note.get('slug'),
+                                        'published_at': note.get('published_at')
+                                    })
+                        except:
+                            pass
+            posts.sort(key=lambda p: p.get('published_at', 0), reverse=True)
+            self._send_json({'posts': posts, 'author': username, 'picture': user_info.get('picture')})
+
         elif self.path == '/api/experiments':
             google_id = self._get_user()
             if not google_id:
@@ -2576,6 +2634,15 @@ ch.postMessage({type:'preview-ready'});
             note['content'] = body.get('content', note.get('content', ''))
             if 'folder' in body:
                 note['folder'] = body['folder']
+            # Handle publishing
+            if 'published' in body:
+                note['published'] = body['published']
+                if body['published']:
+                    # Generate slug from title
+                    note['slug'] = slugify(note['title']) or note_id
+                    note['published_at'] = note.get('published_at') or int(time.time())
+                else:
+                    note['published_at'] = None
             note['updated'] = int(time.time())
             with open(note_path, 'w') as f:
                 json.dump(note, f, indent=2)
