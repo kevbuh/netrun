@@ -2,7 +2,7 @@
 
 let _vaultNotes = [];
 let _vaultCurrentNote = null;
-let _vaultPreviewMode = false;
+let _vaultPreviewMode = true; // Preview on by default
 let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
 
@@ -21,6 +21,12 @@ function openVault() {
 // Initialize vault
 async function initVault() {
   await loadVaultNotes();
+
+  // Create welcome note for new vaults
+  if (_vaultNotes.length === 0) {
+    await createWelcomeNote();
+  }
+
   renderVaultFileTree();
 
   // Load last opened note or first note
@@ -35,12 +41,150 @@ async function initVault() {
 
   // Setup editor auto-save
   const editor = document.getElementById('vault-editor');
-  if (editor) {
+  if (editor && !editor._vaultInitialized) {
+    editor._vaultInitialized = true;
     editor.addEventListener('input', () => {
       clearTimeout(_vaultSaveTimeout);
       _vaultSaveTimeout = setTimeout(saveCurrentNote, 1000);
       updateVaultPreview();
     });
+  }
+
+  // Apply default preview state
+  const previewBtn = document.getElementById('vault-preview-btn');
+  const editorContainer = document.getElementById('vault-editor-container');
+  const previewContainer = document.getElementById('vault-preview-container');
+  if (previewBtn && _vaultPreviewMode) {
+    previewBtn.classList.add('active');
+    if (editorContainer) editorContainer.style.display = 'none';
+    if (previewContainer) previewContainer.style.display = '';
+    updateVaultPreview();
+  }
+}
+
+// Create welcome note for new vaults (only if no notes exist)
+async function createWelcomeNote() {
+  // Double-check there are really no notes
+  if (_vaultNotes.length > 0) return;
+
+  // Check localStorage to prevent re-creating on subsequent loads
+  if (localStorage.getItem('vaultWelcomeCreated')) return;
+  localStorage.setItem('vaultWelcomeCreated', 'true');
+
+  const welcomeContent = `# Welcome to your Vault
+
+This is your personal knowledge base with **wiki-style linking** and a **graph view**.
+
+## How to use wiki links
+
+Link to other notes using double brackets: [[Ideas]] or [[Project Notes]]
+
+Click a link to navigate to that note. If the note doesn't exist, you'll be prompted to create it.
+
+## Try the Graph View
+
+Click the graph icon in the toolbar to see how your notes connect. The graph shows:
+- **Nodes** for each note
+- **Lines** connecting linked notes
+- Click any node to open that note
+
+## Example notes to try
+
+Here are some notes that link to each other:
+
+- [[Ideas]] - A place for brainstorming
+- [[Project Notes]] - Your project documentation
+- [[Daily Log]] - Track your daily progress
+
+## Tags
+
+Use #tags to organize notes: #welcome #tutorial #getting-started
+
+## Tips
+
+- Use **bold** and *italic* for emphasis
+- Create \`inline code\` or code blocks
+- Use > for blockquotes
+- Create lists with -
+
+Happy note-taking!`;
+
+  try {
+    // Create Welcome note
+    const res = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Welcome', content: welcomeContent })
+    });
+    if (res.ok) {
+      const note = await res.json();
+      _vaultNotes.push(note);
+    }
+
+    // Create Ideas note
+    const ideasContent = `# Ideas
+
+A place for your creative thoughts and brainstorming.
+
+## Links
+- Back to [[Welcome]]
+- See also [[Project Notes]]
+
+#ideas #brainstorm`;
+    const res2 = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Ideas', content: ideasContent })
+    });
+    if (res2.ok) {
+      const note = await res2.json();
+      _vaultNotes.push(note);
+    }
+
+    // Create Project Notes
+    const projectContent = `# Project Notes
+
+Document your projects here.
+
+## Related
+- [[Ideas]] for brainstorming
+- [[Daily Log]] for progress tracking
+- Back to [[Welcome]]
+
+#projects`;
+    const res3 = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Project Notes', content: projectContent })
+    });
+    if (res3.ok) {
+      const note = await res3.json();
+      _vaultNotes.push(note);
+    }
+
+    // Create Daily Log
+    const dailyContent = `# Daily Log
+
+Track your daily progress and thoughts.
+
+## Today
+
+- Started using the vault
+- Explored [[Welcome]] tutorial
+- Connected notes with [[Ideas]] and [[Project Notes]]
+
+#daily #log`;
+    const res4 = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Daily Log', content: dailyContent })
+    });
+    if (res4.ok) {
+      const note = await res4.json();
+      _vaultNotes.push(note);
+    }
+  } catch (e) {
+    console.error('Failed to create welcome notes', e);
   }
 }
 
@@ -87,9 +231,10 @@ function renderVaultFileTree(filter = '') {
     const notes = folders[folder].sort((a, b) => a.title.localeCompare(b.title));
     html += `
       <div class="vault-folder" data-folder="${escapeAttr(folder)}">
-        <div class="vault-folder-header" onclick="toggleVaultFolder(this.parentElement)">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          ${escapeHtml(folder)}
+        <div class="vault-folder-header" onclick="toggleVaultFolder(this.parentElement)" oncontextmenu="showVaultFolderMenu(event, '${escapeAttr(folder)}')">
+          <svg class="vault-folder-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          <svg class="vault-folder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+          <span class="vault-folder-name">${escapeHtml(folder)}</span>
         </div>
         <div class="vault-folder-children">
           ${notes.map(n => renderVaultFileItem(n)).join('')}
@@ -109,8 +254,8 @@ function renderVaultFileTree(filter = '') {
 function renderVaultFileItem(note) {
   const isActive = _vaultCurrentNote?.id === note.id;
   return `
-    <div class="vault-file-item ${isActive ? 'active' : ''}" data-note-id="${note.id}" onclick="openVaultNote('${note.id}')">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+    <div class="vault-file-item ${isActive ? 'active' : ''}" data-note-id="${note.id}" onclick="openVaultNote('${note.id}')" oncontextmenu="showVaultNoteMenu(event, '${note.id}')">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
       <span class="truncate">${escapeHtml(note.title || 'Untitled')}</span>
     </div>
   `;
@@ -118,6 +263,166 @@ function renderVaultFileItem(note) {
 
 function toggleVaultFolder(el) {
   el.classList.toggle('collapsed');
+}
+
+// Context menu for folders
+function showVaultFolderMenu(e, folderName) {
+  e.preventDefault();
+  e.stopPropagation();
+  hideVaultContextMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'vault-context-menu';
+  menu.innerHTML = `
+    <div class="vault-menu-item" onclick="vaultNewNoteInFolder('${escapeAttr(folderName)}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      New note in folder
+    </div>
+    <div class="vault-menu-item" onclick="vaultRenameFolder('${escapeAttr(folderName)}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/></svg>
+      Rename folder
+    </div>
+    <div class="vault-menu-sep"></div>
+    <div class="vault-menu-item vault-menu-danger" onclick="vaultDeleteFolder('${escapeAttr(folderName)}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+      Delete folder
+    </div>
+  `;
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  document.body.appendChild(menu);
+
+  // Adjust if off-screen
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+
+  setTimeout(() => document.addEventListener('click', hideVaultContextMenu, { once: true }), 10);
+}
+
+// Context menu for notes
+function showVaultNoteMenu(e, noteId) {
+  e.preventDefault();
+  e.stopPropagation();
+  hideVaultContextMenu();
+
+  const note = _vaultNotes.find(n => n.id === noteId);
+  if (!note) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'vault-context-menu';
+  menu.innerHTML = `
+    <div class="vault-menu-item" onclick="openVaultNote('${noteId}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+      Open
+    </div>
+    <div class="vault-menu-item" onclick="vaultMoveNote('${noteId}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+      Move to folder...
+    </div>
+    <div class="vault-menu-sep"></div>
+    <div class="vault-menu-item vault-menu-danger" onclick="vaultDeleteNote('${noteId}')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+      Delete note
+    </div>
+  `;
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  document.body.appendChild(menu);
+
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+
+  setTimeout(() => document.addEventListener('click', hideVaultContextMenu, { once: true }), 10);
+}
+
+function hideVaultContextMenu() {
+  document.querySelectorAll('.vault-context-menu').forEach(m => m.remove());
+}
+
+// Create note in specific folder
+function vaultNewNoteInFolder(folderName) {
+  hideVaultContextMenu();
+  vaultNewNote(folderName);
+}
+
+// Rename folder
+async function vaultRenameFolder(oldName) {
+  hideVaultContextMenu();
+  const newName = prompt('Rename folder:', oldName);
+  if (!newName || newName.trim() === oldName) return;
+
+  // Update all notes in this folder
+  const notesInFolder = _vaultNotes.filter(n => n.folder === oldName);
+  for (const note of notesInFolder) {
+    try {
+      await fetch(`/api/vault/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: newName.trim() })
+      });
+      note.folder = newName.trim();
+    } catch (e) {
+      console.error('Failed to rename folder', e);
+    }
+  }
+  renderVaultFileTree();
+}
+
+// Delete folder (moves notes to root or deletes them)
+async function vaultDeleteFolder(folderName) {
+  hideVaultContextMenu();
+  const notesInFolder = _vaultNotes.filter(n => n.folder === folderName);
+  const choice = confirm(`Delete folder "${folderName}"?\n\nThis will move ${notesInFolder.length} note(s) to the root level.\n\nClick OK to move notes, or Cancel to abort.`);
+
+  if (!choice) return;
+
+  // Move notes to root (remove folder)
+  for (const note of notesInFolder) {
+    try {
+      await fetch(`/api/vault/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: null })
+      });
+      note.folder = null;
+    } catch (e) {
+      console.error('Failed to move note', e);
+    }
+  }
+  renderVaultFileTree();
+}
+
+// Move note to folder
+async function vaultMoveNote(noteId) {
+  hideVaultContextMenu();
+  const note = _vaultNotes.find(n => n.id === noteId);
+  if (!note) return;
+
+  // Get existing folders
+  const folders = [...new Set(_vaultNotes.filter(n => n.folder).map(n => n.folder))].sort();
+  let folderName = prompt(
+    'Move to folder:\n\n' +
+    (folders.length ? 'Existing: ' + folders.join(', ') + '\n\n' : '') +
+    'Enter folder name (or leave empty for root):',
+    note.folder || ''
+  );
+
+  if (folderName === null) return; // Cancelled
+  folderName = folderName.trim() || null;
+
+  try {
+    await fetch(`/api/vault/notes/${note.id}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: folderName })
+    });
+    note.folder = folderName;
+    renderVaultFileTree();
+  } catch (e) {
+    console.error('Failed to move note', e);
+  }
 }
 
 // Open a note
@@ -209,12 +514,30 @@ async function vaultNewNote(folder = null) {
   }
 }
 
-// Create new folder (prompts for name)
-function vaultNewFolder() {
-  const name = prompt('Folder name:');
-  if (!name) return;
-  // Create a note in the new folder
-  vaultNewNote(name.trim());
+// Create new folder (prompts for name and creates a note inside)
+async function vaultNewFolder() {
+  const name = prompt('New folder name:');
+  if (!name || !name.trim()) return;
+
+  const folderName = name.trim();
+
+  // Create a new note in the folder
+  try {
+    const res = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Untitled', content: '', folder: folderName })
+    });
+
+    if (res.ok) {
+      const note = await res.json();
+      _vaultNotes.push(note);
+      renderVaultFileTree();
+      openVaultNote(note.id);
+    }
+  } catch (e) {
+    console.error('Failed to create folder', e);
+  }
 }
 
 // Rename current note
@@ -600,6 +923,23 @@ function renderVaultGraph() {
         break;
       }
     }
+  };
+
+  // Hover cursor handler
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    let overNode = false;
+    for (const n of nodes) {
+      const dist = Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2);
+      if (dist < 15) {
+        overNode = true;
+        break;
+      }
+    }
+    canvas.style.cursor = overNode ? 'pointer' : 'default';
   };
 }
 

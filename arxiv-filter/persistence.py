@@ -19,7 +19,7 @@ BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 
 SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
-VAULT_DIR = os.path.join(DIR, 'vault')
+VAULT_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'alpha')
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 os.makedirs(SAVED_CONTENT_DIR, exist_ok=True)
 os.makedirs(VAULT_DIR, exist_ok=True)
