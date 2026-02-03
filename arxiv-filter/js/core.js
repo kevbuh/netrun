@@ -82,7 +82,10 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-experiments': 'experiments', 'sb-search': 'search', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal' };
+
+// Research view tab state
+let _researchActiveTab = 'search';
 
 function setSidebarActive(id) {
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
@@ -601,26 +604,53 @@ function goHome() {
   } else if (!allPapers.length) loadAllFeeds();
 }
 
-function openSearch() {
-  setSidebarLoading('sb-search');
+function openResearch(tab) {
+  setSidebarLoading('sb-research');
   hideAllViews();
-  const view = document.getElementById('search-view');
+  const view = document.getElementById('research-view');
   view.classList.add('active');
   view.style.display = 'block';
-  window.location.hash = 'search';
-  setSidebarActive('sb-search');
-  // Reset to default state
-  const input = document.getElementById('search-query');
-  if (input) input.value = '';
-  const hints = document.getElementById('search-hints');
-  if (hints) hints.style.display = '';
-  const feedR = document.getElementById('search-feed-results');
-  if (feedR) feedR.innerHTML = '';
-  const arxivR = document.getElementById('search-arxiv-results');
-  if (arxivR) arxivR.innerHTML = '';
-  const oaR = document.getElementById('search-openalex-results');
-  if (oaR) oaR.innerHTML = '';
-  setTimeout(() => { if (input) input.focus(); }, 50);
+  window.location.hash = 'research';
+  setSidebarActive('sb-research');
+
+  // Switch to requested tab or keep current
+  if (tab) {
+    switchResearchTab(tab);
+  } else {
+    // Ensure correct tab is shown
+    switchResearchTab(_researchActiveTab);
+  }
+}
+
+function switchResearchTab(tab) {
+  _researchActiveTab = tab;
+
+  // Update tab buttons
+  document.querySelectorAll('.research-tab').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById('research-tab-' + tab);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // Update panels
+  document.querySelectorAll('.research-panel').forEach(panel => panel.style.display = 'none');
+  const activePanel = document.getElementById('research-panel-' + tab);
+  if (activePanel) activePanel.style.display = '';
+
+  // Tab-specific initialization
+  if (tab === 'search') {
+    const input = document.getElementById('search-query');
+    if (input) setTimeout(() => input.focus(), 50);
+  } else if (tab === 'projects') {
+    fetchExperiments();
+  }
+}
+
+// Legacy functions for compatibility
+function openSearch() {
+  openResearch('search');
+}
+
+function openExperiments() {
+  openResearch('projects');
 }
 
 function openDashboard() {
@@ -638,19 +668,8 @@ function expGoBack() {
   if (_expBackAction && _expBackAction.fn) {
     _expBackAction.fn();
   } else {
-    openExperiments();
+    openResearch('projects');
   }
-}
-
-function openExperiments() {
-  setSidebarLoading('sb-experiments');
-  hideAllViews();
-  const view = document.getElementById('experiments-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'experiments';
-  setSidebarActive('sb-experiments');
-  fetchExperiments();
 }
 
 let _expBackAction = null; // stores {fn, label} for context-aware back button
@@ -668,16 +687,16 @@ function openExperimentDetail(id) {
       _expBackAction = { fn: () => { openTeams(); if (teamId) showTeamDetailView(teamId); }, label: 'Team' };
     } else if (prevHash === '#saved' || prevHash === '#' || prevHash === '' || prevHash === '#dashboard') {
       _expBackAction = { fn: () => openDashboard(), label: 'Home' };
-    } else if (prevHash === '#search') {
-      _expBackAction = { fn: () => openSearch(), label: 'Search' };
+    } else if (prevHash === '#search' || prevHash === '#research') {
+      _expBackAction = { fn: () => openResearch(), label: 'Research' };
     } else if (prevHash.startsWith('#view/') || prevHash.startsWith('#paper/')) {
       _expBackAction = { fn: () => { window.location.hash = prevHash; routeFromHash(); }, label: 'Paper' };
     } else if (prevHash === '#inbox') {
       _expBackAction = { fn: () => openInbox(), label: 'Inbox' };
     } else if (prevHash === '#experiments') {
-      _expBackAction = { fn: () => openExperiments(), label: 'Projects' };
+      _expBackAction = { fn: () => openResearch('projects'), label: 'Research' };
     } else {
-      _expBackAction = { fn: () => openExperiments(), label: 'Projects' };
+      _expBackAction = { fn: () => openResearch('projects'), label: 'Research' };
     }
   }
   // Update back button label
@@ -691,7 +710,7 @@ function openExperimentDetail(id) {
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'experiment/' + id;
-  setSidebarActive('sb-experiments');
+  setSidebarActive('sb-research');
   currentExpId = id;
   if (id === '_unstructured') {
     // Stripped-down detail view for loose files
@@ -723,7 +742,8 @@ function routeFromHash() {
   const _oldHash = _currentRouteHash || '';
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
-  if (hash === '#experiments') openExperiments();
+  if (hash === '#research') openResearch();
+  else if (hash === '#experiments') openResearch('projects'); // Legacy redirect
   else if (hash === '#settings') openSettings();
   else if (hash === '#quality') openQualityView();
   else if (hash === '#calendar') openCalendar();
@@ -738,7 +758,7 @@ function routeFromHash() {
 else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') openDashboard();
   else if (hash === '#browse') openBrowse();
-  else if (hash === '#search') openSearch();
+  else if (hash === '#search') openResearch('search'); // Legacy redirect
   else if (hash === '#terminal') openTerminal();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) {
