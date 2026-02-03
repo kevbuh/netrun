@@ -783,6 +783,138 @@ function _browseRenderTabs() {
       <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
     </div>`;
   }).join('') + `<button class="browse-tab-new" onclick="browseNewTab()" title="New tab">+</button>`;
+  // Update tab count badge on overview button
+  const countBadge = document.getElementById('browse-tab-overview-btn');
+  if (countBadge) countBadge.title = `Show all tabs (${_browseTabs.length})`;
+}
+
+// ── Tab Overview (Safari iPad style) ──
+
+let _browseTabOverviewVisible = false;
+
+function toggleBrowseTabOverview() {
+  _browseTabOverviewVisible ? hideBrowseTabOverview() : showBrowseTabOverview();
+}
+
+function showBrowseTabOverview() {
+  const overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  _browseTabOverviewVisible = true;
+  _renderBrowseTabOverview();
+  overlay.style.display = 'block';
+  // Update button state
+  const btn = document.getElementById('browse-tab-overview-btn');
+  if (btn) btn.classList.add('active', 'bg-hover', 'text-primary');
+  // Trigger animation
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('visible');
+    });
+  });
+}
+
+function hideBrowseTabOverview() {
+  const overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  _browseTabOverviewVisible = false;
+  overlay.classList.remove('visible');
+  // Update button state
+  const btn = document.getElementById('browse-tab-overview-btn');
+  if (btn) btn.classList.remove('active', 'bg-hover', 'text-primary');
+  setTimeout(() => {
+    overlay.style.display = 'none';
+  }, 250);
+}
+
+// Keyboard shortcut for tab overview (Cmd+Shift+\)
+document.addEventListener('keydown', (e) => {
+  const view = document.getElementById('browse-view');
+  if (!view || view.style.display === 'none') return;
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+  if (cmdKey && e.shiftKey && e.key === '\\') {
+    e.preventDefault();
+    toggleBrowseTabOverview();
+  }
+  // Escape to close overview
+  if (e.key === 'Escape' && _browseTabOverviewVisible) {
+    e.preventDefault();
+    hideBrowseTabOverview();
+  }
+});
+
+function _renderBrowseTabOverview() {
+  const overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+
+  const cards = _browseTabs.map(t => {
+    const isActive = t.id === _browseActiveTab;
+    const title = escapeHtml(t.title);
+    const fav = t.favicon ? `<img class="browse-tab-card-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+    let urlDisplay = '';
+    try {
+      const u = new URL(t.url);
+      urlDisplay = u.hostname.replace(/^www\./, '');
+    } catch { urlDisplay = t.url || 'New Tab'; }
+
+    // Preview: use favicon as placeholder for now
+    const previewContent = t.blank
+      ? '<span class="browse-tab-card-preview-placeholder">+</span>'
+      : (t.favicon ? `<img src="${escapeHtml(t.favicon)}" style="width:48px;height:48px;opacity:0.5;">` : `<span class="browse-tab-card-preview-placeholder">${escapeHtml(urlDisplay.charAt(0).toUpperCase())}</span>`);
+
+    return `
+      <div class="browse-tab-card ${isActive ? 'active' : ''}" onclick="_selectTabFromOverview(${t.id})">
+        <button class="browse-tab-card-close" onclick="event.stopPropagation();_closeTabFromOverview(${t.id})" title="Close">&times;</button>
+        <div class="browse-tab-card-preview">${previewContent}</div>
+        <div class="browse-tab-card-info">
+          ${fav}
+          <div style="flex:1;overflow:hidden;">
+            <div class="browse-tab-card-title">${title}</div>
+            <div class="browse-tab-card-url">${escapeHtml(urlDisplay)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // New tab card
+  const newTabCard = `
+    <div class="browse-tab-card browse-tab-card-new" onclick="_newTabFromOverview()">
+      <span class="browse-tab-card-new-icon">+</span>
+    </div>
+  `;
+
+  overlay.innerHTML = `
+    <div class="browse-tab-overview-header">
+      <div style="display:flex;align-items:center;">
+        <span class="browse-tab-overview-title">Tabs</span>
+        <span class="browse-tab-overview-count">${_browseTabs.length}</span>
+      </div>
+    </div>
+    <div class="browse-tab-overview-grid">
+      ${cards}
+      ${newTabCard}
+    </div>
+  `;
+}
+
+function _selectTabFromOverview(id) {
+  browseSelectTab(id);
+  hideBrowseTabOverview();
+}
+
+function _closeTabFromOverview(id) {
+  browseCloseTab(id);
+  if (_browseTabs.length === 0) {
+    hideBrowseTabOverview();
+  } else {
+    _renderBrowseTabOverview();
+  }
+}
+
+function _newTabFromOverview() {
+  browseNewTab();
+  hideBrowseTabOverview();
 }
 
 function _browseTitleFromUrl(url) {
