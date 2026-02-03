@@ -360,6 +360,16 @@ def init_db():
     if 'profile_private' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN profile_private INTEGER DEFAULT 0")
         conn.commit()
+    # Migration: add last_seen, status_emoji, status_text columns to users
+    if 'last_seen' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN last_seen REAL")
+        conn.commit()
+    if 'status_emoji' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN status_emoji TEXT")
+        conn.commit()
+    if 'status_text' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN status_text TEXT")
+        conn.commit()
     # Migration: add profile_bg column to users
     if 'profile_bg' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN profile_bg TEXT")
@@ -395,11 +405,11 @@ def upsert_google_user(google_id, email, name, picture=None):
 
 def get_user_info(google_id):
     conn = _get_db()
-    row = conn.execute("SELECT google_id, email, name, username, picture, profile_private FROM users WHERE google_id = ?", (google_id,)).fetchone()
+    row = conn.execute("SELECT google_id, email, name, username, picture, profile_private, status_emoji, status_text FROM users WHERE google_id = ?", (google_id,)).fetchone()
     conn.close()
     if not row:
         return None
-    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username'], 'picture': row['picture'], 'profile_private': bool(row['profile_private'])}
+    return {'google_id': row['google_id'], 'email': row['email'], 'name': row['name'], 'username': row['username'], 'picture': row['picture'], 'profile_private': bool(row['profile_private']), 'status_emoji': row['status_emoji'], 'status_text': row['status_text']}
 
 
 def set_username(google_id, username):
@@ -1066,11 +1076,26 @@ def db_delete_comment(google_id, cid):
 
 # ── User Profiles (public) ──
 
+def touch_last_seen(google_id):
+    conn = _get_db()
+    conn.execute("UPDATE users SET last_seen = ? WHERE google_id = ?", (time.time(), google_id))
+    conn.commit()
+    conn.close()
+
+
+def update_user_status(google_id, emoji, text):
+    conn = _get_db()
+    conn.execute("UPDATE users SET status_emoji = ?, status_text = ? WHERE google_id = ?",
+                 (emoji or None, text or None, google_id))
+    conn.commit()
+    conn.close()
+
+
 def get_public_user_info(username):
-    """Case-insensitive lookup. Returns {username, picture, created, profile_private, profile_bg} or None."""
+    """Case-insensitive lookup. Returns {username, picture, created, profile_private, profile_bg, last_seen, status_emoji, status_text} or None."""
     conn = _get_db()
     row = conn.execute(
-        "SELECT google_id, username, picture, created, profile_private, profile_bg FROM users WHERE lower(username) = ?",
+        "SELECT google_id, username, picture, created, profile_private, profile_bg, last_seen, status_emoji, status_text FROM users WHERE lower(username) = ?",
         (username.lower(),)
     ).fetchone()
     conn.close()
@@ -1083,6 +1108,9 @@ def get_public_user_info(username):
         'created': row['created'],
         'profile_private': bool(row['profile_private']),
         'profile_bg': row['profile_bg'],
+        'last_seen': row['last_seen'],
+        'status_emoji': row['status_emoji'],
+        'status_text': row['status_text'],
     }
 
 

@@ -992,4 +992,20 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startPixelPet);
     else setTimeout(startPixelPet, 0);
   }
+
+  // Expose thumbnail renderer for status picker
+  window._renderPetThumb = function(type, size) {
+    const pet = PET_TYPES[type];
+    if (!pet) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const scale = size / G;
+    const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x * scale, y * scale, scale, scale); };
+    pet.draw(px, { blink: false, tired: false, sleeping: false, sitting: true, legFrame: 0 });
+    return canvas;
+  };
+
+  window._PET_TYPE_KEYS = Object.keys(PET_TYPES);
 })();

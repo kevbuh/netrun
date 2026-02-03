@@ -817,8 +817,18 @@ async function renderUserProfile(username) {
         <div>
           <div class="flex items-center gap-2">
             <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username)}</h2>
-            <div class="w-3 h-3 rounded-full" style="background:${accentColor}" title="Accent color"></div>
+            ${(() => {
+              const isOnline = profile.last_seen && (Date.now() / 1000 - profile.last_seen) < 300;
+              const dotColor = isOnline ? '#22c55e' : '#6b7280';
+              const dotTitle = isOnline ? 'Online' : 'Offline';
+              const shadow = isOnline ? 'box-shadow:0 0 4px #22c55e80' : '';
+              return `<div class="w-2.5 h-2.5 rounded-full" style="background:${dotColor};${shadow}" title="${dotTitle}"></div>`;
+            })()}
           </div>
+          ${profile.status_emoji || profile.status_text ? `<div class="flex items-center gap-1.5 mt-1">
+            ${profile.status_emoji ? `<canvas class="profile-status-pet shrink-0" width="18" height="18" data-type="${escapeAttr(profile.status_emoji)}" style="image-rendering:pixelated"></canvas>` : ''}
+            ${profile.status_text ? `<span class="text-dim text-[0.78rem]">${escapeHtml(profile.status_text)}</span>` : ''}
+          </div>` : ''}
           ${joinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${joinDate}</div>` : ''}
         </div>
         <div class="ml-auto flex items-center gap-2">
@@ -908,6 +918,14 @@ async function renderUserProfile(username) {
     }
 
     el.innerHTML = html;
+
+    // Render status pet thumbnails
+    if (typeof _renderPetThumb === 'function') {
+      el.querySelectorAll('.profile-status-pet').forEach(c => {
+        const thumb = _renderPetThumb(c.dataset.type, 18);
+        if (thumb) c.getContext('2d').drawImage(thumb, 0, 0);
+      });
+    }
   } catch (e) {
     console.error('Profile load error', e);
     el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Failed to load profile</div>';

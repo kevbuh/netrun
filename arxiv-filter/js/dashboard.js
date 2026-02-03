@@ -222,6 +222,7 @@ async function renderDashboard() {
   const myComments = commentsResp || [];
   const myReposts = repostsResp || [];
 
+  _dashStatusProfile = profile;
   const mergedSaved = getSavedPosts();
 
   // ── Activity heatmap (full year, GitHub-style) ──
@@ -528,7 +529,13 @@ async function renderDashboard() {
       <div>
         <div class="flex items-center gap-2">
           <h2 class="text-[1.3rem] font-semibold text-white_">${escapeHtml(profile.username || _authUserInfo?.username || '')}</h2>
-          <div class="w-3 h-3 rounded-full" style="background:${_pAccent}" title="Accent color"></div>
+          <div class="w-2.5 h-2.5 rounded-full" style="background:#22c55e;box-shadow:0 0 4px #22c55e80" title="Online"></div>
+        </div>
+        <div class="flex items-center gap-1.5 mt-1">
+          <span id="dash-status-display" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" onclick="_openStatusPicker()" title="Click to set status">
+            ${profile.status_emoji ? `<canvas id="dash-status-pet" width="18" height="18" class="shrink-0" style="image-rendering:pixelated"></canvas>` : ''}
+            ${profile.status_text ? `<span class="text-dim text-[0.78rem]">${escapeHtml(profile.status_text)}</span>` : `<span class="text-dimmest text-[0.72rem] italic">Set status...</span>`}
+          </span>
         </div>
         ${_pJoinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${_pJoinDate}</div>` : ''}
       </div>
@@ -536,6 +543,7 @@ async function renderDashboard() {
         <button onclick="openSettings()" class="w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors" title="Settings"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg></button>
       </div>
     </div>
+    <div id="dash-status-picker" class="hidden mb-4"></div>
     <div class="flex gap-6 mb-6 text-[0.82rem]">
       <div><span class="text-white_ font-semibold">${profile.comment_count || 0}</span> <span class="text-dimmer">comments</span></div>
       <div><span class="text-white_ font-semibold">${profile.repost_count || 0}</span> <span class="text-dimmer">reposts</span></div>
@@ -652,6 +660,96 @@ async function renderDashboard() {
 
   document.removeEventListener('mousedown', _closeDashSearch);
   document.addEventListener('mousedown', _closeDashSearch);
+
+  // Render status pet thumbnail if set
+  if (profile.status_emoji && typeof _renderPetThumb === 'function') {
+    const petCanvas = document.getElementById('dash-status-pet');
+    if (petCanvas) {
+      const thumb = _renderPetThumb(profile.status_emoji, 18);
+      if (thumb) {
+        const ctx = petCanvas.getContext('2d');
+        ctx.drawImage(thumb, 0, 0);
+      }
+    }
+  }
+}
+
+// ── Status Picker ──
+
+let _dashStatusProfile = null;
+
+function _openStatusPicker() {
+  const picker = document.getElementById('dash-status-picker');
+  if (!picker) return;
+  if (!picker.classList.contains('hidden')) { picker.classList.add('hidden'); return; }
+
+  const petTypes = (typeof _PET_TYPE_KEYS !== 'undefined') ? _PET_TYPE_KEYS : ['cat','dog','bunny','froog','blackCat','poodle','pacman'];
+  const currentEmoji = _dashStatusProfile?.status_emoji || '';
+  const currentText = _dashStatusProfile?.status_text || '';
+
+  picker.classList.remove('hidden');
+  picker.innerHTML = `
+    <div class="p-4 rounded-lg border border-border-card bg-card">
+      <div class="text-[0.78rem] text-dimmer font-medium mb-2">Pick a pet</div>
+      <div class="flex gap-2 mb-3" id="status-pet-grid">
+        <div class="w-9 h-9 rounded-lg border cursor-pointer flex items-center justify-center text-dimmer text-sm ${!currentEmoji ? 'border-accent bg-accent/10' : 'border-border-card hover:border-accent/40'}" data-pet="" onclick="_selectStatusPet(this)" title="None">&mdash;</div>
+        ${petTypes.map(t => `<div class="w-9 h-9 rounded-lg border cursor-pointer flex items-center justify-center ${currentEmoji === t ? 'border-accent bg-accent/10' : 'border-border-card hover:border-accent/40'}" data-pet="${t}" onclick="_selectStatusPet(this)" title="${t}"><canvas width="24" height="24" class="status-pet-thumb" data-type="${t}" style="image-rendering:pixelated"></canvas></div>`).join('')}
+      </div>
+      <input type="text" id="status-text-input" value="${escapeAttr(currentText)}" placeholder="What are you up to?" maxlength="80" class="w-full bg-input border border-border-input rounded-lg px-3 py-2 text-primary text-[0.82rem] outline-none focus:border-accent mb-3">
+      <div class="flex gap-2">
+        <button onclick="_saveStatus()" class="px-3 py-1.5 rounded-md text-[0.78rem] bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors">Save</button>
+        <button onclick="_clearStatus()" class="px-3 py-1.5 rounded-md text-[0.78rem] bg-transparent text-dimmer border border-border-card cursor-pointer hover:text-primary hover:border-accent/40 transition-colors">Clear</button>
+        <button onclick="document.getElementById('dash-status-picker').classList.add('hidden')" class="px-3 py-1.5 rounded-md text-[0.78rem] bg-transparent text-dimmer border-none cursor-pointer hover:text-primary transition-colors ml-auto">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  // Render pet thumbnails
+  if (typeof _renderPetThumb === 'function') {
+    picker.querySelectorAll('.status-pet-thumb').forEach(c => {
+      const thumb = _renderPetThumb(c.dataset.type, 24);
+      if (thumb) c.getContext('2d').drawImage(thumb, 0, 0);
+    });
+  }
+}
+
+function _selectStatusPet(el) {
+  const grid = document.getElementById('status-pet-grid');
+  if (!grid) return;
+  grid.querySelectorAll('[data-pet]').forEach(d => {
+    d.classList.remove('border-accent', 'bg-accent/10');
+    d.classList.add('border-border-card');
+  });
+  el.classList.remove('border-border-card');
+  el.classList.add('border-accent', 'bg-accent/10');
+}
+
+async function _saveStatus() {
+  const grid = document.getElementById('status-pet-grid');
+  const selected = grid?.querySelector('.border-accent[data-pet]');
+  const emoji = selected?.dataset.pet || '';
+  const text = (document.getElementById('status-text-input')?.value || '').trim().slice(0, 80);
+  try {
+    await fetch('/api/users/me/status', {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji, text })
+    });
+    document.getElementById('dash-status-picker')?.classList.add('hidden');
+    renderDashboard();
+  } catch (e) { console.error('Save status error', e); }
+}
+
+async function _clearStatus() {
+  try {
+    await fetch('/api/users/me/status', {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji: '', text: '' })
+    });
+    document.getElementById('dash-status-picker')?.classList.add('hidden');
+    renderDashboard();
+  } catch (e) { console.error('Clear status error', e); }
 }
 
 // ── All Saved Posts view ──

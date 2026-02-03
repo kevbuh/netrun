@@ -53,6 +53,7 @@ from persistence import (
     rename_team,
     update_user_picture, update_user_profile_bg, get_user_accent_color,
     set_profile_private, are_teammates,
+    touch_last_seen, update_user_status,
     set_team_private, set_team_parent, get_team_children, get_team_ancestors,
     send_direct_message, get_direct_messages, mark_message_read,
     get_unread_message_count, get_user_by_username,
@@ -1136,7 +1137,10 @@ ch.postMessage({type:'preview-ready'});
         """Extract google_id from Authorization: Bearer <token> header."""
         auth = self.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
-            return get_session_user(auth[7:])
+            gid = get_session_user(auth[7:])
+            if gid:
+                touch_last_seen(gid)
+            return gid
         return None
 
     def _check_experiment_access(self, exp_id):
@@ -2674,6 +2678,22 @@ ch.postMessage({type:'preview-ready'});
             private = bool(body.get('profile_private', False))
             set_profile_private(google_id, private)
             self._send_json({'ok': True, 'profile_private': private})
+            return
+
+        elif self.path == '/api/users/me/status':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            emoji = (body.get('emoji') or '').strip()
+            text = (body.get('text') or '').strip()[:80]
+            valid_emojis = ('cat', 'dog', 'bunny', 'froog', 'blackCat', 'poodle', 'pacman', '')
+            if emoji and emoji not in valid_emojis:
+                self._send_json({'error': 'Invalid emoji type'}, 400)
+                return
+            update_user_status(google_id, emoji, text)
+            self._send_json({'ok': True, 'status_emoji': emoji or None, 'status_text': text or None})
             return
 
         elif (m := self._match(r'^/api/teams/(\d+)/privacy$')):
