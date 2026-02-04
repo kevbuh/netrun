@@ -676,6 +676,7 @@
       cursor: pointer;
       white-space: nowrap;
       overflow: hidden;
+      position: relative;
       transition: background 0.15s, color 0.15s, box-shadow 0.15s;
       flex-shrink: 1;
     }
@@ -706,11 +707,14 @@
       min-width: 0;
     }
     .browse-tab-close {
-      flex-shrink: 0;
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
       width: 16px;
       height: 16px;
       border: none;
-      background: transparent;
+      background: var(--bg-hover);
       color: var(--text-dimmest);
       font-size: 0.85rem;
       line-height: 1;
@@ -723,8 +727,7 @@
       opacity: 0;
       transition: opacity 0.1s, background 0.1s, color 0.1s;
     }
-    .browse-tab:hover .browse-tab-close,
-    .browse-tab.active .browse-tab-close { opacity: 1; }
+    .browse-tab.active:hover .browse-tab-close { opacity: 1; }
     .browse-tab-close:hover {
       background: var(--bg-hover);
       color: var(--text-primary);
