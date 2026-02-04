@@ -681,7 +681,6 @@ async function fetchPaperInsights(url) {
 
     // Render authors section
     if (hasAuthors) {
-      // Format numbers compactly
       const fmtNum = (n) => {
         if (!n) return null;
         if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -691,22 +690,20 @@ async function fetchPaperInsights(url) {
       html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-1" id="paper-authors-list">';
       for (let i = 0; i < data.authors.length; i++) {
         const author = data.authors[i];
-        const hasStats = author.paperCount || author.hIndex || author.citationCount;
-        const statsHtml = hasStats ? `<div class="author-card-stats">
-          ${author.paperCount ? `<span>${fmtNum(author.paperCount)} papers</span>` : ''}
-          ${author.hIndex ? `<span>h-index ${author.hIndex}</span>` : ''}
-          ${author.citationCount ? `<span>${fmtNum(author.citationCount)} cited</span>` : ''}
-        </div>` : '';
+        const stats = [];
+        if (author.paperCount) stats.push(`${fmtNum(author.paperCount)} papers`);
+        if (author.hIndex) stats.push(`h-index ${author.hIndex}`);
+        if (author.citationCount) stats.push(`${fmtNum(author.citationCount)} citations`);
         html += `<div class="author-card" data-idx="${i}">
           <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
           <div class="author-card-info">
             <div class="author-card-name">${escapeHtml(author.name)}</div>
-            ${statsHtml}
+            ${author.affiliation ? `<div class="author-card-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
+            ${stats.length ? `<div class="author-card-stats">${stats.join(' · ')}</div>` : ''}
           </div>
         </div>`;
       }
       html += '</div></div>';
-      // Store authors data for hover/click handling
       window._insightAuthors = data.authors;
     }
 
@@ -736,7 +733,7 @@ async function fetchPaperInsights(url) {
     html += '</div>';
     el.innerHTML = html;
 
-    // Add hover handler for PDF highlighting only
+    // Add hover handler for PDF highlighting
     if (hasAuthors && window._insightAuthors) {
       const authorsList = document.getElementById('paper-authors-list');
       if (authorsList) {
@@ -744,13 +741,10 @@ async function fetchPaperInsights(url) {
           const idx = parseInt(card.dataset.idx);
           const author = window._insightAuthors[idx];
           if (!author) return;
-
           card.addEventListener('mouseenter', () => {
             if (author.name) pdfSearchHighlight(author.name);
           });
-          card.addEventListener('mouseleave', () => {
-            pdfClearSearchHighlights();
-          });
+          card.addEventListener('mouseleave', pdfClearSearchHighlights);
         });
       }
     }

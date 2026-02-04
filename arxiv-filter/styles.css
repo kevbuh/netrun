@@ -2684,7 +2684,7 @@
     /* ── Author card (in sidebar) ── */
     .author-card {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
       padding: 8px 10px;
       border-radius: 8px;
@@ -2714,19 +2714,16 @@
       font-size: 0.8rem;
       font-weight: 500;
       color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    }
+    .author-card-affiliation {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 1px;
     }
     .author-card-stats {
-      display: flex;
-      gap: 8px;
-      margin-top: 2px;
       font-size: 0.68rem;
       color: var(--text-dimmer);
-    }
-    .author-card-stats span {
-      white-space: nowrap;
+      margin-top: 2px;
     }
 
     /* ── Paper sidebar tab toolbar (aligned with PDF toolbar) ── */
