@@ -765,6 +765,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        # ── Ollama Models API ──
+        elif self.path == '/api/models':
+            try:
+                req = urllib.request.Request("http://localhost:11434/api/tags")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read())
+                models = [m['name'] for m in data.get('models', [])]
+                self._send_json({'models': models})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         # ── Vault Notes API ──
         elif self.path == '/api/vault/notes':
             google_id = self._get_user()
@@ -2385,12 +2396,13 @@ ch.postMessage({type:'preview-ready'});
                 context = body.get('context', '')
                 messages = body.get('messages', [])
                 is_vision = body.get('vision', False)
+                client_model = body.get('model', '')
                 if not messages:
                     self._send_json({'error': 'messages required'}, 400)
                     return
 
                 if is_vision:
-                    model = "qwen3-vl:8b"
+                    model = client_model or "qwen3-vl:8b"
                     system_msg = (
                         "You are a helpful visual analysis assistant. The user has taken a screenshot "
                         "and wants to ask about it. Describe what you see and answer their questions "
@@ -2403,7 +2415,7 @@ ch.postMessage({type:'preview-ready'});
                             msg["images"] = m["images"]
                         ollama_messages.append(msg)
                 else:
-                    model = "qwen2.5:3b"
+                    model = client_model or "qwen2.5:3b"
                     truncated_ctx = context[:12000] if context else ''
                     if truncated_ctx:
                         system_msg = (

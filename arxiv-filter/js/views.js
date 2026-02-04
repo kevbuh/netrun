@@ -2139,6 +2139,8 @@ function _sendPopupChatMessage(popup, capturedText) {
   (async () => {
     try {
       const body = { messages: filteredMsgs };
+      const chatModel = localStorage.getItem('chatModel');
+      if (chatModel) body.model = chatModel;
       if (hasVision) {
         body.vision = true;
       } else {
@@ -3549,6 +3551,7 @@ const _lookupCommands = [
   { name: 'user', desc: 'Search for users', hasArgs: true },
   { name: 'notes', desc: 'Search your notes', hasArgs: true },
   { name: 'capture', desc: 'Screenshot the page', _special: true },
+  { name: 'model', desc: 'Change chat model', _special: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -3595,9 +3598,10 @@ function _lookupRenderCmdDropdown(popup, query) {
         const askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
         if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
         _lookupHideCmdDropdown(popup);
-      } else if (cmd._special && cmd.name === 'capture') {
+      } else if (cmd._special) {
         _lookupHideCmdDropdown(popup);
-        _doLookupCapture(popup);
+        if (cmd.name === 'capture') _doLookupCapture(popup);
+        else if (cmd.name === 'model') _doLookupModel(popup);
       } else {
         cmd.fn();
         _lookupTrackMode = false;
@@ -3782,6 +3786,91 @@ async function _doLookupCapture(popup) {
   _repositionSelectionPopup();
 }
 
+// ── /model command ──
+let _lookupModelIdx = 0;
+let _lookupModelList = [];
+
+async function _doLookupModel(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  // Fetch available models
+  _lookupModelList = [];
+  _lookupModelIdx = 0;
+  try {
+    const resp = await fetch('/api/models');
+    const data = await resp.json();
+    _lookupModelList = data.models || [];
+  } catch (e) {
+    _lookupModelList = [];
+  }
+
+  if (!_lookupModelList.length) {
+    // Show error inline
+    if (input) { input.value = ''; input.placeholder = 'No models available'; input.focus(); }
+    return;
+  }
+
+  const currentModel = localStorage.getItem('chatModel') || '';
+  // Pre-select current model if found
+  const curIdx = _lookupModelList.indexOf(currentModel);
+  if (curIdx >= 0) _lookupModelIdx = curIdx;
+
+  _lookupRenderModelDropdown(popup);
+}
+
+function _lookupRenderModelDropdown(popup) {
+  let dropdown = popup.querySelector('.lookup-model-dropdown');
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'lookup-note-dropdown lookup-model-dropdown';
+    dropdown.addEventListener('mousedown', ev => ev.stopPropagation());
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (askWrap) popup.insertBefore(dropdown, askWrap);
+    else popup.appendChild(dropdown);
+  }
+  const currentModel = localStorage.getItem('chatModel') || '';
+  dropdown.innerHTML = _lookupModelList.map((m, i) => {
+    const active = m === currentModel;
+    return `<div class="lookup-note-item ${i === _lookupModelIdx ? 'selected' : ''}" data-idx="${i}">` +
+      `<span class="lookup-note-item-title">${escapeHtml(m)}</span>` +
+      (active ? `<span class="lookup-note-item-tags" style="margin-left:auto;opacity:0.6;">current</span>` : '') +
+      `</div>`;
+  }).join('');
+
+  dropdown.querySelectorAll('.lookup-note-item').forEach(el => {
+    el.addEventListener('click', ev => {
+      ev.stopPropagation(); ev.preventDefault();
+      const idx = parseInt(el.dataset.idx);
+      const model = _lookupModelList[idx];
+      if (model) {
+        localStorage.setItem('chatModel', model);
+        _lookupHideModelDropdown(popup);
+        popup.remove();
+      }
+    });
+  });
+  _repositionSelectionPopup();
+}
+
+function _lookupHideModelDropdown(popup) {
+  const dd = popup.querySelector('.lookup-model-dropdown');
+  if (dd) dd.remove();
+  _lookupModelList = [];
+  _lookupModelIdx = 0;
+}
+
+function _lookupSelectModel(popup) {
+  const model = _lookupModelList[_lookupModelIdx];
+  if (model) {
+    localStorage.setItem('chatModel', model);
+    _lookupHideModelDropdown(popup);
+    popup.remove();
+  }
+}
+
 function _lookupExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -3803,9 +3892,10 @@ function _lookupExecCommand(popup, text) {
   const cmd = matches[_lookupCmdIdx] || matches[0];
   if (cmd) {
     if (cmd.hasArgs) return false; // needs arguments, don't execute bare
-    if (cmd._special && cmd.name === 'capture') {
+    if (cmd._special) {
       _lookupHideCmdDropdown(popup);
-      _doLookupCapture(popup);
+      if (cmd.name === 'capture') _doLookupCapture(popup);
+      else if (cmd.name === 'model') _doLookupModel(popup);
       return true;
     }
     cmd.fn();
@@ -4163,7 +4253,33 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     const val = askInput.value;
     const isCmd = val.startsWith('/');
     const dropdown = popup.querySelector('.lookup-cmd-dropdown');
-    const noteDropdown = popup.querySelector('.lookup-note-dropdown');
+    const noteDropdown = popup.querySelector('.lookup-note-dropdown:not(.lookup-model-dropdown)');
+    const modelDropdown = popup.querySelector('.lookup-model-dropdown');
+
+    // Arrow keys navigate model dropdown
+    if (modelDropdown && _lookupModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      if (ev.key === 'ArrowDown') _lookupModelIdx = Math.min(_lookupModelIdx + 1, _lookupModelList.length - 1);
+      else _lookupModelIdx = Math.max(_lookupModelIdx - 1, 0);
+      _lookupRenderModelDropdown(popup);
+      const sel = modelDropdown.querySelector('.lookup-note-item.selected');
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+
+    // Enter selects model
+    if (modelDropdown && _lookupModelList.length && ev.key === 'Enter') {
+      ev.preventDefault();
+      _lookupSelectModel(popup);
+      return;
+    }
+
+    // Escape closes model dropdown
+    if (modelDropdown && ev.key === 'Escape') {
+      ev.preventDefault();
+      _lookupHideModelDropdown(popup);
+      return;
+    }
 
     // Arrow keys navigate note search results
     if (noteDropdown && _lookupNoteResults.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
@@ -4221,9 +4337,10 @@ function _showLookupPanel(x, y, contextData, initialValue) {
           if (cmd.hasArgs) {
             askInput.value = '/' + cmd.name + ' ';
             _lookupHideCmdDropdown(popup);
-          } else if (cmd._special && cmd.name === 'capture') {
+          } else if (cmd._special) {
             _lookupHideCmdDropdown(popup);
-            _doLookupCapture(popup);
+            if (cmd.name === 'capture') _doLookupCapture(popup);
+            else if (cmd.name === 'model') _doLookupModel(popup);
           } else {
             _lookupHideCmdDropdown(popup);
             cmd.fn();
