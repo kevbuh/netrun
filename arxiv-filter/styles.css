@@ -657,14 +657,16 @@
       padding: 4px 4px;
       scrollbar-width: none;
       align-items: center;
+      overflow: hidden;
+      flex-wrap: nowrap;
     }
     #browse-tabs::-webkit-scrollbar { display: none; }
     .browse-tab {
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 10px;
-      min-width: 60px;
+      padding: 4px 8px;
+      min-width: 32px;
       max-width: 180px;
       font-size: 0.75rem;
       color: var(--text-muted);
@@ -673,8 +675,9 @@
       border-radius: 8px;
       cursor: pointer;
       white-space: nowrap;
+      overflow: hidden;
       transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-      flex-shrink: 0;
+      flex-shrink: 1;
     }
     .browse-tab:hover {
       background: var(--bg-hover);
@@ -977,30 +980,27 @@
     .browse-window-switcher {
       display: flex;
       align-items: center;
-      gap: 2px;
-      margin-right: 6px;
-      padding: 2px 4px;
+      gap: 0;
+      margin-right: 4px;
+      padding: 2px;
       background: var(--bg-hover);
       border-radius: 6px;
       flex-shrink: 0;
       position: relative;
       z-index: 5;
       -webkit-app-region: no-drag;
-    }
-    .browse-window-switcher-inner {
-      display: flex;
-      align-items: center;
+      cursor: pointer;
     }
     .browse-window-arrow {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 16px;
-      height: 20px;
+      height: 18px;
       padding: 0;
       background: transparent;
       border: none;
-      border-radius: 4px;
+      border-radius: 3px;
       color: var(--text-dimmer);
       cursor: pointer;
       transition: color 0.15s, transform 0.1s;
@@ -1019,26 +1019,11 @@
       opacity: 0.25;
       cursor: default;
     }
-    .browse-window-name {
-      padding: 2px 4px;
-      font-size: 0.7rem;
-      font-weight: 500;
-      color: var(--text-primary);
-      max-width: 80px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: background 0.15s;
-    }
-    .browse-window-name:hover {
-      background: var(--bg-card);
-    }
     .browse-window-counter {
-      font-size: 0.6rem;
-      color: var(--text-dimmest);
-      margin-left: 2px;
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      padding: 0 2px;
+      font-weight: 500;
     }
 
     /* 2D Grid container */

@@ -1589,17 +1589,14 @@ function _browseRenderTabs() {
   let windowSelector = '';
   if (_browseWindows.length > 1) {
     const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-    windowSelector = `<div class="browse-window-switcher" data-window-idx="${winIdx}">
-      <div class="browse-window-switcher-inner">
-        <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="switchWindowUp()" title="Previous window">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
-        </button>
-        <span class="browse-window-name" onclick="toggleBrowseTabOverview()">${escapeHtml(win?.name || 'Window')}</span>
-        <button class="browse-window-arrow down ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="switchWindowDown()" title="Next window">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
-        </button>
-      </div>
+    windowSelector = `<div class="browse-window-switcher" data-window-idx="${winIdx}" onclick="toggleBrowseTabOverview()">
+      <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
+      </button>
       <span class="browse-window-counter">${winIdx + 1}/${_browseWindows.length}</span>
+      <button class="browse-window-arrow down ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowDown()" title="Next window">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+      </button>
     </div>`;
   }
 
