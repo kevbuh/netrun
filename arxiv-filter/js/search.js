@@ -1147,25 +1147,17 @@ function _browseBindFrame(tab) {
     _updateAudioIndicator();
   });
 
-  // Context menu for links/images and chat panel (right-click)
+  // Context menu — always show follow panel (with context items for links/images)
   el.addEventListener('context-menu', (e) => {
-    if (e.linkURL || e.srcURL) {
-      e.preventDefault();
-      _showBrowseContextMenu(e.x, e.y, {
-        linkUrl: e.linkURL || '',
-        linkText: e.linkText || '',
-        imgUrl: e.srcURL || '',
-        mediaType: e.mediaType || ''
-      });
-    } else {
-      // No link/image — show chat panel
-      e.preventDefault();
-      if (typeof _showFollowPanel === 'function') {
-        const popup = document.getElementById('doc-chat-ask-float');
-        if (popup) { popup.remove(); _lookupFollowMode = false; }
-        _showFollowPanel(e.x, e.y);
-      }
-    }
+    e.preventDefault();
+    if (typeof _showFollowPanel !== 'function') return;
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (popup) { popup.remove(); _lookupFollowMode = false; }
+    const ctxData = (e.linkURL || e.srcURL) ? {
+      linkUrl: e.linkURL || '', linkText: e.linkText || '',
+      imgUrl: e.srcURL || '', mediaType: e.mediaType || ''
+    } : null;
+    _showFollowPanel(e.x, e.y, ctxData);
   });
 
   // Inject right-click handler after page loads
@@ -1253,10 +1245,13 @@ function _browseBindFrame(tab) {
         const data = JSON.parse(e.message.slice('__ALPHA_CONTEXT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
-        _showBrowseContextMenu(x, y, data);
+        if (typeof _showFollowPanel === 'function') {
+          const popup = document.getElementById('doc-chat-ask-float');
+          if (popup) { popup.remove(); _lookupFollowMode = false; }
+          _showFollowPanel(x, y, data);
+        }
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__ALPHA_CHAT__')) {
-      // Right-click chat panel (no link/image)
       try {
         const data = JSON.parse(e.message.slice('__ALPHA_CHAT__'.length));
         const x = data.x - window.screenX;

@@ -3176,15 +3176,67 @@ function _injectIframeChatHandler(iframe) {
 }
 
 // Follow-mode chat panel: blank chat input that tracks cursor
-function _showFollowPanel(x, y) {
+// contextData: optional { linkUrl, linkText, imgUrl } for context menu items
+function _showFollowPanel(x, y, contextData) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
   popup._isFollowPanel = true;
-  _lookupFollowMode = true;
+  const hasContext = contextData && (contextData.linkUrl || contextData.imgUrl);
+  _lookupFollowMode = !hasContext;
 
   _popupChatMessages = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+
+  // Context menu items (links, images)
+  if (contextData && (contextData.linkUrl || contextData.imgUrl)) {
+    const ctxDiv = document.createElement('div');
+    ctxDiv.className = 'doc-follow-context-items';
+    const linkUrl = contextData.linkUrl || '';
+    const linkText = contextData.linkText || '';
+    const imgUrl = contextData.imgUrl || '';
+
+    const addItem = (label, fn) => {
+      const item = document.createElement('div');
+      item.className = 'doc-follow-ctx-item';
+      item.textContent = label;
+      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      item.addEventListener('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        fn();
+        _lookupFollowMode = false;
+        popup.remove();
+      });
+      ctxDiv.appendChild(item);
+    };
+    const addSep = () => {
+      const sep = document.createElement('div');
+      sep.className = 'doc-follow-ctx-sep';
+      ctxDiv.appendChild(sep);
+    };
+
+    if (linkUrl) {
+      addItem('Open Link in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(linkUrl); });
+      addItem('Open Link Here', () => { if (typeof browseNavigate === 'function') browseNavigate(linkUrl); });
+      addSep();
+      addItem('Copy Link Address', () => navigator.clipboard.writeText(linkUrl).catch(() => {}));
+      if (linkText) addItem('Copy Link Text', () => navigator.clipboard.writeText(linkText).catch(() => {}));
+    }
+    if (imgUrl) {
+      if (linkUrl) addSep();
+      addItem('Open Image in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(imgUrl); });
+      addItem('Copy Image Address', () => navigator.clipboard.writeText(imgUrl).catch(() => {}));
+    }
+    if (linkText && linkUrl) {
+      const truncated = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
+      addSep();
+      addItem('Search Google for "' + truncated + '"', () => {
+        if (typeof browseNewTab === 'function') browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(linkText));
+      });
+    }
+
+    popup.appendChild(ctxDiv);
+  }
 
   // Chat area (hidden until first message sent)
   const chatArea = document.createElement('div');

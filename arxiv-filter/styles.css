@@ -2605,6 +2605,29 @@
       max-width: 400px;
       max-height: 480px;
     }
+    .doc-follow-context-items {
+      display: flex;
+      flex-direction: column;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border-input);
+      margin-bottom: 2px;
+    }
+    .doc-follow-ctx-item {
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .doc-follow-ctx-item:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .doc-follow-ctx-sep {
+      height: 1px;
+      background: var(--border-input);
+      margin: 2px 0;
+    }
     .doc-ref-info {
       padding: 6px 8px;
     }
