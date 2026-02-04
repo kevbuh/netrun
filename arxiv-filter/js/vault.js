@@ -15,6 +15,7 @@ function openVault() {
   view.style.display = 'block';
   window.location.hash = 'vault';
   setSidebarActive('sb-vault');
+  setVaultIconOpen(true); // Show open folder icon
   initVault();
 }
 

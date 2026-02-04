@@ -1322,11 +1322,17 @@ function _renderPdfLinks() {
   for (const url of links) {
     const label = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const icon = _pdfLinkIcon(url);
-    // Click-only: no hover highlight, just opens the link
-    html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="pdf-sidebar-link inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[0.74rem] text-primary no-underline hover:bg-accent/10 transition-colors" title="${escapeHtml(url)}">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></a>`;
+    // Click-only: opens in Internet Browser
+    html += `<button class="pdf-sidebar-link inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[0.74rem] text-primary bg-transparent border-none cursor-pointer hover:bg-accent/10 transition-colors text-left" data-url="${escapeHtml(url)}" title="${escapeHtml(url)}">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></button>`;
   }
   html += '</div>';
   el.innerHTML = html;
+  // Attach click handlers to open in browser
+  el.querySelectorAll('.pdf-sidebar-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (typeof openInBrowser === 'function') openInBrowser(btn.dataset.url);
+    });
+  });
 }
 
 function _onPdfAnnotClick(e) {
@@ -1389,56 +1395,39 @@ function showCitationPopup(refNum, anchorEl) {
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
 
-  // Use the arXiv ID to fetch references from Semantic Scholar API
+  // Check cache first
   const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
   if (_citationCache[cacheKey]) {
     renderCitationPopup(popup, _citationCache[cacheKey]);
     return;
   }
 
-  // Fetch paper references from Semantic Scholar
-  fetch('/api/paper-references', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ arxivId: _pdfArxivId, refNum: parseInt(refNum) })
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) throw new Error(data.error);
-      _citationCache[cacheKey] = data;
-      if (_citationPopup === popup) {
-        renderCitationPopup(popup, data);
-      }
+  // Try to find reference text in PDF and search by text
+  // (Semantic Scholar's reference order doesn't match paper's citation numbers)
+  const refText = findReferenceText(refNum);
+  if (refText) {
+    fetch('/api/citation-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: refText })
     })
-    .catch(err => {
-      console.error('[Citation] API error:', err);
-      // Fallback: try to find reference text in PDF
-      const refText = findReferenceText(refNum);
-      if (refText) {
-        fetch('/api/citation-lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: refText })
-        })
-          .then(r => r.json())
-          .then(data => {
-            if (data.error) throw new Error(data.error);
-            _citationCache[cacheKey] = data;
-            if (_citationPopup === popup) {
-              renderCitationPopup(popup, data);
-            }
-          })
-          .catch(() => {
-            if (_citationPopup === popup) {
-              popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]</div>`;
-            }
-          });
-      } else {
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        _citationCache[cacheKey] = data;
         if (_citationPopup === popup) {
-          popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]</div>`;
+          renderCitationPopup(popup, data);
         }
-      }
-    });
+      })
+      .catch(() => {
+        if (_citationPopup === popup) {
+          popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]<br><span class="text-[0.7rem] text-dimmer">Scroll to references section first</span></div>`;
+        }
+      });
+  } else {
+    // References section not loaded yet
+    popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]<br><span class="text-[0.7rem] text-dimmer">Scroll to references section first</span></div>`;
+  }
 }
 
 function renderCitationPopup(popup, data) {

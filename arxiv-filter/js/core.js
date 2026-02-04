@@ -637,6 +637,17 @@ function hideAllViews() {
   if (typeof _stopScrollTracker === 'function') _stopScrollTracker();
   if (typeof _spinnerPreviewInterval !== 'undefined' && _spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; }
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
+  // Reset vault icon to closed
+  setVaultIconOpen(false);
+}
+
+function setVaultIconOpen(isOpen) {
+  const closedIcon = document.querySelector('.vault-icon-closed');
+  const openIcon = document.querySelector('.vault-icon-open');
+  if (closedIcon && openIcon) {
+    closedIcon.classList.toggle('hidden', isOpen);
+    openIcon.classList.toggle('hidden', !isOpen);
+  }
 }
 
 function goHome() {

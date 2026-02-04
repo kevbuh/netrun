@@ -313,11 +313,19 @@ function togglePaperSidebar() {
   sidebar.style.display = hidden ? '' : 'none';
 }
 
+// ── Open URL in the Internet Browser view ──
+function openInBrowser(url) {
+  if (typeof openBrowse === 'function') openBrowse(url);
+}
+
 // ── Enable notetaking mode ──
 function enableNotetakingMode() {
   const sidebar = document.getElementById('paper-sidebar');
   if (sidebar) sidebar.style.display = '';
   switchSidebarTab('notes');
+  // Hide the notetaking mode button since we're now in notetaking mode
+  const notetakingBtn = document.getElementById('notetaking-mode-btn');
+  if (notetakingBtn) notetakingBtn.style.display = 'none';
   // Focus on note textarea if empty
   setTimeout(() => {
     const textarea = document.getElementById('paper-note-textarea');
@@ -381,14 +389,25 @@ function _renderSidebarHTML() {
     <div class="sidebar-tab-toolbar">
       <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg></button>
+      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg></button>
+      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg></button>
     </div>
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
-    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
-      <div id="paper-insights"></div>
-      <div id="pdf-links-section"></div>
-      <div id="paper-references-section"></div>
+    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
+      <div class="insight-subtabs px-4 pt-2 pb-1 border-b border-border-card flex gap-1 shrink-0">
+        <button class="insight-subtab active" data-subtab="authors" onclick="switchInsightSubtab('authors')">Authors</button>
+        <button class="insight-subtab" data-subtab="ai" onclick="switchInsightSubtab('ai')">AI</button>
+        <button class="insight-subtab" data-subtab="references" onclick="switchInsightSubtab('references')">References</button>
+        <button class="insight-subtab" data-subtab="links" onclick="switchInsightSubtab('links')">Links</button>
+      </div>
+      <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
+        <div id="insight-pane-authors" class="insight-subpane"></div>
+        <div id="insight-pane-ai" class="insight-subpane" style="display:none"></div>
+        <div id="insight-pane-references" class="insight-subpane" style="display:none"></div>
+        <div id="insight-pane-links" class="insight-subpane" style="display:none">
+          <div id="pdf-links-section"></div>
+        </div>
+      </div>
     </div>
     <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
       <div id="pdf-highlights-section">
@@ -512,6 +531,84 @@ function dismissPaperExpDropdown() {
   document.removeEventListener('mousedown', _dismissPaperExpHandler);
 }
 
+// ── Unified Share Dropdown (projects + teams) ──
+let _shareDropdown = null;
+
+function toggleShareDropdown() {
+  if (_shareDropdown) { _shareDropdown.remove(); _shareDropdown = null; return; }
+  const wrap = document.getElementById('paper-share-btn-wrap');
+  if (!wrap) return;
+  const btnRect = wrap.getBoundingClientRect();
+
+  const dd = document.createElement('div');
+  dd.className = 'paper-exp-dropdown';
+  dd.style.cssText = `position:fixed;top:${btnRect.bottom + 4}px;min-width:240px;max-height:360px;overflow-y:auto;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10001;padding:4px 0;`;
+  dd.style.right = (window.innerWidth - btnRect.right) + 'px';
+  dd.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">Loading...</div>';
+  document.body.appendChild(dd);
+  _shareDropdown = dd;
+
+  const close = (e) => {
+    if (_shareDropdown && !_shareDropdown.contains(e.target) && !wrap.contains(e.target)) {
+      _shareDropdown.remove(); _shareDropdown = null;
+      document.removeEventListener('mousedown', close);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+
+  const paper = _currentPaperViewPaper;
+  // Load both projects and teams
+  Promise.all([
+    fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
+    (typeof _cachedTeams !== 'undefined' && _cachedTeams.length ? Promise.resolve(_cachedTeams) : (typeof fetchTeams === 'function' ? fetchTeams().then(() => _cachedTeams) : Promise.resolve([]))),
+  ]).then(([exps, teams]) => {
+    if (!_shareDropdown) return;
+    let html = '';
+
+    // Projects section
+    html += '<div style="padding:4px 12px 4px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Add to project</div>';
+    if (exps.length) {
+      for (const exp of exps) {
+        const papers = exp.papers || [];
+        const isLinked = papers.some(p => p.link === paper.link);
+        const icon = isLinked
+          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" style="flex-shrink:0"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dimmest)" stroke-width="2" style="flex-shrink:0"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>`;
+        html += `<div class="share-dd-exp hover:bg-hover" data-exp-id="${exp.id}" data-linked="${isLinked}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.78rem;color:${isLinked ? 'var(--accent)' : 'var(--text-primary)'}">
+          ${icon}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(exp.title)}</span>
+        </div>`;
+      }
+    } else {
+      html += '<div style="padding:4px 12px 8px;font-size:0.78rem;color:var(--text-dim)">No projects yet</div>';
+    }
+
+    // Teams section
+    if (teams && teams.length) {
+      html += '<div style="height:1px;background:var(--border-card);margin:4px 0"></div>';
+      html += '<div style="padding:4px 12px 4px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team</div>';
+      for (const t of teams) {
+        html += `<div class="hover:bg-hover" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.78rem;color:var(--text-primary)" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this);if(_shareDropdown){_shareDropdown.remove();_shareDropdown=null;}">
+          <div style="width:20px;height:20px;border-radius:5px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${escapeHtml(t.name[0].toUpperCase())}</div>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.name)}</span>
+        </div>`;
+      }
+    }
+
+    dd.innerHTML = html;
+
+    // Attach click handlers for project items
+    dd.querySelectorAll('.share-dd-exp').forEach(el => {
+      el.addEventListener('click', () => {
+        const expId = el.dataset.expId;
+        const isLinked = el.dataset.linked === 'true';
+        const exp = exps.find(e => e.id === expId);
+        if (exp) togglePaperInExperiment(expId, paper, isLinked, exp.papers || []);
+        if (_shareDropdown) { _shareDropdown.remove(); _shareDropdown = null; }
+      });
+    });
+  });
+}
+
 function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
   let papers;
   if (isLinked) {
@@ -545,7 +642,7 @@ function showPaperView(paper, hashValue) {
   const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
   _currentPaperViewPaper = paper;
   const isSaved = isPostSaved(paper.link);
-  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
+  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
 
   // ── Top bar: back + metadata compact ──
   const _backLabels = { saved: 'Reading List', search: 'Search', browse: 'Browse', experiment: 'Project', arxiv: 'Feed', feed: 'Feed', dashboard: 'Home', inbox: 'Inbox', calendar: 'Calendar', settings: 'Settings' };
@@ -569,14 +666,12 @@ function showPaperView(paper, hashValue) {
 
   // Action items: each has label (for overflow menu), html (inline button), and optional id
   const _topbarActions = [
-    { label: 'Notetaking mode', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="enableNotetakingMode()" title="Notetaking mode"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'enableNotetakingMode()' },
-    { label: 'Add to project', html: `<div class="relative shrink-0" id="paper-exp-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperExpDropdown()" title="Add to project"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg></button></div>`, action: 'togglePaperExpDropdown()' },
     { label: 'Rate', html: `<span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>`, noOverflow: true },
     { label: isSaved ? 'Unsave' : 'Save', html: bookmarkBtn, action: 'togglePaperViewBookmark()' },
-    { label: 'Share to team', html: `<div class="relative shrink-0" id="paper-share-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareToTeamDropdown()" title="Share to team"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`, action: 'toggleShareToTeamDropdown()' },
-    { label: 'Cite', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'showCitePopup()' },
-    { label: 'Toggle sidebar', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'togglePaperSidebar()' },
-    { label: 'Open in new tab', html: `<a href="${paper.link}" target="_blank" rel="noopener" class="inline-flex items-center p-1.5 text-dim hover:text-primary shrink-0" title="Open in new tab"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`, href: paper.link },
+    { label: 'Share', html: `<div class="relative shrink-0" id="paper-share-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareDropdown()" title="Share"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg></button></div>`, action: 'toggleShareDropdown()' },
+    { label: 'Cite', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" /></svg></button>`, action: 'showCitePopup()' },
+    { label: 'Open in browser', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="openInBrowser('${escapeAttr(paper.link)}')" title="Open in browser"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: "openInBrowser('" + escapeAttr(paper.link) + "')" },
+    { label: 'Toggle sidebar', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'togglePaperSidebar()' },
   ];
 
   topbar.innerHTML = `
@@ -653,11 +748,23 @@ async function _verifyInsightsInPdf(insights) {
 }
 
 async function fetchPaperInsights(url) {
-  console.log('[Insights]', Date.now(), 'fetchPaperInsights called, _paperInsightsLoaded:', _paperInsightsLoaded);
-  const el = document.getElementById('paper-insights');
-  if (!el) return;
   _paperInsightsLoaded = true; // Set immediately to prevent duplicate calls
-  el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing paper...</div>`;
+
+  const authorsPane = document.getElementById('insight-pane-authors');
+  const aiPane = document.getElementById('insight-pane-ai');
+  const refsPane = document.getElementById('insight-pane-references');
+
+  // Show loading in authors pane (default visible)
+  if (authorsPane) authorsPane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading...</div>`;
+  if (aiPane) aiPane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing...</div>`;
+  if (refsPane) refsPane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading...</div>`;
+
+  // Restore saved subtab
+  const savedSubtab = localStorage.getItem('insightSubtab');
+  if (savedSubtab && ['authors', 'ai', 'references', 'links'].includes(savedSubtab)) {
+    setTimeout(() => switchInsightSubtab(savedSubtab), 0);
+  }
+
   try {
     const resp = await fetch('/api/paper-insights', {
       method: 'POST',
@@ -670,133 +777,127 @@ async function fetchPaperInsights(url) {
     const hasRepos = data.repos && data.repos.length > 0;
     const hasInsights = data.insights && data.insights.length > 0;
     const hasAuthors = data.authors && data.authors.length > 0;
+
     // Merge repo links from insights API into the unified PDF links section
     if (hasRepos) {
       for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
       _renderPdfLinks();
     }
-    if (!hasInsights && !hasAuthors) {
-      el.innerHTML = '';
-      return;
-    }
-    let html = '';
 
-    // Render authors section
-    if (hasAuthors) {
-      const fmtNum = (n) => {
-        if (!n) return null;
-        if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-        if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-        return n.toLocaleString();
-      };
-      html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-1" id="paper-authors-list">';
-      for (let i = 0; i < data.authors.length; i++) {
-        const author = data.authors[i];
-        const stats = [];
-        if (author.paperCount) stats.push(`${fmtNum(author.paperCount)} papers`);
-        if (author.hIndex) stats.push(`h-index ${author.hIndex}`);
-        if (author.citationCount) stats.push(`${fmtNum(author.citationCount)} citations`);
-        html += `<div class="author-card" data-idx="${i}">
-          <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
-          <div class="author-card-info">
-            <div class="author-card-name">${escapeHtml(author.name)}</div>
-            ${author.affiliation ? `<div class="author-card-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
-            ${stats.length ? `<div class="author-card-stats">${stats.join(' · ')}</div>` : ''}
-          </div>
-        </div>`;
-      }
-      html += '</div></div>';
-      window._insightAuthors = data.authors;
-    }
-
-    html += '<div class="space-y-2">';
-    if (hasInsights) {
-      // Wait for PDF text layers to render before verifying quotes
-      const verified = await _verifyInsightsInPdf(data.insights);
-      const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400', Surprising: 'text-yellow-400', Design: 'text-orange-400', Hardware: 'text-red-400' };
-      for (const insight of verified) {
-        const searchSnippet = insight.text.replace(/\.\.\.$/, '');
-        const colorCls = labelColors[insight.label] || 'text-dim';
-        let extraHtml = '';
-        if (insight.gpus && insight.gpus.length) {
-          extraHtml = `<div class="flex flex-wrap gap-1 mt-1">${insight.gpus.map(g => `<span class="text-[0.68rem] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">${escapeHtml(g)}</span>`).join('')}</div>`;
+    // Render authors to authors pane
+    if (authorsPane) {
+      if (hasAuthors) {
+        console.log('[Authors] Received author data:', JSON.stringify(data.authors.slice(0, 2), null, 2));
+        const fmtNum = (n) => {
+          if (!n) return null;
+          if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+          if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+          return n.toLocaleString();
+        };
+        let authorsHtml = '<div class="space-y-1" id="paper-authors-list">';
+        for (let i = 0; i < data.authors.length; i++) {
+          const author = data.authors[i];
+          const stats = [];
+          if (author.paperCount) stats.push(`${fmtNum(author.paperCount)} papers`);
+          if (author.hIndex) stats.push(`h-index ${author.hIndex}`);
+          if (author.citationCount) stats.push(`${fmtNum(author.citationCount)} citations`);
+          authorsHtml += `<div class="author-card" data-idx="${i}">
+            <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
+            <div class="author-card-info">
+              <div class="author-card-name">${escapeHtml(author.name)}</div>
+              ${author.affiliation ? `<div class="author-card-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
+              ${stats.length ? `<div class="author-card-stats">${stats.join(' · ')}</div>` : ''}
+            </div>
+          </div>`;
         }
-        // Hardware insights: click-only (no hover highlight)
-        const isHardware = insight.label === 'Hardware';
-        html += `<div class="insight-card cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" data-q="${escapeHtml(searchSnippet)}" data-click-only="${isHardware}">
-          <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
-          <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
-          ${extraHtml}
-        </div>`;
-      }
-      if (!verified.length && !hasAuthors) {
-        el.innerHTML = '';
-        return;
-      }
-    }
-    html += '</div>';
-    el.innerHTML = html;
+        authorsHtml += '</div>';
+        authorsPane.innerHTML = authorsHtml;
+        window._insightAuthors = data.authors;
 
-    // Add event handlers to insight cards
-    el.querySelectorAll('.insight-card').forEach(card => {
-      const isClickOnly = card.dataset.clickOnly === 'true';
-      if (isClickOnly) {
-        // Click-only: scroll to text on click
-        card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+        // Add hover/click handlers for PDF highlighting
+        const authorsList = document.getElementById('paper-authors-list');
+        if (authorsList) {
+          authorsList.querySelectorAll('[data-idx]').forEach(card => {
+            const idx = parseInt(card.dataset.idx);
+            const author = window._insightAuthors[idx];
+            if (!author) return;
+            card.addEventListener('mouseenter', () => {
+              if (author.name) pdfSearchHighlight(author.name, true);
+            });
+            card.addEventListener('mouseleave', pdfClearSearchHighlights);
+            card.addEventListener('click', () => {
+              if (author.name) pdfSearchHighlight(author.name, false);
+            });
+            card.style.cursor = 'pointer';
+          });
+        }
       } else {
-        // Normal: highlight on hover, scroll on click
-        card.addEventListener('mouseenter', () => pdfSearchHighlight(card.dataset.q, true));
-        card.addEventListener('mouseleave', pdfClearSearchHighlights);
-        card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
-      }
-    });
-
-    // Add hover handler for PDF highlighting (no scroll on hover, only highlight)
-    // Add click handler to scroll to the author in the PDF
-    if (hasAuthors && window._insightAuthors) {
-      const authorsList = document.getElementById('paper-authors-list');
-      if (authorsList) {
-        authorsList.querySelectorAll('[data-idx]').forEach(card => {
-          const idx = parseInt(card.dataset.idx);
-          const author = window._insightAuthors[idx];
-          if (!author) return;
-          card.addEventListener('mouseenter', () => {
-            if (author.name) pdfSearchHighlight(author.name, true); // noScroll=true
-          });
-          card.addEventListener('mouseleave', pdfClearSearchHighlights);
-          card.addEventListener('click', () => {
-            if (author.name) pdfSearchHighlight(author.name, false); // scroll to author
-          });
-          card.style.cursor = 'pointer';
-        });
+        authorsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No author data available</div>';
       }
     }
+
+    // Render AI insights to AI pane
+    if (aiPane) {
+      if (hasInsights) {
+        const verified = await _verifyInsightsInPdf(data.insights);
+        const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400', Surprising: 'text-yellow-400', Design: 'text-orange-400', Hardware: 'text-red-400' };
+        let aiHtml = '<div class="space-y-2">';
+        for (const insight of verified) {
+          const searchSnippet = insight.text.replace(/\.\.\.$/, '');
+          const colorCls = labelColors[insight.label] || 'text-dim';
+          let extraHtml = '';
+          if (insight.gpus && insight.gpus.length) {
+            extraHtml = `<div class="flex flex-wrap gap-1 mt-1">${insight.gpus.map(g => `<span class="text-[0.68rem] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">${escapeHtml(g)}</span>`).join('')}</div>`;
+          }
+          const isHardware = insight.label === 'Hardware';
+          aiHtml += `<div class="insight-card cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" data-q="${escapeHtml(searchSnippet)}" data-click-only="${isHardware}">
+            <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
+            <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
+            ${extraHtml}
+          </div>`;
+        }
+        aiHtml += '</div>';
+        aiPane.innerHTML = verified.length ? aiHtml : '<div class="text-[0.75rem] text-dimmer">No insights found</div>';
+
+        // Add event handlers to insight cards
+        aiPane.querySelectorAll('.insight-card').forEach(card => {
+          const isClickOnly = card.dataset.clickOnly === 'true';
+          if (isClickOnly) {
+            card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+          } else {
+            card.addEventListener('mouseenter', () => pdfSearchHighlight(card.dataset.q, true));
+            card.addEventListener('mouseleave', pdfClearSearchHighlights);
+            card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+          }
+        });
+      } else {
+        aiPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No AI insights available</div>';
+      }
+    }
+
     _paperInsightsLoaded = true;
 
-    // Load references section (append to paper-insights instead of separate section)
+    // Load references to references pane
     const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
-    console.log('[References]', Date.now(), 'URL:', url, 'arxivMatch:', arxivMatch);
-    if (arxivMatch) {
-      // Create a refs container inside paper-insights
-      const refsContainer = document.createElement('div');
-      refsContainer.id = 'paper-refs-container';
-      el.appendChild(refsContainer);
-      fetchPaperReferences(arxivMatch[1], refsContainer);
+    if (arxivMatch && refsPane) {
+      fetchPaperReferences(arxivMatch[1], refsPane);
+    } else if (refsPane) {
+      refsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">References only available for arXiv papers</div>';
     }
   } catch (e) {
-    el.innerHTML = '';
+    console.error('[Insights] Error:', e);
+    if (authorsPane) authorsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
+    if (aiPane) aiPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
     _paperInsightsLoaded = true;
   }
 }
 
 // ── Paper References Section ──
 async function fetchPaperReferences(arxivId, containerEl) {
-  console.log('[References] fetchPaperReferences called with:', arxivId);
   const section = containerEl || document.getElementById('paper-references-section');
-  console.log('[References] section element:', section);
   if (!section) return;
 
-  section.innerHTML = `<div class="mt-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">References</div><div class="flex items-center gap-2 text-[0.72rem] text-dim"><span class="spinner"></span>Loading...</div></div>`;
+  section.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading references...</div>`;
 
   try {
     console.log('[References] Fetching references for:', arxivId);
@@ -811,11 +912,14 @@ async function fetchPaperReferences(arxivId, containerEl) {
     console.log('[References] Data:', data);
     if (data.error) throw new Error(data.error);
 
-    const refs = data.references || [];
+    let refs = data.references || [];
     if (!refs.length) {
-      section.innerHTML = '';
+      section.innerHTML = '<div class="text-[0.75rem] text-dimmer">No references found</div>';
       return;
     }
+
+    // Sort by citation count (most cited first) since S2 doesn't preserve paper's citation order
+    refs = refs.sort((a, b) => (b.citationCount || 0) - (a.citationCount || 0));
 
     const fmtNum = (n) => {
       if (!n) return '0';
@@ -824,12 +928,12 @@ async function fetchPaperReferences(arxivId, containerEl) {
       return n.toLocaleString();
     };
 
-    let html = `<div class="mt-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">References (${refs.length})</div><div class="space-y-1 max-h-[300px] overflow-y-auto" id="references-list">`;
+    // Sorted by citation count since S2 doesn't preserve paper's citation order
+    let html = `<div class="text-[0.68rem] text-dimmer mb-2">${refs.length} cited papers (sorted by influence)</div><div class="space-y-1" id="references-list">`;
     for (const ref of refs) {
       const authorsStr = ref.authors?.slice(0, 2).join(', ') + (ref.authors?.length > 2 ? ' et al.' : '');
-      html += `<div class="reference-item cursor-pointer rounded px-2 py-1.5 hover:bg-white/5 transition-colors" data-ref-num="${ref.num}" data-arxiv-id="${arxivId}">
+      html += `<div class="reference-item cursor-pointer rounded px-2 py-1.5 hover:bg-white/5 transition-colors" data-ref-title="${escapeHtml(ref.title || '')}" data-arxiv-id="${arxivId}">
         <div class="flex items-start gap-2">
-          <span class="text-[0.68rem] text-dimmer shrink-0 w-5">[${ref.num}]</span>
           <div class="flex-1 min-w-0">
             <div class="text-[0.75rem] text-primary leading-snug line-clamp-2">${escapeHtml(ref.title || 'Unknown')}</div>
             <div class="text-[0.68rem] text-dimmer mt-0.5">${authorsStr ? escapeHtml(authorsStr) : ''}${ref.year ? (authorsStr ? ' · ' : '') + ref.year : ''}${ref.citationCount ? ' · ' + fmtNum(ref.citationCount) + ' citations' : ''}</div>
@@ -837,20 +941,22 @@ async function fetchPaperReferences(arxivId, containerEl) {
         </div>
       </div>`;
     }
-    html += '</div></div>';
+    html += '</div>';
     section.innerHTML = html;
 
-    // Add click handlers
+    // Add click handlers - search by title since S2 doesn't preserve order
     section.querySelectorAll('.reference-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        const refNum = item.dataset.refNum;
-        const arxiv = item.dataset.arxivId;
-        showReferencePopup(refNum, arxiv, item);
+        const title = item.dataset.refTitle;
+        if (title) {
+          showReferenceByTitle(title, item);
+        }
       });
     });
   } catch (e) {
     console.error('[References] Error:', e);
-    section.innerHTML = `<div class="mt-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">References</div><div class="text-[0.72rem] text-dimmer">Could not load references</div></div>`;
+    const isRateLimit = e.message?.includes('429');
+    section.innerHTML = `<div class="text-[0.75rem] text-dimmer">${isRateLimit ? 'Rate limited - try again in a minute' : 'Could not load references'}</div>`;
   }
 }
 
@@ -858,6 +964,50 @@ function showReferencePopup(refNum, arxivId, anchorEl) {
   // Reuse the citation popup from pdfviewer.js
   if (typeof showCitationPopup === 'function') {
     showCitationPopup(refNum, anchorEl);
+  }
+}
+
+async function showReferenceByTitle(title, anchorEl) {
+  // Show popup and search by title
+  if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
+
+  const popup = document.createElement('div');
+  popup.className = 'citation-popup';
+  popup.innerHTML = `<div class="citation-popup-loading"><span class="spinner"></span> Looking up paper...</div>`;
+  document.body.appendChild(popup);
+  if (typeof _citationPopup !== 'undefined') window._citationPopup = popup;
+
+  // Position popup
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.left = rect.left + 'px';
+  popup.style.top = (rect.bottom + 8) + 'px';
+
+  try {
+    const resp = await fetch('/api/citation-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: title })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    if (typeof renderCitationPopup === 'function') {
+      renderCitationPopup(popup, data);
+    } else {
+      // Fallback rendering
+      const fmtNum = (n) => n >= 1000 ? (n/1000).toFixed(1) + 'K' : n;
+      popup.innerHTML = `
+        <div class="citation-popup-title">${escapeHtml(data.title || 'Unknown')}</div>
+        <div class="citation-popup-meta">${data.authors?.slice(0,3).join(', ')}${data.year ? ' · ' + data.year : ''}</div>
+        ${data.abstract ? `<div class="citation-popup-abstract">${escapeHtml(data.abstract.slice(0,200))}...</div>` : ''}
+        <div class="citation-popup-footer">
+          <span class="citation-popup-cited">Cited by ${fmtNum(data.citationCount || 0)}</span>
+          ${data.url ? `<a href="${data.url}" target="_blank" class="citation-popup-link">View paper →</a>` : ''}
+        </div>
+      `;
+    }
+  } catch (e) {
+    popup.innerHTML = `<div class="citation-popup-error">Could not find paper info</div>`;
   }
 }
 
@@ -1576,6 +1726,19 @@ function switchSidebarTab(tab) {
   }
   // Remember the active tab
   localStorage.setItem('sidebarTab', tab);
+}
+
+function switchInsightSubtab(subtab) {
+  // Update active button
+  document.querySelectorAll('.insight-subtab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.subtab === subtab);
+  });
+  // Show/hide panes
+  document.querySelectorAll('.insight-subpane').forEach(pane => {
+    pane.style.display = pane.id === `insight-pane-${subtab}` ? '' : 'none';
+  });
+  // Remember the active subtab
+  localStorage.setItem('insightSubtab', subtab);
 }
 
 function toggleDocChat() {

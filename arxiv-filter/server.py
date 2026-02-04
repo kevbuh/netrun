@@ -77,6 +77,11 @@ GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleuse
 
 # In-memory cache for extracted document text: url -> { text, pages }
 _extract_cache = {}
+
+# In-memory cache for Semantic Scholar API responses to avoid rate limits
+# Format: { cache_key: { 'data': ..., 'ts': timestamp } }
+_s2_cache = {}
+_S2_CACHE_TTL = 3600  # 1 hour
 # In-memory cache for paper insights: url -> { repos, contribution }
 _insights_cache = {}
 # On-disk cache for URL-to-PDF conversions: url -> file path
@@ -1825,32 +1830,71 @@ ch.postMessage({type:'preview-ready'});
                 arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
                 if arxiv_match:
                     arxiv_id = arxiv_match.group(1)
-                    try:
-                        s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount,authors.citationCount,authors.authorId'
-                        s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
-                        ctx = ssl._create_unverified_context()
-                        with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
-                            s2_data = json.loads(s2_resp.read())
-                        print(f'[paper-insights] S2 author data sample: {s2_data.get("authors", [])[:1]}')
-                        if 'authors' in s2_data:
-                            for a in s2_data['authors']:
-                                author_info = {'name': a.get('name', '')}
-                                if a.get('authorId'):
-                                    author_info['authorId'] = a['authorId']
-                                if a.get('affiliations'):
-                                    author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
-                                if a.get('hIndex'):
-                                    author_info['hIndex'] = a['hIndex']
-                                if a.get('paperCount'):
-                                    author_info['paperCount'] = a['paperCount']
-                                if a.get('citationCount'):
-                                    author_info['citationCount'] = a['citationCount']
-                                if a.get('url'):
-                                    author_info['url'] = a['url']
-                                authors.append(author_info)
-                    except Exception as e:
-                        print(f'[paper-insights] Semantic Scholar author fetch failed: {e}')
-                        # Fallback to arXiv API for just names
+                    cache_key = f'authors:{arxiv_id}'
+                    now = time.time()
+                    # Check cache first
+                    if cache_key in _s2_cache and (now - _s2_cache[cache_key]['ts']) < _S2_CACHE_TTL:
+                        authors = _s2_cache[cache_key]['data']
+                        print(f'[paper-insights] Using cached author data for {arxiv_id}')
+                    else:
+                        try:
+                            # First get paper with author IDs
+                            s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.authorId,authors.name,authors.affiliations'
+                            s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            ctx = ssl._create_unverified_context()
+                            with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
+                                s2_data = json.loads(s2_resp.read())
+                            print(f'[paper-insights] S2 paper authors: {len(s2_data.get("authors", []))} authors')
+                            if 'authors' in s2_data:
+                                # Collect author IDs for batch lookup (limit to first 10)
+                                author_ids = []
+                                basic_authors = []
+                                for a in s2_data['authors'][:10]:
+                                    author_info = {'name': a.get('name', '')}
+                                    if a.get('authorId'):
+                                        author_info['authorId'] = a['authorId']
+                                        author_ids.append(a['authorId'])
+                                    if a.get('affiliations'):
+                                        author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
+                                    basic_authors.append(author_info)
+
+                                # Batch fetch author details if we have IDs
+                                if author_ids:
+                                    try:
+                                        batch_url = 'https://api.semanticscholar.org/graph/v1/author/batch'
+                                        batch_body = json.dumps({'ids': author_ids}).encode('utf-8')
+                                        batch_req = urllib.request.Request(
+                                            f'{batch_url}?fields=authorId,hIndex,paperCount,citationCount',
+                                            data=batch_body,
+                                            headers={'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/json'},
+                                            method='POST'
+                                        )
+                                        with urllib.request.urlopen(batch_req, timeout=10, context=ctx) as batch_resp:
+                                            author_details = json.loads(batch_resp.read())
+                                        print(f'[paper-insights] S2 author details sample: {author_details[:1] if author_details else "none"}')
+                                        # Create lookup by authorId
+                                        details_map = {d['authorId']: d for d in author_details if d and d.get('authorId')}
+                                        # Merge details into basic_authors
+                                        for author_info in basic_authors:
+                                            aid = author_info.get('authorId')
+                                            if aid and aid in details_map:
+                                                d = details_map[aid]
+                                                if d.get('hIndex'):
+                                                    author_info['hIndex'] = d['hIndex']
+                                                if d.get('paperCount'):
+                                                    author_info['paperCount'] = d['paperCount']
+                                                if d.get('citationCount'):
+                                                    author_info['citationCount'] = d['citationCount']
+                                    except Exception as e2:
+                                        print(f'[paper-insights] S2 author batch fetch failed: {e2}')
+
+                                authors = basic_authors
+                                # Cache the result
+                                _s2_cache[cache_key] = {'data': authors, 'ts': now}
+                        except Exception as e:
+                            print(f'[paper-insights] Semantic Scholar author fetch failed: {e}')
+                    # Fallback to arXiv API for just names (only if S2 failed)
+                    if not authors:
                         try:
                             api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
                             api_req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -2080,14 +2124,21 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'error': 'arxivId required'}, 400)
                     return
 
-                # Fetch paper references from Semantic Scholar
-                api_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds'
-                req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-                ctx = ssl._create_unverified_context()
-                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
-                    data = json.loads(resp.read())
-
-                references = data.get('references', [])
+                # Check cache first
+                cache_key = f'refs:{arxiv_id}'
+                now = time.time()
+                if cache_key in _s2_cache and (now - _s2_cache[cache_key]['ts']) < _S2_CACHE_TTL:
+                    references = _s2_cache[cache_key]['data']
+                else:
+                    # Fetch paper references from Semantic Scholar
+                    api_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds'
+                    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    ctx = ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                        data = json.loads(resp.read())
+                    references = data.get('references', [])
+                    # Cache the result
+                    _s2_cache[cache_key] = {'data': references, 'ts': now}
                 if not references:
                     self._send_json({'error': 'no references found'}, 404)
                     return

@@ -212,7 +212,7 @@ function renderSettingsView() {
         <div><kbd class="kbd-key">T</kbd> New tab</div>
         <div><kbd class="kbd-key">Esc</kbd> Close panel</div>
 
-        <div class="text-dimmer mt-2">Browser</div><div></div>
+        <div class="text-dimmer mt-2">Internet Browser</div><div></div>
         <div><kbd class="kbd-key">⌘+</kbd> Zoom in</div>
         <div><kbd class="kbd-key">⌘-</kbd> Zoom out</div>
         <div><kbd class="kbd-key">⌘0</kbd> Reset zoom</div>

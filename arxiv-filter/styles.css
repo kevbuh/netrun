@@ -2750,6 +2750,31 @@
       color: var(--accent);
     }
 
+    /* Insight subtabs */
+    .insight-subtabs {
+      display: flex;
+      gap: 4px;
+    }
+    .insight-subtab {
+      padding: 4px 10px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .insight-subtab:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+    .insight-subtab.active {
+      background: var(--accent);
+      color: white;
+    }
+
     /* Sidebar resize handle */
     .sidebar-resize-handle {
       position: absolute;
