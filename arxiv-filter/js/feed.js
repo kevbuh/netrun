@@ -549,37 +549,199 @@ function hasOnboarded() { return localStorage.getItem('feedSources') !== null; }
 const onboardSelected = new Set();
 const onboardNotifSelected = new Set();
 
+/* === Honeycomb globals === */
+let _hcPanX = 0, _hcPanY = 0;
+let _hcDragging = false, _hcDragStartX = 0, _hcDragStartY = 0, _hcPanStartX = 0, _hcPanStartY = 0;
+let _hcDidDrag = false;
+let _hcCircleEls = [];
+let _hcPositions = []; // {x, y, key}
+let _hcRafId = 0;
+let _hcMouseX = 0, _hcMouseY = 0;
+let _hcListenersAttached = false;
+
+function _honeycombCircleContent(entry) {
+  if (entry.favicon) {
+    return `<img src="https://www.google.com/s2/favicons?domain=${entry.favicon}&sz=64" alt="${entry.name}" onerror="this.outerHTML='<span class=\\'hc-letter\\' style=\\'color:${entry.fg || '#fff'}\\'>${entry.letter || entry.name[0]}</span>'">`;
+  }
+  if (entry.img) {
+    return `<img src="${entry.img}" alt="${entry.name}">`;
+  }
+  return `<span class="hc-letter" style="color:${entry.fg || '#fff'}">${entry.letter || entry.name[0]}</span>`;
+}
+
 function renderOnboardGrid() {
   const grid = document.getElementById('onboard-grid');
-  const cats = []; const catMap = {};
-  FEED_CATALOG.forEach(f => {
-    if (!catMap[f.cat]) { catMap[f.cat] = []; cats.push(f.cat); }
-    catMap[f.cat].push(f);
+  const entries = FEED_CATALOG;
+  const N = entries.length;
+  const circleSize = 52;
+  const gap = 10;
+  const cell = circleSize + gap;
+  const rowH = cell * 0.866;
+  const cols = Math.ceil(Math.sqrt(N * 1.2));
+
+  _hcPositions = [];
+  _hcCircleEls = [];
+
+  let html = '';
+  entries.forEach((f, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const offsetX = (row % 2 === 1) ? cell / 2 : 0;
+    const x = col * cell + offsetX;
+    const y = row * rowH;
+    _hcPositions.push({ x: x + circleSize / 2, y: y + circleSize / 2, key: f.key });
+    const sel = onboardSelected.has(f.key) ? ' selected' : '';
+    html += `<div class="hc-circle${sel}" data-source="${f.key}" style="left:${x}px;top:${y}px;background:${f.bg || '#333'};" data-idx="${i}">
+      ${_honeycombCircleContent(f)}
+      <div class="hc-tooltip">${f.name}</div>
+    </div>`;
   });
-  grid.innerHTML = cats.map(cat => `
-    <div class="text-left mt-4">
-      <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-1.5 pl-1">${cat}</div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        ${catMap[cat].map(f => {
-          const inFeed = onboardSelected.has(f.key);
-          const notifOn = onboardNotifSelected.has(f.key);
-          return `
-          <div class="onboard-card cursor-pointer rounded-lg border-2 border-border-card bg-card px-3 py-2.5 transition-all duration-150 hover:border-dimmer flex items-center gap-2.5" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
-            <div class="shrink-0">${catalogLogo(f, 'onboard')}</div>
-            <div class="min-w-0 flex-1">
-              <div class="text-white_ text-[0.82rem] font-medium leading-tight">${f.name}</div>
-              <div class="text-muted text-[0.7rem] leading-snug truncate">${f.desc}</div>
-            </div>
-            <button class="onboard-bell shrink-0 w-6 h-6 flex items-center justify-center rounded transition-opacity ${inFeed ? 'opacity-100' : 'opacity-30 pointer-events-none'}" data-bell="${f.key}" title="Toggle notifications" onclick="event.stopPropagation(); toggleOnboardNotif('${f.key}')" style="color: ${inFeed && notifOn ? 'var(--accent)' : 'var(--text-dim)'}">
-              ${inFeed && notifOn
-                ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M5.85 3.5a.75.75 0 00-1.117-1 9.719 9.719 0 00-2.348 4.876.75.75 0 001.479.248A8.219 8.219 0 015.85 3.5zM19.267 2.5a.75.75 0 10-1.118 1 8.22 8.22 0 011.987 4.124.75.75 0 001.48-.248A9.72 9.72 0 0019.266 2.5z"/><path fill-rule="evenodd" d="M12 2.25A6.75 6.75 0 005.25 9v.75a8.217 8.217 0 01-2.119 5.52.75.75 0 00.298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 007.48 0 24.583 24.583 0 004.83-1.244.75.75 0 00.298-1.205 8.217 8.217 0 01-2.118-5.52V9A6.75 6.75 0 0012 2.25zM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 004.496 0l.002.1a2.25 2.25 0 01-4.5 0z" clip-rule="evenodd"/></svg>'
-                : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>'}
-            </button>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-  `).join('');
+  grid.innerHTML = html;
+
+  // Compute grid dimensions and set grid size
+  const totalRows = Math.ceil(N / cols);
+  const gridW = cols * cell + cell / 2 + circleSize;
+  const gridH = totalRows * rowH + circleSize;
+  grid.style.width = gridW + 'px';
+  grid.style.height = gridH + 'px';
+
+  _hcCircleEls = Array.from(grid.querySelectorAll('.hc-circle'));
+
+  // Attach click handlers
+  _hcCircleEls.forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (_hcDidDrag) return;
+      toggleOnboardSource(el.dataset.source);
+    });
+  });
+
+  // Center grid in viewport
+  requestAnimationFrame(() => _centerHoneycomb());
+
+  // Attach pan/fisheye listeners
+  if (!_hcListenersAttached) {
+    _attachHoneycombListeners();
+    _hcListenersAttached = true;
+  }
+}
+
+function _centerHoneycomb() {
+  const vp = document.getElementById('honeycomb-viewport');
+  const grid = document.getElementById('onboard-grid');
+  if (!vp || !grid) return;
+  const vpW = vp.clientWidth;
+  const vpH = vp.clientHeight;
+  const gW = parseFloat(grid.style.width);
+  const gH = parseFloat(grid.style.height);
+  _hcPanX = (vpW - gW) / 2;
+  _hcPanY = (vpH - gH) / 2;
+  grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px)`;
+}
+
+function _attachHoneycombListeners() {
+  const vp = document.getElementById('honeycomb-viewport');
+  if (!vp) return;
+
+  vp.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    _hcDragging = true;
+    _hcDidDrag = false;
+    _hcDragStartX = e.clientX;
+    _hcDragStartY = e.clientY;
+    _hcPanStartX = _hcPanX;
+    _hcPanStartY = _hcPanY;
+    vp.classList.add('grabbing');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    const vpRect = document.getElementById('honeycomb-viewport')?.getBoundingClientRect();
+    if (vpRect) {
+      _hcMouseX = e.clientX - vpRect.left;
+      _hcMouseY = e.clientY - vpRect.top;
+    }
+    if (_hcDragging) {
+      const dx = e.clientX - _hcDragStartX;
+      const dy = e.clientY - _hcDragStartY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _hcDidDrag = true;
+      _hcPanX = _hcPanStartX + dx;
+      _hcPanY = _hcPanStartY + dy;
+      const grid = document.getElementById('onboard-grid');
+      if (grid) grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px)`;
+    }
+    if (!_hcRafId && document.getElementById('honeycomb-viewport')) {
+      _hcRafId = requestAnimationFrame(_applyFisheye);
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (_hcDragging) {
+      _hcDragging = false;
+      const vpEl = document.getElementById('honeycomb-viewport');
+      if (vpEl) vpEl.classList.remove('grabbing');
+    }
+  });
+
+  vp.addEventListener('mouseleave', () => {
+    // Reset all scales on leave
+    _hcCircleEls.forEach(el => {
+      el.style.transform = 'scale(1)';
+      el.style.zIndex = '';
+    });
+  });
+
+  // Touch support
+  let _touchId = null;
+  vp.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    _touchId = t.identifier;
+    _hcDragging = true;
+    _hcDidDrag = false;
+    _hcDragStartX = t.clientX;
+    _hcDragStartY = t.clientY;
+    _hcPanStartX = _hcPanX;
+    _hcPanStartY = _hcPanY;
+  }, { passive: true });
+
+  vp.addEventListener('touchmove', (e) => {
+    const t = Array.from(e.touches).find(t => t.identifier === _touchId);
+    if (!t) return;
+    const dx = t.clientX - _hcDragStartX;
+    const dy = t.clientY - _hcDragStartY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _hcDidDrag = true;
+    _hcPanX = _hcPanStartX + dx;
+    _hcPanY = _hcPanStartY + dy;
+    const grid = document.getElementById('onboard-grid');
+    if (grid) grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px)`;
+  }, { passive: true });
+
+  vp.addEventListener('touchend', () => {
+    _hcDragging = false;
+    _touchId = null;
+  }, { passive: true });
+}
+
+function _applyFisheye() {
+  _hcRafId = 0;
+  const radius = 180;
+  // Mouse coords are relative to viewport; convert to grid coords
+  const gx = _hcMouseX - _hcPanX;
+  const gy = _hcMouseY - _hcPanY;
+
+  for (let i = 0; i < _hcCircleEls.length; i++) {
+    const pos = _hcPositions[i];
+    const dx = gx - pos.x;
+    const dy = gy - pos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < radius) {
+      const scale = 1 + 0.8 * (0.5 * (1 + Math.cos(Math.PI * dist / radius)));
+      _hcCircleEls[i].style.transform = `scale(${scale.toFixed(3)})`;
+      _hcCircleEls[i].style.zIndex = Math.round(scale * 10) + '';
+    } else {
+      _hcCircleEls[i].style.transform = 'scale(1)';
+      _hcCircleEls[i].style.zIndex = '';
+    }
+  }
 }
 
 function toggleOnboardSource(key) {
@@ -601,21 +763,9 @@ function toggleOnboardNotif(key) {
 }
 
 function _updateOnboardCardStates() {
-  document.querySelectorAll('.onboard-card').forEach(card => {
-    const k = card.dataset.source;
-    const selected = onboardSelected.has(k);
-    const notifOn = onboardNotifSelected.has(k);
-    card.style.borderColor = selected ? 'var(--accent)' : '';
-    const bell = card.querySelector('.onboard-bell');
-    if (bell) {
-      bell.classList.toggle('opacity-30', !selected);
-      bell.classList.toggle('opacity-100', selected);
-      bell.classList.toggle('pointer-events-none', !selected);
-      bell.style.color = selected && notifOn ? 'var(--accent)' : 'var(--text-dim)';
-      bell.innerHTML = selected && notifOn
-        ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M5.85 3.5a.75.75 0 00-1.117-1 9.719 9.719 0 00-2.348 4.876.75.75 0 001.479.248A8.219 8.219 0 015.85 3.5zM19.267 2.5a.75.75 0 10-1.118 1 8.22 8.22 0 011.987 4.124.75.75 0 001.48-.248A9.72 9.72 0 0019.266 2.5z"/><path fill-rule="evenodd" d="M12 2.25A6.75 6.75 0 005.25 9v.75a8.217 8.217 0 01-2.119 5.52.75.75 0 00.298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 007.48 0 24.583 24.583 0 004.83-1.244.75.75 0 00.298-1.205 8.217 8.217 0 01-2.118-5.52V9A6.75 6.75 0 0012 2.25zM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 004.496 0l.002.1a2.25 2.25 0 01-4.5 0z" clip-rule="evenodd"/></svg>'
-        : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>';
-    }
+  _hcCircleEls.forEach(el => {
+    const k = el.dataset.source;
+    el.classList.toggle('selected', onboardSelected.has(k));
   });
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
@@ -629,20 +779,16 @@ function showOnboarding() {
     FEED_CATALOG.forEach(f => {
       if (sources[f.key]) {
         onboardSelected.add(f.key);
-        // If notifSources not yet set, default notifications on for enabled sources
         if (notifSources[f.key] !== false) onboardNotifSelected.add(f.key);
       }
     });
   } else {
-    // Select all sources by default for new users (notifications off by default)
     FEED_CATALOG.forEach(f => {
       onboardSelected.add(f.key);
     });
   }
   renderOnboardGrid();
-  document.querySelectorAll('.onboard-card').forEach(card => {
-    if (onboardSelected.has(card.dataset.source)) card.style.borderColor = 'var(--accent)';
-  });
+  _updateOnboardCardStates();
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
   document.getElementById('onboard-view').style.display = '';
   document.getElementById('home-feed-section').style.display = 'none';
@@ -650,6 +796,7 @@ function showOnboarding() {
 }
 
 function completeOnboarding() {
+  if (_hcRafId) { cancelAnimationFrame(_hcRafId); _hcRafId = 0; }
   const sources = {};
   const notifSources = {};
   FEED_CATALOG.forEach(f => {

@@ -5477,3 +5477,66 @@
       overflow: hidden;
     }
 
+    /* === Honeycomb Onboarding === */
+    .hc-circle {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 2.5px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      will-change: transform;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      overflow: hidden;
+      user-select: none;
+    }
+    .hc-circle:hover {
+      border-color: var(--text-dim);
+    }
+    .hc-circle.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px 2px color-mix(in srgb, var(--accent) 50%, transparent);
+    }
+    .hc-circle img {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .hc-circle .hc-letter {
+      font-size: 16px;
+      font-weight: 700;
+      pointer-events: none;
+      line-height: 1;
+    }
+    .hc-tooltip {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: 4px;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .hc-circle:hover .hc-tooltip {
+      opacity: 1;
+    }
+    #honeycomb-viewport::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 40%, var(--bg-body) 100%);
+      z-index: 1;
+    }
+    #honeycomb-viewport.grabbing {
+      cursor: grabbing;
+    }
+
