@@ -3552,6 +3552,8 @@ const _lookupCommands = [
   { name: 'notes', desc: 'Search your notes', hasArgs: true },
   { name: 'capture', desc: 'Screenshot the page', _special: true },
   { name: 'model', desc: 'Change chat model', _special: true },
+  { name: 'search', desc: 'Web search in new tab', hasArgs: true },
+  { name: 'links', desc: 'List all links on page', _special: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -3602,6 +3604,7 @@ function _lookupRenderCmdDropdown(popup, query) {
         _lookupHideCmdDropdown(popup);
         if (cmd.name === 'capture') _doLookupCapture(popup);
         else if (cmd.name === 'model') _doLookupModel(popup);
+        else if (cmd.name === 'links') _doLookupLinks(popup);
       } else {
         cmd.fn();
         _lookupTrackMode = false;
@@ -3871,6 +3874,74 @@ function _lookupSelectModel(popup) {
   }
 }
 
+// ── /search command — open web search in new tab ──
+function _doLookupSearchNewTab(popup, query) {
+  const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+  if (typeof browseNewTab === 'function') browseNewTab(url);
+  else window.open(url, '_blank');
+  _lookupTrackMode = false;
+  popup.remove();
+}
+
+// ── /links command — list all links on current page ──
+async function _doLookupLinks(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _popupChatMessages.push({ role: 'user', content: 'Links on this page', _display: 'Links on this page', _isSearch: true });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  // Get current page URL
+  let pageUrl = '';
+  const tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+    ? _browseTabs.find(t => t.id === _browseActiveTab)
+    : null;
+  if (tab && tab.url) pageUrl = tab.url;
+
+  if (!pageUrl) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'No page open to extract links from.';
+    _renderPopupChat(popup, true);
+    if (input) input.focus();
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/extract-links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: pageUrl })
+    });
+    const data = await resp.json();
+    const links = data.links || [];
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    if (links.length) {
+      _popupChatMessages[aiIdx]._searchResults = links.map(l => ({ title: l.text, url: l.url, snippet: '' }));
+      _popupChatMessages[aiIdx].content = links.length + ' link' + (links.length !== 1 ? 's' : '') + ' found';
+    } else {
+      _popupChatMessages[aiIdx].content = 'No links found on this page.';
+    }
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Failed to extract links: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+  if (input) input.focus();
+  _repositionSelectionPopup();
+}
+
 function _lookupExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -3884,6 +3955,7 @@ function _lookupExecCommand(popup, text) {
       if (cmdName === 'paper') { _doLookupPaperSearch(popup, args); return true; }
       if (cmdName === 'user') { _doLookupUserSearch(popup, args); return true; }
       if (cmdName === 'notes') { _doLookupNoteSearch(popup, args); return true; }
+      if (cmdName === 'search') { _doLookupSearchNewTab(popup, args); return true; }
     }
     if (cmd && cmd.fn) { cmd.fn(); _lookupTrackMode = false; popup.remove(); return true; }
   }
@@ -3896,6 +3968,7 @@ function _lookupExecCommand(popup, text) {
       _lookupHideCmdDropdown(popup);
       if (cmd.name === 'capture') _doLookupCapture(popup);
       else if (cmd.name === 'model') _doLookupModel(popup);
+      else if (cmd.name === 'links') _doLookupLinks(popup);
       return true;
     }
     cmd.fn();
@@ -4341,6 +4414,7 @@ function _showLookupPanel(x, y, contextData, initialValue) {
             _lookupHideCmdDropdown(popup);
             if (cmd.name === 'capture') _doLookupCapture(popup);
             else if (cmd.name === 'model') _doLookupModel(popup);
+            else if (cmd.name === 'links') _doLookupLinks(popup);
           } else {
             _lookupHideCmdDropdown(popup);
             cmd.fn();

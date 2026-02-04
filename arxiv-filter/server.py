@@ -1883,6 +1883,57 @@ ch.postMessage({type:'preview-ready'});
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path == '/api/extract-links':
+            try:
+                body = self._read_body()
+                url = body.get('url', '').strip()
+                if not url:
+                    self._send_json({'error': 'url required'}, 400)
+                    return
+                from html.parser import HTMLParser
+                import urllib.parse as urlparse
+                html_bytes = cached_fetch(url, timeout=30)
+                html_str = html_bytes.decode('utf-8', errors='replace')
+                class LinkExtractor(HTMLParser):
+                    def __init__(self):
+                        super().__init__()
+                        self.links = []
+                        self._current_tag = None
+                        self._current_href = None
+                        self._current_text = ''
+                    def handle_starttag(self, tag, attrs):
+                        if tag == 'a':
+                            self._current_tag = 'a'
+                            self._current_text = ''
+                            href = dict(attrs).get('href', '')
+                            if href:
+                                self._current_href = urlparse.urljoin(url, href)
+                            else:
+                                self._current_href = None
+                    def handle_endtag(self, tag):
+                        if tag == 'a' and self._current_href:
+                            text = self._current_text.strip()
+                            if text and self._current_href.startswith('http'):
+                                self.links.append({'text': text, 'url': self._current_href})
+                            self._current_tag = None
+                            self._current_href = None
+                            self._current_text = ''
+                    def handle_data(self, data):
+                        if self._current_tag == 'a':
+                            self._current_text += data
+                extractor = LinkExtractor()
+                extractor.feed(html_str)
+                # Deduplicate by URL
+                seen = set()
+                unique = []
+                for link in extractor.links:
+                    if link['url'] not in seen:
+                        seen.add(link['url'])
+                        unique.append(link)
+                self._send_json({'links': unique})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         elif self.path == '/api/paper-insights':
             try:
                 body = self._read_body()
