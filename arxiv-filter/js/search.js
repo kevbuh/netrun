@@ -1200,9 +1200,12 @@ function _browseBindFrame(tab) {
           }
           return false;
         },true);
-        // Close menu when left-clicking anywhere in the page
+        // Close menu/chat when left-clicking or pressing Escape
         document.addEventListener('mousedown',function(e){
-          if(e.button===0) console.log('__ALPHA_CLOSE_MENU__');
+          if(e.button===0) { console.log('__ALPHA_CLOSE_MENU__'); console.log('__ALPHA_DISMISS_CHAT__'); }
+        },true);
+        document.addEventListener('keydown',function(e){
+          if(e.key==='Escape') console.log('__ALPHA_DISMISS_CHAT__');
         },true);
         // Throttled mousemove for follow panel
         var _lastMove=0;
@@ -1218,7 +1221,14 @@ function _browseBindFrame(tab) {
 
   // Listen for context menu via console message
   el.addEventListener('console-message', (e) => {
-    if (e.message && e.message.startsWith('__ALPHA_MOUSE__')) {
+    if (e.message === '__ALPHA_DISMISS_CHAT__') {
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (popup) {
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        _lookupFollowMode = false;
+        popup.remove();
+      }
+    } else if (e.message && e.message.startsWith('__ALPHA_MOUSE__')) {
       if (!_lookupFollowMode) return;
       const parts = e.message.slice('__ALPHA_MOUSE__'.length).split(',');
       const x = parseInt(parts[0]) - window.screenX;
