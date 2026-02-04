@@ -3394,6 +3394,89 @@ async function _doLookupWebSearch(popup) {
   _repositionSelectionPopup();
 }
 
+// ── Slash commands for lookup panel ──
+
+const _lookupCommands = [
+  { name: 'bookmark', desc: 'Save page to reading list', fn: () => { if (typeof browseSaveToReadingList === 'function') browseSaveToReadingList(); } },
+  { name: 'close', desc: 'Close current tab', fn: () => { if (typeof browseCloseTab === 'function' && typeof _browseActiveTab !== 'undefined') browseCloseTab(_browseActiveTab); } },
+  { name: 'reload', desc: 'Reload current page', fn: () => { if (typeof browseReload === 'function') browseReload(); } },
+  { name: 'back', desc: 'Go back', fn: () => { if (typeof browseBack === 'function') browseBack(); } },
+  { name: 'forward', desc: 'Go forward', fn: () => { if (typeof browseForward === 'function') browseForward(); } },
+  { name: 'newtab', desc: 'Open a new tab', fn: () => { if (typeof browseNewTab === 'function') browseNewTab(); } },
+  { name: 'copy', desc: 'Copy page URL', fn: () => { const t = typeof _browseTabs !== 'undefined' && _browseTabs.find(t => t.id === _browseActiveTab); if (t) navigator.clipboard.writeText(t.url).catch(() => {}); } },
+  { name: 'share', desc: 'Share page', fn: () => { if (typeof browseShare === 'function') browseShare(); } },
+  { name: 'mute', desc: 'Mute/unmute tab audio', fn: () => { if (typeof toggleTabMute === 'function' && typeof _browseActiveTab !== 'undefined') toggleTabMute(_browseActiveTab); } },
+  { name: 'find', desc: 'Find in page', fn: () => { if (typeof _browseToggleFindBar === 'function') _browseToggleFindBar(); } },
+  { name: 'zoomin', desc: 'Zoom in', fn: () => { if (typeof browseZoom === 'function') browseZoom(1); } },
+  { name: 'zoomout', desc: 'Zoom out', fn: () => { if (typeof browseZoom === 'function') browseZoom(-1); } },
+  { name: 'zoomreset', desc: 'Reset zoom to 100%', fn: () => { if (typeof browseZoom === 'function') browseZoom(0); } },
+  { name: 'print', desc: 'Print page', fn: () => { if (typeof browsePrintPage === 'function') browsePrintPage(); } },
+  { name: 'notes', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
+];
+
+let _lookupCmdIdx = 0; // selected index in autocomplete
+
+function _lookupFilterCommands(query) {
+  const q = query.toLowerCase();
+  return _lookupCommands.filter(c => c.name.startsWith(q) || c.desc.toLowerCase().includes(q));
+}
+
+function _lookupRenderCmdDropdown(popup, query) {
+  let dropdown = popup.querySelector('.lookup-cmd-dropdown');
+  const matches = _lookupFilterCommands(query);
+  if (!matches.length) {
+    if (dropdown) dropdown.remove();
+    return;
+  }
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'lookup-cmd-dropdown';
+    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    // Insert before askWrap
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (askWrap) popup.insertBefore(dropdown, askWrap);
+    else popup.appendChild(dropdown);
+  }
+  _lookupCmdIdx = Math.min(_lookupCmdIdx, matches.length - 1);
+  dropdown.innerHTML = matches.map((c, i) =>
+    `<div class="lookup-cmd-item ${i === _lookupCmdIdx ? 'selected' : ''}" data-idx="${i}">` +
+    `<span class="lookup-cmd-name">/${c.name}</span>` +
+    `<span class="lookup-cmd-desc">${escapeHtml(c.desc)}</span></div>`
+  ).join('');
+  // Click to execute
+  dropdown.querySelectorAll('.lookup-cmd-item').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      const idx = parseInt(el.dataset.idx);
+      const cmd = matches[idx];
+      if (cmd) {
+        cmd.fn();
+        _lookupTrackMode = false;
+        popup.remove();
+      }
+    });
+  });
+  _repositionSelectionPopup();
+}
+
+function _lookupHideCmdDropdown(popup) {
+  const dropdown = popup.querySelector('.lookup-cmd-dropdown');
+  if (dropdown) dropdown.remove();
+}
+
+function _lookupExecCommand(popup, text) {
+  const query = text.slice(1).trim().toLowerCase();
+  const matches = _lookupFilterCommands(query);
+  const cmd = matches[_lookupCmdIdx] || matches[0];
+  if (cmd) {
+    cmd.fn();
+    _lookupTrackMode = false;
+    popup.remove();
+    return true;
+  }
+  return false;
+}
+
 // Lookup panel: blank chat input that tracks cursor
 // contextData: optional { linkUrl, linkText, imgUrl } for context menu items
 function _showLookupPanel(x, y, contextData) {
@@ -3588,19 +3671,58 @@ function _showLookupPanel(x, y, contextData) {
   });
   askInput.addEventListener('keydown', (ev) => {
     ev.stopPropagation();
+    const val = askInput.value;
+    const isCmd = val.startsWith('/');
+    const dropdown = popup.querySelector('.lookup-cmd-dropdown');
+
+    // Arrow keys navigate command autocomplete
+    if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      const items = dropdown.querySelectorAll('.lookup-cmd-item');
+      if (ev.key === 'ArrowDown') _lookupCmdIdx = Math.min(_lookupCmdIdx + 1, items.length - 1);
+      else _lookupCmdIdx = Math.max(_lookupCmdIdx - 1, 0);
+      _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+      return;
+    }
+
+    // Tab to complete selected command
+    if (isCmd && dropdown && ev.key === 'Tab') {
+      ev.preventDefault();
+      const matches = _lookupFilterCommands(val.slice(1).trim());
+      if (matches[_lookupCmdIdx]) askInput.value = '/' + matches[_lookupCmdIdx].name;
+      _lookupRenderCmdDropdown(popup, matches[_lookupCmdIdx]?.name || '');
+      return;
+    }
+
     if (ev.key === 'Enter' && ev.shiftKey) {
       ev.preventDefault();
+      _lookupHideCmdDropdown(popup);
       _doLookupWebSearch(popup);
     } else if (ev.key === 'Enter') {
       ev.preventDefault();
-      _sendPopupChatMessage(popup, '');
+      if (isCmd && val.trim().length > 1) {
+        _lookupExecCommand(popup, val);
+      } else if (!isCmd) {
+        _lookupHideCmdDropdown(popup);
+        _sendPopupChatMessage(popup, '');
+      }
     }
     if (ev.key === 'Escape') {
       ev.preventDefault();
+      if (dropdown) { _lookupHideCmdDropdown(popup); return; }
       _lookupTrackMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
       popup.remove();
+    }
+  });
+  askInput.addEventListener('input', () => {
+    const val = askInput.value;
+    if (val.startsWith('/')) {
+      _lookupCmdIdx = 0;
+      _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+    } else {
+      _lookupHideCmdDropdown(popup);
     }
   });
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());

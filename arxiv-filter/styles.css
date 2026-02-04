@@ -2910,6 +2910,42 @@
       background: var(--border-input);
       margin: 2px 0;
     }
+    /* Slash command autocomplete */
+    .lookup-cmd-dropdown {
+      border-top: 1px solid var(--border-input);
+      padding: 3px 0;
+      max-height: 180px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    .lookup-cmd-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      transition: background 0.08s;
+    }
+    .lookup-cmd-item:hover,
+    .lookup-cmd-item.selected {
+      background: var(--accent);
+      color: #fff;
+    }
+    .lookup-cmd-name {
+      font-weight: 600;
+      font-family: ui-monospace, monospace;
+      font-size: 0.74rem;
+    }
+    .lookup-cmd-desc {
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+    }
+    .lookup-cmd-item:hover .lookup-cmd-desc,
+    .lookup-cmd-item.selected .lookup-cmd-desc {
+      color: rgba(255,255,255,0.75);
+    }
+
     .doc-ref-info {
       padding: 6px 8px;
     }
