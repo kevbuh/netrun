@@ -3241,6 +3241,7 @@ function _showFollowPanel(x, y, contextData) {
   // Chat area (hidden until first message sent)
   const chatArea = document.createElement('div');
   chatArea.className = 'doc-popup-chat-area';
+  chatArea.style.borderTop = 'none';
   const chatMsgs = document.createElement('div');
   chatMsgs.className = 'doc-popup-chat-messages';
   chatArea.appendChild(chatMsgs);
