@@ -2524,6 +2524,27 @@
       padding: 0;
     }
     .doc-screenshot-thumb-remove:hover { background: var(--accent); }
+    .doc-screenshot-thumb-save {
+      position: absolute;
+      bottom: 1px;
+      right: 1px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      border: none;
+      font-size: 9px;
+      line-height: 16px;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .doc-screenshot-thumb-save:hover { background: var(--accent); }
+    .doc-screenshot-thumb-save:disabled { opacity: 0.4; cursor: wait; }
     .doc-msg-images {
       display: flex;
       flex-wrap: wrap;

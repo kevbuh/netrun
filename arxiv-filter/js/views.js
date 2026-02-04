@@ -2141,19 +2141,15 @@ function _sendPopupChatMessage(popup, capturedText) {
       } else {
         body.context = _docText;
       }
-      const payloadStr = JSON.stringify(body);
-      console.log('[doc-chat] sending request, vision:', hasVision, 'msgs:', filteredMsgs.length, 'payload size:', payloadStr.length);
       const resp = await fetch('/api/doc-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: payloadStr,
+        body: JSON.stringify(body),
         signal: _popupChatAbort.signal
       });
-      console.log('[doc-chat] response status:', resp.status, 'ok:', resp.ok);
 
       if (!resp.ok) {
-        const errText = await resp.text();
-        console.error('[doc-chat] server error:', errText);
+        const errText = await resp.text().catch(() => '');
         _popupChatMessages[_popupChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
         _popupChatMessages[_popupChatMessages.length - 1]._thinking = false;
         _renderPopupChat(popup, true);
@@ -2208,7 +2204,6 @@ function _sendPopupChatMessage(popup, capturedText) {
       _popupChatMessages[aiIdx].content = aiText;
       _renderPopupChat(popup, true);
     } catch (e) {
-      console.error('[doc-chat] fetch error:', e);
       if (e.name !== 'AbortError') {
         _popupChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
         _renderPopupChat(popup, true);
@@ -3317,6 +3312,40 @@ function _addScreenshotToPanel(popup, base64) {
     if (_pendingScreenshots.length === 0) strip.style.display = 'none';
   });
   thumb.appendChild(removeBtn);
+
+  // Save to notes button
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'doc-screenshot-thumb-save';
+  saveBtn.title = 'Save to notes';
+  saveBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+  saveBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  saveBtn.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    saveBtn.disabled = true;
+    try {
+      const resp = await fetch('/api/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+        body: JSON.stringify({ image: base64 })
+      });
+      const data = await resp.json();
+      if (data.url) {
+        // Append image to paper note
+        const note = _paperNotes.find(n => n.id === _paperNoteSelected);
+        if (note) {
+          const newContent = (note.content || '') + (note.content ? '\n\n' : '') + `![screenshot](${data.url})`;
+          await savePaperNote(note.id, newContent);
+          renderPaperNoteEditor();
+          if (typeof switchSidebarTab === 'function') switchSidebarTab('notes');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save screenshot to notes:', err);
+    }
+    saveBtn.disabled = false;
+  });
+  thumb.appendChild(saveBtn);
+
   strip.appendChild(thumb);
 
   const input = popup.querySelector('.doc-ask-inline-input');

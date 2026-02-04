@@ -1431,6 +1431,23 @@ ch.postMessage({type:'preview-ready'});
             self._send_json(read_adblock_rules())
             return
 
+        elif self.path.startswith('/api/images/'):
+            filename = os.path.basename(self.path.split('/')[-1])
+            filepath = os.path.join(DIR, 'uploads', filename)
+            if not os.path.exists(filepath):
+                self.send_response(404)
+                self.end_headers()
+                return
+            with open(filepath, 'rb') as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/png')
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'public, max-age=31536000')
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         else:
             super().do_GET()
 
@@ -2251,6 +2268,24 @@ ch.postMessage({type:'preview-ready'});
                         raise
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/images':
+            try:
+                body = self._read_body()
+                image_b64 = body.get('image', '')
+                if not image_b64:
+                    self._send_json({'error': 'image required'}, 400)
+                    return
+                import base64, uuid
+                uploads_dir = os.path.join(DIR, 'uploads')
+                os.makedirs(uploads_dir, exist_ok=True)
+                filename = str(uuid.uuid4()) + '.png'
+                filepath = os.path.join(uploads_dir, filename)
+                with open(filepath, 'wb') as f:
+                    f.write(base64.b64decode(image_b64))
+                self._send_json({'url': '/api/images/' + filename})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
 
         elif self.path == '/api/doc-chat':
             try:
