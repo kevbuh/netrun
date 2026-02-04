@@ -1822,21 +1822,46 @@ ch.postMessage({type:'preview-ready'});
                         text = '\n'.join(extractor.parts)
                         _extract_cache[url] = {'text': text, 'pages': 1}
 
-                # 0. Extract authors (for arXiv papers, fetch from API)
+                # 0. Extract authors from Semantic Scholar (includes stats)
                 authors = []
-                is_arxiv = 'arxiv.org' in url
-                if is_arxiv:
+                arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
+                print(f"[insights] URL: {url}, arxiv_match: {arxiv_match}")
+                if arxiv_match:
+                    arxiv_id = arxiv_match.group(1)
                     try:
-                        # Extract arXiv ID from URL
-                        arxiv_match = re.search(r'(\d{4}\.\d{4,5}(?:v\d+)?)', url)
-                        if arxiv_match:
-                            arxiv_id = arxiv_match.group(1)
+                        s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount,authors.citationCount,authors.authorId'
+                        print(f"[insights] Fetching Semantic Scholar: {s2_url}")
+                        s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
+                        ctx = ssl._create_unverified_context()
+                        with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
+                            s2_data = json.loads(s2_resp.read())
+                        print(f"[insights] S2 response has {len(s2_data.get('authors', []))} authors")
+                        if 'authors' in s2_data:
+                            for a in s2_data['authors']:
+                                author_info = {'name': a.get('name', '')}
+                                if a.get('authorId'):
+                                    author_info['authorId'] = a['authorId']
+                                if a.get('affiliations'):
+                                    author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
+                                if a.get('hIndex'):
+                                    author_info['hIndex'] = a['hIndex']
+                                if a.get('paperCount'):
+                                    author_info['paperCount'] = a['paperCount']
+                                if a.get('citationCount'):
+                                    author_info['citationCount'] = a['citationCount']
+                                if a.get('url'):
+                                    author_info['url'] = a['url']
+                                authors.append(author_info)
+                            print(f"[insights] First author: {authors[0] if authors else 'none'}")
+                    except Exception as s2_err:
+                        print(f"[insights] Semantic Scholar lookup failed: {s2_err}")
+                        # Fallback to arXiv API for just names
+                        try:
                             api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
                             api_req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
                             ctx = ssl._create_unverified_context()
                             with urllib.request.urlopen(api_req, timeout=15, context=ctx) as api_resp:
                                 api_xml = api_resp.read().decode('utf-8')
-                            # Parse authors from XML
                             import xml.etree.ElementTree as ET
                             root = ET.fromstring(api_xml)
                             ns = {'atom': 'http://www.w3.org/2005/Atom'}
@@ -1844,41 +1869,9 @@ ch.postMessage({type:'preview-ready'});
                                 for author_el in entry.findall('atom:author', ns):
                                     name_el = author_el.find('atom:name', ns)
                                     if name_el is not None and name_el.text:
-                                        author_name = name_el.text.strip()
-                                        authors.append({'name': author_name})
-                    except Exception as author_err:
-                        print(f"[insights] Author extraction failed: {author_err}")
-
-                # Fetch author details from Semantic Scholar
-                if authors:
-                    try:
-                        # Look up paper on Semantic Scholar for author details
-                        arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
-                        if arxiv_match:
-                            arxiv_id = arxiv_match.group(1)
-                            s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount,authors.citationCount,authors.authorId'
-                            s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
-                            with urllib.request.urlopen(s2_req, timeout=10) as s2_resp:
-                                s2_data = json.loads(s2_resp.read())
-                            if 'authors' in s2_data:
-                                authors = []
-                                for a in s2_data['authors']:
-                                    author_info = {'name': a.get('name', '')}
-                                    if a.get('authorId'):
-                                        author_info['authorId'] = a['authorId']
-                                    if a.get('affiliations'):
-                                        author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
-                                    if a.get('hIndex'):
-                                        author_info['hIndex'] = a['hIndex']
-                                    if a.get('paperCount'):
-                                        author_info['paperCount'] = a['paperCount']
-                                    if a.get('citationCount'):
-                                        author_info['citationCount'] = a['citationCount']
-                                    if a.get('url'):
-                                        author_info['url'] = a['url']
-                                    authors.append(author_info)
-                    except Exception as s2_err:
-                        print(f"[insights] Semantic Scholar author lookup failed: {s2_err}")
+                                        authors.append({'name': name_el.text.strip()})
+                        except Exception as arxiv_err:
+                            print(f"[insights] arXiv fallback failed: {arxiv_err}")
 
                 # 1. Extract repo URLs (heuristic — regex)
                 repos = []

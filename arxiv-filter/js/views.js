@@ -258,6 +258,7 @@ let paperViewOrigin = 'arxiv';
 function paperViewGoBack() {
   cleanupPdfViewer();
   dismissPaperExpDropdown();
+  dismissAuthorPopover();
   // Use browser history to go back to wherever we came from
   window.history.back();
 }
@@ -651,6 +652,7 @@ async function _verifyInsightsInPdf(insights) {
 }
 
 async function fetchPaperInsights(url) {
+  console.log('[insights] fetchPaperInsights called with url:', url);
   const el = document.getElementById('paper-insights');
   if (!el) return;
   el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing paper...</div>`;
@@ -666,6 +668,7 @@ async function fetchPaperInsights(url) {
     const hasRepos = data.repos && data.repos.length > 0;
     const hasInsights = data.insights && data.insights.length > 0;
     const hasAuthors = data.authors && data.authors.length > 0;
+    console.log('[insights] authors data:', data.authors);
     // Merge repo links from insights API into the unified PDF links section
     if (hasRepos) {
       for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
@@ -679,24 +682,17 @@ async function fetchPaperInsights(url) {
 
     // Render authors section
     if (hasAuthors) {
-      html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-2" id="paper-authors-list">';
+      html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-1" id="paper-authors-list">';
       for (let i = 0; i < data.authors.length; i++) {
         const author = data.authors[i];
-        const hasDetails = author.hIndex || author.paperCount || author.affiliation;
-        html += `<div class="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer" data-q="${escapeHtml(author.name)}" data-idx="${i}" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()">
-          <div class="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-[0.75rem] font-medium flex-shrink-0">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
-          <div class="flex-1 min-w-0">
-            <div class="text-[0.8rem] font-medium text-primary truncate">${escapeHtml(author.name)}</div>
-            ${author.affiliation ? `<div class="text-[0.7rem] text-muted truncate">${escapeHtml(author.affiliation)}</div>` : ''}
-            ${hasDetails ? `<div class="flex items-center gap-2 mt-1 text-[0.65rem] text-dimmer">
-              ${author.hIndex ? `<span title="h-index">h: ${author.hIndex}</span>` : ''}
-              ${author.paperCount ? `<span title="Papers">${author.paperCount} papers</span>` : ''}
-            </div>` : ''}
-          </div>
+        html += `<div class="author-card" data-idx="${i}">
+          <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
+          <div class="author-card-name">${escapeHtml(author.name)}</div>
+          <svg class="author-card-external" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>`;
       }
       html += '</div></div>';
-      // Store authors data for click handling
+      // Store authors data for hover/click handling
       window._insightAuthors = data.authors;
     }
 
@@ -726,29 +722,21 @@ async function fetchPaperInsights(url) {
     html += '</div>';
     el.innerHTML = html;
 
-    // Add click handlers for authors - open in browse view
+    // Add hover/click handlers for authors
     if (hasAuthors && window._insightAuthors) {
       const authorsList = document.getElementById('paper-authors-list');
       if (authorsList) {
         authorsList.querySelectorAll('[data-idx]').forEach(card => {
-          card.addEventListener('click', function(e) {
+          const idx = parseInt(card.dataset.idx);
+          const author = window._insightAuthors[idx];
+          if (!author) return;
+
+          card.addEventListener('mouseenter', () => onAuthorCardHover(card, author));
+          card.addEventListener('mouseleave', onAuthorCardLeave);
+          card.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const idx = parseInt(this.dataset.idx);
-            const author = window._insightAuthors[idx];
-            let url = '';
-            if (author && author.url) {
-              url = author.url;
-            } else if (author && author.authorId) {
-              url = 'https://www.semanticscholar.org/author/' + author.authorId;
-            } else if (author && author.name) {
-              url = 'https://www.semanticscholar.org/search?q=' + encodeURIComponent(author.name);
-            }
-            if (url && typeof openBrowse === 'function') {
-              openBrowse(url);
-            } else if (url) {
-              window.open(url, '_blank');
-            }
+            onAuthorCardClick(author);
           });
         });
       }
@@ -758,6 +746,100 @@ async function fetchPaperInsights(url) {
     el.innerHTML = '';
     _paperInsightsLoaded = true;
   }
+}
+
+// ── Author Hover Tooltip ──
+let _authorTooltip = null;
+let _authorHoverTimeout = null;
+
+function dismissAuthorPopover() {
+  clearTimeout(_authorHoverTimeout);
+  if (_authorTooltip) {
+    _authorTooltip.remove();
+    _authorTooltip = null;
+  }
+}
+
+function showAuthorTooltip(author, cardEl) {
+  dismissAuthorPopover();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'author-tooltip';
+
+  // Format large numbers compactly
+  const formatNum = (n) => {
+    if (!n) return '—';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toLocaleString();
+  };
+
+  const hasStats = author.paperCount || author.hIndex || author.citationCount;
+
+  tooltip.innerHTML = `
+    <div class="author-tooltip-name">${escapeHtml(author.name || 'Unknown')}</div>
+    ${author.affiliation ? `<div class="author-tooltip-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
+    ${hasStats ? `<div class="author-tooltip-stats">
+      <span><strong>${formatNum(author.paperCount)}</strong> papers</span>
+      <span>h-index <strong>${author.hIndex || '—'}</strong></span>
+      <span><strong>${formatNum(author.citationCount)}</strong> citations</span>
+    </div>` : ''}
+  `;
+
+  document.body.appendChild(tooltip);
+  _authorTooltip = tooltip;
+
+  // Position to the right of the card, or left if no space
+  const cardRect = cardEl.getBoundingClientRect();
+  const tooltipWidth = tooltip.offsetWidth;
+  const tooltipHeight = tooltip.offsetHeight;
+
+  let left = cardRect.right + 8;
+  let top = cardRect.top + (cardRect.height / 2) - (tooltipHeight / 2);
+
+  // If tooltip would go off right edge, show on left
+  if (left + tooltipWidth > window.innerWidth - 16) {
+    left = cardRect.left - tooltipWidth - 8;
+  }
+  // Keep within vertical bounds
+  if (top < 8) top = 8;
+  if (top + tooltipHeight > window.innerHeight - 8) {
+    top = window.innerHeight - tooltipHeight - 8;
+  }
+
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+}
+
+function onAuthorCardHover(cardEl, author) {
+  clearTimeout(_authorHoverTimeout);
+  // Small delay to prevent flickering
+  _authorHoverTimeout = setTimeout(() => {
+    showAuthorTooltip(author, cardEl);
+    // Also highlight in PDF
+    if (author.name) pdfSearchHighlight(author.name);
+  }, 150);
+}
+
+function onAuthorCardLeave() {
+  clearTimeout(_authorHoverTimeout);
+  _authorHoverTimeout = setTimeout(() => {
+    dismissAuthorPopover();
+    pdfClearSearchHighlights();
+  }, 100);
+}
+
+function onAuthorCardClick(author) {
+  // Navigate to Semantic Scholar profile
+  let url = '';
+  if (author.url) {
+    url = author.url;
+  } else if (author.authorId) {
+    url = 'https://www.semanticscholar.org/author/' + author.authorId;
+  } else if (author.name) {
+    url = 'https://www.semanticscholar.org/search?q=' + encodeURIComponent(author.name);
+  }
+  if (url) window.open(url, '_blank');
 }
 
 // ── Author Profile Page ──
