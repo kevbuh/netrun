@@ -3337,6 +3337,21 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// "/" key opens lookup panel with "/" pre-filled
+document.addEventListener('keydown', function(e) {
+  if (e.key !== '/') return;
+  // Skip if typing in an input, textarea, or contentEditable
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+  // Skip if lookup panel already open
+  if (document.getElementById('doc-chat-ask-float')) return;
+  e.preventDefault();
+  // Open centered horizontally, near top of viewport
+  const x = window.innerWidth / 2;
+  const y = window.innerHeight / 2;
+  _showLookupPanel(x, y, null, '/');
+});
+
 // Right-click anywhere opens lookup panel
 function _handleContextMenuChat(e) {
   if (localStorage.getItem('clickLookup') === 'off') return;
@@ -3493,6 +3508,7 @@ const _lookupCommands = [
 let _lookupCmdIdx = 0; // selected index in autocomplete
 let _lookupNoteIdx = 0; // selected index in note search results
 let _lookupNoteResults = []; // current note search results
+let _lookupNoteQuery = ''; // current note search query (for create-on-enter)
 
 function _lookupFilterCommands(query) {
   const q = query.toLowerCase();
@@ -3553,10 +3569,12 @@ function _lookupHideNoteDropdown(popup) {
   if (dropdown) dropdown.remove();
   _lookupNoteResults = [];
   _lookupNoteIdx = 0;
+  _lookupNoteQuery = '';
 }
 
 async function _lookupRenderNoteDropdown(popup, query) {
   if (!query) { _lookupHideNoteDropdown(popup); return; }
+  _lookupNoteQuery = query;
 
   // Get notes (cached or fetch)
   let notes;
@@ -3580,8 +3598,6 @@ async function _lookupRenderNoteDropdown(popup, query) {
 
   let dropdown = popup.querySelector('.lookup-note-dropdown');
   if (!_lookupNoteResults.length) {
-    if (dropdown) dropdown.remove();
-    // Show "no results" inline
     if (!dropdown) {
       dropdown = document.createElement('div');
       dropdown.className = 'lookup-note-dropdown';
@@ -3590,7 +3606,12 @@ async function _lookupRenderNoteDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    dropdown.innerHTML = '<div class="lookup-note-empty">No notes found</div>';
+    dropdown.innerHTML = `<div class="lookup-note-create selected" data-create="1">` +
+      `<span class="lookup-note-create-icon">+</span> Create "<strong>${escapeHtml(query)}</strong>"</div>`;
+    dropdown.querySelector('.lookup-note-create').addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _lookupCreateAndOpenNote(popup, query);
+    });
     _repositionSelectionPopup();
     return;
   }
@@ -3642,6 +3663,22 @@ function _lookupOpenSelectedNote(popup) {
   window.location.hash = '#vault';
   setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(note.id); }, 100);
   return true;
+}
+
+async function _lookupCreateAndOpenNote(popup, title) {
+  _lookupHideNoteDropdown(popup);
+  _lookupTrackMode = false;
+  popup.remove();
+  window.location.hash = '#vault';
+  // Wait for vault view to render, then create the note
+  setTimeout(async () => {
+    if (typeof vaultCreateNoteWithTitle === 'function') {
+      await vaultCreateNoteWithTitle(title);
+      // Focus the editor so user can start typing immediately
+      const editor = document.getElementById('vault-editor');
+      if (editor) editor.focus();
+    }
+  }, 150);
 }
 
 function _lookupExecCommand(popup, text) {
@@ -3824,7 +3861,7 @@ async function _doLookupUserSearch(popup, query) {
 
 // Lookup panel: blank chat input that tracks cursor
 // contextData: optional { linkUrl, linkText, imgUrl } for context menu items
-function _showLookupPanel(x, y, contextData) {
+function _showLookupPanel(x, y, contextData, initialValue) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
@@ -4033,10 +4070,14 @@ function _showLookupPanel(x, y, contextData) {
       return;
     }
 
-    // Enter opens selected note
-    if (noteDropdown && _lookupNoteResults.length && ev.key === 'Enter') {
+    // Enter opens selected note, or creates a new one if no results
+    if (noteDropdown && ev.key === 'Enter') {
       ev.preventDefault();
-      _lookupOpenSelectedNote(popup);
+      if (_lookupNoteResults.length) {
+        _lookupOpenSelectedNote(popup);
+      } else if (_lookupNoteQuery) {
+        _lookupCreateAndOpenNote(popup, _lookupNoteQuery);
+      }
       return;
     }
 
@@ -4140,6 +4181,22 @@ function _showLookupPanel(x, y, contextData) {
 
   // Auto-focus so user can type immediately
   askInput.focus();
+
+  // Pre-fill input and trigger command dropdown if initialValue provided
+  if (initialValue) {
+    askInput.value = initialValue;
+    if (initialValue.startsWith('/')) {
+      _lookupCmdIdx = 0;
+      _lookupRenderCmdDropdown(popup, initialValue.slice(1).trim());
+    }
+    // Reposition after dropdown renders
+    requestAnimationFrame(() => {
+      const r2 = popup.getBoundingClientRect();
+      let t2 = y - r2.height;
+      if (t2 < 0) t2 = 0;
+      popup.style.top = t2 + 'px';
+    });
+  }
 }
 
 function openPaper(index) {

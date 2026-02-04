@@ -3132,6 +3132,25 @@
       font-size: 0.75rem;
       color: var(--text-secondary);
     }
+    .lookup-note-create {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--accent);
+      transition: background 0.08s;
+    }
+    .lookup-note-create:hover,
+    .lookup-note-create.selected {
+      background: var(--accent);
+      color: #fff;
+    }
+    .lookup-note-create-icon {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
 
     .doc-ref-info {
       padding: 6px 8px;

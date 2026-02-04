@@ -2368,7 +2368,7 @@ ch.postMessage({type:'preview-ready'});
                 if not image_b64:
                     self._send_json({'error': 'image required'}, 400)
                     return
-                import base64, uuid
+                import base64
                 uploads_dir = os.path.join(DIR, 'uploads')
                 os.makedirs(uploads_dir, exist_ok=True)
                 filename = str(uuid.uuid4()) + '.png'
