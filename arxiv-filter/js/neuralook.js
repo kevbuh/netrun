@@ -10,7 +10,7 @@ let _nlGazeY = 0;
 let _nlPreviewStream = null; // camera stream for preview (stopped before webgazer starts)
 let _nlCurrentPoint = 0;      // which calibration point is active
 let _nlClicksOnPoint = 0;     // clicks collected on current point
-const _NL_CLICKS_PER_POINT = 5;
+const _NL_CLICKS_PER_POINT = 8;
 let _nlAccuracy = null;        // last accuracy test result in px (null = not tested)
 let _nlStareInterval = null;   // interval feeding continuous gaze data while staring at dot
 let _nlCalOrder = [];          // shuffled order of calibration points
@@ -28,6 +28,16 @@ let _nlPredictionRate = 0;     // predictions per second (updated each second)
 let _nlStatsInterval = null;   // interval for refreshing the stats card
 let _nlRateInterval = null;    // 1-second interval for computing prediction rate
 let _nlCameraOn = false;       // whether the camera preview is active
+
+// ── Neural Model (tinygrad GazeNet) state ──
+let _nlNeuralWs = null;          // WebSocket to /ws/neuralook
+let _nlNeuralReady = false;      // model trained and WS connected
+let _nlNeuralTraining = false;   // currently training
+let _nlNeuralMode = false;       // true = use neural model, false = WebGazer
+let _nlNeuralInfo = null;        // training info from server {params, accuracy, ...}
+let _nlNeuralInferInterval = null; // 33ms inference loop
+let _nlTrainingSamples = [];     // calibration samples for neural model {left, right, x, y}
+let _nlEyeCropCanvas = null;     // offscreen canvas for resizing eye patches
 
 // Time-series history for graphs (rolling window, pushed every 500ms)
 const _NL_GRAPH_LEN = 60;
@@ -88,13 +98,31 @@ function renderNeuralookView() {
           </div>
         </div>
 
+        <!-- Model Selection -->
+        <div class="bg-card border border-border-card rounded-xl p-4">
+          <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model</h3>
+          <div class="flex flex-col gap-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="nl-model" value="webgazer" ${!_nlNeuralMode ? 'checked' : ''} onchange="_nlSetModelMode(false)" class="accent-[var(--accent)]">
+              <span class="text-[0.78rem] text-primary">WebGazer (Ridge)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="nl-model" value="neural" ${_nlNeuralMode ? 'checked' : ''} onchange="_nlSetModelMode(true)" class="accent-[var(--accent)]" ${!_nlNeuralReady ? 'disabled' : ''}>
+              <span class="text-[0.78rem] ${_nlNeuralReady ? 'text-primary' : 'text-dimmer'}">Neural (GazeNet)</span>
+            </label>
+          </div>
+          <div id="nl-neural-status" class="text-[0.72rem] mt-2 ${_nlNeuralTraining ? 'text-yellow-400' : _nlNeuralReady ? 'text-green-400' : 'text-dimmer'}">
+            ${_nlNeuralTraining ? 'Training neural model...' : _nlNeuralReady ? 'Neural model ready' : 'Not trained — calibrate to train'}
+          </div>
+        </div>
+
         <!-- How it works -->
         <div class="bg-card border border-border-card rounded-xl p-4">
           <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
           <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
-            <li>Click <strong>Start Calibration</strong> — 13 dots, one at a time</li>
-            <li>Stare at each dot and click it 5 times</li>
-            <li>Accuracy test runs automatically after</li>
+            <li>Click <strong>Start Calibration</strong> — 33-point grid with warm-up</li>
+            <li>Stare at each dot and click it 8 times</li>
+            <li>Accuracy test + auto-refinement of weak areas</li>
             <li><strong>Start Tracking</strong> to show the gaze dot</li>
           </ol>
         </div>
@@ -342,6 +370,13 @@ function _nlStartCalibration() {
   _nlClickSamples = 0;
   _nlMoveSamples = 0;
   _nlPredictionCount = 0;
+  _nlRefinementDone = false;
+  _nlTestDistances = [];
+  _nlTrainingSamples = [];  // reset neural training samples
+  _nlNeuralReady = false;
+  _nlNeuralInfo = null;
+  // Trim any refinement points from previous calibrations
+  _NL_CAL_POSITIONS.length = _NL_CAL_BASE_COUNT;
 
   // Stop any standalone preview stream so webgazer can grab the camera
   _nlStopPreviewStream();
@@ -425,12 +460,18 @@ function _nlOnWebgazerFailed(err) {
   renderNeuralookView();
 }
 
-// 13-point calibration grid (3x3 corners + 4 edge midpoints + center)
+// 5x5 grid (25 points) + 8 extreme edge points = 33 calibration points
+const _NL_CAL_BASE_COUNT = 33; // original length before refinement points are appended
 const _NL_CAL_POSITIONS = [
-  [10, 10], [50, 10], [90, 10],
-  [10, 50], [50, 50], [90, 50],
-  [10, 90], [50, 90], [90, 90],
-  [50, 5],  [50, 95], [5, 50], [95, 50]
+  // 5x5 grid
+  [10, 10], [30, 10], [50, 10], [70, 10], [90, 10],
+  [10, 30], [30, 30], [50, 30], [70, 30], [90, 30],
+  [10, 50], [30, 50], [50, 50], [70, 50], [90, 50],
+  [10, 70], [30, 70], [50, 70], [70, 70], [90, 70],
+  [10, 90], [30, 90], [50, 90], [70, 90], [90, 90],
+  // Extreme edges
+  [50, 3],  [50, 97], [3, 50],  [97, 50],
+  [3, 3],   [97, 3],  [3, 97],  [97, 97]
 ];
 
 function _nlShuffleArray(arr) {
@@ -466,13 +507,84 @@ function _nlShowCalibrationOverlay() {
   style.textContent = `@keyframes nl-pulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.3); } }`;
   document.head.appendChild(style);
 
+  // Overall progress bar at bottom
+  const progBar = document.createElement('div');
+  progBar.id = 'nl-cal-progbar';
+  Object.assign(progBar.style, {
+    position: 'absolute', bottom: '24px', left: '10%', width: '80%', height: '4px',
+    background: 'rgba(255,255,255,0.1)', borderRadius: '2px', zIndex: '100000'
+  });
+  const progFill = document.createElement('div');
+  progFill.id = 'nl-cal-progfill';
+  Object.assign(progFill.style, {
+    width: '0%', height: '100%', background: 'var(--accent, #b4451a)',
+    borderRadius: '2px', transition: 'width 0.3s'
+  });
+  progBar.appendChild(progFill);
+  overlay.appendChild(progBar);
+
   document.body.appendChild(overlay);
 
   // Shuffle calibration order to prevent sequential bias
   _nlCalOrder = _nlShuffleArray([...Array(_NL_CAL_POSITIONS.length).keys()]);
   _nlCurrentPoint = 0;
   _nlClicksOnPoint = 0;
-  _nlShowNextCalibrationDot();
+
+  // Warm-up phase — stare at center for 3 seconds
+  _nlRunWarmup();
+}
+
+function _nlRunWarmup() {
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) return;
+
+  const instr = document.getElementById('nl-cal-instr');
+  if (instr) {
+    instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Warm Up</div>' +
+      '<div style="color:#aaa;font-size:0.78rem;">Look at the center dot — stabilizing face tracking...</div>';
+  }
+
+  // Show a center dot
+  const dot = document.createElement('div');
+  dot.id = 'nl-warmup-dot';
+  Object.assign(dot.style, {
+    position: 'absolute', left: '50%', top: '50%',
+    width: '24px', height: '24px', borderRadius: '50%',
+    background: '#60a5fa', transform: 'translate(-50%, -50%)',
+    zIndex: '100001', opacity: '0', transition: 'opacity 0.3s'
+  });
+  overlay.appendChild(dot);
+  requestAnimationFrame(() => { dot.style.opacity = '1'; });
+
+  // Feed center position continuously during warm-up
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  const warmupInterval = setInterval(() => {
+    if (typeof webgazer !== 'undefined' && typeof webgazer.recordScreenPosition === 'function') {
+      webgazer.recordScreenPosition(cx, cy, 'move');
+      _nlMoveSamples++;
+    }
+  }, 60);
+
+  // Countdown 3..2..1
+  let countdown = 3;
+  const countInterval = setInterval(() => {
+    countdown--;
+    if (instr && countdown > 0) {
+      instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Warm Up</div>' +
+        `<div style="color:#aaa;font-size:0.78rem;">Starting in ${countdown}...</div>`;
+    }
+  }, 1000);
+
+  setTimeout(() => {
+    clearInterval(warmupInterval);
+    clearInterval(countInterval);
+    dot.style.opacity = '0';
+    setTimeout(() => {
+      dot.remove();
+      _nlShowNextCalibrationDot();
+    }, 300);
+  }, 3000);
 }
 
 function _nlShowNextCalibrationDot() {
@@ -573,13 +685,17 @@ function _nlShowNextCalibrationDot() {
   const stareY = window.innerHeight * yPct / 100;
   setTimeout(() => {
     wrap.style.pointerEvents = '';
-    // Continuously feed gaze samples every 100ms while staring at this dot
+    // Continuously feed gaze samples every 60ms while staring at this dot
     _nlStareInterval = setInterval(() => {
       if (typeof webgazer !== 'undefined' && typeof webgazer.recordScreenPosition === 'function') {
         webgazer.recordScreenPosition(stareX, stareY, 'move');
         _nlMoveSamples++;
       }
-    }, 100);
+      // Also collect eye crops for neural model (every other tick = ~120ms)
+      if (_nlMoveSamples % 2 === 0) {
+        _nlCollectEyeSample(stareX, stareY);
+      }
+    }, 60);
   }, 800);
 }
 
@@ -589,6 +705,13 @@ function _nlUpdateCalInstr() {
   const total = _nlCalOrder.length;
   instr.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">Calibration</div>` +
     `<div style="color:#aaa;font-size:0.78rem;">Point ${_nlCurrentPoint + 1}/${total} — Click ${Math.min(_nlClicksOnPoint + 1, _NL_CLICKS_PER_POINT)}/${_NL_CLICKS_PER_POINT}</div>`;
+  // Update overall progress bar
+  const progFill = document.getElementById('nl-cal-progfill');
+  if (progFill) {
+    const totalClicks = total * _NL_CLICKS_PER_POINT;
+    const done = _nlCurrentPoint * _NL_CLICKS_PER_POINT + _nlClicksOnPoint;
+    progFill.style.width = Math.round((done / totalClicks) * 100) + '%';
+  }
 }
 
 function _nlCalibrationClick() {
@@ -604,6 +727,9 @@ function _nlCalibrationClick() {
     webgazer.recordScreenPosition(screenX, screenY, 'click');
     _nlClickSamples++;
   }
+
+  // Collect eye crop for neural model training
+  _nlCollectEyeSample(screenX, screenY);
 
   // Update progress ring
   const progressCircle = document.getElementById('nl-cal-progress');
@@ -634,9 +760,10 @@ function _nlCalibrationClick() {
 let _nlAccuracyCollecting = false;
 let _nlAccuracyPredictions = [];
 
-// Test positions at 30%/70% — not used during calibration
+// 8 test positions — positions not in the main calibration grid
 const _NL_TEST_POSITIONS = [
-  [30, 30], [70, 30], [30, 70], [70, 70]
+  [20, 20], [80, 20], [20, 80], [80, 80],
+  [50, 15], [50, 85], [15, 50], [85, 50]
 ];
 
 function _nlRunAccuracyTest() {
@@ -657,11 +784,15 @@ function _nlRunAccuracyTest() {
   _nlAccuracyTestLoop(0, []);
 }
 
+let _nlTestDistances = [];  // per-point distances from accuracy test
+let _nlRefinementDone = false;
+
 function _nlAccuracyTestLoop(idx, distances) {
   if (idx >= _NL_TEST_POSITIONS.length) {
     // Compute average
     const avg = distances.reduce((a, b) => a + b, 0) / distances.length;
     _nlAccuracy = avg;
+    _nlTestDistances = distances.slice();
     _nlShowAccuracyResult(avg);
     return;
   }
@@ -737,18 +868,84 @@ function _nlShowAccuracyResult(avgPx) {
   const testDot = document.getElementById('nl-test-dot');
   if (testDot) testDot.remove();
 
+  const needsRefinement = !_nlRefinementDone && px >= 80;
+
   const result = document.createElement('div');
+  result.id = 'nl-accuracy-result';
   result.style.cssText = 'text-align:center;color:#fff;';
   result.innerHTML = `
-    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;">Calibration Complete</div>
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;">${_nlRefinementDone ? 'Refinement Complete' : 'Calibration Complete'}</div>
     <div style="font-size:2rem;font-weight:700;color:${labelColor};margin-bottom:4px;">~${px}px</div>
     <div style="font-size:0.85rem;color:${labelColor};font-weight:500;">${label}</div>
-    <div style="font-size:0.75rem;color:#888;margin-top:12px;">Average accuracy across 4 test points</div>
+    <div style="font-size:0.75rem;color:#888;margin-top:12px;">Average accuracy across ${_NL_TEST_POSITIONS.length} test points</div>
+    ${needsRefinement ? '<div style="font-size:0.78rem;color:#aaa;margin-top:16px;">Refining weak areas...</div>' : ''}
   `;
   overlay.appendChild(result);
 
-  // Brief pause then finish
-  setTimeout(() => _nlFinishCalibration(), 2500);
+  if (needsRefinement) {
+    // Auto-refine: recalibrate the weakest test positions
+    setTimeout(() => {
+      result.remove();
+      _nlRunRefinement();
+    }, 1500);
+  } else {
+    // Done — train neural model in background before finishing
+    if (_nlTrainingSamples.length >= 4) {
+      _nlTrainNeuralModel();
+    }
+    setTimeout(() => _nlFinishCalibration(), 2500);
+  }
+}
+
+function _nlRunRefinement() {
+  _nlRefinementDone = true;
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) { _nlFinishCalibration(); return; }
+
+  // Find the worst test points (above 80px error) and recalibrate them
+  const weakPoints = [];
+  for (let i = 0; i < _nlTestDistances.length; i++) {
+    if (_nlTestDistances[i] > 60) {
+      weakPoints.push(_NL_TEST_POSITIONS[i]);
+    }
+  }
+  // If somehow none qualify, take the worst 3
+  if (weakPoints.length === 0) {
+    const sorted = _nlTestDistances.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d);
+    for (let k = 0; k < Math.min(3, sorted.length); k++) {
+      weakPoints.push(_NL_TEST_POSITIONS[sorted[k].i]);
+    }
+  }
+
+  // Re-add instr
+  let instrEl = document.getElementById('nl-cal-instr');
+  if (!instrEl) {
+    instrEl = document.createElement('div');
+    instrEl.id = 'nl-cal-instr';
+    instrEl.style.cssText = 'position:absolute;top:30px;left:50%;transform:translateX(-50%);color:#fff;font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;';
+    overlay.appendChild(instrEl);
+  }
+
+  // Use these weak points as extra calibration targets
+  // Build a temporary cal order from these positions (appended to _NL_CAL_POSITIONS temporarily)
+  const startIdx = _NL_CAL_POSITIONS.length;
+  const tempIndices = [];
+  for (const pos of weakPoints) {
+    _NL_CAL_POSITIONS.push(pos);
+    tempIndices.push(_NL_CAL_POSITIONS.length - 1);
+  }
+  _nlCalOrder = _nlShuffleArray(tempIndices);
+  _nlCurrentPoint = 0;
+  _nlClicksOnPoint = 0;
+
+  // Update progress bar
+  const progFill = document.getElementById('nl-cal-progfill');
+  if (progFill) progFill.style.width = '0%';
+
+  instrEl.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Refinement Pass</div>' +
+    `<div style="color:#aaa;font-size:0.78rem;">Recalibrating ${weakPoints.length} weak areas...</div>`;
+
+  setTimeout(() => _nlShowNextCalibrationDot(), 500);
 }
 
 function _nlFinishCalibration() {
@@ -803,13 +1000,21 @@ function _nlStartTracking() {
 
   _nlTracking = true;
   _nlCreateDot();
-  if (typeof webgazer !== 'undefined' && typeof webgazer.resume === 'function') webgazer.resume();
+  if (_nlNeuralMode && _nlNeuralReady) {
+    // Use neural model — pause WebGazer, start neural inference
+    if (typeof webgazer !== 'undefined' && typeof webgazer.pause === 'function') webgazer.pause();
+    _nlConnectNeuralWs();
+    setTimeout(() => _nlStartNeuralInference(), 500);
+  } else {
+    if (typeof webgazer !== 'undefined' && typeof webgazer.resume === 'function') webgazer.resume();
+  }
   renderNeuralookView();
 }
 
 function _nlStopTracking() {
   _nlTracking = false;
   _nlRemoveDot();
+  _nlStopNeuralInference();
   if (typeof webgazer !== 'undefined' && typeof webgazer.pause === 'function') webgazer.pause();
   renderNeuralookView();
 }
@@ -919,9 +1124,20 @@ function _nlRefreshStats() {
   const row = (label, value, color) =>
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
+  const activeModel = _nlNeuralMode ? 'GazeNet (Neural)' : 'Ridge (WebGazer)';
+  const neuralStatus = _nlNeuralTraining ? '<span style="color:#fbbf24">Training...</span>'
+    : _nlNeuralReady ? '<span style="color:#4ade80">Ready</span>'
+    : '<span class="text-dimmer">Not trained</span>';
+
   el.innerHTML =
-    row('Regression', 'Ridge (WebGazer)') +
+    row('Active model', activeModel) +
+    row('Neural model', neuralStatus) +
+    (_nlNeuralInfo ? row('Neural params', `${(_nlNeuralInfo.params || 0).toLocaleString()}`) : '') +
+    (_nlNeuralInfo ? row('Neural train loss', `${_nlNeuralInfo.final_loss}`) : '') +
+    (_nlNeuralInfo ? row('Neural avg error', `${_nlNeuralInfo.avg_error_norm} (norm)`) : '') +
+    (_nlNeuralInfo ? row('Neural train time', `${_nlNeuralInfo.train_time_s}s`) : '') +
     row('Training samples', `${totalSamples}` + (totalSamples > 0 ? ` <span class="text-dimmer font-normal">(${_nlClickSamples} click + ${_nlMoveSamples} gaze)</span>` : '')) +
+    (_nlTrainingSamples.length > 0 ? row('Neural samples', `${_nlTrainingSamples.length} eye crops`) : '') +
     row('Calibration points', `${_NL_CAL_POSITIONS.length}`) +
     row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
@@ -1031,4 +1247,280 @@ function _nlDrawGraph(canvasId, data, color, fixedMin, fixedMax) {
     ctx.fillStyle = grad;
     ctx.fill();
   }
+}
+
+// ── Neural Model — Eye Crop Capture ──
+
+function _nlGetEyeCropCanvas() {
+  if (!_nlEyeCropCanvas) {
+    _nlEyeCropCanvas = document.createElement('canvas');
+    _nlEyeCropCanvas.width = 32;
+    _nlEyeCropCanvas.height = 32;
+  }
+  return _nlEyeCropCanvas;
+}
+
+function _nlResizePatchToGrayscale(imageData, srcW, srcH) {
+  // Resize arbitrary eye patch ImageData to 32x32 grayscale Uint8Array(1024)
+  const canvas = _nlGetEyeCropCanvas();
+  const ctx = canvas.getContext('2d');
+  // Draw source to a temp canvas at original size, then draw scaled
+  const tmp = document.createElement('canvas');
+  tmp.width = srcW;
+  tmp.height = srcH;
+  const tmpCtx = tmp.getContext('2d');
+  tmpCtx.putImageData(imageData, 0, 0);
+
+  ctx.clearRect(0, 0, 32, 32);
+  ctx.drawImage(tmp, 0, 0, srcW, srcH, 0, 0, 32, 32);
+
+  const scaled = ctx.getImageData(0, 0, 32, 32);
+  const gray = new Uint8Array(1024);
+  for (let i = 0; i < 1024; i++) {
+    const r = scaled.data[i * 4];
+    const g = scaled.data[i * 4 + 1];
+    const b = scaled.data[i * 4 + 2];
+    gray[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  }
+  return gray;
+}
+
+function _nlCaptureEyePatches() {
+  // Use WebGazer's tracker to get eye patches from the current video frame
+  if (typeof webgazer === 'undefined') return null;
+
+  try {
+    const tracker = webgazer.getTracker();
+    if (!tracker) return null;
+
+    // Find WebGazer's video element
+    let vid = null;
+    try { vid = webgazer.getVideoElement ? webgazer.getVideoElement() : null; } catch (e) {}
+    if (!vid) vid = document.getElementById('webgazerVideoFeed');
+    if (!vid || !vid.videoWidth) return null;
+
+    // Draw current video frame to a canvas
+    const vw = vid.videoWidth;
+    const vh = vid.videoHeight;
+    let capCanvas = document.getElementById('_nl-cap-canvas');
+    if (!capCanvas) {
+      capCanvas = document.createElement('canvas');
+      capCanvas.id = '_nl-cap-canvas';
+      capCanvas.style.display = 'none';
+      document.body.appendChild(capCanvas);
+    }
+    capCanvas.width = vw;
+    capCanvas.height = vh;
+    const capCtx = capCanvas.getContext('2d');
+    capCtx.drawImage(vid, 0, 0, vw, vh);
+
+    // Get eye patches via WebGazer's internal API
+    const patches = tracker.getEyePatches(vid, capCanvas, vw, vh);
+    if (!patches || !patches.left || !patches.right) return null;
+
+    // patches.left.patch and patches.right.patch are ImageData objects
+    const leftPatch = patches.left.patch;
+    const rightPatch = patches.right.patch;
+    if (!leftPatch || !rightPatch) return null;
+
+    const left = _nlResizePatchToGrayscale(leftPatch, leftPatch.width, leftPatch.height);
+    const right = _nlResizePatchToGrayscale(rightPatch, rightPatch.width, rightPatch.height);
+
+    return { left, right };
+  } catch (e) {
+    // Eye patch extraction can fail if face not detected
+    return null;
+  }
+}
+
+// ── Neural Model — WebSocket Connection ──
+
+function _nlConnectNeuralWs() {
+  if (_nlNeuralWs && _nlNeuralWs.readyState <= 1) return; // already open/connecting
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${proto}//${location.host}/ws/neuralook`;
+  _nlNeuralWs = new WebSocket(url);
+  _nlNeuralWs.binaryType = 'arraybuffer';
+
+  _nlNeuralWs.onopen = () => {
+    console.log('Neuralook: neural WS connected');
+    // Check status
+    _nlNeuralWs.send(JSON.stringify({ type: 'status' }));
+  };
+
+  _nlNeuralWs.onmessage = (evt) => {
+    if (typeof evt.data === 'string') {
+      // Text frame — JSON response
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === 'trained') {
+          _nlNeuralTraining = false;
+          _nlNeuralReady = true;
+          _nlNeuralInfo = msg;
+          console.log('Neuralook: neural model trained', msg);
+          // Update UI
+          const statusEl = document.getElementById('nl-neural-status');
+          if (statusEl) {
+            statusEl.textContent = 'Neural model ready';
+            statusEl.className = 'text-[0.72rem] mt-2 text-green-400';
+          }
+          // Enable the radio button
+          const radios = document.querySelectorAll('input[name="nl-model"][value="neural"]');
+          radios.forEach(r => r.disabled = false);
+          _nlRefreshStats();
+        } else if (msg.type === 'status') {
+          if (msg.model_loaded) {
+            _nlNeuralReady = true;
+            _nlNeuralInfo = _nlNeuralInfo || { params: msg.params };
+          }
+        } else if (msg.type === 'error') {
+          console.error('Neuralook: neural error:', msg.msg);
+          _nlNeuralTraining = false;
+          const statusEl = document.getElementById('nl-neural-status');
+          if (statusEl) {
+            statusEl.textContent = 'Error: ' + msg.msg;
+            statusEl.className = 'text-[0.72rem] mt-2 text-red-400';
+          }
+        }
+      } catch (e) {}
+    } else if (evt.data instanceof ArrayBuffer && evt.data.byteLength === 8) {
+      // Binary frame — inference result (2x float32)
+      const view = new Float32Array(evt.data);
+      const nx = view[0] * window.innerWidth;
+      const ny = view[1] * window.innerHeight;
+
+      _nlPredictionCount++;
+      _nlPredictionsThisSec++;
+
+      if (_nlAccuracyCollecting) {
+        _nlAccuracyPredictions.push({ x: nx, y: ny });
+        return;
+      }
+      if (!_nlTracking || !_nlNeuralMode) return;
+
+      // Ring buffer smoothing (same as WebGazer)
+      _nlGazeBuffer.push({ x: nx, y: ny });
+      if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+      let sx = 0, sy = 0;
+      for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+      _nlGazeX = sx / _nlGazeBuffer.length;
+      _nlGazeY = sy / _nlGazeBuffer.length;
+      _nlMoveDot(_nlGazeX, _nlGazeY);
+    }
+  };
+
+  _nlNeuralWs.onclose = () => {
+    console.log('Neuralook: neural WS closed');
+    _nlNeuralWs = null;
+  };
+
+  _nlNeuralWs.onerror = (e) => {
+    console.warn('Neuralook: neural WS error', e);
+  };
+}
+
+function _nlCloseNeuralWs() {
+  if (_nlNeuralWs) {
+    _nlNeuralWs.close();
+    _nlNeuralWs = null;
+  }
+}
+
+// ── Neural Model — Training ──
+
+function _nlCollectEyeSample(screenX, screenY) {
+  // Capture eye patches and store as training sample for neural model
+  const patches = _nlCaptureEyePatches();
+  if (!patches) return;
+  _nlTrainingSamples.push({
+    left: Array.from(patches.left),
+    right: Array.from(patches.right),
+    x: screenX / window.innerWidth,   // normalized 0-1
+    y: screenY / window.innerHeight
+  });
+}
+
+function _nlTrainNeuralModel() {
+  if (_nlTrainingSamples.length < 4) {
+    console.warn('Neuralook: not enough training samples for neural model');
+    return;
+  }
+
+  _nlConnectNeuralWs();
+
+  const doSend = () => {
+    if (!_nlNeuralWs || _nlNeuralWs.readyState !== 1) {
+      // Wait for connection
+      setTimeout(doSend, 200);
+      return;
+    }
+    _nlNeuralTraining = true;
+    const statusEl = document.getElementById('nl-neural-status');
+    if (statusEl) {
+      statusEl.textContent = 'Training neural model...';
+      statusEl.className = 'text-[0.72rem] mt-2 text-yellow-400';
+    }
+    console.log(`Neuralook: sending ${_nlTrainingSamples.length} samples for training`);
+    _nlNeuralWs.send(JSON.stringify({
+      type: 'train',
+      samples: _nlTrainingSamples
+    }));
+  };
+
+  // Small delay to ensure WS is ready
+  setTimeout(doSend, 300);
+}
+
+// ── Neural Model — Inference Loop ──
+
+function _nlStartNeuralInference() {
+  _nlStopNeuralInference();
+  if (!_nlNeuralReady || !_nlNeuralWs || _nlNeuralWs.readyState !== 1) return;
+
+  _nlNeuralInferInterval = setInterval(() => {
+    if (!_nlTracking || !_nlNeuralMode) return;
+    if (!_nlNeuralWs || _nlNeuralWs.readyState !== 1) return;
+
+    const patches = _nlCaptureEyePatches();
+    if (!patches) return;
+
+    // Pack as 2048-byte binary: left(1024) + right(1024)
+    const buf = new Uint8Array(2048);
+    buf.set(patches.left, 0);
+    buf.set(patches.right, 1024);
+    _nlNeuralWs.send(buf.buffer);
+  }, 33); // ~30fps
+}
+
+function _nlStopNeuralInference() {
+  if (_nlNeuralInferInterval) {
+    clearInterval(_nlNeuralInferInterval);
+    _nlNeuralInferInterval = null;
+  }
+}
+
+// ── Neural Model — Mode Toggle ──
+
+function _nlSetModelMode(useNeural) {
+  _nlNeuralMode = useNeural;
+  _nlGazeBuffer = []; // clear smoothing buffer on switch
+
+  if (useNeural) {
+    // Pause WebGazer's gaze listener predictions
+    if (typeof webgazer !== 'undefined' && typeof webgazer.pause === 'function') {
+      webgazer.pause();
+    }
+    // Start neural inference
+    _nlConnectNeuralWs();
+    setTimeout(() => _nlStartNeuralInference(), 500);
+  } else {
+    // Stop neural inference, resume WebGazer
+    _nlStopNeuralInference();
+    if (_nlTracking && typeof webgazer !== 'undefined' && typeof webgazer.resume === 'function') {
+      webgazer.resume();
+    }
+  }
+
+  _nlRefreshStats();
 }

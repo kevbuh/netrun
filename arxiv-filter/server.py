@@ -238,6 +238,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 handle_websocket_upgrade_raw(self)
                 return
 
+            if self.path == '/ws/neuralook' and self.headers.get('Upgrade', '').lower() == 'websocket':
+                from neuralook_ws import handle_neuralook_ws
+                handle_neuralook_ws(self)
+                return
+
             mname = 'do_' + self.command
             if not hasattr(self, mname):
                 self.send_error(501, "Unsupported method (%r)" % self.command)
