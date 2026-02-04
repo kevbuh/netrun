@@ -1963,6 +1963,64 @@ async function _fetchWikipediaPreview(text, containerDiv) {
   }
 }
 
+function _isAuthorEligible(text) {
+  if (!text || text.length > 50) return false;
+  const words = text.trim().split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  // All words should start with uppercase (name pattern)
+  if (!words.every(w => /^[A-Z\u00C0-\u024F]/.test(w))) return false;
+  // No digits, no sentence punctuation
+  if (/[\d.!?;:,]/.test(text)) return false;
+  return true;
+}
+
+async function _fetchAuthorPreview(text, containerDiv) {
+  try {
+    const resp = await fetch('/api/author-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: text.trim() })
+    });
+    if (!resp.ok) { containerDiv.style.display = 'none'; return; }
+    const data = await resp.json();
+    if (data.error || !data.name) { containerDiv.style.display = 'none'; return; }
+
+    const fmtNum = (n) => {
+      if (!n) return '0';
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toLocaleString();
+    };
+
+    let html = '<div class="doc-author-result">';
+    html += `<div class="doc-author-name">${escapeHtml(data.name)}</div>`;
+    if (data.affiliations?.length) {
+      html += `<div class="doc-author-affil">${escapeHtml(data.affiliations[0])}</div>`;
+    }
+    html += `<div class="doc-author-stats">`;
+    if (data.hIndex) html += `<span>h-index: ${data.hIndex}</span>`;
+    if (data.paperCount) html += `<span>${fmtNum(data.paperCount)} papers</span>`;
+    if (data.citationCount) html += `<span>${fmtNum(data.citationCount)} citations</span>`;
+    html += `</div>`;
+    if (data.topPapers?.length) {
+      html += `<div class="doc-author-papers">`;
+      for (const p of data.topPapers) {
+        html += `<div class="doc-author-paper">${escapeHtml(p.title)}${p.year ? ` (${p.year})` : ''}${p.citationCount ? ` · ${fmtNum(p.citationCount)}` : ''}</div>`;
+      }
+      html += `</div>`;
+    }
+    if (data.url) {
+      html += `<a class="doc-wiki-link" href="${escapeHtml(data.url)}" target="_blank" rel="noopener">Semantic Scholar →</a>`;
+    }
+    html += '</div>';
+    containerDiv.innerHTML = html;
+    containerDiv.style.display = '';
+    _repositionSelectionPopup();
+  } catch (e) {
+    containerDiv.style.display = 'none';
+  }
+}
+
 function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
@@ -2281,6 +2339,284 @@ function _savePopupChatToHighlight(popup) {
   _popupChatMessages = [];
 }
 
+async function _findReferenceTextAsync(refNum) {
+  // Extract text from the last pages of the PDF to find the reference
+  if (typeof _pdfDoc === 'undefined' || !_pdfDoc) return null;
+  const total = _pdfDoc.numPages;
+  // Search last 5 pages (references are usually at the end)
+  const startPage = Math.max(1, total - 4);
+
+  let allText = '';
+  for (let p = startPage; p <= total; p++) {
+    try {
+      const page = await _pdfDoc.getPage(p);
+      const content = await page.getTextContent();
+      // Join items without extra spaces — PDF.js items already include trailing spaces
+      const pageText = content.items.map(item => item.str + (item.hasEOL ? '\n' : '')).join('');
+      allText += pageText + '\n';
+    } catch (e) { /* skip */ }
+  }
+
+  if (!allText) return null;
+
+  // Search for the reference pattern
+  const patterns = [
+    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([^\\[\\]]{10,300})`, 'i'),
+    new RegExp(`(?:^|\\s)${refNum}\\.\\s*([^\\n]{10,300})`, 'm'),
+    new RegExp(`\\(\\s*${refNum}\\s*\\)\\s*([^\\(\\)]{10,300})`, 'i'),
+    new RegExp(`(?:^|\\s)${refNum}\\s+([A-Z][a-z]+[^\\d]{10,200})`, 'm'),
+  ];
+
+  for (const pattern of patterns) {
+    const match = allText.match(pattern);
+    if (match) {
+      let refText = match[1].trim();
+      // Try to extract a quoted title
+      const titleMatch = refText.match(/"([^"]+)"|[\u201C]([^\u201D]+)[\u201D]|'([^']+)'/);
+      if (titleMatch) {
+        return titleMatch[1] || titleMatch[2] || titleMatch[3];
+      }
+      return refText.slice(0, 100).replace(/\s+/g, ' ');
+    }
+  }
+
+  // Broader fallback
+  const globalPatterns = [
+    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([A-Z][^\\[\\]]{10,200})`, 'g'),
+    new RegExp(`(?:^|\\n)\\s*${refNum}\\.\\s*([A-Z][^\\n]{10,200})`, 'gm'),
+  ];
+  for (const pattern of globalPatterns) {
+    const matches = [...allText.matchAll(pattern)];
+    if (matches.length > 0) {
+      return matches[matches.length - 1][1].trim().slice(0, 100).replace(/\s+/g, ' ');
+    }
+  }
+
+  return null;
+}
+
+function _showReferencePopup(refNum, anchorEl) {
+  // Remove any existing popup
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) existing.remove();
+  if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
+
+  _popupChatMessages = [];
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+
+  const popup = document.createElement('div');
+  popup.id = 'doc-chat-ask-float';
+  popup.className = 'doc-selection-popup';
+  popup.style.visibility = 'hidden';
+
+  // -- Reference info area (loading initially) --
+  const refInfo = document.createElement('div');
+  refInfo.className = 'doc-ref-info';
+  refInfo.innerHTML = `<div class="doc-ref-loading"><span class="spinner"></span> Looking up [${refNum}]…</div>`;
+  popup.appendChild(refInfo);
+
+  // -- Ask input + send button --
+  const askWrap = document.createElement('div');
+  askWrap.className = 'doc-ask-inline-wrap';
+  const askInput = document.createElement('input');
+  askInput.type = 'text';
+  askInput.placeholder = 'Ask about this reference…';
+  askInput.className = 'doc-ask-inline-input';
+  askInput.disabled = true; // Enabled once reference loads
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'doc-ask-inline-send';
+  sendBtn.innerHTML = '↑';
+  sendBtn.title = 'Send';
+  sendBtn.disabled = true;
+
+  // We'll store the context text for chat once the reference loads
+  let refContextText = `Reference [${refNum}]`;
+
+  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  sendBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatMessage(popup, refContextText);
+  });
+  askInput.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      _sendPopupChatMessage(popup, refContextText);
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      popup.remove();
+    }
+  });
+  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
+  // -- Inline chat area (hidden until first message) --
+  const chatArea = document.createElement('div');
+  chatArea.className = 'doc-popup-chat-area';
+  const chatMsgs = document.createElement('div');
+  chatMsgs.className = 'doc-popup-chat-messages';
+  chatArea.appendChild(chatMsgs);
+  const chatActions = document.createElement('div');
+  chatActions.className = 'doc-popup-chat-actions';
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.textContent = 'Open in sidebar';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatToSidebar();
+  });
+  const clearBtn = document.createElement('button');
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  clearBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _popupChatMessages = [];
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    chatMsgs.innerHTML = '';
+    chatArea.classList.remove('visible');
+    popup.classList.remove('has-chat');
+    _repositionSelectionPopup();
+  });
+  chatActions.appendChild(openSidebarBtn);
+  chatActions.appendChild(clearBtn);
+  chatArea.appendChild(chatActions);
+  popup.appendChild(chatArea);
+
+  // Ask input always at the bottom
+  askWrap.appendChild(askInput);
+  askWrap.appendChild(sendBtn);
+  popup.appendChild(askWrap);
+
+  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  document.body.appendChild(popup);
+
+  // Position above the anchor element
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const popupRect = popup.getBoundingClientRect();
+  let top = anchorRect.top - popupRect.height - 8;
+  const fitsAbove = top >= 4;
+  if (!fitsAbove) top = anchorRect.bottom + 8;
+  let left = anchorRect.left;
+  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+  if (left < 4) left = 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup.style.visibility = '';
+  popup._anchorTop = anchorRect.top;
+  popup._anchorBottom = anchorRect.bottom;
+  popup._anchorLeft = anchorRect.left;
+  popup._aboveSelection = fitsAbove;
+
+  // Fetch reference data
+  const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
+  if (_citationCache[cacheKey]) {
+    _renderRefInfo(refInfo, _citationCache[cacheKey], refNum, popup);
+    refContextText = _buildRefContext(_citationCache[cacheKey], refNum);
+    askInput.disabled = false;
+    sendBtn.disabled = false;
+    _repositionSelectionPopup();
+    setTimeout(() => askInput.focus(), 10);
+    return;
+  }
+
+  // Try sync search first (rendered pages), then async (extract from PDF directly)
+  const refText = typeof findReferenceText === 'function' ? findReferenceText(refNum) : null;
+
+  const doLookup = (query) => {
+    fetch('/api/citation-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        _citationCache[cacheKey] = data;
+        _renderRefInfo(refInfo, data, refNum, popup);
+        refContextText = _buildRefContext(data, refNum);
+        askInput.disabled = false;
+        sendBtn.disabled = false;
+        _repositionSelectionPopup();
+        setTimeout(() => askInput.focus(), 10);
+      })
+      .catch(() => {
+        // Show the extracted reference text even if the API is down
+        refInfo.innerHTML = `<div class="doc-ref-badge">[${refNum}]</div><div class="doc-ref-title" style="font-weight:400">${escapeHtml(query)}</div><div class="doc-ref-meta" style="color:var(--text-dimmer)">Semantic Scholar unavailable</div>`;
+        refContextText = `Reference [${refNum}]: ${query}`;
+        askInput.disabled = false;
+        sendBtn.disabled = false;
+        _repositionSelectionPopup();
+        setTimeout(() => askInput.focus(), 10);
+      });
+  };
+
+  const showNotFound = () => {
+    refInfo.innerHTML = `<div class="doc-ref-error">Could not find [${refNum}]</div>`;
+    askInput.disabled = false;
+    sendBtn.disabled = false;
+    _repositionSelectionPopup();
+  };
+
+  if (refText) {
+    doLookup(refText);
+  } else {
+    // Async fallback: extract text from last pages of PDF to find reference
+    _findReferenceTextAsync(refNum).then(asyncRefText => {
+      if (asyncRefText) {
+        doLookup(asyncRefText);
+      } else {
+        showNotFound();
+      }
+    }).catch(() => showNotFound());
+  }
+}
+
+function _renderRefInfo(container, data, refNum, popup) {
+  const fmtNum = (n) => {
+    if (!n) return '0';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toLocaleString();
+  };
+  const authors = data.authors?.length
+    ? data.authors.slice(0, 3).join(', ') + (data.authors.length > 3 ? ' et al.' : '')
+    : '';
+  const abstract = data.abstract ? (data.abstract.length > 150 ? data.abstract.slice(0, 150) + '…' : data.abstract) : '';
+
+  let html = `<div class="doc-ref-badge">[${refNum}]</div>`;
+  html += `<div class="doc-ref-title">${escapeHtml(data.title || 'Unknown')}</div>`;
+  if (authors || data.year) {
+    html += `<div class="doc-ref-meta">`;
+    if (authors) html += `<span>${escapeHtml(authors)}</span>`;
+    if (data.venue) html += `<span> · ${escapeHtml(data.venue)}</span>`;
+    if (data.year) html += `<span> · ${data.year}</span>`;
+    html += `</div>`;
+  }
+  if (abstract) html += `<div class="doc-ref-abstract">${escapeHtml(abstract)}</div>`;
+  html += `<div class="doc-ref-footer">`;
+  html += `<span class="doc-ref-cited">Cited by ${fmtNum(data.citationCount)}</span>`;
+  if (data.url) html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" target="_blank" rel="noopener">View paper →</a>`;
+  // Open in viewer if it has an arXiv ID
+  if (data.arxivId) {
+    html += `<a class="doc-ref-link" href="#view/${encodeURIComponent('https://arxiv.org/abs/' + data.arxivId)}" onclick="document.getElementById('doc-chat-ask-float')?.remove()">Open →</a>`;
+  }
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function _buildRefContext(data, refNum) {
+  let ctx = `Reference [${refNum}]`;
+  if (data.title) ctx += `: "${data.title}"`;
+  if (data.authors?.length) ctx += ` by ${data.authors.slice(0, 3).join(', ')}`;
+  if (data.year) ctx += ` (${data.year})`;
+  if (data.abstract) ctx += `\n\nAbstract: ${data.abstract.slice(0, 300)}`;
+  return ctx;
+}
+
 function _repositionSelectionPopup() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
@@ -2441,13 +2777,21 @@ function _buildSelectionPopup(sel, text, finalize) {
   preview.textContent = truncated;
   popup.appendChild(preview);
 
-  // -- Wikipedia preview (async, only for short terms) --
-  if (finalize && _isLookupEligible(capturedText)) {
-    const wikiDiv = document.createElement('div');
-    wikiDiv.className = 'doc-wiki-preview';
-    wikiDiv.style.display = 'none';
-    popup.appendChild(wikiDiv);
-    _fetchWikipediaPreview(capturedText, wikiDiv);
+  // -- Author preview or Wikipedia preview (async) --
+  if (finalize) {
+    if (_isAuthorEligible(capturedText)) {
+      const authorDiv = document.createElement('div');
+      authorDiv.className = 'doc-wiki-preview';
+      authorDiv.style.display = 'none';
+      popup.appendChild(authorDiv);
+      _fetchAuthorPreview(capturedText, authorDiv);
+    } else if (_isLookupEligible(capturedText)) {
+      const wikiDiv = document.createElement('div');
+      wikiDiv.className = 'doc-wiki-preview';
+      wikiDiv.style.display = 'none';
+      popup.appendChild(wikiDiv);
+      _fetchWikipediaPreview(capturedText, wikiDiv);
+    }
   }
 
   if (finalize) {

@@ -2185,6 +2185,49 @@ ch.postMessage({type:'preview-ready'});
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path == '/api/author-lookup':
+            # Look up an author on Semantic Scholar
+            try:
+                body = self._read_body()
+                query = body.get('query', '').strip()
+                if not query:
+                    self._send_json({'error': 'query required'}, 400)
+                    return
+                search_url = f'https://api.semanticscholar.org/graph/v1/author/search?query={urllib.request.quote(query)}&limit=1&fields=name,affiliations,paperCount,citationCount,hIndex,url'
+                req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    data = json.loads(resp.read())
+                authors = data.get('data', [])
+                if not authors:
+                    self._send_json({'error': 'not found'}, 404)
+                    return
+                author = authors[0]
+                # Fetch top papers
+                author_id = author.get('authorId')
+                top_papers = []
+                if author_id:
+                    try:
+                        papers_url = f'https://api.semanticscholar.org/graph/v1/author/{author_id}/papers?fields=title,year,citationCount&limit=3&sort=citationCount:desc'
+                        req2 = urllib.request.Request(papers_url, headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req2, timeout=10, context=ctx) as resp2:
+                            papers_data = json.loads(resp2.read())
+                        top_papers = [{'title': p.get('title',''), 'year': p.get('year'), 'citationCount': p.get('citationCount',0)} for p in papers_data.get('data', [])[:3]]
+                    except Exception:
+                        pass
+                result = {
+                    'name': author.get('name', ''),
+                    'affiliations': author.get('affiliations', []),
+                    'paperCount': author.get('paperCount'),
+                    'citationCount': author.get('citationCount'),
+                    'hIndex': author.get('hIndex'),
+                    'url': author.get('url'),
+                    'topPapers': top_papers,
+                }
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         elif self.path == '/api/doc-chat':
             try:
                 body = self._read_body()

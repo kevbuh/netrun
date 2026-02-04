@@ -1354,6 +1354,13 @@ function dismissCitationPopup() {
 function showCitationPopup(refNum, anchorEl) {
   dismissCitationPopup();
 
+  // Delegate to the selection-popup-style reference panel in views.js
+  if (typeof _showReferencePopup === 'function') {
+    _showReferencePopup(refNum, anchorEl);
+    return;
+  }
+
+  // Fallback: original citation popup
   const popup = document.createElement('div');
   popup.className = 'citation-popup';
   popup.innerHTML = `<div class="citation-popup-loading"><span class="spinner"></span> Looking up reference [${refNum}]...</div>`;
@@ -1361,12 +1368,10 @@ function showCitationPopup(refNum, anchorEl) {
   document.body.appendChild(popup);
   _citationPopup = popup;
 
-  // Position near the citation
   const rect = anchorEl.getBoundingClientRect();
   let left = rect.left;
   let top = rect.bottom + 8;
 
-  // Adjust if off screen
   setTimeout(() => {
     const popupRect = popup.getBoundingClientRect();
     if (left + popupRect.width > window.innerWidth - 16) {
@@ -1383,15 +1388,12 @@ function showCitationPopup(refNum, anchorEl) {
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
 
-  // Check cache first
   const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
   if (_citationCache[cacheKey]) {
     renderCitationPopup(popup, _citationCache[cacheKey]);
     return;
   }
 
-  // Try to find reference text in PDF and search by text
-  // (Semantic Scholar's reference order doesn't match paper's citation numbers)
   const refText = findReferenceText(refNum);
   if (refText) {
     fetch('/api/citation-lookup', {
@@ -1413,7 +1415,6 @@ function showCitationPopup(refNum, anchorEl) {
         }
       });
   } else {
-    // References section not loaded yet
     popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]<br><span class="text-[0.7rem] text-dimmer">Scroll to references section first</span></div>`;
   }
 }
@@ -1502,23 +1503,47 @@ function findReferenceText(refNum) {
 function setupCitationHovers(textLayerDiv) {
   // Find citation patterns in the text layer spans and mark them
   // PDF.js often splits citations so "[13]" becomes "[" + "13" + "]" in separate spans
-  const spans = textLayerDiv.querySelectorAll('span');
+  const spans = Array.from(textLayerDiv.querySelectorAll('span'));
 
-  spans.forEach(span => {
+  const markAsCitation = (span, num) => {
+    if (span.classList.contains('pdf-citation-ref')) return;
+    span.classList.add('pdf-citation-ref');
+    span.dataset.refNum = num;
+    span.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showCitationPopup(num, span);
+    });
+  };
+
+  spans.forEach((span, i) => {
     const text = span.textContent.trim();
 
-    // Check for standalone number (1-3 digits) - PDF.js often splits citations this way
+    // Standalone number (1-3 digits) — PDF.js splits "[13]" into "[" + "13" + "]"
     if (/^\d{1,3}$/.test(text)) {
-      span.classList.add('pdf-citation-ref');
-      span.dataset.refNum = text;
+      markAsCitation(span, text);
       return;
     }
 
-    // Also check for [number] pattern in case some PDFs keep it together
-    const citationMatch = text.match(/\[(\d+)\]/);
-    if (citationMatch && text.length <= 10) {
-      span.classList.add('pdf-citation-ref');
-      span.dataset.refNum = citationMatch[1];
+    // [number] kept together
+    const bracketMatch = text.match(/^\[(\d{1,3})\]$/);
+    if (bracketMatch) {
+      markAsCitation(span, bracketMatch[1]);
+      return;
+    }
+
+    // Number with comma/bracket: "35," or "35]" or ",35" or "[35" — common in citation lists like [35, 2, 5]
+    const commaMatch = text.match(/^[,\s\[\]]*(\d{1,3})[,\s\[\]]*$/);
+    if (commaMatch && text.length <= 6) {
+      markAsCitation(span, commaMatch[1]);
+      return;
+    }
+
+    // Span contains [number] somewhere (e.g. "[35]." or "text [7]")
+    const inlineMatch = text.match(/\[(\d{1,3})\]/);
+    if (inlineMatch && text.length <= 12) {
+      markAsCitation(span, inlineMatch[1]);
+      return;
     }
   });
 }

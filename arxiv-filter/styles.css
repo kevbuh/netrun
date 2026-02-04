@@ -2507,6 +2507,41 @@
       display: inline-block;
     }
     .doc-wiki-link:hover { text-decoration: underline; }
+    .doc-author-result {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .doc-author-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .doc-author-affil {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+    .doc-author-stats {
+      display: flex;
+      gap: 8px;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    .doc-author-stats span { white-space: nowrap; }
+    .doc-author-papers {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .doc-author-paper {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      line-height: 1.3;
+      padding-left: 6px;
+      border-left: 2px solid var(--accent);
+    }
     .doc-popup-chat-area {
       display: none;
       border-top: 1px solid var(--border-input);
@@ -2569,6 +2604,69 @@
       max-width: 400px;
       max-height: 480px;
     }
+    .doc-ref-info {
+      padding: 6px 8px;
+    }
+    .doc-ref-loading {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      padding: 4px 0;
+    }
+    .doc-ref-error {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      padding: 2px 0;
+    }
+    .doc-ref-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+    .doc-ref-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.35;
+      margin-bottom: 3px;
+    }
+    .doc-ref-meta {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+    .doc-ref-abstract {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+      padding: 4px 6px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    .doc-ref-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-input);
+    }
+    .doc-ref-cited {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .doc-ref-link {
+      font-size: 0.68rem;
+      color: var(--accent);
+      text-decoration: none;
+      margin-left: auto;
+    }
+    .doc-ref-link:hover { text-decoration: underline; }
+    .doc-ref-link + .doc-ref-link { margin-left: 0; }
     .topbar-scroll-span {
       scrollbar-width: none;
     }
@@ -2951,6 +3049,20 @@
     .pdf-citation-ref {
       color: var(--accent);
       border-radius: 2px;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      position: relative;
+      z-index: 10;
+    }
+    .pdf-citation-ref:hover {
+      text-decoration: underline;
+      background: rgba(180, 69, 26, 0.15);
+    }
+    .pdf-annot-link[data-dest] {
+      cursor: pointer !important;
+    }
+    .pdf-annot-link[data-dest]:hover {
+      background: rgba(180, 69, 26, 0.2) !important;
     }
     .pdf-citation-link {
       cursor: pointer !important;
