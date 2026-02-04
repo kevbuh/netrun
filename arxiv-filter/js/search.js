@@ -798,6 +798,10 @@ function _browseCreateFrame(id, url) {
   if (proxied !== url) {
     el.addEventListener('load', () => _browseUpdateAdBlockBadge(url), { once: true });
   }
+  // Inject right-click chat handler into iframe
+  if (typeof _injectIframeChatHandler === 'function') {
+    _injectIframeChatHandler(el);
+  }
   return el;
 }
 
@@ -1143,7 +1147,7 @@ function _browseBindFrame(tab) {
     _updateAudioIndicator();
   });
 
-  // Context menu for links and images (right-click)
+  // Context menu for links/images and chat panel (right-click)
   el.addEventListener('context-menu', (e) => {
     if (e.linkURL || e.srcURL) {
       e.preventDefault();
@@ -1153,16 +1157,26 @@ function _browseBindFrame(tab) {
         imgUrl: e.srcURL || '',
         mediaType: e.mediaType || ''
       });
+    } else {
+      // No link/image — show chat panel
+      e.preventDefault();
+      if (typeof _showFollowPanel === 'function') {
+        const popup = document.getElementById('doc-chat-ask-float');
+        if (popup) { popup.remove(); _lookupFollowMode = false; }
+        _showFollowPanel(e.x, e.y);
+      }
     }
   });
 
-  // Inject right-click handler after page loads (for context menu on links and images)
+  // Inject right-click handler after page loads
   el.addEventListener('dom-ready', () => {
     el.executeJavaScript(`
       (function(){
         if(window.__alphaContextMenuInjected)return;
         window.__alphaContextMenuInjected=true;
         document.addEventListener('contextmenu',function(e){
+          var tag = e.target.tagName;
+          if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable) return;
           var data = {x:e.screenX,y:e.screenY};
           var a=e.target.closest('a[href]');
           if(a){
@@ -1177,24 +1191,52 @@ function _browseBindFrame(tab) {
             data.imgUrl=img.src;
             data.imgAlt=img.alt||'';
           }
+          e.preventDefault();
+          e.stopPropagation();
           if(data.linkUrl||data.imgUrl){
-            e.preventDefault();
-            e.stopPropagation();
             console.log('__ALPHA_CONTEXT__'+JSON.stringify(data));
-            return false;
+          } else {
+            console.log('__ALPHA_CHAT__'+JSON.stringify(data));
           }
+          return false;
         },true);
         // Close menu when left-clicking anywhere in the page
         document.addEventListener('mousedown',function(e){
           if(e.button===0) console.log('__ALPHA_CLOSE_MENU__');
         },true);
+        // Throttled mousemove for follow panel
+        var _lastMove=0;
+        document.addEventListener('mousemove',function(e){
+          var now=Date.now();
+          if(now-_lastMove<16) return;
+          _lastMove=now;
+          console.log('__ALPHA_MOUSE__'+e.screenX+','+e.screenY);
+        });
       })();
     `).catch(()=>{});
   });
 
   // Listen for context menu via console message
   el.addEventListener('console-message', (e) => {
-    if (e.message === '__ALPHA_CLOSE_MENU__') {
+    if (e.message && e.message.startsWith('__ALPHA_MOUSE__')) {
+      if (!_lookupFollowMode) return;
+      const parts = e.message.slice('__ALPHA_MOUSE__'.length).split(',');
+      const x = parseInt(parts[0]) - window.screenX;
+      const y = parseInt(parts[1]) - window.screenY;
+      _lastMouseX = x;
+      _lastMouseY = y;
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (!popup) { _lookupFollowMode = false; return; }
+      const w = popup.offsetWidth;
+      const h = popup.offsetHeight;
+      let left = x;
+      let top = y - h;
+      if (top < 0) top = 0;
+      if (left + w > window.innerWidth) left = window.innerWidth - w;
+      if (left < 0) left = 0;
+      popup.style.left = left + 'px';
+      popup.style.top = top + 'px';
+    } else if (e.message === '__ALPHA_CLOSE_MENU__') {
       _hideBrowseContextMenu();
     } else if (e.message && e.message.startsWith('__ALPHA_CONTEXT__')) {
       try {
@@ -1202,6 +1244,18 @@ function _browseBindFrame(tab) {
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
         _showBrowseContextMenu(x, y, data);
+      } catch (err) {}
+    } else if (e.message && e.message.startsWith('__ALPHA_CHAT__')) {
+      // Right-click chat panel (no link/image)
+      try {
+        const data = JSON.parse(e.message.slice('__ALPHA_CHAT__'.length));
+        const x = data.x - window.screenX;
+        const y = data.y - window.screenY;
+        if (typeof _showFollowPanel === 'function') {
+          const popup = document.getElementById('doc-chat-ask-float');
+          if (popup) { popup.remove(); _lookupFollowMode = false; }
+          _showFollowPanel(x, y);
+        }
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {
       // Legacy support

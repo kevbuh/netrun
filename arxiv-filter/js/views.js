@@ -25,6 +25,12 @@ const ARXIV_CAT_NAMES = {
 };
 
 // ── Reader View (saved content) ──
+function _insertIframeWithOverlay(container, url) {
+  container.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+  const iframe = container.querySelector('iframe');
+  if (iframe) _injectIframeChatHandler(iframe);
+}
+
 function _tryRenderSavedContent(container, paper) {
   const url = paper.link;
   fetch(`/api/saved-content?url=${encodeURIComponent(url)}`)
@@ -33,11 +39,11 @@ function _tryRenderSavedContent(container, paper) {
       if (data && data.text && data.text.length > 50) {
         _renderReaderView(container, data);
       } else {
-        container.innerHTML = `<iframe src="${paper.link}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+        _insertIframeWithOverlay(container, paper.link);
       }
     })
     .catch(() => {
-      container.innerHTML = `<iframe src="${paper.link}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+      _insertIframeWithOverlay(container, paper.link);
     });
 }
 
@@ -3122,6 +3128,52 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+
+// Right-click anywhere opens follow panel
+function _handleContextMenuChat(e) {
+  if (localStorage.getItem('clickLookup') === 'off') return;
+  // Skip if right-clicking inside an existing popup
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (popup && popup.contains(e.target)) return;
+  // Skip inputs/textareas
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+  e.preventDefault();
+  if (popup) { popup.remove(); _lookupFollowMode = false; }
+  console.log('[chat] contextmenu at', e.clientX, e.clientY);
+  _showFollowPanel(e.clientX, e.clientY);
+}
+document.addEventListener('contextmenu', _handleContextMenuChat);
+
+// Inject right-click handler into same-origin iframes (browse proxy)
+function _injectIframeChatHandler(iframe) {
+  const tryInject = () => {
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      if (!doc) return;
+      if (doc._chatHandlerInjected) return;
+      doc._chatHandlerInjected = true;
+      doc.addEventListener('contextmenu', function(e) {
+        if (localStorage.getItem('clickLookup') === 'off') return;
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+        e.preventDefault();
+        // Convert iframe-relative coords to parent viewport coords
+        const rect = iframe.getBoundingClientRect();
+        const x = e.clientX + rect.left;
+        const y = e.clientY + rect.top;
+        const popup = document.getElementById('doc-chat-ask-float');
+        if (popup) { popup.remove(); _lookupFollowMode = false; }
+        _showFollowPanel(x, y);
+      });
+    } catch (e) {
+      // Cross-origin — can't inject
+    }
+  };
+  iframe.addEventListener('load', tryInject);
+  // Also try immediately in case already loaded
+  tryInject();
+}
 
 // Follow-mode chat panel: blank chat input that tracks cursor
 function _showFollowPanel(x, y) {
