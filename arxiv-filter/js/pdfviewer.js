@@ -276,16 +276,21 @@ function renderPdfPage(pageNum, wrapper) {
         container: textLayerDiv,
         viewport,
       });
-      renderTask.promise.catch(err => console.error('Text layer render error:', err));
 
-      // Annotation layer — renders internal links (citations, TOC, URLs)
-      page.getAnnotations().then(annotations => {
+      // Wait for both text layer AND annotations before setting up handlers
+      Promise.all([
+        renderTask.promise,
+        page.getAnnotations()
+      ]).then(([_, annotations]) => {
+        setupCitationHovers(textLayerDiv);
+
         if (!annotations.length) return;
         const annotLayer = document.createElement('div');
         annotLayer.className = 'pdf-annotation-layer';
         annotLayer.style.width = viewport.width + 'px';
         annotLayer.style.height = viewport.height + 'px';
         wrapper.appendChild(annotLayer);
+
         for (const annot of annotations) {
           if (annot.subtype !== 'Link') continue;
           const rect = annot.rect;
@@ -300,7 +305,8 @@ function renderPdfPage(pageNum, wrapper) {
           if (annot.dest) {
             link.href = '#';
             link.dataset.dest = typeof annot.dest === 'string' ? annot.dest : JSON.stringify(annot.dest);
-            link.addEventListener('click', _onPdfAnnotClick);
+            // Use smart handler that checks for citations at this position
+            link.addEventListener('click', (e) => _onSmartAnnotClick(e, link, textLayerDiv));
           } else if (annot.url) {
             link.href = annot.url;
             link.target = '_blank';
@@ -311,7 +317,7 @@ function renderPdfPage(pageNum, wrapper) {
           annotLayer.appendChild(link);
         }
         _renderPdfLinks();
-      });
+      }).catch(err => console.error('Text/annotation layer error:', err));
 
       // Highlight layer
       const hlLayer = document.createElement('div');
@@ -1039,6 +1045,8 @@ function cleanupPdfViewer() {
   pdfClearSearchHighlights();
   dismissHighlightPopup();
   dismissNotePopup();
+  dismissCitationPopup();
+  _citationCache = {};
 }
 
 // ── Search highlight: find text in PDF and overlay highlights ──
@@ -1053,13 +1061,13 @@ function pdfClearSearchHighlights() {
   _pdfSearchCurrentIdx = -1;
 }
 
-function _pdfSearchHighlightCurrent() {
+function _pdfSearchHighlightCurrent(noScroll = false) {
   // Hide all matches, show only the current one
   _pdfSearchMatches.forEach(m => m.overlays.forEach(o => o.style.display = 'none'));
   if (_pdfSearchCurrentIdx >= 0 && _pdfSearchCurrentIdx < _pdfSearchMatches.length) {
     const m = _pdfSearchMatches[_pdfSearchCurrentIdx];
     m.overlays.forEach(o => { o.style.display = ''; o.style.background = 'rgba(255,160,0,0.45)'; });
-    if (m.overlays[0]) m.overlays[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!noScroll && m.overlays[0]) m.overlays[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   _pdfSearchUpdateCounter();
 }
@@ -1245,7 +1253,7 @@ async function _ensureAllPagesRendered() {
   if (promises.length) await Promise.all(promises);
 }
 
-async function pdfSearchHighlight(query) {
+async function pdfSearchHighlight(query, noScroll = false) {
   pdfClearSearchHighlights();
   if (!query || query.length < 2 || !_pdfPagesContainer) { _pdfSearchUpdateCounter(); return; }
 
@@ -1267,7 +1275,7 @@ async function pdfSearchHighlight(query) {
 
   if (_pdfSearchMatches.length > 0) {
     _pdfSearchCurrentIdx = 0;
-    _pdfSearchHighlightCurrent();
+    _pdfSearchHighlightCurrent(noScroll);
   } else {
     _pdfSearchUpdateCounter();
   }
@@ -1323,10 +1331,306 @@ function _renderPdfLinks() {
 function _onPdfAnnotClick(e) {
   e.preventDefault();
   e.stopPropagation();
-  const raw = e.currentTarget.dataset.dest;
-  if (!raw || !_pdfDoc) return;
+  _navigateToPdfDest(e.currentTarget.dataset.dest);
+}
+
+// ── Mobile Touch Gestures ──
+
+function updatePdfZoomLabel() {
+  const label = document.getElementById('pdf-zoom-label');
+  if (label) {
+    label.textContent = Math.round(_pdfScale * 100) + '%';
+  }
+}
+
+// ── Citation Hover Popup ──
+let _citationPopup = null;
+let _citationHoverTimeout = null;
+let _citationCache = {}; // Cache looked up citations
+
+function dismissCitationPopup() {
+  clearTimeout(_citationHoverTimeout);
+  if (_citationPopup) {
+    _citationPopup.remove();
+    _citationPopup = null;
+  }
+}
+
+function showCitationPopup(refNum, anchorEl) {
+  dismissCitationPopup();
+
+  const popup = document.createElement('div');
+  popup.className = 'citation-popup';
+  popup.innerHTML = `<div class="citation-popup-loading"><span class="spinner"></span> Looking up reference [${refNum}]...</div>`;
+
+  document.body.appendChild(popup);
+  _citationPopup = popup;
+
+  // Position near the citation
+  const rect = anchorEl.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 8;
+
+  // Adjust if off screen
+  setTimeout(() => {
+    const popupRect = popup.getBoundingClientRect();
+    if (left + popupRect.width > window.innerWidth - 16) {
+      left = window.innerWidth - popupRect.width - 16;
+    }
+    if (left < 16) left = 16;
+    if (top + popupRect.height > window.innerHeight - 16) {
+      top = rect.top - popupRect.height - 8;
+    }
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  }, 0);
+
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+
+  // Use the arXiv ID to fetch references from Semantic Scholar API
+  const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
+  if (_citationCache[cacheKey]) {
+    renderCitationPopup(popup, _citationCache[cacheKey]);
+    return;
+  }
+
+  // Fetch paper references from Semantic Scholar
+  fetch('/api/paper-references', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ arxivId: _pdfArxivId, refNum: parseInt(refNum) })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      _citationCache[cacheKey] = data;
+      if (_citationPopup === popup) {
+        renderCitationPopup(popup, data);
+      }
+    })
+    .catch(err => {
+      console.error('[Citation] API error:', err);
+      // Fallback: try to find reference text in PDF
+      const refText = findReferenceText(refNum);
+      if (refText) {
+        fetch('/api/citation-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: refText })
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.error) throw new Error(data.error);
+            _citationCache[cacheKey] = data;
+            if (_citationPopup === popup) {
+              renderCitationPopup(popup, data);
+            }
+          })
+          .catch(() => {
+            if (_citationPopup === popup) {
+              popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]</div>`;
+            }
+          });
+      } else {
+        if (_citationPopup === popup) {
+          popup.innerHTML = `<div class="citation-popup-error">Could not find reference [${refNum}]</div>`;
+        }
+      }
+    });
+}
+
+function renderCitationPopup(popup, data) {
+  const fmtNum = (n) => {
+    if (!n) return '0';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toLocaleString();
+  };
+
+  const authors = data.authors?.slice(0, 3).join(', ') + (data.authors?.length > 3 ? ' et al.' : '');
+  const abstract = data.abstract ? (data.abstract.length > 200 ? data.abstract.slice(0, 200) + '...' : data.abstract) : '';
+
+  popup.innerHTML = `
+    <div class="citation-popup-title">${escapeHtml(data.title || 'Unknown')}</div>
+    <div class="citation-popup-meta">
+      ${authors ? `<span>${escapeHtml(authors)}</span>` : ''}
+      ${data.venue ? `<span>· ${escapeHtml(data.venue)}</span>` : ''}
+      ${data.year ? `<span>· ${data.year}</span>` : ''}
+    </div>
+    ${abstract ? `<div class="citation-popup-abstract">${escapeHtml(abstract)}</div>` : ''}
+    <div class="citation-popup-footer">
+      <span class="citation-popup-cited">Cited by ${fmtNum(data.citationCount)}</span>
+      ${data.url ? `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener" class="citation-popup-link">View paper →</a>` : ''}
+    </div>
+  `;
+}
+
+function findReferenceText(refNum) {
+  // Try to find the reference in the rendered PDF pages (fallback if API fails)
+  if (!_pdfPagesContainer) return null;
+
+  const textLayers = _pdfPagesContainer.querySelectorAll('.textLayer');
+  let inReferences = false;
+  let allText = '';
+
+  for (const layer of textLayers) {
+    const text = layer.textContent || '';
+    allText += text + '\n';
+
+    if (/references|bibliography/i.test(text)) {
+      inReferences = true;
+    }
+
+    if (inReferences) {
+      const patterns = [
+        new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([^\\[\\]]{10,300})`, 'i'),
+        new RegExp(`(?:^|\\s)${refNum}\\.\\s*([^\\n]{10,300})`, 'm'),
+        new RegExp(`\\(\\s*${refNum}\\s*\\)\\s*([^\\(\\)]{10,300})`, 'i'),
+        new RegExp(`(?:^|\\s)${refNum}\\s+([A-Z][a-z]+[^\\d]{10,200})`, 'm'),
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          let refText = match[1].trim();
+          const titleMatch = refText.match(/"([^"]+)"|"([^"]+)"|'([^']+)'/);
+          if (titleMatch) {
+            return titleMatch[1] || titleMatch[2] || titleMatch[3];
+          }
+          return refText.slice(0, 100).replace(/\s+/g, ' ');
+        }
+      }
+    }
+  }
+
+  // Fallback: search all text
+  const globalPatterns = [
+    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([A-Z][^\\[\\]]{10,200})`, 'g'),
+    new RegExp(`(?:^|\\n)\\s*${refNum}\\.\\s*([A-Z][^\\n]{10,200})`, 'gm'),
+  ];
+
+  for (const pattern of globalPatterns) {
+    const matches = [...allText.matchAll(pattern)];
+    if (matches.length > 0) {
+      const match = matches[matches.length - 1];
+      return match[1].trim().slice(0, 100).replace(/\s+/g, ' ');
+    }
+  }
+
+  return null;
+}
+
+function setupCitationHovers(textLayerDiv) {
+  // Find citation patterns in the text layer spans and mark them
+  // PDF.js often splits citations so "[13]" becomes "[" + "13" + "]" in separate spans
+  const spans = textLayerDiv.querySelectorAll('span');
+
+  spans.forEach(span => {
+    const text = span.textContent.trim();
+
+    // Check for standalone number (1-3 digits) - PDF.js often splits citations this way
+    if (/^\d{1,3}$/.test(text)) {
+      span.classList.add('pdf-citation-ref');
+      span.dataset.refNum = text;
+      return;
+    }
+
+    // Also check for [number] pattern in case some PDFs keep it together
+    const citationMatch = text.match(/\[(\d+)\]/);
+    if (citationMatch && text.length <= 10) {
+      span.classList.add('pdf-citation-ref');
+      span.dataset.refNum = citationMatch[1];
+    }
+  });
+}
+
+// Smart handler for annotation clicks - shows citation popup if it's a citation, otherwise navigates
+function _onSmartAnnotClick(e, link, textLayerDiv) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  // Find any citation pattern at this link's position
+  const linkRect = link.getBoundingClientRect();
+
+  // First check pre-marked citation spans
+  const citationSpans = textLayerDiv.querySelectorAll('.pdf-citation-ref');
+  for (const span of citationSpans) {
+    const spanRect = span.getBoundingClientRect();
+    // Check if link overlaps with this citation span (with some tolerance)
+    const tolerance = 5;
+    if (linkRect.left - tolerance < spanRect.right && linkRect.right + tolerance > spanRect.left &&
+        linkRect.top - tolerance < spanRect.bottom && linkRect.bottom + tolerance > spanRect.top) {
+      if (span.dataset.refNum) {
+        link.classList.add('pdf-citation-link');
+        showCitationPopup(span.dataset.refNum, link);
+        return;
+      }
+    }
+  }
+
+  // Fallback: check all spans at this position for citation pattern
+  const allSpans = textLayerDiv.querySelectorAll('span');
+  for (const span of allSpans) {
+    const spanRect = span.getBoundingClientRect();
+    const tolerance = 5;
+    // Check if link overlaps with this span
+    if (linkRect.left - tolerance < spanRect.right && linkRect.right + tolerance > spanRect.left &&
+        linkRect.top - tolerance < spanRect.bottom && linkRect.bottom + tolerance > spanRect.top) {
+      const text = span.textContent.trim();
+
+      // Check for standalone number (PDF.js splits "[13]" into "[" + "13" + "]")
+      if (/^\d{1,3}$/.test(text)) {
+        link.classList.add('pdf-citation-link');
+        showCitationPopup(text, link);
+        return;
+      }
+
+      // Also check for [number] pattern
+      const match = text.match(/\[(\d+)\]/);
+      if (match) {
+        link.classList.add('pdf-citation-link');
+        showCitationPopup(match[1], link);
+        return;
+      }
+    }
+  }
+
+  // Last resort: use document.elementsFromPoint to find text at click position
+  const clickX = e.clientX;
+  const clickY = e.clientY;
+  const elements = document.elementsFromPoint(clickX, clickY);
+  for (const el of elements) {
+    if (el.tagName === 'SPAN' && el.closest('.textLayer')) {
+      // PDF.js splits text - citation number might be in its own span (just "13" not "[13]")
+      const text = el.textContent.trim();
+
+      // Check if this span contains just a number (1-3 digits) - likely a citation
+      if (/^\d{1,3}$/.test(text)) {
+        link.classList.add('pdf-citation-link');
+        showCitationPopup(text, link);
+        return;
+      }
+
+      // Also check for [number] pattern in case some PDFs keep it together
+      const match = text.match(/\[(\d+)\]/);
+      if (match) {
+        link.classList.add('pdf-citation-link');
+        showCitationPopup(match[1], link);
+        return;
+      }
+    }
+  }
+
+  // Not a citation - navigate normally
+  _navigateToPdfDest(link.dataset.dest);
+}
+
+// Navigate to a PDF destination (used by annotation clicks)
+function _navigateToPdfDest(destRaw) {
+  if (!destRaw || !_pdfDoc) return;
   let dest;
-  try { dest = JSON.parse(raw); } catch { dest = raw; }
+  try { dest = JSON.parse(destRaw); } catch { dest = destRaw; }
   const resolve = typeof dest === 'string'
     ? _pdfDoc.getDestination(dest).then(d => d)
     : Promise.resolve(dest);
@@ -1341,11 +1645,9 @@ function _onPdfAnnotClick(e) {
   }).catch(() => {});
 }
 
-// ── Mobile Touch Gestures ──
-
-function updatePdfZoomLabel() {
-  const label = document.getElementById('pdf-zoom-label');
-  if (label) {
-    label.textContent = Math.round(_pdfScale * 100) + '%';
+// Close citation popup when clicking outside
+document.addEventListener('click', (e) => {
+  if (_citationPopup && !e.target.closest('.citation-popup') && !e.target.closest('.pdf-citation-ref')) {
+    dismissCitationPopup();
   }
-}
+}, true);

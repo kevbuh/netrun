@@ -733,7 +733,8 @@ async function fetchPaperInsights(url) {
     html += '</div>';
     el.innerHTML = html;
 
-    // Add hover handler for PDF highlighting
+    // Add hover handler for PDF highlighting (no scroll on hover, only highlight)
+    // Add click handler to scroll to the author in the PDF
     if (hasAuthors && window._insightAuthors) {
       const authorsList = document.getElementById('paper-authors-list');
       if (authorsList) {
@@ -742,9 +743,13 @@ async function fetchPaperInsights(url) {
           const author = window._insightAuthors[idx];
           if (!author) return;
           card.addEventListener('mouseenter', () => {
-            if (author.name) pdfSearchHighlight(author.name);
+            if (author.name) pdfSearchHighlight(author.name, true); // noScroll=true
           });
           card.addEventListener('mouseleave', pdfClearSearchHighlights);
+          card.addEventListener('click', () => {
+            if (author.name) pdfSearchHighlight(author.name, false); // scroll to author
+          });
+          card.style.cursor = 'pointer';
         });
       }
     }

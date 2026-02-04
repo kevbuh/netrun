@@ -2035,6 +2035,92 @@ ch.postMessage({type:'preview-ready'});
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path == '/api/citation-lookup':
+            # Look up a paper by title on Semantic Scholar
+            try:
+                body = self._read_body()
+                query = body.get('query', '').strip()
+                if not query:
+                    self._send_json({'error': 'query required'}, 400)
+                    return
+                # Search Semantic Scholar
+                search_url = f'https://api.semanticscholar.org/graph/v1/paper/search?query={urllib.request.quote(query)}&limit=1&fields=title,authors,year,abstract,citationCount,url,venue,externalIds'
+                req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    data = json.loads(resp.read())
+                papers = data.get('data', [])
+                if not papers:
+                    self._send_json({'error': 'not found'}, 404)
+                    return
+                paper = papers[0]
+                result = {
+                    'title': paper.get('title', ''),
+                    'authors': [a.get('name', '') for a in paper.get('authors', [])[:5]],
+                    'year': paper.get('year'),
+                    'abstract': paper.get('abstract', '')[:500] if paper.get('abstract') else None,
+                    'citationCount': paper.get('citationCount'),
+                    'venue': paper.get('venue'),
+                    'url': paper.get('url'),
+                    'arxivId': paper.get('externalIds', {}).get('ArXiv'),
+                }
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/paper-references':
+            # Get references for a paper by arXiv ID
+            try:
+                body = self._read_body()
+                arxiv_id = body.get('arxivId', '').strip()
+                ref_num = body.get('refNum', 0)
+                if not arxiv_id:
+                    self._send_json({'error': 'arxivId required'}, 400)
+                    return
+                if not ref_num or ref_num < 1:
+                    self._send_json({'error': 'valid refNum required'}, 400)
+                    return
+
+                # Fetch paper references from Semantic Scholar
+                # References are 0-indexed in the API response, but 1-indexed in papers
+                api_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds'
+                req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                    data = json.loads(resp.read())
+
+                references = data.get('references', [])
+                if not references:
+                    self._send_json({'error': 'no references found'}, 404)
+                    return
+
+                # Reference numbers in papers are 1-indexed
+                ref_index = ref_num - 1
+                if ref_index < 0 or ref_index >= len(references):
+                    self._send_json({'error': f'reference {ref_num} not found (paper has {len(references)} references)'}, 404)
+                    return
+
+                ref = references[ref_index]
+                if not ref:
+                    self._send_json({'error': f'reference {ref_num} has no data'}, 404)
+                    return
+
+                result = {
+                    'title': ref.get('title', ''),
+                    'authors': [a.get('name', '') for a in ref.get('authors', [])[:5]] if ref.get('authors') else [],
+                    'year': ref.get('year'),
+                    'abstract': ref.get('abstract', '')[:500] if ref.get('abstract') else None,
+                    'citationCount': ref.get('citationCount'),
+                    'venue': ref.get('venue'),
+                    'url': ref.get('url'),
+                    'arxivId': ref.get('externalIds', {}).get('ArXiv') if ref.get('externalIds') else None,
+                }
+                self._send_json(result)
+            except urllib.error.HTTPError as e:
+                self._send_json({'error': f'Semantic Scholar API error: {e.code}'}, 502)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+
         elif self.path == '/api/doc-chat':
             try:
                 body = self._read_body()
