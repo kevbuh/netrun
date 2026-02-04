@@ -2390,7 +2390,7 @@ ch.postMessage({type:'preview-ready'});
                     return
 
                 if is_vision:
-                    model = "deepseek-ocr"
+                    model = "qwen3-vl:8b"
                     system_msg = (
                         "You are a helpful visual analysis assistant. The user has taken a screenshot "
                         "and wants to ask about it. Describe what you see and answer their questions "
@@ -2404,13 +2404,16 @@ ch.postMessage({type:'preview-ready'});
                         ollama_messages.append(msg)
                 else:
                     model = "qwen2.5:3b"
-                    truncated_ctx = context[:12000]
-                    system_msg = (
-                        "You are a helpful research assistant. The user is reading a document. "
-                        "Answer their questions based ONLY on the document text below. "
-                        "Do not make up information that is not in the document.\n\n"
-                        "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
-                    )
+                    truncated_ctx = context[:12000] if context else ''
+                    if truncated_ctx:
+                        system_msg = (
+                            "You are a helpful research assistant. The user is reading a document. "
+                            "Answer their questions based ONLY on the document text below. "
+                            "Do not make up information that is not in the document.\n\n"
+                            "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
+                        )
+                    else:
+                        system_msg = "You are a helpful assistant."
                     ollama_messages = [{"role": "system", "content": system_msg}] + messages
 
                 payload = json.dumps({
