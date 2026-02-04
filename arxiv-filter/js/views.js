@@ -3623,6 +3623,7 @@ const _lookupCommands = [
   { name: 'model', desc: 'Change chat model', _special: true },
   { name: 'search', desc: 'Web search in new tab', hasArgs: true },
   { name: 'links', desc: 'List all links on page', _special: true },
+  { name: 'define', desc: 'Look up a word definition', hasArgs: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -4018,6 +4019,62 @@ async function _doLookupLinks(popup) {
   _repositionSelectionPopup();
 }
 
+// ── /define command — dictionary lookup ──
+async function _doLookupDefine(popup, word) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _popupChatMessages.push({ role: 'user', content: word, _display: 'Define: ' + word });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  try {
+    const resp = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word.trim()));
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    if (!resp.ok) {
+      _popupChatMessages[aiIdx].content = 'No definition found for "' + word.trim() + '".';
+      _renderPopupChat(popup, true);
+      if (input) input.focus();
+      _repositionSelectionPopup();
+      return;
+    }
+    const data = await resp.json();
+    let md = '';
+    const entry = data[0];
+    if (entry) {
+      const phonetic = entry.phonetics?.find(p => p.text)?.text || '';
+      md += '**' + entry.word + '**' + (phonetic ? '  ' + phonetic : '') + '\n\n';
+      for (const meaning of (entry.meanings || [])) {
+        md += '*' + meaning.partOfSpeech + '*\n';
+        for (const def of (meaning.definitions || []).slice(0, 3)) {
+          md += '- ' + def.definition + '\n';
+          if (def.example) md += '  *"' + def.example + '"*\n';
+        }
+        const syns = (meaning.synonyms || []).slice(0, 5);
+        if (syns.length) md += '  Synonyms: ' + syns.join(', ') + '\n';
+        md += '\n';
+      }
+    }
+    _popupChatMessages[aiIdx].content = md.trim() || 'No definitions available.';
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Failed to look up definition: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+  if (input) input.focus();
+  _repositionSelectionPopup();
+}
+
 function _lookupExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -4032,6 +4089,7 @@ function _lookupExecCommand(popup, text) {
       if (cmdName === 'user') { _doLookupUserSearch(popup, args); return true; }
       if (cmdName === 'notes') { _doLookupNoteSearch(popup, args); return true; }
       if (cmdName === 'search') { _doLookupSearchNewTab(popup, args); return true; }
+      if (cmdName === 'define') { _doLookupDefine(popup, args); return true; }
     }
     if (cmd && cmd.fn) { cmd.fn(); _lookupTrackMode = false; popup.remove(); return true; }
   }
