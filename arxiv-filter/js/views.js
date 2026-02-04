@@ -2095,6 +2095,192 @@ function _sendPopupChatToSidebar() {
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 }
 
+function _saveChatAsHighlight(popup) {
+  if (!_popupChatMessages.length) return;
+  const range = popup._savedRange;
+  if (!range || typeof createHighlight !== 'function') return;
+
+  const text = range.toString().trim();
+  if (!text) return;
+
+  const ancestor = range.commonAncestorContainer;
+  const textLayerEl = ancestor.closest
+    ? ancestor.closest('.textLayer')
+    : ancestor.parentElement?.closest('.textLayer');
+  if (!textLayerEl) return;
+
+  const wrapper = textLayerEl.closest('.pdf-page-wrapper');
+  if (!wrapper) return;
+
+  const pageNum = parseInt(wrapper.dataset.page);
+  const wrapperRect = wrapper.getBoundingClientRect();
+
+  const clientRects = range.getClientRects();
+  const rects = [];
+  for (let i = 0; i < clientRects.length; i++) {
+    const cr = clientRects[i];
+    if (cr.width < 1 || cr.height < 1) continue;
+    rects.push({
+      x: (cr.left - wrapperRect.left) / _pdfScale,
+      y: (cr.top - wrapperRect.top) / _pdfScale,
+      w: cr.width / _pdfScale,
+      h: cr.height / _pdfScale,
+    });
+  }
+  if (!rects.length) return;
+
+  const highlight = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    page: pageNum,
+    color: 'blue',
+    rects,
+    text,
+    note: '',
+    chat: _popupChatMessages.map(m => ({ role: m.role, content: m.content })),
+    createdAt: new Date().toISOString(),
+  };
+
+  _pdfHighlights.push(highlight);
+  savePdfHighlights();
+  renderHighlightRects(wrapper, highlight);
+  renderHighlightsPanel();
+
+  _popupChatMessages = [];
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+  popup.remove();
+  window.getSelection()?.removeAllRanges();
+}
+
+function _showChatHighlightPopup(e, hl) {
+  // Remove any existing popup
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) existing.remove();
+  dismissNotePopup();
+
+  _popupChatMessages = (hl.chat || []).map(m => ({ role: m.role, content: m.content }));
+
+  const popup = document.createElement('div');
+  popup.id = 'doc-chat-ask-float';
+  popup.className = 'doc-selection-popup has-chat';
+  popup._chatHighlight = hl;
+
+  // Context quote
+  const chatArea = document.createElement('div');
+  chatArea.className = 'doc-popup-chat-area visible';
+  const chatContext = document.createElement('div');
+  chatContext.className = 'doc-popup-chat-context';
+  const contextTrunc = hl.text.length > 120 ? hl.text.slice(0, 120) + '…' : hl.text;
+  chatContext.textContent = contextTrunc;
+  chatArea.appendChild(chatContext);
+
+  const chatMsgs = document.createElement('div');
+  chatMsgs.className = 'doc-popup-chat-messages';
+  chatArea.appendChild(chatMsgs);
+
+  // Actions
+  const chatActions = document.createElement('div');
+  chatActions.className = 'doc-popup-chat-actions';
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.textContent = 'Open in sidebar';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatToSidebar();
+  });
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  deleteBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    deleteHighlight(hl.id);
+    _popupChatMessages = [];
+    popup.remove();
+  });
+  chatActions.appendChild(openSidebarBtn);
+  chatActions.appendChild(deleteBtn);
+  chatArea.appendChild(chatActions);
+  popup.appendChild(chatArea);
+
+  // Ask input for follow-ups
+  const askWrap = document.createElement('div');
+  askWrap.className = 'doc-ask-inline-wrap';
+  const askInput = document.createElement('input');
+  askInput.type = 'text';
+  askInput.placeholder = 'Ask follow-up…';
+  askInput.className = 'doc-ask-inline-input';
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'doc-ask-inline-send';
+  sendBtn.innerHTML = '↑';
+  sendBtn.title = 'Send';
+  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  sendBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatMessage(popup, hl.text);
+  });
+  askInput.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      _sendPopupChatMessage(popup, hl.text);
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _savePopupChatToHighlight(popup);
+      popup.remove();
+    }
+  });
+  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  askWrap.appendChild(askInput);
+  askWrap.appendChild(sendBtn);
+  popup.appendChild(askWrap);
+
+  // Prevent popup from being dismissed by the selection mousedown handler
+  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
+  document.body.appendChild(popup);
+
+  // Render loaded messages
+  _renderPopupChat(popup, true);
+
+  // Position above the highlight rects
+  const hlRects = document.querySelectorAll(`.pdf-highlight-rect[data-highlight-id="${hl.id}"]`);
+  let hlTop = Infinity, hlBottom = -Infinity, hlLeft = Infinity;
+  hlRects.forEach(r => {
+    const br = r.getBoundingClientRect();
+    if (br.top < hlTop) hlTop = br.top;
+    if (br.bottom > hlBottom) hlBottom = br.bottom;
+    if (br.left < hlLeft) hlLeft = br.left;
+  });
+  // Fallback to click position if rects not found
+  if (hlTop === Infinity) { hlTop = e.clientY; hlBottom = e.clientY; hlLeft = e.clientX; }
+
+  const popupRect = popup.getBoundingClientRect();
+  let top = hlTop - popupRect.height - 8;
+  const fitsAbove = top >= 4;
+  if (!fitsAbove) top = hlBottom + 8;
+  let left = hlLeft;
+  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+  if (left < 4) left = 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup._anchorTop = hlTop;
+  popup._anchorBottom = hlBottom;
+  popup._anchorLeft = hlLeft;
+  popup._aboveSelection = fitsAbove;
+
+  setTimeout(() => askInput.focus(), 10);
+}
+
+function _savePopupChatToHighlight(popup) {
+  const hl = popup && popup._chatHighlight;
+  if (hl && _popupChatMessages.length) {
+    hl.chat = _popupChatMessages.map(m => ({ role: m.role, content: m.content }));
+    savePdfHighlights();
+  }
+  _popupChatMessages = [];
+}
+
 function _repositionSelectionPopup() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
@@ -2217,6 +2403,8 @@ function _buildSelectionPopup(sel, text, finalize) {
       const ancestor = range.commonAncestorContainer;
       const inTextLayer = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
       if (inTextLayer && typeof createHighlight === 'function') {
+        popup._inTextLayer = true;
+        popup._savedRange = range.cloneRange();
         const dotsWrap = document.createElement('div');
         dotsWrap.className = 'doc-hl-dots';
         const colors = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS : [
@@ -2262,45 +2450,12 @@ function _buildSelectionPopup(sel, text, finalize) {
     _fetchWikipediaPreview(capturedText, wikiDiv);
   }
 
-  // -- Ask input + send button --
   if (finalize) {
     // Reset popup chat state for new selection
     _popupChatMessages = [];
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
-    const askWrap = document.createElement('div');
-    askWrap.className = 'doc-ask-inline-wrap';
-    const askInput = document.createElement('input');
-    askInput.type = 'text';
-    askInput.placeholder = 'Ask about this…';
-    askInput.className = 'doc-ask-inline-input';
-    const sendBtn = document.createElement('button');
-    sendBtn.className = 'doc-ask-inline-send';
-    sendBtn.innerHTML = '↑';
-    sendBtn.title = 'Send';
-    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    sendBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _sendPopupChatMessage(popup, capturedText);
-    });
-    askInput.addEventListener('keydown', (ev) => {
-      ev.stopPropagation();
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        _sendPopupChatMessage(popup, capturedText);
-      }
-      if (ev.key === 'Escape') {
-        ev.preventDefault();
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        popup.remove();
-      }
-    });
-    askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    askWrap.appendChild(askInput);
-    askWrap.appendChild(sendBtn);
-    popup.appendChild(askWrap);
-
-    // -- Inline chat area (hidden until first message) --
+    // -- Inline chat area (hidden until first message, above the input) --
     const chatArea = document.createElement('div');
     chatArea.className = 'doc-popup-chat-area';
     const chatContext = document.createElement('div');
@@ -2333,9 +2488,59 @@ function _buildSelectionPopup(sel, text, finalize) {
       _repositionSelectionPopup();
     });
     chatActions.appendChild(openSidebarBtn);
+    // "Save chat" — only for PDF text layer (creates a highlight with chat attached)
+    const saveChatBtn = document.createElement('button');
+    saveChatBtn.textContent = 'Save chat';
+    saveChatBtn.style.display = 'none';
+    saveChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    saveChatBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _saveChatAsHighlight(popup);
+    });
+    chatActions.appendChild(saveChatBtn);
+    // Show "Save chat" only when in PDF text layer — checked after popup is built
+    popup._saveChatBtn = saveChatBtn;
     chatActions.appendChild(clearBtn);
     chatArea.appendChild(chatActions);
     popup.appendChild(chatArea);
+
+    // -- Ask input + send button (always at the bottom) --
+    const askWrap = document.createElement('div');
+    askWrap.className = 'doc-ask-inline-wrap';
+    const askInput = document.createElement('input');
+    askInput.type = 'text';
+    askInput.placeholder = 'Ask about this…';
+    askInput.className = 'doc-ask-inline-input';
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'doc-ask-inline-send';
+    sendBtn.innerHTML = '↑';
+    sendBtn.title = 'Send';
+    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    sendBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _sendPopupChatMessage(popup, capturedText);
+    });
+    askInput.addEventListener('keydown', (ev) => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        _sendPopupChatMessage(popup, capturedText);
+      }
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        popup.remove();
+      }
+    });
+    askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    askWrap.appendChild(askInput);
+    askWrap.appendChild(sendBtn);
+    popup.appendChild(askWrap);
+  }
+
+  // Show "Save chat" button if we're in a PDF text layer
+  if (popup._inTextLayer && popup._saveChatBtn) {
+    popup._saveChatBtn.style.display = '';
   }
 
   document.body.appendChild(popup);
@@ -2431,7 +2636,8 @@ document.addEventListener('mousedown', function(e) {
   const btn = document.getElementById('doc-chat-ask-float');
   if (btn && !btn.contains(e.target)) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    _popupChatMessages = [];
+    // Auto-save chat to highlight if this was a chat highlight popup
+    _savePopupChatToHighlight(btn);
     btn.remove();
   }
 });

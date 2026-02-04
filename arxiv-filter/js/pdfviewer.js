@@ -570,6 +570,12 @@ function showNotePopup(e, highlightId) {
   const hl = _pdfHighlights.find(h => h.id === highlightId);
   if (!hl) return;
 
+  // If highlight has saved chat, show chat popup instead
+  if (hl.chat && hl.chat.length && typeof _showChatHighlightPopup === 'function') {
+    _showChatHighlightPopup(e, hl);
+    return;
+  }
+
   const colorObj = HIGHLIGHT_COLORS.find(c => c.name === hl.color) || HIGHLIGHT_COLORS[0];
   const snippet = hl.text.length > 60 ? hl.text.slice(0, 60) + '…' : hl.text;
 
