@@ -27,6 +27,14 @@ let _nlPredictionsThisSec = 0; // predictions in the current 1-second window
 let _nlPredictionRate = 0;     // predictions per second (updated each second)
 let _nlStatsInterval = null;   // interval for refreshing the stats card
 let _nlRateInterval = null;    // 1-second interval for computing prediction rate
+let _nlCameraOn = false;       // whether the camera preview is active
+
+// Time-series history for graphs (rolling window, pushed every 500ms)
+const _NL_GRAPH_LEN = 60;
+let _nlHistGazeX = [];
+let _nlHistGazeY = [];
+let _nlHistJitter = [];
+let _nlHistRate = [];
 
 function openNeuralook() {
   hideAllViews();
@@ -45,74 +53,104 @@ function renderNeuralookView() {
   const statusColor = _nlTracking ? '#4ade80' : _nlWebgazerReady ? '#fbbf24' : '#6b7280';
   const statusText = _nlTracking ? 'Tracking active' : _nlWebgazerReady ? 'Ready — not tracking' : 'Not started';
 
-  let accuracyHtml = '';
-  if (_nlAccuracy !== null) {
-    const px = Math.round(_nlAccuracy);
-    const label = px < 80 ? 'Good' : px < 150 ? 'Fair' : 'Poor';
-    const labelColor = px < 80 ? '#4ade80' : px < 150 ? '#fbbf24' : '#f87171';
-    accuracyHtml = `<div class="text-[0.78rem] text-muted mt-2">Accuracy: <strong style="color:${labelColor}">${px}px — ${label}</strong></div>`;
-  }
-
   container.innerHTML = `
-    <h2 class="text-[1.1rem] font-semibold text-white_ mb-1">Neuralook</h2>
-    <p class="text-dim text-[0.82rem] mb-6">Webcam-based eye tracking powered by WebGazer.js</p>
-
-    <div class="grid gap-6" style="max-width:520px">
-      <!-- Status -->
-      <div class="bg-card border border-border-card rounded-xl p-4">
-        <div class="flex items-center gap-2 mb-3">
-          <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block"></span>
-          <span class="text-[0.82rem] text-primary font-medium">${statusText}</span>
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;height:calc(100vh - 60px);box-sizing:border-box;">
+      <!-- Left panel — Controls -->
+      <div class="flex flex-col gap-3">
+        <!-- Status -->
+        <div class="bg-card border border-border-card rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block"></span>
+            <span class="text-[0.82rem] text-primary font-medium">${statusText}</span>
+          </div>
+          <div id="nl-error-msg" class="text-[0.75rem] text-red-400 mb-2" style="display:none"></div>
+          <div class="flex flex-col gap-2">
+            <button onclick="_nlStartCalibration()" class="px-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full" ${_nlCalibrating ? 'disabled style="opacity:0.5"' : ''}>
+              ${_nlCalibrating ? 'Calibrating...' : _nlWebgazerReady ? 'Recalibrate' : 'Start Calibration'}
+            </button>
+            <button onclick="_nlToggleTracking()" class="px-4 py-2 rounded-lg border border-border-input text-[0.82rem] font-medium cursor-pointer transition-colors w-full ${_nlTracking ? 'bg-accent text-white border-accent hover:bg-accent-hover' : 'bg-card text-primary hover:border-accent hover:text-accent'}" ${!_nlWebgazerReady ? 'disabled style="opacity:0.5"' : ''}>
+              ${trackingLabel}
+            </button>
+          </div>
         </div>
-        ${accuracyHtml}
-        <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black mb-3" style="width:240px;height:180px;display:flex;align-items:center;justify-content:center;">
-          <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">Camera starts on calibration</span>
-        </div>
-        <div id="nl-error-msg" class="text-[0.75rem] text-red-400 mb-2" style="display:none"></div>
-        <div class="flex gap-2 flex-wrap">
-          <button onclick="_nlStartCalibration()" class="px-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors" ${_nlCalibrating ? 'disabled style="opacity:0.5"' : ''}>
-            ${_nlCalibrating ? 'Calibrating...' : _nlWebgazerReady ? 'Recalibrate' : 'Start Calibration'}
-          </button>
-          <button onclick="_nlToggleTracking()" class="px-4 py-2 rounded-lg border border-border-input text-[0.82rem] font-medium cursor-pointer transition-colors ${_nlTracking ? 'bg-accent text-white border-accent hover:bg-accent-hover' : 'bg-card text-primary hover:border-accent hover:text-accent'}" ${!_nlWebgazerReady ? 'disabled style="opacity:0.5"' : ''}>
-            ${trackingLabel}
-          </button>
-        </div>
-      </div>
 
-      <!-- Info -->
-      <div class="bg-card border border-border-card rounded-xl p-4">
-        <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
-        <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
-          <li>Click <strong>Start Calibration</strong> — dots appear one at a time in fullscreen (randomized order)</li>
-          <li>Stare at each dot and click it 5 times — continuous gaze data is recorded while you look</li>
-          <li>After all 13 points, a quick accuracy test measures tracking quality</li>
-          <li>Click <strong>Start Tracking</strong> to show the gaze dot across all views</li>
-          <li>Return here and click <strong>Stop Tracking</strong> to hide the dot</li>
-        </ol>
-      </div>
+        <!-- Gaze dot appearance -->
+        <div class="bg-card border border-border-card rounded-xl p-4">
+          <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Gaze Dot</h3>
+          <div class="flex items-center gap-3">
+            <label class="text-[0.78rem] text-muted">Color</label>
+            <input type="color" id="nl-dot-color" value="#ef4444" onchange="_nlUpdateDotColor(this.value)" class="w-8 h-8 rounded cursor-pointer border border-border-input bg-transparent p-0">
+          </div>
+          <div class="flex items-center gap-3 mt-2">
+            <label class="text-[0.78rem] text-muted">Size</label>
+            <input type="range" id="nl-dot-size" min="8" max="40" value="20" oninput="_nlUpdateDotSize(this.value)" class="flex-1">
+            <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-dot-size-label">20px</span>
+          </div>
+        </div>
 
-      <!-- Gaze dot appearance -->
-      <div class="bg-card border border-border-card rounded-xl p-4">
-        <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Gaze Dot</h3>
-        <div class="flex items-center gap-3">
-          <label class="text-[0.78rem] text-muted">Color</label>
-          <input type="color" id="nl-dot-color" value="#b4451a" onchange="_nlUpdateDotColor(this.value)" class="w-8 h-8 rounded cursor-pointer border border-border-input bg-transparent p-0">
-          <label class="text-[0.78rem] text-muted ml-4">Size</label>
-          <input type="range" id="nl-dot-size" min="8" max="40" value="20" oninput="_nlUpdateDotSize(this.value)" class="w-24">
-          <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-dot-size-label">20px</span>
+        <!-- How it works -->
+        <div class="bg-card border border-border-card rounded-xl p-4">
+          <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
+          <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
+            <li>Click <strong>Start Calibration</strong> — 13 dots, one at a time</li>
+            <li>Stare at each dot and click it 5 times</li>
+            <li>Accuracy test runs automatically after</li>
+            <li><strong>Start Tracking</strong> to show the gaze dot</li>
+          </ol>
         </div>
       </div>
 
-      <!-- Model Info -->
-      <div class="bg-card border border-border-card rounded-xl p-4">
-        <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
-        <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
+      <!-- Center panel — Camera + Graphs row, then Model Info -->
+      <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+        <!-- Top row: Camera + Graphs side by side -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;">
+          <!-- Camera -->
+          <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;min-height:0;">
+            <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;">
+              <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
+            </div>
+            <div class="flex justify-center mt-2">
+              <button id="nl-camera-toggle" onclick="_nlToggleCamera()" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.78rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
+                ${_nlCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
+              </button>
+            </div>
+          </div>
+
+          <!-- Graphs -->
+          <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden;">
+            <h3 class="text-[0.78rem] font-semibold text-primary" style="flex-shrink:0;">Live Graphs</h3>
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;">
+              <div style="flex:1;min-height:0;">
+                <div class="text-[0.68rem] text-dimmer mb-0.5">Gaze X <span class="text-muted" style="float:right" id="nl-graph-gaze-x-val"></span></div>
+                <canvas id="nl-graph-gaze-x" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
+              </div>
+              <div style="flex:1;min-height:0;">
+                <div class="text-[0.68rem] text-dimmer mb-0.5">Gaze Y <span class="text-muted" style="float:right" id="nl-graph-gaze-y-val"></span></div>
+                <canvas id="nl-graph-gaze-y" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
+              </div>
+              <div style="flex:1;min-height:0;">
+                <div class="text-[0.68rem] text-dimmer mb-0.5">Jitter <span class="text-muted" style="float:right" id="nl-graph-jitter-val"></span></div>
+                <canvas id="nl-graph-jitter" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
+              </div>
+              <div style="flex:1;min-height:0;">
+                <div class="text-[0.68rem] text-dimmer mb-0.5">Prediction Rate <span class="text-muted" style="float:right" id="nl-graph-rate-val"></span></div>
+                <canvas id="nl-graph-rate" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Info -->
+        <div class="bg-card border border-border-card rounded-xl p-4" style="flex-shrink:0;">
+          <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
+          <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
+        </div>
       </div>
     </div>
   `;
 
-  // If webgazer is already running, show its video in the preview
-  _nlAttachCameraPreview();
+  // If camera is on, attach the preview
+  if (_nlCameraOn) _nlAttachCameraPreview();
   _nlRefreshStats();
   _nlStartStatsInterval();
 }
@@ -198,7 +236,7 @@ function _nlAttachCameraPreview() {
     clone.muted = true;
     clone.playsInline = true;
     Object.assign(clone.style, {
-      width: '240px', height: '180px', objectFit: 'cover', transform: 'scaleX(-1)'
+      width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'
     });
     previewBox.appendChild(clone);
     return;
@@ -219,11 +257,61 @@ function _nlAttachCameraPreview() {
       video.muted = true;
       video.playsInline = true;
       Object.assign(video.style, {
-        width: '240px', height: '180px', objectFit: 'cover', transform: 'scaleX(-1)'
+        width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'
       });
       box.appendChild(video);
     }).catch(() => {});
   }
+}
+
+function _nlToggleCamera() {
+  if (_nlCameraOn) {
+    // Turn off — remove video, stop stream
+    _nlCameraOn = false;
+    _nlStopPreviewStream();
+    const box = document.getElementById('nl-camera-preview');
+    if (box) {
+      const vid = box.querySelector('video');
+      if (vid) vid.remove();
+      // Re-add placeholder
+      if (!document.getElementById('nl-camera-placeholder')) {
+        const ph = document.createElement('span');
+        ph.id = 'nl-camera-placeholder';
+        ph.className = 'text-dimmer text-[0.75rem]';
+        ph.textContent = 'Camera off';
+        box.appendChild(ph);
+      }
+    }
+  } else {
+    // Turn on
+    _nlCameraOn = true;
+    _nlAttachCameraPreview();
+    // If webgazer isn't running yet, grab camera directly
+    if (!_nlWebgazerReady && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      const box = document.getElementById('nl-camera-preview');
+      if (box && !box.querySelector('video')) {
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+          const b = document.getElementById('nl-camera-preview');
+          if (!b || b.querySelector('video')) { stream.getTracks().forEach(t => t.stop()); return; }
+          const placeholder = document.getElementById('nl-camera-placeholder');
+          if (placeholder) placeholder.remove();
+          _nlPreviewStream = stream;
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.autoplay = true;
+          video.muted = true;
+          video.playsInline = true;
+          Object.assign(video.style, {
+            width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'
+          });
+          b.appendChild(video);
+        }).catch(() => {});
+      }
+    }
+  }
+  // Update button text
+  const btn = document.getElementById('nl-camera-toggle');
+  if (btn) btn.textContent = _nlCameraOn ? 'Turn Camera Off' : 'Turn Camera On';
 }
 
 // ── Calibration ──
@@ -284,6 +372,7 @@ function _nlStartCalibration() {
 }
 
 function _nlOnWebgazerStarted() {
+  _nlCameraOn = true;
   // Enter fullscreen before showing calibration
   const el = document.documentElement;
   const reqFs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
@@ -731,7 +820,7 @@ function _nlCreateDot() {
   _nlRemoveDot();
   const dot = document.createElement('div');
   dot.id = 'nl-gaze-dot';
-  const savedColor = document.getElementById('nl-dot-color')?.value || '#b4451a';
+  const savedColor = document.getElementById('nl-dot-color')?.value || '#ef4444';
   const savedSize = document.getElementById('nl-dot-size')?.value || '20';
   const sz = parseInt(savedSize, 10);
   Object.assign(dot.style, {
@@ -840,4 +929,106 @@ function _nlRefreshStats() {
     row('Gaze position', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +
     row('Buffer size', `${_NL_BUFFER_SIZE} samples`) +
     row('Total predictions', `${_nlPredictionCount.toLocaleString()}`);
+
+  // Push history for graphs
+  _nlHistGazeX.push(_nlTracking ? _nlGazeX : null);
+  _nlHistGazeY.push(_nlTracking ? _nlGazeY : null);
+  _nlHistJitter.push(_nlTracking ? _nlComputeJitter() : null);
+  _nlHistRate.push(_nlPredictionRate);
+  if (_nlHistGazeX.length > _NL_GRAPH_LEN) _nlHistGazeX.shift();
+  if (_nlHistGazeY.length > _NL_GRAPH_LEN) _nlHistGazeY.shift();
+  if (_nlHistJitter.length > _NL_GRAPH_LEN) _nlHistJitter.shift();
+  if (_nlHistRate.length > _NL_GRAPH_LEN) _nlHistRate.shift();
+
+  // Update live values next to labels
+  const gxv = document.getElementById('nl-graph-gaze-x-val');
+  const gyv = document.getElementById('nl-graph-gaze-y-val');
+  const jv = document.getElementById('nl-graph-jitter-val');
+  const rv = document.getElementById('nl-graph-rate-val');
+  if (gxv) gxv.textContent = _nlTracking ? Math.round(_nlGazeX) + 'px' : '—';
+  if (gyv) gyv.textContent = _nlTracking ? Math.round(_nlGazeY) + 'px' : '—';
+  if (jv) jv.textContent = jitter !== null ? jitter + 'px' : '—';
+  if (rv) rv.textContent = _nlPredictionRate + ' Hz';
+
+  // Draw graphs
+  _nlDrawGraph('nl-graph-gaze-x', _nlHistGazeX, '#60a5fa', 0, window.innerWidth);
+  _nlDrawGraph('nl-graph-gaze-y', _nlHistGazeY, '#a78bfa', 0, window.innerHeight);
+  _nlDrawGraph('nl-graph-jitter', _nlHistJitter, '#fbbf24', 0, 150);
+  _nlDrawGraph('nl-graph-rate', _nlHistRate, '#4ade80', 0, null);
+}
+
+function _nlDrawGraph(canvasId, data, color, fixedMin, fixedMax) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  // Size canvas to its CSS pixel dimensions
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(rect.width * dpr);
+  const h = Math.round(rect.height * dpr);
+  if (w <= 0 || h <= 0) return;
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  // Filter non-null values for range
+  const valid = data.filter(v => v !== null);
+  if (valid.length < 2) {
+    // Draw flat line placeholder
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = dpr;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+    return;
+  }
+
+  let min = fixedMin != null ? fixedMin : Math.min(...valid);
+  let max = fixedMax != null ? fixedMax : Math.max(...valid);
+  if (max === min) { max = min + 1; }
+  const pad = h * 0.08;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = dpr;
+  for (let i = 1; i < 4; i++) {
+    const gy = pad + (h - 2 * pad) * (i / 4);
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(w, gy);
+    ctx.stroke();
+  }
+
+  // Data line
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    if (v === null) { started = false; continue; }
+    const x = (i / (_NL_GRAPH_LEN - 1)) * w;
+    const y = pad + (h - 2 * pad) * (1 - (v - min) / (max - min));
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Glow fill
+  if (started) {
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, color + '18');
+    grad.addColorStop(1, color + '00');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
 }
