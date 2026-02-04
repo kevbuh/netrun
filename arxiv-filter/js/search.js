@@ -413,7 +413,7 @@ function _browseSaveTabs() {
     id: w.id,
     name: w.name,
     activeTab: w.activeTab,
-    tabs: w.tabs.filter(t => !t.blank && t.url).map(t => ({ id: t.id, url: t.url, title: t.title }))
+    tabs: w.tabs.map(t => ({ id: t.id, url: t.url || '', title: t.title, blank: !!t.blank }))
   }));
   localStorage.setItem(_getBrowseStorageKey('browseWindows'), JSON.stringify({
     windows: data,
@@ -445,8 +445,14 @@ function _browseRestoreTabs() {
       const container = document.getElementById('browse-content');
 
       for (const savedWin of windows) {
+        if (!savedWin.tabs.length) continue;
         const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab };
         for (const saved of savedWin.tabs) {
+          if (saved.blank) {
+            const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
+            win.tabs.push(tab);
+            continue;
+          }
           // Lazy load: don't create frame for heavy video sites in background tabs
           const isActiveTab = saved.id === savedWin.activeTab && savedWin.id === activeWindow;
           const shouldDefer = !isActiveTab && _isHeavyVideoSite(saved.url);
@@ -463,6 +469,7 @@ function _browseRestoreTabs() {
         }
         _browseWindows.push(win);
       }
+      if (!_browseWindows.length) return false;
       _browseActiveWindow = _browseWindows.find(w => w.id === activeWindow) ? activeWindow : _browseWindows[0].id;
       const win = _getCurrentWindow();
       if (win && win.tabs.length) {
@@ -1431,8 +1438,12 @@ function browseCloseTab(id) {
   _updateAudioIndicator();
   win.tabs.splice(idx, 1);
   if (!win.tabs.length) {
-    browseNewTab();
-    if (wasLast) _browseAnimateBounce();
+    if (_browseWindows.length > 1) {
+      browseCloseWindow(win.id);
+    } else {
+      browseNewTab();
+      _browseAnimateBounce();
+    }
     return;
   }
   if (win.activeTab === id) {
@@ -1593,7 +1604,6 @@ function _browseRenderTabs() {
       <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
       </button>
-      <span class="browse-window-counter">${winIdx + 1}/${_browseWindows.length}</span>
       <button class="browse-window-arrow down ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowDown()" title="Next window">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
       </button>
