@@ -2099,18 +2099,31 @@ function _repositionSelectionPopup() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
-  let top = parseFloat(popup.style.top);
-  let left = parseFloat(popup.style.left);
-  // Clamp bottom
+
+  // Re-anchor relative to stored selection position so popup grows upward
+  let top;
+  if (popup._aboveSelection) {
+    // Anchor bottom edge above the selection
+    top = popup._anchorTop - rect.height - 8;
+    if (top < 4) {
+      // No longer fits above — flip below
+      top = popup._anchorBottom + 8;
+      popup._aboveSelection = false;
+    }
+  } else {
+    // Below selection — keep top anchored below selection
+    top = popup._anchorBottom + 8;
+  }
+  // Clamp to viewport bottom
   if (top + rect.height > window.innerHeight - 8) {
     top = window.innerHeight - rect.height - 8;
   }
   if (top < 4) top = 4;
-  // Clamp right
-  if (left + rect.width > window.innerWidth - 8) {
-    left = window.innerWidth - rect.width - 8;
-  }
+
+  let left = popup._anchorLeft || parseFloat(popup.style.left);
+  if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
   if (left < 4) left = 4;
+
   popup.style.top = top + 'px';
   popup.style.left = left + 'px';
 }
@@ -2182,12 +2195,30 @@ function _buildSelectionPopup(sel, text, finalize) {
     });
     btnRow.appendChild(quoteBtn);
 
-    // Highlight color dots (only for PDF text layer)
+    // Single word → Lookup (right next to Quote)
+    const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
+    if (isSingleWord) {
+      const lookupBtn = document.createElement('button');
+      lookupBtn.className = 'doc-selection-popup-btn';
+      lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
+      lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+      lookupBtn.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        const px = popup.style.left, py = popup.style.top;
+        popup.remove();
+        _showWordLookup(capturedText, parseInt(px), parseInt(py));
+      });
+      btnRow.appendChild(lookupBtn);
+    }
+
+    // Highlight color dots (only for PDF text layer) — pushed to right side
     if (sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
       const ancestor = range.commonAncestorContainer;
       const inTextLayer = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
       if (inTextLayer && typeof createHighlight === 'function') {
+        const dotsWrap = document.createElement('div');
+        dotsWrap.className = 'doc-hl-dots';
         const colors = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS : [
           { name: 'yellow', bg: 'rgba(255,235,59,0.35)', solid: '#ffeb3b' },
           { name: 'green', bg: 'rgba(76,175,80,0.35)', solid: '#4caf50' },
@@ -2206,25 +2237,10 @@ function _buildSelectionPopup(sel, text, finalize) {
             _pdfSavedRange = range.cloneRange();
             createHighlight(c);
           });
-          btnRow.appendChild(dot);
+          dotsWrap.appendChild(dot);
         }
+        btnRow.appendChild(dotsWrap);
       }
-    }
-
-    // Single word → Lookup
-    const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
-    if (isSingleWord) {
-      const lookupBtn = document.createElement('button');
-      lookupBtn.className = 'doc-selection-popup-btn';
-      lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
-      lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-      lookupBtn.addEventListener('click', function(ev) {
-        ev.stopPropagation(); ev.preventDefault();
-        const px = popup.style.left, py = popup.style.top;
-        popup.remove();
-        _showWordLookup(capturedText, parseInt(px), parseInt(py));
-      });
-      btnRow.appendChild(lookupBtn);
     }
 
     popup.appendChild(btnRow);
@@ -2287,6 +2303,11 @@ function _buildSelectionPopup(sel, text, finalize) {
     // -- Inline chat area (hidden until first message) --
     const chatArea = document.createElement('div');
     chatArea.className = 'doc-popup-chat-area';
+    const chatContext = document.createElement('div');
+    chatContext.className = 'doc-popup-chat-context';
+    const contextTrunc = capturedText.length > 120 ? capturedText.slice(0, 120) + '…' : capturedText;
+    chatContext.textContent = contextTrunc;
+    chatArea.appendChild(chatContext);
     const chatMsgs = document.createElement('div');
     chatMsgs.className = 'doc-popup-chat-messages';
     chatArea.appendChild(chatMsgs);
@@ -2322,9 +2343,15 @@ function _buildSelectionPopup(sel, text, finalize) {
   // Position above selection, clamp to viewport
   const selRange = sel.getRangeAt(0);
   const selRect = selRange.getBoundingClientRect();
+  // Store anchor points so _repositionSelectionPopup can re-anchor on content change
+  popup._anchorTop = selRect.top;
+  popup._anchorBottom = selRect.bottom;
+  popup._anchorLeft = selRect.left;
   const popupRect = popup.getBoundingClientRect();
   let top = selRect.top - popupRect.height - 8;
-  if (top < 4) top = selRect.bottom + 8;
+  const fitsAbove = top >= 4;
+  if (!fitsAbove) top = selRect.bottom + 8;
+  popup._aboveSelection = fitsAbove;
   let left = selRect.left;
   if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
   if (left < 4) left = 4;

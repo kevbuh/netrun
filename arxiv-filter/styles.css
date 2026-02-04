@@ -2386,7 +2386,14 @@
     }
     .doc-selection-popup-btns {
       display: flex;
+      align-items: center;
       gap: 2px;
+    }
+    .doc-selection-popup-btns .doc-hl-dots {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-left: auto;
     }
     .doc-selection-popup-btn {
       display: inline-flex;
@@ -2507,6 +2514,17 @@
     }
     .doc-popup-chat-area.visible {
       display: flex;
+    }
+    .doc-popup-chat-context {
+      font-size: 0.68rem;
+      line-height: 1.4;
+      color: var(--text-dimmer);
+      padding: 4px 8px;
+      border-left: 2px solid var(--accent);
+      margin: 4px 8px;
+      max-height: 40px;
+      overflow: hidden;
+      font-style: italic;
     }
     .doc-popup-chat-messages {
       display: flex;
