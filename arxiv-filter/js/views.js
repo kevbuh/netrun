@@ -1945,6 +1945,9 @@ let _lastMouseX = 0;
 let _lastMouseY = 0;
 let _pendingScreenshots = [];
 let _pendingNoteContexts = []; // {id, title, content} — vault notes attached to chat
+let _lookupPinned = false;
+let _lookupDragging = false;
+let _lookupDragOffset = { x: 0, y: 0 };
 
 function _isLookupEligible(text) {
   if (!text || text.length > 80) return false;
@@ -2925,8 +2928,8 @@ document.addEventListener('mousedown', function(e) {
     document.body.appendChild(_screenshotSelection);
     return;
   }
-  // If NOT in track mode, remove existing panel
-  if (existing && !_lookupTrackMode) {
+  // If NOT in track mode and NOT pinned, remove existing panel
+  if (existing && !_lookupTrackMode && !_lookupPinned) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
     existing.remove();
@@ -2950,7 +2953,7 @@ document.addEventListener('selectionchange', function() {
   // User is actively selecting text — stop tracking, show selection preview
   _lookupTrackMode = false;
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing && existing._isLookupPanel) existing.remove();
+  if (existing && existing._isLookupPanel && !_lookupPinned) existing.remove();
   _buildSelectionPopup(sel, text, false);
 });
 
@@ -3319,7 +3322,25 @@ document.addEventListener('mousemove', function(e) {
     return;
   }
 
+  // Drag-to-move the lookup panel
+  if (_lookupDragging) {
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (!popup) { _lookupDragging = false; return; }
+    let left = e.clientX - _lookupDragOffset.x;
+    let top = e.clientY - _lookupDragOffset.y;
+    if (left < 0) left = 0;
+    if (top < 0) top = 0;
+    if (left + popup.offsetWidth > window.innerWidth) left = window.innerWidth - popup.offsetWidth;
+    if (top + popup.offsetHeight > window.innerHeight) top = window.innerHeight - popup.offsetHeight;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+    popup._lookupAnchorX = left;
+    popup._lookupAnchorY = top + popup.offsetHeight;
+    return;
+  }
+
   if (!_lookupTrackMode) return;
+  if (e.shiftKey) { _lookupTrackMode = false; return; } // Shift freezes panel in place
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) { _lookupTrackMode = false; return; }
   popup._lookupAnchorX = e.clientX;
@@ -3335,6 +3356,15 @@ document.addEventListener('mousemove', function(e) {
   popup.style.top = top + 'px';
 });
 
+// End drag-to-move
+document.addEventListener('mouseup', function(e) {
+  if (_lookupDragging) {
+    _lookupDragging = false;
+    const topBar = document.querySelector('.lookup-top-actions');
+    if (topBar) topBar.style.cursor = 'grab';
+  }
+});
+
 // Escape to dismiss from anywhere
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
@@ -3346,7 +3376,7 @@ document.addEventListener('keydown', function(e) {
       return;
     }
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) {
+    if (popup && !_lookupPinned) {
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _lookupTrackMode = false;
       _pendingScreenshots = [];
@@ -3853,9 +3883,13 @@ function _lookupRenderModelDropdown(popup) {
       const idx = parseInt(el.dataset.idx);
       const model = _lookupModelList[idx];
       if (model) {
+        _lookupModelIdx = idx;
         localStorage.setItem('chatModel', model);
-        _lookupHideModelDropdown(popup);
-        popup.remove();
+        _lookupRenderModelDropdown(popup);
+        const label = popup.querySelector('.lookup-model-label');
+        if (label) label.textContent = model;
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) { input.value = ''; input.focus(); }
       }
     });
   });
@@ -3873,8 +3907,11 @@ function _lookupSelectModel(popup) {
   const model = _lookupModelList[_lookupModelIdx];
   if (model) {
     localStorage.setItem('chatModel', model);
-    _lookupHideModelDropdown(popup);
-    popup.remove();
+    _lookupRenderModelDropdown(popup);
+    const label = popup.querySelector('.lookup-model-label');
+    if (label) label.textContent = model;
+    const input = popup.querySelector('.doc-ask-inline-input');
+    if (input) { input.value = ''; input.focus(); }
   }
 }
 
@@ -4145,6 +4182,8 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   _popupChatMessages = [];
   _pendingScreenshots = [];
   _pendingNoteContexts = [];
+  _lookupPinned = false;
+  _lookupDragging = false;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
   // Generic context items (vault notes, folders, etc.)
@@ -4267,6 +4306,90 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     popup.appendChild(ctxDiv);
   }
 
+  // Top actions bar (model label, open in sidebar, clear, pin, close)
+  const topBar = document.createElement('div');
+  topBar.className = 'doc-popup-chat-actions lookup-top-actions';
+  topBar.style.cursor = 'grab';
+
+  // Model label
+  const modelLabel = document.createElement('span');
+  modelLabel.className = 'lookup-model-label';
+  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  modelLabel.textContent = cm;
+  modelLabel.title = 'Current model';
+  topBar.appendChild(modelLabel);
+
+  // Spacer
+  const spacer = document.createElement('span');
+  spacer.style.flex = '1';
+  topBar.appendChild(spacer);
+
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
+  openSidebarBtn.title = 'Open in sidebar';
+  openSidebarBtn.style.display = 'flex';
+  openSidebarBtn.style.alignItems = 'center';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _lookupTrackMode = false;
+    const sidebar = document.getElementById('paper-sidebar');
+    if (sidebar) sidebar.style.display = '';
+    _sendPopupChatToSidebar();
+  });
+  topBar.appendChild(openSidebarBtn);
+
+  // Pin button
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'lookup-pin-btn';
+  pinBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="13" height="13"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V8.25L18 9.75V12H12.75V20.25L12 21L11.25 20.25V12H6V9.75L7.5 8.25V3.75H16.5Z" /></svg>';
+  pinBtn.title = 'Pin panel';
+  pinBtn.style.display = 'flex';
+  pinBtn.style.alignItems = 'center';
+  pinBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  pinBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _lookupPinned = !_lookupPinned;
+    popup.classList.toggle('lookup-pinned', _lookupPinned);
+    pinBtn.style.opacity = _lookupPinned ? '1' : '0.5';
+    closeBtn.style.display = _lookupPinned ? '' : 'none';
+  });
+  pinBtn.style.opacity = '0.5';
+  topBar.appendChild(pinBtn);
+
+  // Close button (visible when pinned)
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'lookup-close-btn';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.title = 'Close';
+  closeBtn.style.fontSize = '0.85rem';
+  closeBtn.style.display = 'none';
+  closeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  closeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _lookupPinned = false;
+    _lookupTrackMode = false;
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    _pendingScreenshots = [];
+    _pendingNoteContexts = [];
+    popup.remove();
+  });
+  topBar.appendChild(closeBtn);
+
+  // Drag to move (skip buttons only)
+  topBar.addEventListener('mousedown', (ev) => {
+    if (ev.target.closest('button')) return;
+    ev.stopPropagation();
+    ev.preventDefault();
+    _lookupDragging = true;
+    _lookupTrackMode = false;
+    topBar.style.cursor = 'grabbing';
+    const r = popup.getBoundingClientRect();
+    _lookupDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  });
+
+  popup.appendChild(topBar);
+
   // Chat area (hidden until first message sent)
   const chatArea = document.createElement('div');
   chatArea.className = 'doc-popup-chat-area';
@@ -4274,30 +4397,6 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   const chatMsgs = document.createElement('div');
   chatMsgs.className = 'doc-popup-chat-messages';
   chatArea.appendChild(chatMsgs);
-  const chatActions = document.createElement('div');
-  chatActions.className = 'doc-popup-chat-actions';
-  const openSidebarBtn = document.createElement('button');
-  openSidebarBtn.textContent = 'Open in sidebar';
-  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openSidebarBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _lookupTrackMode = false;
-    _sendPopupChatToSidebar();
-  });
-  const clearBtn = document.createElement('button');
-  clearBtn.textContent = 'Clear';
-  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  clearBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _popupChatMessages = [];
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    chatMsgs.innerHTML = '';
-    chatArea.classList.remove('visible');
-    popup.classList.remove('has-chat');
-  });
-  chatActions.appendChild(openSidebarBtn);
-  chatActions.appendChild(clearBtn);
-  chatArea.appendChild(chatActions);
   popup.appendChild(chatArea);
 
   // Screenshot attachment strip
@@ -4437,8 +4536,10 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     }
     if (ev.key === 'Escape') {
       ev.preventDefault();
+      if (modelDropdown) { _lookupHideModelDropdown(popup); return; }
       if (noteDropdown) { _lookupHideNoteDropdown(popup); return; }
       if (dropdown) { _lookupHideCmdDropdown(popup); return; }
+      if (_lookupPinned) return; // pinned — use X button to close
       _lookupTrackMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];

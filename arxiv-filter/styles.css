@@ -2955,6 +2955,28 @@
       padding: 3px 8px;
       border-top: 1px solid var(--border-input);
     }
+    .lookup-top-actions {
+      border-top: none;
+      border-bottom: 1px solid var(--border-input);
+      user-select: none;
+    }
+    .lookup-model-label {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      opacity: 0.7;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lookup-pin-btn,
+    .lookup-close-btn {
+      background: none !important;
+      border: none !important;
+      cursor: pointer;
+      padding: 1px 4px !important;
+      line-height: 1;
+    }
     .doc-popup-chat-actions button {
       background: none;
       border: none;
