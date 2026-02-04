@@ -1322,7 +1322,8 @@ function _renderPdfLinks() {
   for (const url of links) {
     const label = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const icon = _pdfLinkIcon(url);
-    html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="pdf-sidebar-link inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[0.74rem] text-primary no-underline hover:bg-accent/10 transition-colors" title="${escapeHtml(url)}" onmouseenter="_highlightPdfAnnotLinks(this.dataset.linkUrl)" onmouseleave="_clearPdfAnnotLinkHighlights()" data-link-url="${escapeHtml(url)}">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></a>`;
+    // Click-only: no hover highlight, just opens the link
+    html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="pdf-sidebar-link inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[0.74rem] text-primary no-underline hover:bg-accent/10 transition-colors" title="${escapeHtml(url)}">${icon}<span class="truncate max-w-[200px]">${escapeHtml(label)}</span></a>`;
   }
   html += '</div>';
   el.innerHTML = html;

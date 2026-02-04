@@ -1831,6 +1831,7 @@ ch.postMessage({type:'preview-ready'});
                         ctx = ssl._create_unverified_context()
                         with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
                             s2_data = json.loads(s2_resp.read())
+                        print(f'[paper-insights] S2 author data sample: {s2_data.get("authors", [])[:1]}')
                         if 'authors' in s2_data:
                             for a in s2_data['authors']:
                                 author_info = {'name': a.get('name', '')}
@@ -1847,7 +1848,8 @@ ch.postMessage({type:'preview-ready'});
                                 if a.get('url'):
                                     author_info['url'] = a['url']
                                 authors.append(author_info)
-                    except Exception:
+                    except Exception as e:
+                        print(f'[paper-insights] Semantic Scholar author fetch failed: {e}')
                         # Fallback to arXiv API for just names
                         try:
                             api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
@@ -2073,16 +2075,12 @@ ch.postMessage({type:'preview-ready'});
             try:
                 body = self._read_body()
                 arxiv_id = body.get('arxivId', '').strip()
-                ref_num = body.get('refNum', 0)
+                ref_num = body.get('refNum')  # Optional - if provided, return single ref
                 if not arxiv_id:
                     self._send_json({'error': 'arxivId required'}, 400)
                     return
-                if not ref_num or ref_num < 1:
-                    self._send_json({'error': 'valid refNum required'}, 400)
-                    return
 
                 # Fetch paper references from Semantic Scholar
-                # References are 0-indexed in the API response, but 1-indexed in papers
                 api_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds'
                 req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
                 ctx = ssl._create_unverified_context()
@@ -2094,28 +2092,43 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'error': 'no references found'}, 404)
                     return
 
-                # Reference numbers in papers are 1-indexed
-                ref_index = ref_num - 1
-                if ref_index < 0 or ref_index >= len(references):
-                    self._send_json({'error': f'reference {ref_num} not found (paper has {len(references)} references)'}, 404)
+                # If ref_num provided, return single reference
+                if ref_num is not None and ref_num >= 1:
+                    ref_index = ref_num - 1
+                    if ref_index < 0 or ref_index >= len(references):
+                        self._send_json({'error': f'reference {ref_num} not found (paper has {len(references)} references)'}, 404)
+                        return
+
+                    ref = references[ref_index]
+                    if not ref:
+                        self._send_json({'error': f'reference {ref_num} has no data'}, 404)
+                        return
+
+                    result = {
+                        'title': ref.get('title', ''),
+                        'authors': [a.get('name', '') for a in ref.get('authors', [])[:5]] if ref.get('authors') else [],
+                        'year': ref.get('year'),
+                        'abstract': ref.get('abstract', '')[:500] if ref.get('abstract') else None,
+                        'citationCount': ref.get('citationCount'),
+                        'venue': ref.get('venue'),
+                        'url': ref.get('url'),
+                        'arxivId': ref.get('externalIds', {}).get('ArXiv') if ref.get('externalIds') else None,
+                    }
+                    self._send_json(result)
                     return
 
-                ref = references[ref_index]
-                if not ref:
-                    self._send_json({'error': f'reference {ref_num} has no data'}, 404)
-                    return
-
-                result = {
-                    'title': ref.get('title', ''),
-                    'authors': [a.get('name', '') for a in ref.get('authors', [])[:5]] if ref.get('authors') else [],
-                    'year': ref.get('year'),
-                    'abstract': ref.get('abstract', '')[:500] if ref.get('abstract') else None,
-                    'citationCount': ref.get('citationCount'),
-                    'venue': ref.get('venue'),
-                    'url': ref.get('url'),
-                    'arxivId': ref.get('externalIds', {}).get('ArXiv') if ref.get('externalIds') else None,
-                }
-                self._send_json(result)
+                # Return all references (compact format for listing)
+                result = []
+                for i, ref in enumerate(references):
+                    if ref:
+                        result.append({
+                            'num': i + 1,
+                            'title': ref.get('title', ''),
+                            'authors': [a.get('name', '') for a in ref.get('authors', [])[:3]] if ref.get('authors') else [],
+                            'year': ref.get('year'),
+                            'citationCount': ref.get('citationCount'),
+                        })
+                self._send_json({'references': result, 'total': len(references)})
             except urllib.error.HTTPError as e:
                 self._send_json({'error': f'Semantic Scholar API error: {e.code}'}, 502)
             except Exception as e:

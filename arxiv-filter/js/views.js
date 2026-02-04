@@ -388,6 +388,7 @@ function _renderSidebarHTML() {
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
       <div id="paper-insights"></div>
       <div id="pdf-links-section"></div>
+      <div id="paper-references-section"></div>
     </div>
     <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
       <div id="pdf-highlights-section">
@@ -652,6 +653,7 @@ async function _verifyInsightsInPdf(insights) {
 }
 
 async function fetchPaperInsights(url) {
+  console.log('[Insights]', Date.now(), 'fetchPaperInsights called, _paperInsightsLoaded:', _paperInsightsLoaded);
   const el = document.getElementById('paper-insights');
   if (!el) return;
   _paperInsightsLoaded = true; // Set immediately to prevent duplicate calls
@@ -719,7 +721,9 @@ async function fetchPaperInsights(url) {
         if (insight.gpus && insight.gpus.length) {
           extraHtml = `<div class="flex flex-wrap gap-1 mt-1">${insight.gpus.map(g => `<span class="text-[0.68rem] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">${escapeHtml(g)}</span>`).join('')}</div>`;
         }
-        html += `<div class="cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" onmouseenter="pdfSearchHighlight(this.dataset.q)" onmouseleave="pdfClearSearchHighlights()" data-q="${escapeHtml(searchSnippet)}">
+        // Hardware insights: click-only (no hover highlight)
+        const isHardware = insight.label === 'Hardware';
+        html += `<div class="insight-card cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" data-q="${escapeHtml(searchSnippet)}" data-click-only="${isHardware}">
           <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
           <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
           ${extraHtml}
@@ -732,6 +736,20 @@ async function fetchPaperInsights(url) {
     }
     html += '</div>';
     el.innerHTML = html;
+
+    // Add event handlers to insight cards
+    el.querySelectorAll('.insight-card').forEach(card => {
+      const isClickOnly = card.dataset.clickOnly === 'true';
+      if (isClickOnly) {
+        // Click-only: scroll to text on click
+        card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+      } else {
+        // Normal: highlight on hover, scroll on click
+        card.addEventListener('mouseenter', () => pdfSearchHighlight(card.dataset.q, true));
+        card.addEventListener('mouseleave', pdfClearSearchHighlights);
+        card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+      }
+    });
 
     // Add hover handler for PDF highlighting (no scroll on hover, only highlight)
     // Add click handler to scroll to the author in the PDF
@@ -754,9 +772,92 @@ async function fetchPaperInsights(url) {
       }
     }
     _paperInsightsLoaded = true;
+
+    // Load references section (append to paper-insights instead of separate section)
+    const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
+    console.log('[References]', Date.now(), 'URL:', url, 'arxivMatch:', arxivMatch);
+    if (arxivMatch) {
+      // Create a refs container inside paper-insights
+      const refsContainer = document.createElement('div');
+      refsContainer.id = 'paper-refs-container';
+      el.appendChild(refsContainer);
+      fetchPaperReferences(arxivMatch[1], refsContainer);
+    }
   } catch (e) {
     el.innerHTML = '';
     _paperInsightsLoaded = true;
+  }
+}
+
+// ── Paper References Section ──
+async function fetchPaperReferences(arxivId, containerEl) {
+  console.log('[References] fetchPaperReferences called with:', arxivId);
+  const section = containerEl || document.getElementById('paper-references-section');
+  console.log('[References] section element:', section);
+  if (!section) return;
+
+  section.innerHTML = `<div class="mt-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">References</div><div class="flex items-center gap-2 text-[0.72rem] text-dim"><span class="spinner"></span>Loading...</div></div>`;
+
+  try {
+    console.log('[References] Fetching references for:', arxivId);
+    const resp = await fetch('/api/paper-references', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arxivId })
+    });
+    console.log('[References] Response status:', resp.status);
+    if (!resp.ok) throw new Error('Failed');
+    const data = await resp.json();
+    console.log('[References] Data:', data);
+    if (data.error) throw new Error(data.error);
+
+    const refs = data.references || [];
+    if (!refs.length) {
+      section.innerHTML = '';
+      return;
+    }
+
+    const fmtNum = (n) => {
+      if (!n) return '0';
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toLocaleString();
+    };
+
+    let html = `<div class="mt-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">References (${refs.length})</div><div class="space-y-1 max-h-[300px] overflow-y-auto" id="references-list">`;
+    for (const ref of refs) {
+      const authorsStr = ref.authors?.slice(0, 2).join(', ') + (ref.authors?.length > 2 ? ' et al.' : '');
+      html += `<div class="reference-item cursor-pointer rounded px-2 py-1.5 hover:bg-white/5 transition-colors" data-ref-num="${ref.num}" data-arxiv-id="${arxivId}">
+        <div class="flex items-start gap-2">
+          <span class="text-[0.68rem] text-dimmer shrink-0 w-5">[${ref.num}]</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-[0.75rem] text-primary leading-snug line-clamp-2">${escapeHtml(ref.title || 'Unknown')}</div>
+            <div class="text-[0.68rem] text-dimmer mt-0.5">${authorsStr ? escapeHtml(authorsStr) : ''}${ref.year ? (authorsStr ? ' · ' : '') + ref.year : ''}${ref.citationCount ? ' · ' + fmtNum(ref.citationCount) + ' citations' : ''}</div>
+          </div>
+        </div>
+      </div>`;
+    }
+    html += '</div></div>';
+    section.innerHTML = html;
+
+    // Add click handlers
+    section.querySelectorAll('.reference-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const refNum = item.dataset.refNum;
+        const arxiv = item.dataset.arxivId;
+        showReferencePopup(refNum, arxiv, item);
+      });
+    });
+  } catch (e) {
+    console.error('[References] Error:', e);
+    section.innerHTML = `<div class="mt-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">References</div><div class="text-[0.72rem] text-dimmer">Could not load references</div></div>`;
+  }
+}
+
+function showReferencePopup(refNum, arxivId, anchorEl) {
+  // Reuse the citation popup from pdfviewer.js
+  if (typeof showCitationPopup === 'function') {
+    showCitationPopup(refNum, anchorEl);
   }
 }
 

@@ -2907,6 +2907,20 @@
     .pdf-hl-card-header:hover .pdf-hl-card-del {
       opacity: 1;
     }
+
+    /* ── References list ── */
+    .reference-item {
+      border-left: 2px solid transparent;
+    }
+    .reference-item:hover {
+      border-left-color: var(--accent);
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
     .pdf-hl-card-del:hover {
       color: #e53935;
     }
