@@ -3548,6 +3548,7 @@ const _lookupCommands = [
   { name: 'paper', desc: 'Search for papers', hasArgs: true },
   { name: 'user', desc: 'Search for users', hasArgs: true },
   { name: 'notes', desc: 'Search your notes', hasArgs: true },
+  { name: 'explain', desc: 'Explain the current page', _special: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -3594,6 +3595,9 @@ function _lookupRenderCmdDropdown(popup, query) {
         const askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
         if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
         _lookupHideCmdDropdown(popup);
+      } else if (cmd._special && cmd.name === 'explain') {
+        _lookupHideCmdDropdown(popup);
+        _doLookupExplain(popup);
       } else {
         cmd.fn();
         _lookupTrackMode = false;
@@ -3726,6 +3730,133 @@ async function _lookupCreateAndOpenNote(popup, title) {
   }, 150);
 }
 
+async function _doLookupExplain(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) { input.value = ''; }
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  // Hide the popup temporarily so it's not in the screenshot
+  popup.style.visibility = 'hidden';
+  await new Promise(r => setTimeout(r, 80));
+
+  // Capture full window screenshot
+  let screenshot = null;
+  if (window.electronAPI?.captureScreen) {
+    try {
+      screenshot = await window.electronAPI.captureScreen({
+        x: 0, y: 0,
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    } catch (e) {
+      console.error('Screenshot capture failed:', e);
+    }
+  }
+
+  // Show the popup again
+  popup.style.visibility = '';
+
+  if (!screenshot) {
+    _popupChatMessages.push({ role: 'assistant', content: 'Screenshot capture not available. Run the app in Electron to use /explain.', _thinking: false });
+    _renderPopupChat(popup, true);
+    _repositionSelectionPopup();
+    if (input) input.focus();
+    return;
+  }
+
+  const prompt = 'Explain what you see on this screen clearly and concisely. Cover the key points, main content, and any important details.';
+  const msgObj = { role: 'user', content: prompt, _display: '/explain', images: [screenshot] };
+  _popupChatMessages.push(msgObj);
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  if (input) input.disabled = true;
+  const sendBtn = popup.querySelector('.doc-ask-inline-send');
+  if (sendBtn) sendBtn.disabled = true;
+  _popupChatAbort = new AbortController();
+
+  try {
+    const filteredMsgs = _popupChatMessages.filter(m => !m._thinking).map(m => {
+      const msg = { role: m.role, content: m.content };
+      if (m.images && m.images.length) msg.images = m.images;
+      return msg;
+    });
+    const body = { messages: filteredMsgs, vision: true };
+    const resp = await fetch('/api/doc-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: _popupChatAbort.signal
+    });
+
+    if (!resp.ok) {
+      const aiIdx = _popupChatMessages.length - 1;
+      _popupChatMessages[aiIdx].content = 'Error: server returned ' + resp.status;
+      _popupChatMessages[aiIdx]._thinking = false;
+      _renderPopupChat(popup, true);
+      if (input) { input.disabled = false; input.focus(); }
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
+
+    let aiText = '';
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+    let streamDone = false;
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          if (currentEvent === 'token') {
+            try {
+              const token = JSON.parse(line.slice(6));
+              aiText += token;
+              _popupChatMessages[aiIdx].content = aiText;
+              _renderPopupChat(popup, false);
+            } catch {}
+          } else if (currentEvent === 'done') {
+            streamDone = true;
+          } else if (currentEvent === 'error') {
+            try {
+              const errMsg = JSON.parse(line.slice(6));
+              _popupChatMessages[aiIdx].content = aiText || ('Error: ' + errMsg);
+            } catch {}
+            streamDone = true;
+          }
+        }
+      }
+    }
+    _popupChatMessages[aiIdx].content = aiText;
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Error: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+
+  if (input) { input.disabled = false; input.focus(); }
+  if (sendBtn) sendBtn.disabled = false;
+  _repositionSelectionPopup();
+}
+
 function _lookupExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -3747,6 +3878,11 @@ function _lookupExecCommand(popup, text) {
   const cmd = matches[_lookupCmdIdx] || matches[0];
   if (cmd) {
     if (cmd.hasArgs) return false; // needs arguments, don't execute bare
+    if (cmd._special && cmd.name === 'explain') {
+      _lookupHideCmdDropdown(popup);
+      _doLookupExplain(popup);
+      return true;
+    }
     cmd.fn();
     _lookupTrackMode = false;
     popup.remove();
@@ -4160,6 +4296,9 @@ function _showLookupPanel(x, y, contextData, initialValue) {
           if (cmd.hasArgs) {
             askInput.value = '/' + cmd.name + ' ';
             _lookupHideCmdDropdown(popup);
+          } else if (cmd._special && cmd.name === 'explain') {
+            _lookupHideCmdDropdown(popup);
+            _doLookupExplain(popup);
           } else {
             _lookupHideCmdDropdown(popup);
             cmd.fn();
