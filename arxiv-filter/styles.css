@@ -2372,7 +2372,8 @@
     .doc-selection-popup {
       position: fixed;
       display: flex;
-      gap: 2px;
+      flex-direction: column;
+      gap: 0;
       padding: 3px;
       border-radius: 8px;
       border: 1px solid var(--border-input);
@@ -2381,6 +2382,11 @@
       font-size: 0.75rem;
       z-index: 100;
       box-shadow: 0 4px 12px var(--shadow-popup);
+      max-width: 340px;
+    }
+    .doc-selection-popup-btns {
+      display: flex;
+      gap: 2px;
     }
     .doc-selection-popup-btn {
       display: inline-flex;
@@ -2397,6 +2403,50 @@
     .doc-selection-popup-btn:hover {
       background: var(--accent);
       color: #fff;
+    }
+    .doc-selection-hl-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.1s, border-color 0.1s;
+      margin: 2px;
+    }
+    .doc-selection-hl-dot:hover {
+      transform: scale(1.25);
+      border-color: rgba(255,255,255,0.5);
+    }
+    .doc-selection-preview {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      line-height: 1.4;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border-input);
+      max-height: 60px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .doc-ask-inline-wrap {
+      display: flex;
+      align-items: center;
+      border-top: 1px solid var(--border-input);
+      margin-top: 2px;
+      padding-top: 2px;
+    }
+    .doc-ask-inline-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 0.75rem;
+      font-family: inherit;
+      width: 100%;
+      padding: 4px 8px;
+    }
+    .doc-ask-inline-input::placeholder {
+      color: var(--text-dimmer);
     }
     .topbar-scroll-span {
       scrollbar-width: none;

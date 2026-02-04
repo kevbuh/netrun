@@ -22,7 +22,7 @@ let _pdfPopup = null;
 let _pdfSavedRange = null;
 
 // ── Pen / Drawing state ──
-let _pdfHighlightMode = false;
+let _pdfHighlightMode = true;
 let _pdfPenMode = false;
 let _pdfPenColor = '#000000';
 let _pdfPenSize = 2;
@@ -117,11 +117,8 @@ function initPdfViewer(container, url, arxivId) {
       </button>
     </div>
     <span class="pdf-tb-sep"></span>
-    <button class="pdf-tb-btn" id="pdf-hl-mode-toggle" onclick="togglePdfHighlightMode()" title="Highlight mode">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 14l3 3v5h6v-5l3-3V9H6v5zm5-12h2v3h-2V2zM3.5 5.88l1.41-1.41 2.12 2.12L5.62 8 3.5 5.88zm13.46.71l2.12-2.12 1.41 1.41L18.38 8l-1.42-1.41z"/></svg>
-    </button>
     <button class="pdf-tb-btn" id="pdf-pen-toggle" onclick="togglePdfPen()" title="Pen tool">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42"/></svg>
     </button>
     <div class="pdf-pen-controls" id="pdf-pen-controls" style="display:none">
       <input type="color" id="pdf-pen-color-input" value="${_pdfPenColor}" class="pdf-pen-color-input" oninput="pdfSetPenColor(this.value)" title="Pen color">
@@ -181,6 +178,7 @@ function initPdfViewer(container, url, arxivId) {
   pages.addEventListener('mouseup', onPdfTextSelected);
   container.appendChild(pages);
   _pdfPagesContainer = pages;
+  pages.classList.add('pdf-hl-mode');
 
   // Configure PDF.js worker
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
@@ -422,21 +420,8 @@ function updatePdfPageIndicator() {
 // ── Text selection → highlight popup ──
 
 function onPdfTextSelected(e) {
-  if (_pdfPenMode || !_pdfHighlightMode) return;
-  dismissHighlightPopup();
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
-
-  // Make sure selection is within our PDF text layers
-  const range = sel.getRangeAt(0);
-  const ancestor = range.commonAncestorContainer;
-  const inPdf = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
-  if (!inPdf) return;
-
-  const rect = range.getBoundingClientRect();
-  showHighlightPopup(rect.left + rect.width / 2, rect.top - 44);
-  // Save the range AFTER showHighlightPopup (which calls dismissHighlightPopup internally)
-  _pdfSavedRange = range.cloneRange();
+  // Highlight colors are now in the unified selection popup (views.js)
+  // This function is kept as a no-op since it's referenced as an event handler
 }
 
 function showHighlightPopup(x, y) {
@@ -739,13 +724,10 @@ function scrollToHighlight(id) {
 // ── Pen / Drawing ──
 
 function togglePdfHighlightMode() {
-  _pdfHighlightMode = !_pdfHighlightMode;
-  // Turn off pen mode if switching out of highlight mode
-  if (!_pdfHighlightMode && _pdfPenMode) togglePdfPen();
-  const btn = document.getElementById('pdf-hl-mode-toggle');
-  if (btn) btn.classList.toggle('active', _pdfHighlightMode);
+  // Highlight mode is always on — this is a no-op kept for pen mode compatibility
+  _pdfHighlightMode = true;
   if (_pdfPagesContainer) {
-    _pdfPagesContainer.classList.toggle('pdf-hl-mode', _pdfHighlightMode);
+    _pdfPagesContainer.classList.add('pdf-hl-mode');
   }
 }
 
@@ -1036,7 +1018,7 @@ function cleanupPdfViewer() {
   _pdfArxivId = '';
   _pdfContainer = null;
   _pdfPagesContainer = null;
-  _pdfHighlightMode = false;
+  _pdfHighlightMode = true;
   _pdfPenMode = false;
   _pdfEraserMode = false;
   _pdfDrawings = {};

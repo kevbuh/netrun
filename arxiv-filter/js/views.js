@@ -443,6 +443,8 @@ function _initSidebarForUrl(url) {
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _paperNoteSelected = null;
   _paperInsightsLoaded = false; // Reset insights loaded flag for new paper
+  _insightsDataCache = null; // Clear cached insights data
+  _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
   // Reset scroll positions for new paper
   _sidebarScrollPositions = {};
   fetchPaperNotes();
@@ -747,23 +749,45 @@ async function _verifyInsightsInPdf(insights) {
   return insights;
 }
 
+// Track which insight sub-tabs have been loaded
+let _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
+
 async function fetchPaperInsights(url) {
-  _paperInsightsLoaded = true; // Set immediately to prevent duplicate calls
+  _paperInsightsLoaded = true;
+  _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
 
-  const authorsPane = document.getElementById('insight-pane-authors');
-  const aiPane = document.getElementById('insight-pane-ai');
-  const refsPane = document.getElementById('insight-pane-references');
-
-  // Show loading in authors pane (default visible)
-  if (authorsPane) authorsPane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading...</div>`;
-  if (aiPane) aiPane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing...</div>`;
-  if (refsPane) refsPane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading...</div>`;
-
-  // Restore saved subtab
+  // Restore saved subtab or default to authors
   const savedSubtab = localStorage.getItem('insightSubtab');
-  if (savedSubtab && ['authors', 'ai', 'references', 'links'].includes(savedSubtab)) {
-    setTimeout(() => switchInsightSubtab(savedSubtab), 0);
+  const activeSubtab = (savedSubtab && ['authors', 'ai', 'references', 'links'].includes(savedSubtab)) ? savedSubtab : 'authors';
+  setTimeout(() => switchInsightSubtab(activeSubtab), 0);
+}
+
+function _loadInsightSubtab(subtab) {
+  if (_insightSubLoaded[subtab]) return;
+  _insightSubLoaded[subtab] = true;
+  const url = _currentPaperViewPaper?.link;
+  if (!url) return;
+
+  if (subtab === 'authors' || subtab === 'ai') {
+    _fetchAuthorsAndAI(url, subtab);
+  } else if (subtab === 'references') {
+    _fetchReferences(url);
   }
+  // 'links' is rendered from PDF extraction, no fetch needed
+}
+
+let _insightsDataCache = null;
+
+async function _fetchAuthorsAndAI(url, requestedTab) {
+  // Both authors and AI come from the same endpoint; cache the result
+  if (_insightsDataCache) {
+    if (requestedTab === 'authors') _renderAuthorsPane(_insightsDataCache);
+    if (requestedTab === 'ai') _renderAIPane(_insightsDataCache);
+    return;
+  }
+
+  const pane = document.getElementById(`insight-pane-${requestedTab}`);
+  if (pane) pane.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading...</div>`;
 
   try {
     const resp = await fetch('/api/paper-insights', {
@@ -774,121 +798,116 @@ async function fetchPaperInsights(url) {
     if (!resp.ok) throw new Error('Failed');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    const hasRepos = data.repos && data.repos.length > 0;
-    const hasInsights = data.insights && data.insights.length > 0;
-    const hasAuthors = data.authors && data.authors.length > 0;
+    _insightsDataCache = data;
 
-    // Merge repo links from insights API into the unified PDF links section
-    if (hasRepos) {
+    // Merge repo links
+    if (data.repos?.length) {
       for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
       _renderPdfLinks();
     }
 
-    // Render authors to authors pane
-    if (authorsPane) {
-      if (hasAuthors) {
-        console.log('[Authors] Received author data:', JSON.stringify(data.authors.slice(0, 2), null, 2));
-        const fmtNum = (n) => {
-          if (!n) return null;
-          if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-          if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-          return n.toLocaleString();
-        };
-        let authorsHtml = '<div class="space-y-1" id="paper-authors-list">';
-        for (let i = 0; i < data.authors.length; i++) {
-          const author = data.authors[i];
-          const stats = [];
-          if (author.paperCount) stats.push(`${fmtNum(author.paperCount)} papers`);
-          if (author.hIndex) stats.push(`h-index ${author.hIndex}`);
-          if (author.citationCount) stats.push(`${fmtNum(author.citationCount)} citations`);
-          authorsHtml += `<div class="author-card" data-idx="${i}">
-            <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
-            <div class="author-card-info">
-              <div class="author-card-name">${escapeHtml(author.name)}</div>
-              ${author.affiliation ? `<div class="author-card-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
-              ${stats.length ? `<div class="author-card-stats">${stats.join(' · ')}</div>` : ''}
-            </div>
-          </div>`;
-        }
-        authorsHtml += '</div>';
-        authorsPane.innerHTML = authorsHtml;
-        window._insightAuthors = data.authors;
-
-        // Add hover/click handlers for PDF highlighting
-        const authorsList = document.getElementById('paper-authors-list');
-        if (authorsList) {
-          authorsList.querySelectorAll('[data-idx]').forEach(card => {
-            const idx = parseInt(card.dataset.idx);
-            const author = window._insightAuthors[idx];
-            if (!author) return;
-            card.addEventListener('mouseenter', () => {
-              if (author.name) pdfSearchHighlight(author.name, true);
-            });
-            card.addEventListener('mouseleave', pdfClearSearchHighlights);
-            card.addEventListener('click', () => {
-              if (author.name) pdfSearchHighlight(author.name, false);
-            });
-            card.style.cursor = 'pointer';
-          });
-        }
-      } else {
-        authorsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No author data available</div>';
-      }
-    }
-
-    // Render AI insights to AI pane
-    if (aiPane) {
-      if (hasInsights) {
-        const verified = await _verifyInsightsInPdf(data.insights);
-        const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400', Surprising: 'text-yellow-400', Design: 'text-orange-400', Hardware: 'text-red-400' };
-        let aiHtml = '<div class="space-y-2">';
-        for (const insight of verified) {
-          const searchSnippet = insight.text.replace(/\.\.\.$/, '');
-          const colorCls = labelColors[insight.label] || 'text-dim';
-          let extraHtml = '';
-          if (insight.gpus && insight.gpus.length) {
-            extraHtml = `<div class="flex flex-wrap gap-1 mt-1">${insight.gpus.map(g => `<span class="text-[0.68rem] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">${escapeHtml(g)}</span>`).join('')}</div>`;
-          }
-          const isHardware = insight.label === 'Hardware';
-          aiHtml += `<div class="insight-card cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" data-q="${escapeHtml(searchSnippet)}" data-click-only="${isHardware}">
-            <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
-            <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
-            ${extraHtml}
-          </div>`;
-        }
-        aiHtml += '</div>';
-        aiPane.innerHTML = verified.length ? aiHtml : '<div class="text-[0.75rem] text-dimmer">No insights found</div>';
-
-        // Add event handlers to insight cards
-        aiPane.querySelectorAll('.insight-card').forEach(card => {
-          const isClickOnly = card.dataset.clickOnly === 'true';
-          if (isClickOnly) {
-            card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
-          } else {
-            card.addEventListener('mouseenter', () => pdfSearchHighlight(card.dataset.q, true));
-            card.addEventListener('mouseleave', pdfClearSearchHighlights);
-            card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
-          }
-        });
-      } else {
-        aiPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No AI insights available</div>';
-      }
-    }
-
-    _paperInsightsLoaded = true;
-
-    // Load references to references pane
-    const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
-    if (arxivMatch && refsPane) {
-      fetchPaperReferences(arxivMatch[1], refsPane);
-    } else if (refsPane) {
-      refsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">References only available for arXiv papers</div>';
-    }
+    _renderAuthorsPane(data);
+    // Mark AI as loaded too since we have the data
+    _insightSubLoaded.ai = true;
+    _renderAIPane(data);
   } catch (e) {
     console.error('[Insights] Error:', e);
-    if (authorsPane) authorsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
-    if (aiPane) aiPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
-    _paperInsightsLoaded = true;
+    if (pane) pane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
+  }
+}
+
+function _renderAuthorsPane(data) {
+  const authorsPane = document.getElementById('insight-pane-authors');
+  if (!authorsPane) return;
+  const hasAuthors = data.authors?.length > 0;
+  if (!hasAuthors) { authorsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No author data available</div>'; return; }
+
+  const fmtNum = (n) => {
+    if (!n) return null;
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toLocaleString();
+  };
+  let html = '<div class="space-y-1" id="paper-authors-list">';
+  for (let i = 0; i < data.authors.length; i++) {
+    const author = data.authors[i];
+    const stats = [];
+    if (author.paperCount) stats.push(`${fmtNum(author.paperCount)} papers`);
+    if (author.hIndex) stats.push(`h-index ${author.hIndex}`);
+    if (author.citationCount) stats.push(`${fmtNum(author.citationCount)} citations`);
+    html += `<div class="author-card" data-idx="${i}">
+      <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
+      <div class="author-card-info">
+        <div class="author-card-name">${escapeHtml(author.name)}</div>
+        ${author.affiliation ? `<div class="author-card-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
+        ${stats.length ? `<div class="author-card-stats">${stats.join(' · ')}</div>` : ''}
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  authorsPane.innerHTML = html;
+  window._insightAuthors = data.authors;
+
+  const authorsList = document.getElementById('paper-authors-list');
+  if (authorsList) {
+    authorsList.querySelectorAll('[data-idx]').forEach(card => {
+      const idx = parseInt(card.dataset.idx);
+      const author = window._insightAuthors[idx];
+      if (!author) return;
+      card.addEventListener('mouseenter', () => { if (author.name) pdfSearchHighlight(author.name, true); });
+      card.addEventListener('mouseleave', pdfClearSearchHighlights);
+      card.addEventListener('click', () => { if (author.name) pdfSearchHighlight(author.name, false); });
+      card.style.cursor = 'pointer';
+    });
+  }
+}
+
+async function _renderAIPane(data) {
+  const aiPane = document.getElementById('insight-pane-ai');
+  if (!aiPane) return;
+  const hasInsights = data.insights?.length > 0;
+  if (!hasInsights) { aiPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No AI insights available</div>'; return; }
+
+  const verified = await _verifyInsightsInPdf(data.insights);
+  const labelColors = { Contribution: 'text-blue-400', Result: 'text-green-400', Method: 'text-purple-400', Surprising: 'text-yellow-400', Design: 'text-orange-400', Hardware: 'text-red-400' };
+  let html = '<div class="space-y-2">';
+  for (const insight of verified) {
+    const searchSnippet = insight.text.replace(/\.\.\.$/, '');
+    const colorCls = labelColors[insight.label] || 'text-dim';
+    let extraHtml = '';
+    if (insight.gpus?.length) {
+      extraHtml = `<div class="flex flex-wrap gap-1 mt-1">${insight.gpus.map(g => `<span class="text-[0.68rem] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">${escapeHtml(g)}</span>`).join('')}</div>`;
+    }
+    const isHardware = insight.label === 'Hardware';
+    html += `<div class="insight-card cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" data-q="${escapeHtml(searchSnippet)}" data-click-only="${isHardware}">
+      <div class="text-[0.68rem] font-semibold ${colorCls} uppercase tracking-wide mb-0.5">${escapeHtml(insight.label)}</div>
+      <div class="text-[0.78rem] text-primary leading-relaxed border-l-2 border-accent/40 pl-2.5 italic">${escapeHtml(insight.text)}</div>
+      ${extraHtml}
+    </div>`;
+  }
+  html += '</div>';
+  aiPane.innerHTML = verified.length ? html : '<div class="text-[0.75rem] text-dimmer">No insights found</div>';
+
+  aiPane.querySelectorAll('.insight-card').forEach(card => {
+    const isClickOnly = card.dataset.clickOnly === 'true';
+    if (isClickOnly) {
+      card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+    } else {
+      card.addEventListener('mouseenter', () => pdfSearchHighlight(card.dataset.q, true));
+      card.addEventListener('mouseleave', pdfClearSearchHighlights);
+      card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
+    }
+  });
+}
+
+function _fetchReferences(url) {
+  const refsPane = document.getElementById('insight-pane-references');
+  if (!refsPane) return;
+  const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
+  if (arxivMatch) {
+    fetchPaperReferences(arxivMatch[1], refsPane);
+  } else {
+    refsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">References only available for arXiv papers</div>';
   }
 }
 
@@ -1739,6 +1758,8 @@ function switchInsightSubtab(subtab) {
   });
   // Remember the active subtab
   localStorage.setItem('insightSubtab', subtab);
+  // Lazy load this sub-tab's data
+  _loadInsightSubtab(subtab);
 }
 
 function toggleDocChat() {
@@ -1904,98 +1925,173 @@ function renderDocChatMessages(final) {
   container.scrollTop = container.scrollHeight;
 }
 
-// Text selection → floating popup with "Ask about this" + "Post Quote"
-document.addEventListener('mouseup', function(e) {
-  const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) {
-    if (existing.contains(e.target)) return; // let the click handler fire
-    existing.remove();
-  }
+// Text selection → floating popup (appears live while selecting)
+let _selPopupDragging = false;
 
-  // Allow in: chat messages, highlights panel, notes, sidebar, PDF pages
+document.addEventListener('mousedown', function(e) {
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing && existing.contains(e.target)) return;
+  if (existing) existing.remove();
+
   const sidebar = document.getElementById('paper-sidebar');
   const pdfPages = document.getElementById('paper-pdf-container');
   const inSidebar = sidebar && sidebar.contains(e.target);
   const inPdf = pdfPages && pdfPages.contains(e.target);
   if (!inSidebar && !inPdf) return;
+  _selPopupDragging = true;
+});
 
+document.addEventListener('selectionchange', function() {
+  if (!_selPopupDragging) return;
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
-  if (!text || text.length < 3) return;
+  if (!text || text.length < 3 || sel.rangeCount === 0) {
+    const existing = document.getElementById('doc-chat-ask-float');
+    if (existing) existing.remove();
+    return;
+  }
+  _buildSelectionPopup(sel, text, false);
+});
+
+document.addEventListener('mouseup', function() {
+  if (!_selPopupDragging) return;
+  _selPopupDragging = false;
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (!popup) return;
+  // Finalize: rebuild with buttons now that selection is done
+  const sel = window.getSelection();
+  const text = sel ? sel.toString().trim() : '';
+  if (!text || text.length < 3 || sel.rangeCount === 0) { popup.remove(); return; }
+  _buildSelectionPopup(sel, text, true);
+});
+
+function _buildSelectionPopup(sel, text, finalize) {
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) existing.remove();
 
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
-  popup.style.left = e.clientX + 'px';
-  popup.style.top = (e.clientY - 40) + 'px';
+  popup.style.visibility = 'hidden';
 
   const capturedText = text;
 
-  const askBtn = document.createElement('button');
-  askBtn.className = 'doc-selection-popup-btn';
-  askBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/></svg> Ask';
-  askBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-  askBtn.addEventListener('click', function(ev) {
-    ev.stopPropagation(); ev.preventDefault();
-    popup.remove();
-    switchSidebarTab('chat');
-    sendDocMessage('Explain this:\n> ' + capturedText);
-  });
+  // -- Top row: action buttons (only shown when finalized) --
+  if (finalize) {
+    const btnRow = document.createElement('div');
+    btnRow.className = 'doc-selection-popup-btns';
 
-  const quoteBtn = document.createElement('button');
-  quoteBtn.className = 'doc-selection-popup-btn';
-  quoteBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 21c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10zm12 0c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Quote';
-  quoteBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-  quoteBtn.addEventListener('click', function(ev) {
-    ev.stopPropagation(); ev.preventDefault();
-    popup.remove();
-    _postQuoteText(capturedText);
-  });
+    const quoteBtn = document.createElement('button');
+    quoteBtn.className = 'doc-selection-popup-btn';
+    quoteBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 21c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10zm12 0c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Quote';
+    quoteBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+    quoteBtn.addEventListener('click', function(ev) {
+      ev.stopPropagation(); ev.preventDefault();
+      popup.remove();
+      _postQuoteText(capturedText);
+    });
+    btnRow.appendChild(quoteBtn);
 
-  popup.appendChild(askBtn);
-  popup.appendChild(quoteBtn);
-
-  // If selection is in PDF text layer → add Highlight button
-  const sel2 = window.getSelection();
-  if (sel2 && sel2.rangeCount > 0) {
-    const range = sel2.getRangeAt(0);
-    const ancestor = range.commonAncestorContainer;
-    const inTextLayer = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
-    if (inTextLayer && typeof createHighlight === 'function') {
-      const hlBtn = document.createElement('button');
-      hlBtn.className = 'doc-selection-popup-btn';
-      hlBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg> Highlight';
-      hlBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-      hlBtn.addEventListener('click', function(ev) {
-        ev.stopPropagation(); ev.preventDefault();
-        popup.remove();
-        // Save range and trigger highlight with default color (yellow)
-        _pdfSavedRange = range.cloneRange();
-        const defaultColor = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS[0] : { name: 'yellow', bg: 'rgba(255,235,59,0.35)', solid: '#ffeb3b' };
-        createHighlight(defaultColor);
-      });
-      popup.appendChild(hlBtn);
+    // Highlight color dots (only for PDF text layer)
+    if (sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const ancestor = range.commonAncestorContainer;
+      const inTextLayer = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
+      if (inTextLayer && typeof createHighlight === 'function') {
+        const colors = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS : [
+          { name: 'yellow', bg: 'rgba(255,235,59,0.35)', solid: '#ffeb3b' },
+          { name: 'green', bg: 'rgba(76,175,80,0.35)', solid: '#4caf50' },
+          { name: 'blue', bg: 'rgba(66,165,245,0.35)', solid: '#42a5f5' },
+          { name: 'pink', bg: 'rgba(236,64,122,0.35)', solid: '#ec407a' },
+        ];
+        for (const c of colors) {
+          const dot = document.createElement('button');
+          dot.className = 'doc-selection-hl-dot';
+          dot.style.background = c.solid;
+          dot.title = c.name;
+          dot.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+          dot.addEventListener('click', function(ev) {
+            ev.stopPropagation(); ev.preventDefault();
+            popup.remove();
+            _pdfSavedRange = range.cloneRange();
+            createHighlight(c);
+          });
+          btnRow.appendChild(dot);
+        }
+      }
     }
+
+    // Single word → Lookup
+    const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
+    if (isSingleWord) {
+      const lookupBtn = document.createElement('button');
+      lookupBtn.className = 'doc-selection-popup-btn';
+      lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
+      lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+      lookupBtn.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        const px = popup.style.left, py = popup.style.top;
+        popup.remove();
+        _showWordLookup(capturedText, parseInt(px), parseInt(py));
+      });
+      btnRow.appendChild(lookupBtn);
+    }
+
+    popup.appendChild(btnRow);
   }
 
-  // Single word → add Lookup button
-  const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
-  if (isSingleWord) {
-    const lookupBtn = document.createElement('button');
-    lookupBtn.className = 'doc-selection-popup-btn';
-    lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
-    lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-    lookupBtn.addEventListener('click', function(ev) {
-      ev.stopPropagation(); ev.preventDefault();
-      const px = popup.style.left, py = popup.style.top;
-      popup.remove();
-      _showWordLookup(capturedText, parseInt(px), parseInt(py));
+  // -- Selected text preview --
+  const preview = document.createElement('div');
+  preview.className = 'doc-selection-preview';
+  const truncated = capturedText.length > 150 ? capturedText.slice(0, 150) + '…' : capturedText;
+  preview.textContent = truncated;
+  popup.appendChild(preview);
+
+  // -- Ask input --
+  if (finalize) {
+    const askWrap = document.createElement('div');
+    askWrap.className = 'doc-ask-inline-wrap';
+    const askInput = document.createElement('input');
+    askInput.type = 'text';
+    askInput.placeholder = 'Ask about this…';
+    askInput.className = 'doc-ask-inline-input';
+    askInput.addEventListener('keydown', (ev) => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        const q = askInput.value.trim();
+        if (!q) return;
+        popup.remove();
+        switchSidebarTab('chat');
+        sendDocMessage(q + '\n\n> ' + capturedText);
+      }
+      if (ev.key === 'Escape') { ev.preventDefault(); popup.remove(); }
     });
-    popup.appendChild(lookupBtn);
+    askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    askWrap.appendChild(askInput);
+    popup.appendChild(askWrap);
   }
 
   document.body.appendChild(popup);
-});
+
+  // Position above selection, clamp to viewport
+  const selRange = sel.getRangeAt(0);
+  const selRect = selRange.getBoundingClientRect();
+  const popupRect = popup.getBoundingClientRect();
+  let top = selRect.top - popupRect.height - 8;
+  if (top < 4) top = selRect.bottom + 8;
+  let left = selRect.left;
+  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+  if (left < 4) left = 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup.style.visibility = '';
+
+  if (finalize) {
+    const input = popup.querySelector('.doc-ask-inline-input');
+    if (input) setTimeout(() => input.focus(), 10);
+  }
+}
 
 function _postQuoteText(text) {
   const paper = _currentPaperViewPaper;
