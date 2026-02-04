@@ -2469,6 +2469,75 @@
     }
     .doc-ask-inline-send:hover { color: var(--accent); background: rgba(255,255,255,0.06); }
     .doc-ask-inline-send:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Screenshot capture */
+    .screenshot-dim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+      z-index: 98;
+    }
+    .screenshot-selection {
+      position: fixed;
+      display: none;
+      border: 2px dashed var(--accent);
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 99;
+    }
+    .doc-screenshot-attachments {
+      display: none;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px 6px;
+      border-top: 1px solid var(--border-input);
+    }
+    .doc-screenshot-thumb {
+      position: relative;
+      width: 80px;
+      height: 50px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-input);
+      flex-shrink: 0;
+    }
+    .doc-screenshot-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .doc-screenshot-thumb-remove {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      border: none;
+      font-size: 11px;
+      line-height: 16px;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+    }
+    .doc-screenshot-thumb-remove:hover { background: var(--accent); }
+    .doc-msg-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .doc-msg-images img {
+      max-width: 120px;
+      max-height: 80px;
+      border-radius: 4px;
+      border: 1px solid var(--border-input);
+      object-fit: cover;
+    }
+
     .doc-wiki-preview {
       border-top: 1px solid var(--border-input);
       padding: 6px 8px;

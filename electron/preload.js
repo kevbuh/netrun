@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('download-progress');
     ipcRenderer.removeAllListeners('download-completed');
   },
+  // Screen capture
+  captureScreen: (rect) => ipcRenderer.invoke('capture-screen', rect),
   // File handling
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path)

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -406,6 +406,17 @@ app.whenReady().then(() => {
     app.dock.setIcon(nativeImage.createFromPath(iconPath));
   }
   createMenu();
+
+  ipcMain.handle('capture-screen', async (event, rect) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return null;
+    const image = await win.webContents.capturePage({
+      x: Math.round(rect.x), y: Math.round(rect.y),
+      width: Math.round(rect.width), height: Math.round(rect.height)
+    });
+    return image.toPNG().toString('base64');
+  });
+
   createWindow();
 });
 

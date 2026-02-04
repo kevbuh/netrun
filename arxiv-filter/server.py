@@ -2257,19 +2257,37 @@ ch.postMessage({type:'preview-ready'});
                 body = self._read_body()
                 context = body.get('context', '')
                 messages = body.get('messages', [])
+                is_vision = body.get('vision', False)
                 if not messages:
                     self._send_json({'error': 'messages required'}, 400)
                     return
-                truncated_ctx = context[:12000]
-                system_msg = (
-                    "You are a helpful research assistant. The user is reading a document. "
-                    "Answer their questions based ONLY on the document text below. "
-                    "Do not make up information that is not in the document.\n\n"
-                    "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
-                )
-                ollama_messages = [{"role": "system", "content": system_msg}] + messages
+
+                if is_vision:
+                    model = "qwen3-vl"
+                    system_msg = (
+                        "You are a helpful visual analysis assistant. The user has taken a screenshot "
+                        "and wants to ask about it. Describe what you see and answer their questions "
+                        "based on the visual content provided."
+                    )
+                    ollama_messages = [{"role": "system", "content": system_msg}]
+                    for m in messages:
+                        msg = {"role": m["role"], "content": m.get("content", "")}
+                        if m.get("images"):
+                            msg["images"] = m["images"]
+                        ollama_messages.append(msg)
+                else:
+                    model = "qwen2.5:3b"
+                    truncated_ctx = context[:12000]
+                    system_msg = (
+                        "You are a helpful research assistant. The user is reading a document. "
+                        "Answer their questions based ONLY on the document text below. "
+                        "Do not make up information that is not in the document.\n\n"
+                        "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
+                    )
+                    ollama_messages = [{"role": "system", "content": system_msg}] + messages
+
                 payload = json.dumps({
-                    "model": "qwen2.5:3b",
+                    "model": model,
                     "messages": ollama_messages,
                     "stream": True
                 }).encode()

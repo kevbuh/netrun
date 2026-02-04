@@ -1943,6 +1943,7 @@ let _popupChatAbort = null;
 let _lookupFollowMode = false;
 let _lastMouseX = 0;
 let _lastMouseY = 0;
+let _pendingScreenshots = [];
 
 function _isLookupEligible(text) {
   if (!text || text.length > 80) return false;
@@ -2091,14 +2092,22 @@ function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
-  if (!q) return;
+  if (!q && _pendingScreenshots.length === 0) return;
   input.value = '';
 
+  // Grab pending screenshots and clear strip
+  const images = _pendingScreenshots.slice();
+  _pendingScreenshots = [];
+  const strip = popup.querySelector('.doc-screenshot-attachments');
+  if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
+
   // Build user message with context on first message
-  const userMsg = _popupChatMessages.length === 0
-    ? q + '\n\n> ' + capturedText
-    : q;
-  _popupChatMessages.push({ role: 'user', content: userMsg, _display: q });
+  const userMsg = _popupChatMessages.length === 0 && capturedText
+    ? (q || 'What is this?') + '\n\n> ' + capturedText
+    : (q || 'What is this?');
+  const msgObj = { role: 'user', content: userMsg, _display: q || 'What is this?' };
+  if (images.length) msgObj.images = images;
+  _popupChatMessages.push(msgObj);
   _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
 
   // Show chat area, add has-chat class
@@ -2115,12 +2124,27 @@ function _sendPopupChatMessage(popup, capturedText) {
 
   _popupChatAbort = new AbortController();
 
+  // Check if any message has images (vision mode)
+  const hasVision = _popupChatMessages.some(m => m.images && m.images.length > 0);
+
+  const filteredMsgs = _popupChatMessages.filter(m => !m._thinking).map(m => {
+    const msg = { role: m.role, content: m.content };
+    if (m.images && m.images.length) msg.images = m.images;
+    return msg;
+  });
+
   (async () => {
     try {
+      const body = { messages: filteredMsgs };
+      if (hasVision) {
+        body.vision = true;
+      } else {
+        body.context = _docText;
+      }
       const resp = await fetch('/api/doc-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context: _docText, messages: _popupChatMessages.filter(m => !m._thinking) }),
+        body: JSON.stringify(body),
         signal: _popupChatAbort.signal
       });
 
@@ -2191,7 +2215,13 @@ function _renderPopupChat(popup, final) {
   container.innerHTML = _popupChatMessages.map((m, i) => {
     if (m.role === 'user') {
       const display = m._display || m.content;
-      return `<div class="doc-msg-user">${escapeHtml(display)}</div>`;
+      let imgsHtml = '';
+      if (m.images && m.images.length) {
+        imgsHtml = '<div class="doc-msg-images">' + m.images.map(b64 =>
+          `<img src="data:image/png;base64,${b64}" />`
+        ).join('') + '</div>';
+      }
+      return `<div class="doc-msg-user">${imgsHtml}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
@@ -2216,6 +2246,7 @@ function _sendPopupChatToSidebar() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (popup) popup.remove();
   _popupChatMessages = [];
+  _pendingScreenshots = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 }
 
@@ -2752,6 +2783,20 @@ document.addEventListener('mousedown', function(e) {
   if (existing && existing.contains(e.target)) {
     return;
   }
+  // In follow mode with captureScreen available: pin panel and start screenshot drag
+  if (existing && _lookupFollowMode && window.electronAPI?.captureScreen) {
+    e.preventDefault(); // prevent text selection during drag
+    _lookupFollowMode = false;
+    _screenshotDragStart = { x: e.clientX, y: e.clientY };
+    // Create selection rect + dim overlay elements
+    _screenshotDim = document.createElement('div');
+    _screenshotDim.className = 'screenshot-dim';
+    document.body.appendChild(_screenshotDim);
+    _screenshotSelection = document.createElement('div');
+    _screenshotSelection.className = 'screenshot-selection';
+    document.body.appendChild(_screenshotSelection);
+    return;
+  }
   // If NOT in follow mode, remove existing panel
   if (existing && !_lookupFollowMode) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -2781,7 +2826,34 @@ document.addEventListener('selectionchange', function() {
   _buildSelectionPopup(sel, text, false);
 });
 
-document.addEventListener('mouseup', function(e) {
+document.addEventListener('mouseup', async function(e) {
+  // Screenshot drag completion
+  if (_screenshotDragStart) {
+    const startPos = _screenshotDragStart;
+    _screenshotDragStart = null;
+    const x = Math.min(e.clientX, startPos.x);
+    const y = Math.min(e.clientY, startPos.y);
+    const w = Math.abs(e.clientX - startPos.x);
+    const h = Math.abs(e.clientY - startPos.y);
+    // Remove selection visuals before capture
+    if (_screenshotSelection) { _screenshotSelection.remove(); _screenshotSelection = null; }
+    if (_screenshotDim) { _screenshotDim.remove(); _screenshotDim = null; }
+    if (w >= 10 && h >= 10 && window.electronAPI?.captureScreen) {
+      // Small delay so overlay removal renders before capture
+      await new Promise(r => setTimeout(r, 50));
+      try {
+        const popup = document.getElementById('doc-chat-ask-float');
+        const base64 = await window.electronAPI.captureScreen({ x, y, width: w, height: h });
+        if (base64 && popup) {
+          _addScreenshotToPanel(popup, base64);
+        }
+      } catch (err) {
+        console.error('Screenshot capture failed:', err);
+      }
+    }
+    return;
+  }
+
   if (!_selPopupDragging) return;
   _selPopupDragging = false;
 
@@ -3091,6 +3163,7 @@ async function _showWordLookup(word, x, y) {
 // Dismiss popup on outside click (only when NOT in follow mode)
 document.addEventListener('mousedown', function(e) {
   if (_lookupFollowMode) return;
+  if (_screenshotDragStart) return; // screenshot drag in progress, keep panel open
   const btn = document.getElementById('doc-chat-ask-float');
   if (btn && !btn.contains(e.target)) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -3099,10 +3172,27 @@ document.addEventListener('mousedown', function(e) {
   }
 });
 
-// Follow-mode: panel tracks cursor
+// Follow-mode: panel tracks cursor + screenshot drag
 document.addEventListener('mousemove', function(e) {
   _lastMouseX = e.clientX;
   _lastMouseY = e.clientY;
+
+  // Screenshot drag in progress
+  if (_screenshotDragStart && _screenshotSelection && _screenshotDim) {
+    const sx = Math.min(e.clientX, _screenshotDragStart.x);
+    const sy = Math.min(e.clientY, _screenshotDragStart.y);
+    const sw = Math.abs(e.clientX - _screenshotDragStart.x);
+    const sh = Math.abs(e.clientY - _screenshotDragStart.y);
+    _screenshotSelection.style.display = 'block';
+    _screenshotSelection.style.left = sx + 'px';
+    _screenshotSelection.style.top = sy + 'px';
+    _screenshotSelection.style.width = sw + 'px';
+    _screenshotSelection.style.height = sh + 'px';
+    const vw = window.innerWidth, vh = window.innerHeight;
+    _screenshotDim.style.clipPath = `polygon(0 0,${vw}px 0,${vw}px ${vh}px,0 ${vh}px,0 0,${sx}px ${sy}px,${sx}px ${sy+sh}px,${sx+sw}px ${sy+sh}px,${sx+sw}px ${sy}px,${sx}px ${sy}px)`;
+    return;
+  }
+
   if (!_lookupFollowMode) return;
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) { _lookupFollowMode = false; return; }
@@ -3120,10 +3210,18 @@ document.addEventListener('mousemove', function(e) {
 // Escape to dismiss from anywhere
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
+    // Cancel screenshot drag if active
+    if (_screenshotDragStart) {
+      _screenshotDragStart = null;
+      if (_screenshotSelection) { _screenshotSelection.remove(); _screenshotSelection = null; }
+      if (_screenshotDim) { _screenshotDim.remove(); _screenshotDim = null; }
+      return;
+    }
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) {
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _lookupFollowMode = false;
+      _pendingScreenshots = [];
       popup.remove();
     }
   }
@@ -3175,6 +3273,43 @@ function _injectIframeChatHandler(iframe) {
   tryInject();
 }
 
+// ── Screenshot drag-to-capture ──
+// State for drag-to-screenshot (active when follow panel is open)
+let _screenshotDragStart = null; // {x, y} or null
+let _screenshotSelection = null; // DOM element
+let _screenshotDim = null; // DOM element
+
+function _addScreenshotToPanel(popup, base64) {
+  _pendingScreenshots.push(base64);
+
+  const strip = popup.querySelector('.doc-screenshot-attachments');
+  if (!strip) return;
+  strip.style.display = 'flex';
+
+  const thumb = document.createElement('div');
+  thumb.className = 'doc-screenshot-thumb';
+  const img = document.createElement('img');
+  img.src = 'data:image/png;base64,' + base64;
+  thumb.appendChild(img);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'doc-screenshot-thumb-remove';
+  removeBtn.textContent = '\u00d7';
+  removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  removeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const idx = _pendingScreenshots.indexOf(base64);
+    if (idx !== -1) _pendingScreenshots.splice(idx, 1);
+    thumb.remove();
+    if (_pendingScreenshots.length === 0) strip.style.display = 'none';
+  });
+  thumb.appendChild(removeBtn);
+  strip.appendChild(thumb);
+
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.focus();
+}
+
 // Follow-mode chat panel: blank chat input that tracks cursor
 // contextData: optional { linkUrl, linkText, imgUrl } for context menu items
 function _showFollowPanel(x, y, contextData) {
@@ -3186,6 +3321,7 @@ function _showFollowPanel(x, y, contextData) {
   _lookupFollowMode = !hasContext;
 
   _popupChatMessages = [];
+  _pendingScreenshots = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
   // Context menu items (links, images)
@@ -3271,6 +3407,11 @@ function _showFollowPanel(x, y, contextData) {
   chatArea.appendChild(chatActions);
   popup.appendChild(chatArea);
 
+  // Screenshot attachment strip
+  const attachStrip = document.createElement('div');
+  attachStrip.className = 'doc-screenshot-attachments';
+  popup.appendChild(attachStrip);
+
   // Ask input (always visible, no divider in follow mode)
   const askWrap = document.createElement('div');
   askWrap.className = 'doc-ask-inline-wrap';
@@ -3281,6 +3422,7 @@ function _showFollowPanel(x, y, contextData) {
   askInput.type = 'text';
   askInput.placeholder = 'Ask anything…';
   askInput.className = 'doc-ask-inline-input';
+
   const sendBtn = document.createElement('button');
   sendBtn.className = 'doc-ask-inline-send';
   sendBtn.innerHTML = '↑';
@@ -3300,6 +3442,7 @@ function _showFollowPanel(x, y, contextData) {
       ev.preventDefault();
       _lookupFollowMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _pendingScreenshots = [];
       popup.remove();
     }
   });
