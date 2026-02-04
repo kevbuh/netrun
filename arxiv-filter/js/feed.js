@@ -558,6 +558,8 @@ let _hcPositions = []; // {x, y, key}
 let _hcRafId = 0;
 let _hcMouseX = 0, _hcMouseY = 0;
 let _hcListenersAttached = false;
+let _hcActiveCategory = null; // null = All
+let _hcHoveredIdx = -1;
 
 function _honeycombCircleContent(entry) {
   if (entry.favicon) {
@@ -569,56 +571,75 @@ function _honeycombCircleContent(entry) {
   return `<span class="hc-letter" style="color:${entry.fg || '#fff'}">${entry.letter || entry.name[0]}</span>`;
 }
 
+function _renderHcCategoryTabs() {
+  const container = document.getElementById('hc-category-tabs');
+  if (!container) return;
+  const cats = [];
+  FEED_CATALOG.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat); });
+  let html = `<button class="hc-tab${_hcActiveCategory === null ? ' active' : ''}" onclick="_hcSelectCategory(null)">All</button>`;
+  cats.forEach(cat => {
+    html += `<button class="hc-tab${_hcActiveCategory === cat ? ' active' : ''}" onclick="_hcSelectCategory('${cat.replace(/'/g, "\\'")}')">${cat}</button>`;
+  });
+  container.innerHTML = html;
+}
+
+function _hcSelectCategory(cat) {
+  _hcActiveCategory = cat;
+  _renderHcCategoryTabs();
+  renderOnboardGrid();
+  _updateOnboardCardStates();
+}
+
 function renderOnboardGrid() {
   const grid = document.getElementById('onboard-grid');
-  const entries = FEED_CATALOG;
+  const entries = _hcActiveCategory
+    ? FEED_CATALOG.filter(f => f.cat === _hcActiveCategory)
+    : FEED_CATALOG;
   const N = entries.length;
-  const circleSize = 52;
-  const gap = 10;
+  const circleSize = 42;
+  const gap = 8;
   const cell = circleSize + gap;
   const rowH = cell * 0.866;
-  const cols = Math.ceil(Math.sqrt(N * 1.2));
+  const cols = Math.max(3, Math.ceil(Math.sqrt(N * 1.2)));
+  const pad = 40; // padding so edge circles + tooltips aren't clipped
 
   _hcPositions = [];
   _hcCircleEls = [];
+  _hcHoveredIdx = -1;
 
   let html = '';
   entries.forEach((f, i) => {
     const row = Math.floor(i / cols);
     const col = i % cols;
     const offsetX = (row % 2 === 1) ? cell / 2 : 0;
-    const x = col * cell + offsetX;
-    const y = row * rowH;
+    const x = pad + col * cell + offsetX;
+    const y = pad + row * rowH;
     _hcPositions.push({ x: x + circleSize / 2, y: y + circleSize / 2, key: f.key });
     const sel = onboardSelected.has(f.key) ? ' selected' : '';
     html += `<div class="hc-circle${sel}" data-source="${f.key}" style="left:${x}px;top:${y}px;background:${f.bg || '#333'};" data-idx="${i}">
-      ${_honeycombCircleContent(f)}
+      <div class="hc-icon">${_honeycombCircleContent(f)}</div>
       <div class="hc-tooltip">${f.name}</div>
     </div>`;
   });
   grid.innerHTML = html;
 
-  // Compute grid dimensions and set grid size
   const totalRows = Math.ceil(N / cols);
-  const gridW = cols * cell + cell / 2 + circleSize;
-  const gridH = totalRows * rowH + circleSize;
+  const gridW = cols * cell + cell / 2 + circleSize + pad * 2;
+  const gridH = totalRows * rowH + circleSize + pad * 2;
   grid.style.width = gridW + 'px';
   grid.style.height = gridH + 'px';
 
   _hcCircleEls = Array.from(grid.querySelectorAll('.hc-circle'));
 
-  // Attach click handlers
   _hcCircleEls.forEach(el => {
-    el.addEventListener('click', (e) => {
+    el.addEventListener('click', () => {
       if (_hcDidDrag) return;
       toggleOnboardSource(el.dataset.source);
     });
   });
 
-  // Center grid in viewport
   requestAnimationFrame(() => _centerHoneycomb());
 
-  // Attach pan/fisheye listeners
   if (!_hcListenersAttached) {
     _attachHoneycombListeners();
     _hcListenersAttached = true;
@@ -682,11 +703,12 @@ function _attachHoneycombListeners() {
   });
 
   vp.addEventListener('mouseleave', () => {
-    // Reset all scales on leave
-    _hcCircleEls.forEach(el => {
-      el.style.transform = 'scale(1)';
-      el.style.zIndex = '';
-    });
+    if (_hcHoveredIdx >= 0 && _hcHoveredIdx < _hcCircleEls.length) {
+      _hcCircleEls[_hcHoveredIdx].style.transform = 'scale(1)';
+      _hcCircleEls[_hcHoveredIdx].style.zIndex = '';
+      _hcCircleEls[_hcHoveredIdx].classList.remove('hc-hovered');
+    }
+    _hcHoveredIdx = -1;
   });
 
   // Touch support
@@ -723,23 +745,33 @@ function _attachHoneycombListeners() {
 
 function _applyFisheye() {
   _hcRafId = 0;
-  const radius = 180;
-  // Mouse coords are relative to viewport; convert to grid coords
   const gx = _hcMouseX - _hcPanX;
   const gy = _hcMouseY - _hcPanY;
+  const hitRadius = 28; // half of circle size + small margin
 
-  for (let i = 0; i < _hcCircleEls.length; i++) {
-    const pos = _hcPositions[i];
-    const dx = gx - pos.x;
-    const dy = gy - pos.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < radius) {
-      const scale = 1 + 0.8 * (0.5 * (1 + Math.cos(Math.PI * dist / radius)));
-      _hcCircleEls[i].style.transform = `scale(${scale.toFixed(3)})`;
-      _hcCircleEls[i].style.zIndex = Math.round(scale * 10) + '';
-    } else {
-      _hcCircleEls[i].style.transform = 'scale(1)';
-      _hcCircleEls[i].style.zIndex = '';
+  // Find closest circle to cursor
+  let closestIdx = -1, closestDist = Infinity;
+  for (let i = 0; i < _hcPositions.length; i++) {
+    const dx = gx - _hcPositions[i].x;
+    const dy = gy - _hcPositions[i].y;
+    const d = dx * dx + dy * dy;
+    if (d < closestDist) { closestDist = d; closestIdx = i; }
+  }
+  closestDist = Math.sqrt(closestDist);
+  const hovIdx = closestDist < hitRadius ? closestIdx : -1;
+
+  // Update hovered class + tooltip
+  if (hovIdx !== _hcHoveredIdx) {
+    if (_hcHoveredIdx >= 0 && _hcHoveredIdx < _hcCircleEls.length) {
+      _hcCircleEls[_hcHoveredIdx].classList.remove('hc-hovered');
+      _hcCircleEls[_hcHoveredIdx].style.transform = 'scale(1)';
+      _hcCircleEls[_hcHoveredIdx].style.zIndex = '';
+    }
+    _hcHoveredIdx = hovIdx;
+    if (_hcHoveredIdx >= 0) {
+      _hcCircleEls[_hcHoveredIdx].classList.add('hc-hovered');
+      _hcCircleEls[_hcHoveredIdx].style.transform = 'scale(1.35)';
+      _hcCircleEls[_hcHoveredIdx].style.zIndex = '50';
     }
   }
 }
@@ -787,6 +819,8 @@ function showOnboarding() {
       onboardSelected.add(f.key);
     });
   }
+  _hcActiveCategory = null;
+  _renderHcCategoryTabs();
   renderOnboardGrid();
   _updateOnboardCardStates();
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;

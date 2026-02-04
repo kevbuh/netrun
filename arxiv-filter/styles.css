@@ -5480,17 +5480,16 @@
     /* === Honeycomb Onboarding === */
     .hc-circle {
       position: absolute;
-      width: 52px;
-      height: 52px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
-      border: 2.5px solid var(--border-card);
+      border: 2px solid var(--border-card);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       will-change: transform;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      overflow: hidden;
+      transition: transform 0.15s ease-out, border-color 0.2s, box-shadow 0.2s;
       user-select: none;
     }
     .hc-circle:hover {
@@ -5500,32 +5499,47 @@
       border-color: var(--accent);
       box-shadow: 0 0 12px 2px color-mix(in srgb, var(--accent) 50%, transparent);
     }
+    .hc-circle .hc-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
     .hc-circle img {
-      width: 28px;
-      height: 28px;
+      width: 22px;
+      height: 22px;
       border-radius: 4px;
       pointer-events: none;
     }
     .hc-circle .hc-letter {
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 700;
       pointer-events: none;
       line-height: 1;
     }
     .hc-tooltip {
       position: absolute;
-      top: 100%;
+      bottom: -20px;
       left: 50%;
       transform: translateX(-50%);
-      margin-top: 4px;
-      font-size: 0.6rem;
-      color: var(--text-dim);
+      font-size: 0.62rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      padding: 1px 6px;
+      border-radius: 4px;
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.15s;
+      z-index: 100;
     }
-    .hc-circle:hover .hc-tooltip {
+    .hc-circle.hc-hovered .hc-tooltip {
       opacity: 1;
     }
     #honeycomb-viewport::after {
@@ -5538,5 +5552,33 @@
     }
     #honeycomb-viewport.grabbing {
       cursor: grabbing;
+    }
+    /* Category tabs */
+    .hc-tabs {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 0 16px 6px;
+    }
+    .hc-tab {
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border-card);
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .hc-tab:hover {
+      border-color: var(--text-dim);
+      color: var(--text-muted);
+    }
+    .hc-tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
     }
 
