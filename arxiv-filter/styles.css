@@ -2984,8 +2984,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .lookup-pin-btn,
-    .lookup-close-btn {
+    .lookup-pin-btn {
       background: none !important;
       border: none !important;
       cursor: pointer;

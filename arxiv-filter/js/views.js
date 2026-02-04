@@ -1945,7 +1945,6 @@ let _lastMouseX = 0;
 let _lastMouseY = 0;
 let _pendingScreenshots = [];
 let _pendingNoteContexts = []; // {id, title, content} — vault notes attached to chat
-let _lookupPinned = false;
 let _lookupDragging = false;
 let _lookupDragOffset = { x: 0, y: 0 };
 
@@ -2943,6 +2942,8 @@ document.addEventListener('mousedown', function(e) {
   if (existing && existing.contains(e.target)) {
     return;
   }
+  // Skip if clicking inside a sticky pinned panel
+  if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
   // In track mode with captureScreen available: pin panel and start screenshot drag
   if (existing && _lookupTrackMode && window.electronAPI?.captureScreen) {
     e.preventDefault(); // prevent text selection during drag
@@ -2957,8 +2958,8 @@ document.addEventListener('mousedown', function(e) {
     document.body.appendChild(_screenshotSelection);
     return;
   }
-  // If NOT in track mode and NOT pinned, remove existing panel
-  if (existing && !_lookupTrackMode && !_lookupPinned) {
+  // If NOT in track mode, remove existing panel
+  if (existing && !_lookupTrackMode) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
     existing.remove();
@@ -2982,7 +2983,7 @@ document.addEventListener('selectionchange', function() {
   // User is actively selecting text — stop tracking, show selection preview
   _lookupTrackMode = false;
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing && existing._isLookupPanel && !_lookupPinned) existing.remove();
+  if (existing && existing._isLookupPanel) existing.remove();
   _buildSelectionPopup(sel, text, false);
 });
 
@@ -3027,7 +3028,7 @@ document.addEventListener('mouseup', async function(e) {
     return;
   }
 
-  // Single click, no selection → dismiss existing panel if any
+  // Single click, no selection → dismiss existing panel if not pinned
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) { existing.remove(); _lookupTrackMode = false; }
 });
@@ -3405,7 +3406,7 @@ document.addEventListener('keydown', function(e) {
       return;
     }
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup && !_lookupPinned) {
+    if (popup) {
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _lookupTrackMode = false;
       _pendingScreenshots = [];
@@ -3436,10 +3437,13 @@ function _handleContextMenuChat(e) {
   // Skip if right-clicking inside an existing popup
   const popup = document.getElementById('doc-chat-ask-float');
   if (popup && popup.contains(e.target)) return;
+  // Skip if clicking inside a sticky pinned panel
+  if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
   // Skip inputs/textareas
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   e.preventDefault();
+  // _showLookupPanel handles retiring pinned panels
   if (popup) { popup.remove(); _lookupTrackMode = false; }
   _showLookupPanel(e.clientX, e.clientY);
 }
@@ -4203,6 +4207,13 @@ async function _doLookupUserSearch(popup, query) {
 // Lookup panel: blank chat input that tracks cursor
 // contextData: optional { linkUrl, linkText, imgUrl } for context menu items
 function _showLookupPanel(x, y, contextData, initialValue) {
+  // Remove any existing active panel (pinned panels have different IDs and are untouched)
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) {
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    existing.remove();
+  }
+
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
@@ -4213,7 +4224,6 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   _popupChatMessages = [];
   _pendingScreenshots = [];
   _pendingNoteContexts = [];
-  _lookupPinned = false;
   _lookupDragging = false;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
@@ -4388,32 +4398,23 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   pinBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   pinBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
-    _lookupPinned = !_lookupPinned;
-    popup.classList.toggle('lookup-pinned', _lookupPinned);
-    pinBtn.style.opacity = _lookupPinned ? '1' : '0.5';
-    closeBtn.style.display = _lookupPinned ? '' : 'none';
+    if (popup._isStickyNote) {
+      // Already a sticky note — unpin removes it
+      popup.remove();
+      return;
+    }
+    // Pin: detach from the managed system entirely
+    popup._isStickyNote = true;
+    popup.id = 'doc-chat-pinned-' + Date.now();
+    popup.classList.add('lookup-pinned');
+    _lookupTrackMode = false;
+    const svg = pinBtn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', 'currentColor');
+    pinBtn.style.opacity = '1';
+    pinBtn.title = 'Unpin (close)';
   });
   pinBtn.style.opacity = '0.5';
   topBar.appendChild(pinBtn);
-
-  // Close button (visible when pinned)
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'lookup-close-btn';
-  closeBtn.innerHTML = '&times;';
-  closeBtn.title = 'Close';
-  closeBtn.style.fontSize = '0.85rem';
-  closeBtn.style.display = 'none';
-  closeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  closeBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _lookupPinned = false;
-    _lookupTrackMode = false;
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    _pendingScreenshots = [];
-    _pendingNoteContexts = [];
-    popup.remove();
-  });
-  topBar.appendChild(closeBtn);
 
   // Drag to move (skip buttons only)
   topBar.addEventListener('mousedown', (ev) => {
@@ -4578,7 +4579,7 @@ function _showLookupPanel(x, y, contextData, initialValue) {
       if (modelDropdown) { _lookupHideModelDropdown(popup); return; }
       if (noteDropdown) { _lookupHideNoteDropdown(popup); return; }
       if (dropdown) { _lookupHideCmdDropdown(popup); return; }
-      if (_lookupPinned) return; // pinned — use X button to close
+      if (popup._isStickyNote) return; // sticky note — use pin button to close
       _lookupTrackMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
