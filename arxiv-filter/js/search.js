@@ -1440,6 +1440,7 @@ function browseCloseTab(id) {
   if (!win.tabs.length) {
     if (_browseWindows.length > 1) {
       browseCloseWindow(win.id);
+      _browseAnimateBounce();
     } else {
       browseNewTab();
       _browseAnimateBounce();
