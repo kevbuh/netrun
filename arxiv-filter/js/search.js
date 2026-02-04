@@ -1198,6 +1198,7 @@ function _browseBindFrame(tab) {
         },true);
         document.addEventListener('keydown',function(e){
           if(e.key==='Escape') console.log('__ALPHA_DISMISS_CHAT__');
+          if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();console.log('__ALPHA_FIND__');}
         },true);
         // Throttled mousemove for lookup panel
         var _lastMove=0;
@@ -1262,6 +1263,8 @@ function _browseBindFrame(tab) {
           _showLookupPanel(x, y);
         }
       } catch (err) {}
+    } else if (e.message === '__ALPHA_FIND__') {
+      _browseToggleFindBar();
     } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {
       // Legacy support
       try {
@@ -1439,6 +1442,8 @@ window.addEventListener('blur', () => {
 function browseSelectTab(id) {
   const win = _getCurrentWindow();
   if (!win) return;
+  // Close find bar when switching tabs
+  if (_browseFindBarActive) _browseCloseFindBar();
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
 
@@ -1679,7 +1684,7 @@ function _browseRenderTabs() {
     const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
     const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
       ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
-    return `<div class="browse-tab ${active ? 'active' : ''} ${hasAudio ? 'has-audio' : ''}" onclick="_focusBrowseTabBar();browseSelectTab(${t.id})" title="${escapeHtml(t.title)}">
+    return `<div class="browse-tab ${active ? 'active' : ''} ${hasAudio ? 'has-audio' : ''}" onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
       ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
       <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
     </div>`;
@@ -1694,6 +1699,60 @@ function _browseRenderTabs() {
   if (_browseTabOverviewVisible) {
     _renderToolbarSessions();
   }
+
+  // Attach tab hover popup handlers
+  bar.querySelectorAll('.browse-tab').forEach(tabEl => {
+    tabEl.addEventListener('mouseenter', _showTabHoverPopup);
+    tabEl.addEventListener('mouseleave', _hideTabHoverPopup);
+  });
+}
+
+// ── Tab hover info popup ──
+
+let _tabHoverPopup = null;
+let _tabHoverTimeout = null;
+
+function _showTabHoverPopup(e) {
+  const tabEl = e.currentTarget;
+  // Find the tab data by matching the onclick attribute
+  const onclickAttr = tabEl.getAttribute('onclick') || '';
+  const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
+  if (!idMatch) return;
+  const tabId = parseInt(idMatch[1]);
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+
+  // Delay before showing to avoid flicker on quick mouse passes
+  _tabHoverTimeout = setTimeout(() => {
+    _hideTabHoverPopup();
+    const popup = document.createElement('div');
+    popup.className = 'browse-tab-hover-popup';
+    const fav = tab.favicon ? `<img src="${escapeAttr(tab.favicon)}" class="browse-tab-hover-favicon" onerror="this.style.display='none'">` : '';
+    const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
+    popup.innerHTML = fav +
+      `<div class="browse-tab-hover-info">` +
+      `<div class="browse-tab-hover-title">${escapeHtml(tab.title)}</div>` +
+      `<div class="browse-tab-hover-url">${escapeHtml(domain)}</div>` +
+      `</div>`;
+    document.body.appendChild(popup);
+    _tabHoverPopup = popup;
+
+    // Position below the tab
+    const rect = tabEl.getBoundingClientRect();
+    let left = rect.left;
+    const popW = popup.offsetWidth;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    if (left < 4) left = 4;
+    popup.style.left = left + 'px';
+    popup.style.top = (rect.bottom + 4) + 'px';
+  }, 400);
+}
+
+function _hideTabHoverPopup() {
+  if (_tabHoverTimeout) { clearTimeout(_tabHoverTimeout); _tabHoverTimeout = null; }
+  if (_tabHoverPopup) { _tabHoverPopup.remove(); _tabHoverPopup = null; }
 }
 
 // ── Tab Overview (Safari iPad style) ──
@@ -2241,6 +2300,128 @@ function _browseApplyZoom() {
   // Show zoom controls briefly
   _browseShowZoomControls();
 }
+// ── Find in page ──
+
+let _browseFindBarActive = false;
+let _browseFindRequestId = 0;
+
+function _browseToggleFindBar() {
+  if (_browseFindBarActive) {
+    // If already open, focus and select the input
+    const input = document.getElementById('browse-find-input');
+    if (input) { input.focus(); input.select(); }
+    return;
+  }
+  _browseFindBarActive = true;
+
+  const browseView = document.getElementById('browse-view');
+  if (!browseView) return;
+
+  // Create the find bar
+  const bar = document.createElement('div');
+  bar.id = 'browse-find-bar';
+  bar.className = 'browse-find-bar';
+  bar.innerHTML =
+    `<input type="text" id="browse-find-input" class="browse-find-input" placeholder="Find…" autocomplete="off" spellcheck="false">` +
+    `<span id="browse-find-count" class="browse-find-count"></span>` +
+    `<button class="browse-find-btn" id="browse-find-prev" title="Previous">` +
+    `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg></button>` +
+    `<button class="browse-find-btn" id="browse-find-next" title="Next">` +
+    `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg></button>` +
+    `<button class="browse-find-btn" id="browse-find-close" title="Close">&times;</button>`;
+
+  // Insert into browse-content so it floats over the page
+  const content = document.getElementById('browse-content');
+  if (content) {
+    content.appendChild(bar);
+  } else {
+    browseView.appendChild(bar);
+  }
+
+  const input = document.getElementById('browse-find-input');
+  const countEl = document.getElementById('browse-find-count');
+
+  const doFind = (forward) => {
+    const q = input.value;
+    if (!q) { _browseStopFind(); countEl.textContent = ''; return; }
+    const el = _browseActiveEl();
+    if (!el) return;
+    if (_browseIsElectron && el.findInPage) {
+      _browseFindRequestId = el.findInPage(q, { forward, findNext: true });
+    } else {
+      // For same-origin iframes
+      try { el.contentWindow.find(q, false, !forward); } catch (e) {}
+    }
+  };
+
+  const onInput = () => {
+    const q = input.value;
+    if (!q) { _browseStopFind(); countEl.textContent = ''; return; }
+    const el = _browseActiveEl();
+    if (!el) return;
+    if (_browseIsElectron && el.findInPage) {
+      _browseFindRequestId = el.findInPage(q, { forward: true, findNext: false });
+    } else {
+      try { el.contentWindow.find(q); } catch (e) {}
+    }
+  };
+
+  input.addEventListener('input', onInput);
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); doFind(!e.shiftKey); }
+    if (e.key === 'Escape') { e.preventDefault(); _browseCloseFindBar(); }
+    // Cmd+G / Cmd+Shift+G for next/prev
+    if ((e.metaKey || e.ctrlKey) && e.key === 'g') { e.preventDefault(); doFind(!e.shiftKey); }
+  });
+
+  document.getElementById('browse-find-next').addEventListener('click', () => doFind(true));
+  document.getElementById('browse-find-prev').addEventListener('click', () => doFind(false));
+  document.getElementById('browse-find-close').addEventListener('click', _browseCloseFindBar);
+
+  // Listen for found-in-page results (Electron webview)
+  if (_browseIsElectron) {
+    const el = _browseActiveEl();
+    if (el) {
+      const handler = (e) => {
+        if (e.result && e.result.requestId === _browseFindRequestId) {
+          const ct = document.getElementById('browse-find-count');
+          if (ct) ct.textContent = e.result.matches > 0
+            ? `${e.result.activeMatchOrdinal}/${e.result.matches}`
+            : 'No matches';
+        }
+      };
+      el._findHandler = handler;
+      el.addEventListener('found-in-page', handler);
+    }
+  }
+
+  input.focus();
+}
+
+function _browseStopFind() {
+  const el = _browseActiveEl();
+  if (!el) return;
+  if (_browseIsElectron && el.stopFindInPage) {
+    el.stopFindInPage('clearSelection');
+  }
+}
+
+function _browseCloseFindBar() {
+  _browseFindBarActive = false;
+  _browseStopFind();
+  // Remove found-in-page listener
+  if (_browseIsElectron) {
+    const el = _browseActiveEl();
+    if (el && el._findHandler) {
+      el.removeEventListener('found-in-page', el._findHandler);
+      delete el._findHandler;
+    }
+  }
+  const bar = document.getElementById('browse-find-bar');
+  if (bar) bar.remove();
+}
+
 // Pinch-to-zoom (trackpad pinch fires wheel with ctrlKey)
 document.addEventListener('wheel', function(e) {
   if (!e.ctrlKey) return;
@@ -2252,7 +2433,7 @@ document.addEventListener('wheel', function(e) {
   _browseApplyZoom();
 }, { passive: false });
 
-// Cmd+Plus / Cmd+Minus / Cmd+0 / Cmd+T / Cmd+W for browse view
+// Cmd+Plus / Cmd+Minus / Cmd+0 / Cmd+F / Cmd+T / Cmd+W for browse view
 document.addEventListener('keydown', function(e) {
   if (!(e.metaKey || e.ctrlKey)) return;
   const browseView = document.getElementById('browse-view');
@@ -2260,6 +2441,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '=' || e.key === '+') { e.preventDefault(); browseZoom(1); }
   else if (e.key === '-') { e.preventDefault(); browseZoom(-1); }
   else if (e.key === '0') { e.preventDefault(); browseZoom(0); }
+  else if (e.key === 'f') { e.preventDefault(); _browseToggleFindBar(); }
 });
 
 // Cmd+W / Cmd+T work when the parent document has focus (clicking tab bar, URL bar,

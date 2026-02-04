@@ -3300,6 +3300,12 @@ function _injectIframeChatHandler(iframe) {
         if (popup) { popup.remove(); _lookupTrackMode = false; }
         _showLookupPanel(x, y);
       });
+      doc.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+          e.preventDefault();
+          if (typeof _browseToggleFindBar === 'function') _browseToggleFindBar();
+        }
+      });
     } catch (e) {
       // Cross-origin — can't inject
     }
