@@ -666,8 +666,7 @@
       align-items: center;
       gap: 4px;
       padding: 4px 8px;
-      min-width: 32px;
-      max-width: 180px;
+      min-width: 0;
       font-size: 0.75rem;
       color: var(--text-muted);
       background: transparent;
@@ -676,9 +675,8 @@
       cursor: pointer;
       white-space: nowrap;
       overflow: hidden;
-      position: relative;
       transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-      flex-shrink: 1;
+      flex: 1 1 0;
     }
     .browse-tab:hover {
       background: var(--bg-hover);
@@ -689,6 +687,7 @@
       color: var(--text-primary);
       border-color: var(--border-card);
       box-shadow: 0 1px 4px rgba(0,0,0,.15);
+      flex: 2 1 0;
     }
     /* Tab bar focused state - shows arrow key navigation is active */
     #browse-tabs.tab-bar-focused .browse-tab.active {
@@ -702,32 +701,28 @@
     }
     .browse-tab-title {
       overflow: hidden;
-      text-overflow: ellipsis;
+      text-overflow: clip;
       flex: 1;
       min-width: 0;
     }
     .browse-tab-close {
-      position: absolute;
-      right: 4px;
-      top: 50%;
-      transform: translateY(-50%);
+      flex-shrink: 0;
       width: 16px;
       height: 16px;
       border: none;
-      background: var(--bg-hover);
+      background: transparent;
       color: var(--text-dimmest);
       font-size: 0.85rem;
       line-height: 1;
       border-radius: 4px;
       cursor: pointer;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       padding: 0;
-      opacity: 0;
-      transition: opacity 0.1s, background 0.1s, color 0.1s;
+      transition: background 0.1s, color 0.1s;
     }
-    .browse-tab.active:hover .browse-tab-close { opacity: 1; }
+    .browse-tab.active .browse-tab-close { display: flex; }
     .browse-tab-close:hover {
       background: var(--bg-hover);
       color: var(--text-primary);
