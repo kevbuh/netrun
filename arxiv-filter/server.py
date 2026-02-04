@@ -1764,8 +1764,9 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'error': 'url required'}, 400)
                     return
                 allow_heuristics = body.get('allowHeuristics', True)
+                force_refresh = body.get('forceRefresh', False)
                 _cache_key = url + ('::h' if allow_heuristics else '::noh')
-                if _cache_key in _insights_cache:
+                if _cache_key in _insights_cache and not force_refresh:
                     self._send_json(_insights_cache[_cache_key])
                     return
 
@@ -1825,17 +1826,14 @@ ch.postMessage({type:'preview-ready'});
                 # 0. Extract authors from Semantic Scholar (includes stats)
                 authors = []
                 arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
-                print(f"[insights] URL: {url}, arxiv_match: {arxiv_match}")
                 if arxiv_match:
                     arxiv_id = arxiv_match.group(1)
                     try:
                         s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.name,authors.affiliations,authors.hIndex,authors.url,authors.paperCount,authors.citationCount,authors.authorId'
-                        print(f"[insights] Fetching Semantic Scholar: {s2_url}")
                         s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
                         ctx = ssl._create_unverified_context()
                         with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
                             s2_data = json.loads(s2_resp.read())
-                        print(f"[insights] S2 response has {len(s2_data.get('authors', []))} authors")
                         if 'authors' in s2_data:
                             for a in s2_data['authors']:
                                 author_info = {'name': a.get('name', '')}
@@ -1852,9 +1850,7 @@ ch.postMessage({type:'preview-ready'});
                                 if a.get('url'):
                                     author_info['url'] = a['url']
                                 authors.append(author_info)
-                            print(f"[insights] First author: {authors[0] if authors else 'none'}")
-                    except Exception as s2_err:
-                        print(f"[insights] Semantic Scholar lookup failed: {s2_err}")
+                    except Exception:
                         # Fallback to arXiv API for just names
                         try:
                             api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
@@ -1870,8 +1866,8 @@ ch.postMessage({type:'preview-ready'});
                                     name_el = author_el.find('atom:name', ns)
                                     if name_el is not None and name_el.text:
                                         authors.append({'name': name_el.text.strip()})
-                        except Exception as arxiv_err:
-                            print(f"[insights] arXiv fallback failed: {arxiv_err}")
+                        except Exception:
+                            pass
 
                 # 1. Extract repo URLs (heuristic — regex)
                 repos = []

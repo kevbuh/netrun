@@ -652,7 +652,6 @@ async function _verifyInsightsInPdf(insights) {
 }
 
 async function fetchPaperInsights(url) {
-  console.log('[insights] fetchPaperInsights called with url:', url);
   const el = document.getElementById('paper-insights');
   if (!el) return;
   el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing paper...</div>`;
@@ -668,7 +667,6 @@ async function fetchPaperInsights(url) {
     const hasRepos = data.repos && data.repos.length > 0;
     const hasInsights = data.insights && data.insights.length > 0;
     const hasAuthors = data.authors && data.authors.length > 0;
-    console.log('[insights] authors data:', data.authors);
     // Merge repo links from insights API into the unified PDF links section
     if (hasRepos) {
       for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
