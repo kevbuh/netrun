@@ -1934,6 +1934,9 @@ function renderDocChatMessages(final) {
 // ── Selection popup: state for inline chat ──
 let _popupChatMessages = [];
 let _popupChatAbort = null;
+let _lookupFollowMode = false;
+let _lastMouseX = 0;
+let _lastMouseY = 0;
 
 function _isLookupEligible(text) {
   if (!text || text.length > 80) return false;
@@ -2695,6 +2698,17 @@ function _repositionSelectionPopup() {
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
 
+  // Follow panel: reposition with bottom-left at mouse
+  if (popup._isFollowPanel) {
+    let top = _lastMouseY - rect.height;
+    if (top < 0) top = 0;
+    let left = _lastMouseX;
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
+    return;
+  }
+
   // Re-anchor relative to stored selection position so popup grows upward
   let top;
   if (popup._aboveSelection) {
@@ -2723,21 +2737,29 @@ function _repositionSelectionPopup() {
   popup.style.left = left + 'px';
 }
 
-// Text selection → floating popup (appears live while selecting)
+// Text selection → floating popup; left-click → follow-mode chat panel
 let _selPopupDragging = false;
 
 document.addEventListener('mousedown', function(e) {
-  if (e.button !== 0) return; // Only track left-click drags for text selection
+  if (e.button !== 0) return;
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing && existing.contains(e.target)) return;
-  if (existing) existing.remove();
-
+  if (existing && existing.contains(e.target)) {
+    return;
+  }
+  // If NOT in follow mode, remove existing panel
+  if (existing && !_lookupFollowMode) {
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    _savePopupChatToHighlight(existing);
+    existing.remove();
+  }
   // Skip interactive elements and navigation
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
   if (e.target.isContentEditable) return;
   if (e.target.closest('#sidebar-nav')) return;
   if (e.target.closest('.doc-selection-popup')) return;
+  if (e.target.closest('a[href]')) return;
+  if (e.target.closest('[onclick]')) return;
   _selPopupDragging = true;
 });
 
@@ -2745,24 +2767,33 @@ document.addEventListener('selectionchange', function() {
   if (!_selPopupDragging) return;
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
-  if (!text || text.length < 3 || sel.rangeCount === 0) {
-    const existing = document.getElementById('doc-chat-ask-float');
-    if (existing) existing.remove();
-    return;
-  }
+  if (!text || text.length < 3 || sel.rangeCount === 0) return;
+  // User is actively selecting text — stop follow mode, show selection preview
+  _lookupFollowMode = false;
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing && existing._isFollowPanel) existing.remove();
   _buildSelectionPopup(sel, text, false);
 });
 
-document.addEventListener('mouseup', function() {
+document.addEventListener('mouseup', function(e) {
   if (!_selPopupDragging) return;
   _selPopupDragging = false;
-  const popup = document.getElementById('doc-chat-ask-float');
-  if (!popup) return;
-  // Finalize: rebuild with buttons now that selection is done
+
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
-  if (!text || text.length < 3 || sel.rangeCount === 0) { popup.remove(); return; }
-  _buildSelectionPopup(sel, text, true);
+
+  if (text && text.length >= 3 && sel.rangeCount > 0) {
+    // Text was selected → finalize selection popup
+    _lookupFollowMode = false;
+    _buildSelectionPopup(sel, text, true);
+    return;
+  }
+
+  // Single click, no selection → toggle follow-mode chat panel
+  if (localStorage.getItem('clickLookup') === 'off') return;
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) { existing.remove(); _lookupFollowMode = false; return; }
+  _showFollowPanel(e.clientX, e.clientY);
 });
 
 function _buildSelectionPopup(sel, text, finalize) {
@@ -3051,109 +3082,59 @@ async function _showWordLookup(word, x, y) {
   }
 }
 
+// Dismiss popup on outside click (only when NOT in follow mode)
 document.addEventListener('mousedown', function(e) {
+  if (_lookupFollowMode) return;
   const btn = document.getElementById('doc-chat-ask-float');
   if (btn && !btn.contains(e.target)) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    // Auto-save chat to highlight if this was a chat highlight popup
     _savePopupChatToHighlight(btn);
     btn.remove();
   }
 });
 
-// ── Right-click lookup (contextmenu) ──
+// Follow-mode: panel tracks cursor
+document.addEventListener('mousemove', function(e) {
+  _lastMouseX = e.clientX;
+  _lastMouseY = e.clientY;
+  if (!_lookupFollowMode) return;
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (!popup) { _lookupFollowMode = false; return; }
+  const w = popup.offsetWidth;
+  const h = popup.offsetHeight;
+  let left = e.clientX;
+  let top = e.clientY - h;
+  if (top < 0) top = 0;
+  if (left + w > window.innerWidth) left = window.innerWidth - w;
+  if (left < 4) left = 4;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+});
 
-function _getWordAtPoint(x, y) {
-  // Use caretRangeFromPoint (Webkit/Blink) or caretPositionFromPoint (Firefox)
-  let range;
-  if (document.caretRangeFromPoint) {
-    range = document.caretRangeFromPoint(x, y);
-  } else if (document.caretPositionFromPoint) {
-    const pos = document.caretPositionFromPoint(x, y);
-    if (pos) {
-      range = document.createRange();
-      range.setStart(pos.offsetNode, pos.offset);
-      range.collapse(true);
+// Escape to dismiss from anywhere
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (popup) {
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _lookupFollowMode = false;
+      popup.remove();
     }
   }
-  if (!range || range.startContainer.nodeType !== Node.TEXT_NODE) return null;
+});
 
-  const textNode = range.startContainer;
-  const text = textNode.textContent;
-  const offset = range.startOffset;
-
-  // Find word boundaries
-  let start = offset, end = offset;
-  while (start > 0 && /[\w\u00C0-\u024F'-]/.test(text[start - 1])) start--;
-  while (end < text.length && /[\w\u00C0-\u024F'-]/.test(text[end])) end++;
-
-  const word = text.slice(start, end).trim();
-  if (!word || word.length < 2) return null;
-  return word;
-}
-
-function _showRightClickLookup(word, x, y) {
-  // Remove any existing popup
-  const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) existing.remove();
-
+// Follow-mode chat panel: blank chat input that tracks cursor
+function _showFollowPanel(x, y) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
-  popup.style.visibility = 'hidden';
+  popup._isFollowPanel = true;
+  _lookupFollowMode = true;
 
-  // Preview row showing the word
-  const preview = document.createElement('div');
-  preview.className = 'doc-selection-preview';
-  preview.textContent = word;
-  popup.appendChild(preview);
-
-  // Lookup preview area (async)
-  const lookupDiv = document.createElement('div');
-  lookupDiv.className = 'doc-wiki-preview';
-  lookupDiv.style.display = 'none';
-  popup.appendChild(lookupDiv);
-
-  // Determine lookup type and fetch
-  if (_isAuthorEligible(word)) {
-    _fetchAuthorPreview(word, lookupDiv);
-  } else if (_isLookupEligible(word)) {
-    _fetchWikipediaPreview(word, lookupDiv);
-  }
-
-  // Dictionary lookup for single words
-  const isSingleWord = /^\w+$/.test(word) && !word.includes(' ');
-  if (isSingleWord) {
-    const dictDiv = document.createElement('div');
-    dictDiv.className = 'doc-wiki-preview';
-    dictDiv.style.display = 'none';
-    popup.appendChild(dictDiv);
-    // Async dictionary fetch
-    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`)
-      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-      .then(data => {
-        const entry = data[0];
-        let html = '<div class="doc-wiki-result" style="flex-direction:column;align-items:flex-start;">';
-        const phonetic = entry.phonetics?.find(p => p.text)?.text;
-        if (phonetic) html += `<div class="doc-wiki-extract" style="font-style:italic">${escapeHtml(phonetic)}</div>`;
-        for (const meaning of (entry.meanings || []).slice(0, 2)) {
-          html += `<div style="margin-top:4px"><span style="font-size:0.68rem;font-weight:600;color:var(--accent);text-transform:uppercase">${escapeHtml(meaning.partOfSpeech)}</span></div>`;
-          for (const def of (meaning.definitions || []).slice(0, 1)) {
-            html += `<div class="doc-wiki-extract">${escapeHtml(def.definition)}</div>`;
-          }
-        }
-        html += '</div>';
-        dictDiv.innerHTML = html;
-        dictDiv.style.display = '';
-        _repositionSelectionPopup();
-      })
-      .catch(() => { /* no dictionary entry — hide silently */ });
-  }
-
-  // Ask input
   _popupChatMessages = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
+  // Chat area (hidden until first message sent)
   const chatArea = document.createElement('div');
   chatArea.className = 'doc-popup-chat-area';
   const chatMsgs = document.createElement('div');
@@ -3166,6 +3147,7 @@ function _showRightClickLookup(word, x, y) {
   openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   openSidebarBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
+    _lookupFollowMode = false;
     _sendPopupChatToSidebar();
   });
   const clearBtn = document.createElement('button');
@@ -3178,18 +3160,21 @@ function _showRightClickLookup(word, x, y) {
     chatMsgs.innerHTML = '';
     chatArea.classList.remove('visible');
     popup.classList.remove('has-chat');
-    _repositionSelectionPopup();
   });
   chatActions.appendChild(openSidebarBtn);
   chatActions.appendChild(clearBtn);
   chatArea.appendChild(chatActions);
   popup.appendChild(chatArea);
 
+  // Ask input (always visible, no divider in follow mode)
   const askWrap = document.createElement('div');
   askWrap.className = 'doc-ask-inline-wrap';
+  askWrap.style.borderTop = 'none';
+  askWrap.style.marginTop = '0';
+  askWrap.style.paddingTop = '0';
   const askInput = document.createElement('input');
   askInput.type = 'text';
-  askInput.placeholder = 'Ask about this…';
+  askInput.placeholder = 'Ask anything…';
   askInput.className = 'doc-ask-inline-input';
   const sendBtn = document.createElement('button');
   sendBtn.className = 'doc-ask-inline-send';
@@ -3198,16 +3183,17 @@ function _showRightClickLookup(word, x, y) {
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   sendBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
-    _sendPopupChatMessage(popup, word);
+    _sendPopupChatMessage(popup, '');
   });
   askInput.addEventListener('keydown', (ev) => {
     ev.stopPropagation();
     if (ev.key === 'Enter') {
       ev.preventDefault();
-      _sendPopupChatMessage(popup, word);
+      _sendPopupChatMessage(popup, '');
     }
     if (ev.key === 'Escape') {
       ev.preventDefault();
+      _lookupFollowMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       popup.remove();
     }
@@ -3217,44 +3203,24 @@ function _showRightClickLookup(word, x, y) {
   askWrap.appendChild(sendBtn);
   popup.appendChild(askWrap);
 
-  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  popup.addEventListener('mousedown', (ev) => {
+    ev.stopPropagation();
+  });
+
   document.body.appendChild(popup);
 
-  // Position near click point
-  const popupRect = popup.getBoundingClientRect();
-  let top = y - popupRect.height - 8;
-  const fitsAbove = top >= 4;
-  if (!fitsAbove) top = y + 8;
-  popup._aboveSelection = fitsAbove;
-  popup._anchorTop = y;
-  popup._anchorBottom = y;
-  popup._anchorLeft = x;
+  // Position: top-left corner at cursor
+  const rect = popup.getBoundingClientRect();
   let left = x;
-  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
-  if (left < 4) left = 4;
-  popup.style.top = top + 'px';
+  let top = y - rect.height;
+  if (top < 0) top = 0;
+  if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
   popup.style.left = left + 'px';
-  popup.style.visibility = '';
+  popup.style.top = top + 'px';
 
-  setTimeout(() => askInput.focus(), 10);
+  // Auto-focus so user can type immediately
+  askInput.focus();
 }
-
-document.addEventListener('contextmenu', function(e) {
-  if (localStorage.getItem('rightClickLookup') === 'off') return;
-
-  // Don't override right-click on interactive elements
-  const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
-  if (e.target.isContentEditable) return;
-  if (e.target.closest('a[href]')) return;
-  if (e.target.closest('.doc-selection-popup')) return;
-
-  const word = _getWordAtPoint(e.clientX, e.clientY);
-  if (!word) return;
-
-  e.preventDefault();
-  _showRightClickLookup(word, e.clientX, e.clientY);
-});
 
 function openPaper(index) {
   const paper = lastFilteredPapers[index];
