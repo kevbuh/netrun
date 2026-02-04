@@ -8,7 +8,14 @@ let _nlCalibrationPoints = 0;
 let _nlGazeX = 0;
 let _nlGazeY = 0;
 let _nlPreviewStream = null; // camera stream for preview (stopped before webgazer starts)
-const _NL_LERP = 0.3; // smoothing factor for gaze dot
+let _nlCurrentPoint = 0;      // which calibration point (0-8) is active
+let _nlClicksOnPoint = 0;     // clicks collected on current point
+const _NL_CLICKS_PER_POINT = 5;
+let _nlAccuracy = null;        // last accuracy test result in px (null = not tested)
+
+// Smoothing — ring buffer of recent predictions
+let _nlGazeBuffer = [];
+const _NL_BUFFER_SIZE = 8;
 
 function openNeuralook() {
   hideAllViews();
@@ -27,6 +34,14 @@ function renderNeuralookView() {
   const statusColor = _nlTracking ? '#4ade80' : _nlWebgazerReady ? '#fbbf24' : '#6b7280';
   const statusText = _nlTracking ? 'Tracking active' : _nlWebgazerReady ? 'Ready — not tracking' : 'Not started';
 
+  let accuracyHtml = '';
+  if (_nlAccuracy !== null) {
+    const px = Math.round(_nlAccuracy);
+    const label = px < 80 ? 'Good' : px < 150 ? 'Fair' : 'Poor';
+    const labelColor = px < 80 ? '#4ade80' : px < 150 ? '#fbbf24' : '#f87171';
+    accuracyHtml = `<div class="text-[0.78rem] text-muted mt-2">Accuracy: <strong style="color:${labelColor}">${px}px — ${label}</strong></div>`;
+  }
+
   container.innerHTML = `
     <h2 class="text-[1.1rem] font-semibold text-white_ mb-1">Neuralook</h2>
     <p class="text-dim text-[0.82rem] mb-6">Webcam-based eye tracking powered by WebGazer.js</p>
@@ -38,6 +53,7 @@ function renderNeuralookView() {
           <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block"></span>
           <span class="text-[0.82rem] text-primary font-medium">${statusText}</span>
         </div>
+        ${accuracyHtml}
         <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black mb-3" style="width:240px;height:180px;display:flex;align-items:center;justify-content:center;">
           <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">Camera starts on calibration</span>
         </div>
@@ -56,10 +72,10 @@ function renderNeuralookView() {
       <div class="bg-card border border-border-card rounded-xl p-4">
         <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
         <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
-          <li>Click <strong>Start Calibration</strong> to begin the 9-point calibration</li>
-          <li>Look at each dot and click it — this teaches the model your gaze</li>
-          <li>After calibration, click <strong>Start Tracking</strong> to show the gaze dot</li>
-          <li>The gaze dot appears across all views and follows your eyes</li>
+          <li>Click <strong>Start Calibration</strong> — dots appear one at a time in fullscreen</li>
+          <li>Look at each dot and click it 5 times — this gives the model strong training data</li>
+          <li>After all 9 points, a quick accuracy test measures tracking quality</li>
+          <li>Click <strong>Start Tracking</strong> to show the gaze dot across all views</li>
           <li>Return here and click <strong>Stop Tracking</strong> to hide the dot</li>
         </ol>
       </div>
@@ -111,9 +127,20 @@ function _nlInitWebgazer() {
 }
 
 function _nlGazeListener(data, timestamp) {
-  if (!data || !_nlTracking) return;
-  _nlGazeX += (data.x - _nlGazeX) * _NL_LERP;
-  _nlGazeY += (data.y - _nlGazeY) * _NL_LERP;
+  if (!data) return;
+  // During accuracy test, collect predictions but don't move the dot
+  if (_nlAccuracyCollecting) {
+    _nlAccuracyPredictions.push({ x: data.x, y: data.y });
+    return;
+  }
+  if (!_nlTracking) return;
+  // Ring buffer smoothing
+  _nlGazeBuffer.push({ x: data.x, y: data.y });
+  if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+  let sx = 0, sy = 0;
+  for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+  _nlGazeX = sx / _nlGazeBuffer.length;
+  _nlGazeY = sy / _nlGazeBuffer.length;
   _nlMoveDot(_nlGazeX, _nlGazeY);
 }
 
@@ -201,6 +228,8 @@ function _nlStartCalibration() {
 
   _nlCalibrating = true;
   _nlCalibrationPoints = 0;
+  _nlCurrentPoint = 0;
+  _nlClicksOnPoint = 0;
 
   // Stop any standalone preview stream so webgazer can grab the camera
   _nlStopPreviewStream();
@@ -260,6 +289,9 @@ function _nlFullscreenChange() {
     // User exited fullscreen during calibration — cancel
     _nlCalibrating = false;
     _nlCalibrationPoints = 0;
+    _nlCurrentPoint = 0;
+    _nlClicksOnPoint = 0;
+    _nlAccuracyCollecting = false;
     const overlay = document.getElementById('nl-calibration-overlay');
     if (overlay) overlay.remove();
     const style = document.getElementById('nl-cal-style');
@@ -279,6 +311,13 @@ function _nlOnWebgazerFailed(err) {
   renderNeuralookView();
 }
 
+// 3x3 calibration grid positions (percentages)
+const _NL_CAL_POSITIONS = [
+  [10, 10], [50, 10], [90, 10],
+  [10, 50], [50, 50], [90, 50],
+  [10, 90], [50, 90], [90, 90]
+];
+
 function _nlShowCalibrationOverlay() {
   const existing = document.getElementById('nl-calibration-overlay');
   if (existing) existing.remove();
@@ -293,36 +332,9 @@ function _nlShowCalibrationOverlay() {
 
   // Instruction text
   const instr = document.createElement('div');
+  instr.id = 'nl-cal-instr';
   instr.style.cssText = 'position:absolute;top:30px;left:50%;transform:translateX(-50%);color:#fff;font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;';
-  instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Calibration</div><div style="color:#aaa;font-size:0.78rem;">Look at each dot and click it. <span id="nl-cal-counter">0/9</span></div>';
   overlay.appendChild(instr);
-
-  // 3x3 grid of calibration points
-  const positions = [
-    [10, 10], [50, 10], [90, 10],
-    [10, 50], [50, 50], [90, 50],
-    [10, 90], [50, 90], [90, 90]
-  ];
-
-  positions.forEach(([xPct, yPct], i) => {
-    const dot = document.createElement('div');
-    Object.assign(dot.style, {
-      position: 'absolute',
-      left: xPct + '%', top: yPct + '%',
-      width: '28px', height: '28px',
-      borderRadius: '50%',
-      background: 'var(--accent, #b4451a)',
-      transform: 'translate(-50%, -50%)',
-      cursor: 'pointer',
-      transition: 'transform 0.2s, opacity 0.2s',
-      animation: 'nl-pulse 1.5s ease-in-out infinite',
-      opacity: '1',
-      zIndex: '100001'
-    });
-    dot.dataset.index = i;
-    dot.addEventListener('click', () => _nlCalibrationClick(dot));
-    overlay.appendChild(dot);
-  });
 
   // Add pulse animation
   const style = document.createElement('style');
@@ -331,28 +343,262 @@ function _nlShowCalibrationOverlay() {
   document.head.appendChild(style);
 
   document.body.appendChild(overlay);
+
+  // Show the first calibration dot
+  _nlCurrentPoint = 0;
+  _nlClicksOnPoint = 0;
+  _nlShowNextCalibrationDot();
 }
 
-function _nlCalibrationClick(dot) {
+function _nlShowNextCalibrationDot() {
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) return;
+
+  // Remove previous dot if any
+  const prev = document.getElementById('nl-cal-dot');
+  if (prev) prev.remove();
+
+  if (_nlCurrentPoint >= _NL_CAL_POSITIONS.length) {
+    // All points done — run accuracy test
+    _nlRunAccuracyTest();
+    return;
+  }
+
+  const [xPct, yPct] = _NL_CAL_POSITIONS[_nlCurrentPoint];
+  _nlClicksOnPoint = 0;
+  _nlUpdateCalInstr();
+
+  // Container for dot + SVG ring
+  const wrap = document.createElement('div');
+  wrap.id = 'nl-cal-dot';
+  Object.assign(wrap.style, {
+    position: 'absolute',
+    left: xPct + '%', top: yPct + '%',
+    width: '48px', height: '48px',
+    transform: 'translate(-50%, -50%)',
+    cursor: 'pointer',
+    zIndex: '100001',
+    opacity: '0',
+    transition: 'opacity 0.3s'
+  });
+
+  // SVG progress ring
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', '48');
+  svg.setAttribute('height', '48');
+  svg.style.position = 'absolute';
+  svg.style.top = '0';
+  svg.style.left = '0';
+
+  // Background ring (dim)
+  const bgCircle = document.createElementNS(svgNS, 'circle');
+  bgCircle.setAttribute('cx', '24');
+  bgCircle.setAttribute('cy', '24');
+  bgCircle.setAttribute('r', '20');
+  bgCircle.setAttribute('fill', 'none');
+  bgCircle.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+  bgCircle.setAttribute('stroke-width', '3');
+  svg.appendChild(bgCircle);
+
+  // Progress ring
+  const progressCircle = document.createElementNS(svgNS, 'circle');
+  progressCircle.id = 'nl-cal-progress';
+  progressCircle.setAttribute('cx', '24');
+  progressCircle.setAttribute('cy', '24');
+  progressCircle.setAttribute('r', '20');
+  progressCircle.setAttribute('fill', 'none');
+  progressCircle.setAttribute('stroke', 'var(--accent, #b4451a)');
+  progressCircle.setAttribute('stroke-width', '3');
+  progressCircle.setAttribute('stroke-linecap', 'round');
+  const circumference = 2 * Math.PI * 20;
+  progressCircle.setAttribute('stroke-dasharray', circumference.toString());
+  progressCircle.setAttribute('stroke-dashoffset', circumference.toString());
+  progressCircle.style.transition = 'stroke-dashoffset 0.2s';
+  progressCircle.style.transform = 'rotate(-90deg)';
+  progressCircle.style.transformOrigin = '50% 50%';
+  svg.appendChild(progressCircle);
+
+  wrap.appendChild(svg);
+
+  // Inner dot
+  const dot = document.createElement('div');
+  Object.assign(dot.style, {
+    position: 'absolute',
+    left: '50%', top: '50%',
+    width: '20px', height: '20px',
+    borderRadius: '50%',
+    background: 'var(--accent, #b4451a)',
+    transform: 'translate(-50%, -50%)',
+    animation: 'nl-pulse 1.5s ease-in-out infinite'
+  });
+  wrap.appendChild(dot);
+
+  wrap.addEventListener('click', _nlCalibrationClick);
+  overlay.appendChild(wrap);
+
+  // Fade in
+  requestAnimationFrame(() => { wrap.style.opacity = '1'; });
+}
+
+function _nlUpdateCalInstr() {
+  const instr = document.getElementById('nl-cal-instr');
+  if (!instr) return;
+  instr.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">Calibration</div>` +
+    `<div style="color:#aaa;font-size:0.78rem;">Point ${_nlCurrentPoint + 1}/9 — Click ${_nlClicksOnPoint + 1}/${_NL_CLICKS_PER_POINT}</div>`;
+}
+
+function _nlCalibrationClick() {
+  _nlClicksOnPoint++;
   _nlCalibrationPoints++;
 
-  // Shrink and fade the clicked dot
-  dot.style.animation = 'none';
-  dot.style.transform = 'translate(-50%, -50%) scale(0)';
-  dot.style.opacity = '0';
-  dot.style.pointerEvents = 'none';
+  // Update progress ring
+  const progressCircle = document.getElementById('nl-cal-progress');
+  if (progressCircle) {
+    const circumference = 2 * Math.PI * 20;
+    const offset = circumference * (1 - _nlClicksOnPoint / _NL_CLICKS_PER_POINT);
+    progressCircle.setAttribute('stroke-dashoffset', offset.toString());
+  }
+
+  _nlUpdateCalInstr();
+
+  if (_nlClicksOnPoint >= _NL_CLICKS_PER_POINT) {
+    // Done with this point — fade out and move to next
+    const wrap = document.getElementById('nl-cal-dot');
+    if (wrap) {
+      wrap.style.opacity = '0';
+      wrap.style.pointerEvents = 'none';
+    }
+    _nlCurrentPoint++;
+    setTimeout(_nlShowNextCalibrationDot, 350);
+  }
+}
+
+// ── Post-calibration accuracy test ──
+
+let _nlAccuracyCollecting = false;
+let _nlAccuracyPredictions = [];
+
+// Test positions at 30%/70% — not used during calibration
+const _NL_TEST_POSITIONS = [
+  [30, 30], [70, 30], [30, 70], [70, 70]
+];
+
+function _nlRunAccuracyTest() {
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) { _nlFinishCalibration(); return; }
+
+  // Remove calibration dot
+  const dot = document.getElementById('nl-cal-dot');
+  if (dot) dot.remove();
+
+  // Update instruction
+  const instr = document.getElementById('nl-cal-instr');
+  if (instr) {
+    instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Accuracy Test</div>' +
+      '<div style="color:#aaa;font-size:0.78rem;">Look at each dot — measuring accuracy...</div>';
+  }
+
+  _nlAccuracyTestLoop(0, []);
+}
+
+function _nlAccuracyTestLoop(idx, distances) {
+  if (idx >= _NL_TEST_POSITIONS.length) {
+    // Compute average
+    const avg = distances.reduce((a, b) => a + b, 0) / distances.length;
+    _nlAccuracy = avg;
+    _nlShowAccuracyResult(avg);
+    return;
+  }
+
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) { _nlFinishCalibration(); return; }
+
+  const [xPct, yPct] = _NL_TEST_POSITIONS[idx];
+  const targetX = window.innerWidth * xPct / 100;
+  const targetY = window.innerHeight * yPct / 100;
+
+  // Show test dot (no click needed)
+  const testDot = document.createElement('div');
+  testDot.id = 'nl-test-dot';
+  Object.assign(testDot.style, {
+    position: 'absolute',
+    left: xPct + '%', top: yPct + '%',
+    width: '20px', height: '20px',
+    borderRadius: '50%',
+    background: '#60a5fa',
+    transform: 'translate(-50%, -50%)',
+    zIndex: '100001',
+    opacity: '0',
+    transition: 'opacity 0.25s'
+  });
+  overlay.appendChild(testDot);
+  requestAnimationFrame(() => { testDot.style.opacity = '1'; });
 
   // Update counter
-  const counter = document.getElementById('nl-cal-counter');
-  if (counter) counter.textContent = _nlCalibrationPoints + '/9';
-
-  if (_nlCalibrationPoints >= 9) {
-    setTimeout(() => _nlFinishCalibration(), 400);
+  const instr = document.getElementById('nl-cal-instr');
+  if (instr) {
+    instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Accuracy Test</div>' +
+      `<div style="color:#aaa;font-size:0.78rem;">Point ${idx + 1}/${_NL_TEST_POSITIONS.length} — look at the dot</div>`;
   }
+
+  // Start collecting predictions
+  _nlAccuracyPredictions = [];
+  _nlAccuracyCollecting = true;
+
+  setTimeout(() => {
+    _nlAccuracyCollecting = false;
+    testDot.style.opacity = '0';
+
+    // Compute average distance for this dot
+    let dist = Infinity;
+    if (_nlAccuracyPredictions.length > 0) {
+      let sx = 0, sy = 0;
+      for (const p of _nlAccuracyPredictions) { sx += p.x; sy += p.y; }
+      const avgX = sx / _nlAccuracyPredictions.length;
+      const avgY = sy / _nlAccuracyPredictions.length;
+      dist = Math.sqrt((avgX - targetX) ** 2 + (avgY - targetY) ** 2);
+    }
+    distances.push(dist);
+
+    setTimeout(() => {
+      testDot.remove();
+      _nlAccuracyTestLoop(idx + 1, distances);
+    }, 300);
+  }, 2000);
+}
+
+function _nlShowAccuracyResult(avgPx) {
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) { _nlFinishCalibration(); return; }
+
+  const px = Math.round(avgPx);
+  const label = px < 80 ? 'Good' : px < 150 ? 'Fair' : 'Poor';
+  const labelColor = px < 80 ? '#4ade80' : px < 150 ? '#fbbf24' : '#f87171';
+
+  // Clear overlay content and show result
+  const instr = document.getElementById('nl-cal-instr');
+  if (instr) instr.remove();
+  const testDot = document.getElementById('nl-test-dot');
+  if (testDot) testDot.remove();
+
+  const result = document.createElement('div');
+  result.style.cssText = 'text-align:center;color:#fff;';
+  result.innerHTML = `
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;">Calibration Complete</div>
+    <div style="font-size:2rem;font-weight:700;color:${labelColor};margin-bottom:4px;">~${px}px</div>
+    <div style="font-size:0.85rem;color:${labelColor};font-weight:500;">${label}</div>
+    <div style="font-size:0.75rem;color:#888;margin-top:12px;">Average accuracy across 4 test points</div>
+  `;
+  overlay.appendChild(result);
+
+  // Brief pause then finish
+  setTimeout(() => _nlFinishCalibration(), 2500);
 }
 
 function _nlFinishCalibration() {
   _nlCalibrating = false;
+  _nlAccuracyCollecting = false;
 
   const overlay = document.getElementById('nl-calibration-overlay');
   if (overlay) overlay.remove();
