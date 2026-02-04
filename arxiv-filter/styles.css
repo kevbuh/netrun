@@ -2472,8 +2472,9 @@
     .doc-wiki-preview {
       border-top: 1px solid var(--border-input);
       padding: 6px 8px;
-      max-height: 120px;
-      overflow: hidden;
+      max-height: 160px;
+      overflow-y: auto;
+      scrollbar-width: thin;
     }
     .doc-wiki-result {
       display: flex;
