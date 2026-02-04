@@ -1925,6 +1925,196 @@ function renderDocChatMessages(final) {
   container.scrollTop = container.scrollHeight;
 }
 
+// ── Selection popup: state for inline chat ──
+let _popupChatMessages = [];
+let _popupChatAbort = null;
+
+function _isLookupEligible(text) {
+  if (!text || text.length > 80) return false;
+  const words = text.trim().split(/\s+/);
+  if (words.length < 1 || words.length > 5) return false;
+  // Skip if it looks like a sentence (contains sentence-ending punctuation)
+  if (/[.!?;]/.test(text)) return false;
+  return true;
+}
+
+async function _fetchWikipediaPreview(text, containerDiv) {
+  const title = text.trim().replace(/\s+/g, '_');
+  try {
+    const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+    if (!resp.ok) { containerDiv.style.display = 'none'; return; }
+    const data = await resp.json();
+    if (data.type === 'disambiguation' || !data.extract) { containerDiv.style.display = 'none'; return; }
+    const extract = data.extract.length > 200 ? data.extract.slice(0, 200) + '…' : data.extract;
+    let html = '<div class="doc-wiki-result">';
+    if (data.thumbnail && data.thumbnail.source) {
+      html += `<img class="doc-wiki-thumb" src="${data.thumbnail.source}" alt="" />`;
+    }
+    html += '<div>';
+    html += `<div class="doc-wiki-title">${escapeHtml(data.title)}</div>`;
+    html += `<div class="doc-wiki-extract">${escapeHtml(extract)}</div>`;
+    html += `<a class="doc-wiki-link" href="${data.content_urls?.desktop?.page || '#'}" target="_blank" rel="noopener">Wikipedia →</a>`;
+    html += '</div></div>';
+    containerDiv.innerHTML = html;
+    containerDiv.style.display = '';
+    _repositionSelectionPopup();
+  } catch (e) {
+    containerDiv.style.display = 'none';
+  }
+}
+
+function _sendPopupChatMessage(popup, capturedText) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (!input) return;
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  // Build user message with context on first message
+  const userMsg = _popupChatMessages.length === 0
+    ? q + '\n\n> ' + capturedText
+    : q;
+  _popupChatMessages.push({ role: 'user', content: userMsg, _display: q });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+
+  // Show chat area, add has-chat class
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  input.disabled = true;
+  const sendBtn = popup.querySelector('.doc-ask-inline-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  _popupChatAbort = new AbortController();
+
+  (async () => {
+    try {
+      const resp = await fetch('/api/doc-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context: _docText, messages: _popupChatMessages.filter(m => !m._thinking) }),
+        signal: _popupChatAbort.signal
+      });
+
+      let aiText = '';
+      const aiIdx = _popupChatMessages.length - 1;
+      _popupChatMessages[aiIdx]._thinking = false;
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEvent = '';
+
+      let streamDone = false;
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+          } else if (line.startsWith('data: ')) {
+            if (currentEvent === 'token') {
+              try {
+                const token = JSON.parse(line.slice(6));
+                aiText += token;
+                _popupChatMessages[aiIdx].content = aiText;
+                _renderPopupChat(popup, false);
+              } catch (e) {}
+            } else if (currentEvent === 'done') {
+              streamDone = true;
+            } else if (currentEvent === 'error') {
+              try {
+                const errMsg = JSON.parse(line.slice(6));
+                _popupChatMessages[aiIdx].content = aiText || ('Error: ' + errMsg);
+              } catch (e) {}
+              streamDone = true;
+            }
+            currentEvent = '';
+          } else if (line === '') {
+            currentEvent = '';
+          }
+        }
+      }
+
+      _popupChatMessages[aiIdx].content = aiText;
+      _renderPopupChat(popup, true);
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        _popupChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
+        _renderPopupChat(popup, true);
+      }
+    }
+    _popupChatAbort = null;
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+    _repositionSelectionPopup();
+  })();
+}
+
+function _renderPopupChat(popup, final) {
+  const container = popup.querySelector('.doc-popup-chat-messages');
+  if (!container) return;
+  container.innerHTML = _popupChatMessages.map((m, i) => {
+    if (m.role === 'user') {
+      const display = m._display || m.content;
+      return `<div class="doc-msg-user">${escapeHtml(display)}</div>`;
+    }
+    if (m._thinking) {
+      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
+    }
+    const isLast = i === _popupChatMessages.length - 1;
+    const content = (final || !isLast) && typeof marked !== 'undefined'
+      ? marked.parse(m.content)
+      : escapeHtml(m.content);
+    return `<div class="doc-msg-ai">${content}</div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function _sendPopupChatToSidebar() {
+  // Copy popup messages into sidebar doc chat
+  for (const m of _popupChatMessages) {
+    _docChatMessages.push({ role: m.role, content: m.content });
+  }
+  renderDocChatMessages(true);
+  switchSidebarTab('chat');
+  // Dismiss popup
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (popup) popup.remove();
+  _popupChatMessages = [];
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+}
+
+function _repositionSelectionPopup() {
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (!popup) return;
+  const rect = popup.getBoundingClientRect();
+  let top = parseFloat(popup.style.top);
+  let left = parseFloat(popup.style.left);
+  // Clamp bottom
+  if (top + rect.height > window.innerHeight - 8) {
+    top = window.innerHeight - rect.height - 8;
+  }
+  if (top < 4) top = 4;
+  // Clamp right
+  if (left + rect.width > window.innerWidth - 8) {
+    left = window.innerWidth - rect.width - 8;
+  }
+  if (left < 4) left = 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+}
+
 // Text selection → floating popup (appears live while selecting)
 let _selPopupDragging = false;
 
@@ -2047,29 +2237,84 @@ function _buildSelectionPopup(sel, text, finalize) {
   preview.textContent = truncated;
   popup.appendChild(preview);
 
-  // -- Ask input --
+  // -- Wikipedia preview (async, only for short terms) --
+  if (finalize && _isLookupEligible(capturedText)) {
+    const wikiDiv = document.createElement('div');
+    wikiDiv.className = 'doc-wiki-preview';
+    wikiDiv.style.display = 'none';
+    popup.appendChild(wikiDiv);
+    _fetchWikipediaPreview(capturedText, wikiDiv);
+  }
+
+  // -- Ask input + send button --
   if (finalize) {
+    // Reset popup chat state for new selection
+    _popupChatMessages = [];
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+
     const askWrap = document.createElement('div');
     askWrap.className = 'doc-ask-inline-wrap';
     const askInput = document.createElement('input');
     askInput.type = 'text';
     askInput.placeholder = 'Ask about this…';
     askInput.className = 'doc-ask-inline-input';
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'doc-ask-inline-send';
+    sendBtn.innerHTML = '↑';
+    sendBtn.title = 'Send';
+    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    sendBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _sendPopupChatMessage(popup, capturedText);
+    });
     askInput.addEventListener('keydown', (ev) => {
       ev.stopPropagation();
       if (ev.key === 'Enter') {
         ev.preventDefault();
-        const q = askInput.value.trim();
-        if (!q) return;
-        popup.remove();
-        switchSidebarTab('chat');
-        sendDocMessage(q + '\n\n> ' + capturedText);
+        _sendPopupChatMessage(popup, capturedText);
       }
-      if (ev.key === 'Escape') { ev.preventDefault(); popup.remove(); }
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        popup.remove();
+      }
     });
     askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
     askWrap.appendChild(askInput);
+    askWrap.appendChild(sendBtn);
     popup.appendChild(askWrap);
+
+    // -- Inline chat area (hidden until first message) --
+    const chatArea = document.createElement('div');
+    chatArea.className = 'doc-popup-chat-area';
+    const chatMsgs = document.createElement('div');
+    chatMsgs.className = 'doc-popup-chat-messages';
+    chatArea.appendChild(chatMsgs);
+    const chatActions = document.createElement('div');
+    chatActions.className = 'doc-popup-chat-actions';
+    const openSidebarBtn = document.createElement('button');
+    openSidebarBtn.textContent = 'Open in sidebar';
+    openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    openSidebarBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _sendPopupChatToSidebar();
+    });
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    clearBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _popupChatMessages = [];
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      chatMsgs.innerHTML = '';
+      chatArea.classList.remove('visible');
+      popup.classList.remove('has-chat');
+      _repositionSelectionPopup();
+    });
+    chatActions.appendChild(openSidebarBtn);
+    chatActions.appendChild(clearBtn);
+    chatArea.appendChild(chatActions);
+    popup.appendChild(chatArea);
   }
 
   document.body.appendChild(popup);
@@ -2157,7 +2402,11 @@ async function _showWordLookup(word, x, y) {
 
 document.addEventListener('mousedown', function(e) {
   const btn = document.getElementById('doc-chat-ask-float');
-  if (btn && !btn.contains(e.target)) btn.remove();
+  if (btn && !btn.contains(e.target)) {
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    _popupChatMessages = [];
+    btn.remove();
+  }
 });
 
 function openPaper(index) {

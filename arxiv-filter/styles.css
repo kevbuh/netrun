@@ -2448,6 +2448,109 @@
     .doc-ask-inline-input::placeholder {
       color: var(--text-dimmer);
     }
+    .doc-ask-inline-send {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 0.85rem;
+      line-height: 1;
+      flex-shrink: 0;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .doc-ask-inline-send:hover { color: var(--accent); background: rgba(255,255,255,0.06); }
+    .doc-ask-inline-send:disabled { opacity: 0.3; cursor: not-allowed; }
+    .doc-wiki-preview {
+      border-top: 1px solid var(--border-input);
+      padding: 6px 8px;
+      max-height: 120px;
+      overflow: hidden;
+    }
+    .doc-wiki-result {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .doc-wiki-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .doc-wiki-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .doc-wiki-extract {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+    .doc-wiki-link {
+      font-size: 0.65rem;
+      color: var(--accent);
+      text-decoration: none;
+      margin-top: 2px;
+      display: inline-block;
+    }
+    .doc-wiki-link:hover { text-decoration: underline; }
+    .doc-popup-chat-area {
+      display: none;
+      border-top: 1px solid var(--border-input);
+      flex-direction: column;
+    }
+    .doc-popup-chat-area.visible {
+      display: flex;
+    }
+    .doc-popup-chat-messages {
+      display: flex;
+      flex-direction: column;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 4px 8px;
+      gap: 4px;
+      scrollbar-width: thin;
+    }
+    .doc-popup-chat-messages .doc-msg-user {
+      font-size: 0.72rem;
+      padding: 3px 6px;
+      border-radius: 5px;
+    }
+    .doc-popup-chat-messages .doc-msg-ai {
+      font-size: 0.72rem;
+      padding: 3px 6px;
+      border-radius: 5px;
+    }
+    .doc-popup-chat-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-top: 1px solid var(--border-input);
+    }
+    .doc-popup-chat-actions button {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.68rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .doc-popup-chat-actions button:hover {
+      color: var(--accent);
+      background: rgba(255,255,255,0.06);
+    }
+    .doc-selection-popup.has-chat {
+      max-width: 400px;
+      max-height: 480px;
+    }
     .topbar-scroll-span {
       scrollbar-width: none;
     }
