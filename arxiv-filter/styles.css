@@ -5497,7 +5497,7 @@
     }
     .hc-circle.selected {
       border-color: var(--accent);
-      box-shadow: 0 0 12px 2px color-mix(in srgb, var(--accent) 50%, transparent);
+      box-shadow: 0 0 18px 5px color-mix(in srgb, var(--accent) 60%, transparent);
     }
     .hc-circle .hc-icon {
       width: 42px;
@@ -5542,14 +5542,7 @@
     .hc-circle.hc-hovered .hc-tooltip {
       opacity: 1;
     }
-    #honeycomb-viewport::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: radial-gradient(ellipse at center, transparent 40%, var(--bg-body) 100%);
-      z-index: 1;
-    }
+    /* vignette removed */
     #honeycomb-viewport.grabbing {
       cursor: grabbing;
     }

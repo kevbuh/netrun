@@ -560,6 +560,7 @@ let _hcMouseX = 0, _hcMouseY = 0;
 let _hcListenersAttached = false;
 let _hcActiveCategory = null; // null = All
 let _hcHoveredIdx = -1;
+let _hcZoom = 1;
 
 function _honeycombCircleContent(entry) {
   if (entry.favicon) {
@@ -646,17 +647,23 @@ function renderOnboardGrid() {
   }
 }
 
+function _hcApplyTransform() {
+  const grid = document.getElementById('onboard-grid');
+  if (grid) grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px) scale(${_hcZoom})`;
+}
+
 function _centerHoneycomb() {
   const vp = document.getElementById('honeycomb-viewport');
   const grid = document.getElementById('onboard-grid');
   if (!vp || !grid) return;
+  _hcZoom = 1;
   const vpW = vp.clientWidth;
   const vpH = vp.clientHeight;
   const gW = parseFloat(grid.style.width);
   const gH = parseFloat(grid.style.height);
   _hcPanX = (vpW - gW) / 2;
   _hcPanY = (vpH - gH) / 2;
-  grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px)`;
+  _hcApplyTransform();
 }
 
 function _attachHoneycombListeners() {
@@ -686,8 +693,7 @@ function _attachHoneycombListeners() {
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _hcDidDrag = true;
       _hcPanX = _hcPanStartX + dx;
       _hcPanY = _hcPanStartY + dy;
-      const grid = document.getElementById('onboard-grid');
-      if (grid) grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px)`;
+      _hcApplyTransform();
     }
     if (!_hcRafId && document.getElementById('honeycomb-viewport')) {
       _hcRafId = requestAnimationFrame(_applyFisheye);
@@ -733,20 +739,35 @@ function _attachHoneycombListeners() {
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _hcDidDrag = true;
     _hcPanX = _hcPanStartX + dx;
     _hcPanY = _hcPanStartY + dy;
-    const grid = document.getElementById('onboard-grid');
-    if (grid) grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px)`;
+    _hcApplyTransform();
   }, { passive: true });
 
   vp.addEventListener('touchend', () => {
     _hcDragging = false;
     _touchId = null;
   }, { passive: true });
+
+  // Scroll to zoom
+  vp.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const vpRect = vp.getBoundingClientRect();
+    const mx = e.clientX - vpRect.left;
+    const my = e.clientY - vpRect.top;
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.min(3, Math.max(0.3, _hcZoom * delta));
+    // Zoom toward cursor
+    _hcPanX = mx - (mx - _hcPanX) * (newZoom / _hcZoom);
+    _hcPanY = my - (my - _hcPanY) * (newZoom / _hcZoom);
+    _hcZoom = newZoom;
+    _hcApplyTransform();
+  }, { passive: false });
 }
 
 function _applyFisheye() {
   _hcRafId = 0;
-  const gx = _hcMouseX - _hcPanX;
-  const gy = _hcMouseY - _hcPanY;
+  // Convert viewport mouse coords to grid coords (accounting for zoom)
+  const gx = (_hcMouseX - _hcPanX) / _hcZoom;
+  const gy = (_hcMouseY - _hcPanY) / _hcZoom;
   const hitRadius = 28; // half of circle size + small margin
 
   // Find closest circle to cursor
