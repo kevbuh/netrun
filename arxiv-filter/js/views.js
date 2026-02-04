@@ -2861,11 +2861,13 @@ function _repositionSelectionPopup() {
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
 
-  // Lookup panel: reposition with bottom-left at mouse
+  // Lookup panel: anchor bottom-left to stored mouse position
   if (popup._isLookupPanel) {
-    let top = _lastMouseY - rect.height;
+    const anchorX = popup._lookupAnchorX ?? _lastMouseX;
+    const anchorY = popup._lookupAnchorY ?? _lastMouseY;
+    let top = anchorY - rect.height;
     if (top < 0) top = 0;
-    let left = _lastMouseX;
+    let left = anchorX;
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
     popup.style.top = top + 'px';
     popup.style.left = left + 'px';
@@ -3320,6 +3322,8 @@ document.addEventListener('mousemove', function(e) {
   if (!_lookupTrackMode) return;
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) { _lookupTrackMode = false; return; }
+  popup._lookupAnchorX = e.clientX;
+  popup._lookupAnchorY = e.clientY;
   const w = popup.offsetWidth;
   const h = popup.offsetHeight;
   let left = e.clientX;
@@ -4472,7 +4476,9 @@ function _showLookupPanel(x, y, contextData, initialValue) {
 
   document.body.appendChild(popup);
 
-  // Position: top-left corner at cursor
+  // Position: bottom-left at cursor, store anchor for repositioning
+  popup._lookupAnchorX = x;
+  popup._lookupAnchorY = y;
   const rect = popup.getBoundingClientRect();
   let left = x;
   let top = y - rect.height;
