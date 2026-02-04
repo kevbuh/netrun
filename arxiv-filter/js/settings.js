@@ -170,7 +170,7 @@ function renderSettingsView() {
       <div class="flex items-center justify-between">
         <div>
           <span class="text-primary text-sm">Click Lookup</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Click anywhere to open a quick chat that follows your cursor</p>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Right-click anywhere to open a lookup panel with chat and web search</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">

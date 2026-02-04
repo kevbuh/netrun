@@ -1940,7 +1940,7 @@ function renderDocChatMessages(final) {
 // ── Selection popup: state for inline chat ──
 let _popupChatMessages = [];
 let _popupChatAbort = null;
-let _lookupFollowMode = false;
+let _lookupTrackMode = false;
 let _lastMouseX = 0;
 let _lastMouseY = 0;
 let _pendingScreenshots = [];
@@ -2229,10 +2229,22 @@ function _renderPopupChat(popup, final) {
           `<img src="data:image/png;base64,${b64}" />`
         ).join('') + '</div>';
       }
-      return `<div class="doc-msg-user">${imgsHtml}${escapeHtml(display)}</div>`;
+      const searchIcon = m._isSearch ? '<span class="doc-search-badge">search</span>' : '';
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
+    }
+    // Search results
+    if (m._searchResults && m._searchResults.length) {
+      const resultsHtml = m._searchResults.map(r =>
+        `<div class="doc-search-result" data-href="${escapeAttr(r.url)}">` +
+        `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
+        (r.snippet ? `<div class="doc-search-result-snippet">${escapeHtml(r.snippet)}</div>` : '') +
+        `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
+        `</div>`
+      ).join('');
+      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
     const isLast = i === _popupChatMessages.length - 1;
     const content = (final || !isLast) && typeof marked !== 'undefined'
@@ -2240,7 +2252,26 @@ function _renderPopupChat(popup, final) {
       : escapeHtml(m.content);
     return `<div class="doc-msg-ai">${content}</div>`;
   }).join('');
-  container.scrollTop = container.scrollHeight;
+  // Attach click handlers for search results
+  container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const url = el.getAttribute('data-href');
+      if (typeof browseNewTab === 'function') browseNewTab(url);
+      else window.open(url, '_blank');
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
+  // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
+  const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
+  if (lastMsg && lastMsg._searchResults && lastMsg._searchResults.length) {
+    const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
+    const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
+    if (searchUserMsg) searchUserMsg.scrollIntoView({ block: 'start' });
+    else container.scrollTop = 0;
+  } else {
+    container.scrollTop = container.scrollHeight;
+  }
 }
 
 function _sendPopupChatToSidebar() {
@@ -2743,8 +2774,8 @@ function _repositionSelectionPopup() {
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
 
-  // Follow panel: reposition with bottom-left at mouse
-  if (popup._isFollowPanel) {
+  // Lookup panel: reposition with bottom-left at mouse
+  if (popup._isLookupPanel) {
     let top = _lastMouseY - rect.height;
     if (top < 0) top = 0;
     let left = _lastMouseX;
@@ -2782,7 +2813,7 @@ function _repositionSelectionPopup() {
   popup.style.left = left + 'px';
 }
 
-// Text selection → floating popup; left-click → follow-mode chat panel
+// Text selection → floating popup; drag-to-screenshot when lookup panel is open
 let _selPopupDragging = false;
 
 document.addEventListener('mousedown', function(e) {
@@ -2791,10 +2822,10 @@ document.addEventListener('mousedown', function(e) {
   if (existing && existing.contains(e.target)) {
     return;
   }
-  // In follow mode with captureScreen available: pin panel and start screenshot drag
-  if (existing && _lookupFollowMode && window.electronAPI?.captureScreen) {
+  // In track mode with captureScreen available: pin panel and start screenshot drag
+  if (existing && _lookupTrackMode && window.electronAPI?.captureScreen) {
     e.preventDefault(); // prevent text selection during drag
-    _lookupFollowMode = false;
+    _lookupTrackMode = false;
     _screenshotDragStart = { x: e.clientX, y: e.clientY };
     // Create selection rect + dim overlay elements
     _screenshotDim = document.createElement('div');
@@ -2805,8 +2836,8 @@ document.addEventListener('mousedown', function(e) {
     document.body.appendChild(_screenshotSelection);
     return;
   }
-  // If NOT in follow mode, remove existing panel
-  if (existing && !_lookupFollowMode) {
+  // If NOT in track mode, remove existing panel
+  if (existing && !_lookupTrackMode) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
     existing.remove();
@@ -2827,10 +2858,10 @@ document.addEventListener('selectionchange', function() {
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
   if (!text || text.length < 3 || sel.rangeCount === 0) return;
-  // User is actively selecting text — stop follow mode, show selection preview
-  _lookupFollowMode = false;
+  // User is actively selecting text — stop tracking, show selection preview
+  _lookupTrackMode = false;
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing && existing._isFollowPanel) existing.remove();
+  if (existing && existing._isLookupPanel) existing.remove();
   _buildSelectionPopup(sel, text, false);
 });
 
@@ -2870,16 +2901,14 @@ document.addEventListener('mouseup', async function(e) {
 
   if (text && text.length >= 3 && sel.rangeCount > 0) {
     // Text was selected → finalize selection popup
-    _lookupFollowMode = false;
+    _lookupTrackMode = false;
     _buildSelectionPopup(sel, text, true);
     return;
   }
 
-  // Single click, no selection → toggle follow-mode chat panel
-  if (localStorage.getItem('clickLookup') === 'off') return;
+  // Single click, no selection → dismiss existing panel if any
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) { existing.remove(); _lookupFollowMode = false; return; }
-  _showFollowPanel(e.clientX, e.clientY);
+  if (existing) { existing.remove(); _lookupTrackMode = false; }
 });
 
 function _buildSelectionPopup(sel, text, finalize) {
@@ -3168,9 +3197,9 @@ async function _showWordLookup(word, x, y) {
   }
 }
 
-// Dismiss popup on outside click (only when NOT in follow mode)
+// Dismiss popup on outside click (only when NOT in track mode)
 document.addEventListener('mousedown', function(e) {
-  if (_lookupFollowMode) return;
+  if (_lookupTrackMode) return;
   if (_screenshotDragStart) return; // screenshot drag in progress, keep panel open
   const btn = document.getElementById('doc-chat-ask-float');
   if (btn && !btn.contains(e.target)) {
@@ -3180,7 +3209,7 @@ document.addEventListener('mousedown', function(e) {
   }
 });
 
-// Follow-mode: panel tracks cursor + screenshot drag
+// Lookup panel: tracks cursor + screenshot drag
 document.addEventListener('mousemove', function(e) {
   _lastMouseX = e.clientX;
   _lastMouseY = e.clientY;
@@ -3201,9 +3230,9 @@ document.addEventListener('mousemove', function(e) {
     return;
   }
 
-  if (!_lookupFollowMode) return;
+  if (!_lookupTrackMode) return;
   const popup = document.getElementById('doc-chat-ask-float');
-  if (!popup) { _lookupFollowMode = false; return; }
+  if (!popup) { _lookupTrackMode = false; return; }
   const w = popup.offsetWidth;
   const h = popup.offsetHeight;
   let left = e.clientX;
@@ -3228,14 +3257,14 @@ document.addEventListener('keydown', function(e) {
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) {
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _lookupFollowMode = false;
+      _lookupTrackMode = false;
       _pendingScreenshots = [];
       popup.remove();
     }
   }
 });
 
-// Right-click anywhere opens follow panel
+// Right-click anywhere opens lookup panel
 function _handleContextMenuChat(e) {
   if (localStorage.getItem('clickLookup') === 'off') return;
   // Skip if right-clicking inside an existing popup
@@ -3245,9 +3274,8 @@ function _handleContextMenuChat(e) {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   e.preventDefault();
-  if (popup) { popup.remove(); _lookupFollowMode = false; }
-  console.log('[chat] contextmenu at', e.clientX, e.clientY);
-  _showFollowPanel(e.clientX, e.clientY);
+  if (popup) { popup.remove(); _lookupTrackMode = false; }
+  _showLookupPanel(e.clientX, e.clientY);
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
@@ -3269,8 +3297,8 @@ function _injectIframeChatHandler(iframe) {
         const x = e.clientX + rect.left;
         const y = e.clientY + rect.top;
         const popup = document.getElementById('doc-chat-ask-float');
-        if (popup) { popup.remove(); _lookupFollowMode = false; }
-        _showFollowPanel(x, y);
+        if (popup) { popup.remove(); _lookupTrackMode = false; }
+        _showLookupPanel(x, y);
       });
     } catch (e) {
       // Cross-origin — can't inject
@@ -3282,7 +3310,7 @@ function _injectIframeChatHandler(iframe) {
 }
 
 // ── Screenshot drag-to-capture ──
-// State for drag-to-screenshot (active when follow panel is open)
+// State for drag-to-screenshot (active when lookup panel is open)
 let _screenshotDragStart = null; // {x, y} or null
 let _screenshotSelection = null; // DOM element
 let _screenshotDim = null; // DOM element
@@ -3312,84 +3340,122 @@ function _addScreenshotToPanel(popup, base64) {
     if (_pendingScreenshots.length === 0) strip.style.display = 'none';
   });
   thumb.appendChild(removeBtn);
-
-  // Save to notes button
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'doc-screenshot-thumb-save';
-  saveBtn.title = 'Save to notes';
-  saveBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-  saveBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  saveBtn.addEventListener('click', async (ev) => {
-    ev.stopPropagation();
-    saveBtn.disabled = true;
-    try {
-      const resp = await fetch('/api/images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-        body: JSON.stringify({ image: base64 })
-      });
-      const data = await resp.json();
-      if (data.url) {
-        // Append image to paper note
-        const note = _paperNotes.find(n => n.id === _paperNoteSelected);
-        if (note) {
-          const newContent = (note.content || '') + (note.content ? '\n\n' : '') + `![screenshot](${data.url})`;
-          await savePaperNote(note.id, newContent);
-          renderPaperNoteEditor();
-          if (typeof switchSidebarTab === 'function') switchSidebarTab('notes');
-        }
-      }
-    } catch (err) {
-      console.error('Failed to save screenshot to notes:', err);
-    }
-    saveBtn.disabled = false;
-  });
-  thumb.appendChild(saveBtn);
-
   strip.appendChild(thumb);
 
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
 }
 
-// Follow-mode chat panel: blank chat input that tracks cursor
+// Web search from lookup panel (Shift+Enter)
+async function _doLookupWebSearch(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (!input) return;
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  // Pin panel if tracking
+  _lookupTrackMode = false;
+
+  // Show searching state in chat area
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _popupChatMessages.push({ role: 'user', content: q, _display: q, _isSearch: true });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isSearch: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  try {
+    const resp = await fetch('/api/web-search?q=' + encodeURIComponent(q));
+    const data = await resp.json();
+    const results = data.results || [];
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx]._searchResults = results;
+    _popupChatMessages[aiIdx].content = results.length
+      ? results.length + ' result' + (results.length !== 1 ? 's' : '')
+      : 'No results found.';
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+  if (input) input.focus();
+  _repositionSelectionPopup();
+}
+
+// Lookup panel: blank chat input that tracks cursor
 // contextData: optional { linkUrl, linkText, imgUrl } for context menu items
-function _showFollowPanel(x, y, contextData) {
+function _showLookupPanel(x, y, contextData) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
-  popup._isFollowPanel = true;
-  const hasContext = contextData && (contextData.linkUrl || contextData.imgUrl);
-  _lookupFollowMode = !hasContext;
+  popup._isLookupPanel = true;
+  const hasContext = contextData && (contextData.linkUrl || contextData.imgUrl || contextData.items);
+  _lookupTrackMode = !hasContext;
 
   _popupChatMessages = [];
   _pendingScreenshots = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
+  // Generic context items (vault notes, folders, etc.)
+  if (contextData && contextData.items) {
+    const ctxDiv = document.createElement('div');
+    ctxDiv.className = 'doc-lookup-context-items';
+    for (const entry of contextData.items) {
+      if (entry.sep) {
+        const sep = document.createElement('div');
+        sep.className = 'doc-lookup-ctx-sep';
+        ctxDiv.appendChild(sep);
+        continue;
+      }
+      const item = document.createElement('div');
+      item.className = 'doc-lookup-ctx-item' + (entry.danger ? ' doc-lookup-ctx-danger' : '');
+      if (entry.icon) {
+        item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
+      } else {
+        item.textContent = entry.label;
+      }
+      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      item.addEventListener('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        entry.fn();
+        _lookupTrackMode = false;
+        popup.remove();
+      });
+      ctxDiv.appendChild(item);
+    }
+    popup.appendChild(ctxDiv);
+  }
+
   // Context menu items (links, images)
   if (contextData && (contextData.linkUrl || contextData.imgUrl)) {
     const ctxDiv = document.createElement('div');
-    ctxDiv.className = 'doc-follow-context-items';
+    ctxDiv.className = 'doc-lookup-context-items';
     const linkUrl = contextData.linkUrl || '';
     const linkText = contextData.linkText || '';
     const imgUrl = contextData.imgUrl || '';
 
     const addItem = (label, fn) => {
       const item = document.createElement('div');
-      item.className = 'doc-follow-ctx-item';
+      item.className = 'doc-lookup-ctx-item';
       item.textContent = label;
       item.addEventListener('mousedown', (ev) => ev.stopPropagation());
       item.addEventListener('click', (ev) => {
         ev.stopPropagation(); ev.preventDefault();
         fn();
-        _lookupFollowMode = false;
+        _lookupTrackMode = false;
         popup.remove();
       });
       ctxDiv.appendChild(item);
     };
     const addSep = () => {
       const sep = document.createElement('div');
-      sep.className = 'doc-follow-ctx-sep';
+      sep.className = 'doc-lookup-ctx-sep';
       ctxDiv.appendChild(sep);
     };
 
@@ -3430,7 +3496,7 @@ function _showFollowPanel(x, y, contextData) {
   openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   openSidebarBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
-    _lookupFollowMode = false;
+    _lookupTrackMode = false;
     _sendPopupChatToSidebar();
   });
   const clearBtn = document.createElement('button');
@@ -3454,7 +3520,7 @@ function _showFollowPanel(x, y, contextData) {
   attachStrip.className = 'doc-screenshot-attachments';
   popup.appendChild(attachStrip);
 
-  // Ask input (always visible, no divider in follow mode)
+  // Ask input (always visible, no divider in lookup mode)
   const askWrap = document.createElement('div');
   askWrap.className = 'doc-ask-inline-wrap';
   askWrap.style.borderTop = 'none';
@@ -3476,13 +3542,16 @@ function _showFollowPanel(x, y, contextData) {
   });
   askInput.addEventListener('keydown', (ev) => {
     ev.stopPropagation();
-    if (ev.key === 'Enter') {
+    if (ev.key === 'Enter' && ev.shiftKey) {
+      ev.preventDefault();
+      _doLookupWebSearch(popup);
+    } else if (ev.key === 'Enter') {
       ev.preventDefault();
       _sendPopupChatMessage(popup, '');
     }
     if (ev.key === 'Escape') {
       ev.preventDefault();
-      _lookupFollowMode = false;
+      _lookupTrackMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
       popup.remove();

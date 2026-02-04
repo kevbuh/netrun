@@ -578,6 +578,44 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 self._send_json({'embeddable': False})
 
+        elif self.path.startswith('/api/web-search'):
+            from urllib.parse import urlparse, parse_qs
+            from html.parser import HTMLParser
+            qs = parse_qs(urlparse(self.path).query)
+            query = qs.get('q', [''])[0].strip()
+            if not query:
+                self._send_json({'results': []})
+                return
+            try:
+                search_url = 'https://html.duckduckgo.com/html/?q=' + urllib.request.quote(query)
+                req = urllib.request.Request(search_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                })
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    html = resp.read().decode('utf-8', errors='replace')
+                # Parse DuckDuckGo HTML results
+                results = []
+                # Each result is in a div with class="result results_links results_links_deep web-result"
+                # Title in <a class="result__a">, snippet in <a class="result__snippet">
+                title_pattern = re.compile(r'<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>', re.DOTALL)
+                snippet_pattern = re.compile(r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>', re.DOTALL)
+                titles = title_pattern.findall(html)
+                snippets = snippet_pattern.findall(html)
+                for i, (url, title) in enumerate(titles[:8]):
+                    # Clean HTML tags from title and snippet
+                    clean_title = re.sub(r'<[^>]+>', '', title).strip()
+                    snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip() if i < len(snippets) else ''
+                    # DuckDuckGo wraps URLs in a redirect; extract the actual URL
+                    if 'uddg=' in url:
+                        actual = re.search(r'uddg=([^&]+)', url)
+                        if actual:
+                            url = urllib.request.unquote(actual.group(1))
+                    results.append({'title': clean_title, 'url': url, 'snippet': snippet})
+                self._send_json({'results': results})
+            except Exception as e:
+                self._send_json({'results': [], 'error': str(e)})
+
         elif self.path.startswith('/api/rss-proxy'):
             try:
                 from urllib.parse import urlparse, parse_qs

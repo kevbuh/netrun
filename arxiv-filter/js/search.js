@@ -1147,17 +1147,17 @@ function _browseBindFrame(tab) {
     _updateAudioIndicator();
   });
 
-  // Context menu — always show follow panel (with context items for links/images)
+  // Context menu — always show lookup panel (with context items for links/images)
   el.addEventListener('context-menu', (e) => {
     e.preventDefault();
-    if (typeof _showFollowPanel !== 'function') return;
+    if (typeof _showLookupPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) { popup.remove(); _lookupFollowMode = false; }
+    if (popup) { popup.remove(); _lookupTrackMode = false; }
     const ctxData = (e.linkURL || e.srcURL) ? {
       linkUrl: e.linkURL || '', linkText: e.linkText || '',
       imgUrl: e.srcURL || '', mediaType: e.mediaType || ''
     } : null;
-    _showFollowPanel(e.x, e.y, ctxData);
+    _showLookupPanel(e.x, e.y, ctxData);
   });
 
   // Inject right-click handler after page loads
@@ -1199,7 +1199,7 @@ function _browseBindFrame(tab) {
         document.addEventListener('keydown',function(e){
           if(e.key==='Escape') console.log('__ALPHA_DISMISS_CHAT__');
         },true);
-        // Throttled mousemove for follow panel
+        // Throttled mousemove for lookup panel
         var _lastMove=0;
         document.addEventListener('mousemove',function(e){
           var now=Date.now();
@@ -1217,18 +1217,18 @@ function _browseBindFrame(tab) {
       const popup = document.getElementById('doc-chat-ask-float');
       if (popup) {
         if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        _lookupFollowMode = false;
+        _lookupTrackMode = false;
         popup.remove();
       }
     } else if (e.message && e.message.startsWith('__ALPHA_MOUSE__')) {
-      if (!_lookupFollowMode) return;
+      if (!_lookupTrackMode) return;
       const parts = e.message.slice('__ALPHA_MOUSE__'.length).split(',');
       const x = parseInt(parts[0]) - window.screenX;
       const y = parseInt(parts[1]) - window.screenY;
       _lastMouseX = x;
       _lastMouseY = y;
       const popup = document.getElementById('doc-chat-ask-float');
-      if (!popup) { _lookupFollowMode = false; return; }
+      if (!popup) { _lookupTrackMode = false; return; }
       const w = popup.offsetWidth;
       const h = popup.offsetHeight;
       let left = x;
@@ -1245,10 +1245,10 @@ function _browseBindFrame(tab) {
         const data = JSON.parse(e.message.slice('__ALPHA_CONTEXT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
-        if (typeof _showFollowPanel === 'function') {
+        if (typeof _showLookupPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _lookupFollowMode = false; }
-          _showFollowPanel(x, y, data);
+          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          _showLookupPanel(x, y, data);
         }
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__ALPHA_CHAT__')) {
@@ -1256,10 +1256,10 @@ function _browseBindFrame(tab) {
         const data = JSON.parse(e.message.slice('__ALPHA_CHAT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
-        if (typeof _showFollowPanel === 'function') {
+        if (typeof _showLookupPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _lookupFollowMode = false; }
-          _showFollowPanel(x, y);
+          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          _showLookupPanel(x, y);
         }
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {

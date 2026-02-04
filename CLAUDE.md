@@ -81,7 +81,7 @@ arxiv-filter/
     quality.js          — AI quality filter (Ollama integration, prompts, scoring, test suite)
     settings.js         — settings view (themes, accent, spinners, feed sources, quality filter UI), applyStoredAppearance
     dashboard.js        — dashboard view (activity heatmap, reading list, recent experiments, quotes)
-    views.js            — paper viewer, sidebar panels (insights, chat, notes, comments), read progress
+    views.js            — paper viewer, sidebar panels (insights, chat, notes, comments), lookup panel, read progress
     search.js           — search view (feed search, arXiv search, OpenAlex, search history)
     calendar.js         — calendar view (month grid, event CRUD)
     whiteboard.js       — whiteboard view (multi-board canvas drawing, stroke eraser)
@@ -130,6 +130,48 @@ The quality filter has its own sidebar tab (`#quality`). It uses a two-phase pip
 **Prompt test suite:** Titles hidden via ✕ are collected in `localStorage.qualityTestTitles` (also synced to `blocked_titles.json` on server). Users can run these titles against the current prompt in the Quality Filter tab to verify all are classified as SKIP. The "Save prompt" button runs the test first — if any title is classified as KEEP, the save is blocked and failures are shown.
 
 **Reset all & clear cache:** A single button in the Quality Filter tab resets the verdict prompt to default, resets the threshold to 8, clears the quality cache, and re-triggers evaluation.
+
+### Lookup Panel
+
+The lookup panel is the unified right-click interaction surface across the app. It opens on right-click (`contextmenu`) anywhere and provides an inline chat input, context-aware actions, and drag-to-screenshot capture.
+
+**Opening:** Right-click anywhere opens the panel at the cursor position. It starts in track mode (`_lookupTrackMode = true`), following the cursor until the user interacts. Left-click dismisses it.
+
+**Context-aware content:** When right-clicking on links or images, the panel shows relevant actions (Open Link, Copy Address, etc.) via `contextData` passed to `_showLookupPanel()`. Otherwise it shows a blank chat input.
+
+**Inline chat:** The panel includes a chat input (`Ask anything…`) that sends messages to `/api/doc-chat` via SSE streaming (Enter). Chat history is maintained in `_popupChatMessages`. Messages can be moved to the sidebar chat via "Open in sidebar". In the paper viewer, the first message includes document context (`_docText`).
+
+**Web search:** Pressing Shift+Enter in the input performs a web search via `/api/web-search`, displaying results inline in the panel.
+
+**Text selection popup:** Selecting text replaces the lookup panel with a selection popup showing Quote, Lookup (single words), and highlight color dots (in PDF). The selection popup also has an inline chat input.
+
+**Drag-to-screenshot (Electron only):** While the lookup panel is open and tracking the cursor, left-click-dragging captures a screenshot of the dragged region. The panel pins in place, a dashed selection rectangle with dimmed overlay appears, and on mouseup the region is captured via `electronAPI.captureScreen()` (IPC to `BrowserWindow.capturePage()`). Screenshots appear as thumbnails in an attachment strip above the chat input. When sent, messages with screenshots go to `/api/doc-chat` with `vision: true`, using the `deepseek-ocr` vision model instead of `qwen2.5:3b`.
+
+**Key state variables (in `js/views.js`):**
+- `_lookupTrackMode` — whether the panel tracks the cursor
+- `_popupChatMessages` — chat message history for the current panel
+- `_pendingScreenshots` — base64 PNG strings awaiting send
+- `_screenshotDragStart` — tracks active screenshot drag
+- `_popupChatAbort` — AbortController for in-flight chat requests
+
+**Key functions:**
+- `_showLookupPanel(x, y, contextData)` — creates the panel
+- `_sendPopupChatMessage(popup, capturedText)` — sends chat with optional vision support (Enter)
+- `_doLookupWebSearch(popup)` — performs web search via `/api/web-search` (Shift+Enter)
+- `_renderPopupChat(popup, final)` — renders chat messages, search results, and inline image thumbnails
+- `_addScreenshotToPanel(popup, base64)` — adds screenshot thumbnail to attachment strip
+- `_handleContextMenuChat(e)` — right-click handler that opens the panel
+
+**Electron IPC (`electron/main.js` + `electron/preload.js`):**
+- `ipcMain.handle('capture-screen', ...)` — captures a rectangular region of the window
+- `electronAPI.captureScreen(rect)` — exposed to renderer via preload
+
+**Server endpoints (`server.py`):**
+- `/api/doc-chat` — POST, accepts `vision: true` for screenshot chat
+- `/api/web-search?q=` — GET, DuckDuckGo HTML search, returns `{ results: [{title, url, snippet}] }`
+- Vision mode uses `deepseek-ocr` model and passes `images` arrays through to Ollama
+- `/api/images` POST — saves base64 PNG to `uploads/` directory, returns URL
+- `/api/images/<filename>` GET — serves saved images
 
 ### Post Actions
 
