@@ -627,7 +627,7 @@ function getSourceChip(source, arxivId) {
 
 function hideAllViews() {
   document.getElementById('home-main').style.display = 'none';
-  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
+  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); v.style.display = ''; });
   // Stop feed refresh timer and any in-flight loading when leaving home
   if (typeof _refreshTimer !== 'undefined' && _refreshTimer) {
     clearInterval(_refreshTimer);
