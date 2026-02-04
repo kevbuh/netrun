@@ -2230,7 +2230,8 @@ function _renderPopupChat(popup, final) {
         ).join('') + '</div>';
       }
       const searchIcon = m._isSearch ? '<span class="doc-search-badge">search</span>' : '';
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${escapeHtml(display)}</div>`;
+      const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
@@ -2242,6 +2243,17 @@ function _renderPopupChat(popup, final) {
         `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
         (r.snippet ? `<div class="doc-search-result-snippet">${escapeHtml(r.snippet)}</div>` : '') +
         `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
+        `</div>`
+      ).join('');
+      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
+    }
+    // Paper search results
+    if (m._paperResults && m._paperResults.length) {
+      const resultsHtml = m._paperResults.map(r =>
+        `<div class="doc-paper-result" data-href="${escapeAttr(r.link)}">` +
+        `<div class="doc-paper-result-title">${escapeHtml(r.title)}</div>` +
+        `<div class="doc-paper-result-meta">${escapeHtml(r.authors)}${r.year ? ' · ' + r.year : ''}</div>` +
+        (r.summary ? `<div class="doc-paper-result-summary">${escapeHtml(r.summary.length > 150 ? r.summary.slice(0, 147) + '...' : r.summary)}</div>` : '') +
         `</div>`
       ).join('');
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
@@ -2262,9 +2274,19 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
+  // Attach click handlers for paper results
+  container.querySelectorAll('.doc-paper-result[data-href]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const url = el.getAttribute('data-href');
+      if (typeof browseNewTab === 'function') browseNewTab(url);
+      else window.open(url, '_blank');
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
   // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
   const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
-  if (lastMsg && lastMsg._searchResults && lastMsg._searchResults.length) {
+  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length))) {
     const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
     const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
     if (searchUserMsg) searchUserMsg.scrollIntoView({ block: 'start' });
@@ -3412,6 +3434,7 @@ const _lookupCommands = [
   { name: 'zoomreset', desc: 'Reset zoom to 100%', fn: () => { if (typeof browseZoom === 'function') browseZoom(0); } },
   { name: 'print', desc: 'Print page', fn: () => { if (typeof browsePrintPage === 'function') browsePrintPage(); } },
   { name: 'notes', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
+  { name: 'paper', desc: 'Search for papers', hasArgs: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -3465,16 +3488,89 @@ function _lookupHideCmdDropdown(popup) {
 }
 
 function _lookupExecCommand(popup, text) {
-  const query = text.slice(1).trim().toLowerCase();
+  const raw = text.slice(1).trim();
+  // Check for commands with arguments: "/paper transformer attention"
+  const spaceIdx = raw.indexOf(' ');
+  if (spaceIdx > 0) {
+    const cmdName = raw.slice(0, spaceIdx).toLowerCase();
+    const args = raw.slice(spaceIdx + 1).trim();
+    const cmd = _lookupCommands.find(c => c.name === cmdName);
+    if (cmd && cmd.hasArgs && args) {
+      _lookupHideCmdDropdown(popup);
+      if (cmdName === 'paper') { _doLookupPaperSearch(popup, args); return true; }
+    }
+    if (cmd && cmd.fn) { cmd.fn(); _lookupTrackMode = false; popup.remove(); return true; }
+  }
+  const query = raw.toLowerCase();
   const matches = _lookupFilterCommands(query);
   const cmd = matches[_lookupCmdIdx] || matches[0];
   if (cmd) {
+    if (cmd.hasArgs) return false; // needs arguments, don't execute bare
     cmd.fn();
     _lookupTrackMode = false;
     popup.remove();
     return true;
   }
   return false;
+}
+
+// Paper search from lookup panel (/paper query)
+async function _doLookupPaperSearch(popup, query) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _popupChatMessages.push({ role: 'user', content: query, _display: query, _isPaperSearch: true });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isPaperSearch: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  try {
+    const resp = await fetch('/api/arxiv-search?q=' + encodeURIComponent(query) + '&max_results=8');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const xml = await resp.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, 'text/xml');
+    const entries = doc.querySelectorAll('entry');
+    const papers = [];
+    entries.forEach(entry => {
+      const title = (entry.querySelector('title')?.textContent || '').replace(/\s+/g, ' ').trim();
+      const summary = (entry.querySelector('summary')?.textContent || '').replace(/\s+/g, ' ').trim();
+      const authors = Array.from(entry.querySelectorAll('author name')).map(n => n.textContent).join(', ');
+      const published = entry.querySelector('published')?.textContent || '';
+      const year = published ? new Date(published).getFullYear() : '';
+      let link = '';
+      entry.querySelectorAll('link').forEach(l => {
+        if (l.getAttribute('type') === 'text/html') link = l.getAttribute('href');
+      });
+      if (!link) {
+        const alt = entry.querySelector('link[rel="alternate"]');
+        if (alt) link = alt.getAttribute('href');
+      }
+      if (!link) link = entry.querySelector('id')?.textContent || '';
+      papers.push({ title, authors, summary, link, year });
+    });
+
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx]._paperResults = papers;
+    _popupChatMessages[aiIdx].content = papers.length
+      ? papers.length + ' paper' + (papers.length !== 1 ? 's' : '') + ' found'
+      : 'No papers found.';
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+  if (input) input.focus();
+  _repositionSelectionPopup();
 }
 
 // Lookup panel: blank chat input that tracks cursor
