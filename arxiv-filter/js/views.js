@@ -3432,6 +3432,46 @@ function _showLookupPanel(x, y, contextData) {
     popup.appendChild(ctxDiv);
   }
 
+  // Link preview (fetched async)
+  if (contextData && contextData.linkUrl) {
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'doc-link-preview loading';
+    previewDiv.innerHTML = '<div class="doc-link-preview-shimmer"></div>';
+    popup.appendChild(previewDiv);
+    fetch('/api/link-preview?url=' + encodeURIComponent(contextData.linkUrl))
+      .then(r => r.json())
+      .then(data => {
+        if (!popup.isConnected) return;
+        if (!data.title && !data.description) {
+          previewDiv.remove();
+          _repositionSelectionPopup();
+          return;
+        }
+        previewDiv.classList.remove('loading');
+        let html = '';
+        if (data.image) {
+          html += `<img class="doc-link-preview-img" src="${escapeAttr(data.image)}" onerror="this.remove()">`;
+        }
+        html += '<div class="doc-link-preview-text">';
+        html += `<div class="doc-link-preview-site">${escapeHtml(data.site || data.domain || '')}</div>`;
+        html += `<div class="doc-link-preview-title">${escapeHtml(data.title)}</div>`;
+        if (data.description) {
+          html += `<div class="doc-link-preview-desc">${escapeHtml(data.description)}</div>`;
+        }
+        html += '</div>';
+        previewDiv.innerHTML = html;
+        previewDiv.style.cursor = 'pointer';
+        previewDiv.addEventListener('mousedown', (ev) => ev.stopPropagation());
+        previewDiv.addEventListener('click', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          if (typeof browseNewTab === 'function') browseNewTab(contextData.linkUrl);
+          else window.open(contextData.linkUrl, '_blank');
+        });
+        _repositionSelectionPopup();
+      })
+      .catch(() => { previewDiv.remove(); _repositionSelectionPopup(); });
+  }
+
   // Context menu items (links, images)
   if (contextData && (contextData.linkUrl || contextData.imgUrl)) {
     const ctxDiv = document.createElement('div');

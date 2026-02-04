@@ -578,6 +578,60 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 self._send_json({'embeddable': False})
 
+        elif self.path.startswith('/api/link-preview'):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            url = qs.get('url', [''])[0].strip()
+            if not url:
+                self._send_json({'error': 'url required'}, 400)
+                return
+            try:
+                req = urllib.request.Request(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                })
+                ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
+                    # Read limited amount to avoid large downloads
+                    raw = resp.read(200_000)
+                    html = raw.decode('utf-8', errors='replace')
+                # Extract OpenGraph and standard meta tags
+                def meta(prop):
+                    for attr in ('property', 'name'):
+                        m = re.search(rf'<meta\s+{attr}="{re.escape(prop)}"\s+content="([^"]*)"', html, re.I)
+                        if m: return m.group(1)
+                        m = re.search(rf'<meta\s+content="([^"]*)"\s+{attr}="{re.escape(prop)}"', html, re.I)
+                        if m: return m.group(1)
+                    return ''
+                title = meta('og:title') or meta('twitter:title')
+                if not title:
+                    m = re.search(r'<title[^>]*>(.*?)</title>', html, re.I | re.DOTALL)
+                    title = re.sub(r'<[^>]+>', '', m.group(1)).strip() if m else ''
+                desc = meta('og:description') or meta('twitter:description') or meta('description')
+                image = meta('og:image') or meta('twitter:image')
+                # Make relative image URLs absolute
+                if image and not image.startswith('http'):
+                    parsed = urlparse(url)
+                    if image.startswith('//'):
+                        image = parsed.scheme + ':' + image
+                    elif image.startswith('/'):
+                        image = parsed.scheme + '://' + parsed.netloc + image
+                    else:
+                        image = url.rsplit('/', 1)[0] + '/' + image
+                site = meta('og:site_name')
+                parsed_url = urlparse(url)
+                domain = parsed_url.netloc.replace('www.', '')
+                favicon = parsed_url.scheme + '://' + parsed_url.netloc + '/favicon.ico'
+                self._send_json({
+                    'title': title[:200],
+                    'description': desc[:300],
+                    'image': image,
+                    'site': site or domain,
+                    'favicon': favicon,
+                    'domain': domain
+                })
+            except Exception as e:
+                self._send_json({'title': '', 'description': '', 'image': '', 'site': '', 'domain': '', 'error': str(e)})
+
         elif self.path.startswith('/api/web-search'):
             from urllib.parse import urlparse, parse_qs
             from html.parser import HTMLParser
