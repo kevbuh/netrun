@@ -654,6 +654,7 @@ async function _verifyInsightsInPdf(insights) {
 async function fetchPaperInsights(url) {
   const el = document.getElementById('paper-insights');
   if (!el) return;
+  _paperInsightsLoaded = true; // Set immediately to prevent duplicate calls
   el.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Analyzing paper...</div>`;
   try {
     const resp = await fetch('/api/paper-insights', {
@@ -680,13 +681,28 @@ async function fetchPaperInsights(url) {
 
     // Render authors section
     if (hasAuthors) {
+      // Format numbers compactly
+      const fmtNum = (n) => {
+        if (!n) return null;
+        if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+        if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+        return n.toLocaleString();
+      };
       html += '<div class="mb-4"><div class="text-[0.68rem] font-semibold text-muted uppercase tracking-wide mb-2">Authors</div><div class="space-y-1" id="paper-authors-list">';
       for (let i = 0; i < data.authors.length; i++) {
         const author = data.authors[i];
+        const hasStats = author.paperCount || author.hIndex || author.citationCount;
+        const statsHtml = hasStats ? `<div class="author-card-stats">
+          ${author.paperCount ? `<span>${fmtNum(author.paperCount)} papers</span>` : ''}
+          ${author.hIndex ? `<span>h-index ${author.hIndex}</span>` : ''}
+          ${author.citationCount ? `<span>${fmtNum(author.citationCount)} cited</span>` : ''}
+        </div>` : '';
         html += `<div class="author-card" data-idx="${i}">
           <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
-          <div class="author-card-name">${escapeHtml(author.name)}</div>
-          <svg class="author-card-external" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="author-card-info">
+            <div class="author-card-name">${escapeHtml(author.name)}</div>
+            ${statsHtml}
+          </div>
         </div>`;
       }
       html += '</div></div>';
@@ -720,7 +736,7 @@ async function fetchPaperInsights(url) {
     html += '</div>';
     el.innerHTML = html;
 
-    // Add hover/click handlers for authors
+    // Add hover handler for PDF highlighting only
     if (hasAuthors && window._insightAuthors) {
       const authorsList = document.getElementById('paper-authors-list');
       if (authorsList) {
@@ -729,12 +745,11 @@ async function fetchPaperInsights(url) {
           const author = window._insightAuthors[idx];
           if (!author) return;
 
-          card.addEventListener('mouseenter', () => onAuthorCardHover(card, author));
-          card.addEventListener('mouseleave', onAuthorCardLeave);
-          card.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onAuthorCardClick(author);
+          card.addEventListener('mouseenter', () => {
+            if (author.name) pdfSearchHighlight(author.name);
+          });
+          card.addEventListener('mouseleave', () => {
+            pdfClearSearchHighlights();
           });
         });
       }
@@ -746,98 +761,9 @@ async function fetchPaperInsights(url) {
   }
 }
 
-// ── Author Hover Tooltip ──
-let _authorTooltip = null;
-let _authorHoverTimeout = null;
-
+// ── Author Popover (legacy, kept for cleanup function) ──
 function dismissAuthorPopover() {
-  clearTimeout(_authorHoverTimeout);
-  if (_authorTooltip) {
-    _authorTooltip.remove();
-    _authorTooltip = null;
-  }
-}
-
-function showAuthorTooltip(author, cardEl) {
-  dismissAuthorPopover();
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'author-tooltip';
-
-  // Format large numbers compactly
-  const formatNum = (n) => {
-    if (!n) return '—';
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-    return n.toLocaleString();
-  };
-
-  const hasStats = author.paperCount || author.hIndex || author.citationCount;
-
-  tooltip.innerHTML = `
-    <div class="author-tooltip-name">${escapeHtml(author.name || 'Unknown')}</div>
-    ${author.affiliation ? `<div class="author-tooltip-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
-    ${hasStats ? `<div class="author-tooltip-stats">
-      <span><strong>${formatNum(author.paperCount)}</strong> papers</span>
-      <span>h-index <strong>${author.hIndex || '—'}</strong></span>
-      <span><strong>${formatNum(author.citationCount)}</strong> citations</span>
-    </div>` : ''}
-  `;
-
-  document.body.appendChild(tooltip);
-  _authorTooltip = tooltip;
-
-  // Position to the right of the card, or left if no space
-  const cardRect = cardEl.getBoundingClientRect();
-  const tooltipWidth = tooltip.offsetWidth;
-  const tooltipHeight = tooltip.offsetHeight;
-
-  let left = cardRect.right + 8;
-  let top = cardRect.top + (cardRect.height / 2) - (tooltipHeight / 2);
-
-  // If tooltip would go off right edge, show on left
-  if (left + tooltipWidth > window.innerWidth - 16) {
-    left = cardRect.left - tooltipWidth - 8;
-  }
-  // Keep within vertical bounds
-  if (top < 8) top = 8;
-  if (top + tooltipHeight > window.innerHeight - 8) {
-    top = window.innerHeight - tooltipHeight - 8;
-  }
-
-  tooltip.style.left = left + 'px';
-  tooltip.style.top = top + 'px';
-}
-
-function onAuthorCardHover(cardEl, author) {
-  clearTimeout(_authorHoverTimeout);
-  // Small delay to prevent flickering
-  _authorHoverTimeout = setTimeout(() => {
-    showAuthorTooltip(author, cardEl);
-    // Also highlight in PDF
-    if (author.name) pdfSearchHighlight(author.name);
-  }, 150);
-}
-
-function onAuthorCardLeave() {
-  clearTimeout(_authorHoverTimeout);
-  _authorHoverTimeout = setTimeout(() => {
-    dismissAuthorPopover();
-    pdfClearSearchHighlights();
-  }, 100);
-}
-
-function onAuthorCardClick(author) {
-  // Navigate to Semantic Scholar profile
-  let url = '';
-  if (author.url) {
-    url = author.url;
-  } else if (author.authorId) {
-    url = 'https://www.semanticscholar.org/author/' + author.authorId;
-  } else if (author.name) {
-    url = 'https://www.semanticscholar.org/search?q=' + encodeURIComponent(author.name);
-  }
-  if (url) window.open(url, '_blank');
+  // No-op, tooltip removed
 }
 
 // ── Author Profile Page ──

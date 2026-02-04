@@ -1764,11 +1764,8 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'error': 'url required'}, 400)
                     return
                 allow_heuristics = body.get('allowHeuristics', True)
-                force_refresh = body.get('forceRefresh', False)
                 _cache_key = url + ('::h' if allow_heuristics else '::noh')
-                if _cache_key in _insights_cache and not force_refresh:
-                    self._send_json(_insights_cache[_cache_key])
-                    return
+                # Cache read disabled for dev - always fetch fresh
 
                 # Reuse extract-text logic to get document text
                 if url in _extract_cache:
