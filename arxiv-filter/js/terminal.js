@@ -139,6 +139,12 @@ let _termSettings = {
 function openTerminal() {
   setSidebarLoading('sb-terminal');
   hideAllViews();
+  // Close bottom panel if open — terminals will be reparented to full view
+  if (_bottomTerminalVisible) {
+    _bottomTerminalVisible = false;
+    const bp = document.getElementById('bottom-terminal-panel');
+    if (bp) bp.style.display = 'none';
+  }
   const view = document.getElementById('terminal-view');
   view.style.display = 'flex';
   view.classList.remove('hidden');
@@ -253,6 +259,13 @@ function destroyTerminal(id) {
 
   _renderTabs();
   _renderLayout();
+
+  // Update bottom panel if visible
+  if (_bottomTerminalVisible) {
+    _renderBottomTerminalTabs();
+    if (_activeTerminalId) _renderBottomTerminalPane();
+  }
+
   _saveTerminalState();
 }
 
@@ -295,6 +308,12 @@ function selectTerminal(id) {
 
   _activeTerminalId = id;
   _renderTabs();
+
+  // Update bottom panel if visible
+  if (_bottomTerminalVisible) {
+    _renderBottomTerminalTabs();
+    _renderBottomTerminalPane();
+  }
 
   // Focus the terminal
   setTimeout(() => {
@@ -716,6 +735,8 @@ function applyTerminalTheme(themeName) {
 
   const container = document.getElementById('terminal-panes-container');
   if (container) container.style.background = theme.background;
+  const bottomContainer = document.getElementById('bottom-terminal-container');
+  if (bottomContainer) bottomContainer.style.background = theme.background;
 
   _saveTerminalState();
 }
@@ -822,9 +843,8 @@ function _escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ── Bottom Terminal Panel (Cmd+J) ──
+// ── Bottom Terminal Panel (Cmd+J) — shares terminals with the full terminal tab ──
 
-let _bottomTerminal = null;
 let _bottomTerminalVisible = false;
 
 function toggleBottomTerminal() {
@@ -835,133 +855,94 @@ function toggleBottomTerminal() {
 
   if (_bottomTerminalVisible) {
     panel.style.display = 'flex';
-    _initBottomTerminal();
+    _showBottomTerminal();
   } else {
     panel.style.display = 'none';
-    if (_bottomTerminal && _bottomTerminal.term) {
-      _bottomTerminal.term.blur();
-    }
+    const t = _terminals.find(t => t.id === _activeTerminalId);
+    if (t && t.term) t.term.blur();
   }
 }
 
-function _initBottomTerminal() {
+function _showBottomTerminal() {
+  _loadTerminalState();
+
+  // Create first terminal if none exist
+  if (_terminals.length === 0) {
+    createTerminal();
+  } else {
+    // Reconnect any closed WebSockets
+    _terminals.forEach(t => {
+      if (!t.ws || t.ws.readyState !== WebSocket.OPEN) {
+        _connectTerminalWs(t);
+      }
+    });
+  }
+
+  _renderBottomTerminalTabs();
+  _renderBottomTerminalPane();
+}
+
+function _renderBottomTerminalTabs() {
+  const tabsEl = document.getElementById('bottom-terminal-tabs');
+  if (!tabsEl) return;
+
+  tabsEl.innerHTML = _terminals.map(t => `
+    <div class="term-tab ${t.id === _activeTerminalId ? 'active' : ''}" data-term-id="${t.id}" onclick="_bottomSelectTerminal(${t.id})">
+      <svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>
+      <span class="term-tab-title">${_escapeHtml(t.name)}</span>
+      ${_terminals.length > 1 ? `<button class="term-tab-close" onclick="event.stopPropagation();destroyTerminal(${t.id});_renderBottomTerminalTabs();_renderBottomTerminalPane()" title="Close">×</button>` : ''}
+    </div>
+  `).join('') + `<button class="term-tab-new" onclick="createTerminal();_renderBottomTerminalTabs();_renderBottomTerminalPane()" title="New Tab">+</button>`;
+}
+
+function _bottomSelectTerminal(id) {
+  _activeTerminalId = id;
+  _renderBottomTerminalTabs();
+  _renderBottomTerminalPane();
+  _saveTerminalState();
+}
+
+function _renderBottomTerminalPane() {
   const container = document.getElementById('bottom-terminal-container');
   if (!container) return;
 
-  // Already initialized
-  if (_bottomTerminal && _bottomTerminal.term) {
+  const t = _terminals.find(t => t.id === _activeTerminalId);
+  if (!t) return;
+
+  // Clear container but don't dispose — just move the pane
+  container.innerHTML = '';
+
+  const pane = t.container;
+  pane.style.width = '100%';
+  pane.style.height = '100%';
+  container.appendChild(pane);
+
+  if (!pane.querySelector('.xterm')) {
+    t.term.open(pane);
+    t.fitAddon.fit();
+    _connectTerminalWs(t);
+
+    const ro = new ResizeObserver(() => {
+      try { t.fitAddon.fit(); } catch (_) {}
+    });
+    ro.observe(pane);
+
+    t.term.onResize(({ cols, rows }) => {
+      if (t.ws && t.ws.readyState === WebSocket.OPEN) {
+        t.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+      }
+    });
+  } else {
     setTimeout(() => {
-      _bottomTerminal.fitAddon.fit();
-      _bottomTerminal.term.focus();
+      t.fitAddon.fit();
+      t.term.focus();
     }, 50);
-    // Reconnect WebSocket if needed
-    if (!_bottomTerminal.ws || _bottomTerminal.ws.readyState !== WebSocket.OPEN) {
-      _connectBottomTerminalWs();
-    }
-    return;
   }
-
-  const theme = TERMINAL_THEMES[_termSettings.theme] || TERMINAL_THEMES.dark;
-  const term = new Terminal({
-    cursorBlink: _termSettings.cursorBlink,
-    cursorStyle: _termSettings.cursorStyle,
-    fontSize: _termSettings.fontSize,
-    fontFamily: _termSettings.fontFamily,
-    scrollback: _termSettings.scrollback,
-    theme: theme,
-    allowProposedApi: true,
-  });
-
-  const fitAddon = new FitAddon.FitAddon();
-  term.loadAddon(fitAddon);
-
-  let searchAddon = null;
-  if (typeof SearchAddon !== 'undefined') {
-    searchAddon = new SearchAddon.SearchAddon();
-    term.loadAddon(searchAddon);
-  }
-
-  _bottomTerminal = {
-    term,
-    fitAddon,
-    searchAddon,
-    ws: null,
-  };
-
-  term.open(container);
-  fitAddon.fit();
-
-  // Connect WebSocket
-  _connectBottomTerminalWs();
-
-  // Auto-fit on resize
-  const ro = new ResizeObserver(() => {
-    try { fitAddon.fit(); } catch (_) {}
-  });
-  ro.observe(container);
-
-  // Send resize to server
-  term.onResize(({ cols, rows }) => {
-    if (_bottomTerminal.ws && _bottomTerminal.ws.readyState === WebSocket.OPEN) {
-      _bottomTerminal.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-    }
-  });
-
-  setTimeout(() => {
-    fitAddon.fit();
-    term.focus();
-  }, 50);
-}
-
-function _connectBottomTerminalWs() {
-  if (!_bottomTerminal) return;
-
-  if (_bottomTerminal.ws) {
-    try { _bottomTerminal.ws.close(); } catch (_) {}
-  }
-
-  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProto}//${location.host}/ws/terminal`;
-  console.log('[bottom-terminal] connecting to', wsUrl);
-
-  const ws = new WebSocket(wsUrl);
-  ws.binaryType = 'arraybuffer';
-  _bottomTerminal.ws = ws;
-
-  ws.onopen = () => {
-    console.log('[bottom-terminal] ws open');
-    _bottomTerminal.fitAddon.fit();
-    const { cols, rows } = _bottomTerminal.term;
-    ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-  };
-
-  ws.onmessage = (ev) => {
-    if (!_bottomTerminal.term) return;
-    if (ev.data instanceof ArrayBuffer) {
-      _bottomTerminal.term.write(new Uint8Array(ev.data));
-    } else {
-      _bottomTerminal.term.write(ev.data);
-    }
-  };
-
-  ws.onerror = (e) => {
-    console.error('[bottom-terminal] ws error', e);
-  };
-
-  ws.onclose = (ev) => {
-    console.log('[bottom-terminal] ws close', ev.code, ev.reason);
-    if (_bottomTerminal.term) _bottomTerminal.term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n');
-  };
-
-  _bottomTerminal.term.onData((data) => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(data);
-  });
 }
 
 function clearBottomTerminal() {
-  if (_bottomTerminal && _bottomTerminal.term) {
-    _bottomTerminal.term.clear();
-  }
+  const t = _terminals.find(t => t.id === _activeTerminalId);
+  if (t && t.term) t.term.clear();
 }
 
 // Bottom terminal resize handle
@@ -978,8 +959,9 @@ function clearBottomTerminal() {
       const delta = startY - e.clientY;
       const newHeight = Math.max(100, Math.min(window.innerHeight - 100, startHeight + delta));
       panel.style.height = newHeight + 'px';
-      if (_bottomTerminal && _bottomTerminal.fitAddon) {
-        _bottomTerminal.fitAddon.fit();
+      const t = _terminals.find(t => t.id === _activeTerminalId);
+      if (t && t.fitAddon) {
+        try { t.fitAddon.fit(); } catch (_) {}
       }
     };
 
@@ -998,12 +980,15 @@ function clearBottomTerminal() {
   });
 })();
 
-// Global Cmd+J shortcut (works from anywhere)
+// Global Cmd+J shortcut (works from anywhere except the full terminal tab)
 document.addEventListener('keydown', (e) => {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const cmdKey = isMac ? e.metaKey : e.ctrlKey;
 
   if (cmdKey && e.key === 'j') {
+    // Don't toggle bottom panel when full terminal view is open — they share the same terminals
+    const view = document.getElementById('terminal-view');
+    if (view && view.style.display !== 'none' && !view.classList.contains('hidden')) return;
     e.preventDefault();
     toggleBottomTerminal();
   }
