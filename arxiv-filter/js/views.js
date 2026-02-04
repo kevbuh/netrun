@@ -2231,7 +2231,8 @@ function _renderPopupChat(popup, final) {
       }
       const searchIcon = m._isSearch ? '<span class="doc-search-badge">search</span>' : '';
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${escapeHtml(display)}</div>`;
+      const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
@@ -2254,6 +2255,17 @@ function _renderPopupChat(popup, final) {
         `<div class="doc-paper-result-title">${escapeHtml(r.title)}</div>` +
         `<div class="doc-paper-result-meta">${escapeHtml(r.authors)}${r.year ? ' · ' + r.year : ''}</div>` +
         (r.summary ? `<div class="doc-paper-result-summary">${escapeHtml(r.summary.length > 150 ? r.summary.slice(0, 147) + '...' : r.summary)}</div>` : '') +
+        `</div>`
+      ).join('');
+      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
+    }
+    // User search results
+    if (m._userResults && m._userResults.length) {
+      const resultsHtml = m._userResults.map(u =>
+        `<div class="doc-user-result" data-username="${escapeAttr(u.username)}">` +
+        (u.picture ? `<img class="doc-user-result-avatar" src="${escapeAttr(u.picture)}" />` :
+          `<div class="doc-user-result-avatar doc-user-result-avatar-fallback">${escapeHtml(u.username.charAt(0).toUpperCase())}</div>`) +
+        `<span class="doc-user-result-name">${escapeHtml(u.username)}</span>` +
         `</div>`
       ).join('');
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
@@ -2284,9 +2296,21 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
+  // Attach click handlers for user results
+  container.querySelectorAll('.doc-user-result[data-username]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const username = el.getAttribute('data-username');
+      window.location.hash = '#profile/' + encodeURIComponent(username);
+      // Dismiss the lookup panel
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (popup) { _lookupTrackMode = false; popup.remove(); }
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
   // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
   const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
-  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length))) {
+  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length))) {
     const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
     const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
     if (searchUserMsg) searchUserMsg.scrollIntoView({ block: 'start' });
@@ -3435,6 +3459,7 @@ const _lookupCommands = [
   { name: 'print', desc: 'Print page', fn: () => { if (typeof browsePrintPage === 'function') browsePrintPage(); } },
   { name: 'notes', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
   { name: 'paper', desc: 'Search for papers', hasArgs: true },
+  { name: 'user', desc: 'Search for users', hasArgs: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -3498,6 +3523,7 @@ function _lookupExecCommand(popup, text) {
     if (cmd && cmd.hasArgs && args) {
       _lookupHideCmdDropdown(popup);
       if (cmdName === 'paper') { _doLookupPaperSearch(popup, args); return true; }
+      if (cmdName === 'user') { _doLookupUserSearch(popup, args); return true; }
     }
     if (cmd && cmd.fn) { cmd.fn(); _lookupTrackMode = false; popup.remove(); return true; }
   }
@@ -3562,6 +3588,46 @@ async function _doLookupPaperSearch(popup, query) {
     _popupChatMessages[aiIdx].content = papers.length
       ? papers.length + ' paper' + (papers.length !== 1 ? 's' : '') + ' found'
       : 'No papers found.';
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+  if (input) input.focus();
+  _repositionSelectionPopup();
+}
+
+async function _doLookupUserSearch(popup, query) {
+  const input = popup.querySelector('.doc-ask-inline');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _popupChatMessages.push({ role: 'user', content: query, _display: query, _isUserSearch: true });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isUserSearch: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  try {
+    const token = localStorage.getItem('authToken');
+    const resp = await fetch('/api/users?q=' + encodeURIComponent(query), {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const users = await resp.json();
+
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx]._userResults = users;
+    _popupChatMessages[aiIdx].content = users.length
+      ? users.length + ' user' + (users.length !== 1 ? 's' : '') + ' found'
+      : 'No users found.';
     _renderPopupChat(popup, true);
   } catch (e) {
     const aiIdx = _popupChatMessages.length - 1;
