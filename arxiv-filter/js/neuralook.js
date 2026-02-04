@@ -8,14 +8,25 @@ let _nlCalibrationPoints = 0;
 let _nlGazeX = 0;
 let _nlGazeY = 0;
 let _nlPreviewStream = null; // camera stream for preview (stopped before webgazer starts)
-let _nlCurrentPoint = 0;      // which calibration point (0-8) is active
+let _nlCurrentPoint = 0;      // which calibration point is active
 let _nlClicksOnPoint = 0;     // clicks collected on current point
 const _NL_CLICKS_PER_POINT = 5;
 let _nlAccuracy = null;        // last accuracy test result in px (null = not tested)
+let _nlStareInterval = null;   // interval feeding continuous gaze data while staring at dot
+let _nlCalOrder = [];          // shuffled order of calibration points
 
 // Smoothing — ring buffer of recent predictions
 let _nlGazeBuffer = [];
 const _NL_BUFFER_SIZE = 8;
+
+// Model stats
+let _nlClickSamples = 0;       // click training samples fed to WebGazer
+let _nlMoveSamples = 0;        // continuous move training samples
+let _nlPredictionCount = 0;    // total predictions received
+let _nlPredictionsThisSec = 0; // predictions in the current 1-second window
+let _nlPredictionRate = 0;     // predictions per second (updated each second)
+let _nlStatsInterval = null;   // interval for refreshing the stats card
+let _nlRateInterval = null;    // 1-second interval for computing prediction rate
 
 function openNeuralook() {
   hideAllViews();
@@ -72,9 +83,9 @@ function renderNeuralookView() {
       <div class="bg-card border border-border-card rounded-xl p-4">
         <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
         <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
-          <li>Click <strong>Start Calibration</strong> — dots appear one at a time in fullscreen</li>
-          <li>Look at each dot and click it 5 times — this gives the model strong training data</li>
-          <li>After all 9 points, a quick accuracy test measures tracking quality</li>
+          <li>Click <strong>Start Calibration</strong> — dots appear one at a time in fullscreen (randomized order)</li>
+          <li>Stare at each dot and click it 5 times — continuous gaze data is recorded while you look</li>
+          <li>After all 13 points, a quick accuracy test measures tracking quality</li>
           <li>Click <strong>Start Tracking</strong> to show the gaze dot across all views</li>
           <li>Return here and click <strong>Stop Tracking</strong> to hide the dot</li>
         </ol>
@@ -91,11 +102,19 @@ function renderNeuralookView() {
           <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-dot-size-label">20px</span>
         </div>
       </div>
+
+      <!-- Model Info -->
+      <div class="bg-card border border-border-card rounded-xl p-4">
+        <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
+        <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
+      </div>
     </div>
   `;
 
   // If webgazer is already running, show its video in the preview
   _nlAttachCameraPreview();
+  _nlRefreshStats();
+  _nlStartStatsInterval();
 }
 
 // ── WebGazer Initialization ──
@@ -128,6 +147,8 @@ function _nlInitWebgazer() {
 
 function _nlGazeListener(data, timestamp) {
   if (!data) return;
+  _nlPredictionCount++;
+  _nlPredictionsThisSec++;
   // During accuracy test, collect predictions but don't move the dot
   if (_nlAccuracyCollecting) {
     _nlAccuracyPredictions.push({ x: data.x, y: data.y });
@@ -230,6 +251,9 @@ function _nlStartCalibration() {
   _nlCalibrationPoints = 0;
   _nlCurrentPoint = 0;
   _nlClicksOnPoint = 0;
+  _nlClickSamples = 0;
+  _nlMoveSamples = 0;
+  _nlPredictionCount = 0;
 
   // Stop any standalone preview stream so webgazer can grab the camera
   _nlStopPreviewStream();
@@ -292,6 +316,7 @@ function _nlFullscreenChange() {
     _nlCurrentPoint = 0;
     _nlClicksOnPoint = 0;
     _nlAccuracyCollecting = false;
+    if (_nlStareInterval) { clearInterval(_nlStareInterval); _nlStareInterval = null; }
     const overlay = document.getElementById('nl-calibration-overlay');
     if (overlay) overlay.remove();
     const style = document.getElementById('nl-cal-style');
@@ -311,12 +336,22 @@ function _nlOnWebgazerFailed(err) {
   renderNeuralookView();
 }
 
-// 3x3 calibration grid positions (percentages)
+// 13-point calibration grid (3x3 corners + 4 edge midpoints + center)
 const _NL_CAL_POSITIONS = [
   [10, 10], [50, 10], [90, 10],
   [10, 50], [50, 50], [90, 50],
-  [10, 90], [50, 90], [90, 90]
+  [10, 90], [50, 90], [90, 90],
+  [50, 5],  [50, 95], [5, 50], [95, 50]
 ];
+
+function _nlShuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 function _nlShowCalibrationOverlay() {
   const existing = document.getElementById('nl-calibration-overlay');
@@ -344,7 +379,8 @@ function _nlShowCalibrationOverlay() {
 
   document.body.appendChild(overlay);
 
-  // Show the first calibration dot
+  // Shuffle calibration order to prevent sequential bias
+  _nlCalOrder = _nlShuffleArray([...Array(_NL_CAL_POSITIONS.length).keys()]);
   _nlCurrentPoint = 0;
   _nlClicksOnPoint = 0;
   _nlShowNextCalibrationDot();
@@ -358,13 +394,17 @@ function _nlShowNextCalibrationDot() {
   const prev = document.getElementById('nl-cal-dot');
   if (prev) prev.remove();
 
-  if (_nlCurrentPoint >= _NL_CAL_POSITIONS.length) {
+  // Stop any continuous recording from previous dot
+  if (_nlStareInterval) { clearInterval(_nlStareInterval); _nlStareInterval = null; }
+
+  if (_nlCurrentPoint >= _nlCalOrder.length) {
     // All points done — run accuracy test
     _nlRunAccuracyTest();
     return;
   }
 
-  const [xPct, yPct] = _NL_CAL_POSITIONS[_nlCurrentPoint];
+  const posIdx = _nlCalOrder[_nlCurrentPoint];
+  const [xPct, yPct] = _NL_CAL_POSITIONS[posIdx];
   _nlClicksOnPoint = 0;
   _nlUpdateCalInstr();
 
@@ -437,20 +477,44 @@ function _nlShowNextCalibrationDot() {
   wrap.addEventListener('click', _nlCalibrationClick);
   overlay.appendChild(wrap);
 
-  // Fade in
+  // Fade in, wait for gaze to settle, then start continuous recording + accept clicks
+  wrap.style.pointerEvents = 'none';
   requestAnimationFrame(() => { wrap.style.opacity = '1'; });
+  const stareX = window.innerWidth * xPct / 100;
+  const stareY = window.innerHeight * yPct / 100;
+  setTimeout(() => {
+    wrap.style.pointerEvents = '';
+    // Continuously feed gaze samples every 100ms while staring at this dot
+    _nlStareInterval = setInterval(() => {
+      if (typeof webgazer !== 'undefined' && typeof webgazer.recordScreenPosition === 'function') {
+        webgazer.recordScreenPosition(stareX, stareY, 'move');
+        _nlMoveSamples++;
+      }
+    }, 100);
+  }, 800);
 }
 
 function _nlUpdateCalInstr() {
   const instr = document.getElementById('nl-cal-instr');
   if (!instr) return;
+  const total = _nlCalOrder.length;
   instr.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">Calibration</div>` +
-    `<div style="color:#aaa;font-size:0.78rem;">Point ${_nlCurrentPoint + 1}/9 — Click ${_nlClicksOnPoint + 1}/${_NL_CLICKS_PER_POINT}</div>`;
+    `<div style="color:#aaa;font-size:0.78rem;">Point ${_nlCurrentPoint + 1}/${total} — Click ${Math.min(_nlClicksOnPoint + 1, _NL_CLICKS_PER_POINT)}/${_NL_CLICKS_PER_POINT}</div>`;
 }
 
 function _nlCalibrationClick() {
   _nlClicksOnPoint++;
   _nlCalibrationPoints++;
+
+  // Feed the training sample to WebGazer — tell it the user is looking at this screen position
+  const posIdx = _nlCalOrder[_nlCurrentPoint];
+  const [xPct, yPct] = _NL_CAL_POSITIONS[posIdx];
+  const screenX = window.innerWidth * xPct / 100;
+  const screenY = window.innerHeight * yPct / 100;
+  if (typeof webgazer !== 'undefined' && typeof webgazer.recordScreenPosition === 'function') {
+    webgazer.recordScreenPosition(screenX, screenY, 'click');
+    _nlClickSamples++;
+  }
 
   // Update progress ring
   const progressCircle = document.getElementById('nl-cal-progress');
@@ -463,6 +527,8 @@ function _nlCalibrationClick() {
   _nlUpdateCalInstr();
 
   if (_nlClicksOnPoint >= _NL_CLICKS_PER_POINT) {
+    // Stop continuous recording for this point
+    if (_nlStareInterval) { clearInterval(_nlStareInterval); _nlStareInterval = null; }
     // Done with this point — fade out and move to next
     const wrap = document.getElementById('nl-cal-dot');
     if (wrap) {
@@ -599,6 +665,7 @@ function _nlShowAccuracyResult(avgPx) {
 function _nlFinishCalibration() {
   _nlCalibrating = false;
   _nlAccuracyCollecting = false;
+  if (_nlStareInterval) { clearInterval(_nlStareInterval); _nlStareInterval = null; }
 
   const overlay = document.getElementById('nl-calibration-overlay');
   if (overlay) overlay.remove();
@@ -712,4 +779,65 @@ function _nlUpdateDotSize(size) {
     _nlGazeDot.style.width = size + 'px';
     _nlGazeDot.style.height = size + 'px';
   }
+}
+
+// ── Model Stats ──
+
+function _nlStartStatsInterval() {
+  _nlStopStatsInterval();
+  // Refresh stats card every 500ms while on the neuralook view
+  _nlStatsInterval = setInterval(() => {
+    const el = document.getElementById('nl-model-stats');
+    if (!el) { _nlStopStatsInterval(); return; }
+    _nlRefreshStats();
+  }, 500);
+  // Prediction rate: count predictions each second
+  _nlRateInterval = setInterval(() => {
+    _nlPredictionRate = _nlPredictionsThisSec;
+    _nlPredictionsThisSec = 0;
+  }, 1000);
+}
+
+function _nlStopStatsInterval() {
+  if (_nlStatsInterval) { clearInterval(_nlStatsInterval); _nlStatsInterval = null; }
+  if (_nlRateInterval) { clearInterval(_nlRateInterval); _nlRateInterval = null; }
+}
+
+function _nlComputeJitter() {
+  if (_nlGazeBuffer.length < 2) return 0;
+  let sx = 0, sy = 0;
+  for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+  const mx = sx / _nlGazeBuffer.length;
+  const my = sy / _nlGazeBuffer.length;
+  let variance = 0;
+  for (const p of _nlGazeBuffer) {
+    variance += (p.x - mx) ** 2 + (p.y - my) ** 2;
+  }
+  return Math.sqrt(variance / _nlGazeBuffer.length);
+}
+
+function _nlRefreshStats() {
+  const el = document.getElementById('nl-model-stats');
+  if (!el) return;
+
+  const totalSamples = _nlClickSamples + _nlMoveSamples;
+  const accPx = _nlAccuracy !== null ? Math.round(_nlAccuracy) : null;
+  const accLabel = accPx !== null ? (accPx < 80 ? 'Good' : accPx < 150 ? 'Fair' : 'Poor') : null;
+  const accColor = accPx !== null ? (accPx < 80 ? '#4ade80' : accPx < 150 ? '#fbbf24' : '#f87171') : '#6b7280';
+  const jitter = _nlTracking ? Math.round(_nlComputeJitter()) : null;
+  const jitterColor = jitter !== null ? (jitter < 30 ? '#4ade80' : jitter < 70 ? '#fbbf24' : '#f87171') : '#6b7280';
+
+  const row = (label, value, color) =>
+    `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
+
+  el.innerHTML =
+    row('Regression', 'Ridge (WebGazer)') +
+    row('Training samples', `${totalSamples}` + (totalSamples > 0 ? ` <span class="text-dimmer font-normal">(${_nlClickSamples} click + ${_nlMoveSamples} gaze)</span>` : '')) +
+    row('Calibration points', `${_NL_CAL_POSITIONS.length}`) +
+    row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +
+    row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
+    row('Jitter (stddev)', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
+    row('Gaze position', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +
+    row('Buffer size', `${_NL_BUFFER_SIZE} samples`) +
+    row('Total predictions', `${_nlPredictionCount.toLocaleString()}`);
 }
