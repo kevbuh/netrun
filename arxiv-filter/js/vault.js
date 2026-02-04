@@ -429,7 +429,14 @@ function showVaultNoteMenu(e, noteId) {
   e.preventDefault();
   e.stopPropagation();
   hideVaultContextMenu();
+
+  // If lookup panel is already open, attach note as context instead of showing menu
   const existing = document.getElementById('doc-chat-ask-float');
+  if (existing && typeof _addNoteContextToPanel === 'function') {
+    const note = _vaultNotes.find(n => n.id === noteId);
+    if (note) _addNoteContextToPanel(existing, note);
+    return;
+  }
   if (existing) { existing.remove(); _lookupTrackMode = false; }
 
   const note = _vaultNotes.find(n => n.id === noteId);
@@ -569,6 +576,14 @@ async function vaultMoveNote(noteId) {
 
 // Open a note
 async function openVaultNote(noteId) {
+  // If lookup panel is open, attach note as context instead of opening it
+  const lookupPanel = document.getElementById('doc-chat-ask-float');
+  if (lookupPanel && typeof _addNoteContextToPanel === 'function') {
+    const note = _vaultNotes.find(n => n.id === noteId);
+    if (note) _addNoteContextToPanel(lookupPanel, note);
+    return;
+  }
+
   // Save current note first
   if (_vaultCurrentNote) {
     await saveCurrentNote();

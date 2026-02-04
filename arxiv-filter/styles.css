@@ -2616,6 +2616,38 @@
       padding: 0;
     }
     .doc-screenshot-thumb-remove:hover { background: var(--accent); }
+    .doc-note-context-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-input);
+      border-radius: 5px;
+      font-size: 0.72rem;
+      color: var(--accent);
+      max-width: 160px;
+      cursor: default;
+    }
+    .doc-note-context-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-note-context-remove {
+      margin-left: 2px;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      border: none;
+      background: var(--bg-input);
+      border-radius: 50%;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+    }
+    .doc-note-context-remove:hover { background: var(--accent); color: #fff; }
     .doc-msg-images {
       display: flex;
       flex-wrap: wrap;
