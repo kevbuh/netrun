@@ -2141,12 +2141,24 @@ function _sendPopupChatMessage(popup, capturedText) {
       } else {
         body.context = _docText;
       }
+      const payloadStr = JSON.stringify(body);
+      console.log('[doc-chat] sending request, vision:', hasVision, 'msgs:', filteredMsgs.length, 'payload size:', payloadStr.length);
       const resp = await fetch('/api/doc-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: payloadStr,
         signal: _popupChatAbort.signal
       });
+      console.log('[doc-chat] response status:', resp.status, 'ok:', resp.ok);
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error('[doc-chat] server error:', errText);
+        _popupChatMessages[_popupChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
+        _popupChatMessages[_popupChatMessages.length - 1]._thinking = false;
+        _renderPopupChat(popup, true);
+        return;
+      }
 
       let aiText = '';
       const aiIdx = _popupChatMessages.length - 1;
@@ -2196,6 +2208,7 @@ function _sendPopupChatMessage(popup, capturedText) {
       _popupChatMessages[aiIdx].content = aiText;
       _renderPopupChat(popup, true);
     } catch (e) {
+      console.error('[doc-chat] fetch error:', e);
       if (e.name !== 'AbortError') {
         _popupChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
         _renderPopupChat(popup, true);

@@ -2263,7 +2263,7 @@ ch.postMessage({type:'preview-ready'});
                     return
 
                 if is_vision:
-                    model = "qwen3-vl"
+                    model = "deepseek-ocr"
                     system_msg = (
                         "You are a helpful visual analysis assistant. The user has taken a screenshot "
                         "and wants to ask about it. Describe what you see and answer their questions "
