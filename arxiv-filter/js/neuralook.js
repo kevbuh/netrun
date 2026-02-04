@@ -231,8 +231,45 @@ function _nlStartCalibration() {
 }
 
 function _nlOnWebgazerStarted() {
-  _nlShowCalibrationOverlay();
-  renderNeuralookView();
+  // Enter fullscreen before showing calibration
+  const el = document.documentElement;
+  const reqFs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+  if (reqFs) {
+    reqFs.call(el).then(() => {
+      _nlShowCalibrationOverlay();
+      renderNeuralookView();
+    }).catch(() => {
+      // Fullscreen denied — abort calibration
+      _nlCalibrating = false;
+      _nlShowError('Fullscreen is required for calibration. Please allow fullscreen access.');
+      renderNeuralookView();
+    });
+    // Cancel calibration if user exits fullscreen mid-calibration (Escape key)
+    document.addEventListener('fullscreenchange', _nlFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', _nlFullscreenChange);
+  } else {
+    // Fullscreen API not available — proceed anyway
+    _nlShowCalibrationOverlay();
+    renderNeuralookView();
+  }
+}
+
+function _nlFullscreenChange() {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (!isFs && _nlCalibrating) {
+    // User exited fullscreen during calibration — cancel
+    _nlCalibrating = false;
+    _nlCalibrationPoints = 0;
+    const overlay = document.getElementById('nl-calibration-overlay');
+    if (overlay) overlay.remove();
+    const style = document.getElementById('nl-cal-style');
+    if (style) style.remove();
+    renderNeuralookView();
+  }
+  if (!isFs) {
+    document.removeEventListener('fullscreenchange', _nlFullscreenChange);
+    document.removeEventListener('webkitfullscreenchange', _nlFullscreenChange);
+  }
 }
 
 function _nlOnWebgazerFailed(err) {
@@ -321,6 +358,12 @@ function _nlFinishCalibration() {
   if (overlay) overlay.remove();
   const style = document.getElementById('nl-cal-style');
   if (style) style.remove();
+
+  // Exit fullscreen
+  const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
+  if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
+    exitFs.call(document);
+  }
 
   renderNeuralookView();
 }
