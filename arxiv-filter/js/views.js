@@ -2233,6 +2233,34 @@ function _sendPopupChatMessage(popup, capturedText) {
   })();
 }
 
+function _updateContextBar(popup) {
+  const fill = popup.querySelector('.lookup-context-fill');
+  if (!fill) return;
+  // Estimate tokens: chars / 4, context window ~32k for most models
+  let chars = 0;
+  // Document context
+  if (_docText) chars += _docText.length;
+  // Note contexts
+  for (const n of _pendingNoteContexts) chars += (n.content || '').length;
+  // All messages
+  for (const m of _popupChatMessages) chars += (m.content || '').length;
+  // Screenshots count as ~1k tokens each
+  const imgTokens = _pendingScreenshots.length * 1000;
+  for (const m of _popupChatMessages) {
+    if (m.images) imgTokens + m.images.length * 1000;
+  }
+  const tokens = Math.round(chars / 4) + imgTokens;
+  const limit = 32000;
+  const pct = Math.min(100, (tokens / limit) * 100);
+  fill.style.width = pct + '%';
+  // Color: green → yellow → red
+  if (pct < 50) fill.style.background = 'var(--accent)';
+  else if (pct < 80) fill.style.background = '#c8a030';
+  else fill.style.background = '#c44';
+  fill.title = Math.round(tokens).toLocaleString() + ' / ' + limit.toLocaleString() + ' tokens (~' + Math.round(pct) + '%)';
+  fill.parentElement.title = fill.title;
+}
+
 function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
@@ -2361,6 +2389,7 @@ function _renderPopupChat(popup, final) {
   } else {
     container.scrollTop = container.scrollHeight;
   }
+  _updateContextBar(popup);
 }
 
 function _sendPopupChatToSidebar() {
@@ -3488,6 +3517,7 @@ function _addNoteContextToPanel(popup, note) {
 
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
+  _updateContextBar(popup);
 }
 
 function _addScreenshotToPanel(popup, base64) {
@@ -3519,6 +3549,7 @@ function _addScreenshotToPanel(popup, base64) {
 
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
+  _updateContextBar(popup);
 }
 
 // Web search from lookup panel (Shift+Enter)
@@ -4186,6 +4217,14 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   _lookupDragging = false;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
+  // Context usage progress bar (very top)
+  const ctxBar = document.createElement('div');
+  ctxBar.className = 'lookup-context-bar';
+  const ctxFill = document.createElement('div');
+  ctxFill.className = 'lookup-context-fill';
+  ctxBar.appendChild(ctxFill);
+  popup.appendChild(ctxBar);
+
   // Generic context items (vault notes, folders, etc.)
   if (contextData && contextData.items) {
     const ctxDiv = document.createElement('div');
@@ -4590,6 +4629,7 @@ function _showLookupPanel(x, y, contextData, initialValue) {
 
   // Auto-focus so user can type immediately
   askInput.focus();
+  _updateContextBar(popup);
 
   // Pre-fill input and trigger command dropdown if initialValue provided
   if (initialValue) {

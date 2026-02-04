@@ -2955,6 +2955,21 @@
       padding: 3px 8px;
       border-top: 1px solid var(--border-input);
     }
+    .lookup-context-bar {
+      width: 100%;
+      height: 2px;
+      background: transparent;
+      border-radius: 8px 8px 0 0;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .lookup-context-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.3s ease, background 0.3s ease;
+      border-radius: 8px 8px 0 0;
+    }
     .lookup-top-actions {
       border-top: none;
       border-bottom: 1px solid var(--border-input);
