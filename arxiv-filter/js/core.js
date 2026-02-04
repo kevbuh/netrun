@@ -124,7 +124,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
 let _researchActiveTab = 'projects';
@@ -884,6 +884,7 @@ else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#browse') openBrowse();
   else if (hash === '#search') openResearch('search'); // Legacy redirect
   else if (hash === '#terminal') openTerminal();
+  else if (hash === '#neuralook') openNeuralook();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) {
     const expPart = hash.slice('#experiment/'.length);
