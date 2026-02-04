@@ -165,6 +165,22 @@ function renderSettingsView() {
       </div>
     </div>
 
+    <!-- RIGHT-CLICK LOOKUP -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-primary text-sm">Right-click Lookup</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Right-click any word to see definitions, Wikipedia, and author info</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('rightClickLookup') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('rightClickLookup', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+
     <!-- VAULT -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Vault</h3>

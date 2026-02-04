@@ -856,7 +856,13 @@ function _renderAuthorsPane(data) {
       if (!author) return;
       card.addEventListener('mouseenter', () => { if (author.name) pdfSearchHighlight(author.name, true); });
       card.addEventListener('mouseleave', pdfClearSearchHighlights);
-      card.addEventListener('click', () => { if (author.name) pdfSearchHighlight(author.name, false); });
+      card.addEventListener('click', () => {
+        if (author.authorId) {
+          openAuthorProfile(author.authorId);
+        } else if (author.name) {
+          pdfSearchHighlight(author.name, false);
+        }
+      });
       card.style.cursor = 'pointer';
     });
   }
@@ -1953,10 +1959,17 @@ async function _fetchWikipediaPreview(text, containerDiv) {
     html += '<div>';
     html += `<div class="doc-wiki-title">${escapeHtml(data.title)}</div>`;
     html += `<div class="doc-wiki-extract">${escapeHtml(extract)}</div>`;
-    html += `<a class="doc-wiki-link" href="${data.content_urls?.desktop?.page || '#'}" target="_blank" rel="noopener">Wikipedia →</a>`;
+    html += `<a class="doc-wiki-link" href="${data.content_urls?.desktop?.page || '#'}" data-external-link>Wikipedia →</a>`;
     html += '</div></div>';
     containerDiv.innerHTML = html;
     containerDiv.style.display = '';
+    containerDiv.querySelectorAll('[data-external-link]').forEach(a => {
+      a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        window.open(a.getAttribute('href'), '_blank');
+      });
+    });
     _repositionSelectionPopup();
   } catch (e) {
     containerDiv.style.display = 'none';
@@ -1974,7 +1987,82 @@ function _isAuthorEligible(text) {
   return true;
 }
 
+function _findKnownAuthor(text) {
+  // Check if this author name matches one already loaded in the sidebar Authors tab
+  if (!window._insightAuthors?.length) return null;
+  const q = text.trim().toLowerCase();
+  return window._insightAuthors.find(a => a.name && a.name.toLowerCase() === q) || null;
+}
+
+function _renderAuthorPreviewHtml(data, containerDiv) {
+  const fmtNum = (n) => {
+    if (!n) return '0';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toLocaleString();
+  };
+
+  let html = '<div class="doc-author-result">';
+  html += `<div class="doc-author-name">${escapeHtml(data.name)}</div>`;
+  const affil = data.affiliations?.length ? data.affiliations[0] : data.affiliation;
+  if (affil) {
+    html += `<div class="doc-author-affil">${escapeHtml(affil)}</div>`;
+  }
+  html += `<div class="doc-author-stats">`;
+  if (data.hIndex) html += `<span>h-index: ${data.hIndex}</span>`;
+  if (data.paperCount) html += `<span>${fmtNum(data.paperCount)} papers</span>`;
+  if (data.citationCount) html += `<span>${fmtNum(data.citationCount)} citations</span>`;
+  html += `</div>`;
+  if (data.topPapers?.length) {
+    html += `<div class="doc-author-papers">`;
+    for (const p of data.topPapers) {
+      html += `<div class="doc-author-paper">${escapeHtml(p.title)}${p.year ? ` (${p.year})` : ''}${p.citationCount ? ` · ${fmtNum(p.citationCount)}` : ''}</div>`;
+    }
+    html += `</div>`;
+  }
+  // Author profile link (opens in-app) and Semantic Scholar link (opens in browser)
+  const authorId = data.authorId;
+  html += `<div class="doc-ref-footer">`;
+  if (authorId) {
+    html += `<a class="doc-ref-link" href="#author/${encodeURIComponent(authorId)}" data-author-nav>Profile →</a>`;
+  }
+  if (data.url) {
+    html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" data-external-link>Semantic Scholar →</a>`;
+  }
+  html += `</div>`;
+  html += '</div>';
+  containerDiv.innerHTML = html;
+  containerDiv.style.display = '';
+
+  // Wire up link handlers
+  containerDiv.querySelectorAll('[data-external-link]').forEach(a => {
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      window.open(a.getAttribute('href'), '_blank');
+    });
+  });
+  containerDiv.querySelectorAll('[data-author-nav]').forEach(a => {
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    a.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      // Remove the popup when navigating to profile
+      document.getElementById('doc-chat-ask-float')?.remove();
+    });
+  });
+
+  _repositionSelectionPopup();
+}
+
 async function _fetchAuthorPreview(text, containerDiv) {
+  // First check if this author is already known from the sidebar
+  const known = _findKnownAuthor(text);
+  if (known && known.authorId) {
+    // Use the known author data directly — right person guaranteed
+    _renderAuthorPreviewHtml(known, containerDiv);
+    return;
+  }
+
   try {
     const resp = await fetch('/api/author-lookup', {
       method: 'POST',
@@ -1984,38 +2072,7 @@ async function _fetchAuthorPreview(text, containerDiv) {
     if (!resp.ok) { containerDiv.style.display = 'none'; return; }
     const data = await resp.json();
     if (data.error || !data.name) { containerDiv.style.display = 'none'; return; }
-
-    const fmtNum = (n) => {
-      if (!n) return '0';
-      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-      return n.toLocaleString();
-    };
-
-    let html = '<div class="doc-author-result">';
-    html += `<div class="doc-author-name">${escapeHtml(data.name)}</div>`;
-    if (data.affiliations?.length) {
-      html += `<div class="doc-author-affil">${escapeHtml(data.affiliations[0])}</div>`;
-    }
-    html += `<div class="doc-author-stats">`;
-    if (data.hIndex) html += `<span>h-index: ${data.hIndex}</span>`;
-    if (data.paperCount) html += `<span>${fmtNum(data.paperCount)} papers</span>`;
-    if (data.citationCount) html += `<span>${fmtNum(data.citationCount)} citations</span>`;
-    html += `</div>`;
-    if (data.topPapers?.length) {
-      html += `<div class="doc-author-papers">`;
-      for (const p of data.topPapers) {
-        html += `<div class="doc-author-paper">${escapeHtml(p.title)}${p.year ? ` (${p.year})` : ''}${p.citationCount ? ` · ${fmtNum(p.citationCount)}` : ''}</div>`;
-      }
-      html += `</div>`;
-    }
-    if (data.url) {
-      html += `<a class="doc-wiki-link" href="${escapeHtml(data.url)}" target="_blank" rel="noopener">Semantic Scholar →</a>`;
-    }
-    html += '</div>';
-    containerDiv.innerHTML = html;
-    containerDiv.style.display = '';
-    _repositionSelectionPopup();
+    _renderAuthorPreviewHtml(data, containerDiv);
   } catch (e) {
     containerDiv.style.display = 'none';
   }
@@ -2599,13 +2656,29 @@ function _renderRefInfo(container, data, refNum, popup) {
   if (abstract) html += `<div class="doc-ref-abstract">${escapeHtml(abstract)}</div>`;
   html += `<div class="doc-ref-footer">`;
   html += `<span class="doc-ref-cited">Cited by ${fmtNum(data.citationCount)}</span>`;
-  if (data.url) html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" target="_blank" rel="noopener">View paper →</a>`;
+  if (data.url) html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" data-external-link>View paper →</a>`;
   // Open in viewer if it has an arXiv ID
   if (data.arxivId) {
-    html += `<a class="doc-ref-link" href="#view/${encodeURIComponent('https://arxiv.org/abs/' + data.arxivId)}" onclick="document.getElementById('doc-chat-ask-float')?.remove()">Open →</a>`;
+    html += `<a class="doc-ref-link" href="#view/${encodeURIComponent('https://arxiv.org/abs/' + data.arxivId)}" data-ref-nav>Open →</a>`;
   }
   html += `</div>`;
   container.innerHTML = html;
+  // External links: explicit window.open to guarantee new browser tab
+  container.querySelectorAll('[data-external-link]').forEach(a => {
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      window.open(a.getAttribute('href'), '_blank');
+    });
+  });
+  // In-app navigation links
+  container.querySelectorAll('[data-ref-nav]').forEach(a => {
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    a.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      document.getElementById('doc-chat-ask-float')?.remove();
+    });
+  });
 }
 
 function _buildRefContext(data, refNum) {
@@ -2654,15 +2727,17 @@ function _repositionSelectionPopup() {
 let _selPopupDragging = false;
 
 document.addEventListener('mousedown', function(e) {
+  if (e.button !== 0) return; // Only track left-click drags for text selection
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing && existing.contains(e.target)) return;
   if (existing) existing.remove();
 
-  const sidebar = document.getElementById('paper-sidebar');
-  const pdfPages = document.getElementById('paper-pdf-container');
-  const inSidebar = sidebar && sidebar.contains(e.target);
-  const inPdf = pdfPages && pdfPages.contains(e.target);
-  if (!inSidebar && !inPdf) return;
+  // Skip interactive elements and navigation
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+  if (e.target.isContentEditable) return;
+  if (e.target.closest('#sidebar-nav')) return;
+  if (e.target.closest('.doc-selection-popup')) return;
   _selPopupDragging = true;
 });
 
@@ -2984,6 +3059,201 @@ document.addEventListener('mousedown', function(e) {
     _savePopupChatToHighlight(btn);
     btn.remove();
   }
+});
+
+// ── Right-click lookup (contextmenu) ──
+
+function _getWordAtPoint(x, y) {
+  // Use caretRangeFromPoint (Webkit/Blink) or caretPositionFromPoint (Firefox)
+  let range;
+  if (document.caretRangeFromPoint) {
+    range = document.caretRangeFromPoint(x, y);
+  } else if (document.caretPositionFromPoint) {
+    const pos = document.caretPositionFromPoint(x, y);
+    if (pos) {
+      range = document.createRange();
+      range.setStart(pos.offsetNode, pos.offset);
+      range.collapse(true);
+    }
+  }
+  if (!range || range.startContainer.nodeType !== Node.TEXT_NODE) return null;
+
+  const textNode = range.startContainer;
+  const text = textNode.textContent;
+  const offset = range.startOffset;
+
+  // Find word boundaries
+  let start = offset, end = offset;
+  while (start > 0 && /[\w\u00C0-\u024F'-]/.test(text[start - 1])) start--;
+  while (end < text.length && /[\w\u00C0-\u024F'-]/.test(text[end])) end++;
+
+  const word = text.slice(start, end).trim();
+  if (!word || word.length < 2) return null;
+  return word;
+}
+
+function _showRightClickLookup(word, x, y) {
+  // Remove any existing popup
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'doc-chat-ask-float';
+  popup.className = 'doc-selection-popup';
+  popup.style.visibility = 'hidden';
+
+  // Preview row showing the word
+  const preview = document.createElement('div');
+  preview.className = 'doc-selection-preview';
+  preview.textContent = word;
+  popup.appendChild(preview);
+
+  // Lookup preview area (async)
+  const lookupDiv = document.createElement('div');
+  lookupDiv.className = 'doc-wiki-preview';
+  lookupDiv.style.display = 'none';
+  popup.appendChild(lookupDiv);
+
+  // Determine lookup type and fetch
+  if (_isAuthorEligible(word)) {
+    _fetchAuthorPreview(word, lookupDiv);
+  } else if (_isLookupEligible(word)) {
+    _fetchWikipediaPreview(word, lookupDiv);
+  }
+
+  // Dictionary lookup for single words
+  const isSingleWord = /^\w+$/.test(word) && !word.includes(' ');
+  if (isSingleWord) {
+    const dictDiv = document.createElement('div');
+    dictDiv.className = 'doc-wiki-preview';
+    dictDiv.style.display = 'none';
+    popup.appendChild(dictDiv);
+    // Async dictionary fetch
+    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`)
+      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
+      .then(data => {
+        const entry = data[0];
+        let html = '<div class="doc-wiki-result" style="flex-direction:column;align-items:flex-start;">';
+        const phonetic = entry.phonetics?.find(p => p.text)?.text;
+        if (phonetic) html += `<div class="doc-wiki-extract" style="font-style:italic">${escapeHtml(phonetic)}</div>`;
+        for (const meaning of (entry.meanings || []).slice(0, 2)) {
+          html += `<div style="margin-top:4px"><span style="font-size:0.68rem;font-weight:600;color:var(--accent);text-transform:uppercase">${escapeHtml(meaning.partOfSpeech)}</span></div>`;
+          for (const def of (meaning.definitions || []).slice(0, 1)) {
+            html += `<div class="doc-wiki-extract">${escapeHtml(def.definition)}</div>`;
+          }
+        }
+        html += '</div>';
+        dictDiv.innerHTML = html;
+        dictDiv.style.display = '';
+        _repositionSelectionPopup();
+      })
+      .catch(() => { /* no dictionary entry — hide silently */ });
+  }
+
+  // Ask input
+  _popupChatMessages = [];
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+
+  const chatArea = document.createElement('div');
+  chatArea.className = 'doc-popup-chat-area';
+  const chatMsgs = document.createElement('div');
+  chatMsgs.className = 'doc-popup-chat-messages';
+  chatArea.appendChild(chatMsgs);
+  const chatActions = document.createElement('div');
+  chatActions.className = 'doc-popup-chat-actions';
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.textContent = 'Open in sidebar';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatToSidebar();
+  });
+  const clearBtn = document.createElement('button');
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  clearBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _popupChatMessages = [];
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    chatMsgs.innerHTML = '';
+    chatArea.classList.remove('visible');
+    popup.classList.remove('has-chat');
+    _repositionSelectionPopup();
+  });
+  chatActions.appendChild(openSidebarBtn);
+  chatActions.appendChild(clearBtn);
+  chatArea.appendChild(chatActions);
+  popup.appendChild(chatArea);
+
+  const askWrap = document.createElement('div');
+  askWrap.className = 'doc-ask-inline-wrap';
+  const askInput = document.createElement('input');
+  askInput.type = 'text';
+  askInput.placeholder = 'Ask about this…';
+  askInput.className = 'doc-ask-inline-input';
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'doc-ask-inline-send';
+  sendBtn.innerHTML = '↑';
+  sendBtn.title = 'Send';
+  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  sendBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatMessage(popup, word);
+  });
+  askInput.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      _sendPopupChatMessage(popup, word);
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      popup.remove();
+    }
+  });
+  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  askWrap.appendChild(askInput);
+  askWrap.appendChild(sendBtn);
+  popup.appendChild(askWrap);
+
+  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  document.body.appendChild(popup);
+
+  // Position near click point
+  const popupRect = popup.getBoundingClientRect();
+  let top = y - popupRect.height - 8;
+  const fitsAbove = top >= 4;
+  if (!fitsAbove) top = y + 8;
+  popup._aboveSelection = fitsAbove;
+  popup._anchorTop = y;
+  popup._anchorBottom = y;
+  popup._anchorLeft = x;
+  let left = x;
+  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+  if (left < 4) left = 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup.style.visibility = '';
+
+  setTimeout(() => askInput.focus(), 10);
+}
+
+document.addEventListener('contextmenu', function(e) {
+  if (localStorage.getItem('rightClickLookup') === 'off') return;
+
+  // Don't override right-click on interactive elements
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+  if (e.target.isContentEditable) return;
+  if (e.target.closest('a[href]')) return;
+  if (e.target.closest('.doc-selection-popup')) return;
+
+  const word = _getWordAtPoint(e.clientX, e.clientY);
+  if (!word) return;
+
+  e.preventDefault();
+  _showRightClickLookup(word, e.clientX, e.clientY);
 });
 
 function openPaper(index) {

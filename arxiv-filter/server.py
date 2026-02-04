@@ -65,6 +65,8 @@ from persistence import (
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
     read_adblock_rules, write_adblock_rules, DEFAULT_ADBLOCK_RULES, clean_html,
+    get_cached_references, set_cached_references,
+    get_cached_author, set_cached_author,
 )
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -2124,12 +2126,9 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'error': 'arxivId required'}, 400)
                     return
 
-                # Check cache first
-                cache_key = f'refs:{arxiv_id}'
-                now = time.time()
-                if cache_key in _s2_cache and (now - _s2_cache[cache_key]['ts']) < _S2_CACHE_TTL:
-                    references = _s2_cache[cache_key]['data']
-                else:
+                # Check persistent SQLite cache first (references don't change)
+                references = get_cached_references(arxiv_id)
+                if references is None:
                     # Fetch paper references from Semantic Scholar
                     api_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds'
                     req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -2137,8 +2136,8 @@ ch.postMessage({type:'preview-ready'});
                     with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
                         data = json.loads(resp.read())
                     references = data.get('references', [])
-                    # Cache the result
-                    _s2_cache[cache_key] = {'data': references, 'ts': now}
+                    # Persist to SQLite (permanent — references don't change)
+                    set_cached_references(arxiv_id, references)
                 if not references:
                     self._send_json({'error': 'no references found'}, 404)
                     return
@@ -2186,45 +2185,70 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'error': str(e)}, 502)
 
         elif self.path == '/api/author-lookup':
-            # Look up an author on Semantic Scholar
+            # Look up an author on Semantic Scholar (cached in SQLite, stats refreshed daily)
             try:
                 body = self._read_body()
                 query = body.get('query', '').strip()
                 if not query:
                     self._send_json({'error': 'query required'}, 400)
                     return
-                search_url = f'https://api.semanticscholar.org/graph/v1/author/search?query={urllib.request.quote(query)}&limit=1&fields=name,affiliations,paperCount,citationCount,hIndex,url'
-                req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-                ctx = ssl._create_unverified_context()
-                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                    data = json.loads(resp.read())
-                authors = data.get('data', [])
-                if not authors:
-                    self._send_json({'error': 'not found'}, 404)
+
+                cached, needs_refresh = get_cached_author(query)
+
+                if cached and not needs_refresh:
+                    # Fresh cache hit — return immediately
+                    self._send_json(cached)
                     return
-                author = authors[0]
-                # Fetch top papers
-                author_id = author.get('authorId')
-                top_papers = []
-                if author_id:
-                    try:
-                        papers_url = f'https://api.semanticscholar.org/graph/v1/author/{author_id}/papers?fields=title,year,citationCount&limit=3&sort=citationCount:desc'
-                        req2 = urllib.request.Request(papers_url, headers={'User-Agent': 'Mozilla/5.0'})
-                        with urllib.request.urlopen(req2, timeout=10, context=ctx) as resp2:
-                            papers_data = json.loads(resp2.read())
-                        top_papers = [{'title': p.get('title',''), 'year': p.get('year'), 'citationCount': p.get('citationCount',0)} for p in papers_data.get('data', [])[:3]]
-                    except Exception:
-                        pass
-                result = {
-                    'name': author.get('name', ''),
-                    'affiliations': author.get('affiliations', []),
-                    'paperCount': author.get('paperCount'),
-                    'citationCount': author.get('citationCount'),
-                    'hIndex': author.get('hIndex'),
-                    'url': author.get('url'),
-                    'topPapers': top_papers,
-                }
-                self._send_json(result)
+
+                # Try to fetch from API (fresh fetch or stale refresh)
+                try:
+                    search_url = f'https://api.semanticscholar.org/graph/v1/author/search?query={urllib.request.quote(query)}&limit=1&fields=name,affiliations,paperCount,citationCount,hIndex,url'
+                    req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    ctx = ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                        data = json.loads(resp.read())
+                    authors = data.get('data', [])
+                    if not authors:
+                        if cached:
+                            # API returned nothing but we have stale data — use it
+                            self._send_json(cached)
+                            return
+                        self._send_json({'error': 'not found'}, 404)
+                        return
+                    author = authors[0]
+                    # Fetch top papers
+                    author_id = author.get('authorId')
+                    top_papers = []
+                    if author_id:
+                        try:
+                            papers_url = f'https://api.semanticscholar.org/graph/v1/author/{author_id}/papers?fields=title,year,citationCount&limit=3&sort=citationCount:desc'
+                            req2 = urllib.request.Request(papers_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            with urllib.request.urlopen(req2, timeout=10, context=ctx) as resp2:
+                                papers_data = json.loads(resp2.read())
+                            top_papers = [{'title': p.get('title',''), 'year': p.get('year'), 'citationCount': p.get('citationCount',0)} for p in papers_data.get('data', [])[:3]]
+                        except Exception:
+                            # If paper fetch fails, keep top papers from cache if available
+                            if cached and cached.get('topPapers'):
+                                top_papers = cached['topPapers']
+                    result = {
+                        'authorId': author.get('authorId'),
+                        'name': author.get('name', ''),
+                        'affiliations': author.get('affiliations', []),
+                        'paperCount': author.get('paperCount'),
+                        'citationCount': author.get('citationCount'),
+                        'hIndex': author.get('hIndex'),
+                        'url': author.get('url'),
+                        'topPapers': top_papers,
+                    }
+                    # Persist to SQLite
+                    set_cached_author(query, result)
+                    self._send_json(result)
+                except Exception:
+                    if cached:
+                        # API failed but we have stale data — serve it
+                        self._send_json(cached)
+                    else:
+                        raise
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
