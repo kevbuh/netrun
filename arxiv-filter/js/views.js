@@ -2232,7 +2232,8 @@ function _renderPopupChat(popup, final) {
       const searchIcon = m._isSearch ? '<span class="doc-search-badge">search</span>' : '';
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${escapeHtml(display)}</div>`;
+      const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
@@ -2268,6 +2269,20 @@ function _renderPopupChat(popup, final) {
         `<span class="doc-user-result-name">${escapeHtml(u.username)}</span>` +
         `</div>`
       ).join('');
+      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
+    }
+    // Note search results
+    if (m._noteResults && m._noteResults.length) {
+      const resultsHtml = m._noteResults.map(n => {
+        const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
+        const snippet = preview.length > 120 ? preview.slice(0, 117) + '...' : preview;
+        const tags = (n.tags || []).slice(0, 3);
+        return `<div class="doc-note-result" data-note-id="${escapeAttr(n.id)}">` +
+          `<div class="doc-note-result-title">${escapeHtml(n.title || 'Untitled')}</div>` +
+          (tags.length ? `<div class="doc-note-result-tags">${tags.map(t => '<span class="doc-note-result-tag">' + escapeHtml(t) + '</span>').join('')}</div>` : '') +
+          (snippet ? `<div class="doc-note-result-snippet">${escapeHtml(snippet)}</div>` : '') +
+          `</div>`;
+      }).join('');
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
     const isLast = i === _popupChatMessages.length - 1;
@@ -2308,9 +2323,21 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
+  // Attach click handlers for note results
+  container.querySelectorAll('.doc-note-result[data-note-id]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const noteId = el.getAttribute('data-note-id');
+      window.location.hash = 'vault';
+      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (popup) { _lookupTrackMode = false; popup.remove(); }
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
   // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
   const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
-  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length))) {
+  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length) || (lastMsg._noteResults && lastMsg._noteResults.length))) {
     const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
     const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
     if (searchUserMsg) searchUserMsg.scrollIntoView({ block: 'start' });
@@ -3457,12 +3484,15 @@ const _lookupCommands = [
   { name: 'zoomout', desc: 'Zoom out', fn: () => { if (typeof browseZoom === 'function') browseZoom(-1); } },
   { name: 'zoomreset', desc: 'Reset zoom to 100%', fn: () => { if (typeof browseZoom === 'function') browseZoom(0); } },
   { name: 'print', desc: 'Print page', fn: () => { if (typeof browsePrintPage === 'function') browsePrintPage(); } },
-  { name: 'notes', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
+  { name: 'note', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
   { name: 'paper', desc: 'Search for papers', hasArgs: true },
   { name: 'user', desc: 'Search for users', hasArgs: true },
+  { name: 'notes', desc: 'Search your notes', hasArgs: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
+let _lookupNoteIdx = 0; // selected index in note search results
+let _lookupNoteResults = []; // current note search results
 
 function _lookupFilterCommands(query) {
   const q = query.toLowerCase();
@@ -3491,13 +3521,19 @@ function _lookupRenderCmdDropdown(popup, query) {
     `<span class="lookup-cmd-name">/${c.name}</span>` +
     `<span class="lookup-cmd-desc">${escapeHtml(c.desc)}</span></div>`
   ).join('');
-  // Click to execute
+  // Click to execute or fill
   dropdown.querySelectorAll('.lookup-cmd-item').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       const idx = parseInt(el.dataset.idx);
       const cmd = matches[idx];
-      if (cmd) {
+      if (!cmd) return;
+      if (cmd.hasArgs) {
+        // Fill input with command name + space so user can type args
+        const askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
+        if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
+        _lookupHideCmdDropdown(popup);
+      } else {
         cmd.fn();
         _lookupTrackMode = false;
         popup.remove();
@@ -3512,6 +3548,102 @@ function _lookupHideCmdDropdown(popup) {
   if (dropdown) dropdown.remove();
 }
 
+function _lookupHideNoteDropdown(popup) {
+  const dropdown = popup.querySelector('.lookup-note-dropdown');
+  if (dropdown) dropdown.remove();
+  _lookupNoteResults = [];
+  _lookupNoteIdx = 0;
+}
+
+async function _lookupRenderNoteDropdown(popup, query) {
+  if (!query) { _lookupHideNoteDropdown(popup); return; }
+
+  // Get notes (cached or fetch)
+  let notes;
+  if (typeof _vaultNotes !== 'undefined' && _vaultNotes.length > 0) {
+    notes = _vaultNotes;
+  } else {
+    try {
+      const resp = await fetch('/api/vault/notes', { headers: _authHeaders() });
+      if (!resp.ok) { _lookupHideNoteDropdown(popup); return; }
+      notes = await resp.json();
+    } catch { _lookupHideNoteDropdown(popup); return; }
+  }
+
+  const q = query.toLowerCase();
+  _lookupNoteResults = notes.filter(n => {
+    const title = (n.title || '').toLowerCase();
+    const content = (n.content || '').toLowerCase();
+    const tags = (n.tags || []).join(' ').toLowerCase();
+    return title.includes(q) || content.includes(q) || tags.includes(q);
+  }).slice(0, 8);
+
+  let dropdown = popup.querySelector('.lookup-note-dropdown');
+  if (!_lookupNoteResults.length) {
+    if (dropdown) dropdown.remove();
+    // Show "no results" inline
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'lookup-note-dropdown';
+      dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+      if (askWrap) popup.insertBefore(dropdown, askWrap);
+      else popup.appendChild(dropdown);
+    }
+    dropdown.innerHTML = '<div class="lookup-note-empty">No notes found</div>';
+    _repositionSelectionPopup();
+    return;
+  }
+
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'lookup-note-dropdown';
+    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (askWrap) popup.insertBefore(dropdown, askWrap);
+    else popup.appendChild(dropdown);
+  }
+  _lookupNoteIdx = Math.min(_lookupNoteIdx, _lookupNoteResults.length - 1);
+  dropdown.innerHTML = _lookupNoteResults.map((n, i) => {
+    const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
+    const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
+    const tags = (n.tags || []).slice(0, 3);
+    const tagsHtml = tags.length ? tags.map(t => `<span class="lookup-note-tag">#${escapeHtml(t)}</span>`).join('') : '';
+    return `<div class="lookup-note-item ${i === _lookupNoteIdx ? 'selected' : ''}" data-idx="${i}">` +
+      `<div class="lookup-note-item-title">${escapeHtml(n.title || 'Untitled')}</div>` +
+      (snippet ? `<div class="lookup-note-item-snippet">${escapeHtml(snippet)}</div>` : '') +
+      (tagsHtml ? `<div class="lookup-note-item-tags">${tagsHtml}</div>` : '') +
+      `</div>`;
+  }).join('');
+
+  // Click to open note
+  dropdown.querySelectorAll('.lookup-note-item').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      const idx = parseInt(el.dataset.idx);
+      const note = _lookupNoteResults[idx];
+      if (!note) return;
+      _lookupHideNoteDropdown(popup);
+      _lookupTrackMode = false;
+      popup.remove();
+      window.location.hash = '#vault';
+      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(note.id); }, 100);
+    });
+  });
+  _repositionSelectionPopup();
+}
+
+function _lookupOpenSelectedNote(popup) {
+  const note = _lookupNoteResults[_lookupNoteIdx];
+  if (!note) return false;
+  _lookupHideNoteDropdown(popup);
+  _lookupTrackMode = false;
+  popup.remove();
+  window.location.hash = '#vault';
+  setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(note.id); }, 100);
+  return true;
+}
+
 function _lookupExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -3524,6 +3656,7 @@ function _lookupExecCommand(popup, text) {
       _lookupHideCmdDropdown(popup);
       if (cmdName === 'paper') { _doLookupPaperSearch(popup, args); return true; }
       if (cmdName === 'user') { _doLookupUserSearch(popup, args); return true; }
+      if (cmdName === 'notes') { _doLookupNoteSearch(popup, args); return true; }
     }
     if (cmd && cmd.fn) { cmd.fn(); _lookupTrackMode = false; popup.remove(); return true; }
   }
@@ -3599,8 +3732,59 @@ async function _doLookupPaperSearch(popup, query) {
   _repositionSelectionPopup();
 }
 
+async function _doLookupNoteSearch(popup, query) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  _popupChatMessages.push({ role: 'user', content: query, _display: query, _isNoteSearch: true });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isNoteSearch: true });
+  _renderPopupChat(popup, false);
+  _repositionSelectionPopup();
+
+  try {
+    // Use cached _vaultNotes if available, otherwise fetch
+    let notes;
+    if (typeof _vaultNotes !== 'undefined' && _vaultNotes.length > 0) {
+      notes = _vaultNotes;
+    } else {
+      const resp = await fetch('/api/vault/notes', { headers: _authHeaders() });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      notes = await resp.json();
+    }
+
+    const q = query.toLowerCase();
+    const matches = notes.filter(n => {
+      const title = (n.title || '').toLowerCase();
+      const content = (n.content || '').toLowerCase();
+      const tags = (n.tags || []).join(' ').toLowerCase();
+      return title.includes(q) || content.includes(q) || tags.includes(q);
+    }).slice(0, 10);
+
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx]._noteResults = matches;
+    _popupChatMessages[aiIdx].content = matches.length
+      ? matches.length + ' note' + (matches.length !== 1 ? 's' : '') + ' found'
+      : 'No notes found.';
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    const aiIdx = _popupChatMessages.length - 1;
+    _popupChatMessages[aiIdx]._thinking = false;
+    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    _renderPopupChat(popup, true);
+  }
+  if (input) input.focus();
+  _repositionSelectionPopup();
+}
+
 async function _doLookupUserSearch(popup, query) {
-  const input = popup.querySelector('.doc-ask-inline');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   _lookupHideCmdDropdown(popup);
   _lookupTrackMode = false;
@@ -3615,9 +3799,8 @@ async function _doLookupUserSearch(popup, query) {
   _repositionSelectionPopup();
 
   try {
-    const token = localStorage.getItem('authToken');
     const resp = await fetch('/api/users?q=' + encodeURIComponent(query), {
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+      headers: _authHeaders()
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const users = await resp.json();
@@ -3836,6 +4019,26 @@ function _showLookupPanel(x, y, contextData) {
     const val = askInput.value;
     const isCmd = val.startsWith('/');
     const dropdown = popup.querySelector('.lookup-cmd-dropdown');
+    const noteDropdown = popup.querySelector('.lookup-note-dropdown');
+
+    // Arrow keys navigate note search results
+    if (noteDropdown && _lookupNoteResults.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      if (ev.key === 'ArrowDown') _lookupNoteIdx = Math.min(_lookupNoteIdx + 1, _lookupNoteResults.length - 1);
+      else _lookupNoteIdx = Math.max(_lookupNoteIdx - 1, 0);
+      const items = noteDropdown.querySelectorAll('.lookup-note-item');
+      items.forEach((el, i) => el.classList.toggle('selected', i === _lookupNoteIdx));
+      const sel = items[_lookupNoteIdx];
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+
+    // Enter opens selected note
+    if (noteDropdown && _lookupNoteResults.length && ev.key === 'Enter') {
+      ev.preventDefault();
+      _lookupOpenSelectedNote(popup);
+      return;
+    }
 
     // Arrow keys navigate command autocomplete
     if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
@@ -3862,6 +4065,23 @@ function _showLookupPanel(x, y, contextData) {
       _doLookupWebSearch(popup);
     } else if (ev.key === 'Enter') {
       ev.preventDefault();
+      if (isCmd && dropdown) {
+        // Dropdown visible — execute selected command
+        const matches = _lookupFilterCommands(val.slice(1).trim());
+        const cmd = matches[_lookupCmdIdx] || matches[0];
+        if (cmd) {
+          if (cmd.hasArgs) {
+            askInput.value = '/' + cmd.name + ' ';
+            _lookupHideCmdDropdown(popup);
+          } else {
+            _lookupHideCmdDropdown(popup);
+            cmd.fn();
+            _lookupTrackMode = false;
+            popup.remove();
+          }
+          return;
+        }
+      }
       if (isCmd && val.trim().length > 1) {
         _lookupExecCommand(popup, val);
       } else if (!isCmd) {
@@ -3871,6 +4091,7 @@ function _showLookupPanel(x, y, contextData) {
     }
     if (ev.key === 'Escape') {
       ev.preventDefault();
+      if (noteDropdown) { _lookupHideNoteDropdown(popup); return; }
       if (dropdown) { _lookupHideCmdDropdown(popup); return; }
       _lookupTrackMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -3881,10 +4102,20 @@ function _showLookupPanel(x, y, contextData) {
   askInput.addEventListener('input', () => {
     const val = askInput.value;
     if (val.startsWith('/')) {
-      _lookupCmdIdx = 0;
-      _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+      // Check if typing "/notes <query>" — show realtime note results
+      const notesMatch = val.match(/^\/notes\s+(.+)/i);
+      if (notesMatch) {
+        _lookupHideCmdDropdown(popup);
+        _lookupNoteIdx = 0;
+        _lookupRenderNoteDropdown(popup, notesMatch[1].trim());
+      } else {
+        _lookupHideNoteDropdown(popup);
+        _lookupCmdIdx = 0;
+        _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+      }
     } else {
       _lookupHideCmdDropdown(popup);
+      _lookupHideNoteDropdown(popup);
     }
   });
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
