@@ -480,6 +480,19 @@
     .sidebar-drag-ghost .sidebar-tooltip { display: none !important; }
     .sidebar-draggable { touch-action: none; }
 
+    /* ── Browse bar drag ghost ── */
+    .browse-bar-drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.9;
+      background: var(--bg-hover);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .browse-bar-draggable { touch-action: none; }
+    .browse-bar-draggable.dragging { opacity: 0.3; }
+
     /* ── Research view tabs ── */
     .research-tab {
       display: flex;

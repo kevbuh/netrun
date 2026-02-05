@@ -1712,6 +1712,122 @@ window.addEventListener('keydown', e => {
   nav.addEventListener('pointercancel', endDrag);
 })();
 
+// ── Browse bar drag-to-reorder ──
+(function() {
+  const bar = document.getElementById('browse-bar');
+  if (!bar) return;
+
+  function getDraggables() {
+    return Array.from(bar.querySelectorAll('.browse-bar-draggable'));
+  }
+
+  function getAnchor() {
+    return document.getElementById('browse-url-input');
+  }
+
+  function restoreBrowseBarOrder() {
+    const saved = localStorage.getItem('browseBarOrder');
+    if (!saved) return;
+    try {
+      const order = JSON.parse(saved);
+      const btns = getDraggables();
+      const btnMap = {};
+      btns.forEach(b => { btnMap[b.id] = b; });
+      // Insert in saved order, each after the previous (or after anchor for first)
+      let ref = getAnchor();
+      order.forEach(id => {
+        if (btnMap[id]) {
+          ref.after(btnMap[id]);
+          ref = btnMap[id];
+        }
+      });
+      // Append any buttons not in saved order (new buttons) after the last one
+      btns.forEach(b => {
+        if (!order.includes(b.id)) {
+          ref.after(b);
+          ref = b;
+        }
+      });
+    } catch {}
+  }
+
+  function saveBrowseBarOrder() {
+    const ids = getDraggables().map(b => b.id);
+    localStorage.setItem('browseBarOrder', JSON.stringify(ids));
+  }
+
+  restoreBrowseBarOrder();
+
+  let dragEl = null;
+  let dragGhost = null;
+  let startX = 0;
+  let dragStarted = false;
+  let dragPointerId = -1;
+
+  bar.addEventListener('pointerdown', e => {
+    const btn = e.target.closest('.browse-bar-draggable');
+    if (!btn) return;
+    dragEl = btn;
+    startX = e.clientX;
+    dragStarted = false;
+    dragPointerId = e.pointerId;
+  });
+
+  bar.addEventListener('pointermove', e => {
+    if (!dragEl) return;
+    if (!dragStarted && Math.abs(e.clientX - startX) < 5) return;
+    if (!dragStarted) {
+      dragStarted = true;
+      dragEl.setPointerCapture(dragPointerId);
+      dragEl.classList.add('dragging');
+      dragGhost = dragEl.cloneNode(true);
+      dragGhost.classList.add('browse-bar-drag-ghost');
+      dragGhost.classList.remove('dragging');
+      const r = dragEl.getBoundingClientRect();
+      dragGhost.style.top = r.top + 'px';
+      dragGhost.style.width = r.width + 'px';
+      dragGhost.style.height = r.height + 'px';
+      document.body.appendChild(dragGhost);
+    }
+    dragGhost.style.left = (e.clientX - dragGhost.offsetWidth / 2) + 'px';
+
+    // Find drop target
+    const btns = getDraggables();
+    for (const b of btns) {
+      if (b === dragEl) continue;
+      if (b.offsetParent === null && b.style.display === 'none') continue; // skip hidden
+      const r = b.getBoundingClientRect();
+      const mid = r.left + r.width / 2;
+      if (e.clientX < mid) {
+        bar.insertBefore(dragEl, b);
+        return;
+      }
+    }
+    // Past all — insert after last draggable
+    const last = btns[btns.length - 1];
+    if (last && last !== dragEl) last.after(dragEl);
+  });
+
+  function endDrag() {
+    if (!dragEl) return;
+    dragEl.classList.remove('dragging');
+    if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    if (dragStarted) {
+      saveBrowseBarOrder();
+      const suppress = e => { e.stopPropagation(); e.preventDefault(); };
+      dragEl.addEventListener('click', suppress, { capture: true, once: true });
+    }
+    dragEl = null;
+    dragStarted = false;
+  }
+
+  bar.addEventListener('pointerup', endDrag);
+  bar.addEventListener('pointercancel', endDrag);
+
+  // Expose restore function globally so it can be called after sync
+  window.restoreBrowseBarOrder = restoreBrowseBarOrder;
+})();
+
 // ── Button click sound (Web Audio API) ──
 let _clickSoundCtx = null;
 let _clickSoundOn = localStorage.getItem('clickSound') === 'on';
@@ -2066,7 +2182,7 @@ const SYNC_KEYS = [
   'editorTheme', 'rainSidebarVisible',
   'pixelPet', 'pixelPetType', 'pixelPetMode',
   'feedNotifications', 'seenPostLinks',
-  'adBlockEnabled', 'feedNotifSources'
+  'adBlockEnabled', 'feedNotifSources', 'browseBarOrder'
 ];
 
 // Default ad blocker to enabled
