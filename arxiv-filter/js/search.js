@@ -1631,8 +1631,13 @@ function _tabDragStart(e) {
   const onclickAttr = tabEl.getAttribute('onclick') || '';
   const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
   if (!idMatch) return;
+  e.preventDefault(); // prevent text selection and let _tabDragEnd handle click
   const tabId = parseInt(idMatch[1]);
   _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false };
+  // Suppress the inline onclick so _tabDragEnd controls selection
+  const origOnclick = tabEl.getAttribute('onclick');
+  tabEl.removeAttribute('onclick');
+  _tabDragState._origOnclick = origOnclick;
   document.addEventListener('mousemove', _tabDragMove);
   document.addEventListener('mouseup', _tabDragEnd);
 }
@@ -1717,7 +1722,7 @@ function _tabDragEnd(e) {
   document.removeEventListener('mouseup', _tabDragEnd);
   if (!_tabDragState) return;
 
-  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl } = _tabDragState;
+  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl, _origOnclick } = _tabDragState;
   _tabDragState = null;
 
   // Clean up visual elements
@@ -1725,6 +1730,7 @@ function _tabDragEnd(e) {
   if (indicator) indicator.remove();
   tabEl.classList.remove('browse-tab-drag-source');
   tabEl.style.pointerEvents = '';
+  if (_origOnclick) tabEl.setAttribute('onclick', _origOnclick);
 
   if (hasMoved) {
     const win = _getCurrentWindow();
@@ -1746,6 +1752,7 @@ function _tabDragEnd(e) {
     _browseSaveTabs();
   } else {
     // No drag movement — treat as a normal click to select tab
+    _focusBrowseTabBar();
     browseSelectTab(tabId);
   }
 }

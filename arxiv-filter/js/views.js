@@ -2918,6 +2918,15 @@ function _repositionSelectionPopup() {
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
 
+  // Tab context panel: anchor top-left below the tab
+  if (popup._tabContextAnchor) {
+    let left = popup._tabContextAnchor.left;
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    popup.style.top = popup._tabContextAnchor.top + 'px';
+    popup.style.left = left + 'px';
+    return;
+  }
+
   // Lookup panel: anchor bottom-left to stored mouse position
   if (popup._isLookupPanel) {
     const anchorX = popup._lookupAnchorX ?? _lastMouseX;
@@ -3489,7 +3498,10 @@ function _handleContextMenuChat(e) {
     return;
   }
   // Skip browse view chrome — iframe/webview handles its own context menu
-  if (e.target.closest('#browse-bar, #browse-tab-row, #browse-content, #browse-sidebar')) return;
+  if (e.target.closest('#browse-bar, #browse-tab-row, #browse-sidebar')) return;
+  // In browse content, skip only iframes/webviews (they have injected handlers)
+  const browseContent = e.target.closest('#browse-content');
+  if (browseContent && (e.target.tagName === 'IFRAME' || e.target.tagName === 'WEBVIEW')) return;
   e.preventDefault();
   // _showLookupPanel handles retiring pinned panels
   if (popup) { popup.remove(); _lookupTrackMode = false; }
@@ -3629,25 +3641,21 @@ function _showTabContextMenu(e, tabEl) {
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab) return;
 
+  const isActive = win.activeTab === tabId;
   const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
   const items = [];
 
-  // Header: title · domain
-  const headerLabel = (tab.title || 'Tab') + (domain ? ' · ' + domain : '');
-  items.push({ label: headerLabel, icon: '', fn() {} });
-
-  // Memory info
-  if (performance.memory && performance.memory.usedJSHeapSize) {
-    const mb = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
-    items.push({ label: 'Memory: ' + mb + ' MB', icon: '', fn() {} });
-  }
+  // Header: title (+ domain for background tabs)
+  const headerLabel = (tab.title || 'Tab') + (!isActive && domain ? ' · ' + domain : '');
+  const memMB = performance.memory ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) + ' MB' : '';
+  items.push({ label: headerLabel, info: true, subtext: memMB, fn() {} });
 
   items.push({ sep: true });
 
-  // + Context
+  // Add Context
   items.push({
-    label: '+ Context',
-    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+    label: 'Add Context',
+    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5M3 12h2M19 12h2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>',
     fn() {
       (async () => {
         try {
@@ -3702,7 +3710,26 @@ function _showTabContextMenu(e, tabEl) {
     });
   }
 
-  _showLookupPanel(e.clientX, e.clientY, { items });
+  // Position below the tab, merging seamlessly
+  const tabRect = tabEl.getBoundingClientRect();
+  const anchorX = tabRect.left;
+  const anchorY = tabRect.bottom;
+  _showLookupPanel(anchorX, anchorY, { items });
+
+  // Reposition to hang below tab and apply merged style
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (popup) {
+    popup.classList.add('tab-context-panel');
+    popup.style.maxWidth = tabRect.width + 'px';
+    popup._tabContextAnchor = { left: tabRect.left, top: tabRect.bottom, tabWidth: tabRect.width };
+    let left = tabRect.left;
+    const rect = popup.getBoundingClientRect();
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    popup.style.left = left + 'px';
+    popup.style.top = tabRect.bottom + 'px';
+    popup._lookupAnchorX = left;
+    popup._lookupAnchorY = tabRect.bottom + rect.height;
+  }
 }
 
 function _addScreenshotToPanel(popup, base64) {
@@ -4625,19 +4652,23 @@ function _showLookupPanel(x, y, contextData, initialValue) {
         continue;
       }
       const item = document.createElement('div');
-      item.className = 'doc-lookup-ctx-item' + (entry.danger ? ' doc-lookup-ctx-danger' : '');
+      item.className = 'doc-lookup-ctx-item' + (entry.danger ? ' doc-lookup-ctx-danger' : '') + (entry.info ? ' doc-lookup-ctx-info' : '');
       if (entry.icon) {
         item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
+      } else if (entry.subtext) {
+        item.innerHTML = '<span class="doc-lookup-ctx-label">' + escapeHtml(entry.label) + '</span><span class="doc-lookup-ctx-sub">' + escapeHtml(entry.subtext) + '</span>';
       } else {
         item.textContent = entry.label;
       }
-      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      item.addEventListener('click', (ev) => {
-        ev.stopPropagation(); ev.preventDefault();
-        entry.fn();
-        _lookupTrackMode = false;
-        popup.remove();
-      });
+      if (!entry.info) {
+        item.addEventListener('mousedown', (ev) => ev.stopPropagation());
+        item.addEventListener('click', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          entry.fn();
+          _lookupTrackMode = false;
+          popup.remove();
+        });
+      }
       ctxDiv.appendChild(item);
     }
     popup.appendChild(ctxDiv);
