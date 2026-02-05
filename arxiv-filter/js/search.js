@@ -1048,14 +1048,14 @@ function _browseBindFrame(tab) {
   // Context menu — always show lookup panel (with context items for links/images)
   el.addEventListener('context-menu', (e) => {
     e.preventDefault();
-    if (typeof _showLookupPanel !== 'function') return;
+    if (typeof _showPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) { popup.remove(); _lookupTrackMode = false; }
     const ctxData = (e.linkURL || e.srcURL) ? {
       linkUrl: e.linkURL || '', linkText: e.linkText || '',
       imgUrl: e.srcURL || '', mediaType: e.mediaType || ''
     } : null;
-    _showLookupPanel(e.x, e.y, ctxData);
+    _showPanel({ anchor: { x: e.x, y: e.y }, contextMenu: ctxData });
   });
 
   // Inject right-click handler after page loads
@@ -1145,10 +1145,10 @@ function _browseBindFrame(tab) {
         const data = JSON.parse(e.message.slice('__ALPHA_CONTEXT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
-        if (typeof _showLookupPanel === 'function') {
+        if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
           if (popup) { popup.remove(); _lookupTrackMode = false; }
-          _showLookupPanel(x, y, data);
+          _showPanel({ anchor: { x, y }, contextMenu: data });
         }
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__ALPHA_CHAT__')) {
@@ -1156,10 +1156,10 @@ function _browseBindFrame(tab) {
         const data = JSON.parse(e.message.slice('__ALPHA_CHAT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
-        if (typeof _showLookupPanel === 'function') {
+        if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
           if (popup) { popup.remove(); _lookupTrackMode = false; }
-          _showLookupPanel(x, y);
+          _showPanel({ anchor: { x, y } });
         }
       } catch (err) {}
     } else if (e.message === '__ALPHA_FIND__') {

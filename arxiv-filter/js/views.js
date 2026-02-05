@@ -3019,7 +3019,8 @@ document.addEventListener('selectionchange', function() {
   _lookupTrackMode = false;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing && existing._isLookupPanel) existing.remove();
-  _buildSelectionPopup(sel, text, false);
+  const range = sel.getRangeAt(0);
+  _showPanel({ anchor: { selectionRect: range.getBoundingClientRect() }, selectionText: text, finalized: false });
 });
 
 document.addEventListener('mouseup', async function(e) {
@@ -3059,7 +3060,10 @@ document.addEventListener('mouseup', async function(e) {
   if (text && text.length >= 3 && sel.rangeCount > 0) {
     // Text was selected → finalize selection popup
     _lookupTrackMode = false;
-    _buildSelectionPopup(sel, text, true);
+    const range = sel.getRangeAt(0);
+    const ancestor = range.commonAncestorContainer;
+    const inTextLayer = ancestor.closest ? !!ancestor.closest('.textLayer') : !!(ancestor.parentElement && ancestor.parentElement.closest('.textLayer'));
+    _showPanel({ anchor: { selectionRect: range.getBoundingClientRect() }, selectionText: text, selectionRange: range.cloneRange(), inTextLayer, finalized: true });
     return;
   }
 
@@ -3067,230 +3071,6 @@ document.addEventListener('mouseup', async function(e) {
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) { existing.remove(); _lookupTrackMode = false; }
 });
-
-function _buildSelectionPopup(sel, text, finalize) {
-  const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) existing.remove();
-
-  const popup = document.createElement('div');
-  popup.id = 'doc-chat-ask-float';
-  popup.className = 'doc-selection-popup';
-  popup.style.visibility = 'hidden';
-
-  const capturedText = text;
-
-  // -- Top row: action buttons (only shown when finalized) --
-  if (finalize) {
-    const btnRow = document.createElement('div');
-    btnRow.className = 'doc-selection-popup-btns';
-
-    const quoteBtn = document.createElement('button');
-    quoteBtn.className = 'doc-selection-popup-btn';
-    quoteBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 21c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10zm12 0c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Quote';
-    quoteBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-    quoteBtn.addEventListener('click', function(ev) {
-      ev.stopPropagation(); ev.preventDefault();
-      popup.remove();
-      _postQuoteText(capturedText);
-    });
-    btnRow.appendChild(quoteBtn);
-
-    // Single word → Lookup (right next to Quote)
-    const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
-    if (isSingleWord) {
-      const lookupBtn = document.createElement('button');
-      lookupBtn.className = 'doc-selection-popup-btn';
-      lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
-      lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-      lookupBtn.addEventListener('click', function(ev) {
-        ev.stopPropagation(); ev.preventDefault();
-        const px = popup.style.left, py = popup.style.top;
-        popup.remove();
-        _showWordLookup(capturedText, parseInt(px), parseInt(py));
-      });
-      btnRow.appendChild(lookupBtn);
-    }
-
-    // Highlight color dots (only for PDF text layer) — pushed to right side
-    if (sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      const ancestor = range.commonAncestorContainer;
-      const inTextLayer = ancestor.closest ? ancestor.closest('.textLayer') : ancestor.parentElement?.closest('.textLayer');
-      if (inTextLayer && typeof createHighlight === 'function') {
-        popup._inTextLayer = true;
-        popup._savedRange = range.cloneRange();
-        const dotsWrap = document.createElement('div');
-        dotsWrap.className = 'doc-hl-dots';
-        const colors = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS : [
-          { name: 'yellow', bg: 'rgba(255,235,59,0.35)', solid: '#ffeb3b' },
-          { name: 'green', bg: 'rgba(76,175,80,0.35)', solid: '#4caf50' },
-          { name: 'blue', bg: 'rgba(66,165,245,0.35)', solid: '#42a5f5' },
-          { name: 'pink', bg: 'rgba(236,64,122,0.35)', solid: '#ec407a' },
-        ];
-        for (const c of colors) {
-          const dot = document.createElement('button');
-          dot.className = 'doc-selection-hl-dot';
-          dot.style.background = c.solid;
-          dot.title = c.name;
-          dot.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-          dot.addEventListener('click', function(ev) {
-            ev.stopPropagation(); ev.preventDefault();
-            popup.remove();
-            _pdfSavedRange = range.cloneRange();
-            createHighlight(c);
-          });
-          dotsWrap.appendChild(dot);
-        }
-        btnRow.appendChild(dotsWrap);
-      }
-    }
-
-    popup.appendChild(btnRow);
-  }
-
-  // -- Selected text preview --
-  const preview = document.createElement('div');
-  preview.className = 'doc-selection-preview';
-  const truncated = capturedText.length > 150 ? capturedText.slice(0, 150) + '…' : capturedText;
-  preview.textContent = truncated;
-  popup.appendChild(preview);
-
-  // -- Author preview or Wikipedia preview (async) --
-  if (finalize) {
-    if (_isAuthorEligible(capturedText)) {
-      const authorDiv = document.createElement('div');
-      authorDiv.className = 'doc-wiki-preview';
-      authorDiv.style.display = 'none';
-      popup.appendChild(authorDiv);
-      _fetchAuthorPreview(capturedText, authorDiv);
-    } else if (_isLookupEligible(capturedText)) {
-      const wikiDiv = document.createElement('div');
-      wikiDiv.className = 'doc-wiki-preview';
-      wikiDiv.style.display = 'none';
-      popup.appendChild(wikiDiv);
-      _fetchWikipediaPreview(capturedText, wikiDiv);
-    }
-  }
-
-  if (finalize) {
-    // Reset popup chat state for new selection
-    _popupChatMessages = [];
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-
-    // -- Inline chat area (hidden until first message, above the input) --
-    const chatArea = document.createElement('div');
-    chatArea.className = 'doc-popup-chat-area';
-    const chatContext = document.createElement('div');
-    chatContext.className = 'doc-popup-chat-context';
-    const contextTrunc = capturedText.length > 120 ? capturedText.slice(0, 120) + '…' : capturedText;
-    chatContext.textContent = contextTrunc;
-    chatArea.appendChild(chatContext);
-    const chatMsgs = document.createElement('div');
-    chatMsgs.className = 'doc-popup-chat-messages';
-    chatArea.appendChild(chatMsgs);
-    const chatActions = document.createElement('div');
-    chatActions.className = 'doc-popup-chat-actions';
-    const openSidebarBtn = document.createElement('button');
-    openSidebarBtn.textContent = 'Open in sidebar';
-    openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    openSidebarBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _sendPopupChatToSidebar();
-    });
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = 'Clear';
-    clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    clearBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _popupChatMessages = [];
-      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      chatMsgs.innerHTML = '';
-      chatArea.classList.remove('visible');
-      popup.classList.remove('has-chat');
-      _repositionSelectionPopup();
-    });
-    chatActions.appendChild(openSidebarBtn);
-    // "Save chat" — only for PDF text layer (creates a highlight with chat attached)
-    const saveChatBtn = document.createElement('button');
-    saveChatBtn.textContent = 'Save chat';
-    saveChatBtn.style.display = 'none';
-    saveChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    saveChatBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _saveChatAsHighlight(popup);
-    });
-    chatActions.appendChild(saveChatBtn);
-    // Show "Save chat" only when in PDF text layer — checked after popup is built
-    popup._saveChatBtn = saveChatBtn;
-    chatActions.appendChild(clearBtn);
-    chatArea.appendChild(chatActions);
-    popup.appendChild(chatArea);
-
-    // -- Ask input + send button (always at the bottom) --
-    const askWrap = document.createElement('div');
-    askWrap.className = 'doc-ask-inline-wrap';
-    const askInput = document.createElement('input');
-    askInput.type = 'text';
-    askInput.placeholder = 'Ask about this…';
-    askInput.className = 'doc-ask-inline-input';
-    const sendBtn = document.createElement('button');
-    sendBtn.className = 'doc-ask-inline-send';
-    sendBtn.innerHTML = '↑';
-    sendBtn.title = 'Send';
-    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    sendBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _sendPopupChatMessage(popup, capturedText);
-    });
-    askInput.addEventListener('keydown', (ev) => {
-      ev.stopPropagation();
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        _sendPopupChatMessage(popup, capturedText);
-      }
-      if (ev.key === 'Escape') {
-        ev.preventDefault();
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        popup.remove();
-      }
-    });
-    askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    askWrap.appendChild(askInput);
-    askWrap.appendChild(sendBtn);
-    popup.appendChild(askWrap);
-  }
-
-  // Show "Save chat" button if we're in a PDF text layer
-  if (popup._inTextLayer && popup._saveChatBtn) {
-    popup._saveChatBtn.style.display = '';
-  }
-
-  document.body.appendChild(popup);
-
-  // Position above selection, clamp to viewport
-  const selRange = sel.getRangeAt(0);
-  const selRect = selRange.getBoundingClientRect();
-  // Store anchor points so _repositionSelectionPopup can re-anchor on content change
-  popup._anchorTop = selRect.top;
-  popup._anchorBottom = selRect.bottom;
-  popup._anchorLeft = selRect.left;
-  const popupRect = popup.getBoundingClientRect();
-  let top = selRect.top - popupRect.height - 8;
-  const fitsAbove = top >= 4;
-  if (!fitsAbove) top = selRect.bottom + 8;
-  popup._aboveSelection = fitsAbove;
-  let left = selRect.left;
-  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
-  if (left < 4) left = 4;
-  popup.style.top = top + 'px';
-  popup.style.left = left + 'px';
-  popup.style.visibility = '';
-
-  if (finalize) {
-    const input = popup.querySelector('.doc-ask-inline-input');
-    if (input) setTimeout(() => input.focus(), 10);
-  }
-}
 
 function _postQuoteText(text) {
   const paper = _currentPaperViewPaper;
@@ -3463,7 +3243,7 @@ document.addEventListener('keydown', function(e) {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
     const x = window.innerWidth / 2;
     const y = window.innerHeight / 2;
-    _showLookupPanel(x, y);
+    _showPanel({ anchor: { x, y } });
     return;
   }
   if (e.key !== '/') return;
@@ -3476,7 +3256,7 @@ document.addEventListener('keydown', function(e) {
   // Open centered horizontally, near top of viewport
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
-  _showLookupPanel(x, y, null, '/');
+  _showPanel({ anchor: { x, y }, initialValue: '/' });
 });
 
 // Right-click anywhere opens lookup panel
@@ -3503,9 +3283,9 @@ function _handleContextMenuChat(e) {
   const browseContent = e.target.closest('#browse-content');
   if (browseContent && (e.target.tagName === 'IFRAME' || e.target.tagName === 'WEBVIEW')) return;
   e.preventDefault();
-  // _showLookupPanel handles retiring pinned panels
+  // _showPanel handles retiring pinned panels
   if (popup) { popup.remove(); _lookupTrackMode = false; }
-  _showLookupPanel(e.clientX, e.clientY);
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY } });
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
@@ -3528,7 +3308,7 @@ function _injectIframeChatHandler(iframe) {
         const y = e.clientY + rect.top;
         const popup = document.getElementById('doc-chat-ask-float');
         if (popup) { popup.remove(); _lookupTrackMode = false; }
-        _showLookupPanel(x, y);
+        _showPanel({ anchor: { x, y } });
       });
       doc.addEventListener('click', function(e) {
         if (!(e.metaKey || e.ctrlKey)) return;
@@ -3667,8 +3447,8 @@ function _showTabContextMenu(e, tabEl) {
           const data = await resp.json();
           const content = data.text || '';
           let lookupPanel = document.getElementById('doc-chat-ask-float');
-          if (!lookupPanel && typeof _showLookupPanel === 'function') {
-            _showLookupPanel(window.innerWidth / 2, window.innerHeight / 2);
+          if (!lookupPanel && typeof _showPanel === 'function') {
+            _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
             lookupPanel = document.getElementById('doc-chat-ask-float');
           }
           if (lookupPanel && typeof _addTabContextToPanel === 'function') {
@@ -3711,25 +3491,7 @@ function _showTabContextMenu(e, tabEl) {
   }
 
   // Position below the tab, merging seamlessly
-  const tabRect = tabEl.getBoundingClientRect();
-  const anchorX = tabRect.left;
-  const anchorY = tabRect.bottom;
-  _showLookupPanel(anchorX, anchorY, { items });
-
-  // Reposition to hang below tab and apply merged style
-  const popup = document.getElementById('doc-chat-ask-float');
-  if (popup) {
-    popup.classList.add('tab-context-panel');
-    popup.style.maxWidth = tabRect.width + 'px';
-    popup._tabContextAnchor = { left: tabRect.left, top: tabRect.bottom, tabWidth: tabRect.width };
-    let left = tabRect.left;
-    const rect = popup.getBoundingClientRect();
-    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    popup.style.left = left + 'px';
-    popup.style.top = tabRect.bottom + 'px';
-    popup._lookupAnchorX = left;
-    popup._lookupAnchorY = tabRect.bottom + rect.height;
-  }
+  _showPanel({ anchor: { tab: tabEl }, contextMenu: { items } });
 }
 
 function _addScreenshotToPanel(popup, base64) {
@@ -4608,31 +4370,67 @@ async function _doLookupUserSearch(popup, query) {
   _repositionSelectionPopup();
 }
 
-// Lookup panel: blank chat input that tracks cursor
-// contextData: optional { linkUrl, linkText, imgUrl } for context menu items
-function _showLookupPanel(x, y, contextData, initialValue) {
-  // Remove any existing active panel (pinned panels have different IDs and are untouched)
+// ── Unified Popup Panel ──
+// _showPanel(config) replaces both _showLookupPanel and _buildSelectionPopup.
+// Config:
+//   anchor: { x, y } | { selectionRect: DOMRect } | { tab: HTMLElement }
+//   trackCursor: bool         — follow mouse until interaction
+//   contextMenu: { items, linkUrl, linkText, imgUrl }
+//   selectionText: string     — selected text preview
+//   selectionRange: Range     — for highlight creation
+//   inTextLayer: bool         — PDF text layer (show highlight dots)
+//   initialValue: string      — pre-fill input (e.g. '/')
+//   finalized: bool           — false = selection preview only (no buttons/input)
+function _showPanel(config) {
+  config = config || {};
+  const anchor = config.anchor || {};
+  const contextMenu = config.contextMenu || null;
+  const selectionText = config.selectionText || '';
+  const selectionRange = config.selectionRange || null;
+  const inTextLayer = !!config.inTextLayer;
+  const initialValue = config.initialValue || '';
+  const finalized = config.finalized !== false; // default true
+
+  // Remove any existing active panel
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
 
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
-  popup._isLookupPanel = true;
-  const hasContext = contextData && (contextData.linkUrl || contextData.imgUrl || contextData.items);
-  _lookupTrackMode = !hasContext;
 
-  _popupChatMessages = [];
-  _pendingScreenshots = [];
-  _pendingNoteContexts = [];
-  _pendingTabContexts = [];
-  _lookupDragging = false;
-  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+  // Determine anchor mode
+  const isSelectionAnchor = !!anchor.selectionRect;
+  const isTabAnchor = !!anchor.tab;
+  const isCursorAnchor = !isSelectionAnchor && !isTabAnchor;
 
-  // Context usage progress bar (very top)
+  if (isCursorAnchor) popup._isLookupPanel = true;
+  if (!finalized) popup.style.visibility = 'hidden';
+
+  const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
+  if (isCursorAnchor) {
+    _lookupTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext;
+  } else {
+    _lookupTrackMode = false;
+  }
+
+  const capturedText = selectionText;
+
+  // Reset shared state for new panel (unless preview)
+  if (finalized) {
+    _popupChatMessages = [];
+    _pendingScreenshots = [];
+    _pendingNoteContexts = [];
+    _pendingTabContexts = [];
+    _lookupDragging = false;
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+  }
+
+  // ── Context usage progress bar (very top) ──
   const ctxBar = document.createElement('div');
   ctxBar.className = 'lookup-context-bar';
   const ctxFill = document.createElement('div');
@@ -4640,11 +4438,11 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   ctxBar.appendChild(ctxFill);
   popup.appendChild(ctxBar);
 
-  // Generic context items (vault notes, folders, etc.)
-  if (contextData && contextData.items) {
+  // ── Generic context items (vault, tab, custom items) ──
+  if (contextMenu && contextMenu.items) {
     const ctxDiv = document.createElement('div');
     ctxDiv.className = 'doc-lookup-context-items';
-    for (const entry of contextData.items) {
+    for (const entry of contextMenu.items) {
       if (entry.sep) {
         const sep = document.createElement('div');
         sep.className = 'doc-lookup-ctx-sep';
@@ -4674,11 +4472,11 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     popup.appendChild(ctxDiv);
   }
 
-  // Link preview (fetched async — div is only appended when data arrives)
-  if (contextData && contextData.linkUrl) {
+  // ── Link preview (async) ──
+  if (contextMenu && contextMenu.linkUrl) {
     const previewDiv = document.createElement('div');
     previewDiv.className = 'doc-link-preview';
-    fetch('/api/link-preview?url=' + encodeURIComponent(contextData.linkUrl))
+    fetch('/api/link-preview?url=' + encodeURIComponent(contextMenu.linkUrl))
       .then(r => r.json())
       .then(data => {
         if (!popup.isConnected) return;
@@ -4699,8 +4497,8 @@ function _showLookupPanel(x, y, contextData, initialValue) {
         previewDiv.addEventListener('mousedown', (ev) => ev.stopPropagation());
         previewDiv.addEventListener('click', (ev) => {
           ev.stopPropagation(); ev.preventDefault();
-          if (typeof browseNewTab === 'function') browseNewTab(contextData.linkUrl);
-          else window.open(contextData.linkUrl, '_blank');
+          if (typeof browseNewTab === 'function') browseNewTab(contextMenu.linkUrl);
+          else window.open(contextMenu.linkUrl, '_blank');
         });
         popup.insertBefore(previewDiv, popup.firstChild);
         _repositionSelectionPopup();
@@ -4708,13 +4506,13 @@ function _showLookupPanel(x, y, contextData, initialValue) {
       .catch(() => {});
   }
 
-  // Context menu items (links, images)
-  if (contextData && (contextData.linkUrl || contextData.imgUrl)) {
+  // ── Context menu items (links, images) ──
+  if (contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl) && !contextMenu.items) {
     const ctxDiv = document.createElement('div');
     ctxDiv.className = 'doc-lookup-context-items';
-    const linkUrl = contextData.linkUrl || '';
-    const linkText = contextData.linkText || '';
-    const imgUrl = contextData.imgUrl || '';
+    const linkUrl = contextMenu.linkUrl || '';
+    const linkText = contextMenu.linkText || '';
+    const imgUrl = contextMenu.imgUrl || '';
 
     const addItem = (label, fn) => {
       const item = document.createElement('div');
@@ -4758,292 +4556,424 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     popup.appendChild(ctxDiv);
   }
 
-  // Top actions bar (model label, open in sidebar, clear, pin, close)
-  const topBar = document.createElement('div');
-  topBar.className = 'doc-popup-chat-actions lookup-top-actions';
-  topBar.style.cursor = 'grab';
+  // ── Selection actions (Quote, Lookup, Highlight dots) ──
+  if (finalized && capturedText) {
+    const btnRow = document.createElement('div');
+    btnRow.className = 'doc-selection-popup-btns';
 
-  // Model label
-  const modelLabel = document.createElement('span');
-  modelLabel.className = 'lookup-model-label';
-  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  modelLabel.textContent = cm;
-  modelLabel.title = 'Current model';
-  topBar.appendChild(modelLabel);
-
-  // Spacer
-  const spacer = document.createElement('span');
-  spacer.style.flex = '1';
-  topBar.appendChild(spacer);
-
-  const openSidebarBtn = document.createElement('button');
-  openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
-  openSidebarBtn.title = 'Open in sidebar';
-  openSidebarBtn.style.display = 'flex';
-  openSidebarBtn.style.alignItems = 'center';
-  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openSidebarBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _lookupTrackMode = false;
-    const sidebar = document.getElementById('paper-sidebar');
-    if (sidebar) sidebar.style.display = '';
-    _sendPopupChatToSidebar();
-  });
-  topBar.appendChild(openSidebarBtn);
-
-  // Pin button
-  const pinBtn = document.createElement('button');
-  pinBtn.className = 'lookup-pin-btn';
-  pinBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="13" height="13"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V8.25L18 9.75V12H12.75V20.25L12 21L11.25 20.25V12H6V9.75L7.5 8.25V3.75H16.5Z" /></svg>';
-  pinBtn.title = 'Pin panel';
-  pinBtn.style.display = 'flex';
-  pinBtn.style.alignItems = 'center';
-  pinBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  pinBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    if (popup._isStickyNote) {
-      // Already a sticky note — unpin removes it
+    const quoteBtn = document.createElement('button');
+    quoteBtn.className = 'doc-selection-popup-btn';
+    quoteBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 21c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10zm12 0c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Quote';
+    quoteBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+    quoteBtn.addEventListener('click', function(ev) {
+      ev.stopPropagation(); ev.preventDefault();
       popup.remove();
-      return;
-    }
-    // Pin: detach from the managed system entirely
-    popup._isStickyNote = true;
-    popup.id = 'doc-chat-pinned-' + Date.now();
-    popup.classList.add('lookup-pinned');
-    _lookupTrackMode = false;
-    const svg = pinBtn.querySelector('svg');
-    if (svg) svg.setAttribute('fill', 'currentColor');
-    pinBtn.style.opacity = '1';
-    pinBtn.title = 'Unpin (close)';
-  });
-  pinBtn.style.opacity = '0.5';
-  topBar.appendChild(pinBtn);
+      _postQuoteText(capturedText);
+    });
+    btnRow.appendChild(quoteBtn);
 
-  // Drag to move (skip buttons only)
-  topBar.addEventListener('mousedown', (ev) => {
-    if (ev.target.closest('button')) return;
-    ev.stopPropagation();
-    ev.preventDefault();
-    _lookupDragging = true;
-    _lookupTrackMode = false;
-    topBar.style.cursor = 'grabbing';
-    const r = popup.getBoundingClientRect();
-    _lookupDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
-  });
-
-  popup.appendChild(topBar);
-
-  // Chat area (hidden until first message sent)
-  const chatArea = document.createElement('div');
-  chatArea.className = 'doc-popup-chat-area';
-  chatArea.style.borderTop = 'none';
-  const chatMsgs = document.createElement('div');
-  chatMsgs.className = 'doc-popup-chat-messages';
-  chatArea.appendChild(chatMsgs);
-  popup.appendChild(chatArea);
-
-  // Screenshot attachment strip
-  const attachStrip = document.createElement('div');
-  attachStrip.className = 'doc-screenshot-attachments';
-  popup.appendChild(attachStrip);
-
-  // Ask input (always visible, no divider in lookup mode)
-  const askWrap = document.createElement('div');
-  askWrap.className = 'doc-ask-inline-wrap';
-  askWrap.style.borderTop = 'none';
-  askWrap.style.marginTop = '0';
-  askWrap.style.paddingTop = '0';
-  const askInput = document.createElement('input');
-  askInput.type = 'text';
-  askInput.placeholder = 'Ask anything…';
-  askInput.className = 'doc-ask-inline-input';
-
-  const sendBtn = document.createElement('button');
-  sendBtn.className = 'doc-ask-inline-send';
-  sendBtn.innerHTML = '↑';
-  sendBtn.title = 'Send';
-  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  sendBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _sendPopupChatMessage(popup, '');
-  });
-  askInput.addEventListener('keydown', (ev) => {
-    // Let Cmd+I bubble up to document handler for toggle
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'i') return;
-    ev.stopPropagation();
-    const val = askInput.value;
-    const isCmd = val.startsWith('/');
-    const dropdown = popup.querySelector('.lookup-cmd-dropdown');
-    const noteDropdown = popup.querySelector('.lookup-note-dropdown:not(.lookup-model-dropdown)');
-    const modelDropdown = popup.querySelector('.lookup-model-dropdown');
-
-    // Arrow keys navigate model dropdown
-    if (modelDropdown && _lookupModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
-      ev.preventDefault();
-      if (ev.key === 'ArrowDown') _lookupModelIdx = Math.min(_lookupModelIdx + 1, _lookupModelList.length - 1);
-      else _lookupModelIdx = Math.max(_lookupModelIdx - 1, 0);
-      _lookupRenderModelDropdown(popup);
-      const sel = modelDropdown.querySelector('.lookup-note-item.selected');
-      if (sel) sel.scrollIntoView({ block: 'nearest' });
-      return;
+    // Single word → Lookup
+    const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
+    if (isSingleWord) {
+      const lookupBtn = document.createElement('button');
+      lookupBtn.className = 'doc-selection-popup-btn';
+      lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
+      lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+      lookupBtn.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        const px = popup.style.left, py = popup.style.top;
+        popup.remove();
+        _showWordLookup(capturedText, parseInt(px), parseInt(py));
+      });
+      btnRow.appendChild(lookupBtn);
     }
 
-    // Enter selects model
-    if (modelDropdown && _lookupModelList.length && ev.key === 'Enter') {
-      ev.preventDefault();
-      _lookupSelectModel(popup);
-      return;
-    }
-
-    // Escape closes model dropdown
-    if (modelDropdown && ev.key === 'Escape') {
-      ev.preventDefault();
-      _lookupHideModelDropdown(popup);
-      return;
-    }
-
-    // Arrow keys navigate tab dropdown
-    const tabDropdown = popup.querySelector('.lookup-tab-dropdown');
-    if (tabDropdown && _lookupTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
-      ev.preventDefault();
-      if (ev.key === 'ArrowDown') _lookupTabIdx = Math.min(_lookupTabIdx + 1, _lookupTabList.length - 1);
-      else _lookupTabIdx = Math.max(_lookupTabIdx - 1, 0);
-      const items = tabDropdown.querySelectorAll('.lookup-tab-item');
-      items.forEach((el, i) => el.classList.toggle('selected', i === _lookupTabIdx));
-      const sel = items[_lookupTabIdx];
-      if (sel) sel.scrollIntoView({ block: 'nearest' });
-      return;
-    }
-
-    // Enter selects tab from dropdown
-    if (tabDropdown && _lookupTabList.length && ev.key === 'Enter') {
-      ev.preventDefault();
-      _lookupSelectTab(popup);
-      return;
-    }
-
-    // Escape closes tab dropdown
-    if (tabDropdown && ev.key === 'Escape') {
-      ev.preventDefault();
-      _lookupHideTabDropdown(popup);
-      return;
-    }
-
-    // Arrow keys navigate note search results
-    if (noteDropdown && _lookupNoteResults.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
-      ev.preventDefault();
-      if (ev.key === 'ArrowDown') _lookupNoteIdx = Math.min(_lookupNoteIdx + 1, _lookupNoteResults.length - 1);
-      else _lookupNoteIdx = Math.max(_lookupNoteIdx - 1, 0);
-      const items = noteDropdown.querySelectorAll('.lookup-note-item');
-      items.forEach((el, i) => el.classList.toggle('selected', i === _lookupNoteIdx));
-      const sel = items[_lookupNoteIdx];
-      if (sel) sel.scrollIntoView({ block: 'nearest' });
-      return;
-    }
-
-    // Enter opens selected note, or creates a new one if no results
-    if (noteDropdown && ev.key === 'Enter') {
-      ev.preventDefault();
-      if (_lookupNoteResults.length) {
-        _lookupOpenSelectedNote(popup);
-      } else if (_lookupNoteQuery) {
-        _lookupCreateAndOpenNote(popup, _lookupNoteQuery);
+    // Highlight color dots (only for PDF text layer)
+    if (inTextLayer && selectionRange && typeof createHighlight === 'function') {
+      popup._inTextLayer = true;
+      popup._savedRange = selectionRange.cloneRange();
+      const dotsWrap = document.createElement('div');
+      dotsWrap.className = 'doc-hl-dots';
+      const colors = typeof HIGHLIGHT_COLORS !== 'undefined' ? HIGHLIGHT_COLORS : [
+        { name: 'yellow', bg: 'rgba(255,235,59,0.35)', solid: '#ffeb3b' },
+        { name: 'green', bg: 'rgba(76,175,80,0.35)', solid: '#4caf50' },
+        { name: 'blue', bg: 'rgba(66,165,245,0.35)', solid: '#42a5f5' },
+        { name: 'pink', bg: 'rgba(236,64,122,0.35)', solid: '#ec407a' },
+      ];
+      for (const c of colors) {
+        const dot = document.createElement('button');
+        dot.className = 'doc-selection-hl-dot';
+        dot.style.background = c.solid;
+        dot.title = c.name;
+        dot.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+        dot.addEventListener('click', function(ev) {
+          ev.stopPropagation(); ev.preventDefault();
+          popup.remove();
+          _pdfSavedRange = selectionRange.cloneRange();
+          createHighlight(c);
+        });
+        dotsWrap.appendChild(dot);
       }
-      return;
+      btnRow.appendChild(dotsWrap);
     }
 
-    // Arrow keys navigate command autocomplete
-    if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
-      ev.preventDefault();
-      const items = dropdown.querySelectorAll('.lookup-cmd-item');
-      if (ev.key === 'ArrowDown') _lookupCmdIdx = Math.min(_lookupCmdIdx + 1, items.length - 1);
-      else _lookupCmdIdx = Math.max(_lookupCmdIdx - 1, 0);
-      _lookupRenderCmdDropdown(popup, val.slice(1).trim());
-      return;
-    }
+    popup.appendChild(btnRow);
+  }
 
-    // Tab to complete selected command
-    if (isCmd && dropdown && ev.key === 'Tab') {
-      ev.preventDefault();
-      const matches = _lookupFilterCommands(val.slice(1).trim());
-      if (matches[_lookupCmdIdx]) askInput.value = '/' + matches[_lookupCmdIdx].name;
-      _lookupRenderCmdDropdown(popup, matches[_lookupCmdIdx]?.name || '');
-      return;
-    }
+  // ── Selected text preview ──
+  if (capturedText) {
+    const preview = document.createElement('div');
+    preview.className = 'doc-selection-preview';
+    const truncated = capturedText.length > 150 ? capturedText.slice(0, 150) + '…' : capturedText;
+    preview.textContent = truncated;
+    popup.appendChild(preview);
+  }
 
-    if (ev.key === 'Enter' && ev.shiftKey) {
+  // ── Author / Wikipedia preview (async) ──
+  if (finalized && capturedText) {
+    if (_isAuthorEligible(capturedText)) {
+      const authorDiv = document.createElement('div');
+      authorDiv.className = 'doc-wiki-preview';
+      authorDiv.style.display = 'none';
+      popup.appendChild(authorDiv);
+      _fetchAuthorPreview(capturedText, authorDiv);
+    } else if (_isLookupEligible(capturedText)) {
+      const wikiDiv = document.createElement('div');
+      wikiDiv.className = 'doc-wiki-preview';
+      wikiDiv.style.display = 'none';
+      popup.appendChild(wikiDiv);
+      _fetchWikipediaPreview(capturedText, wikiDiv);
+    }
+  }
+
+  // ── Top actions bar (model label, pin, sidebar, drag) — ALWAYS present when finalized ──
+  if (finalized) {
+    const topBar = document.createElement('div');
+    topBar.className = 'doc-popup-chat-actions lookup-top-actions';
+    topBar.style.cursor = 'grab';
+
+    // Model label
+    const modelLabel = document.createElement('span');
+    modelLabel.className = 'lookup-model-label';
+    const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+    modelLabel.textContent = cm;
+    modelLabel.title = 'Current model';
+    topBar.appendChild(modelLabel);
+
+    // Spacer
+    const spacer = document.createElement('span');
+    spacer.style.flex = '1';
+    topBar.appendChild(spacer);
+
+    const openSidebarBtn = document.createElement('button');
+    openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
+    openSidebarBtn.title = 'Open in sidebar';
+    openSidebarBtn.style.display = 'flex';
+    openSidebarBtn.style.alignItems = 'center';
+    openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    openSidebarBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _lookupTrackMode = false;
+      const sidebar = document.getElementById('paper-sidebar');
+      if (sidebar) sidebar.style.display = '';
+      _sendPopupChatToSidebar();
+    });
+    topBar.appendChild(openSidebarBtn);
+
+    // Pin button
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'lookup-pin-btn';
+    pinBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="13" height="13"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V8.25L18 9.75V12H12.75V20.25L12 21L11.25 20.25V12H6V9.75L7.5 8.25V3.75H16.5Z" /></svg>';
+    pinBtn.title = 'Pin panel';
+    pinBtn.style.display = 'flex';
+    pinBtn.style.alignItems = 'center';
+    pinBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    pinBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (popup._isStickyNote) {
+        popup.remove();
+        return;
+      }
+      popup._isStickyNote = true;
+      popup.id = 'doc-chat-pinned-' + Date.now();
+      popup.classList.add('lookup-pinned');
+      _lookupTrackMode = false;
+      const svg = pinBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', 'currentColor');
+      pinBtn.style.opacity = '1';
+      pinBtn.title = 'Unpin (close)';
+    });
+    pinBtn.style.opacity = '0.5';
+    topBar.appendChild(pinBtn);
+
+    // Drag to move
+    topBar.addEventListener('mousedown', (ev) => {
+      if (ev.target.closest('button')) return;
+      ev.stopPropagation();
       ev.preventDefault();
-      _lookupHideCmdDropdown(popup);
-      _doLookupWebSearch(popup);
-    } else if (ev.key === 'Enter') {
-      ev.preventDefault();
-      if (isCmd && dropdown) {
-        // Dropdown visible — execute selected command
+      _lookupDragging = true;
+      _lookupTrackMode = false;
+      topBar.style.cursor = 'grabbing';
+      const r = popup.getBoundingClientRect();
+      _lookupDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+    });
+
+    popup.appendChild(topBar);
+  }
+
+  // ── Chat area ──
+  if (finalized) {
+    const chatArea = document.createElement('div');
+    chatArea.className = 'doc-popup-chat-area';
+    chatArea.style.borderTop = 'none';
+    if (capturedText) {
+      const chatContext = document.createElement('div');
+      chatContext.className = 'doc-popup-chat-context';
+      const contextTrunc = capturedText.length > 120 ? capturedText.slice(0, 120) + '…' : capturedText;
+      chatContext.textContent = contextTrunc;
+      chatArea.appendChild(chatContext);
+    }
+    const chatMsgs = document.createElement('div');
+    chatMsgs.className = 'doc-popup-chat-messages';
+    chatArea.appendChild(chatMsgs);
+    const chatActions = document.createElement('div');
+    chatActions.className = 'doc-popup-chat-actions';
+    const openSidebarBtnChat = document.createElement('button');
+    openSidebarBtnChat.textContent = 'Open in sidebar';
+    openSidebarBtnChat.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    openSidebarBtnChat.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _sendPopupChatToSidebar();
+    });
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    clearBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _popupChatMessages = [];
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      chatMsgs.innerHTML = '';
+      chatArea.classList.remove('visible');
+      popup.classList.remove('has-chat');
+      _repositionSelectionPopup();
+    });
+    chatActions.appendChild(openSidebarBtnChat);
+    // "Save chat" button — only shown for PDF text layer
+    const saveChatBtn = document.createElement('button');
+    saveChatBtn.textContent = 'Save chat';
+    saveChatBtn.style.display = 'none';
+    saveChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    saveChatBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _saveChatAsHighlight(popup);
+    });
+    chatActions.appendChild(saveChatBtn);
+    popup._saveChatBtn = saveChatBtn;
+    chatActions.appendChild(clearBtn);
+    chatArea.appendChild(chatActions);
+    popup.appendChild(chatArea);
+  }
+
+  // ── Screenshot / attachment strip ──
+  if (finalized) {
+    const attachStrip = document.createElement('div');
+    attachStrip.className = 'doc-screenshot-attachments';
+    popup.appendChild(attachStrip);
+  }
+
+  // ── Ask input + send button ──
+  if (finalized) {
+    const askWrap = document.createElement('div');
+    askWrap.className = 'doc-ask-inline-wrap';
+    if (!capturedText) {
+      askWrap.style.borderTop = 'none';
+      askWrap.style.marginTop = '0';
+      askWrap.style.paddingTop = '0';
+    }
+    const askInput = document.createElement('input');
+    askInput.type = 'text';
+    askInput.placeholder = capturedText ? 'Ask about this…' : 'Ask anything…';
+    askInput.className = 'doc-ask-inline-input';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'doc-ask-inline-send';
+    sendBtn.innerHTML = '↑';
+    sendBtn.title = 'Send';
+    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    sendBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _sendPopupChatMessage(popup, capturedText);
+    });
+    askInput.addEventListener('keydown', (ev) => {
+      // Let Cmd+I bubble up to document handler for toggle
+      if ((ev.metaKey || ev.ctrlKey) && ev.key === 'i') return;
+      ev.stopPropagation();
+      const val = askInput.value;
+      const isCmd = val.startsWith('/');
+      const dropdown = popup.querySelector('.lookup-cmd-dropdown');
+      const noteDropdown = popup.querySelector('.lookup-note-dropdown:not(.lookup-model-dropdown)');
+      const modelDropdown = popup.querySelector('.lookup-model-dropdown');
+
+      // Arrow keys navigate model dropdown
+      if (modelDropdown && _lookupModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _lookupModelIdx = Math.min(_lookupModelIdx + 1, _lookupModelList.length - 1);
+        else _lookupModelIdx = Math.max(_lookupModelIdx - 1, 0);
+        _lookupRenderModelDropdown(popup);
+        const sel = modelDropdown.querySelector('.lookup-note-item.selected');
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (modelDropdown && _lookupModelList.length && ev.key === 'Enter') {
+        ev.preventDefault();
+        _lookupSelectModel(popup);
+        return;
+      }
+      if (modelDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _lookupHideModelDropdown(popup);
+        return;
+      }
+
+      // Arrow keys navigate tab dropdown
+      const tabDropdown = popup.querySelector('.lookup-tab-dropdown');
+      if (tabDropdown && _lookupTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _lookupTabIdx = Math.min(_lookupTabIdx + 1, _lookupTabList.length - 1);
+        else _lookupTabIdx = Math.max(_lookupTabIdx - 1, 0);
+        const items = tabDropdown.querySelectorAll('.lookup-tab-item');
+        items.forEach((el, i) => el.classList.toggle('selected', i === _lookupTabIdx));
+        const sel = items[_lookupTabIdx];
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (tabDropdown && _lookupTabList.length && ev.key === 'Enter') {
+        ev.preventDefault();
+        _lookupSelectTab(popup);
+        return;
+      }
+      if (tabDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _lookupHideTabDropdown(popup);
+        return;
+      }
+
+      // Arrow keys navigate note search results
+      if (noteDropdown && _lookupNoteResults.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _lookupNoteIdx = Math.min(_lookupNoteIdx + 1, _lookupNoteResults.length - 1);
+        else _lookupNoteIdx = Math.max(_lookupNoteIdx - 1, 0);
+        const items = noteDropdown.querySelectorAll('.lookup-note-item');
+        items.forEach((el, i) => el.classList.toggle('selected', i === _lookupNoteIdx));
+        const sel = items[_lookupNoteIdx];
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (noteDropdown && ev.key === 'Enter') {
+        ev.preventDefault();
+        if (_lookupNoteResults.length) {
+          _lookupOpenSelectedNote(popup);
+        } else if (_lookupNoteQuery) {
+          _lookupCreateAndOpenNote(popup, _lookupNoteQuery);
+        }
+        return;
+      }
+
+      // Arrow keys navigate command autocomplete
+      if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        const items = dropdown.querySelectorAll('.lookup-cmd-item');
+        if (ev.key === 'ArrowDown') _lookupCmdIdx = Math.min(_lookupCmdIdx + 1, items.length - 1);
+        else _lookupCmdIdx = Math.max(_lookupCmdIdx - 1, 0);
+        _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+        return;
+      }
+      if (isCmd && dropdown && ev.key === 'Tab') {
+        ev.preventDefault();
         const matches = _lookupFilterCommands(val.slice(1).trim());
-        const cmd = matches[_lookupCmdIdx] || matches[0];
-        if (cmd) {
-          if (cmd.hasArgs) {
-            askInput.value = '/' + cmd.name + ' ';
-            _lookupHideCmdDropdown(popup);
-          } else if (cmd._special) {
-            _lookupHideCmdDropdown(popup);
-            if (cmd.name === 'capture') _doLookupCapture(popup);
-            else if (cmd.name === 'model') _doLookupModel(popup);
-            else if (cmd.name === 'links') _doLookupLinks(popup);
-            else if (cmd.name === 'tab') _doLookupTab(popup);
-          } else {
-            _lookupHideCmdDropdown(popup);
-            cmd.fn();
-            _lookupTrackMode = false;
-            popup.remove();
+        if (matches[_lookupCmdIdx]) askInput.value = '/' + matches[_lookupCmdIdx].name;
+        _lookupRenderCmdDropdown(popup, matches[_lookupCmdIdx]?.name || '');
+        return;
+      }
+
+      if (ev.key === 'Enter' && ev.shiftKey) {
+        ev.preventDefault();
+        _lookupHideCmdDropdown(popup);
+        _doLookupWebSearch(popup);
+      } else if (ev.key === 'Enter') {
+        ev.preventDefault();
+        if (isCmd && dropdown) {
+          const matches = _lookupFilterCommands(val.slice(1).trim());
+          const cmd = matches[_lookupCmdIdx] || matches[0];
+          if (cmd) {
+            if (cmd.hasArgs) {
+              askInput.value = '/' + cmd.name + ' ';
+              _lookupHideCmdDropdown(popup);
+            } else if (cmd._special) {
+              _lookupHideCmdDropdown(popup);
+              if (cmd.name === 'capture') _doLookupCapture(popup);
+              else if (cmd.name === 'model') _doLookupModel(popup);
+              else if (cmd.name === 'links') _doLookupLinks(popup);
+              else if (cmd.name === 'tab') _doLookupTab(popup);
+            } else {
+              _lookupHideCmdDropdown(popup);
+              cmd.fn();
+              _lookupTrackMode = false;
+              popup.remove();
+            }
+            return;
           }
-          return;
+        }
+        if (isCmd && val.trim().length > 1) {
+          _lookupExecCommand(popup, val);
+        } else if (!isCmd) {
+          _lookupHideCmdDropdown(popup);
+          _sendPopupChatMessage(popup, capturedText);
         }
       }
-      if (isCmd && val.trim().length > 1) {
-        _lookupExecCommand(popup, val);
-      } else if (!isCmd) {
-        _lookupHideCmdDropdown(popup);
-        _sendPopupChatMessage(popup, '');
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        if (modelDropdown) { _lookupHideModelDropdown(popup); return; }
+        if (noteDropdown) { _lookupHideNoteDropdown(popup); return; }
+        if (dropdown) { _lookupHideCmdDropdown(popup); return; }
+        if (popup._isStickyNote) return;
+        _lookupTrackMode = false;
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        _pendingScreenshots = [];
+        _pendingNoteContexts = [];
+        _pendingTabContexts = [];
+        _savePopupChatToHighlight(popup);
+        popup.remove();
       }
-    }
-    if (ev.key === 'Escape') {
-      ev.preventDefault();
-      if (modelDropdown) { _lookupHideModelDropdown(popup); return; }
-      if (noteDropdown) { _lookupHideNoteDropdown(popup); return; }
-      if (dropdown) { _lookupHideCmdDropdown(popup); return; }
-      if (popup._isStickyNote) return; // sticky note — use pin button to close
-      _lookupTrackMode = false;
-      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _pendingScreenshots = [];
-      _pendingNoteContexts = [];
-      _pendingTabContexts = [];
-      popup.remove();
-    }
-  });
-  askInput.addEventListener('input', () => {
-    const val = askInput.value;
-    if (val.startsWith('/')) {
-      // Check if typing "/notes <query>" — show realtime note results
-      const notesMatch = val.match(/^\/notes\s+(.+)/i);
-      if (notesMatch) {
-        _lookupHideCmdDropdown(popup);
-        _lookupNoteIdx = 0;
-        _lookupRenderNoteDropdown(popup, notesMatch[1].trim());
+    });
+    askInput.addEventListener('input', () => {
+      const val = askInput.value;
+      if (val.startsWith('/')) {
+        const notesMatch = val.match(/^\/notes\s+(.+)/i);
+        if (notesMatch) {
+          _lookupHideCmdDropdown(popup);
+          _lookupNoteIdx = 0;
+          _lookupRenderNoteDropdown(popup, notesMatch[1].trim());
+        } else {
+          _lookupHideNoteDropdown(popup);
+          _lookupCmdIdx = 0;
+          _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+        }
       } else {
+        _lookupHideCmdDropdown(popup);
         _lookupHideNoteDropdown(popup);
-        _lookupCmdIdx = 0;
-        _lookupRenderCmdDropdown(popup, val.slice(1).trim());
       }
-    } else {
-      _lookupHideCmdDropdown(popup);
-      _lookupHideNoteDropdown(popup);
-    }
-  });
-  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  askWrap.appendChild(askInput);
-  askWrap.appendChild(sendBtn);
-  popup.appendChild(askWrap);
+    });
+    askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    askWrap.appendChild(askInput);
+    askWrap.appendChild(sendBtn);
+    popup.appendChild(askWrap);
+  }
+
+  // Show "Save chat" button if in PDF text layer
+  if (popup._inTextLayer && popup._saveChatBtn) {
+    popup._saveChatBtn.style.display = '';
+  }
 
   popup.addEventListener('mousedown', (ev) => {
     ev.stopPropagation();
@@ -5051,37 +4981,91 @@ function _showLookupPanel(x, y, contextData, initialValue) {
 
   document.body.appendChild(popup);
 
-  // Position: bottom-left at cursor, store anchor for repositioning
-  popup._lookupAnchorX = x;
-  popup._lookupAnchorY = y;
-  const rect = popup.getBoundingClientRect();
-  let left = x;
-  let top = y - rect.height;
-  if (top < 0) top = 0;
-  if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
+  // ── Positioning ──
+  if (isTabAnchor) {
+    // Tab context: position below the tab element
+    const tabEl = anchor.tab;
+    const tabRect = tabEl.getBoundingClientRect();
+    popup.classList.add('tab-context-panel');
+    popup.style.maxWidth = tabRect.width + 'px';
+    popup._tabContextAnchor = { left: tabRect.left, top: tabRect.bottom, tabWidth: tabRect.width };
+    let left = tabRect.left;
+    const rect = popup.getBoundingClientRect();
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    popup.style.left = left + 'px';
+    popup.style.top = tabRect.bottom + 'px';
+    popup._lookupAnchorX = left;
+    popup._lookupAnchorY = tabRect.bottom + rect.height;
+  } else if (isSelectionAnchor) {
+    // Selection: above or below selection rect
+    const selRect = anchor.selectionRect;
+    popup._anchorTop = selRect.top;
+    popup._anchorBottom = selRect.bottom;
+    popup._anchorLeft = selRect.left;
+    const popupRect = popup.getBoundingClientRect();
+    let top = selRect.top - popupRect.height - 8;
+    const fitsAbove = top >= 4;
+    if (!fitsAbove) top = selRect.bottom + 8;
+    popup._aboveSelection = fitsAbove;
+    let left = selRect.left;
+    if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+    if (left < 4) left = 4;
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
+    popup.style.visibility = '';
+  } else {
+    // Cursor anchor: bottom-left at cursor position
+    const x = anchor.x || 0;
+    const y = anchor.y || 0;
+    popup._lookupAnchorX = x;
+    popup._lookupAnchorY = y;
+    const rect = popup.getBoundingClientRect();
+    let left = x;
+    let top = y - rect.height;
+    if (top < 0) top = 0;
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  }
 
-  // Auto-focus so user can type immediately
-  askInput.focus();
-  _updateContextBar(popup);
+  // Auto-focus input
+  if (finalized) {
+    const askInput = popup.querySelector('.doc-ask-inline-input');
+    if (askInput) {
+      if (isSelectionAnchor) {
+        setTimeout(() => askInput.focus(), 10);
+      } else {
+        askInput.focus();
+      }
+    }
+    _updateContextBar(popup);
+  }
 
   // Pre-fill input and trigger command dropdown if initialValue provided
-  if (initialValue) {
-    askInput.value = initialValue;
-    if (initialValue.startsWith('/')) {
-      _lookupCmdIdx = 0;
-      _lookupRenderCmdDropdown(popup, initialValue.slice(1).trim());
+  if (finalized && initialValue) {
+    const askInput = popup.querySelector('.doc-ask-inline-input');
+    if (askInput) {
+      askInput.value = initialValue;
+      if (initialValue.startsWith('/')) {
+        _lookupCmdIdx = 0;
+        _lookupRenderCmdDropdown(popup, initialValue.slice(1).trim());
+      }
+      // Reposition after dropdown renders
+      if (isCursorAnchor) {
+        const ax = anchor.x || 0, ay = anchor.y || 0;
+        requestAnimationFrame(() => {
+          const r2 = popup.getBoundingClientRect();
+          let t2 = ay - r2.height;
+          if (t2 < 0) t2 = 0;
+          popup.style.top = t2 + 'px';
+        });
+      }
     }
-    // Reposition after dropdown renders
-    requestAnimationFrame(() => {
-      const r2 = popup.getBoundingClientRect();
-      let t2 = y - r2.height;
-      if (t2 < 0) t2 = 0;
-      popup.style.top = t2 + 'px';
-    });
   }
+
+  return popup;
 }
+
 
 function openPaper(index, e) {
   const paper = lastFilteredPapers[index];
