@@ -274,7 +274,8 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 
 // Audio tracking: { tabId: { windowId, muted } }
 let _browseAudioTabs = new Map();
-let _browseClosedTabs = []; // stack of { url, title } for Cmd+Shift+T reopen
+const _BROWSE_CLOSED_TABS_MAX = 50;
+let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
 
 // Convenience getters for current window's tabs
 function _getCurrentWindow() {
@@ -1398,7 +1399,9 @@ function browseCloseTab(id) {
   if (idx === -1) return;
   const tab = win.tabs[idx];
   const wasLast = win.tabs.length === 1;
-  if (tab.url && !tab.blank) _browseClosedTabs.push({ url: tab.url, title: tab.title });
+  _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank });
+  if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
+  localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);
@@ -1426,6 +1429,7 @@ function browseCloseTab(id) {
 function browseReopenTab() {
   if (!_browseClosedTabs.length) return;
   const closed = _browseClosedTabs.pop();
+  localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
   browseNewTab(closed.url);
 }
 
