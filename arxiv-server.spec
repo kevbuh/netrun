@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['arxiv-filter/server.py'],
+    ['src/server.py'],
     pathex=[],
     binaries=[],
     datas=[],

@@ -28,7 +28,7 @@
       "episodes": null
     }
   ],
-  "pythonPath": "/Users/kevinbuhler/Code/alpha/arxiv-filter/experiments/able-peak-511/venv/bin/python",
+  "pythonPath": "/Users/kevinbuhler/Code/alpha/src/experiments/able-peak-511/venv/bin/python",
   "papers": [
     {
       "link": "https://arxiv.org/abs/1611.08097v2",

@@ -59,16 +59,16 @@ function waitForServer(port, timeoutMs = 15000) {
 
 function getDataDir() {
   if (isDev) {
-    return path.join(__dirname, '..', 'arxiv-filter');
+    return path.join(__dirname, '..', 'src');
   }
   return app.getPath('userData');
 }
 
 function getStaticDir() {
   if (isDev) {
-    return path.join(__dirname, '..', 'arxiv-filter');
+    return path.join(__dirname, '..', 'src');
   }
-  return path.join(process.resourcesPath, 'arxiv-filter');
+  return path.join(process.resourcesPath, 'src');
 }
 
 function tryStartPythonServer(port) {
@@ -79,7 +79,7 @@ function tryStartPythonServer(port) {
   if (isDev) {
     cmd = 'python3';
     args = [
-      path.join(__dirname, '..', 'arxiv-filter', 'server.py'),
+      path.join(__dirname, '..', 'src', 'server.py'),
       '--port', String(port),
       '--data-dir', dataDir,
       '--static-dir', staticDir,

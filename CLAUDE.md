@@ -21,7 +21,7 @@ Ollama is optional — the app works without it, but the AI quality filter will 
 ### 2. Start the server
 
 ```bash
-python3 arxiv-filter/server.py
+python3 src/server.py
 ```
 
 Starts an HTTP server on port 8000 serving the app at `http://localhost:8000`.
@@ -30,7 +30,7 @@ Starts an HTTP server on port 8000 serving the app at `http://localhost:8000`.
 
 Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Python stdlib backend, no build step. **Optimized for running in the browser** (not Electron) — always prioritize the web browser experience when making decisions about navigation, tabs, popups, and link handling.
 
-### Backend — `arxiv-filter/server.py` + `persistence.py` + `kernels.py`
+### Backend — `src/server.py` + `persistence.py` + `kernels.py`
 
 Python HTTP server (`http.server`) that acts as an API proxy and local data store. Helper functions are split into `persistence.py` (file I/O, prompts, caching, classification) and `kernels.py` (Jupyter kernel management).
 
@@ -42,7 +42,7 @@ Python HTTP server (`http.server`) that acts as an API proxy and local data stor
 - `/api/quality-filter` — POST batch of titles to local Ollama for AI classification; supports two modes: `verdict` (KEEP/SKIP) and `score` (0-10 relevance rating)
 - `/api/quality-prompt` — GET returns current verdict prompt, default prompt, and scoring prompt; PUT saves a custom verdict prompt to `quality_prompt.txt`
 - `/api/blocked-titles` — GET/POST/DELETE for the prompt test suite titles, stored in `blocked_titles.json`
-- `/api/experiments` — CRUD for experiments and their versions, stored as JSON files in `arxiv-filter/experiments/`
+- `/api/experiments` — CRUD for experiments and their versions, stored as JSON files in `src/experiments/`
 - `/api/check-embed` — checks if a URL can be embedded in an iframe
 - `/api/extract-text` — POST a URL, returns extracted text (PDF via PyMuPDF for arXiv, HTML text extraction for other sites)
 - `/api/paper-insights` — POST a URL, returns extracted repo links and key insights from the document
@@ -53,7 +53,7 @@ Experiments are stored on disk as `experiments/{slug}/meta.json`.
 - `quality_prompt.txt` — custom verdict prompt (created when user saves a non-default prompt; deleted on reset)
 - `blocked_titles.json` — titles that must be classified as SKIP (prompt test suite)
 
-### Frontend — `arxiv-filter/index.html` + `js/` + `styles.css`
+### Frontend — `src/index.html` + `js/` + `styles.css`
 
 Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.css`, JS split across 14 files in `js/`. Views managed by client-side hash routing:
 
@@ -68,7 +68,7 @@ Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.cs
 ### File Structure
 
 ```
-arxiv-filter/
+src/
   index.html            — HTML skeleton, Tailwind config, <link>/<script> tags
   styles.css            — CSS variables, dark/light themes, toggle switch, masonry, CodeMirror overrides
   server.py             — HTTP server, API proxy, request handler
