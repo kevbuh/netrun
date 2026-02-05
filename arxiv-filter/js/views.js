@@ -3509,6 +3509,14 @@ function _injectIframeChatHandler(iframe) {
         if (popup) { popup.remove(); _lookupTrackMode = false; }
         _showLookupPanel(x, y);
       });
+      doc.addEventListener('click', function(e) {
+        if (!(e.metaKey || e.ctrlKey)) return;
+        const a = e.target.closest('a');
+        if (!a || !a.href) return;
+        e.preventDefault();
+        e.stopPropagation();
+        window.top.open(a.href, '_blank');
+      }, true);
       doc.addEventListener('keydown', function(e) {
         if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
           e.preventDefault();
@@ -4540,22 +4548,15 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     popup.appendChild(ctxDiv);
   }
 
-  // Link preview (fetched async)
+  // Link preview (fetched async — div is only appended when data arrives)
   if (contextData && contextData.linkUrl) {
     const previewDiv = document.createElement('div');
-    previewDiv.className = 'doc-link-preview loading';
-    previewDiv.innerHTML = '<div class="doc-link-preview-shimmer"></div>';
-    popup.appendChild(previewDiv);
+    previewDiv.className = 'doc-link-preview';
     fetch('/api/link-preview?url=' + encodeURIComponent(contextData.linkUrl))
       .then(r => r.json())
       .then(data => {
         if (!popup.isConnected) return;
-        if (!data.title && !data.description) {
-          previewDiv.remove();
-          _repositionSelectionPopup();
-          return;
-        }
-        previewDiv.classList.remove('loading');
+        if (!data.title && !data.description) return;
         let html = '';
         if (data.image) {
           html += `<img class="doc-link-preview-img" src="${escapeAttr(data.image)}" onerror="this.remove()">`;
@@ -4575,9 +4576,10 @@ function _showLookupPanel(x, y, contextData, initialValue) {
           if (typeof browseNewTab === 'function') browseNewTab(contextData.linkUrl);
           else window.open(contextData.linkUrl, '_blank');
         });
+        popup.insertBefore(previewDiv, popup.firstChild);
         _repositionSelectionPopup();
       })
-      .catch(() => { previewDiv.remove(); _repositionSelectionPopup(); });
+      .catch(() => {});
   }
 
   // Context menu items (links, images)

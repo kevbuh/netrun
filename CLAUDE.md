@@ -28,7 +28,7 @@ Starts an HTTP server on port 8000 serving the app at `http://localhost:8000`.
 
 ## Architecture
 
-Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Python stdlib backend, no build step.
+Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Python stdlib backend, no build step. **Optimized for running in the browser** (not Electron) — always prioritize the web browser experience when making decisions about navigation, tabs, popups, and link handling.
 
 ### Backend — `arxiv-filter/server.py` + `persistence.py` + `kernels.py`
 
