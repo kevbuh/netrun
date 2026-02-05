@@ -151,6 +151,10 @@ function initPdfViewer(container, url, arxivId) {
         <button onclick="pdfSearchNext()" title="Next (Enter)" style="display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;padding:3px 4px;color:var(--text-dimmer,#888);">
           <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
+        <span style="width:1px;height:16px;background:var(--border-input);flex-shrink:0;"></span>
+        <button onclick="closePdfFindBar()" title="Close (Esc)" style="display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;padding:3px 4px;color:var(--text-dimmer,#888);">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </div>
   `;

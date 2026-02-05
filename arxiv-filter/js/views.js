@@ -1414,10 +1414,15 @@ function _renderSelectionMirror(el, selectedText) {
 // Intercept Cmd/Ctrl+F in paper view to focus the PDF toolbar search
 document.addEventListener('keydown', function(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-    const paperView = document.getElementById('paper-view');
-    if (paperView && paperView.style.display === 'block') {
-      const input = document.getElementById('pdf-search-input');
-      if (input) { e.preventDefault(); input.focus(); input.select(); }
+    const input = document.getElementById('pdf-search-input');
+    if (input && input.offsetParent !== null) {
+      e.preventDefault();
+      // Toggle: if focused or has a search active, close; otherwise open
+      if (document.activeElement === input || input.value.trim()) {
+        closePdfFindBar();
+      } else {
+        input.focus(); input.select();
+      }
     }
   }
 });
