@@ -2971,7 +2971,23 @@ function toggleBrowseMoreMenu() {
 
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const hasTab = tab && !tab.blank && tab.url;
-  dd.innerHTML = `<div style="position:absolute;right:0;top:calc(100% + 4px);min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
+
+  // Build overflow rows for buttons hidden in the bar
+  let overflowRows = '';
+  const overflowIds = typeof getBarOverflowIds === 'function' ? getBarOverflowIds() : [];
+  overflowIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const label = (el.title || (el.querySelector('[title]') || {}).title || id).replace('browse-', '').replace('-btn', '');
+    const svgEl = el.querySelector('svg');
+    const icon = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
+    overflowRows += `<button onclick="removeFromBarOverflow('${id}');toggleBrowseMoreMenu();" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
+  });
+  const overflowSep = overflowRows ? '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>' : '';
+
+  const btnRect = document.getElementById('browse-more-btn').getBoundingClientRect();
+  dd.innerHTML = `<div style="position:fixed;right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px;min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
+    ${overflowRows}${overflowSep}
     <button onclick="browseOpenNoteView()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Note view

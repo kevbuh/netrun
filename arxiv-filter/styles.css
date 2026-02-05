@@ -22,8 +22,14 @@
       -webkit-app-region: drag;
     }
     body.electron-app #browse-bar button,
-    body.electron-app #browse-bar input {
+    body.electron-app #browse-bar input,
+    body.electron-app #browse-bar div {
       -webkit-app-region: no-drag;
+    }
+    .browse-more-btn-drop-target {
+      outline: 2px solid var(--accent);
+      border-radius: 6px;
+      box-shadow: 0 0 8px var(--accent);
     }
     body.electron-app .view > .electron-drag-top {
       -webkit-app-region: drag;

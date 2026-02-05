@@ -1747,6 +1747,26 @@ window.addEventListener('keydown', e => {
     return document.getElementById('browse-url-input');
   }
 
+  function getOverflowIds() {
+    try { return JSON.parse(localStorage.getItem('browseBarOverflow') || '[]'); } catch { return []; }
+  }
+
+  function addToBarOverflow(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+    const ids = getOverflowIds();
+    if (!ids.includes(id)) ids.push(id);
+    localStorage.setItem('browseBarOverflow', JSON.stringify(ids));
+  }
+
+  function removeFromBarOverflow(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+    const ids = getOverflowIds().filter(i => i !== id);
+    localStorage.setItem('browseBarOverflow', JSON.stringify(ids));
+    saveBrowseBarOrder();
+  }
+
   function restoreBrowseBarOrder() {
     const saved = localStorage.getItem('browseBarOrder');
     if (!saved) return;
@@ -1771,6 +1791,12 @@ window.addEventListener('keydown', e => {
         }
       });
     } catch {}
+    // Hide any buttons in overflow
+    const overflow = getOverflowIds();
+    overflow.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
   }
 
   function saveBrowseBarOrder() {
@@ -1788,7 +1814,7 @@ window.addEventListener('keydown', e => {
 
   bar.addEventListener('pointerdown', e => {
     const btn = e.target.closest('.browse-bar-draggable');
-    if (!btn) return;
+    if (!btn || btn.id === 'browse-more-btn') return;
     dragEl = btn;
     startX = e.clientX;
     dragStarted = false;
@@ -1813,6 +1839,17 @@ window.addEventListener('keydown', e => {
     }
     dragGhost.style.left = (e.clientX - dragGhost.offsetWidth / 2) + 'px';
 
+    // Detect hover over More button for overflow drop
+    const moreBtn = document.getElementById('browse-more-btn');
+    if (moreBtn && dragEl !== moreBtn) {
+      const mr = moreBtn.getBoundingClientRect();
+      if (e.clientX >= mr.left && e.clientX <= mr.right && e.clientY >= mr.top && e.clientY <= mr.bottom) {
+        moreBtn.classList.add('browse-more-btn-drop-target');
+      } else {
+        moreBtn.classList.remove('browse-more-btn-drop-target');
+      }
+    }
+
     // Find drop target
     const btns = getDraggables();
     for (const b of btns) {
@@ -1832,9 +1869,15 @@ window.addEventListener('keydown', e => {
 
   function endDrag() {
     if (!dragEl) return;
+    const moreBtn = document.getElementById('browse-more-btn');
+    const droppedOnMore = moreBtn && moreBtn.classList.contains('browse-more-btn-drop-target');
+    if (moreBtn) moreBtn.classList.remove('browse-more-btn-drop-target');
     dragEl.classList.remove('dragging');
     if (dragGhost) { dragGhost.remove(); dragGhost = null; }
     if (dragStarted) {
+      if (droppedOnMore && dragEl !== moreBtn) {
+        addToBarOverflow(dragEl.id);
+      }
       saveBrowseBarOrder();
       const suppress = e => { e.stopPropagation(); e.preventDefault(); };
       dragEl.addEventListener('click', suppress, { capture: true, once: true });
@@ -1846,8 +1889,10 @@ window.addEventListener('keydown', e => {
   bar.addEventListener('pointerup', endDrag);
   bar.addEventListener('pointercancel', endDrag);
 
-  // Expose restore function globally so it can be called after sync
+  // Expose functions globally so they can be called after sync / from menus
   window.restoreBrowseBarOrder = restoreBrowseBarOrder;
+  window.removeFromBarOverflow = removeFromBarOverflow;
+  window.getBarOverflowIds = getOverflowIds;
 })();
 
 // ── Button click sound (Web Audio API) ──
