@@ -716,16 +716,26 @@ function openBrowse(url) {
     if (!_browseRestoreTabs()) {
       browseCreateWindow();
     }
-    if (url) browseNewTab(url);
-  } else {
-    if (url) browseNewTab(url);
-    else {
-      _browseRenderTabs();
-      // Update sidebar for current tab
-      const win = _getCurrentWindow();
-      const tab = win?.tabs.find(t => t.id === win.activeTab);
-      if (tab && tab.url && !tab.blank) _initSidebarForUrl(tab.url);
+  }
+  if (url) {
+    const resolved = _browseResolveUrl(url);
+    // Search all windows for an existing tab with this URL
+    let found = null;
+    for (const w of _browseWindows) {
+      const t = w.tabs.find(t => t.url === resolved);
+      if (t) { found = { winId: w.id, tabId: t.id }; break; }
     }
+    if (found) {
+      if (found.winId !== _browseActiveWindow) browseSelectWindow(found.winId);
+      browseSelectTab(found.tabId);
+    } else {
+      browseNewTab(url);
+    }
+  } else {
+    _browseRenderTabs();
+    const win = _getCurrentWindow();
+    const tab = win?.tabs.find(t => t.id === win.activeTab);
+    if (tab && tab.url && !tab.blank) _initSidebarForUrl(tab.url);
   }
   _browseInstallPinchOverlay();
   _browseInstallKeyGuard();
