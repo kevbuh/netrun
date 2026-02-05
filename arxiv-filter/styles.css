@@ -9,13 +9,13 @@
     body.electron-app #sidebar-nav .sidebar-icon {
       -webkit-app-region: no-drag;
     }
-    body.electron-app #browse-tabs {
+    body.electron-app #browse-tab-row {
       -webkit-app-region: drag;
-      padding-top: 6px;
     }
-    body.electron-app #browse-tabs .browse-tab,
-    body.electron-app #browse-tabs .browse-tab-new,
-    body.electron-app #browse-tabs .browse-window-switcher {
+    body.electron-app #browse-tab-row button,
+    body.electron-app #browse-tab-row .browse-tab,
+    body.electron-app #browse-tab-row .browse-tab-new,
+    body.electron-app #browse-tab-row .browse-window-switcher {
       -webkit-app-region: no-drag;
     }
     body.electron-app #browse-bar {
@@ -777,14 +777,13 @@
     .browse-tab.active {
       background: var(--bg-card);
       color: var(--text-primary);
-      border-color: var(--border-card);
-      box-shadow: 0 1px 4px rgba(0,0,0,.15);
+      box-shadow: inset 0 0 0 1px var(--border-card), 0 1px 4px rgba(0,0,0,.15);
       flex: 2 1 0;
       max-width: 240px;
     }
     /* Tab bar focused state - shows arrow key navigation is active */
     #browse-tabs.tab-bar-focused .browse-tab.active {
-      box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.15);
+      box-shadow: 0 0 0 2px var(--accent), inset 0 0 0 1px var(--border-card), 0 1px 4px rgba(0,0,0,.15);
     }
     .browse-tab-favicon {
       width: 14px;
@@ -914,12 +913,12 @@
 
     .browse-tab-new {
       flex-shrink: 0;
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border: none;
       background: transparent;
       color: var(--text-muted);
-      font-size: 1.1rem;
+      font-size: 1rem;
       border-radius: 6px;
       cursor: pointer;
       display: flex;
