@@ -209,6 +209,8 @@ async function createWindow() {
     },
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 15, y: 15 },
+    transparent: true,
+    vibrancy: 'under-window',
   });
 
   mainWindow.loadURL(`http://localhost:${serverPort}/`);

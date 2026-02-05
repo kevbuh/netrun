@@ -433,6 +433,66 @@
       --tooltip-border: #2a1830;
     }
 
+    [data-theme="glass"] {
+      --bg-body: rgba(10,10,20,0.45);
+      --text-primary: #e8eaf0;
+      --text-white: #f4f5fa;
+      --text-muted: #9ea4b8;
+      --text-dim: #7a8098;
+      --text-dimmer: #5c6278;
+      --text-dimmest: #454a5c;
+      --bg-sidebar: rgba(10,10,20,0.6);
+      --border-sidebar: rgba(255,255,255,0.06);
+      --bg-hover: rgba(255,255,255,0.06);
+      --bg-card: rgba(20,20,35,0.55);
+      --bg-input: rgba(15,15,28,0.6);
+      --bg-input-alt: rgba(20,20,35,0.55);
+      --border-card: rgba(255,255,255,0.08);
+      --border-input: rgba(255,255,255,0.10);
+      --border-subtle: rgba(255,255,255,0.06);
+      --border-dim: rgba(255,255,255,0.04);
+      --bg-header: rgba(10,10,20,0.6);
+      --bg-canvas: rgba(8,8,18,0.5);
+      --bg-popup: rgba(18,18,32,0.75);
+      --bg-chip-count: rgba(20,20,35,0.55);
+      --bg-cat-tag: rgba(20,20,35,0.55);
+      --bg-cat-tag-color: #9ea4b8;
+      --bg-cite: rgba(30,25,40,0.5);
+      --bg-sidebar-cat: rgba(255,255,255,0.04);
+      --sidebar-cat-border: rgba(255,255,255,0.08);
+      --sidebar-cat-color: #9ea4b8;
+      --text-link: #7cacf8;
+      --text-summary: #9ea4b8;
+      --text-authors: #8a90a4;
+      --text-meta-value: #b8bcd0;
+      --text-idea-desc: #b8bcd0;
+      --shadow-card: rgba(0,0,0,0.15);
+      --shadow-popup: rgba(0,0,0,0.3);
+      --overlay-bg: rgba(0,0,0,0.45);
+      --tree-edge: rgba(255,255,255,0.10);
+      --spinner-border: rgba(255,255,255,0.10);
+      --tooltip-bg: rgba(18,18,32,0.8);
+      --tooltip-border: rgba(255,255,255,0.10);
+    }
+
+    /* Glass theme: frosted blur on surfaces */
+    [data-theme="glass"] #sidebar,
+    [data-theme="glass"] .bg-sidebar { backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+    [data-theme="glass"] .paper-card,
+    [data-theme="glass"] .bg-card { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    [data-theme="glass"] .bg-popup,
+    [data-theme="glass"] #lookup-panel,
+    [data-theme="glass"] .modal-content { backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); }
+    [data-theme="glass"] .bg-header,
+    [data-theme="glass"] header { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    [data-theme="glass"] .bg-input,
+    [data-theme="glass"] input,
+    [data-theme="glass"] textarea { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    [data-theme="glass"] .tooltip,
+    [data-theme="glass"] .sidebar-tooltip { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+    [data-theme="glass"] #browse-content { background: transparent !important; }
+    [data-theme="glass"] .browse-ntp { background: var(--bg-body); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     /* ── Sidebar tooltip (parent-hover child reveal) ── */
