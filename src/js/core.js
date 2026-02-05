@@ -1562,7 +1562,7 @@ function ratePaper(link, rating) {
   setPaperRating(link, current === rating ? 0 : rating);
   // Update all visible rating widgets for this paper
   document.querySelectorAll(`.paper-rating[data-link="${CSS.escape(link)}"]`).forEach(el => {
-    el.outerHTML = renderStarRating(link, { interactive: el.closest('#paper-topbar') ? true : true, size: el.closest('#paper-topbar') ? 'md' : 'sm' });
+    el.outerHTML = renderStarRating(link, { interactive: el.closest('#browse-bar') || el.closest('#paper-topbar') ? true : true, size: el.closest('#browse-bar') || el.closest('#paper-topbar') ? 'md' : 'sm' });
   });
 }
 

@@ -262,11 +262,16 @@ function _topbarOverflowOutside(e) {
 let paperViewOrigin = 'arxiv';
 
 function paperViewGoBack() {
-  cleanupPdfViewer();
-  dismissPaperExpDropdown();
-  dismissAuthorPopover();
-  // Use browser history to go back to wherever we came from
-  window.history.back();
+  if (typeof dismissPaperExpDropdown === 'function') dismissPaperExpDropdown();
+  if (typeof dismissAuthorPopover === 'function') dismissAuthorPopover();
+  // Close the active browse tab
+  const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+  if (win) {
+    browseCloseTab(win.activeTab);
+  } else {
+    cleanupPdfViewer();
+    window.history.back();
+  }
 }
 
 let _currentPaperViewPaper = null;
@@ -275,12 +280,14 @@ let _paperInsightsLoaded = false;
 function togglePaperViewBookmark() {
   if (!_currentPaperViewPaper) return;
   toggleSavePost(_currentPaperViewPaper);
-  const btn = document.getElementById('paper-view-bookmark');
-  if (!btn) return;
   const saved = isPostSaved(_currentPaperViewPaper.link);
-  btn.className = `inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${saved ? 'text-accent' : 'text-muted hover:text-primary'}`;
-  btn.title = saved ? 'Saved' : 'Save';
-  btn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
+  // Update browse bar bookmark button
+  const browseBtn = document.getElementById('browse-paper-bookmark-btn');
+  if (browseBtn) {
+    browseBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center ' + (saved ? 'text-accent' : 'text-dimmer hover:text-primary');
+    browseBtn.title = saved ? 'Saved' : 'Save';
+    browseBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (saved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+  }
 }
 
 // ── Sidebar resize ──
@@ -313,7 +320,7 @@ function _initSidebarResize(handle, sidebar) {
 
 // ── Toggle paper sidebar ──
 function togglePaperSidebar() {
-  const sidebar = document.getElementById('paper-sidebar');
+  const sidebar = document.getElementById('browse-sidebar');
   if (!sidebar) return;
   const hidden = sidebar.style.display === 'none';
   sidebar.style.display = hidden ? '' : 'none';
@@ -326,7 +333,7 @@ function openInBrowser(url) {
 
 // ── Enable notetaking mode ──
 function enableNotetakingMode() {
-  const sidebar = document.getElementById('paper-sidebar');
+  const sidebar = document.getElementById('browse-sidebar');
   if (sidebar) sidebar.style.display = '';
   switchSidebarTab('notes');
   // Hide the notetaking mode button since we're now in notetaking mode
@@ -659,91 +666,8 @@ function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
 function showPaperView(paper, hashValue) {
   markPostRead(paper.link);
   if (typeof petReact === 'function') petReact('happy');
-  hideAllViews();
-  const view = document.getElementById('paper-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = hashValue;
-
-  const topbar = document.getElementById('paper-topbar');
-  const sidebar = document.getElementById('paper-sidebar');
-  const isHN = paper.source === 'hn';
-  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/(abs|pdf)\//.test(paper.link);
-  const hnDiscussionUrl = paper.hnId ? `https://news.ycombinator.com/item?id=${paper.hnId}` : '';
-  _currentPaperViewPaper = paper;
-  const isSaved = isPostSaved(paper.link);
-  const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
-
-  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
-  const isPdfMode = !!arxivId;
-
-  // ── Tab row (browser-style) ──
-  const tabRow = document.getElementById('paper-tabs');
-  const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(paper.link) : '';
-  const favHtml = favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(favicon)}" onerror="this.style.display='none'">` : (SOURCE_LOGO_INLINE[paper.source] || '');
-  const tabTitle = escapeHtml(paper.title || 'Paper');
-  tabRow.innerHTML = `
-    <div class="browse-tab active">
-      ${favHtml}<span class="browse-tab-title">${tabTitle}</span>
-      <button class="browse-tab-close" onclick="paperViewGoBack()" title="Close tab">&times;</button>
-    </div>
-  `;
-
-  // ── Address bar ──
-  let displayUrl = paper.link || '';
-  try { displayUrl = displayUrl.replace(/^https?:\/\//, ''); } catch {}
-
-  const backBtn = `<button class="shrink-0 w-7 h-7 rounded-md flex items-center justify-center bg-transparent border-none cursor-pointer text-muted hover:text-primary hover:bg-hover transition-colors" onclick="paperViewGoBack()" title="Back"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>`;
-
-  // Action items
-  const _topbarActions = [
-    { label: isSaved ? 'Unsave' : 'Save', html: bookmarkBtn, action: 'togglePaperViewBookmark()' },
-    { label: 'Share', html: `<div class="relative shrink-0" id="paper-share-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareDropdown()" title="Share"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg></button></div>`, action: 'toggleShareDropdown()' },
-    { label: 'Cite', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" /></svg></button>`, action: 'showCitePopup()' },
-    { label: 'Open in browser', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="openInBrowser('${escapeAttr(paper.link)}')" title="Open in browser"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: "openInBrowser('" + escapeAttr(paper.link) + "')" },
-    { label: 'Toggle sidebar', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'togglePaperSidebar()' },
-  ];
-
-  topbar.innerHTML = `
-    ${backBtn}
-    <div class="flex-1 bg-hover border border-transparent rounded-lg px-2.5 py-1 text-[0.8rem] text-muted truncate select-all cursor-text" title="${escapeAttr(paper.link)}">${escapeHtml(displayUrl)}</div>
-    <span id="topbar-actions" class="flex items-center gap-0.5 shrink-0">
-      ${_topbarActions.map((a, i) => `<span class="topbar-action" data-idx="${i}">${a.html}</span>`).join('')}
-    </span>
-    <div class="relative shrink-0" id="topbar-overflow-wrap" style="display:none">
-      <button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="_toggleTopbarOverflow()" title="More actions">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-      </button>
-      <div id="topbar-overflow-menu" style="display:none" class="absolute right-0 top-full mt-1 w-48 py-1 rounded-lg border border-border-card bg-card shadow-lg z-[9999]"></div>
-    </div>
-  `;
-
-  // Store actions data for overflow menu
-  topbar._topbarActions = _topbarActions;
-  _setupTopbarOverflow(topbar);
-
-  // ── Sidebar: notes + chat ──
-  // Clear browse-sidebar to avoid duplicate IDs
-  const browseSb = document.getElementById('browse-sidebar');
-  if (browseSb) browseSb.innerHTML = '';
-
-  sidebar.innerHTML = _renderSidebarHTML(isPdfMode ? paper : null);
-  _initSidebar(sidebar);
-
-  const pdfContainer = document.getElementById('paper-pdf-container');
-  cleanupPdfViewer();
-  pdfContainer.innerHTML = '';
-  if (arxivId) {
-    initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
-  } else {
-    _tryRenderSavedContent(pdfContainer, paper);
-  }
-
-  _initSidebarForUrl(paper.link);
-
-  // Start scroll progress tracking
-  _startScrollTracker(paper.link);
-
+  _browseReturnView = _browseReturnView || _lastActiveView || 'feed';
+  openBrowseWithPaper(paper.link, paper);
 }
 
 // ── Post Quote from Viewer ──
@@ -1399,7 +1323,7 @@ document.addEventListener('selectionchange', function() {
   // Only show for selections inside the PDF container
   if (sel.anchorNode) {
     const parent = sel.anchorNode.parentElement;
-    if (!parent || !parent.closest('#paper-pdf-container')) return;
+    if (!parent || (!parent.closest('#browse-content') && !parent.closest('#paper-pdf-container'))) return;
   }
   _renderSelectionMirror(el, text);
 });
@@ -1690,8 +1614,8 @@ function _startScrollTracker(link) {
         }
         return;
       }
-      // iframe-based viewer
-      const iframe = document.querySelector('#paper-pdf-container iframe');
+      // iframe-based viewer (browse-content or legacy paper-pdf-container)
+      const iframe = document.querySelector('#browse-content iframe') || document.querySelector('#paper-pdf-container iframe');
       if (!iframe || !iframe.contentWindow) return;
       const doc = iframe.contentDocument || iframe.contentWindow.document;
       if (!doc || !doc.documentElement) return;
@@ -1786,7 +1710,7 @@ function toggleDocChat() {
   _docChatExpanded = !_docChatExpanded;
   const panel = document.getElementById('doc-chat-panel');
   const chevron = document.getElementById('doc-chat-chevron');
-  const sidebar = document.getElementById('paper-sidebar');
+  const sidebar = document.getElementById('browse-sidebar');
   if (!panel) return;
   if (_docChatExpanded) {
     panel.classList.remove('hidden');
@@ -3792,14 +3716,10 @@ async function _doLookupCapture(popup) {
   popup.style.visibility = 'hidden';
   await new Promise(r => setTimeout(r, 80));
 
-  // Determine capture region — content area only for paper/browse views, else full window
+  // Determine capture region — content area only for browse view, else full window
   let captureRect = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
-  const paperView = document.getElementById('paper-view');
   const browseView = document.getElementById('browse-view');
-  if (paperView && paperView.classList.contains('active') && paperView.style.display !== 'none') {
-    const el = document.getElementById('paper-pdf-container');
-    if (el) { const r = el.getBoundingClientRect(); captureRect = { x: r.x, y: r.y, width: r.width, height: r.height }; }
-  } else if (browseView && browseView.style.display !== 'none') {
+  if (browseView && browseView.style.display !== 'none') {
     const el = document.getElementById('browse-content');
     if (el) { const r = el.getBoundingClientRect(); captureRect = { x: r.x, y: r.y, width: r.width, height: r.height }; }
   }
@@ -4668,7 +4588,7 @@ function _showPanel(config) {
     openSidebarBtn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       _lookupTrackMode = false;
-      const sidebar = document.getElementById('paper-sidebar');
+      const sidebar = document.getElementById('browse-sidebar');
       if (sidebar) sidebar.style.display = '';
       _sendPopupChatToSidebar();
     });
@@ -5067,20 +4987,17 @@ function openPaper(index, e) {
   if (_isNewTabClick(e)) { _openInNewTab(paper.link); return; }
   markPostAsRead(paper.link);
   _browseReturnView = _lastActiveView || 'feed';
-  openBrowse(paper.link);
+  openBrowseWithPaper(paper.link, paper);
 }
 
 function openPaperByUrl(url, e) {
   if (_isNewTabClick(e)) { _openInNewTab(url); return; }
-  paperViewOrigin = typeof _lastActiveView !== 'undefined' ? _lastActiveView : 'feed';
-  const hashVal = 'view/' + encodeURIComponent(url);
-  const cached = (searchResultsCache || []).find(r => r && r.link === url);
-  if (cached) { showPaperView(cached, hashVal); return; }
-  const savedEntry = getSavedPosts()[url];
-  if (savedEntry?.paper) { showPaperView(savedEntry.paper, hashVal); return; }
-  const feedPaper = allPapers.find(p => p.link === url);
-  if (feedPaper) { showPaperView(feedPaper, hashVal); return; }
-  showPaperView({ title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' }, hashVal);
+  _browseReturnView = typeof _lastActiveView !== 'undefined' ? _lastActiveView : 'feed';
+  const paper = (typeof searchResultsCache !== 'undefined' && searchResultsCache || []).find(r => r && r.link === url)
+    || (typeof getSavedPosts === 'function' && getSavedPosts()[url]?.paper)
+    || (typeof allPapers !== 'undefined' && allPapers.find(p => p.link === url))
+    || { title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' };
+  openBrowseWithPaper(url, paper);
 }
 
 // ── Mobile Paper Sidebar ──

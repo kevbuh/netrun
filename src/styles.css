@@ -36,46 +36,9 @@
       height: 12px;
       flex-shrink: 0;
     }
-    body.electron-app #paper-topbar {
-      -webkit-app-region: drag;
-    }
-    body.electron-app #paper-topbar button,
-    body.electron-app #paper-topbar a,
-    body.electron-app #paper-topbar input,
-    body.electron-app #paper-topbar select {
-      -webkit-app-region: no-drag;
-    }
-
     /* Download app banner (hidden in Electron) */
     body.electron-app #download-app-banner {
       display: none !important;
-    }
-
-    /* Browse button: dim and add lock icon when not in Electron */
-    body:not(.electron-app) #sb-browse {
-      opacity: 0.5;
-      position: relative;
-    }
-    body:not(.electron-app) #sb-browse::after {
-      content: '';
-      position: absolute;
-      bottom: 2px;
-      right: 2px;
-      width: 14px;
-      height: 14px;
-      background: var(--bg-sidebar);
-      border-radius: 50%;
-      border: 1.5px solid var(--text-dimmer);
-    }
-    body:not(.electron-app) #sb-browse::before {
-      content: '🔒';
-      position: absolute;
-      bottom: 0px;
-      right: 4px;
-      font-size: 8px;
-      z-index: 1;
-      filter: grayscale(1);
-      opacity: 0.7;
     }
 
     #download-app-banner {

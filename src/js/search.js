@@ -301,7 +301,11 @@ function _browseSaveTabs() {
     id: w.id,
     name: w.name,
     activeTab: w.activeTab,
-    tabs: w.tabs.map(t => ({ id: t.id, url: t.url || '', title: t.title, blank: !!t.blank }))
+    tabs: w.tabs.map(t => {
+      const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
+      if (t.paper) { saved.paper = t.paper; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null; }
+      return saved;
+    })
   }));
   localStorage.setItem(_getBrowseStorageKey('browseWindows'), JSON.stringify({
     windows: data,
@@ -338,6 +342,17 @@ function _browseRestoreTabs() {
         for (const saved of savedWin.tabs) {
           if (saved.blank) {
             const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
+            win.tabs.push(tab);
+            continue;
+          }
+          // Paper tab — create container div (content renders lazily on select)
+          if (saved.paper && saved.contentType) {
+            const el = document.createElement('div');
+            el.id = 'browse-paper-' + saved.id;
+            el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
+            container.appendChild(el);
+            const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false,
+                          paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null };
             win.tabs.push(tab);
             continue;
           }
@@ -552,38 +567,8 @@ function _browseGoBack() {
 }
 
 function openBrowse(url) {
-  // Block Browse view when not in Electron
-  if (!_browseIsElectron) {
-    hideAllViews();
-    const view = document.getElementById('browse-view');
-    view.classList.add('active');
-    view.style.display = 'flex';
-    view.style.flexDirection = 'column';
-    window.location.hash = 'browse';
-    setSidebarActive('sb-browse');
-
-    // Show desktop-only message
-    view.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--bg-body);">
-        <div style="max-width:480px;text-align:center;padding:32px;">
-          <svg style="width:80px;height:80px;margin:0 auto 24px;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/>
-          </svg>
-          <h2 style="font-size:1.5rem;font-weight:700;color:var(--text-white);margin-bottom:12px;">Browse is Desktop-Only</h2>
-          <p style="font-size:0.95rem;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">The built-in browser requires the desktop app for full functionality including ad blocking, privacy features, and native performance.</p>
-          <a href="https://github.com/yourusername/alpha/releases" target="_blank" style="display:inline-block;padding:12px 24px;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Download Desktop App</a>
-          <button onclick="openDashboard()" style="display:block;margin:16px auto 0;padding:8px 16px;background:transparent;border:1px solid var(--border-input);color:var(--text-muted);border-radius:6px;cursor:pointer;font-size:0.85rem;transition:all 0.2s;" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--text-dim)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border-input)'">Back to Home</button>
-        </div>
-      </div>
-    `;
-    return;
-  }
-
   setSidebarLoading('sb-browse');
   hideAllViews();
-  // Clear paper-sidebar to avoid duplicate IDs
-  const paperSb = document.getElementById('paper-sidebar');
-  if (paperSb) paperSb.innerHTML = '';
 
   const view = document.getElementById('browse-view');
   view.classList.add('active');
@@ -660,12 +645,58 @@ function browseNewTab(url) {
   }, 50);
 }
 
+function browseNewPaperTab(url, paper) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const id = _browseNextTabId++;
+  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/(abs|pdf)\//.test(url);
+  const arxivId = isArxiv ? (paper.arxivId || (url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
+
+  const container = document.getElementById('browse-content');
+  const el = document.createElement('div');
+  el.id = 'browse-paper-' + id;
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
+  if (!arxivId) el.style.display = 'none';
+  container.appendChild(el);
+
+  const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(url) : '';
+  const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
+                paper, contentType: arxivId ? 'pdf' : 'reader', arxivId: arxivId || null };
+  win.tabs.push(tab);
+  browseSelectTab(id);
+  _browseSaveTabs();
+}
+
+function openBrowseWithPaper(url, paper) {
+  const view = document.getElementById('browse-view');
+  const isAlreadyOpen = view && view.style.display !== 'none' && view.style.display !== '';
+
+  if (!isAlreadyOpen) openBrowse();
+
+  // Check for existing tab with this URL across all windows
+  for (const w of _browseWindows) {
+    const t = w.tabs.find(t => t.url === url);
+    if (t) {
+      if (w.id !== _browseActiveWindow) browseSelectWindow(w.id);
+      browseSelectTab(t.id);
+      return;
+    }
+  }
+  browseNewPaperTab(url, paper);
+  // Close initial blank tab if one was just created by openBrowse
+  const win = _getCurrentWindow();
+  if (win && win.tabs.length > 1) {
+    const blank = win.tabs.find(t => t.blank && t.id !== win.activeTab);
+    if (blank) browseCloseTab(blank.id);
+  }
+}
+
 function _browseRefreshScheme() {
   // Reload all proxied browse tabs with the updated color scheme
   if (!_browseWindows.length) return;
   for (const win of _browseWindows) {
     for (const tab of win.tabs) {
-      if (!tab.el || tab.blank || !tab.url) continue;
+      if (!tab.el || tab.blank || !tab.url || tab.contentType) continue;
       const newSrc = _browseProxyUrl(tab.url);
       if (tab.el.src !== newSrc) tab.el.src = newSrc;
     }
@@ -984,6 +1015,7 @@ if (document.readyState === 'loading') {
 }
 
 function _browseBindFrame(tab) {
+  if (tab.contentType === 'pdf' || tab.contentType === 'reader') return;
   const el = tab.el;
   if (!el || !_browseIsElectron) return;
 
@@ -1347,6 +1379,13 @@ function browseSelectTab(id) {
   if (!win) return;
   // Close find bar when switching tabs
   if (_browseFindBarActive) _browseCloseFindBar();
+
+  // Clean up PDF viewer when switching away from a PDF tab
+  const prevTab = win.tabs.find(t => t.id === win.activeTab);
+  if (prevTab && prevTab.contentType === 'pdf' && prevTab.id !== id) {
+    cleanupPdfViewer();
+  }
+
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
 
@@ -1369,9 +1408,73 @@ function browseSelectTab(id) {
   _browseSaveTabs();
   _browseUpdateNewTabPage(tab);
   _updateAudioIndicator();
-  // Update sidebar for the selected tab
-  if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
+
+  // Paper tab handling
+  if (tab && tab.paper) {
+    _currentPaperViewPaper = tab.paper;
+    // Render PDF if not yet rendered
+    if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
+      cleanupPdfViewer();
+      initPdfViewer(tab.el, '/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId), tab.arxivId);
+    }
+    // Render reader/iframe if not yet rendered
+    else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
+      _tryRenderSavedContent(tab.el, tab.paper);
+    }
+    // Update sidebar with paper metadata
+    const browseSb = document.getElementById('browse-sidebar');
+    if (browseSb) {
+      browseSb.innerHTML = _renderSidebarHTML(tab.contentType === 'pdf' ? tab.paper : null);
+      _initSidebar(browseSb);
+      browseSb.style.display = '';
+    }
     _initSidebarForUrl(tab.url);
+    _startScrollTracker(tab.url);
+    _browseUpdateBarForTab(tab);
+  } else {
+    _currentPaperViewPaper = null;
+    _browseUpdateBarForTab(tab);
+    // Update sidebar for the selected tab
+    if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
+      _initSidebarForUrl(tab.url);
+    }
+  }
+}
+
+function _browseUpdateBarForTab(tab) {
+  let citeBtn = document.getElementById('browse-cite-btn');
+  let bookmarkBtn = document.getElementById('browse-paper-bookmark-btn');
+  if (tab && tab.paper) {
+    // Cite button
+    if (!citeBtn) {
+      const moreBtn = document.getElementById('browse-more-btn');
+      citeBtn = document.createElement('button');
+      citeBtn.id = 'browse-cite-btn';
+      citeBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center';
+      citeBtn.onclick = function() { if (typeof showCitePopup === 'function') showCitePopup(); };
+      citeBtn.title = 'Cite';
+      citeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25"/></svg>';
+      if (moreBtn) moreBtn.parentElement.insertBefore(citeBtn, moreBtn);
+    }
+    citeBtn.style.display = '';
+    // Bookmark button
+    if (!bookmarkBtn) {
+      const moreBtn = document.getElementById('browse-more-btn');
+      bookmarkBtn = document.createElement('button');
+      bookmarkBtn.id = 'browse-paper-bookmark-btn';
+      bookmarkBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center';
+      bookmarkBtn.onclick = function() { if (typeof togglePaperViewBookmark === 'function') togglePaperViewBookmark(); };
+      bookmarkBtn.title = 'Save';
+      if (moreBtn) moreBtn.parentElement.insertBefore(bookmarkBtn, citeBtn);
+    }
+    const isSaved = typeof isPostSaved === 'function' && isPostSaved(tab.paper.link);
+    bookmarkBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center ' + (isSaved ? 'text-accent' : 'text-dimmer hover:text-primary');
+    bookmarkBtn.title = isSaved ? 'Saved' : 'Save';
+    bookmarkBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+    bookmarkBtn.style.display = '';
+  } else {
+    if (citeBtn) citeBtn.style.display = 'none';
+    if (bookmarkBtn) bookmarkBtn.style.display = 'none';
   }
 }
 
@@ -1399,9 +1502,10 @@ function browseCloseTab(id) {
   if (idx === -1) return;
   const tab = win.tabs[idx];
   const wasLast = win.tabs.length === 1;
-  _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank });
+  _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank, paper: tab.paper || null, contentType: tab.contentType || null, arxivId: tab.arxivId || null });
   if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
   localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
+  if (tab.contentType === 'pdf') cleanupPdfViewer();
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);
@@ -1430,7 +1534,11 @@ function browseReopenTab() {
   if (!_browseClosedTabs.length) return;
   const closed = _browseClosedTabs.pop();
   localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
-  browseNewTab(closed.url);
+  if (closed.paper && closed.contentType) {
+    browseNewPaperTab(closed.url, closed.paper);
+  } else {
+    browseNewTab(closed.url);
+  }
 }
 
 function _browseAnimateBounce() {
@@ -2206,6 +2314,12 @@ function _browseFaviconUrl(url) {
 
 function browseNavigate(input) {
   const url = _browseResolveUrl(input);
+  // arXiv URL → open as paper tab
+  const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
+  if (arxivMatch) {
+    browseNewPaperTab(url, { title: 'arXiv: ' + arxivMatch[1], link: url, source: 'arxiv', arxivId: arxivMatch[1], description: '', authors: '', categories: [] });
+    return;
+  }
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
   tab.url = url;
@@ -3038,9 +3152,13 @@ function toggleBrowseMoreMenu() {
   const btnRect = document.getElementById('browse-more-btn').getBoundingClientRect();
   dd.innerHTML = `<div style="position:fixed;right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px;min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
     ${overflowRows}${overflowSep}
-    <button onclick="browseOpenNoteView()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+    <button onclick="browseEnableNoteMode()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Note view
+      Note mode
+    </button>
+    <button onclick="togglePaperSidebar()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Toggle sidebar
     </button>
     <button onclick="browsePrintPage()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>
@@ -3079,7 +3197,7 @@ function browsePrintPage() {
   }
 }
 
-function browseOpenNoteView() {
+function browseEnableNoteMode() {
   // Close the menu
   const dd = document.getElementById('browse-more-menu');
   if (dd) dd.style.display = 'none';
@@ -3087,11 +3205,16 @@ function browseOpenNoteView() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank || !tab.url) return;
 
-  // Open current tab's URL in the paper viewer (with PDF highlighting, pen, notes, etc.)
-  paperViewOrigin = 'browse';
+  // Already a paper tab — just show sidebar
+  if (tab.contentType) {
+    togglePaperSidebar();
+    return;
+  }
+
+  // Convert current iframe tab into a paper tab with reader view
   const isArxiv = /arxiv\.org\/(abs|pdf)\//.test(tab.url);
   const arxivId = isArxiv ? (tab.url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '' : '';
-  const paper = {
+  tab.paper = {
     title: tab.title || _browseTitleFromUrl(tab.url),
     link: tab.url,
     description: '',
@@ -3100,8 +3223,21 @@ function browseOpenNoteView() {
     source: isArxiv ? 'arxiv' : 'browse',
     arxivId: arxivId
   };
-  const hashVal = 'view/' + encodeURIComponent(tab.url);
-  showPaperView(paper, hashVal);
+  tab.contentType = arxivId ? 'pdf' : 'reader';
+  tab.arxivId = arxivId || null;
+
+  // Replace iframe with a container div
+  if (tab.el) tab.el.remove();
+  const container = document.getElementById('browse-content');
+  const el = document.createElement('div');
+  el.id = 'browse-paper-' + tab.id;
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow:hidden;';
+  container.appendChild(el);
+  tab.el = el;
+
+  // Re-select to trigger paper rendering
+  browseSelectTab(tab.id);
+  _browseSaveTabs();
 }
 
 // ── Search History (for search view) ──

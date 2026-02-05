@@ -306,10 +306,9 @@ function renderExpPapers() {
 }
 
 function openExpPaper(link, title, source) {
-  const paper = { link, title: title || link, source: source || '' };
-  paperViewOrigin = 'experiment';
+  _browseReturnView = 'experiment';
   _paperOriginExpId = currentExpId;
-  showPaperView(paper, 'view/' + encodeURIComponent(link));
+  openBrowseWithPaper(link, { link, title: title || link, source: source || '', description: '', authors: '', categories: [] });
 }
 
 function removeExpPaper(link) {
