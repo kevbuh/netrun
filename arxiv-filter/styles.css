@@ -667,6 +667,7 @@
       gap: 4px;
       padding: 4px 8px;
       min-width: 0;
+      max-width: 240px;
       font-size: 0.75rem;
       color: var(--text-muted);
       background: transparent;
@@ -688,6 +689,7 @@
       border-color: var(--border-card);
       box-shadow: 0 1px 4px rgba(0,0,0,.15);
       flex: 2 1 0;
+      max-width: 240px;
     }
     /* Tab bar focused state - shows arrow key navigation is active */
     #browse-tabs.tab-bar-focused .browse-tab.active {
