@@ -219,10 +219,13 @@ async function createWindow() {
     return { action: 'deny' };
   });
 
-  // Handle keyboard shortcuts for browse view (Cmd+T, Cmd+W)
+  // Handle keyboard shortcuts for browse view (Cmd+T, Cmd+Shift+T, Cmd+W)
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && (input.meta || input.control)) {
-      if (input.key.toLowerCase() === 't') {
+      if (input.key.toLowerCase() === 't' && input.shift) {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'reopen-tab');
+      } else if (input.key.toLowerCase() === 't') {
         event.preventDefault();
         mainWindow.webContents.send('browse-command', 'new-tab');
       } else if (input.key.toLowerCase() === 'w') {
@@ -256,9 +259,14 @@ app.on('web-contents-created', (event, contents) => {
     contents.on('before-input-event', (event, input) => {
       if (input.type === 'keyDown' && (input.meta || input.control)) {
         const key = input.key.toLowerCase();
-        if (key === 't') {
+        if (key === 't' && input.shift) {
           event.preventDefault();
-          // Send to parent window
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'reopen-tab');
+          }
+        } else if (key === 't') {
+          event.preventDefault();
           const parent = contents.getOwnerBrowserWindow();
           if (parent) {
             parent.webContents.send('browse-command', 'new-tab');

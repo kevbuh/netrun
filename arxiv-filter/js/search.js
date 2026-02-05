@@ -274,6 +274,7 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 
 // Audio tracking: { tabId: { windowId, muted } }
 let _browseAudioTabs = new Map();
+let _browseClosedTabs = []; // stack of { url, title } for Cmd+Shift+T reopen
 
 // Convenience getters for current window's tabs
 function _getCurrentWindow() {
@@ -1397,6 +1398,7 @@ function browseCloseTab(id) {
   if (idx === -1) return;
   const tab = win.tabs[idx];
   const wasLast = win.tabs.length === 1;
+  if (tab.url && !tab.blank) _browseClosedTabs.push({ url: tab.url, title: tab.title });
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);
@@ -1419,6 +1421,12 @@ function browseCloseTab(id) {
     _browseRenderTabs();
   }
   _browseSaveTabs();
+}
+
+function browseReopenTab() {
+  if (!_browseClosedTabs.length) return;
+  const closed = _browseClosedTabs.pop();
+  browseNewTab(closed.url);
 }
 
 function _browseAnimateBounce() {
@@ -3138,6 +3146,8 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
       if (win && win.activeTab) {
         browseCloseTab(win.activeTab);
       }
+    } else if (command === 'reopen-tab') {
+      browseReopenTab();
     }
   });
 }
