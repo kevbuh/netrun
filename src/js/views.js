@@ -674,29 +674,29 @@ function showPaperView(paper, hashValue) {
   const isSaved = isPostSaved(paper.link);
   const bookmarkBtn = `<button id="paper-view-bookmark" class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 ${isSaved ? 'text-accent' : 'text-muted hover:text-primary'}" onclick="togglePaperViewBookmark()" title="${isSaved ? 'Saved' : 'Save'}"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></button>`;
 
-  // ── Top bar: back + metadata compact ──
-  const _backLabels = { saved: 'Reading List', search: 'Search', browse: 'Browse', experiment: 'Project', arxiv: 'Feed', feed: 'Feed', dashboard: 'Home', inbox: 'Inbox', calendar: 'Calendar', settings: 'Settings' };
-  const backLabel = _backLabels[paperViewOrigin] || 'Back';
-  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary shrink-0" onclick="paperViewGoBack()"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg><span class="text-[0.75rem]">${backLabel}</span></button>`;
-  const sourceName = SOURCE_NAMES[paper.source] || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
+  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
+  const isPdfMode = !!arxivId;
 
-  let metaParts = [];
-  if (sourceName) metaParts.push(`<span class="text-meta-value shrink-0">${escapeHtml(sourceName)}</span>`);
-  if (paper.authors) metaParts.push(`<span class="text-muted truncate topbar-scroll-span max-w-[300px]">${escapeHtml(paper.authors)}</span>`);
-  if (paper.published) metaParts.push(`<span class="text-dim shrink-0">${paper.published}</span>`);
-  if (isHN && paper.hnScore) metaParts.push(`<span class="text-[#f60] font-semibold shrink-0">${paper.hnScore} pts</span>`);
-  if (isHN && hnDiscussionUrl) metaParts.push(`<a href="${hnDiscussionUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline shrink-0">${paper.hnComments} comments</a>`);
-  if (paper.commentsUrl) metaParts.push(`<a href="${paper.commentsUrl}" target="_blank" rel="noopener" class="text-link no-underline hover:underline shrink-0">discussion</a>`);
-  if (paper.categories && paper.categories.length) metaParts.push(...paper.categories.slice(0, 3).map(c => {
-    const fullName = ARXIV_CAT_NAMES[c] || '';
-    return `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border shrink-0 cursor-default" ${fullName ? `title="${escapeHtml(fullName)}"` : ''}>${escapeHtml(c)}</span>`;
-  }));
+  // ── Tab row (browser-style) ──
+  const tabRow = document.getElementById('paper-tabs');
+  const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(paper.link) : '';
+  const favHtml = favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(favicon)}" onerror="this.style.display='none'">` : (SOURCE_LOGO_INLINE[paper.source] || '');
+  const tabTitle = escapeHtml(paper.title || 'Paper');
+  tabRow.innerHTML = `
+    <div class="browse-tab active">
+      ${favHtml}<span class="browse-tab-title">${tabTitle}</span>
+      <button class="browse-tab-close" onclick="paperViewGoBack()" title="Close tab">&times;</button>
+    </div>
+  `;
 
-  const sidebarToggleBtn = '';
+  // ── Address bar ──
+  let displayUrl = paper.link || '';
+  try { displayUrl = displayUrl.replace(/^https?:\/\//, ''); } catch {}
 
-  // Action items: each has label (for overflow menu), html (inline button), and optional id
+  const backBtn = `<button class="shrink-0 w-7 h-7 rounded-md flex items-center justify-center bg-transparent border-none cursor-pointer text-muted hover:text-primary hover:bg-hover transition-colors" onclick="paperViewGoBack()" title="Back"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>`;
+
+  // Action items
   const _topbarActions = [
-    { label: 'Rate', html: `<span class="shrink-0 text-dimmer">${renderStarRating(paper.link, { size: 'md', interactive: true })}</span>`, noOverflow: true },
     { label: isSaved ? 'Unsave' : 'Save', html: bookmarkBtn, action: 'togglePaperViewBookmark()' },
     { label: 'Share', html: `<div class="relative shrink-0" id="paper-share-btn-wrap"><button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="toggleShareDropdown()" title="Share"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg></button></div>`, action: 'toggleShareDropdown()' },
     { label: 'Cite', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="showCitePopup()" title="Cite paper"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" /></svg></button>`, action: 'showCitePopup()' },
@@ -704,16 +704,10 @@ function showPaperView(paper, hashValue) {
     { label: 'Toggle sidebar', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'togglePaperSidebar()' },
   ];
 
-  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
-  const isPdfMode = !!arxivId;
-
   topbar.innerHTML = `
     ${backBtn}
-    <span class="w-px h-5 bg-border-dim shrink-0"></span>
-    ${isPdfMode ? '' : `<span class="text-[0.82rem] font-semibold text-white_ truncate topbar-scroll-span">${renderTitle(paper.title)}</span>`}
-    ${isPdfMode ? '' : `<span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto topbar-meta">${metaParts.join('<span class="text-dimmest shrink-0">·</span>')}</span>`}
-    ${sidebarToggleBtn}
-    <span id="topbar-actions" class="flex items-center gap-0.5 shrink-0 ${isPdfMode ? 'ml-auto' : ''}">
+    <div class="flex-1 bg-hover border border-transparent rounded-lg px-2.5 py-1 text-[0.8rem] text-muted truncate select-all cursor-text" title="${escapeAttr(paper.link)}">${escapeHtml(displayUrl)}</div>
+    <span id="topbar-actions" class="flex items-center gap-0.5 shrink-0">
       ${_topbarActions.map((a, i) => `<span class="topbar-action" data-idx="${i}">${a.html}</span>`).join('')}
     </span>
     <div class="relative shrink-0" id="topbar-overflow-wrap" style="display:none">
