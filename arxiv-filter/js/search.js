@@ -49,15 +49,8 @@ function submitSearch() {
   searchCurrentStart = 0;
   searchSort = 'citations';
   searchCurrentQuery = query;
-  // Reset OpenAlex (lazy-loaded on header click)
-  openalexResultsCache = [];
-  openalexLoaded = false;
-  openalexCollapsed = true;
   arxivCollapsed = false;
   doSearchArxiv();
-  // Show collapsed OpenAlex header
-  const oaContainer = document.getElementById('search-openalex-results');
-  if (oaContainer) renderOpenAlexHeader(oaContainer, false);
 }
 
 function renderSearchFeedResults(query) {
@@ -93,7 +86,7 @@ function renderSearchFeedResults(query) {
       const sourceChip = getSourceChip(p.source, p.arxivId);
       const authorLabel = _searchAuthorLabel(p.authors);
       const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
-      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchFeedPaper(${i})">
+      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchFeedPaper(${i}, event)">
         ${sourceChip}
         <span class="text-[0.82rem] text-primary truncate">${renderTitle(p.title)}</span>
         ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
@@ -106,10 +99,10 @@ function renderSearchFeedResults(query) {
   searchResultsCache._feedMatches = matches;
 }
 
-function openSearchFeedPaper(i) {
+function openSearchFeedPaper(i, e) {
   const matches = searchResultsCache._feedMatches;
   if (!matches || !matches[i]) return;
-  openPaperByUrl(matches[i].link);
+  openPaperByUrl(matches[i].link, e);
 }
 
 async function doSearchArxiv() {
@@ -217,7 +210,7 @@ function renderSearchArxivResults(total) {
   container.innerHTML = header + sorted.map((r, i) => {
     const authorLabel = _searchAuthorLabel(r.authors);
     const rLink = r.arxivId ? `https://arxiv.org/abs/${r.arxivId}` : (r.link || '');
-    return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchArxivPaper(${i})">
+    return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openSearchArxivPaper(${i}, event)">
       ${r.arxivId ? ARXIV_LOGO_INLINE : ''}<span class="text-[0.82rem] text-primary truncate">${renderTitle(r.title)}</span>
       ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
       ${rLink ? `<span class="shrink-0">${renderStarRating(rLink, { size: 'sm', interactive: true })}</span>` : ''}
@@ -256,9 +249,9 @@ async function fetchSearchCitations(total) {
   } catch (e) { /* silently fail */ }
 }
 
-function openSearchArxivPaper(i) {
+function openSearchArxivPaper(i, e) {
   const r = searchResultsSorted[i];
-  if (r && r.link) openPaperByUrl(r.link);
+  if (r && r.link) openPaperByUrl(r.link, e);
 }
 
 function searchPrev() {
@@ -269,113 +262,6 @@ function searchPrev() {
 function searchNext() {
   searchCurrentStart += 100;
   doSearchArxiv();
-}
-
-// ── OpenAlex Search ──
-let openalexResultsCache = [];
-let openalexSort = 'citations';
-let openalexResultsSorted = [];
-let openalexCollapsed = true;
-let openalexLoaded = false;
-
-function toggleOpenAlexCollapse() {
-  openalexCollapsed = !openalexCollapsed;
-  if (!openalexCollapsed && !openalexLoaded && searchCurrentQuery) {
-    openalexLoaded = true;
-    doSearchOpenAlex();
-    return;
-  }
-  renderOpenAlexResults();
-}
-
-async function doSearchOpenAlex() {
-  const container = document.getElementById('search-openalex-results');
-  if (!container) return;
-  renderOpenAlexHeader(container, true);
-  try {
-    const resp = await fetch(`/api/openalex-search?q=${encodeURIComponent(searchCurrentQuery)}&per_page=100`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    openalexResultsCache = (data.results || []).map(w => {
-      const authors = (w.authorships || []).map(a => a.author?.display_name || '').filter(Boolean).join(', ');
-      const published = w.publication_date || '';
-      const dateStr = published ? formatDate(new Date(published + 'T00:00:00')) : '';
-      const doi = w.doi || '';
-      const link = doi || (w.primary_location?.landing_page_url || w.id || '');
-      const source = w.primary_location?.source?.display_name || '';
-      return { title: w.title || '', authors, link, date: dateStr, pubDate: published, citations: w.cited_by_count || 0, source, type: w.type || '' };
-    });
-    renderOpenAlexResults();
-  } catch (err) {
-    renderOpenAlexHeader(container, false);
-  }
-}
-
-function renderOpenAlexHeader(container, loading) {
-  const chevron = openalexCollapsed
-    ? '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>'
-    : '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>';
-  const count = openalexResultsCache.length ? ` <span class="text-[0.7rem] normal-case">(${openalexResultsCache.length})</span>` : '';
-  const loadingEl = loading ? ' <span class="text-[0.7rem] text-dim normal-case">loading...</span>' : '';
-  container.innerHTML = `<div class="flex items-center gap-2 mb-3 mt-4">
-    <button class="flex items-center gap-1 text-[0.75rem] text-dimmer uppercase tracking-wide cursor-pointer bg-transparent border-none hover:text-primary transition-colors" onclick="toggleOpenAlexCollapse()">${chevron} OpenAlex${count}${loadingEl}</button>
-  </div>`;
-}
-
-function renderOpenAlexResults() {
-  const container = document.getElementById('search-openalex-results');
-  if (!container) return;
-  if (!searchCurrentQuery) { container.innerHTML = ''; return; }
-
-  if (openalexCollapsed || !openalexResultsCache.length) {
-    renderOpenAlexHeader(container, false);
-    return;
-  }
-
-  let sorted = [...openalexResultsCache];
-  if (openalexSort === 'citations') {
-    sorted.sort((a, b) => (b.citations || 0) - (a.citations || 0));
-  } else {
-    sorted.sort((a, b) => {
-      const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
-      const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
-      return db - da;
-    });
-  }
-
-  const chevron = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>';
-  const isCited = openalexSort === 'citations';
-  const sortIcon = isCited
-    ? `<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg>`
-    : `<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
-  const header = `<div class="flex items-center gap-2 mb-3 mt-4">
-    <button class="flex items-center gap-1 text-[0.75rem] text-dimmer uppercase tracking-wide cursor-pointer bg-transparent border-none hover:text-primary transition-colors" onclick="toggleOpenAlexCollapse()">${chevron} OpenAlex <span class="text-[0.7rem] normal-case">(${sorted.length})</span></button>
-    <button class="shrink-0 w-7 h-7 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" onclick="setOpenAlexSort('${isCited ? 'latest' : 'citations'}')" title="${isCited ? 'Sort by latest' : 'Sort by most cited'}">${sortIcon}</button>
-  </div>`;
-
-  openalexResultsSorted = sorted;
-  container.innerHTML = header + sorted.map((r, i) => {
-    const sourceTag = r.source ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(truncate(r.source, 30))}</span>` : '';
-    const authorLabel = _searchAuthorLabel(r.authors);
-    return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openOpenAlexPaper(${i})">
-      ${sourceTag}<span class="text-[0.82rem] text-primary truncate">${escapeHtml(r.title)}</span>
-      ${authorLabel ? `<span class="text-[0.68rem] text-dimmer shrink-0">${authorLabel}</span>` : ''}
-      ${r.link ? `<span class="shrink-0">${renderStarRating(r.link, { size: 'sm', interactive: true })}</span>` : ''}
-      <span class="text-[0.68rem] text-dim shrink-0">${r.citations} cited</span>
-      ${r.date ? `<span class="text-[0.68rem] text-dim shrink-0 ml-auto">${escapeHtml(r.date)}</span>` : ''}
-    </div>`;
-  }).join('');
-}
-
-function setOpenAlexSort(mode) {
-  openalexSort = mode;
-  renderOpenAlexResults();
-}
-
-function openOpenAlexPaper(i) {
-  const r = openalexResultsSorted[i];
-  if (!r || !r.link) return;
-  openPaperByUrl(r.link);
 }
 
 // ── Browse View (multi-window, multi-tab embedded browser) ──
@@ -1756,9 +1642,42 @@ function _showTabHoverPopup(e) {
       `<div class="browse-tab-hover-info">` +
       `<div class="browse-tab-hover-title">${escapeHtml(tab.title)}</div>` +
       `<div class="browse-tab-hover-url">${escapeHtml(domain)}</div>` +
-      `</div>`;
+      `</div>` +
+      `<button class="browse-tab-hover-context-btn">+ Context</button>`;
     document.body.appendChild(popup);
     _tabHoverPopup = popup;
+
+    // "Add to context" button — extract text and add to lookup panel
+    const ctxBtn = popup.querySelector('.browse-tab-hover-context-btn');
+    if (ctxBtn) {
+      ctxBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      ctxBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        ctxBtn.textContent = '...';
+        ctxBtn.disabled = true;
+        try {
+          const resp = await fetch('/api/extract-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: tab.url })
+          });
+          const data = await resp.json();
+          const content = data.text || '';
+          // Find or create lookup panel
+          let lookupPanel = document.getElementById('doc-chat-ask-float');
+          if (!lookupPanel && typeof _showLookupPanel === 'function') {
+            _showLookupPanel(window.innerWidth / 2, window.innerHeight / 2);
+            lookupPanel = document.getElementById('doc-chat-ask-float');
+          }
+          if (lookupPanel && typeof _addTabContextToPanel === 'function') {
+            _addTabContextToPanel(lookupPanel, { tabId: tab.id, title: tab.title, url: tab.url, content });
+          }
+        } catch (e) {
+          ctxBtn.textContent = 'Failed';
+        }
+        _hideTabHoverPopup();
+      });
+    }
 
     // Position centered below the tab, clamped to viewport
     const popW = popup.offsetWidth;

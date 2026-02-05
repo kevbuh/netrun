@@ -116,7 +116,7 @@ function renderExperimentList() {
         ${statusCounts.crashed ? `<div class="bg-red-500" style="width:${statusCounts.crashed/total*100}%"></div>` : ''}
       </div>` : '';
     return `
-    <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')"
+    <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}', event)"
          ondragover="_onExpCardDragOver(event)" ondragleave="_onExpCardDragLeave(event)" ondrop="_onExpCardDrop(event, '${exp.id}')">
       <div class="flex items-center gap-2.5 mb-1">
         ${_pixelArt(exp.id)}
@@ -142,7 +142,7 @@ function renderExperimentList() {
       const runCount = exp.runCount || 0;
       const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
       return `
-      <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}')">
+      <div class="p-4 rounded-xl border border-border-card bg-card cursor-pointer transition-all duration-150 hover:border-border-input hover:shadow-lg group relative" onclick="openExperimentDetail('${exp.id}', event)">
         <div class="flex items-center gap-2.5 mb-1">
           ${_pixelArt(exp.id)}
           <div class="text-[0.95rem] font-semibold text-white_ truncate">${escapeHtml(exp.title)}</div>

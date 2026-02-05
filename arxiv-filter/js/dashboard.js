@@ -130,7 +130,7 @@ function _renderDashSearchResults(query, dropdown) {
   if (teams.length) {
     html += `<div class="px-3 pt-2 pb-1 text-[0.65rem] text-dimmer uppercase tracking-wide font-semibold">Teams</div>`;
     html += teams.map(t => `
-      <div class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" onclick="document.getElementById('dashboard-search-results').style.display='none'; showTeamDetailView(${t.id})">
+      <div class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" onclick="document.getElementById('dashboard-search-results').style.display='none'; showTeamDetailView(${t.id}, event)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400 shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <div class="text-primary text-[0.82rem] truncate">${escapeHtml(t.name)}</div>
         ${t.private ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-dimmer shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : ''}
@@ -390,7 +390,7 @@ async function renderDashboard() {
           const icon = icons[item.type] || '';
           const tag = `<span style="font-size:9px;color:var(--text-dimmest);margin-left:4px">${labels[item.type] || ''}</span>`;
           let onclick = '';
-          if (item.type === 'saved' && item.link) onclick = `onclick="openSavedPaper('${escapeAttr(item.link)}')"`;
+          if (item.type === 'saved' && item.link) onclick = `onclick="openSavedPaper('${escapeAttr(item.link)}', event)"`;
           else if (item.type === 'event') onclick = '';
           const cursor = onclick ? 'cursor:pointer;' : '';
           html += `<div style="padding:4px 12px;${cursor}display:flex;align-items:center;gap:6px;color:var(--text-primary)" ${onclick} class="hover:bg-hover">
@@ -436,7 +436,7 @@ async function renderDashboard() {
     const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--border-card);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--accent);border-radius:1px"></div></div>` : '';
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
-      <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+      <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}', event)">
         <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
         ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
         ${progressBar}
@@ -452,7 +452,7 @@ async function renderDashboard() {
   const expsHtml = recentExps.length ? recentExps.map(exp => {
     const runCount = exp.runCount || 0;
     const lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-    return `<div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openExperimentDetail('${exp.id}')">
+    return `<div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="openExperimentDetail('${exp.id}', event)">
       <div class="flex items-center gap-2.5">
         ${_pixelArt(exp.id)}
         <div class="min-w-0 flex-1">
@@ -474,7 +474,7 @@ async function renderDashboard() {
       <div class="flex-1 min-w-0">
         <div class="text-[0.82rem] text-primary italic leading-snug">${escapeHtml(truncate(q.quote, 200))}</div>
         <div class="flex items-center gap-1.5 mt-1">
-          <span class="text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary" onclick="window.location.hash='view/'+encodeURIComponent('${escapeAttr(q.link)}')">${escapeHtml(q.title || hostname)}</span>
+          <span class="text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary" onclick="if(_isNewTabClick(event)){_openInNewTab('${escapeAttr(q.link)}');return;} window.location.hash='view/'+encodeURIComponent('${escapeAttr(q.link)}')">${escapeHtml(q.title || hostname)}</span>
           ${dateStr ? `<span class="text-[0.68rem] text-dimmest">${dateStr}</span>` : ''}
         </div>
       </div>
@@ -608,7 +608,7 @@ async function renderDashboard() {
             <button onclick="openTeams()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
           </div>
           <div class="flex flex-col gap-2">${teams.map(t => `
-            <div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id})">
+            <div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id}, event)">
               <div class="flex items-center gap-2.5">
                 ${typeof _pixelArt === 'function' ? _pixelArt(t.name) : ''}
                 <div class="min-w-0 flex-1">
@@ -795,7 +795,7 @@ function openAllSaved() {
     const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--border-card);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--accent);border-radius:1px"></div></div>` : '';
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
-      <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}')">
+      <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}', event)">
         <div class="text-[0.82rem] text-primary truncate">${escapeHtml(p.title)}</div>
         ${hostname ? `<div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(hostname)}</div>` : ''}
         ${progressBar}

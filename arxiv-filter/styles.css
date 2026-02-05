@@ -2661,6 +2661,42 @@
       padding: 0;
     }
     .doc-note-context-remove:hover { background: var(--accent); color: #fff; }
+    .doc-tab-context-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-input);
+      border-radius: 5px;
+      font-size: 0.72rem;
+      color: var(--accent);
+      max-width: 160px;
+      cursor: default;
+    }
+    .doc-tab-context-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .browse-tab-hover-context-btn {
+      pointer-events: auto;
+      margin-left: auto;
+      padding: 2px 8px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: transparent;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .browse-tab-hover-context-btn:hover { background: var(--accent); color: #fff; }
+    #sidebar-paper-info .text-primary {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
     .doc-msg-images {
       display: flex;
       flex-wrap: wrap;
@@ -3231,6 +3267,61 @@
     .lookup-note-create-icon {
       font-weight: 700;
       font-size: 0.9rem;
+    }
+
+    /* Tab dropdown (/tab command) */
+    .lookup-tab-dropdown {
+      border-top: 1px solid var(--border-input);
+      padding: 3px 0;
+      max-height: 260px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    .lookup-tab-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: background 0.08s;
+      border-bottom: 1px solid var(--border-input);
+    }
+    .lookup-tab-item:last-child { border-bottom: none; }
+    .lookup-tab-item:hover,
+    .lookup-tab-item.selected {
+      background: var(--accent);
+    }
+    .lookup-tab-item-favicon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      border-radius: 2px;
+    }
+    .lookup-tab-item-info { min-width: 0; flex: 1; }
+    .lookup-tab-item-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lookup-tab-item-url {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lookup-tab-item:hover .lookup-tab-item-title,
+    .lookup-tab-item.selected .lookup-tab-item-title { color: #fff; }
+    .lookup-tab-item:hover .lookup-tab-item-url,
+    .lookup-tab-item.selected .lookup-tab-item-url { color: rgba(255,255,255,0.7); }
+    .lookup-tab-item-loading {
+      margin-left: auto;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
     }
 
     .doc-ref-info {

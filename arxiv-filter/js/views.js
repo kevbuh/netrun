@@ -351,7 +351,7 @@ function toggleBrowseSidebar() {
 }
 
 // ── Shared sidebar rendering ──
-function _renderSidebarHTML() {
+function _renderSidebarHTML(paper) {
   const username = escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous');
   const notesPanel = `
     <div id="paper-notes-section">
@@ -391,7 +391,29 @@ function _renderSidebarHTML() {
       </div>
     </div>
   `;
+  // Paper info section for PDF mode (above tab toolbar)
+  let paperInfoHtml = '';
+  if (paper) {
+    const sourceName = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[paper.source]) || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
+    let infoMeta = [];
+    if (sourceName) infoMeta.push(`<span class="text-meta-value">${escapeHtml(sourceName)}</span>`);
+    if (paper.authors) infoMeta.push(`<span class="text-muted truncate">${escapeHtml(paper.authors)}</span>`);
+    if (paper.published) infoMeta.push(`<span class="text-dim">${escapeHtml(paper.published)}</span>`);
+    if (paper.categories && paper.categories.length) {
+      const catTags = paper.categories.slice(0, 3).map(c => {
+        const fullName = (typeof ARXIV_CAT_NAMES !== 'undefined' && ARXIV_CAT_NAMES[c]) || '';
+        return `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border shrink-0 cursor-default" ${fullName ? `title="${escapeHtml(fullName)}"` : ''}>${escapeHtml(c)}</span>`;
+      });
+      infoMeta.push(...catTags);
+    }
+    paperInfoHtml = `<div id="sidebar-paper-info" class="px-4 py-3 border-b border-border-card shrink-0">
+      <div class="text-[0.85rem] font-semibold text-primary leading-snug mb-1.5">${renderTitle(paper.title)}</div>
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem]">${infoMeta.join('<span class="text-dimmest">\u00b7</span>')}</div>
+    </div>`;
+  }
+
   return `
+    ${paperInfoHtml}
     <div class="sidebar-tab-toolbar">
       <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -682,13 +704,16 @@ function showPaperView(paper, hashValue) {
     { label: 'Toggle sidebar', html: `<button class="inline-flex items-center p-1.5 rounded-md bg-transparent border-none cursor-pointer transition-colors shrink-0 text-muted hover:text-primary" onclick="togglePaperSidebar()" title="Toggle sidebar"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`, action: 'togglePaperSidebar()' },
   ];
 
+  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
+  const isPdfMode = !!arxivId;
+
   topbar.innerHTML = `
     ${backBtn}
     <span class="w-px h-5 bg-border-dim shrink-0"></span>
-    <span class="text-[0.82rem] font-semibold text-white_ truncate topbar-scroll-span">${renderTitle(paper.title)}</span>
-    <span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto topbar-meta">${metaParts.join('<span class="text-dimmest shrink-0">·</span>')}</span>
+    ${isPdfMode ? '' : `<span class="text-[0.82rem] font-semibold text-white_ truncate topbar-scroll-span">${renderTitle(paper.title)}</span>`}
+    ${isPdfMode ? '' : `<span class="flex items-center gap-2 text-[0.75rem] shrink-0 ml-auto topbar-meta">${metaParts.join('<span class="text-dimmest shrink-0">·</span>')}</span>`}
     ${sidebarToggleBtn}
-    <span id="topbar-actions" class="flex items-center gap-0.5 shrink-0">
+    <span id="topbar-actions" class="flex items-center gap-0.5 shrink-0 ${isPdfMode ? 'ml-auto' : ''}">
       ${_topbarActions.map((a, i) => `<span class="topbar-action" data-idx="${i}">${a.html}</span>`).join('')}
     </span>
     <div class="relative shrink-0" id="topbar-overflow-wrap" style="display:none">
@@ -708,13 +733,12 @@ function showPaperView(paper, hashValue) {
   const browseSb = document.getElementById('browse-sidebar');
   if (browseSb) browseSb.innerHTML = '';
 
-  sidebar.innerHTML = _renderSidebarHTML();
+  sidebar.innerHTML = _renderSidebarHTML(isPdfMode ? paper : null);
   _initSidebar(sidebar);
 
   const pdfContainer = document.getElementById('paper-pdf-container');
   cleanupPdfViewer();
   pdfContainer.innerHTML = '';
-  const arxivId = isArxiv ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
   if (arxivId) {
     initPdfViewer(pdfContainer, `/api/arxiv-pdf?id=${encodeURIComponent(arxivId)}`, arxivId);
   } else {
@@ -726,8 +750,6 @@ function showPaperView(paper, hashValue) {
   // Start scroll progress tracking
   _startScrollTracker(paper.link);
 
-  // Check for OpenReview link (async, non-blocking)
-  checkOpenReview(paper.title);
 }
 
 // ── Post Quote from Viewer ──
@@ -1146,19 +1168,6 @@ async function openAuthorProfile(authorId) {
       </div>
     `;
   }
-}
-
-// ── OpenReview Link ──
-async function checkOpenReview(title) {
-  try {
-    const resp = await fetch('/api/openreview-search?' + new URLSearchParams({ title }));
-    if (!resp.ok) return;
-    const data = await resp.json();
-    if (data.url) {
-      _pdfExtractedLinks.add(data.url);
-      _renderPdfLinks();
-    }
-  } catch {}
 }
 
 // ── Share to Team ──
@@ -1950,6 +1959,7 @@ let _lastMouseX = 0;
 let _lastMouseY = 0;
 let _pendingScreenshots = [];
 let _pendingNoteContexts = []; // {id, title, content} — vault notes attached to chat
+let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
 let _lookupDragging = false;
 let _lookupDragOffset = { x: 0, y: 0 };
 
@@ -2108,6 +2118,8 @@ function _sendPopupChatMessage(popup, capturedText) {
   _pendingScreenshots = [];
   const noteContexts = _pendingNoteContexts.slice();
   _pendingNoteContexts = [];
+  const tabContexts = _pendingTabContexts.slice();
+  _pendingTabContexts = [];
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
 
@@ -2151,13 +2163,19 @@ function _sendPopupChatMessage(popup, capturedText) {
       if (hasVision) {
         body.vision = true;
       } else {
-        // Build context from doc text + any attached note contents
+        // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
         if (noteContexts.length) {
           const notesCtx = noteContexts.map(n =>
             `--- Note: ${n.title} ---\n${n.content}`
           ).join('\n\n');
           ctx = ctx ? ctx + '\n\n' + notesCtx : notesCtx;
+        }
+        if (tabContexts.length) {
+          const tabCtx = tabContexts.map(t =>
+            `--- Tab: ${t.title} (${t.url}) ---\n${t.content}`
+          ).join('\n\n');
+          ctx = ctx ? ctx + '\n\n' + tabCtx : tabCtx;
         }
         body.context = ctx;
       }
@@ -2246,6 +2264,8 @@ function _updateContextBar(popup) {
   if (_docText) chars += _docText.length;
   // Note contexts
   for (const n of _pendingNoteContexts) chars += (n.content || '').length;
+  // Tab contexts
+  for (const t of _pendingTabContexts) chars += (t.content || '').length;
   // All messages
   for (const m of _popupChatMessages) chars += (m.content || '').length;
   // Screenshots count as ~1k tokens each
@@ -2409,6 +2429,7 @@ function _sendPopupChatToSidebar() {
   _popupChatMessages = [];
   _pendingScreenshots = [];
   _pendingNoteContexts = [];
+  _pendingTabContexts = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 }
 
@@ -3416,6 +3437,7 @@ document.addEventListener('keydown', function(e) {
       _lookupTrackMode = false;
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
+      _pendingTabContexts = [];
       popup.remove();
     }
   }
@@ -3545,6 +3567,41 @@ function _addNoteContextToPanel(popup, note) {
   _updateContextBar(popup);
 }
 
+function _addTabContextToPanel(popup, tabInfo) {
+  if (_pendingTabContexts.some(t => t.tabId === tabInfo.tabId)) return;
+  _pendingTabContexts.push({ tabId: tabInfo.tabId, title: tabInfo.title, url: tabInfo.url, content: tabInfo.content || '' });
+
+  const strip = popup.querySelector('.doc-screenshot-attachments');
+  if (!strip) return;
+  strip.style.display = 'flex';
+
+  const chip = document.createElement('div');
+  chip.className = 'doc-tab-context-chip';
+  chip.dataset.tabId = tabInfo.tabId;
+  const domain = (() => { try { return new URL(tabInfo.url).hostname.replace('www.', ''); } catch { return ''; } })();
+  const favUrl = tabInfo.url ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
+  chip.innerHTML = (favUrl ? `<img src="${favUrl}" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display='none'">` :
+    `<svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>`) +
+    `<span class="truncate">${escapeHtml(tabInfo.title || domain || 'Tab')}</span>`;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'doc-note-context-remove';
+  removeBtn.textContent = '\u00d7';
+  removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  removeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    _pendingTabContexts = _pendingTabContexts.filter(t => t.tabId !== tabInfo.tabId);
+    chip.remove();
+    if (_pendingTabContexts.length === 0 && _pendingNoteContexts.length === 0 && _pendingScreenshots.length === 0) strip.style.display = 'none';
+  });
+  chip.appendChild(removeBtn);
+  strip.appendChild(chip);
+
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.focus();
+  _updateContextBar(popup);
+}
+
 function _addScreenshotToPanel(popup, base64) {
   _pendingScreenshots.push(base64);
 
@@ -3644,6 +3701,7 @@ const _lookupCommands = [
   { name: 'model', desc: 'Change chat model', _special: true },
   { name: 'search', desc: 'Web search in new tab', hasArgs: true },
   { name: 'links', desc: 'List all links on page', _special: true },
+  { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
 ];
 
@@ -3651,6 +3709,8 @@ let _lookupCmdIdx = 0; // selected index in autocomplete
 let _lookupNoteIdx = 0; // selected index in note search results
 let _lookupNoteResults = []; // current note search results
 let _lookupNoteQuery = ''; // current note search query (for create-on-enter)
+let _lookupTabIdx = 0; // selected index in tab dropdown
+let _lookupTabList = []; // current tab list for /tab command
 
 function _lookupFilterCommands(query) {
   const q = query.toLowerCase();
@@ -3696,6 +3756,7 @@ function _lookupRenderCmdDropdown(popup, query) {
         if (cmd.name === 'capture') _doLookupCapture(popup);
         else if (cmd.name === 'model') _doLookupModel(popup);
         else if (cmd.name === 'links') _doLookupLinks(popup);
+        else if (cmd.name === 'tab') _doLookupTab(popup);
       } else {
         cmd.fn();
         _lookupTrackMode = false;
@@ -3717,6 +3778,13 @@ function _lookupHideNoteDropdown(popup) {
   _lookupNoteResults = [];
   _lookupNoteIdx = 0;
   _lookupNoteQuery = '';
+}
+
+function _lookupHideTabDropdown(popup) {
+  const dropdown = popup.querySelector('.lookup-tab-dropdown');
+  if (dropdown) dropdown.remove();
+  _lookupTabList = [];
+  _lookupTabIdx = 0;
 }
 
 async function _lookupRenderNoteDropdown(popup, query) {
@@ -4040,6 +4108,132 @@ async function _doLookupLinks(popup) {
   _repositionSelectionPopup();
 }
 
+// ── /tab command — add a browser tab to chat context ──
+let _lookupTabAutoAdding = false;
+
+async function _doLookupTab(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  // Get all open tabs from all windows
+  const allTabs = [];
+  if (typeof _browseWindows !== 'undefined') {
+    for (const win of _browseWindows) {
+      for (const tab of (win.tabs || [])) {
+        if (!tab.blank && tab.url) allTabs.push(tab);
+      }
+    }
+  }
+
+  if (!allTabs.length) {
+    if (input) input.focus();
+    return;
+  }
+
+  // Auto-add current tab if on a webpage
+  const activeTabId = typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
+  const currentTab = activeTabId != null ? allTabs.find(t => t.id === activeTabId) : null;
+  if (currentTab && !_pendingTabContexts.some(t => t.tabId === currentTab.id)) {
+    _lookupTabAutoAdding = true;
+    try {
+      const resp = await fetch('/api/extract-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: currentTab.url })
+      });
+      const data = await resp.json();
+      _addTabContextToPanel(popup, { tabId: currentTab.id, title: currentTab.title, url: currentTab.url, content: data.text || '' });
+    } catch (e) { /* ignore */ }
+    _lookupTabAutoAdding = false;
+  }
+
+  // Show remaining tabs (excluding already-added ones) in a dropdown
+  const addedIds = new Set(_pendingTabContexts.map(t => t.tabId));
+  const otherTabs = allTabs.filter(t => !addedIds.has(t.id));
+  if (!otherTabs.length) {
+    if (input) input.focus();
+    return;
+  }
+
+  _lookupTabList = otherTabs;
+  _lookupTabIdx = 0;
+  _renderTabDropdown(popup);
+  if (input) input.focus();
+}
+
+function _renderTabDropdown(popup) {
+  let dropdown = popup.querySelector('.lookup-tab-dropdown');
+  if (!_lookupTabList.length) {
+    if (dropdown) dropdown.remove();
+    return;
+  }
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'lookup-tab-dropdown';
+    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (askWrap) popup.insertBefore(dropdown, askWrap);
+    else popup.appendChild(dropdown);
+  }
+  _lookupTabIdx = Math.min(_lookupTabIdx, _lookupTabList.length - 1);
+  dropdown.innerHTML = _lookupTabList.map((tab, i) => {
+    const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
+    const favUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
+    return `<div class="lookup-tab-item ${i === _lookupTabIdx ? 'selected' : ''}" data-idx="${i}">` +
+      `<img src="${favUrl}" class="lookup-tab-item-favicon" onerror="this.style.display='none'">` +
+      `<div class="lookup-tab-item-info">` +
+      `<div class="lookup-tab-item-title">${escapeHtml(tab.title || 'Untitled')}</div>` +
+      `<div class="lookup-tab-item-url">${escapeHtml(domain)}</div>` +
+      `</div></div>`;
+  }).join('');
+
+  dropdown.querySelectorAll('.lookup-tab-item').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _lookupTabIdx = parseInt(el.dataset.idx);
+      _lookupSelectTab(popup);
+    });
+  });
+  _repositionSelectionPopup();
+}
+
+async function _lookupSelectTab(popup) {
+  const tab = _lookupTabList[_lookupTabIdx];
+  if (!tab) return;
+
+  const dropdown = popup.querySelector('.lookup-tab-dropdown');
+  const items = dropdown ? dropdown.querySelectorAll('.lookup-tab-item') : [];
+  const el = items[_lookupTabIdx];
+  if (el) {
+    el.style.opacity = '0.5';
+    el.style.pointerEvents = 'none';
+    el.insertAdjacentHTML('beforeend', '<span class="lookup-tab-item-loading">extracting...</span>');
+  }
+
+  try {
+    const resp = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: tab.url })
+    });
+    const data = await resp.json();
+    _addTabContextToPanel(popup, { tabId: tab.id, title: tab.title, url: tab.url, content: data.text || '' });
+  } catch (e) {
+    if (el) {
+      el.style.opacity = '1';
+      el.style.pointerEvents = '';
+      const loading = el.querySelector('.lookup-tab-item-loading');
+      if (loading) loading.remove();
+    }
+    return;
+  }
+  _lookupHideTabDropdown(popup);
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.focus();
+}
+
 // ── /define command — dictionary lookup ──
 async function _doLookupDefine(popup, word) {
   const input = popup.querySelector('.doc-ask-inline-input');
@@ -4124,6 +4318,7 @@ function _lookupExecCommand(popup, text) {
       if (cmd.name === 'capture') _doLookupCapture(popup);
       else if (cmd.name === 'model') _doLookupModel(popup);
       else if (cmd.name === 'links') _doLookupLinks(popup);
+      else if (cmd.name === 'tab') _doLookupTab(popup);
       return true;
     }
     cmd.fn();
@@ -4303,6 +4498,7 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   _popupChatMessages = [];
   _pendingScreenshots = [];
   _pendingNoteContexts = [];
+  _pendingTabContexts = [];
   _lookupDragging = false;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 
@@ -4578,6 +4774,33 @@ function _showLookupPanel(x, y, contextData, initialValue) {
       return;
     }
 
+    // Arrow keys navigate tab dropdown
+    const tabDropdown = popup.querySelector('.lookup-tab-dropdown');
+    if (tabDropdown && _lookupTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      if (ev.key === 'ArrowDown') _lookupTabIdx = Math.min(_lookupTabIdx + 1, _lookupTabList.length - 1);
+      else _lookupTabIdx = Math.max(_lookupTabIdx - 1, 0);
+      const items = tabDropdown.querySelectorAll('.lookup-tab-item');
+      items.forEach((el, i) => el.classList.toggle('selected', i === _lookupTabIdx));
+      const sel = items[_lookupTabIdx];
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+
+    // Enter selects tab from dropdown
+    if (tabDropdown && _lookupTabList.length && ev.key === 'Enter') {
+      ev.preventDefault();
+      _lookupSelectTab(popup);
+      return;
+    }
+
+    // Escape closes tab dropdown
+    if (tabDropdown && ev.key === 'Escape') {
+      ev.preventDefault();
+      _lookupHideTabDropdown(popup);
+      return;
+    }
+
     // Arrow keys navigate note search results
     if (noteDropdown && _lookupNoteResults.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
@@ -4639,6 +4862,7 @@ function _showLookupPanel(x, y, contextData, initialValue) {
             if (cmd.name === 'capture') _doLookupCapture(popup);
             else if (cmd.name === 'model') _doLookupModel(popup);
             else if (cmd.name === 'links') _doLookupLinks(popup);
+            else if (cmd.name === 'tab') _doLookupTab(popup);
           } else {
             _lookupHideCmdDropdown(popup);
             cmd.fn();
@@ -4665,6 +4889,7 @@ function _showLookupPanel(x, y, contextData, initialValue) {
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
+      _pendingTabContexts = [];
       popup.remove();
     }
   });
@@ -4730,15 +4955,17 @@ function _showLookupPanel(x, y, contextData, initialValue) {
   }
 }
 
-function openPaper(index) {
+function openPaper(index, e) {
   const paper = lastFilteredPapers[index];
   if (!paper) return;
+  if (_isNewTabClick(e)) { _openInNewTab(paper.link); return; }
   markPostAsRead(paper.link);
   _browseReturnView = _lastActiveView || 'feed';
   openBrowse(paper.link);
 }
 
-function openPaperByUrl(url) {
+function openPaperByUrl(url, e) {
+  if (_isNewTabClick(e)) { _openInNewTab(url); return; }
   paperViewOrigin = typeof _lastActiveView !== 'undefined' ? _lastActiveView : 'feed';
   const hashVal = 'view/' + encodeURIComponent(url);
   const cached = (searchResultsCache || []).find(r => r && r.link === url);

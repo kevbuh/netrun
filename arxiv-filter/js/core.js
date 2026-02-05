@@ -1,3 +1,21 @@
+// ── Cmd/Ctrl+click → open in new browse tab ──
+function _isNewTabClick(e) { return e && (e.metaKey || e.ctrlKey); }
+function _openInNewTab(url) {
+  const isElectron = window.electronAPI && window.electronAPI.isElectron;
+  if (isElectron && typeof openBrowse === 'function') {
+    // Open as a new tab in the app's browse tab system
+    if (typeof browseNewTab === 'function' && typeof _browseWindows !== 'undefined' && _browseWindows.length) {
+      openBrowse(); // navigate to browse view without opening a URL
+      browseNewTab(url); // always create a new tab
+    } else {
+      openBrowse(url);
+    }
+  } else {
+    // Web: open in a real browser tab
+    window.open(url, '_blank');
+  }
+}
+
 // ── Electron detection ──
 if (window.electronAPI && window.electronAPI.isElectron) {
   document.body.classList.add('electron-app');
@@ -787,7 +805,7 @@ let _expBackAction = null; // stores {fn, label} for context-aware back button
 let _prevRouteHash = ''; // the hash before the current route
 let _currentRouteHash = ''; // the current route hash
 
-function openExperimentDetail(id) {
+function openExperimentDetail(id, e) {
   // _prevRouteHash is set by routeFromHash for link-based navigation.
   // For direct calls (onclick), the hash hasn't changed yet, so window.location.hash is the "previous".
   const currentHash = window.location.hash;
@@ -1198,7 +1216,7 @@ async function renderUserProfile(username) {
         <div class="flex flex-col gap-2">`;
       for (const t of publicTeams) {
         html += `
-          <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="showTeamDetailView(${t.id})">
+          <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="showTeamDetailView(${t.id}, event)">
             <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
             <div class="text-dimmer text-[0.75rem] mt-1">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
           </div>`;

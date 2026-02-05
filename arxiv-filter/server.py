@@ -529,42 +529,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(str(e).encode())
 
-        elif self.path.startswith('/api/openreview-search'):
-            from urllib.parse import urlparse, parse_qs
-            qs = parse_qs(urlparse(self.path).query)
-            title = qs.get('title', [''])[0].strip()
-            if not title:
-                self._send_json({'url': None})
-                return
-            try:
-                search_url = (
-                    'https://api.openreview.net/notes/search?query='
-                    + urllib.request.quote(title)
-                    + '&limit=3'
-                )
-                req = urllib.request.Request(
-                    search_url,
-                    headers={'User-Agent': 'Mozilla/5.0'}
-                )
-                ctx = ssl._create_unverified_context()
-                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                    data = json.loads(resp.read())
-                notes = data.get('notes', [])
-                # Find a note whose title closely matches
-                title_lower = title.lower().strip()
-                for note in notes:
-                    note_content = note.get('content', {})
-                    note_title = note_content.get('title', '')
-                    if isinstance(note_title, dict):
-                        note_title = note_title.get('value', '')
-                    if note_title.lower().strip() == title_lower:
-                        forum_id = note.get('forum') or note.get('id', '')
-                        self._send_json({'url': f'https://openreview.net/forum?id={forum_id}'})
-                        return
-                self._send_json({'url': None})
-            except Exception:
-                self._send_json({'url': None})
-
         elif self.path.startswith('/api/check-embed'):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
@@ -730,45 +694,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-Type', 'text/plain')
                 self.end_headers()
                 self.wfile.write(str(e).encode())
-
-        elif self.path.startswith('/api/openalex-search'):
-            try:
-                from urllib.parse import urlparse, parse_qs
-                qs = parse_qs(urlparse(self.path).query)
-                query = qs.get('q', [''])[0].strip()
-                page = int(qs.get('page', ['1'])[0])
-                per_page = int(qs.get('per_page', ['100'])[0])
-                if not query:
-                    self._send_json({'error': 'Query required'}, 400)
-                    return
-                # Parse by: prefix — everything after by: is author
-                by_match = re.search(r'\bby:(.+)', query)
-                author_name = by_match.group(1).strip() if by_match else None
-                rest_query = query[:by_match.start()].strip() if by_match else query
-                filters = []
-                if author_name:
-                    filters.append(f'author.search:{urllib.request.quote(author_name)}')
-                search_param = f'search={urllib.request.quote(rest_query)}&' if rest_query else ''
-                filter_param = f'filter={",".join(filters)}&' if filters else ''
-                sort_param = 'sort=cited_by_count:desc&' if author_name and not rest_query else ''
-                search_url = (
-                    f'https://api.openalex.org/works?{search_param}{filter_param}{sort_param}'
-                    f'page={page}&per_page={per_page}'
-                    f'&select=id,doi,title,authorships,publication_date,cited_by_count,primary_location,type'
-                )
-                req = urllib.request.Request(
-                    search_url,
-                    headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
-                )
-                ctx = ssl._create_unverified_context()
-                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
-                    data = resp.read()
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(data)
-            except Exception as e:
-                self._send_json({'error': str(e)}, 502)
 
         # ── Ollama Models API ──
         elif self.path == '/api/models':

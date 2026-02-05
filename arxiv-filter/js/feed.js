@@ -355,7 +355,8 @@ function toggleSavePostByLink(link) {
   }
 }
 
-function openSavedPaper(link) {
+function openSavedPaper(link, e) {
+  if (_isNewTabClick(e)) { _openInNewTab(link); return; }
   markPostRead(link);
   openBrowse(link);
 }
@@ -1620,7 +1621,7 @@ function renderPapers() {
       const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
       const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
       return `<div class="group${isRead ? ' opacity-50' : ''}">
-        <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i})">
+        <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i}, event)">
           ${newDot}${sourceChip}
           <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
           <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i)}</span>
@@ -1659,7 +1660,7 @@ function renderPapers() {
         ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
         : pixelFallback;
       return `
-      <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
+      <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
         <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[1rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
         ${authors}
         ${fullDesc ? `<div class="text-[0.82rem] text-muted leading-relaxed mt-2">${escapeHtml(fullDesc)}</div>` : ''}
@@ -1695,7 +1696,7 @@ function renderPapers() {
       const statsNum = isPoly ? `${p.polyYesPct}%` : isHN ? `${hnPts}` : (citations !== null ? `${citations}` : '');
       const statsLabel = isPoly ? (p.polyYesPct >= 50 ? 'Yes' : 'No') : isHN ? (hnPts === 1 ? 'point' : 'points') : (citations !== null ? (citations === 1 ? 'citation' : 'citations') : '');
       return `
-      <div class="py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
+      <div class="py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
         <div class="flex gap-3">
           ${avatar}
           <div class="min-w-0 flex-1">
@@ -1764,7 +1765,7 @@ function renderPapers() {
         ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
         : pixelFallback;
       return `
-      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i})">
+      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
         <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
         ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
         <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>

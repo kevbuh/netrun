@@ -327,7 +327,7 @@ async function renderInbox() {
         const priColors = { high: 'text-red-400', medium: 'text-yellow-400', low: 'text-green-400' };
         const priColor = priColors[t.priority] || 'text-dim';
         return `
-        <div class="flex items-center gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="showTeamDetailView(${t.team_id})">
+        <div class="flex items-center gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="showTeamDetailView(${t.team_id}, event)">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-primary">${escapeHtml(t.title)}</span>
@@ -353,7 +353,7 @@ async function renderInbox() {
         const latest = team.msgs[0];
         const count = team.msgs.length;
         html += `
-        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="showTeamDetailView(${team.team_id})">
+        <div class="flex items-start gap-3 p-4 bg-card border border-border-card rounded-lg mb-2 border-l-accent border-l-2 cursor-pointer" onclick="showTeamDetailView(${team.team_id}, event)">
           ${latest.picture
             ? `<img src="${escapeAttr(latest.picture)}" class="w-8 h-8 rounded-full shrink-0" referrerpolicy="no-referrer" />`
             : `<div class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold shrink-0">${escapeHtml((latest.username || '?')[0].toUpperCase())}</div>`
@@ -498,7 +498,7 @@ async function renderResearchTeams() {
   } else {
     const _lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     container.innerHTML = _cachedTeams.map(t => `
-      <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id})">
+      <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id}, event)">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-base font-bold">${escapeHtml(t.name[0].toUpperCase())}</div>
           <div>
@@ -531,7 +531,7 @@ async function renderTeamsView() {
   } else {
     const _lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     container.innerHTML = _cachedTeams.map(t => `
-      <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id})">
+      <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id}, event)">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-base font-bold">${escapeHtml(t.name[0].toUpperCase())}</div>
           <div>
@@ -651,7 +651,7 @@ function _restoreTeamSidebarState() {
 let _lastTeamDetailId = null;
 let _teamDetailData = null;
 
-async function showTeamDetailView(teamId) {
+async function showTeamDetailView(teamId, e) {
   _lastTeamDetailId = teamId;
 
   // Open the standalone teams view for the detail
@@ -714,7 +714,7 @@ async function showTeamDetailView(teamId) {
     if (sidebarHeader) {
       const lockSvg = team.private ? ' <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
       const ancestorBreadcrumb = (team.ancestors && team.ancestors.length)
-        ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id})">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
+        ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id}, event)">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
         : '';
       sidebarHeader.innerHTML = `
         ${ancestorBreadcrumb}
@@ -806,7 +806,7 @@ function cancelRenameTeam() {
   const isOwner = _teamDetailData.isOwner;
   const lockSvg = team.private ? ' <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
   const ancestorBreadcrumb = (team.ancestors && team.ancestors.length)
-    ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id})">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
+    ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id}, event)">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
     : '';
   sidebarHeader.innerHTML = `
     ${ancestorBreadcrumb}
@@ -995,7 +995,7 @@ function switchTeamTab(tab) {
       <div class="px-4 pt-4">
         <div class="flex flex-col gap-2">
           ${teamChildren.map(c => `
-            <div class="flex items-center gap-3 p-3 rounded-lg border border-border-card bg-card hover:border-border-input transition-colors cursor-pointer" onclick="showTeamDetailView(${c.id})">
+            <div class="flex items-center gap-3 p-3 rounded-lg border border-border-card bg-card hover:border-border-input transition-colors cursor-pointer" onclick="showTeamDetailView(${c.id}, event)">
               <div class="w-8 h-8 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">${escapeHtml(c.name[0].toUpperCase())}</div>
               <div class="text-primary text-sm font-medium">${escapeHtml(c.name)}${c.private ? ' ' + lockSvg : ''}</div>
             </div>
@@ -1063,7 +1063,7 @@ function editTeamChatMsg(teamId, msgId, btn) {
     <textarea id="chat-msg-edit-${msgId}" class="w-full bg-input border border-border-input rounded px-2 py-1 text-[0.8rem] text-primary resize-none outline-none focus:border-accent font-mono" rows="${rows}">${escapeHtml(rawContent)}</textarea>
     <div class="flex gap-1.5 mt-1">
       <button onclick="saveTeamChatMsg(${teamId}, '${msgId}')" class="text-[0.68rem] px-2 py-0.5 rounded bg-accent text-white border-none cursor-pointer">Save</button>
-      <button onclick="showTeamDetailView(${teamId})" class="text-[0.68rem] px-2 py-0.5 rounded border border-border-input text-muted bg-transparent cursor-pointer">Cancel</button>
+      <button onclick="showTeamDetailView(${teamId}, event)" class="text-[0.68rem] px-2 py-0.5 rounded border border-border-input text-muted bg-transparent cursor-pointer">Cancel</button>
     </div>
   `;
   const ta = document.getElementById(`chat-msg-edit-${msgId}`);
