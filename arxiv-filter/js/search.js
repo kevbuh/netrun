@@ -1613,102 +1613,141 @@ function _browseRenderTabs() {
     _renderToolbarSessions();
   }
 
-  // Attach tab hover popup handlers
+  // Attach tab drag-to-reorder handlers
   bar.querySelectorAll('.browse-tab').forEach(tabEl => {
-    tabEl.addEventListener('mouseenter', (e) => { _tabHoverSuppressed = false; _showTabHoverPopup(e); });
-    tabEl.addEventListener('mouseleave', () => { _tabHoverSuppressed = false; _hideTabHoverPopup(); });
-    tabEl.addEventListener('mousedown', _dismissTabHoverPopup);
+    tabEl.addEventListener('mousedown', _tabDragStart);
   });
 }
 
-// ── Tab hover info popup ──
+// ── Tab drag-to-reorder ──
 
-let _tabHoverPopup = null;
-let _tabHoverTimeout = null;
-let _tabHoverSuppressed = false; // suppress popup after click until fresh hover cycle
+let _tabDragState = null;
+const TAB_DRAG_THRESHOLD = 5;
 
-function _showTabHoverPopup(e) {
-  if (_tabHoverSuppressed) return;
+function _tabDragStart(e) {
+  if (e.button !== 0) return;
+  if (e.target.closest('.browse-tab-close, .browse-tab-audio')) return;
   const tabEl = e.currentTarget;
   const onclickAttr = tabEl.getAttribute('onclick') || '';
   const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
   if (!idMatch) return;
   const tabId = parseInt(idMatch[1]);
-  const win = _getCurrentWindow();
-  if (!win) return;
-  const tab = win.tabs.find(t => t.id === tabId);
-  if (!tab) return;
+  _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false };
+  document.addEventListener('mousemove', _tabDragMove);
+  document.addEventListener('mouseup', _tabDragEnd);
+}
 
-  // Capture position now before DOM might get rebuilt by click
-  const tabRect = tabEl.getBoundingClientRect();
+function _tabDragMove(e) {
+  if (!_tabDragState) return;
+  const dx = e.clientX - _tabDragState.startX;
+  const dy = e.clientY - _tabDragState.startY;
+  if (!_tabDragState.hasMoved && Math.abs(dx) < TAB_DRAG_THRESHOLD && Math.abs(dy) < TAB_DRAG_THRESHOLD) return;
 
-  // Delay before showing (1s, Brave-style)
-  _tabHoverTimeout = setTimeout(() => {
-    _hideTabHoverPopup();
-    if (_tabHoverSuppressed) return;
-    const popup = document.createElement('div');
-    popup.className = 'browse-tab-hover-popup';
-    const fav = tab.favicon ? `<img src="${escapeAttr(tab.favicon)}" class="browse-tab-hover-favicon" onerror="this.style.display='none'">` : '';
-    const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
-    popup.innerHTML = fav +
-      `<div class="browse-tab-hover-info">` +
-      `<div class="browse-tab-hover-title">${escapeHtml(tab.title)}</div>` +
-      `<div class="browse-tab-hover-url">${escapeHtml(domain)}</div>` +
-      `</div>` +
-      `<button class="browse-tab-hover-context-btn">+ Context</button>`;
-    document.body.appendChild(popup);
-    _tabHoverPopup = popup;
-
-    // "Add to context" button — extract text and add to lookup panel
-    const ctxBtn = popup.querySelector('.browse-tab-hover-context-btn');
-    if (ctxBtn) {
-      ctxBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      ctxBtn.addEventListener('click', async (ev) => {
-        ev.stopPropagation();
-        ctxBtn.textContent = '...';
-        ctxBtn.disabled = true;
-        try {
-          const resp = await fetch('/api/extract-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: tab.url })
-          });
-          const data = await resp.json();
-          const content = data.text || '';
-          // Find or create lookup panel
-          let lookupPanel = document.getElementById('doc-chat-ask-float');
-          if (!lookupPanel && typeof _showLookupPanel === 'function') {
-            _showLookupPanel(window.innerWidth / 2, window.innerHeight / 2);
-            lookupPanel = document.getElementById('doc-chat-ask-float');
-          }
-          if (lookupPanel && typeof _addTabContextToPanel === 'function') {
-            _addTabContextToPanel(lookupPanel, { tabId: tab.id, title: tab.title, url: tab.url, content });
-          }
-        } catch (e) {
-          ctxBtn.textContent = 'Failed';
-        }
-        _hideTabHoverPopup();
-      });
+  if (!_tabDragState.hasMoved) {
+    _tabDragState.hasMoved = true;
+    // Prevent the onclick from firing
+    _tabDragState.tabEl.style.pointerEvents = 'none';
+    // Create ghost
+    const ghost = _tabDragState.tabEl.cloneNode(true);
+    ghost.className += ' browse-tab-dragging';
+    ghost.style.position = 'fixed';
+    ghost.style.pointerEvents = 'none';
+    ghost.style.zIndex = '10001';
+    ghost.style.width = _tabDragState.tabEl.offsetWidth + 'px';
+    document.body.appendChild(ghost);
+    _tabDragState.ghostEl = ghost;
+    _tabDragState.tabEl.classList.add('browse-tab-drag-source');
+    // Create insertion indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'browse-tab-insert-indicator';
+    const bar = document.getElementById('browse-tabs');
+    if (bar) {
+      bar.style.position = 'relative';
+      bar.appendChild(indicator);
     }
+    _tabDragState.indicator = indicator;
+  }
 
-    // Position centered below the tab, clamped to viewport
-    const popW = popup.offsetWidth;
-    let left = tabRect.left + (tabRect.width - popW) / 2;
-    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
-    if (left < 80) left = 80; // avoid traffic lights on macOS
-    popup.style.left = left + 'px';
-    popup.style.top = (tabRect.bottom + 4) + 'px';
-  }, 1000);
+  // Move ghost with cursor
+  _tabDragState.ghostEl.style.left = (e.clientX - _tabDragState.tabEl.offsetWidth / 2) + 'px';
+  _tabDragState.ghostEl.style.top = (e.clientY - _tabDragState.tabEl.offsetHeight / 2) + 'px';
+
+  // Find nearest insertion point
+  _tabDragUpdatePosition(e.clientX);
 }
 
-function _hideTabHoverPopup() {
-  if (_tabHoverTimeout) { clearTimeout(_tabHoverTimeout); _tabHoverTimeout = null; }
-  if (_tabHoverPopup) { _tabHoverPopup.remove(); _tabHoverPopup = null; }
+function _tabDragUpdatePosition(clientX) {
+  if (!_tabDragState || !_tabDragState.indicator) return;
+  const bar = document.getElementById('browse-tabs');
+  if (!bar) return;
+  const tabs = Array.from(bar.querySelectorAll('.browse-tab'));
+  let insertBeforeId = null;
+  let indicatorLeft = null;
+  const barRect = bar.getBoundingClientRect();
+
+  for (const t of tabs) {
+    const rect = t.getBoundingClientRect();
+    const mid = rect.left + rect.width / 2;
+    if (clientX < mid) {
+      const onclickAttr = t.getAttribute('onclick') || '';
+      const m = onclickAttr.match(/browseSelectTab\((\d+)\)/);
+      if (m) insertBeforeId = parseInt(m[1]);
+      indicatorLeft = rect.left - barRect.left - 1;
+      break;
+    }
+  }
+
+  // If no tab found, insert at end
+  if (indicatorLeft === null && tabs.length > 0) {
+    const lastRect = tabs[tabs.length - 1].getBoundingClientRect();
+    indicatorLeft = lastRect.right - barRect.left + 1;
+  }
+
+  _tabDragState.insertBeforeId = insertBeforeId;
+  if (indicatorLeft !== null) {
+    _tabDragState.indicator.style.display = '';
+    _tabDragState.indicator.style.left = indicatorLeft + 'px';
+    _tabDragState.indicator.style.top = '4px';
+    _tabDragState.indicator.style.height = (bar.offsetHeight - 8) + 'px';
+  }
 }
 
-function _dismissTabHoverPopup() {
-  _hideTabHoverPopup();
-  _tabHoverSuppressed = true;
+function _tabDragEnd(e) {
+  document.removeEventListener('mousemove', _tabDragMove);
+  document.removeEventListener('mouseup', _tabDragEnd);
+  if (!_tabDragState) return;
+
+  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl } = _tabDragState;
+  _tabDragState = null;
+
+  // Clean up visual elements
+  if (ghostEl) ghostEl.remove();
+  if (indicator) indicator.remove();
+  tabEl.classList.remove('browse-tab-drag-source');
+  tabEl.style.pointerEvents = '';
+
+  if (hasMoved) {
+    const win = _getCurrentWindow();
+    if (!win) return;
+    const fromIdx = win.tabs.findIndex(t => t.id === tabId);
+    if (fromIdx === -1) return;
+    const [movedTab] = win.tabs.splice(fromIdx, 1);
+    if (insertBeforeId !== null) {
+      const toIdx = win.tabs.findIndex(t => t.id === insertBeforeId);
+      if (toIdx !== -1) {
+        win.tabs.splice(toIdx, 0, movedTab);
+      } else {
+        win.tabs.push(movedTab);
+      }
+    } else {
+      win.tabs.push(movedTab);
+    }
+    _browseRenderTabs();
+    _browseSaveTabs();
+  } else {
+    // No drag movement — treat as a normal click to select tab
+    browseSelectTab(tabId);
+  }
 }
 
 // ── Tab Overview (Safari iPad style) ──

@@ -3481,6 +3481,13 @@ function _handleContextMenuChat(e) {
   // Skip inputs/textareas
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+  // Intercept right-click on browse tabs for tab context menu
+  const browseTab = e.target.closest('.browse-tab');
+  if (browseTab) {
+    e.preventDefault();
+    _showTabContextMenu(e, browseTab);
+    return;
+  }
   // Skip browse view chrome — iframe/webview handles its own context menu
   if (e.target.closest('#browse-bar, #browse-tab-row, #browse-content, #browse-sidebar')) return;
   e.preventDefault();
@@ -3610,6 +3617,92 @@ function _addTabContextToPanel(popup, tabInfo) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
   _updateContextBar(popup);
+}
+
+function _showTabContextMenu(e, tabEl) {
+  const onclickAttr = tabEl.getAttribute('onclick') || '';
+  const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
+  if (!idMatch) return;
+  const tabId = parseInt(idMatch[1]);
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+
+  const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
+  const items = [];
+
+  // Header: title · domain
+  const headerLabel = (tab.title || 'Tab') + (domain ? ' · ' + domain : '');
+  items.push({ label: headerLabel, icon: '', fn() {} });
+
+  // Memory info
+  if (performance.memory && performance.memory.usedJSHeapSize) {
+    const mb = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+    items.push({ label: 'Memory: ' + mb + ' MB', icon: '', fn() {} });
+  }
+
+  items.push({ sep: true });
+
+  // + Context
+  items.push({
+    label: '+ Context',
+    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+    fn() {
+      (async () => {
+        try {
+          const resp = await fetch('/api/extract-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: tab.url })
+          });
+          const data = await resp.json();
+          const content = data.text || '';
+          let lookupPanel = document.getElementById('doc-chat-ask-float');
+          if (!lookupPanel && typeof _showLookupPanel === 'function') {
+            _showLookupPanel(window.innerWidth / 2, window.innerHeight / 2);
+            lookupPanel = document.getElementById('doc-chat-ask-float');
+          }
+          if (lookupPanel && typeof _addTabContextToPanel === 'function') {
+            _addTabContextToPanel(lookupPanel, { tabId: tab.id, title: tab.title, url: tab.url, content });
+          }
+        } catch (err) {
+          console.warn('Failed to extract tab context:', err);
+        }
+      })();
+    }
+  });
+
+  items.push({ sep: true });
+
+  // Close Tab
+  items.push({
+    label: 'Close Tab',
+    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>',
+    fn() { browseCloseTab(tabId); }
+  });
+
+  // Duplicate Tab
+  items.push({
+    label: 'Duplicate Tab',
+    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>',
+    fn() { browseNewTab(tab.url); }
+  });
+
+  // Mute/Unmute (only if tab has audio)
+  if (_browseAudioTabs.has(tabId)) {
+    const audioInfo = _browseAudioTabs.get(tabId);
+    const isMuted = audioInfo && audioInfo.muted;
+    items.push({
+      label: isMuted ? 'Unmute Tab' : 'Mute Tab',
+      icon: isMuted
+        ? '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>'
+        : '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>',
+      fn() { toggleTabMute(tabId); }
+    });
+  }
+
+  _showLookupPanel(e.clientX, e.clientY, { items });
 }
 
 function _addScreenshotToPanel(popup, base64) {

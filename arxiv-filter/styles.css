@@ -756,6 +756,7 @@
       align-items: center;
       overflow: hidden;
       flex-wrap: nowrap;
+      position: relative;
     }
     #browse-tabs::-webkit-scrollbar { display: none; }
     .browse-tab {
@@ -825,47 +826,22 @@
       background: var(--bg-hover);
       color: var(--text-primary);
     }
-    /* Tab hover info popup */
-    .browse-tab-hover-popup {
-      position: fixed;
-      z-index: 9999;
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border-card);
-      border-radius: 6px;
-      padding: 6px 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      max-width: 320px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    /* Tab drag-to-reorder */
+    .browse-tab-dragging {
+      opacity: 0.85;
+      cursor: grabbing !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .browse-tab-drag-source {
+      opacity: 0.3;
+    }
+    .browse-tab-insert-indicator {
+      position: absolute;
+      width: 2px;
+      background: var(--accent);
       pointer-events: none;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-    .browse-tab-hover-favicon {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-      border-radius: 2px;
-    }
-    .browse-tab-hover-info { min-width: 0; }
-    .browse-tab-hover-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 270px;
-    }
-    .browse-tab-hover-url {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 270px;
+      z-index: 1000;
+      border-radius: 1px;
     }
 
     /* Find in page bar — floating top-right */
@@ -2759,23 +2735,6 @@
       cursor: default;
     }
     .doc-tab-context-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .browse-tab-hover-context-btn {
-      pointer-events: auto;
-      margin-left: 0;
-      width: 100%;
-      padding: 2px 8px;
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--accent);
-      background: transparent;
-      border: 1px solid var(--accent);
-      border-radius: 4px;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: background 0.15s, color 0.15s;
-    }
-    .browse-tab-hover-context-btn:hover { background: var(--accent); color: #fff; }
     #sidebar-paper-info .text-primary {
       display: -webkit-box;
       -webkit-line-clamp: 3;
