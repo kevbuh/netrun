@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   onBrowseCommand: (callback) => ipcRenderer.on('browse-command', callback),
   removeBrowseCommandListener: (callback) => ipcRenderer.removeListener('browse-command', callback),
+  onOpenInBrowse: (callback) => ipcRenderer.on('open-in-browse', callback),
   // Download events
   onDownloadStarted: (callback) => ipcRenderer.on('download-started', callback),
   onDownloadProgress: (callback) => ipcRenderer.on('download-progress', callback),

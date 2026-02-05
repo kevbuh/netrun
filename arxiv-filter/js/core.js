@@ -19,6 +19,10 @@ function _openInNewTab(url) {
 // ── Electron detection ──
 if (window.electronAPI && window.electronAPI.isElectron) {
   document.body.classList.add('electron-app');
+  // Listen for open-in-browse IPC from main process (Cmd+click in webviews, window.open calls)
+  if (window.electronAPI.onOpenInBrowse) {
+    window.electronAPI.onOpenInBrowse((_event, url) => { _openInNewTab(url); });
+  }
 }
 
 // ── Download app banner (web only) ──

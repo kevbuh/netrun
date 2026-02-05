@@ -213,6 +213,12 @@ async function createWindow() {
 
   mainWindow.loadURL(`http://localhost:${serverPort}/`);
 
+  // Intercept window.open from the main renderer → open in browse tabs instead
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    mainWindow.webContents.send('open-in-browse', url);
+    return { action: 'deny' };
+  });
+
   // Handle keyboard shortcuts for browse view (Cmd+T, Cmd+W)
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && (input.meta || input.control)) {
@@ -238,6 +244,15 @@ const sessionsWithDownloadHandlers = new WeakSet();
 app.on('web-contents-created', (event, contents) => {
   // Only handle webviews (they have a different type of webContents)
   if (contents.getType && contents.getType() === 'webview') {
+    // Intercept Cmd+click / target=_blank in webviews → open in browse tabs
+    contents.setWindowOpenHandler(({ url }) => {
+      const parent = contents.getOwnerBrowserWindow();
+      if (parent) {
+        parent.webContents.send('open-in-browse', url);
+      }
+      return { action: 'deny' };
+    });
+
     contents.on('before-input-event', (event, input) => {
       if (input.type === 'keyDown' && (input.meta || input.control)) {
         const key = input.key.toLowerCase();
