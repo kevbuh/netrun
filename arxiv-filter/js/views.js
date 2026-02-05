@@ -3492,6 +3492,10 @@ function _injectIframeChatHandler(iframe) {
           e.preventDefault();
           if (typeof _browseToggleFindBar === 'function') _browseToggleFindBar();
         }
+        if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+          if (e.key === 'ArrowLeft') { e.preventDefault(); if (typeof _switchTabLeft === 'function') _switchTabLeft(); }
+          if (e.key === 'ArrowRight') { e.preventDefault(); if (typeof _switchTabRight === 'function') _switchTabRight(); }
+        }
       });
     } catch (e) {
       // Cross-origin — can't inject

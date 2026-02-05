@@ -1209,6 +1209,7 @@ function _browseBindFrame(tab) {
         document.addEventListener('keydown',function(e){
           if(e.key==='Escape') console.log('__ALPHA_DISMISS_CHAT__');
           if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();console.log('__ALPHA_FIND__');}
+          if(e.altKey&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey){if(e.key==='ArrowLeft'){e.preventDefault();console.log('__ALPHA_TAB_LEFT__');}if(e.key==='ArrowRight'){e.preventDefault();console.log('__ALPHA_TAB_RIGHT__');}}
         },true);
         // Throttled mousemove for lookup panel
         var _lastMove=0;
@@ -1275,6 +1276,10 @@ function _browseBindFrame(tab) {
       } catch (err) {}
     } else if (e.message === '__ALPHA_FIND__') {
       _browseToggleFindBar();
+    } else if (e.message === '__ALPHA_TAB_LEFT__') {
+      _switchTabLeft();
+    } else if (e.message === '__ALPHA_TAB_RIGHT__') {
+      _switchTabRight();
     } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {
       // Legacy support
       try {
@@ -2481,6 +2486,11 @@ function _browseInstallKeyGuard() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
     // Don't handle if tab overview is open (it has its own handler)
     if (_browseTabOverviewVisible) return;
+    // Option+Arrow switches tabs globally (no tab bar focus needed)
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); _switchTabLeft(); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); _switchTabRight(); return; }
+    }
     // Only handle arrow keys if tab bar is focused
     if (!_browseTabBarFocused) return;
 
