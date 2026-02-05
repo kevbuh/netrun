@@ -76,7 +76,19 @@ function renderSettingsView() {
           <button onclick="setTheme('sepia')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'sepia' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-sepia">Sepia</button>
           <button onclick="setTheme('daylight')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'daylight' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-daylight">Daylight</button>
           <button onclick="setTheme('thermal')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'thermal' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-thermal">Thermal</button>
-          <button onclick="setTheme('glass')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'glass' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-glass">Glass</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <span class="text-primary text-sm">Glass</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Frosted translucent surfaces</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="range" min="0" max="100" value="${localStorage.getItem('glassIntensity') || '50'}" class="w-24 accent-accent ${localStorage.getItem('glassEffect') === 'on' ? '' : 'opacity-30 pointer-events-none'}" id="glass-intensity-slider" oninput="setGlassIntensity(this.value)" title="Intensity">
+          <label class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('glassEffect') === 'on' ? 'checked' : ''} onchange="setGlassEffect(this.checked)">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
       <div class="flex items-center justify-between">
@@ -357,7 +369,6 @@ const THEME_COLOR_SCHEME = {
   sepia: 'light',
   daylight: 'light',
   thermal: 'dark',
-  glass: 'dark',
 };
 
 function _systemColorScheme() {
@@ -386,7 +397,37 @@ function _applyResolvedTheme(resolved) {
     document.documentElement.setAttribute('data-theme', resolved);
   }
   if (resolved === 'daylight') startDaylightTheme();
+  _applyGlassEffect();
   if (typeof _browseRefreshScheme === 'function') _browseRefreshScheme();
+}
+
+function _applyGlassEffect() {
+  const el = document.documentElement;
+  if (localStorage.getItem('glassEffect') === 'on') {
+    const scheme = getThemeColorScheme();
+    el.setAttribute('data-glass', scheme);
+    const intensity = parseInt(localStorage.getItem('glassIntensity') || '50', 10);
+    const alpha = 0.75 - (intensity / 100) * 0.6; // 0.75 (subtle) → 0.15 (very transparent)
+    const blur = 8 + (intensity / 100) * 32;       // 8px → 40px
+    el.style.setProperty('--ga', alpha.toFixed(2));
+    el.style.setProperty('--gb', blur.toFixed(0) + 'px');
+  } else {
+    el.removeAttribute('data-glass');
+    el.style.removeProperty('--ga');
+    el.style.removeProperty('--gb');
+  }
+}
+
+function setGlassEffect(on) {
+  localStorage.setItem('glassEffect', on ? 'on' : 'off');
+  _applyGlassEffect();
+  const slider = document.getElementById('glass-intensity-slider');
+  if (slider) slider.className = 'w-24 accent-accent ' + (on ? '' : 'opacity-30 pointer-events-none');
+}
+
+function setGlassIntensity(val) {
+  localStorage.setItem('glassIntensity', val);
+  _applyGlassEffect();
 }
 
 // Listen for system color scheme changes to update 'auto' theme in real time
@@ -400,7 +441,7 @@ function setTheme(theme) {
   localStorage.setItem('theme', theme);
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   _applyResolvedTheme(resolved);
-  ['auto', 'dark', 'light', 'sepia', 'daylight', 'thermal', 'glass'].forEach(t => {
+  ['auto', 'dark', 'light', 'sepia', 'daylight', 'thermal'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });
@@ -893,6 +934,7 @@ function applyStoredAppearance() {
   if (resolved !== 'dark') document.documentElement.setAttribute('data-theme', resolved);
   else document.documentElement.removeAttribute('data-theme');
   if (resolved === 'daylight') startDaylightTheme();
+  _applyGlassEffect();
   const accent = localStorage.getItem('accentColor');
   if (accent) applyAccentColor(accent);
   const edTheme = localStorage.getItem('editorTheme');
