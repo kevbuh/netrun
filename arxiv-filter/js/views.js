@@ -3481,6 +3481,8 @@ function _handleContextMenuChat(e) {
   // Skip inputs/textareas
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+  // Skip browse view chrome — iframe/webview handles its own context menu
+  if (e.target.closest('#browse-bar, #browse-tab-row, #browse-content, #browse-sidebar')) return;
   e.preventDefault();
   // _showLookupPanel handles retiring pinned panels
   if (popup) { popup.remove(); _lookupTrackMode = false; }
