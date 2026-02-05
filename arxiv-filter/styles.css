@@ -2470,7 +2470,7 @@
       background: var(--bg-popup);
       color: var(--text-primary);
       font-size: 0.75rem;
-      z-index: 100;
+      z-index: 10002;
       box-shadow: 0 4px 12px var(--shadow-popup);
       max-width: 340px;
     }

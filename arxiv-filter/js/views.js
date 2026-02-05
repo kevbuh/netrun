@@ -3418,6 +3418,18 @@ document.addEventListener('keydown', function(e) {
 
 // "/" key opens lookup panel with "/" pre-filled
 document.addEventListener('keydown', function(e) {
+  // Cmd+I or Ctrl+I toggles lookup panel
+  if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+    e.preventDefault();
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (popup) { if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _lookupTrackMode = false; return; }
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+    const x = window.innerWidth / 2;
+    const y = window.innerHeight / 2;
+    _showLookupPanel(x, y);
+    return;
+  }
   if (e.key !== '/') return;
   // Skip if typing in an input, textarea, or contentEditable
   const tag = document.activeElement?.tagName;
@@ -4523,6 +4535,8 @@ function _showLookupPanel(x, y, contextData, initialValue) {
     _sendPopupChatMessage(popup, '');
   });
   askInput.addEventListener('keydown', (ev) => {
+    // Let Cmd+I bubble up to document handler for toggle
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'i') return;
     ev.stopPropagation();
     const val = askInput.value;
     const isCmd = val.startsWith('/');
