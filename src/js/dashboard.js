@@ -809,3 +809,130 @@ async function openAllSaved() {
   container.innerHTML = `${backBtn}<h2 class="text-[1.3rem] font-semibold text-white_ mb-4">Reading List <span class="text-dim font-normal text-[0.9rem]">(${entries.length})</span></h2>${rows}`;
 }
 
+// ── Dev Stats ──
+
+let _devFpsRaf = null;
+
+function _devLineChart(hist, yKey, label, color, tooltipFn) {
+  if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
+  const W = 800, H = 220, PAD = { t: 20, r: 20, b: 40, l: 55 };
+  const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
+  const vals = hist.map(h => typeof yKey === 'function' ? yKey(h) : h[yKey]);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = maxV - minV || 1;
+  function xp(i) { return PAD.l + (i / (hist.length - 1)) * cw; }
+  function yp(v) { return PAD.t + ch - ((v - minV) / range) * ch; }
+  const gridColor = 'rgba(255,255,255,0.06)';
+  const textColor = 'var(--text-dimmer)';
+  // Title
+  let svg = `<text x="${PAD.l}" y="14" fill="${textColor}" font-size="11" font-weight="600">${label}</text>`;
+  // Grid
+  const yTicks = 4;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = minV + (range / yTicks) * i;
+    const yy = yp(val);
+    svg += `<line x1="${PAD.l}" y1="${yy}" x2="${W - PAD.r}" y2="${yy}" stroke="${gridColor}"/>`;
+    svg += `<text x="${PAD.l - 6}" y="${yy + 4}" text-anchor="end" fill="${textColor}" font-size="9">${Math.round(val).toLocaleString()}</text>`;
+  }
+  // Line
+  const pts = hist.map((h, i) => `${xp(i)},${yp(vals[i])}`);
+  svg += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
+  // Dots with hover targets
+  hist.forEach((h, i) => {
+    const cx = xp(i), cy = yp(vals[i]);
+    const tip = tooltipFn ? tooltipFn(h) : `${vals[i].toLocaleString()}`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="10" fill="transparent" class="dev-chart-hover"><title>${h.date}\n${tip}</title></circle>`;
+  });
+  // X labels
+  const step = Math.max(1, Math.floor(hist.length / 7));
+  for (let i = 0; i < hist.length; i += step) {
+    svg += `<text x="${xp(i)}" y="${H - 5}" text-anchor="middle" fill="${textColor}" font-size="9">${hist[i].date.slice(5)}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px">${svg}</svg>`;
+}
+
+async function renderDevStats() {
+  if (_devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
+
+  const cards = document.getElementById('dev-stats-cards');
+  const chart = document.getElementById('dev-loc-chart');
+  if (!cards || !chart) return;
+
+  cards.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
+  chart.innerHTML = '';
+
+  let data;
+  try {
+    const res = await fetch('/api/dev-stats', { headers: _authHeaders() });
+    data = await res.json();
+    if (data.error) throw new Error(data.error);
+  } catch (e) {
+    cards.innerHTML = `<div class="text-sm" style="color:var(--text-dimmer)">Error: ${e.message}</div>`;
+    return;
+  }
+
+  // Stat cards
+  const stats = [
+    { value: data.users, label: 'Users' },
+    { value: data.total_loc.toLocaleString(), label: 'Lines of Code' },
+    { value: data.files, label: 'Files' },
+    { value: data.commits_today, label: 'Commits Today' },
+    { value: '—', label: 'FPS', id: 'dev-fps-value' },
+  ];
+  cards.innerHTML = stats.map(s =>
+    `<div class="dev-stat-card">
+      <div class="dev-stat-value" ${s.id ? `id="${s.id}"` : ''}>${s.value}</div>
+      <div class="dev-stat-label">${s.label}</div>
+    </div>`
+  ).join('');
+
+  // FPS counter
+  const fpsEl = document.getElementById('dev-fps-value');
+  if (fpsEl) {
+    const frameTimes = [];
+    let lastUpdate = performance.now();
+    function fpsLoop(now) {
+      frameTimes.push(now);
+      while (frameTimes.length > 60) frameTimes.shift();
+      if (now - lastUpdate > 500 && frameTimes.length > 1) {
+        const elapsed = frameTimes[frameTimes.length - 1] - frameTimes[0];
+        fpsEl.textContent = Math.round((frameTimes.length - 1) / (elapsed / 1000));
+        lastUpdate = now;
+      }
+      _devFpsRaf = requestAnimationFrame(fpsLoop);
+    }
+    _devFpsRaf = requestAnimationFrame(fpsLoop);
+  }
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const hist = data.loc_history || [];
+
+  // LOC chart with +/- hover
+  const locChart = _devLineChart(hist, 'lines', 'Lines of Code', accent, h =>
+    `${h.lines.toLocaleString()} lines\n+${(h.added || 0).toLocaleString()} / -${(h.deleted || 0).toLocaleString()}`
+  );
+
+  // Build usage history arrays aligned to loc_history dates
+  const usage = data.usage_history || {};
+  const allDates = hist.map(h => h.date);
+  function usageSeries(eventName) {
+    return allDates.map(d => ({ date: d, count: (usage[d] && usage[d][eventName]) || 0 }));
+  }
+  const toolSeries = usageSeries('tool_call');
+  const lookupSeries = usageSeries('lookup_chat');
+  const searchSeries = usageSeries('search_chat');
+
+  const toolChart = _devLineChart(toolSeries, 'count', 'Tool Calls', '#6d9eeb', h => `${h.count} tool calls`);
+  const lookupChart = _devLineChart(lookupSeries, 'count', 'Lookup Chats', '#93c47d', h => `${h.count} lookup chats`);
+  const searchChart = _devLineChart(searchSeries, 'count', 'Search Chats', '#e06666', h => `${h.count} search chats`);
+
+  chart.innerHTML = `
+    <div class="dev-loc-chart">${locChart}</div>
+    <div class="dev-charts-grid">
+      <div class="dev-loc-chart">${toolChart}</div>
+      <div class="dev-loc-chart">${lookupChart}</div>
+      <div class="dev-loc-chart">${searchChart}</div>
+    </div>`;
+}
+

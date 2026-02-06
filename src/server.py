@@ -84,6 +84,8 @@ _extract_cache = {}
 # Format: { cache_key: { 'data': ..., 'ts': timestamp } }
 _s2_cache = {}
 _S2_CACHE_TTL = 3600  # 1 hour
+_loc_history_cache = None
+_loc_history_ts = 0
 # In-memory cache for paper insights: url -> { repos, contribution }
 _insights_cache = {}
 # On-disk cache for URL-to-PDF conversions: url -> file path
@@ -874,6 +876,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'results': []})
                 return
             try:
+                from persistence import log_usage
+                log_usage('search_chat')
+            except: pass
+            try:
                 search_url = 'https://html.duckduckgo.com/html/?q=' + urllib.request.quote(query)
                 req = urllib.request.Request(search_url, headers={
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -1472,6 +1478,117 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json({'google_id': google_id})
             else:
                 self._send_json({'error': 'Not authenticated'}, 401)
+
+        elif self.path == '/api/dev-stats':
+            try:
+                from persistence import _get_db
+                conn = _get_db()
+                users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+                active_sessions = conn.execute('SELECT COUNT(*) FROM sessions WHERE expires > ?', (time.time(),)).fetchone()[0]
+                # LOC and file count for src/
+                total_loc = 0
+                file_count = 0
+                for root, dirs, files in os.walk(DIR):
+                    dirs[:] = [d for d in dirs if d not in ('node_modules', '.git', '__pycache__', 'experiments', 'uploads')]
+                    for f in files:
+                        if f.endswith(('.js', '.py', '.css', '.html')):
+                            try:
+                                with open(os.path.join(root, f), 'r', errors='ignore') as fh:
+                                    total_loc += sum(1 for _ in fh)
+                                file_count += 1
+                            except: pass
+                # Commits today
+                commits_today = 0
+                git_root = os.path.dirname(DIR)
+                try:
+                    today = time.strftime('%Y-%m-%d')
+                    result = subprocess.run(['git', 'rev-list', '--count', '--since=' + today, 'HEAD'],
+                                            capture_output=True, text=True, cwd=git_root)
+                    commits_today = int(result.stdout.strip()) if result.returncode == 0 else 0
+                except: pass
+                # LOC history (last 30 days) - cached with 5 min TTL
+                global _loc_history_cache, _loc_history_ts
+                now_t = time.time()
+                cache_stale = not isinstance(_loc_history_cache, list) or (now_t - _loc_history_ts > 300)
+                if cache_stale:
+                    loc_history = []
+                    try:
+                        # Get LOC totals per day via git show
+                        result = subprocess.run(
+                            ['git', 'log', '--reverse', '--format=%H %ad', '--date=short', '--since=30 days ago'],
+                            capture_output=True, text=True, cwd=git_root)
+                        if result.returncode == 0:
+                            day_commits = {}
+                            for line in result.stdout.strip().split('\n'):
+                                if not line.strip(): continue
+                                parts = line.split(' ', 1)
+                                if len(parts) == 2:
+                                    day_commits[parts[1]] = parts[0]
+                            # Get add/delete stats per day via git log --numstat
+                            day_stats = {}
+                            stat_result = subprocess.run(
+                                ['git', 'log', '--numstat', '--format=%ad', '--date=short', '--since=30 days ago', '--', 'src/'],
+                                capture_output=True, text=True, cwd=git_root, timeout=30)
+                            if stat_result.returncode == 0:
+                                current_date = None
+                                for sline in stat_result.stdout.split('\n'):
+                                    sline = sline.strip()
+                                    if not sline: continue
+                                    if re.match(r'^\d{4}-\d{2}-\d{2}$', sline):
+                                        current_date = sline
+                                        if current_date not in day_stats:
+                                            day_stats[current_date] = {'added': 0, 'deleted': 0}
+                                    elif current_date and '\t' in sline:
+                                        parts3 = sline.split('\t')
+                                        if len(parts3) >= 3:
+                                            try:
+                                                day_stats[current_date]['added'] += int(parts3[0])
+                                                day_stats[current_date]['deleted'] += int(parts3[1])
+                                            except (ValueError, IndexError): pass
+                            for date in sorted(day_commits.keys()):
+                                sha = day_commits[date]
+                                lines = 0
+                                try:
+                                    r = subprocess.run(['git', 'ls-tree', '-r', '--name-only', sha, 'src/'],
+                                                       capture_output=True, text=True, cwd=git_root, timeout=5)
+                                    if r.returncode == 0:
+                                        for fp in r.stdout.strip().split('\n'):
+                                            if fp and fp.endswith(('.js', '.py', '.css', '.html')):
+                                                try:
+                                                    cr = subprocess.run(['git', 'show', sha + ':' + fp],
+                                                                        capture_output=True, text=True, cwd=git_root, timeout=5)
+                                                    if cr.returncode == 0:
+                                                        lines += cr.stdout.count('\n')
+                                                except: pass
+                                except: pass
+                                ds = day_stats.get(date, {})
+                                loc_history.append({
+                                    'date': date, 'lines': lines,
+                                    'added': ds.get('added', 0),
+                                    'deleted': ds.get('deleted', 0),
+                                })
+                    except: pass
+                    _loc_history_cache = loc_history
+                    _loc_history_ts = now_t
+                else:
+                    loc_history = _loc_history_cache
+                # Usage history
+                usage_history = {}
+                try:
+                    from persistence import get_usage_history
+                    usage_history = get_usage_history(30)
+                except: pass
+                self._send_json({
+                    'users': users,
+                    'active_sessions': active_sessions,
+                    'total_loc': total_loc,
+                    'files': file_count,
+                    'commits_today': commits_today,
+                    'loc_history': loc_history,
+                    'usage_history': usage_history,
+                })
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
 
         elif self.path == '/api/teams':
             google_id = self._get_user()
@@ -2646,6 +2763,10 @@ ch.postMessage({type:'preview-ready'});
                 if not messages:
                     self._send_json({'error': 'messages required'}, 400)
                     return
+                try:
+                    from persistence import log_usage
+                    log_usage('lookup_chat')
+                except: pass
 
                 if is_vision:
                     model = client_model or "qwen3-vl:8b"
@@ -2728,6 +2849,10 @@ ch.postMessage({type:'preview-ready'});
                                 # Send status event to frontend
                                 self.wfile.write(f'event: tool_call\ndata: {json.dumps({"name": tool_name, "args": tool_args})}\n\n'.encode())
                                 self.wfile.flush()
+                                try:
+                                    from persistence import log_usage
+                                    log_usage('tool_call')
+                                except: pass
                                 # Execute tool
                                 tool_result = self._execute_chat_tool(tool_name, tool_args)
                                 ollama_messages.append({"role": "tool", "content": json.dumps(tool_result)})

@@ -3840,7 +3840,7 @@ const _lookupCommands = [
   { name: 'note', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
   { name: 'paper', desc: 'Search for papers', hasArgs: true },
   { name: 'user', desc: 'Search for users', hasArgs: true },
-  { name: 'notes', desc: 'Search your notes', hasArgs: true },
+  { name: 'notes', desc: 'Browse your notes', _special: true },
   { name: 'capture', desc: 'Screenshot the page', _special: true },
   { name: 'model', desc: 'Change chat model', _special: true },
   { name: 'search', desc: 'Web search in new tab', hasArgs: true },
@@ -3934,8 +3934,7 @@ function _lookupHideTabDropdown(popup) {
 }
 
 async function _lookupRenderNoteDropdown(popup, query) {
-  if (!query) { _lookupHideNoteDropdown(popup); return; }
-  _lookupNoteQuery = query;
+  _lookupNoteQuery = query || '';
 
   // Get notes (cached or fetch)
   let notes;
@@ -3949,13 +3948,17 @@ async function _lookupRenderNoteDropdown(popup, query) {
     } catch { _lookupHideNoteDropdown(popup); return; }
   }
 
-  const q = query.toLowerCase();
-  _lookupNoteResults = notes.filter(n => {
-    const title = (n.title || '').toLowerCase();
-    const content = (n.content || '').toLowerCase();
-    const tags = (n.tags || []).join(' ').toLowerCase();
-    return title.includes(q) || content.includes(q) || tags.includes(q);
-  }).slice(0, 8);
+  if (query) {
+    const q = query.toLowerCase();
+    _lookupNoteResults = notes.filter(n => {
+      const title = (n.title || '').toLowerCase();
+      const content = (n.content || '').toLowerCase();
+      const tags = (n.tags || []).join(' ').toLowerCase();
+      return title.includes(q) || content.includes(q) || tags.includes(q);
+    }).slice(0, 8);
+  } else {
+    _lookupNoteResults = notes.slice(0, 12);
+  }
 
   let dropdown = popup.querySelector('.lookup-note-dropdown');
   if (!_lookupNoteResults.length) {
@@ -3998,18 +4001,14 @@ async function _lookupRenderNoteDropdown(popup, query) {
       `</div>`;
   }).join('');
 
-  // Click to open note
+  // Click to open note in side editor
   dropdown.querySelectorAll('.lookup-note-item').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       const idx = parseInt(el.dataset.idx);
       const note = _lookupNoteResults[idx];
       if (!note) return;
-      _lookupHideNoteDropdown(popup);
-      _lookupTrackMode = false;
-      popup.remove();
-      window.location.hash = '#vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(note.id); }, 100);
+      _lookupOpenNoteEditor(popup, note);
     });
   });
   _repositionSelectionPopup();
@@ -4018,12 +4017,125 @@ async function _lookupRenderNoteDropdown(popup, query) {
 function _lookupOpenSelectedNote(popup) {
   const note = _lookupNoteResults[_lookupNoteIdx];
   if (!note) return false;
-  _lookupHideNoteDropdown(popup);
-  _lookupTrackMode = false;
-  popup.remove();
-  window.location.hash = '#vault';
-  setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(note.id); }, 100);
+  _lookupOpenNoteEditor(popup, note);
   return true;
+}
+
+async function _doLookupNotesBrowse(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+  _lookupNoteIdx = 0;
+  await _lookupRenderNoteDropdown(popup, '');
+}
+
+function _lookupOpenNoteEditor(popup, note) {
+  // Remove existing note editor if any
+  const existing = document.getElementById('lookup-note-editor');
+  if (existing) existing.remove();
+
+  const popupRect = popup.getBoundingClientRect();
+
+  const editor = document.createElement('div');
+  editor.id = 'lookup-note-editor';
+  editor.className = 'lookup-note-editor-panel';
+  editor.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
+  // Title bar with note title and close button
+  const titleBar = document.createElement('div');
+  titleBar.className = 'lookup-note-editor-title-bar';
+
+  // Drag support
+  let edDragging = false, edDragOff = { x: 0, y: 0 };
+  titleBar.addEventListener('mousedown', (ev) => {
+    if (ev.target.closest('button')) return;
+    ev.preventDefault();
+    edDragging = true;
+    const r = editor.getBoundingClientRect();
+    edDragOff = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  });
+  document.addEventListener('mousemove', (ev) => {
+    if (!edDragging) return;
+    editor.style.left = (ev.clientX - edDragOff.x) + 'px';
+    editor.style.top = (ev.clientY - edDragOff.y) + 'px';
+  });
+  document.addEventListener('mouseup', () => { edDragging = false; });
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'lookup-note-editor-title';
+  titleSpan.textContent = note.title || 'Untitled';
+  titleBar.appendChild(titleSpan);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'lookup-note-editor-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.title = 'Close';
+  closeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); editor.remove(); });
+  titleBar.appendChild(closeBtn);
+  editor.appendChild(titleBar);
+
+  // Textarea for editing
+  const textarea = document.createElement('textarea');
+  textarea.className = 'lookup-note-editor-textarea';
+  textarea.value = note.content || '';
+  textarea.placeholder = 'Start writing...';
+  editor.appendChild(textarea);
+
+  // Auto-save on input (debounced 600ms)
+  let saveTimer = null;
+  const statusEl = document.createElement('div');
+  statusEl.className = 'lookup-note-editor-status';
+  editor.appendChild(statusEl);
+
+  textarea.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    statusEl.textContent = '';
+    saveTimer = setTimeout(async () => {
+      try {
+        const resp = await fetch('/api/vault/notes/' + note.id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+          body: JSON.stringify({ content: textarea.value })
+        });
+        if (resp.ok) {
+          statusEl.textContent = 'Saved';
+          setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 1500);
+          // Update cached vault notes
+          if (typeof _vaultNotes !== 'undefined') {
+            const cached = _vaultNotes.find(n => n.id === note.id);
+            if (cached) cached.content = textarea.value;
+          }
+        }
+      } catch {}
+    }, 600);
+  });
+
+  // Handle Escape to close
+  textarea.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();
+    if (ev.key === 'Escape') { editor.remove(); }
+  });
+
+  document.body.appendChild(editor);
+
+  // Position to the right of the lookup panel
+  const edRect = editor.getBoundingClientRect();
+  let left = popupRect.right + 6;
+  let top = popupRect.top;
+  // If it would overflow right, put it to the left
+  if (left + edRect.width > window.innerWidth - 10) {
+    left = popupRect.left - edRect.width - 6;
+  }
+  // Clamp top
+  if (top + edRect.height > window.innerHeight - 10) {
+    top = window.innerHeight - edRect.height - 10;
+  }
+  if (top < 10) top = 10;
+  editor.style.left = left + 'px';
+  editor.style.top = top + 'px';
+
+  textarea.focus();
 }
 
 async function _lookupCreateAndOpenNote(popup, title) {
@@ -4656,6 +4768,9 @@ function _showPanel(config) {
     if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
+  // Remove any open note editor
+  const existingEditor = document.getElementById('lookup-note-editor');
+  if (existingEditor) existingEditor.remove();
 
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
@@ -5285,6 +5400,7 @@ function _showPanel(config) {
               else if (cmd.name === 'model') _doLookupModel(popup);
               else if (cmd.name === 'links') _doLookupLinks(popup);
               else if (cmd.name === 'tab') _doLookupTab(popup);
+              else if (cmd.name === 'notes') _doLookupNotesBrowse(popup);
             } else {
               _lookupHideCmdDropdown(popup);
               cmd.fn();
@@ -5319,11 +5435,11 @@ function _showPanel(config) {
     askInput.addEventListener('input', () => {
       const val = askInput.value;
       if (val.startsWith('/')) {
-        const notesMatch = val.match(/^\/notes\s+(.+)/i);
-        if (notesMatch) {
+        const notesMatch = val.match(/^\/notes(\s+(.*))?$/i);
+        if (notesMatch && notesMatch[1] !== undefined) {
           _lookupHideCmdDropdown(popup);
           _lookupNoteIdx = 0;
-          _lookupRenderNoteDropdown(popup, notesMatch[1].trim());
+          _lookupRenderNoteDropdown(popup, (notesMatch[2] || '').trim());
         } else {
           _lookupHideNoteDropdown(popup);
           _lookupCmdIdx = 0;

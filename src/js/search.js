@@ -1560,7 +1560,7 @@ function _browseUpdateNewTabPage(tab) {
     if (!ntp) {
       ntp = document.createElement('div');
       ntp.className = 'browse-ntp';
-      ntp.innerHTML = `<div class="browse-ntp-inner"><svg class="browse-ntp-border" width="100%" height="100%"><rect width="100%" height="100%" fill="none" rx="16" ry="16" stroke="currentColor" stroke-width="1.5" stroke-dasharray="8 14" stroke-linecap="round"/></svg><span class="browse-ntp-text">alpha</span>
+      ntp.innerHTML = `<div class="browse-ntp-inner"><span class="browse-ntp-text">alpha</span>
         <button id="browse-open-pdf-btn" class="mt-2 px-3 py-1 rounded text-dimmer hover:text-primary cursor-pointer text-xs transition-colors" style="font-family:inherit;opacity:0.5">open file</button>
         <input type="file" id="browse-pdf-file-input" style="display:none">
         <div id="browse-ntp-drop-hint" class="mt-1 text-xs text-dimmer" style="opacity:0.5">or drop here</div></div>`;

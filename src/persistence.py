@@ -413,7 +413,37 @@ def init_db():
     if 'parent_id' not in team_cols:
         conn.execute("ALTER TABLE teams ADD COLUMN parent_id INTEGER")
         conn.commit()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS usage_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event TEXT NOT NULL,
+            ts REAL NOT NULL
+        )
+    """)
+    conn.commit()
     conn.close()
+
+
+def log_usage(event):
+    conn = _get_db()
+    conn.execute("INSERT INTO usage_log (event, ts) VALUES (?, ?)", (event, time.time()))
+    conn.commit()
+    conn.close()
+
+
+def get_usage_history(days=30):
+    conn = _get_db()
+    since = time.time() - days * 86400
+    rows = conn.execute(
+        "SELECT event, ts FROM usage_log WHERE ts > ? ORDER BY ts", (since,)
+    ).fetchall()
+    conn.close()
+    from collections import defaultdict
+    by_day = defaultdict(lambda: defaultdict(int))
+    for r in rows:
+        day = time.strftime('%Y-%m-%d', time.localtime(r['ts']))
+        by_day[day][r['event']] += 1
+    return dict(by_day)
 
 
 def upsert_google_user(google_id, email, name, picture=None):
