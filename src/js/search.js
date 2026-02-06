@@ -3434,9 +3434,13 @@ function _browseUrlKeydown(e) {
       const items = dd.querySelectorAll('[data-histq]');
       if (items[_browseUrlHistIdx]) {
         const q = items[_browseUrlHistIdx].dataset.histq;
-        document.getElementById('browse-url-input').value = q;
         _browseUrlHideHistory();
-        browseNavigate(q);
+        if (q.startsWith('project:')) {
+          openExperimentDetail(q.slice(8));
+        } else {
+          document.getElementById('browse-url-input').value = q;
+          browseNavigate(q);
+        }
       }
     } else {
       _browseUrlHideHistory();
@@ -3474,27 +3478,63 @@ function _browseUrlShowHistory() {
   const dd = document.getElementById('browse-url-history-dd');
   if (!input || !dd) return;
   const filter = (input.value || '').trim().toLowerCase();
+
+  // Search history matches
   const hist = _getWebSearchHistory();
-  const filtered = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
-  const show = filtered.slice(0, 12);
-  if (!show.length) { dd.style.display = 'none'; return; }
-  // Don't show if input exactly matches top entry
-  if (show.length === 1 && show[0].q.toLowerCase() === filter) { dd.style.display = 'none'; return; }
+  const filteredHist = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
+  let showHist = filteredHist.slice(0, 8);
+  if (showHist.length === 1 && showHist[0].q.toLowerCase() === filter) showHist = [];
+
+  // Project matches (only when there's a filter)
+  const projects = (filter && typeof allExperiments !== 'undefined') ?
+    allExperiments.filter(exp => exp.title.toLowerCase().includes(filter) || (exp.desc || '').toLowerCase().includes(filter)).slice(0, 5) : [];
+
+  if (!showHist.length && !projects.length) { dd.style.display = 'none'; return; }
+
   _browseUrlHistIdx = -1;
-  // Position dropdown below the input
   const rect = input.getBoundingClientRect();
   dd.style.left = rect.left + 'px';
   dd.style.top = (rect.bottom + 4) + 'px';
   dd.style.width = rect.width + 'px';
-  dd.innerHTML = show.map(h => {
-    const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
-    const safeQ = escapeHtml(h.q);
-    return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeQ.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeQ.replace(/'/g, "\\'")}');">
-      <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
-      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
-    </div>`;
-  }).join('');
+
+  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
+  const hoverOn = "this.style.background='var(--bg-hover)'";
+  const hoverOff = "this.style.background='none'";
+
+  let html = '';
+
+  // Projects section
+  if (projects.length) {
+    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
+    html += projects.map(exp => {
+      const safeId = escapeHtml(exp.id);
+      const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
+      return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); openExperimentDetail('${safeId}');">
+        <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
+        ${updated ? `<span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Search history section
+  if (showHist.length) {
+    if (projects.length) {
+      html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
+      html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
+    }
+    html += showHist.map(h => {
+      const time = _relativeTime(h.ts);
+      const safeQ = escapeHtml(h.q);
+      return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeQ.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeQ.replace(/'/g, "\\'")}');">
+        <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
+        <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  dd.innerHTML = html;
   dd.style.display = '';
 }
 
