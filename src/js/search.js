@@ -1962,9 +1962,17 @@ function _showTabTooltip(tabEl) {
 
   tabEl.classList.add('browse-tab-tooltip-open');
   const rect = tabEl.getBoundingClientRect();
-  tip.style.left = rect.left + 'px';
+  const minW = 200;
+  const tipW = Math.max(rect.width, minW);
   tip.style.top = (rect.bottom - 1) + 'px';
-  tip.style.width = rect.width + 'px';
+  tip.style.width = tipW + 'px';
+  // Default left-aligned with tab; flip right-aligned if it overflows viewport
+  const leftAligned = rect.left;
+  if (leftAligned + tipW <= window.innerWidth) {
+    tip.style.left = leftAligned + 'px';
+  } else {
+    tip.style.left = Math.max(0, rect.right - tipW) + 'px';
+  }
 
   tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
     ev.stopPropagation();
