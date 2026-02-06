@@ -297,31 +297,135 @@ function _nlCaptureEyeCrops() {
 
 // ── Server Communication ──
 
-async function _nlTrainOnServer() {
-  // Convert calibration data to compact format and POST
-  const samples = _nlCalibData.map(s => ({
-    eyeData: Array.from(s.eyeData),
-    screenX: s.screenX,
-    screenY: s.screenY
-  }));
+function _nlTrainOnServerSSE(onProgress) {
+  return new Promise((resolve, reject) => {
+    const samples = _nlCalibData.map(s => ({
+      eyeData: Array.from(s.eyeData),
+      screenX: s.screenX,
+      screenY: s.screenY
+    }));
 
-  const resp = await fetch('/api/neuralook/train', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      samples,
-      screenW: window.innerWidth,
-      screenH: window.innerHeight,
-      eyeW: _NL_EYE_W,
-      eyeH: _NL_EYE_H
-    })
+    fetch('/api/neuralook/train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        samples,
+        screenW: window.innerWidth,
+        screenH: window.innerHeight,
+        eyeW: _NL_EYE_W,
+        eyeH: _NL_EYE_H
+      })
+    }).then(resp => {
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) { reject(new Error('Stream ended without result')); return; }
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop();
+          let currentEvent = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) currentEvent = line.slice(7).trim();
+            else if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (currentEvent === 'progress' && onProgress) onProgress(data);
+                else if (currentEvent === 'done') {
+                  _nlTrainError = data.train_error_px;
+                  _nlValError = data.val_error_px || null;
+                  _nlModelTrained = true;
+                  resolve(data);
+                  return;
+                } else if (currentEvent === 'error') {
+                  reject(new Error(data.error));
+                  return;
+                }
+              } catch (_) {}
+            }
+          }
+          read();
+        }).catch(reject);
+      }
+      read();
+    }).catch(reject);
   });
-  const result = await resp.json();
-  if (result.error) throw new Error(result.error);
-  _nlTrainError = result.train_error_px;
-  _nlValError = result.val_error_px || null;
-  _nlModelTrained = true;
-  return result;
+}
+
+// ── Training Notification Pill ──
+
+let _nlTrainPill = null;
+
+function _nlShowTrainPill() {
+  _nlDismissTrainPill();
+  const pill = document.createElement('div');
+  pill.id = 'nl-train-pill';
+  Object.assign(pill.style, {
+    position: 'fixed', bottom: '20px', right: '20px', zIndex: '99999',
+    background: 'var(--bg-card, #23232a)', border: '1px solid var(--border, #333)',
+    borderRadius: '12px', padding: '12px 18px', minWidth: '220px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.4)', fontFamily: 'inherit',
+    fontSize: '0.8rem', color: 'var(--text-primary, #e5e5e5)',
+    transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
+    cursor: 'default', display: 'flex', alignItems: 'center', gap: '10px'
+  });
+  pill.innerHTML = `
+    <div style="width:18px;height:18px;flex-shrink:0;" id="nl-pill-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite">
+        <circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div id="nl-pill-text" style="flex:1;line-height:1.4;">
+      <div id="nl-pill-title" style="font-weight:600;font-size:0.8rem;">Training CNN</div>
+      <div id="nl-pill-detail" style="font-size:0.7rem;color:var(--text-secondary,#888);">Starting...</div>
+    </div>
+  `;
+  document.body.appendChild(pill);
+  _nlTrainPill = pill;
+  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
+
+  // Add spinner keyframes if not already present
+  if (!document.getElementById('nl-pill-spin-style')) {
+    const st = document.createElement('style');
+    st.id = 'nl-pill-spin-style';
+    st.textContent = '@keyframes nl-pill-spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(st);
+  }
+}
+
+function _nlUpdateTrainPill(title, detail) {
+  const t = document.getElementById('nl-pill-title');
+  const d = document.getElementById('nl-pill-detail');
+  if (t) t.textContent = title;
+  if (d) d.textContent = detail;
+}
+
+function _nlFinishTrainPill(title, detail, color) {
+  const icon = document.getElementById('nl-pill-icon');
+  if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="${color || '#4ade80'}"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  _nlUpdateTrainPill(title, detail);
+  if (_nlTrainPill) _nlTrainPill.style.cursor = 'pointer';
+  if (_nlTrainPill) _nlTrainPill.onclick = () => _nlDismissTrainPill();
+  setTimeout(() => _nlDismissTrainPill(), 6000);
+}
+
+function _nlErrorTrainPill(msg) {
+  const icon = document.getElementById('nl-pill-icon');
+  if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  _nlUpdateTrainPill('Training Failed', msg);
+  if (_nlTrainPill) _nlTrainPill.style.cursor = 'pointer';
+  if (_nlTrainPill) _nlTrainPill.onclick = () => _nlDismissTrainPill();
+  setTimeout(() => _nlDismissTrainPill(), 8000);
+}
+
+function _nlDismissTrainPill() {
+  if (!_nlTrainPill) return;
+  _nlTrainPill.style.opacity = '0';
+  _nlTrainPill.style.transform = 'translateY(10px)';
+  const p = _nlTrainPill;
+  _nlTrainPill = null;
+  setTimeout(() => p.remove(), 300);
 }
 
 async function _nlPredictOnServer(eyeData) {
@@ -625,124 +729,32 @@ function _nlShowNextCalibrationDot() {
 }
 
 async function _nlOnCalibrationComplete() {
-  const instr = document.getElementById('nl-cal-instr');
-  if (instr) instr.innerHTML = '<strong>Training CNN</strong> on eye images...';
+  // Close fullscreen overlay immediately, train in background via pill
+  _nlFinishCalibration();
+  _nlShowTrainPill();
 
   try {
-    await _nlTrainOnServer();
-  } catch (e) {
-    _nlFinishCalibration();
-    _nlShowError('Training failed: ' + (e.message || e));
-    return;
-  }
-
-  _nlRunAccuracyTest();
-}
-
-// ── Accuracy Test ──
-
-function _nlRunAccuracyTest() {
-  const overlay = document.getElementById('nl-calibration-overlay');
-  if (!overlay) { _nlFinishCalibration(); return; }
-
-  const dot = document.getElementById('nl-cal-dot');
-  if (dot) dot.remove();
-
-  const instr = document.getElementById('nl-cal-instr');
-  if (instr) instr.innerHTML = '<strong>Accuracy Test</strong> — look at each dot';
-
-  _nlAccuracyTestLoop(0, []);
-}
-
-function _nlAccuracyTestLoop(idx, distances) {
-  if (idx >= _NL_TEST_POSITIONS.length) {
-    const avg = distances.reduce((a, b) => a + b, 0) / distances.length;
-    _nlAccuracy = avg;
-    _nlShowAccuracyResult(avg);
-    return;
-  }
-
-  const overlay = document.getElementById('nl-calibration-overlay');
-  if (!overlay) { _nlFinishCalibration(); return; }
-
-  const [xPct, yPct] = _NL_TEST_POSITIONS[idx];
-  const targetX = window.innerWidth * xPct / 100;
-  const targetY = window.innerHeight * yPct / 100;
-
-  const testDot = document.createElement('div');
-  testDot.id = 'nl-test-dot';
-  Object.assign(testDot.style, {
-    position: 'absolute', left: xPct + '%', top: yPct + '%',
-    width: '20px', height: '20px', borderRadius: '50%',
-    background: '#60a5fa', border: '2px solid #fff', boxShadow: '0 0 8px rgba(0,0,0,0.5)',
-    transform: 'translate(-50%, -50%)', zIndex: '100001',
-    opacity: '0', transition: 'opacity 0.25s'
-  });
-  overlay.appendChild(testDot);
-  requestAnimationFrame(() => { testDot.style.opacity = '1'; });
-
-  const instr = document.getElementById('nl-cal-instr');
-  if (instr) instr.innerHTML = `<strong>Accuracy Test</strong> — Point ${idx + 1}/${_NL_TEST_POSITIONS.length}`;
-
-  const predictions = [];
-  const startTime = performance.now();
-
-  function collect() {
-    if (performance.now() - startTime > 1500) {
-      testDot.style.opacity = '0';
-      let dist = Infinity;
-      if (predictions.length > 0) {
-        let sx = 0, sy = 0;
-        for (const p of predictions) { sx += p.x; sy += p.y; }
-        const avgX = sx / predictions.length;
-        const avgY = sy / predictions.length;
-        dist = Math.sqrt((avgX - targetX) ** 2 + (avgY - targetY) ** 2);
+    const result = await _nlTrainOnServerSSE((prog) => {
+      if (prog.phase === 'evaluating') {
+        _nlUpdateTrainPill('Training CNN', 'Evaluating...');
+      } else {
+        const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
+        const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+        _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}`);
       }
-      distances.push(dist);
-      setTimeout(() => { testDot.remove(); _nlAccuracyTestLoop(idx + 1, distances); }, 300);
-      return;
-    }
+    });
 
-    const eyeData = _nlCaptureEyeCrops();
-    if (eyeData && !_nlInferPending) {
-      _nlInferPending = true;
-      _nlPredictOnServer(eyeData).then(pred => {
-        _nlInferPending = false;
-        if (pred) predictions.push(pred);
-      }).catch(() => { _nlInferPending = false; });
-    }
-    requestAnimationFrame(collect);
+    const trainPx = result.train_error_px;
+    const valPx = result.val_error_px;
+    const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
+    const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
+    _nlReady = true;
+    _nlFinishTrainPill('Calibration Done', `Train ${trainPx}px · Val ${valPx}px — ${label}`, color);
+    renderNeuralookView();
+  } catch (e) {
+    _nlErrorTrainPill(e.message || String(e));
+    renderNeuralookView();
   }
-
-  setTimeout(() => requestAnimationFrame(collect), 500);
-}
-
-function _nlShowAccuracyResult(avgPx) {
-  const overlay = document.getElementById('nl-calibration-overlay');
-  if (!overlay) { _nlFinishCalibration(); return; }
-
-  const px = Math.round(avgPx);
-  const label = px < 80 ? 'Good' : px < 150 ? 'Fair' : 'Poor';
-  const labelColor = px < 80 ? '#4ade80' : px < 150 ? '#fbbf24' : '#f87171';
-
-  const instr = document.getElementById('nl-cal-instr');
-  if (instr) instr.remove();
-  const testDot = document.getElementById('nl-test-dot');
-  if (testDot) testDot.remove();
-
-  const result = document.createElement('div');
-  result.id = 'nl-accuracy-result';
-  result.style.cssText = 'text-align:center;background:rgba(0,0,0,0.75);padding:24px 32px;border-radius:16px;';
-  result.innerHTML = `
-    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;color:#fff;">Calibration Complete</div>
-    <div style="font-size:2rem;font-weight:700;color:${labelColor};margin-bottom:4px;">~${px}px</div>
-    <div style="font-size:0.85rem;color:${labelColor};font-weight:500;">${label}</div>
-    <div style="font-size:0.75rem;color:#888;margin-top:12px;">Average across ${_NL_TEST_POSITIONS.length} test points</div>
-  `;
-  overlay.appendChild(result);
-
-  _nlReady = true;
-  setTimeout(() => _nlFinishCalibration(), 2500);
 }
 
 function _nlFinishCalibration() {

@@ -3984,6 +3984,9 @@ let _currentSuggestions = [];
 let _defCache = {};
 let _defDebounce = null;
 let _currentDef = null; // cached definition entry for current word
+let _instantAnswer = null; // { type, html } for non-definition instant answers
+let _instantDebounce = null;
+let _instantCache = {};
 
 function _browseUrlKeydown(e) {
   const dd = document.getElementById('browse-url-history-dd');
@@ -4092,6 +4095,9 @@ function _browseUrlShowHistory() {
     if (_defDebounce) { clearTimeout(_defDebounce); _defDebounce = null; }
   }
 
+  // Kick off instant answers (math, color, conversion, weather, timezone, sports, stocks)
+  _computeInstantAnswer(filter);
+
   _browseUrlRenderDropdown(dd, input, projects, showHist, filter);
 }
 
@@ -4137,8 +4143,9 @@ function _browseUrlRenderHistoryCommand(dd, input) {
 function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
   const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
+  const hasInstant = _instantAnswer && _instantAnswer.html;
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef) { dd.style.display = 'none'; return; }
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant) { dd.style.display = 'none'; return; }
 
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
@@ -4171,6 +4178,11 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
       }
     }
     html += '</div>';
+  }
+
+  // Instant answer section (math, color, conversion, weather, timezone, sports, stocks)
+  if (hasInstant) {
+    html += _instantAnswer.html;
   }
 
   // Suggestions section (AI autocomplete)
