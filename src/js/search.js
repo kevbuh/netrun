@@ -668,12 +668,20 @@ function browseNewPaperTab(url, paper) {
   if (!arxivId) el.style.display = 'none';
   container.appendChild(el);
 
+  const isUpload = paper.source === 'upload';
   const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(url) : '';
   const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
-                paper, contentType: arxivId ? 'pdf' : 'reader', arxivId: arxivId || null };
+                paper, contentType: (arxivId || isUpload) ? 'pdf' : 'reader', arxivId: arxivId || null };
+  if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
   win.tabs.push(tab);
   browseSelectTab(id);
   _browseSaveTabs();
+}
+
+function openLocalPdf(file) {
+  const blobUrl = URL.createObjectURL(file);
+  const paper = { title: file.name, link: blobUrl, source: 'upload', pdfUrl: blobUrl };
+  browseNewPaperTab(blobUrl, paper);
 }
 
 function openBrowseWithPaper(url, paper) {
@@ -1466,7 +1474,8 @@ function browseSelectTab(id) {
     // Render PDF if not yet rendered
     if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
       cleanupPdfViewer();
-      initPdfViewer(tab.el, '/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId), tab.arxivId);
+      const pdfUrl = tab.pdfUrl || ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId));
+      initPdfViewer(tab.el, pdfUrl, tab.arxivId || ('upload-' + tab.id));
     }
     // Render reader/iframe if not yet rendered
     else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
@@ -1537,8 +1546,27 @@ function _browseUpdateNewTabPage(tab) {
     if (!ntp) {
       ntp = document.createElement('div');
       ntp.className = 'browse-ntp';
-      ntp.innerHTML = '<span class="browse-ntp-text">alpha</span>';
+      ntp.innerHTML = `<span class="browse-ntp-text">alpha</span>
+        <button id="browse-open-pdf-btn" class="mt-4 px-4 py-2 rounded-lg bg-hover text-dimmer hover:text-primary hover:bg-[var(--bg-hover)] border border-[var(--border)] cursor-pointer text-sm transition-colors" style="font-family:inherit">Open PDF</button>
+        <input type="file" id="browse-pdf-file-input" accept=".pdf" style="display:none">
+        <div id="browse-ntp-drop-hint" class="mt-2 text-xs text-dimmer" style="opacity:0.5">or drag & drop a PDF here</div>`;
       container.appendChild(ntp);
+      ntp.querySelector('#browse-open-pdf-btn').onclick = function() {
+        ntp.querySelector('#browse-pdf-file-input').click();
+      };
+      ntp.querySelector('#browse-pdf-file-input').onchange = function(e) {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') openLocalPdf(file);
+        e.target.value = '';
+      };
+      ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--accent)'; });
+      ntp.addEventListener('dragleave', function() { ntp.style.outline = ''; });
+      ntp.addEventListener('drop', function(e) {
+        e.preventDefault();
+        ntp.style.outline = '';
+        const file = e.dataTransfer.files[0];
+        if (file && file.type === 'application/pdf') openLocalPdf(file);
+      });
     }
     ntp.style.display = '';
   } else if (ntp) {
@@ -2368,6 +2396,15 @@ function browseNavigate(input) {
   const cmd = (input || '').trim().toLowerCase();
   if (cmd === '/history') {
     openSearchHistoryPage();
+    return;
+  }
+  if (cmd === '/upload') {
+    const fi = document.getElementById('browse-pdf-file-input');
+    if (fi) { fi.click(); return; }
+    const tmp = document.createElement('input');
+    tmp.type = 'file'; tmp.accept = '.pdf'; tmp.style.display = 'none';
+    tmp.onchange = function() { if (tmp.files[0]) openLocalPdf(tmp.files[0]); tmp.remove(); };
+    document.body.appendChild(tmp); tmp.click();
     return;
   }
   const url = _browseResolveUrl(input);

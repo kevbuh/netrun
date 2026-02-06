@@ -3683,6 +3683,7 @@ const _lookupCommands = [
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
+  { name: 'upload', desc: 'Open a local PDF file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.accept = '.pdf'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
