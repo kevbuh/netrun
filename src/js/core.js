@@ -744,7 +744,11 @@ function hideAllViews() {
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
   if (typeof _vibeCleanup === 'function') _vibeCleanup();
+  // Hide universal panel (next view's open function will re-show if it has registered tabs)
+  const _upanel = document.getElementById('universal-panel');
+  if (_upanel) _upanel.style.display = 'none';
   _removePanelMargin();
+  _panelActiveView = null;
 }
 
 function goHome() {

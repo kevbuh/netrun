@@ -3819,12 +3819,14 @@ function _injectIframeChatHandler(iframe) {
         const f = iframe.getBoundingClientRect();
         const tag = e.target.tagName;
         const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+        console.log('[iframe-ctx]', tag, 'isEditable:', isEditable, 'target:', e.target, 'iframe:', iframe.src || iframe.id);
         if (isEditable) {
           e.preventDefault();
           const popup = document.getElementById('doc-chat-ask-float');
           if (popup) { popup.remove(); _lookupTrackMode = false; }
           const sel = doc.getSelection();
           const selectedText = sel && sel.toString().trim() || '';
+          console.log('[iframe-ctx] opening panel with editableTarget:', e.target.tagName, 'ownerDoc===doc:', e.target.ownerDocument === doc);
           _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, editableTarget: e.target, selectionText: selectedText, finalized: true });
           return;
         }
@@ -5235,17 +5237,33 @@ async function _doLookupUserSearch(popup, query) {
 //   editableTarget: HTMLElement — the input/textarea/contentEditable element (for paste)
 //   priorEditable: HTMLElement  — editable element that was focused before panel opened
 
-// Paste text into an element, handling iframe ownership for execCommand
-function _pasteIntoElement(el, text) {
-  // If element is inside an iframe, focus the iframe first
+// Focus an element that may be inside an iframe — focuses the iframe first if needed
+function _focusCrossFrame(el) {
   const ownerDoc = el.ownerDocument;
-  if (ownerDoc !== document) {
+  console.log('[focusCrossFrame] el:', el.tagName, 'ownerDoc===document:', ownerDoc === document, 'el.isConnected:', el.isConnected);
+  if (ownerDoc && ownerDoc !== document) {
     const iframes = document.querySelectorAll('iframe, webview');
+    let found = false;
     for (const f of iframes) {
-      try { if (f.contentDocument === ownerDoc) { f.focus(); break; } } catch (e) {}
+      try {
+        if (f.contentDocument === ownerDoc) {
+          console.log('[focusCrossFrame] found parent iframe:', f.tagName, f.src || f.id);
+          f.focus();
+          found = true;
+          break;
+        }
+      } catch (e) { console.log('[focusCrossFrame] cross-origin iframe skip'); }
     }
+    if (!found) console.log('[focusCrossFrame] no matching iframe found among', iframes.length, 'iframes');
   }
   el.focus();
+  console.log('[focusCrossFrame] after focus, document.activeElement:', document.activeElement?.tagName, 'ownerDoc.activeElement:', ownerDoc?.activeElement?.tagName);
+}
+
+// Paste text into an element, handling iframe ownership for execCommand
+function _pasteIntoElement(el, text) {
+  console.log('[pasteInto] el:', el.tagName, 'text:', text?.slice(0, 50), 'isConnected:', el.isConnected);
+  _focusCrossFrame(el);
   if (el.isContentEditable) {
     // execCommand must be called on the element's ownerDocument (matters for iframes)
     const ownerDoc = el.ownerDocument || document;
@@ -5460,7 +5478,7 @@ function _showPanel(config) {
     if (capturedText) {
       addEditItem('Cut', () => {
         navigator.clipboard.writeText(capturedText).catch(() => {});
-        editableTarget.focus();
+        _focusCrossFrame(editableTarget);
         if (editableTarget.isContentEditable) {
           (editableTarget.ownerDocument || document).execCommand('delete');
         } else {

@@ -25,11 +25,10 @@ window.addEventListener('mediapipe-ready', () => {
   if (document.getElementById('neuralook-content')) renderNeuralookView();
 });
 
-// Calibration data: array of { irisX, irisY, screenX, screenY }
+// Calibration data: array of { features: [5], screenX, screenY }
 let _nlCalibData = [];
-// Regression coefficients: screenX = ax*irisX + bx*irisY + cx
-//                          screenY = ay*irisX + by*irisY + cy
-let _nlCoeffs = null;
+// MLP model weights (null = not trained)
+let _nlModel = null;
 
 // Smoothing — ring buffer of recent predictions
 let _nlGazeBuffer = [];
@@ -253,68 +252,165 @@ function _nlExtractIrisFeatures(landmarks) {
   const rInner = landmarks[362];
   const rOuter = landmarks[263];
 
-  // Horizontal ratio: where iris sits between inner and outer corners (0=outer, 1=inner)
-  const lWidth = Math.sqrt((lInner.x - lOuter.x) ** 2 + (lInner.y - lOuter.y) ** 2);
-  const rWidth = Math.sqrt((rInner.x - rOuter.x) ** 2 + (rInner.y - rOuter.y) ** 2);
-
-  const lRatioX = lWidth > 0.001 ? (lIris.x - lOuter.x) / (lInner.x - lOuter.x) : 0.5;
-  const rRatioX = rWidth > 0.001 ? (rIris.x - rOuter.x) / (rInner.x - rOuter.x) : 0.5;
+  // Horizontal ratio: where iris sits between inner and outer corners
+  const lRatioX = Math.abs(lInner.x - lOuter.x) > 0.001 ? (lIris.x - lOuter.x) / (lInner.x - lOuter.x) : 0.5;
+  const rRatioX = Math.abs(rInner.x - rOuter.x) > 0.001 ? (rIris.x - rOuter.x) / (rInner.x - rOuter.x) : 0.5;
 
   // Vertical ratio: where iris sits between upper and lower lids
-  const lUpper = landmarks[159];
-  const lLower = landmarks[145];
-  const rUpper = landmarks[386];
-  const rLower = landmarks[374];
+  const lUpper = landmarks[159], lLower = landmarks[145];
+  const rUpper = landmarks[386], rLower = landmarks[374];
+  const lRatioY = Math.abs(lLower.y - lUpper.y) > 0.001 ? (lIris.y - lUpper.y) / (lLower.y - lUpper.y) : 0.5;
+  const rRatioY = Math.abs(rLower.y - rUpper.y) > 0.001 ? (rIris.y - rUpper.y) / (rLower.y - rUpper.y) : 0.5;
 
-  const lHeight = Math.abs(lLower.y - lUpper.y);
-  const rHeight = Math.abs(rLower.y - rUpper.y);
+  const irisX = (lRatioX + rRatioX) / 2;
+  const irisY = (lRatioY + rRatioY) / 2;
 
-  const lRatioY = lHeight > 0.001 ? (lIris.y - lUpper.y) / (lLower.y - lUpper.y) : 0.5;
-  const rRatioY = rHeight > 0.001 ? (rIris.y - rUpper.y) / (rLower.y - rUpper.y) : 0.5;
+  // Head pose from nose tip (1), forehead (10), chin (152)
+  const nose = landmarks[1];
+  const forehead = landmarks[10];
+  const chin = landmarks[152];
+  const lCheek = landmarks[234];
+  const rCheek = landmarks[454];
 
-  // Average both eyes
+  // Yaw: horizontal offset of nose relative to cheeks midpoint
+  const cheekMidX = (lCheek.x + rCheek.x) / 2;
+  const cheekWidth = Math.abs(rCheek.x - lCheek.x);
+  const yaw = cheekWidth > 0.001 ? (nose.x - cheekMidX) / cheekWidth : 0;
+
+  // Pitch: vertical offset of nose relative to forehead-chin midpoint
+  const faceMidY = (forehead.y + chin.y) / 2;
+  const faceHeight = Math.abs(chin.y - forehead.y);
+  const pitch = faceHeight > 0.001 ? (nose.y - faceMidY) / faceHeight : 0;
+
+  // Roll: angle of line between eye corners
+  const roll = Math.atan2(rOuter.y - lOuter.y, rOuter.x - lOuter.x);
+
+  // Return 5-element feature vector
+  return [irisX, irisY, yaw, pitch, roll];
+}
+
+// ── Tiny MLP: 5 → 16 → 16 → 2 with ReLU ──
+// ~370 parameters, trained per-user during calibration via SGD
+
+function _nlMlpInit() {
+  // Xavier initialization
+  function randMatrix(rows, cols) {
+    const scale = Math.sqrt(2 / cols);
+    const m = new Float64Array(rows * cols);
+    for (let i = 0; i < m.length; i++) m[i] = (Math.random() * 2 - 1) * scale;
+    return { data: m, rows, cols };
+  }
+  function zeroVec(n) { return new Float64Array(n); }
   return {
-    x: (lRatioX + rRatioX) / 2,
-    y: (lRatioY + rRatioY) / 2
+    w1: randMatrix(16, 5), b1: zeroVec(16),
+    w2: randMatrix(16, 16), b2: zeroVec(16),
+    w3: randMatrix(2, 16), b3: zeroVec(2)
   };
 }
 
-// ── Linear Regression Solver ──
-// Solves: screenCoord = a*irisX + b*irisY + c via normal equations
+function _nlMlpForward(model, input) {
+  // input: Float64Array(5), returns { out: Float64Array(2), h1, h2, a1, a2 } for backprop
+  const { w1, b1, w2, b2, w3, b3 } = model;
 
-function _nlSolveRegression(data) {
-  // data: array of { irisX, irisY, screenX, screenY }
+  // Layer 1: 5→16 + ReLU
+  const h1 = new Float64Array(16);
+  const a1 = new Float64Array(16);
+  for (let i = 0; i < 16; i++) {
+    let s = b1[i];
+    for (let j = 0; j < 5; j++) s += w1.data[i * 5 + j] * input[j];
+    a1[i] = s;
+    h1[i] = s > 0 ? s : 0; // ReLU
+  }
+
+  // Layer 2: 16→16 + ReLU
+  const h2 = new Float64Array(16);
+  const a2 = new Float64Array(16);
+  for (let i = 0; i < 16; i++) {
+    let s = b2[i];
+    for (let j = 0; j < 16; j++) s += w2.data[i * 16 + j] * h1[j];
+    a2[i] = s;
+    h2[i] = s > 0 ? s : 0;
+  }
+
+  // Layer 3: 16→2 (linear output)
+  const out = new Float64Array(2);
+  for (let i = 0; i < 2; i++) {
+    let s = b3[i];
+    for (let j = 0; j < 16; j++) s += w3.data[i * 16 + j] * h2[j];
+    out[i] = s;
+  }
+
+  return { out, h1, h2, a1, a2 };
+}
+
+function _nlMlpTrain(data, epochs, lr) {
+  // data: array of { features: Float64Array(5), target: Float64Array(2) }
+  if (data.length < 3) return null;
+
+  const model = _nlMlpInit();
   const n = data.length;
-  if (n < 3) return null;
 
-  // Build normal equations for X: [sumXX, sumXY, sumX; sumXY, sumYY, sumY; sumX, sumY, n] * [a,b,c] = [sumX*sx, sumY*sx, sum*sx]
-  let sIx = 0, sIy = 0, sIxIx = 0, sIyIy = 0, sIxIy = 0;
-  let sIxSx = 0, sIySx = 0, sSx = 0;
-  let sIxSy = 0, sIySy = 0, sSy = 0;
+  for (let epoch = 0; epoch < epochs; epoch++) {
+    // Shuffle
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [data[i], data[j]] = [data[j], data[i]];
+    }
 
-  for (const d of data) {
-    const ix = d.irisX, iy = d.irisY, sx = d.screenX, sy = d.screenY;
-    sIx += ix; sIy += iy;
-    sIxIx += ix * ix; sIyIy += iy * iy; sIxIy += ix * iy;
-    sIxSx += ix * sx; sIySx += iy * sx; sSx += sx;
-    sIxSy += ix * sy; sIySy += iy * sy; sSy += sy;
+    for (const sample of data) {
+      const input = sample.features;
+      const target = sample.target;
+      const { out, h1, h2, a1, a2 } = _nlMlpForward(model, input);
+
+      // MSE loss gradient: dL/dout = 2*(out - target)/2 = (out - target)
+      const dOut = new Float64Array(2);
+      dOut[0] = out[0] - target[0];
+      dOut[1] = out[1] - target[1];
+
+      // Backprop layer 3: 16→2
+      const dH2 = new Float64Array(16);
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 16; j++) {
+          model.w3.data[i * 16 + j] -= lr * dOut[i] * h2[j];
+          dH2[j] += model.w3.data[i * 16 + j] * dOut[i];
+        }
+        model.b3[i] -= lr * dOut[i];
+      }
+
+      // ReLU derivative for layer 2
+      const dA2 = new Float64Array(16);
+      for (let i = 0; i < 16; i++) dA2[i] = a2[i] > 0 ? dH2[i] : 0;
+
+      // Backprop layer 2: 16→16
+      const dH1 = new Float64Array(16);
+      for (let i = 0; i < 16; i++) {
+        for (let j = 0; j < 16; j++) {
+          model.w2.data[i * 16 + j] -= lr * dA2[i] * h1[j];
+          dH1[j] += model.w2.data[i * 16 + j] * dA2[i];
+        }
+        model.b2[i] -= lr * dA2[i];
+      }
+
+      // ReLU derivative for layer 1
+      const dA1 = new Float64Array(16);
+      for (let i = 0; i < 16; i++) dA1[i] = a1[i] > 0 ? dH1[i] : 0;
+
+      // Backprop layer 1: 5→16
+      for (let i = 0; i < 16; i++) {
+        for (let j = 0; j < 5; j++) {
+          model.w1.data[i * 5 + j] -= lr * dA1[i] * input[j];
+        }
+        model.b1[i] -= lr * dA1[i];
+      }
+    }
   }
 
-  // Solve 3x3 system via Cramer's rule
-  function solve3x3(a11, a12, a13, a21, a22, a23, a31, a32, a33, b1, b2, b3) {
-    const det = a11 * (a22 * a33 - a23 * a32) - a12 * (a21 * a33 - a23 * a31) + a13 * (a21 * a32 - a22 * a31);
-    if (Math.abs(det) < 1e-12) return null;
-    const x = (b1 * (a22 * a33 - a23 * a32) - a12 * (b2 * a33 - a23 * b3) + a13 * (b2 * a32 - a22 * b3)) / det;
-    const y = (a11 * (b2 * a33 - a23 * b3) - b1 * (a21 * a33 - a23 * a31) + a13 * (a21 * b3 - b2 * a31)) / det;
-    const z = (a11 * (a22 * b3 - b2 * a32) - a12 * (a21 * b3 - b2 * a31) + b1 * (a21 * a32 - a22 * a31)) / det;
-    return [x, y, z];
-  }
+  return model;
+}
 
-  const cX = solve3x3(sIxIx, sIxIy, sIx, sIxIy, sIyIy, sIy, sIx, sIy, n, sIxSx, sIySx, sSx);
-  const cY = solve3x3(sIxIx, sIxIy, sIx, sIxIy, sIyIy, sIy, sIx, sIy, n, sIxSy, sIySy, sSy);
-
-  if (!cX || !cY) return null;
-  return { ax: cX[0], bx: cX[1], cx: cX[2], ay: cY[0], by: cY[1], cy: cY[2] };
+function _nlMlpPredict(model, features) {
+  const { out } = _nlMlpForward(model, features);
+  return { x: out[0], y: out[1] };
 }
 
 // ── Camera / Video Element ──
@@ -448,7 +544,7 @@ async function _nlStartCalibration() {
 
   _nlCalibrating = true;
   _nlCalibData = [];
-  _nlCoeffs = null;
+  _nlModel = null;
   _nlReady = false;
   _nlCurrentPoint = 0;
   _nlAccuracy = null;
@@ -621,7 +717,7 @@ function _nlShowNextCalibrationDot() {
 
     const screenX = window.innerWidth * xPct / 100;
     const screenY = window.innerHeight * yPct / 100;
-    _nlCalibData.push({ irisX: iris.x, irisY: iris.y, screenX, screenY });
+    _nlCalibData.push({ features: new Float64Array(iris), target: new Float64Array([screenX, screenY]) });
 
     // Fade out and next
     dot.style.opacity = '0';
@@ -636,11 +732,11 @@ function _nlShowNextCalibrationDot() {
 }
 
 function _nlOnCalibrationComplete() {
-  // Solve regression
-  _nlCoeffs = _nlSolveRegression(_nlCalibData);
-  if (!_nlCoeffs) {
+  // Train MLP on calibration data (500 epochs, lr 0.01)
+  _nlModel = _nlMlpTrain(_nlCalibData.slice(), 500, 0.01);
+  if (!_nlModel) {
     _nlFinishCalibration();
-    _nlShowError('Regression failed — not enough valid data. Try again.');
+    _nlShowError('Training failed — not enough valid data. Try again.');
     return;
   }
 
@@ -733,10 +829,9 @@ function _nlAccuracyTestLoop(idx, distances) {
 
     // Get current iris prediction
     const iris = _nlGetIrisFeaturesNow();
-    if (iris && _nlCoeffs) {
-      const px = _nlCoeffs.ax * iris.x + _nlCoeffs.bx * iris.y + _nlCoeffs.cx;
-      const py = _nlCoeffs.ay * iris.x + _nlCoeffs.by * iris.y + _nlCoeffs.cy;
-      predictions.push({ x: px, y: py });
+    if (iris && _nlModel) {
+      const pred = _nlMlpPredict(_nlModel, new Float64Array(iris));
+      predictions.push(pred);
     }
 
     collectRAF = requestAnimationFrame(collect);
@@ -800,9 +895,9 @@ function _nlTrackingLoop() {
   }
 
   const iris = _nlGetIrisFeaturesNow();
-  if (iris && _nlCoeffs) {
-    const px = _nlCoeffs.ax * iris.x + _nlCoeffs.bx * iris.y + _nlCoeffs.cx;
-    const py = _nlCoeffs.ay * iris.x + _nlCoeffs.by * iris.y + _nlCoeffs.cy;
+  if (iris && _nlModel) {
+    const pred = _nlMlpPredict(_nlModel, new Float64Array(iris));
+    const px = pred.x, py = pred.y;
 
     _nlPredictionCount++;
     _nlPredictionsThisSec++;
@@ -831,7 +926,7 @@ function _nlToggleTracking() {
 }
 
 async function _nlStartTracking() {
-  if (!_nlReady || !_nlCoeffs) return;
+  if (!_nlReady || !_nlModel) return;
 
   // Ensure video and mediapipe
   try {

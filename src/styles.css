@@ -4564,7 +4564,7 @@
     /* ── Vault (Obsidian-style notes) ── */
     .vault-layout {
       display: grid;
-      grid-template-columns: 220px 1fr 240px;
+      grid-template-columns: 220px 1fr;
       height: 100%;
       background: var(--bg-body);
     }
@@ -5146,6 +5146,65 @@
     }
     .vault-tag-item:hover {
       background: var(--accent-bg, rgba(180, 69, 26, 0.15));
+    }
+
+    /* ── Universal Side Panel ── */
+    #universal-panel {
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border-card);
+      z-index: 40;
+    }
+    #universal-panel-resize {
+      position: absolute;
+      left: -3px;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 1;
+    }
+    #universal-panel-resize:hover,
+    #universal-panel-resize:active {
+      background: var(--accent);
+      opacity: 0.3;
+    }
+    #universal-panel-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .universal-panel-tab-btn {
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dimmer);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .universal-panel-tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .universal-panel-tab-btn.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent);
+    }
+    #universal-panel-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
     }
 
     /* ── Publish Modal ── */

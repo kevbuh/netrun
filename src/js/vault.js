@@ -6,7 +6,6 @@ let _vaultPreviewMode = true; // Preview on by default
 let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
 let _vaultMarimoActive = false; // Whether a marimo server is running for current note
-let _vaultRightSidebarVisible = true;
 
 // Open vault view
 async function openVault() {
@@ -18,6 +17,7 @@ async function openVault() {
   window.location.hash = 'vault';
   setSidebarActive('sb-vault');
   initVault();
+  showPanelForView('vault');
 }
 
 // Initialize vault
@@ -93,19 +93,6 @@ async function initVault() {
     updateVaultPreview();
   }
 
-  // Keyboard shortcut: Cmd+] to toggle right sidebar
-  if (!window._vaultKeyHandler) {
-    window._vaultKeyHandler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === ']') {
-        e.preventDefault();
-        const vaultView = document.getElementById('vault-view');
-        if (vaultView && vaultView.style.display !== 'none') {
-          vaultToggleRightSidebar();
-        }
-      }
-    };
-    document.addEventListener('keydown', window._vaultKeyHandler);
-  }
 }
 
 // Create welcome note for new vaults (only if no notes exist)
@@ -719,8 +706,10 @@ function clearVaultEditor() {
   _vaultCurrentNote = null;
   document.getElementById('vault-note-title').value = '';
   document.getElementById('vault-editor').value = '';
-  document.getElementById('vault-backlinks-list').innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>';
-  document.getElementById('vault-tags-list').innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No tags</div>';
+  const blList = document.getElementById('vault-backlinks-list');
+  if (blList) blList.innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>';
+  const tgList = document.getElementById('vault-tags-list');
+  if (tgList) tgList.innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No tags</div>';
   const pubSection = document.getElementById('vault-published-section');
   if (pubSection) pubSection.style.display = 'none';
   // Reset publish button
@@ -959,22 +948,6 @@ function vaultFilterNotes(query) {
   renderVaultFileTree(query);
 }
 
-// Toggle right sidebar (backlinks/tags)
-function vaultToggleRightSidebar() {
-  _vaultRightSidebarVisible = !_vaultRightSidebarVisible;
-  const layout = document.querySelector('.vault-layout');
-  const sidebar = document.querySelector('.vault-backlinks');
-  const btn = document.getElementById('vault-sidebar-toggle-btn');
-  if (layout) {
-    layout.style.gridTemplateColumns = _vaultRightSidebarVisible ? '220px 1fr 240px' : '220px 1fr';
-  }
-  if (sidebar) {
-    sidebar.style.display = _vaultRightSidebarVisible ? '' : 'none';
-  }
-  if (btn) {
-    btn.classList.toggle('active', !_vaultRightSidebarVisible);
-  }
-}
 
 // Toggle preview mode
 function vaultTogglePreview() {
@@ -1964,3 +1937,55 @@ function hideBlogReplyForm(id) {
   const form = document.getElementById('blog-reply-form-' + id);
   if (form) form.classList.remove('visible');
 }
+
+// ── Universal Panel: Vault tabs ──
+function renderVaultBacklinksPanel(container) {
+  container.innerHTML = `
+    <div id="vault-published-section" class="vault-published-section" style="display:none;">
+      <div class="vault-backlinks-header">
+        <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+        <span class="text-[0.75rem] font-medium text-accent">Published</span>
+      </div>
+      <div id="vault-published-info" class="vault-published-info"></div>
+    </div>
+    <div class="vault-backlinks-header">
+      <svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
+      <span class="text-[0.75rem] font-medium text-muted">Backlinks</span>
+    </div>
+    <div id="vault-backlinks-list" class="vault-backlinks-list">
+      <div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>
+    </div>
+  `;
+  updateVaultBacklinks();
+  updateVaultPublishButton();
+}
+
+function renderVaultTagsPanel(container) {
+  container.innerHTML = `
+    <div class="vault-backlinks-header">
+      <svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/></svg>
+      <span class="text-[0.75rem] font-medium text-muted">Tags</span>
+    </div>
+    <div id="vault-tags-list" class="vault-tags-list">
+      <div class="text-dimmer text-[0.75rem] px-3">No tags</div>
+    </div>
+  `;
+  updateVaultTags();
+}
+
+registerPanelTabs('vault', {
+  tabs: [
+    {
+      id: 'backlinks',
+      label: 'Backlinks',
+      icon: '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>',
+      render: renderVaultBacklinksPanel
+    },
+    {
+      id: 'tags',
+      label: 'Tags',
+      icon: '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/></svg>',
+      render: renderVaultTagsPanel
+    }
+  ]
+});
