@@ -1414,15 +1414,22 @@ function populateCategories() {
 let lastFilteredPapers = [];
 
 function getSearchHistory() {
-  try { return JSON.parse(localStorage.getItem('searchHistory') || '[]'); } catch { return []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+    return raw.map(h => typeof h === 'string' ? { q: h, ts: 0, c: 0 } : h);
+  } catch { return []; }
 }
-function saveSearchHistory(query) {
+function saveSearchHistory(query, resultCount) {
   const q = query.trim();
   if (!q) return;
-  let hist = getSearchHistory().filter(h => h !== q);
-  hist.unshift(q);
-  if (hist.length > 5) hist = hist.slice(0, 5);
+  let hist = getSearchHistory().filter(h => h.q !== q);
+  hist.unshift({ q, ts: Date.now(), c: resultCount || 0 });
+  if (hist.length > 50) hist = hist.slice(0, 50);
   localStorage.setItem('searchHistory', JSON.stringify(hist));
+}
+function _updateSearchHistoryCount(count) {
+  const hist = getSearchHistory();
+  if (hist.length) { hist[0].c = count; localStorage.setItem('searchHistory', JSON.stringify(hist)); }
 }
 function removeSearchHistory(index) {
   const hist = getSearchHistory();

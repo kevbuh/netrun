@@ -21,6 +21,7 @@ function _searchAuthorLabel(authors) {
 function onSearchInput() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   renderSearchFeedResults(query);
+  showSearchHistoryView();
 }
 
 function submitSearch() {
@@ -43,14 +44,22 @@ function submitSearch() {
   if (hints) hints.style.display = 'none';
   // Filter feed results
   renderSearchFeedResults(query);
+  // Count feed matches for history
+  const feedCount = (searchResultsCache._feedMatches || []).length;
   // Skip arXiv search if query is only source:/sort: prefixes (no searchable terms)
   const searchableTokens = query.split(/\s+/).filter(t => !t.startsWith('source:') && !t.startsWith('sort:'));
-  if (searchableTokens.length === 0) return;
+  if (searchableTokens.length === 0) {
+    if (feedCount && typeof _updateSearchHistoryCount === 'function') _updateSearchHistoryCount(feedCount);
+    return;
+  }
   searchCurrentStart = 0;
   searchSort = 'citations';
   searchCurrentQuery = query;
   arxivCollapsed = false;
-  doSearchArxiv();
+  doSearchArxiv().then(() => {
+    const arxivCount = searchResultsCache ? searchResultsCache.length : 0;
+    if (typeof _updateSearchHistoryCount === 'function') _updateSearchHistoryCount(feedCount + arxivCount);
+  });
 }
 
 function renderSearchFeedResults(query) {
@@ -2355,7 +2364,18 @@ function _browseFaviconUrl(url) {
 }
 
 function browseNavigate(input) {
+  // Handle slash commands
+  const cmd = (input || '').trim().toLowerCase();
+  if (cmd === '/history') {
+    openSearchHistoryPage();
+    return;
+  }
   const url = _browseResolveUrl(input);
+  // Track web searches (when input resolved to a Google search, not a direct URL)
+  const trimmed = (input || '').trim();
+  if (trimmed && url.startsWith('https://www.google.com/search?q=')) {
+    _saveWebSearch(trimmed);
+  }
   // arXiv URL → open as paper tab
   const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
   if (arxivMatch) {
@@ -3219,6 +3239,11 @@ function toggleBrowseMoreMenu() {
   const btnRect = document.getElementById('browse-more-btn').getBoundingClientRect();
   dd.innerHTML = `<div style="position:fixed;right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px;min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
     ${overflowRows}${overflowSep}
+    <button onclick="document.getElementById('browse-more-menu').style.display='none'; openSearchHistoryPage();" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+      Search History
+    </button>
+    <div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>
     <button onclick="browseEnableNoteMode()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Note mode
@@ -3308,32 +3333,323 @@ function browseEnableNoteMode() {
 }
 
 // ── Search History (for search view) ──
+let _searchHistorySelectedIdx = -1;
+
+function _relativeTime(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function selectSearchHistory(index) {
-  const hist = getSearchHistory();
+  const hist = _getFilteredSearchHistory();
   if (!hist[index]) return;
   const input = document.getElementById('search-query');
-  if (input) input.value = hist[index];
+  if (input) input.value = hist[index].q;
   hideSearchHistoryView();
   submitSearch();
+}
+
+function _getFilteredSearchHistory() {
+  const input = document.getElementById('search-query');
+  const filter = (input?.value || '').trim().toLowerCase();
+  const hist = getSearchHistory();
+  if (!filter) return hist.slice(0, 15);
+  return hist.filter(h => h.q.toLowerCase().includes(filter));
 }
 
 function showSearchHistoryView() {
   const input = document.getElementById('search-query');
   const dd = document.getElementById('search-history-dropdown-view');
   if (!dd || !input) return;
-  if (input.value.trim()) { dd.classList.add('hidden'); return; }
-  const hist = getSearchHistory();
-  if (!hist.length) { dd.classList.add('hidden'); return; }
-  dd.innerHTML = hist.map((h, i) => `<div class="flex items-center gap-2 px-3 py-1.5 hover:bg-hover cursor-pointer text-[0.82rem] text-primary" onmousedown="event.preventDefault(); selectSearchHistory(${i})">
-    <span class="truncate flex-1">${escapeHtml(h)}</span>
-    <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary" onmousedown="event.preventDefault(); event.stopPropagation(); removeSearchHistory(${i});">×</button>
-  </div>`).join('');
+  const filtered = _getFilteredSearchHistory();
+  if (!filtered.length) { dd.classList.add('hidden'); return; }
+  // Don't show dropdown if the input exactly matches the top entry (just submitted)
+  const val = input.value.trim();
+  if (filtered.length === 1 && filtered[0].q === val) { dd.classList.add('hidden'); return; }
+  dd.innerHTML = filtered.map((h, i) => {
+    const sel = i === _searchHistorySelectedIdx ? 'bg-hover' : '';
+    const time = _relativeTime(h.ts);
+    const count = h.c ? h.c + ' results' : '';
+    const meta = [time, count].filter(Boolean).join(' · ');
+    return `<div class="flex items-center gap-2 px-3 py-1.5 hover:bg-hover cursor-pointer text-[0.82rem] text-primary ${sel}" onmousedown="event.preventDefault(); selectSearchHistory(${i})">
+      <svg class="w-3.5 h-3.5 text-dimmer shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+      <span class="truncate flex-1">${escapeHtml(h.q)}</span>
+      <span class="text-[0.7rem] text-dimmer shrink-0 whitespace-nowrap">${escapeHtml(meta)}</span>
+      <button class="bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-primary shrink-0" onmousedown="event.preventDefault(); event.stopPropagation(); removeSearchHistory(${_getSearchHistoryOriginalIndex(h.q)});">×</button>
+    </div>`;
+  }).join('');
   dd.classList.remove('hidden');
+}
+
+function _getSearchHistoryOriginalIndex(query) {
+  return getSearchHistory().findIndex(h => h.q === query);
 }
 
 function hideSearchHistoryView() {
   const dd = document.getElementById('search-history-dropdown-view');
   if (dd) dd.classList.add('hidden');
+  _searchHistorySelectedIdx = -1;
+}
+
+function _searchHistoryKeydown(e) {
+  const dd = document.getElementById('search-history-dropdown-view');
+  if (!dd || dd.classList.contains('hidden')) {
+    if (e.key === 'Escape') { hideSearchHistoryView(); return; }
+    return;
+  }
+  const filtered = _getFilteredSearchHistory();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _searchHistorySelectedIdx = Math.min(_searchHistorySelectedIdx + 1, filtered.length - 1);
+    showSearchHistoryView();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _searchHistorySelectedIdx = Math.max(_searchHistorySelectedIdx - 1, -1);
+    showSearchHistoryView();
+  } else if (e.key === 'Enter' && _searchHistorySelectedIdx >= 0) {
+    e.preventDefault();
+    selectSearchHistory(_searchHistorySelectedIdx);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    hideSearchHistoryView();
+  }
+}
+
+// ── Browse URL Bar History Dropdown ──
+
+let _browseUrlHistIdx = -1;
+
+function _browseUrlKeydown(e) {
+  const dd = document.getElementById('browse-url-history-dd');
+  const visible = dd && dd.style.display !== 'none';
+
+  if (e.key === 'Enter') {
+    if (visible && _browseUrlHistIdx >= 0) {
+      e.preventDefault();
+      const items = dd.querySelectorAll('[data-histq]');
+      if (items[_browseUrlHistIdx]) {
+        const q = items[_browseUrlHistIdx].dataset.histq;
+        document.getElementById('browse-url-input').value = q;
+        _browseUrlHideHistory();
+        browseNavigate(q);
+      }
+    } else {
+      _browseUrlHideHistory();
+      browseNavigate(document.getElementById('browse-url-input').value);
+    }
+    return;
+  }
+  if (!visible) return;
+  const items = dd.querySelectorAll('[data-histq]');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _browseUrlHistIdx = Math.min(_browseUrlHistIdx + 1, items.length - 1);
+    _browseUrlHighlight(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _browseUrlHistIdx = Math.max(_browseUrlHistIdx - 1, -1);
+    _browseUrlHighlight(items);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    _browseUrlHideHistory();
+  }
+}
+
+function _browseUrlHighlight(items) {
+  items.forEach((el, i) => {
+    el.style.background = i === _browseUrlHistIdx ? 'var(--bg-hover)' : 'none';
+  });
+  if (_browseUrlHistIdx >= 0 && items[_browseUrlHistIdx]) {
+    items[_browseUrlHistIdx].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function _browseUrlShowHistory() {
+  const input = document.getElementById('browse-url-input');
+  const dd = document.getElementById('browse-url-history-dd');
+  if (!input || !dd) return;
+  const filter = (input.value || '').trim().toLowerCase();
+  const hist = _getWebSearchHistory();
+  const filtered = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
+  const show = filtered.slice(0, 12);
+  if (!show.length) { dd.style.display = 'none'; return; }
+  // Don't show if input exactly matches top entry
+  if (show.length === 1 && show[0].q.toLowerCase() === filter) { dd.style.display = 'none'; return; }
+  _browseUrlHistIdx = -1;
+  // Position dropdown below the input
+  const rect = input.getBoundingClientRect();
+  dd.style.left = rect.left + 'px';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.width = rect.width + 'px';
+  dd.innerHTML = show.map(h => {
+    const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
+    const safeQ = escapeHtml(h.q);
+    return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeQ.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeQ.replace(/'/g, "\\'")}');">
+      <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
+      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+    </div>`;
+  }).join('');
+  dd.style.display = '';
+}
+
+function _browseUrlHideHistory() {
+  const dd = document.getElementById('browse-url-history-dd');
+  if (dd) dd.style.display = 'none';
+  _browseUrlHistIdx = -1;
+}
+
+// ── Web Search History ──
+
+function _getWebSearchHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('webSearchHistory') || '[]');
+    return raw.map(h => typeof h === 'string' ? { q: h, ts: 0 } : h);
+  } catch { return []; }
+}
+
+function _saveWebSearch(query) {
+  const q = (query || '').trim();
+  if (!q) return;
+  let hist = _getWebSearchHistory().filter(h => h.q !== q);
+  hist.unshift({ q, ts: Date.now() });
+  if (hist.length > 200) hist = hist.slice(0, 200);
+  localStorage.setItem('webSearchHistory', JSON.stringify(hist));
+}
+
+function _removeWebSearch(index) {
+  const hist = _getWebSearchHistory();
+  hist.splice(index, 1);
+  localStorage.setItem('webSearchHistory', JSON.stringify(hist));
+}
+
+function _clearWebSearchHistory() {
+  localStorage.setItem('webSearchHistory', '[]');
+}
+
+function openSearchHistoryPage() {
+  // Open as a blank-style tab in browse view
+  if (typeof openBrowse === 'function') openBrowse();
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab) return;
+
+  // Mark it as a history tab
+  tab.blank = false;
+  tab.url = '';
+  tab.title = 'Search History';
+  tab.favicon = '';
+  tab._historyPage = true;
+
+  // Remove existing iframe/content
+  if (tab.el) tab.el.remove();
+
+  const container = document.getElementById('browse-content');
+  const el = document.createElement('div');
+  el.id = 'browse-history-' + tab.id;
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+  container.appendChild(el);
+  tab.el = el;
+
+  // Hide new tab page
+  _browseUpdateNewTabPage(tab);
+  _browseRenderTabs();
+
+  // Update URL bar
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput) urlInput.value = '/history';
+
+  _renderWebSearchHistoryPage(el);
+}
+
+function _renderWebSearchHistoryPage(el) {
+  if (!el) return;
+  const hist = _getWebSearchHistory();
+
+  let html = '<div style="max-width:680px;margin:0 auto;padding:32px 24px 64px;">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">';
+  html += '<div style="display:flex;align-items:center;gap:10px;">';
+  html += '<svg style="width:20px;height:20px;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>';
+  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">Search History</span>';
+  if (hist.length) html += '<span style="font-size:0.7rem;color:var(--text-dimmest);">' + hist.length + ' searches</span>';
+  html += '</div>';
+  if (hist.length) {
+    html += '<button onclick="_clearWebSearchHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-muted);font-size:0.75rem;cursor:pointer;">Clear all</button>';
+  }
+  html += '</div>';
+
+  // Search filter
+  html += '<div style="position:relative;margin-bottom:16px;">';
+  html += '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-dimmer);pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
+  html += '<input type="text" id="history-page-filter" placeholder="Filter history..." oninput="_filterWebSearchHistory()" style="width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.82rem;outline:none;" />';
+  html += '</div>';
+
+  html += '<div id="history-page-list">';
+  html += _renderWebSearchHistoryList(hist);
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+function _filterWebSearchHistory() {
+  const filter = (document.getElementById('history-page-filter')?.value || '').trim().toLowerCase();
+  const hist = _getWebSearchHistory();
+  const filtered = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
+  const list = document.getElementById('history-page-list');
+  if (list) list.innerHTML = _renderWebSearchHistoryList(filtered);
+}
+
+function _renderWebSearchHistoryList(hist) {
+  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--text-dim);font-size:0.85rem;">No searches found</div>';
+
+  // Group by date
+  const groups = [];
+  const groupMap = {};
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+  const weekAgo = today - 604800000;
+
+  // Need original indices for deletion
+  const allHist = _getWebSearchHistory();
+
+  hist.forEach(h => {
+    let label;
+    if (!h.ts) { label = 'Older'; }
+    else if (h.ts >= today) { label = 'Today'; }
+    else if (h.ts >= yesterday) { label = 'Yesterday'; }
+    else if (h.ts >= weekAgo) { label = 'This Week'; }
+    else {
+      const d = new Date(h.ts);
+      label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    if (!groupMap[label]) { groupMap[label] = []; groups.push(label); }
+    groupMap[label].push(h);
+  });
+
+  let html = '';
+  for (const label of groups) {
+    html += '<div style="margin-bottom:16px;">';
+    html += '<div style="font-size:0.7rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    groupMap[label].forEach(h => {
+      const origIdx = allHist.findIndex(a => a.q === h.q && a.ts === h.ts);
+      const time = _relativeTime(h.ts);
+      const safeQ = escapeHtml(h.q).replace(/'/g, '&#39;');
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNavigate('${safeQ}')">
+        <svg style="width:14px;height:14px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+        <span style="font-size:0.82rem;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.q)}</span>
+        <span style="font-size:0.7rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
+        <button class="hist-del" onclick="event.stopPropagation(); _removeWebSearch(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-dimmer);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
+          <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  return html;
 }
 
 // ── Ad Blocker toggle & badge ──
