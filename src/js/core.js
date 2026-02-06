@@ -647,9 +647,61 @@ function getSourceChip(source, arxivId) {
   return `<span class="inline-flex items-center gap-1">${logo}<span class="text-[0.68rem] text-dim">${name}</span></span>`;
 }
 
+// ── View Manager (lazy-load templates) ──
+const _viewTemplateCache = {};   // { viewId: htmlString }
+const _mountedViews = new Set(); // currently injected view IDs
+
+const VIEW_REGISTRY = {
+  'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
+  'research-view':       { template: '/views/research.html',  tier: 2 },
+  'vault-view':          { template: '/views/vault.html',     tier: 3 },
+  'blog-view':           { template: '/views/blog.html',      tier: 2 },
+  'settings-view':       { template: '/views/settings.html',  tier: 2 },
+  'quality-view':        { template: '/views/quality.html',   tier: 2 },
+  'calendar-view':       { template: '/views/calendar.html',  tier: 2 },
+  'inbox-view':          { template: '/views/inbox.html',     tier: 2 },
+  'profile-view':        { template: '/views/profile.html',   tier: 2 },
+  'author-profile-view': { template: '/views/author-profile.html', tier: 2 },
+  'teams-view':          { template: '/views/teams.html',     tier: 2 },
+  'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
+};
+
+async function ensureView(viewId) {
+  const existing = document.getElementById(viewId);
+  if (existing) return existing;
+  const config = VIEW_REGISTRY[viewId];
+  if (!config) return null;
+  if (!_viewTemplateCache[viewId]) {
+    const resp = await fetch(config.template);
+    _viewTemplateCache[viewId] = await resp.text();
+  }
+  const div = document.createElement('div');
+  div.id = viewId;
+  div.className = 'hidden ml-[76px] view';
+  // Preserve extra styles for specific views
+  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100vh';
+  if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
+  div.innerHTML = _viewTemplateCache[viewId];
+  document.getElementById('view-mount').appendChild(div);
+  _mountedViews.add(viewId);
+  return div;
+}
+
+function unmountView(viewId) {
+  if (!_mountedViews.has(viewId)) return;
+  const el = document.getElementById(viewId);
+  if (el) el.remove();
+  _mountedViews.delete(viewId);
+}
+
 function hideAllViews() {
   document.getElementById('home-main').style.display = 'none';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); v.style.display = ''; });
+  // Unmount Tier 2 views to free DOM
+  for (const viewId of [..._mountedViews]) {
+    const config = VIEW_REGISTRY[viewId];
+    if (config && config.tier === 2) unmountView(viewId);
+  }
   // Stop feed refresh timer and any in-flight loading when leaving home
   if (typeof _refreshTimer !== 'undefined' && _refreshTimer) {
     clearInterval(_refreshTimer);
@@ -676,6 +728,11 @@ function goHome() {
   setSidebarLoading('sb-home');
   const alreadyOnFeed = window.location.hash === '#feed';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
+  // Unmount Tier 2 views when going home
+  for (const viewId of [..._mountedViews]) {
+    const config = VIEW_REGISTRY[viewId];
+    if (config && config.tier === 2) unmountView(viewId);
+  }
   document.getElementById('home-main').style.display = '';
   window.location.hash = 'feed';
   setSidebarActive('sb-home');
@@ -687,10 +744,10 @@ function goHome() {
   } else if (!allPapers.length) loadAllFeeds();
 }
 
-function openResearch(tab) {
+async function openResearch(tab) {
   setSidebarLoading('sb-research');
   hideAllViews();
-  const view = document.getElementById('research-view');
+  const view = await ensureView('research-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'research';
@@ -786,10 +843,10 @@ function openExperiments() {
   openResearch('projects');
 }
 
-function openDashboard() {
+async function openDashboard() {
   setSidebarLoading('sb-dashboard');
   hideAllViews();
-  const view = document.getElementById('dashboard-view');
+  const view = await ensureView('dashboard-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = '';
@@ -959,13 +1016,13 @@ if (document.readyState === 'loading') {
 
 // ── User Profile ──
 
-function openUserProfile(username) {
+async function openUserProfile(username) {
   if (username && _authUserInfo && username === _authUserInfo.username) {
     openDashboard();
     return;
   }
   hideAllViews();
-  const view = document.getElementById('profile-view');
+  const view = await ensureView('profile-view');
   view.classList.add('active');
   view.style.display = 'block';
   if (username) {
@@ -1610,7 +1667,8 @@ function formatFirstAuthor(authors) {
 // Close settings on Escape
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (document.getElementById('settings-view').style.display === 'block') goHome();
+    const sv = document.getElementById('settings-view');
+    if (sv && sv.style.display === 'block') goHome();
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 't') {
     e.preventDefault();

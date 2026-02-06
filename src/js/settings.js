@@ -1,7 +1,7 @@
-function openSettings() {
+async function openSettings() {
   setSidebarLoading('sb-settings');
   hideAllViews();
-  const view = document.getElementById('settings-view');
+  const view = await ensureView('settings-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'settings';

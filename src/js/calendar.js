@@ -10,10 +10,10 @@ let calendarShowForm = false;
   calendarMonth = now.getMonth();
 }
 
-function openCalendar() {
+async function openCalendar() {
   setSidebarLoading('sb-calendar');
   hideAllViews();
-  const view = document.getElementById('calendar-view');
+  const view = await ensureView('calendar-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'calendar';

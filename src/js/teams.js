@@ -242,10 +242,10 @@ function showEmojiPicker(teamId, msgId, btn) {
 
 // ── Inbox View ──
 
-function openInbox() {
+async function openInbox() {
   setSidebarLoading('sb-inbox');
   hideAllViews();
-  const view = document.getElementById('inbox-view');
+  const view = await ensureView('inbox-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'inbox';
@@ -656,7 +656,7 @@ async function showTeamDetailView(teamId, e) {
 
   // Open the standalone teams view for the detail
   hideAllViews();
-  const view = document.getElementById('teams-view');
+  const view = await ensureView('teams-view');
   if (view) {
     view.classList.add('active');
     view.style.display = 'block';

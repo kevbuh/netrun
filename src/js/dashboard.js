@@ -771,9 +771,9 @@ async function _clearStatus() {
 }
 
 // ── All Saved Posts view ──
-function openAllSaved() {
+async function openAllSaved() {
   hideAllViews();
-  const view = document.getElementById('dashboard-view');
+  const view = await ensureView('dashboard-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'saved-all';

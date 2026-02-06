@@ -7,10 +7,10 @@ let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
 
 // Open vault view
-function openVault() {
+async function openVault() {
   setSidebarLoading('sb-vault');
   hideAllViews();
-  const view = document.getElementById('vault-view');
+  const view = await ensureView('vault-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'vault';
@@ -1342,7 +1342,7 @@ function vaultShowAchievementToast(achievement) {
 // Open blog view (public)
 async function openBlogPost(username, slug) {
   hideAllViews();
-  const view = document.getElementById('blog-view');
+  const view = await ensureView('blog-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = `blog/${username}/${slug}`;

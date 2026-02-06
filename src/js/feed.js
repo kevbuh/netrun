@@ -1011,9 +1011,9 @@ function renderQualityPanel() {
 
 // ── Quality Filter Dedicated View ──
 
-function openQualityView() {
+async function openQualityView() {
   hideAllViews();
-  const view = document.getElementById('quality-view');
+  const view = await ensureView('quality-view');
   view.classList.add('active');
   view.style.display = 'block';
   window.location.hash = 'quality';

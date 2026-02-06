@@ -46,9 +46,9 @@ let _nlHistGazeY = [];
 let _nlHistJitter = [];
 let _nlHistRate = [];
 
-function openNeuralook() {
+async function openNeuralook() {
   hideAllViews();
-  const view = document.getElementById('neuralook-view');
+  const view = await ensureView('neuralook-view');
   if (view) { view.classList.remove('hidden'); view.style.display = ''; }
   window.location.hash = '#neuralook';
   setSidebarActive('sb-neuralook');

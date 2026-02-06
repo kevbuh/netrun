@@ -990,7 +990,7 @@ function dismissAuthorPopover() {
 // ── Author Profile Page ──
 async function openAuthorProfile(authorId) {
   hideAllViews();
-  const view = document.getElementById('author-profile-view');
+  const view = await ensureView('author-profile-view');
   const content = document.getElementById('author-profile-content');
   view.classList.add('active');
   view.style.display = 'block';
