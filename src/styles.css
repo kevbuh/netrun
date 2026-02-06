@@ -5967,23 +5967,31 @@
 
     /* Vibe Panel (lazygit-style + split terminals) */
     .vibe-container { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; overflow: hidden; }
-    .vibe-terminals { display: flex; flex-direction: column; overflow: hidden; background: #0d0d0d; border-right: 1px solid var(--border-card); }
+    .vibe-terminals { display: flex; flex-direction: column; overflow: hidden; background: #0d0d0d; border-right: 1px solid var(--border-card); position: relative; }
+    .vibe-terminals.vibe-terms-hidden { display: none; }
+    .vibe-container.vibe-no-terms { grid-template-columns: 1fr; }
+    .vibe-term-close { position: absolute; top: 4px; right: 6px; z-index: 10; background: none; border: none; color: var(--text-dimmer); cursor: pointer; font-size: 1rem; line-height: 1; padding: 2px 5px; border-radius: 4px; opacity: 0.5; transition: opacity 0.15s; }
+    .vibe-term-close:hover { opacity: 1; color: var(--text-primary); }
+    .vibe-term-toggle { position: absolute; top: 8px; left: 8px; z-index: 10; background: var(--bg-card); border: 1px solid var(--border-card); color: var(--text-dimmer); cursor: pointer; font-size: 0.68rem; padding: 2px 8px; border-radius: 4px; display: none; }
+    .vibe-term-toggle:hover { color: var(--text-primary); border-color: var(--text-dimmer); }
+    .vibe-no-terms .vibe-term-toggle { display: block; }
     .vibe-term-pane { flex: 1; overflow: hidden; min-height: 0; }
     .vibe-term-resize { height: 4px; cursor: row-resize; background: var(--border-card); flex-shrink: 0; }
     .vibe-term-resize:hover { background: var(--accent); }
-    .vibe-git { display: flex; flex-direction: column; overflow: hidden; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.78rem; padding: 8px 3px 3px 3px; gap: 0; }
-    .vibe-git-inner { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; min-height: 0; gap: 3px; }
-    .vibe-git-left { display: flex; flex-direction: column; overflow: hidden; gap: 0; }
-    .vibe-git-right { overflow: hidden; display: flex; flex-direction: column; }
-    .vibe-cmdlog { max-height: 80px; flex-shrink: 0; border: 1px solid var(--border-card); border-radius: 6px; margin-top: 3px; overflow: visible; }
+    .vibe-git { display: flex; flex-direction: column; overflow: hidden; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.78rem; padding: 12px 3px 3px 3px; gap: 0; }
+    .vibe-git-inner { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-height: 0; gap: 3px; overflow: hidden; }
+    .vibe-git-left { display: flex; flex-direction: column; gap: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+    .vibe-git-right { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .vibe-cmdlog { max-height: 80px; flex-shrink: 0; border: 2px solid var(--border-card); border-radius: 6px; margin-top: 3px; overflow: visible; }
     .vibe-cmdlog-content { padding: 2px 8px; font-size: 0.7rem; line-height: 1.4; overflow-y: auto; max-height: 60px; }
-    .vibe-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border-card); border-radius: 6px; margin-top: 8px; overflow: visible; }
-    .vibe-pane:first-child { margin-top: 0; }
-    .vibe-detail-pane { flex: 1; margin-top: 0; }
-    .vibe-pane-header { padding: 0 6px; font-size: 0.72rem; font-weight: 600; color: var(--text-dimmer); white-space: nowrap; margin-top: -9px; margin-left: 8px; width: fit-content; background: var(--bg-body); line-height: 16px; flex-shrink: 0; }
+    .vibe-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; border: 2px solid var(--border-card); border-radius: 6px; margin-top: 8px; overflow: visible; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .vibe-pane:hover { border-color: var(--text-dimmer); background: color-mix(in srgb, var(--border-card) 25%, transparent); }
+    .vibe-detail-pane { flex: 1; cursor: default; }
+    .vibe-pane-header { padding: 0 6px; font-size: 0.72rem; font-weight: 600; color: var(--text-dimmer); white-space: nowrap; margin-top: -10px; margin-left: 8px; width: fit-content; background: var(--bg-body); line-height: 16px; flex-shrink: 0; }
     .vibe-pane-key { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; border-radius: 3px; color: var(--text-muted); font-size: 0.65rem; margin-right: 2px; }
     .vibe-pane-body { flex: 1; overflow-y: auto; padding: 2px 0; min-height: 0; }
-    .vibe-pane-active { border-color: var(--accent); }
+    .vibe-pane-active { border-color: var(--accent) !important; }
+    .vibe-pane-active:hover { border-color: var(--accent) !important; }
     .vibe-pane-active .vibe-pane-header { color: var(--accent); }
     .vibe-row { padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; cursor: default; }
     .vibe-selectable:hover { background: var(--bg-hover); }

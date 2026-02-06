@@ -989,6 +989,8 @@ document.addEventListener('keydown', (e) => {
     // Don't toggle bottom panel when full terminal view is open — they share the same terminals
     const view = document.getElementById('terminal-view');
     if (view && view.style.display !== 'none' && !view.classList.contains('hidden')) return;
+    // Don't toggle on vibe page — it has its own embedded terminals
+    if (window.location.hash === '#vibe') { e.preventDefault(); return; }
     e.preventDefault();
     toggleBottomTerminal();
   }

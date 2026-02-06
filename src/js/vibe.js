@@ -29,6 +29,20 @@ function _vibeCleanup() {
   // Don't destroy terminals — just detach. They stay alive for re-mount.
 }
 
+function _vibeToggleTerminals() {
+  const container = document.querySelector('.vibe-container');
+  const terms = document.querySelector('.vibe-terminals');
+  if (!container || !terms) return;
+  const hidden = terms.classList.toggle('vibe-terms-hidden');
+  container.classList.toggle('vibe-no-terms', hidden);
+  // Re-fit terminals when showing them again
+  if (!hidden) {
+    setTimeout(() => {
+      _vibeTerminals.forEach(t => { try { t.fitAddon.fit(); } catch (_) {} });
+    }, 50);
+  }
+}
+
 // ── Terminal embedding ──
 
 let _vibeVaultPath = null;
@@ -336,6 +350,11 @@ function _vibeColorDiff(escaped) {
 
 // ── Active pane / selection ──
 
+function _vibeClickPane(idx) {
+  _vibeActivePane = idx;
+  _vibeUpdateActivePane();
+}
+
 function _vibeUpdateActivePane() {
   document.querySelectorAll('.vibe-pane').forEach(p => p.classList.remove('vibe-pane-active'));
   const paneIds = ['vibe-pane-status', 'vibe-pane-files', 'vibe-pane-branches', 'vibe-pane-commits', 'vibe-pane-stash', 'vibe-pane-detail'];
@@ -373,6 +392,18 @@ function _vibeKeyHandler(e) {
     e.preventDefault();
     const n = parseInt(e.key);
     _vibeActivePane = n === 0 ? 5 : n - 1;
+    _vibeUpdateActivePane();
+    return;
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'h') {
+    e.preventDefault();
+    _vibeActivePane = (_vibeActivePane - 1 + paneCount) % paneCount;
+    _vibeUpdateActivePane();
+    return;
+  }
+  if (e.key === 'ArrowRight' || e.key === 'l') {
+    e.preventDefault();
+    _vibeActivePane = (_vibeActivePane + 1) % paneCount;
     _vibeUpdateActivePane();
     return;
   }

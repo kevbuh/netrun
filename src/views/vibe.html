@@ -1,38 +1,40 @@
 <div class="vibe-container">
   <!-- Left: two vertically stacked terminals -->
   <div class="vibe-terminals">
+    <button class="vibe-term-close" onclick="_vibeToggleTerminals()" title="Close terminals">&times;</button>
     <div class="vibe-term-pane" id="vibe-term-top"></div>
     <div class="vibe-term-resize" id="vibe-term-resize"></div>
     <div class="vibe-term-pane" id="vibe-term-bottom"></div>
   </div>
   <!-- Right: lazygit dashboard -->
-  <div class="vibe-git">
+  <div class="vibe-git" style="position:relative;">
+    <button class="vibe-term-toggle" onclick="_vibeToggleTerminals()">Show Terminals</button>
     <!-- Git panes row: left stacked panes + right log/detail -->
     <div class="vibe-git-inner">
       <div class="vibe-git-left">
-        <div class="vibe-pane" id="vibe-pane-status" data-pane="0">
+        <div class="vibe-pane" id="vibe-pane-status" data-pane="0" onclick="_vibeClickPane(0)">
           <div class="vibe-pane-header"><span class="vibe-pane-key">1</span> Status</div>
           <div class="vibe-pane-body" id="vibe-status-body"></div>
         </div>
-        <div class="vibe-pane" id="vibe-pane-files" data-pane="1">
+        <div class="vibe-pane" id="vibe-pane-files" data-pane="1" onclick="_vibeClickPane(1)">
           <div class="vibe-pane-header"><span class="vibe-pane-key">2</span> Files - Worktree</div>
           <div class="vibe-pane-body" id="vibe-files-body"></div>
         </div>
-        <div class="vibe-pane" id="vibe-pane-branches" data-pane="2">
+        <div class="vibe-pane" id="vibe-pane-branches" data-pane="2" onclick="_vibeClickPane(2)">
           <div class="vibe-pane-header"><span class="vibe-pane-key">3</span> Branches</div>
           <div class="vibe-pane-body" id="vibe-branches-body"></div>
         </div>
-        <div class="vibe-pane" id="vibe-pane-commits" data-pane="3">
+        <div class="vibe-pane" id="vibe-pane-commits" data-pane="3" onclick="_vibeClickPane(3)">
           <div class="vibe-pane-header"><span class="vibe-pane-key">4</span> Commits</div>
           <div class="vibe-pane-body" id="vibe-commits-body"></div>
         </div>
-        <div class="vibe-pane" id="vibe-pane-stash" data-pane="4">
+        <div class="vibe-pane" id="vibe-pane-stash" data-pane="4" onclick="_vibeClickPane(4)">
           <div class="vibe-pane-header"><span class="vibe-pane-key">5</span> Stash</div>
           <div class="vibe-pane-body" id="vibe-stash-body"></div>
         </div>
       </div>
       <div class="vibe-git-right">
-        <div class="vibe-pane vibe-detail-pane" id="vibe-pane-detail" data-pane="5">
+        <div class="vibe-pane vibe-detail-pane" id="vibe-pane-detail" data-pane="5" onclick="_vibeClickPane(5)">
           <div class="vibe-pane-header"><span class="vibe-pane-key">0</span> Log</div>
           <div class="vibe-pane-body" id="vibe-detail-body"><span class="text-dimmer">Select a file, commit, or branch to view details</span></div>
         </div>
