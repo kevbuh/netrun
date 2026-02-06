@@ -1872,6 +1872,7 @@ function renderDocChatMessages(final) {
 // ── Selection popup: state for inline chat ──
 let _popupChatMessages = [];
 let _popupChatAbort = null;
+let _chatStreamStart = 0;
 let _lookupTrackMode = false;
 let _lastMouseX = 0;
 let _lastMouseY = 0;
@@ -2097,6 +2098,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         }
         body.context = ctx;
       }
+      _chatStreamStart = Date.now();
       const resp = await fetch('/api/doc-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2140,6 +2142,11 @@ function _sendPopupChatMessage(popup, capturedText) {
                 aiText += token;
                 _popupChatMessages[aiIdx].content = aiText;
                 _renderPopupChat(popup, false);
+              } catch (e) {}
+            } else if (currentEvent === 'usage') {
+              try {
+                const usage = JSON.parse(line.slice(6));
+                _popupChatMessages[aiIdx]._usage = usage;
               } catch (e) {}
             } else if (currentEvent === 'done') {
               streamDone = true;
@@ -2191,7 +2198,15 @@ function _updateContextBar(popup) {
   for (const m of _popupChatMessages) {
     if (m.images) imgTokens + m.images.length * 1000;
   }
-  const tokens = Math.round(chars / 4) + imgTokens;
+  const estTokens = Math.round(chars / 4) + imgTokens;
+  // Use actual token counts from usage data if available
+  let actualTokens = 0;
+  for (const m of _popupChatMessages) {
+    if (m._usage) {
+      actualTokens += (m._usage.prompt_tokens || 0) + (m._usage.completion_tokens || 0);
+    }
+  }
+  const tokens = actualTokens || estTokens;
   const limit = 32000;
   const pct = Math.min(100, (tokens / limit) * 100);
   fill.style.width = pct + '%';
@@ -2199,8 +2214,11 @@ function _updateContextBar(popup) {
   if (pct < 50) fill.style.background = 'var(--accent)';
   else if (pct < 80) fill.style.background = '#c8a030';
   else fill.style.background = '#c44';
-  fill.title = Math.round(tokens).toLocaleString() + ' / ' + limit.toLocaleString() + ' tokens (~' + Math.round(pct) + '%)';
-  fill.parentElement.title = fill.title;
+  const label = actualTokens
+    ? tokens.toLocaleString() + ' tokens used (' + Math.round(pct) + '% of ' + limit.toLocaleString() + ')'
+    : '~' + Math.round(tokens).toLocaleString() + ' / ' + limit.toLocaleString() + ' tokens (~' + Math.round(pct) + '%)';
+  fill.title = label;
+  fill.parentElement.title = label;
 }
 
 function _renderPopupChat(popup, final) {
@@ -2332,6 +2350,36 @@ function _renderPopupChat(popup, final) {
     container.scrollTop = container.scrollHeight;
   }
   _updateContextBar(popup);
+  _updateChatStats(popup, final);
+}
+
+function _updateChatStats(popup, final) {
+  const statsEl = popup.querySelector('.doc-chat-stats');
+  if (!statsEl) return;
+  if (_popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
+  const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
+  if (!lastAi) { statsEl.textContent = ''; return; }
+  const parts = [];
+  // Token count: use actual usage if available, else estimate from streamed text
+  if (lastAi._usage) {
+    const u = lastAi._usage;
+    const total = (u.prompt_tokens || 0) + (u.completion_tokens || 0);
+    if (total) parts.push(total >= 1000 ? (total / 1000).toFixed(1) + 'k tokens' : total + ' tokens');
+  } else if (lastAi.content) {
+    const est = Math.round(lastAi.content.length / 4);
+    if (est > 0) parts.push('~' + (est >= 1000 ? (est / 1000).toFixed(1) + 'k' : est) + ' tokens');
+  }
+  // Timing: use server duration if final, else live elapsed
+  if (lastAi._usage && lastAi._usage.duration_ms) {
+    const ms = lastAi._usage.duration_ms;
+    parts.push(ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
+  } else if (_chatStreamStart) {
+    const elapsed = Date.now() - _chatStreamStart;
+    parts.push(elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms');
+  }
+  // Model name
+  if (lastAi._usage && lastAi._usage.model) parts.push(lastAi._usage.model);
+  statsEl.textContent = parts.join(' \u00B7 ');
 }
 
 function _sendPopupChatToSidebar() {
@@ -2453,6 +2501,9 @@ function _showChatHighlightPopup(e, hl) {
     popup.remove();
   });
   chatActions.appendChild(openSidebarBtn);
+  const statsSpanHl = document.createElement('span');
+  statsSpanHl.className = 'doc-chat-stats';
+  chatActions.appendChild(statsSpanHl);
   chatActions.appendChild(deleteBtn);
   chatArea.appendChild(chatActions);
   popup.appendChild(chatArea);
@@ -2677,6 +2728,9 @@ function _showReferencePopup(refNum, anchorEl) {
     _repositionSelectionPopup();
   });
   chatActions.appendChild(openSidebarBtn);
+  const statsSpan2 = document.createElement('span');
+  statsSpan2.className = 'doc-chat-stats';
+  chatActions.appendChild(statsSpan2);
   chatActions.appendChild(clearBtn);
   chatArea.appendChild(chatActions);
   popup.appendChild(chatArea);
@@ -4597,10 +4651,48 @@ function _showPanel(config) {
     modelLabel.title = 'Current model';
     topBar.appendChild(modelLabel);
 
+    // Stats (tokens, time, model) — updated in real-time by _updateChatStats
+    const statsSpan = document.createElement('span');
+    statsSpan.className = 'doc-chat-stats';
+    topBar.appendChild(statsSpan);
+
     // Spacer
     const spacer = document.createElement('span');
     spacer.style.flex = '1';
     topBar.appendChild(spacer);
+
+    // "Save chat" button — only shown for PDF text layer
+    const saveChatBtn = document.createElement('button');
+    saveChatBtn.className = 'lookup-topbar-btn';
+    saveChatBtn.textContent = 'Save';
+    saveChatBtn.style.display = 'none';
+    saveChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    saveChatBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _saveChatAsHighlight(popup);
+    });
+    topBar.appendChild(saveChatBtn);
+    popup._saveChatBtn = saveChatBtn;
+
+    // Clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'lookup-topbar-btn';
+    clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    clearBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _popupChatMessages = [];
+      _chatStreamStart = 0;
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      const cm = popup.querySelector('.doc-popup-chat-messages');
+      if (cm) cm.innerHTML = '';
+      const ca = popup.querySelector('.doc-popup-chat-area');
+      if (ca) ca.classList.remove('visible');
+      popup.classList.remove('has-chat');
+      statsSpan.textContent = '';
+      _repositionSelectionPopup();
+    });
+    topBar.appendChild(clearBtn);
 
     const openSidebarBtn = document.createElement('button');
     openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
@@ -4673,41 +4765,6 @@ function _showPanel(config) {
     const chatMsgs = document.createElement('div');
     chatMsgs.className = 'doc-popup-chat-messages';
     chatArea.appendChild(chatMsgs);
-    const chatActions = document.createElement('div');
-    chatActions.className = 'doc-popup-chat-actions';
-    const openSidebarBtnChat = document.createElement('button');
-    openSidebarBtnChat.textContent = 'Open in sidebar';
-    openSidebarBtnChat.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    openSidebarBtnChat.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _sendPopupChatToSidebar();
-    });
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = 'Clear';
-    clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    clearBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _popupChatMessages = [];
-      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      chatMsgs.innerHTML = '';
-      chatArea.classList.remove('visible');
-      popup.classList.remove('has-chat');
-      _repositionSelectionPopup();
-    });
-    chatActions.appendChild(openSidebarBtnChat);
-    // "Save chat" button — only shown for PDF text layer
-    const saveChatBtn = document.createElement('button');
-    saveChatBtn.textContent = 'Save chat';
-    saveChatBtn.style.display = 'none';
-    saveChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    saveChatBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _saveChatAsHighlight(popup);
-    });
-    chatActions.appendChild(saveChatBtn);
-    popup._saveChatBtn = saveChatBtn;
-    chatActions.appendChild(clearBtn);
-    chatArea.appendChild(chatActions);
     popup.appendChild(chatArea);
   }
 

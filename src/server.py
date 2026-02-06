@@ -2426,6 +2426,7 @@ ch.postMessage({type:'preview-ready'});
                 self.end_headers()
                 try:
                     with urllib.request.urlopen(req, timeout=120) as resp:
+                        final_chunk = None
                         for line in resp:
                             chunk = json.loads(line)
                             token = chunk.get("message", {}).get("content", "")
@@ -2433,7 +2434,24 @@ ch.postMessage({type:'preview-ready'});
                                 self.wfile.write(f'event: token\ndata: {json.dumps(token)}\n\n'.encode())
                                 self.wfile.flush()
                             if chunk.get("done"):
+                                final_chunk = chunk
                                 break
+                    # Send usage stats from Ollama's final chunk
+                    usage = {}
+                    if final_chunk:
+                        if "prompt_eval_count" in final_chunk:
+                            usage["prompt_tokens"] = final_chunk["prompt_eval_count"]
+                        if "eval_count" in final_chunk:
+                            usage["completion_tokens"] = final_chunk["eval_count"]
+                        if "total_duration" in final_chunk:
+                            usage["duration_ms"] = round(final_chunk["total_duration"] / 1e6)
+                        if "eval_duration" in final_chunk:
+                            usage["eval_ms"] = round(final_chunk["eval_duration"] / 1e6)
+                        if "model" in final_chunk:
+                            usage["model"] = final_chunk["model"]
+                    if usage:
+                        self.wfile.write(f'event: usage\ndata: {json.dumps(usage)}\n\n'.encode())
+                        self.wfile.flush()
                     self.wfile.write(b'event: done\ndata: {}\n\n')
                     self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError):
