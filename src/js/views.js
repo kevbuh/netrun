@@ -2903,14 +2903,16 @@ function _repositionSelectionPopup() {
     return;
   }
 
-  // Lookup panel: anchor bottom-left to stored mouse position
+  // Lookup panel: position relative to stored mouse position
   if (popup._isLookupPanel) {
     const anchorX = popup._lookupAnchorX ?? _lastMouseX;
     const anchorY = popup._lookupAnchorY ?? _lastMouseY;
+    const panelLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
     let top = anchorY - rect.height;
     if (top < 0) top = 0;
-    let left = anchorX;
+    let left = panelLeft ? anchorX - rect.width : anchorX;
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    if (left < 0) left = 0;
     popup.style.top = top + 'px';
     popup.style.left = left + 'px';
     return;
@@ -3170,11 +3172,12 @@ document.addEventListener('mousemove', function(e) {
   popup._lookupAnchorY = e.clientY;
   const w = popup.offsetWidth;
   const h = popup.offsetHeight;
-  let left = e.clientX;
+  const _trackLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+  let left = _trackLeft ? e.clientX - w : e.clientX;
   let top = e.clientY - h;
   if (top < 0) top = 0;
   if (left + w > window.innerWidth) left = window.innerWidth - w;
-  if (left < 4) left = 4;
+  if (left < 0) left = 0;
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
 });
@@ -5207,16 +5210,18 @@ function _showPanel(config) {
     popup.style.left = left + 'px';
     popup.style.visibility = '';
   } else {
-    // Cursor anchor: bottom-left at cursor position
+    // Cursor anchor: position relative to cursor
     const x = anchor.x || 0;
     const y = anchor.y || 0;
     popup._lookupAnchorX = x;
     popup._lookupAnchorY = y;
     const rect = popup.getBoundingClientRect();
-    let left = x;
+    const _initLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+    let left = _initLeft ? x - rect.width : x;
     let top = y - rect.height;
     if (top < 0) top = 0;
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    if (left < 0) left = 0;
     popup.style.left = left + 'px';
     popup.style.top = top + 'px';
   }
