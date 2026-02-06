@@ -426,6 +426,7 @@ async function renderDashboard() {
   const hasMoreSaved = savedEntries.length > READING_LIST_LIMIT;
   const _renderSavedRow = (entry) => {
     const p = entry.paper;
+    if (!p || !p.link) return '';
     const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
     const favicon = p.favicon || (() => { try { return new URL(p.link).origin + '/favicon.ico'; } catch { return ''; } })();
     const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title || p.link) : '';

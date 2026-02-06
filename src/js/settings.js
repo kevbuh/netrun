@@ -178,6 +178,30 @@ function renderSettingsView() {
       </div>
     </div>
 
+    <!-- CHAT TOOLS -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Chat Tools</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Let the chat assistant use tools autonomously. Requires qwen3:8b.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('chatTools') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('chatTools', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <div class="text-dimmer text-[0.72rem] mt-3 space-y-1">
+        <div><b>Web Search</b> — searches DuckDuckGo for current info</div>
+        <div><b>Paper Search</b> — finds papers on arXiv</div>
+        <div><b>Fetch Page</b> — reads content from any URL</div>
+        <div><b>Bookmark</b> — saves posts to your reading list</div>
+        <div><b>Navigate</b> — opens views (home, experiments, etc.)</div>
+        <div><b>New Experiment</b> — creates a project from chat</div>
+      </div>
+    </div>
+
     <!-- CLICK LOOKUP -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between">

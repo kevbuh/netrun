@@ -212,6 +212,96 @@ if not os.path.isfile(_unstructured_meta):
 
 _static_dir = _args.static_dir or DIR
 
+# ── Chat tool definitions for Ollama tool calling ──
+CHAT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web using DuckDuckGo. Returns top results with titles, URLs, and snippets.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_papers",
+            "description": "Search for academic papers on arXiv. Returns titles, URLs, authors, and summaries.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query for papers"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_page",
+            "description": "Fetch and extract text content from a URL (web page or PDF).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The URL to fetch"}
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_to_reading_list",
+            "description": "Bookmark a post or paper to the user's reading list.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "URL of the post to bookmark"},
+                    "title": {"type": "string", "description": "Title of the post"}
+                },
+                "required": ["url", "title"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "navigate",
+            "description": "Navigate the app to a specific view.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "view": {"type": "string", "description": "View to navigate to: home, experiments, saved, calendar, settings, quality"}
+                },
+                "required": ["view"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_experiment",
+            "description": "Create a new experiment/project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Title for the experiment"},
+                    "description": {"type": "string", "description": "Description of the experiment"}
+                },
+                "required": ["title"]
+            }
+        }
+    }
+]
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=_static_dir, **kwargs)
@@ -311,6 +401,153 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             phrase = ' '.join(bare_words)
             parts.append(f'all:"{phrase}"')
         return ' AND '.join(parts) if parts else 'all:*'
+
+    def _execute_chat_tool(self, name, args):
+        """Execute a chat tool and return the result dict."""
+        try:
+            if name == 'web_search':
+                return self._tool_web_search(args.get('query', ''))
+            elif name == 'search_papers':
+                return self._tool_search_papers(args.get('query', ''))
+            elif name == 'fetch_page':
+                return self._tool_fetch_page(args.get('url', ''))
+            elif name == 'save_to_reading_list':
+                # Client-side action — send SSE event
+                self.wfile.write(f'event: action\ndata: {json.dumps({"type": "bookmark", "url": args.get("url", ""), "title": args.get("title", "")})}\n\n'.encode())
+                self.wfile.flush()
+                return {"status": "ok", "message": "Post bookmarked"}
+            elif name == 'navigate':
+                self.wfile.write(f'event: action\ndata: {json.dumps({"type": "navigate", "view": args.get("view", "home")})}\n\n'.encode())
+                self.wfile.flush()
+                return {"status": "ok", "message": f"Navigated to {args.get('view', 'home')}"}
+            elif name == 'create_experiment':
+                return self._tool_create_experiment(args.get('title', ''), args.get('description', ''))
+            else:
+                return {"error": f"Unknown tool: {name}"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _tool_web_search(self, query):
+        """DuckDuckGo search, returns top 5 results."""
+        if not query:
+            return {"results": []}
+        search_url = 'https://html.duckduckgo.com/html/?q=' + urllib.request.quote(query)
+        req = urllib.request.Request(search_url, headers={
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        })
+        ctx = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            html = resp.read().decode('utf-8', errors='replace')
+        results = []
+        title_pattern = re.compile(r'<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>', re.DOTALL)
+        snippet_pattern = re.compile(r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>', re.DOTALL)
+        titles = title_pattern.findall(html)
+        snippets = snippet_pattern.findall(html)
+        for i, (url, title) in enumerate(titles[:5]):
+            clean_title = re.sub(r'<[^>]+>', '', title).strip()
+            snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip() if i < len(snippets) else ''
+            if 'uddg=' in url:
+                actual = re.search(r'uddg=([^&]+)', url)
+                if actual:
+                    url = urllib.request.unquote(actual.group(1))
+            results.append({'title': clean_title, 'url': url, 'snippet': snippet})
+        return {"results": results}
+
+    def _tool_search_papers(self, query):
+        """arXiv API search, returns top 5 papers."""
+        if not query:
+            return {"papers": []}
+        arxiv_query = self._build_arxiv_query(query)
+        search_url = (
+            f'https://export.arxiv.org/api/query?'
+            f'search_query={urllib.request.quote(arxiv_query)}'
+            f'&start=0&max_results=5'
+            f'&sortBy=relevance&sortOrder=descending'
+        )
+        req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
+        ctx = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            data = resp.read().decode('utf-8', errors='replace')
+        # Parse XML response
+        papers = []
+        entries = re.findall(r'<entry>(.*?)</entry>', data, re.DOTALL)
+        for entry in entries[:5]:
+            title_m = re.search(r'<title>(.*?)</title>', entry, re.DOTALL)
+            summary_m = re.search(r'<summary>(.*?)</summary>', entry, re.DOTALL)
+            link_m = re.search(r'<id>(.*?)</id>', entry)
+            authors = re.findall(r'<name>(.*?)</name>', entry)
+            papers.append({
+                'title': re.sub(r'\s+', ' ', title_m.group(1)).strip() if title_m else '',
+                'url': link_m.group(1).strip() if link_m else '',
+                'authors': authors[:3],
+                'summary': re.sub(r'\s+', ' ', summary_m.group(1)).strip()[:300] if summary_m else ''
+            })
+        return {"papers": papers}
+
+    def _tool_fetch_page(self, url):
+        """Extract text from a URL."""
+        if not url:
+            return {"error": "URL required"}
+        # Check cache
+        if url in _extract_cache:
+            text = _extract_cache[url].get('text', '')
+            return {"text": text[:8000], "truncated": len(text) > 8000}
+        is_arxiv = 'arxiv.org' in url
+        if is_arxiv:
+            pdf_url = url.replace('/abs/', '/pdf/')
+            if not pdf_url.endswith('.pdf'):
+                pdf_url += '.pdf'
+            req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
+            ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                pdf_bytes = resp.read()
+            import fitz
+            tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+            tmp.write(pdf_bytes)
+            tmp.close()
+            try:
+                doc = fitz.open(tmp.name)
+                pages = [doc[i].get_text() for i in range(len(doc))]
+                doc.close()
+            finally:
+                os.unlink(tmp.name)
+            text = '\n\n---\n\n'.join(pages)
+        else:
+            from html.parser import HTMLParser
+            html_bytes = cached_fetch(url, timeout=30)
+            html_str = html_bytes.decode('utf-8', errors='replace')
+            class TE(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.parts = []
+                    self._skip = False
+                def handle_starttag(self, tag, attrs):
+                    if tag in ('script', 'style', 'noscript'):
+                        self._skip = True
+                def handle_endtag(self, tag):
+                    if tag in ('script', 'style', 'noscript'):
+                        self._skip = False
+                def handle_data(self, data):
+                    if not self._skip:
+                        t = data.strip()
+                        if t:
+                            self.parts.append(t)
+            ext = TE()
+            ext.feed(html_str)
+            text = '\n'.join(ext.parts)
+        _extract_cache[url] = {'text': text, 'pages': 1}
+        return {"text": text[:8000], "truncated": len(text) > 8000}
+
+    def _tool_create_experiment(self, title, desc=''):
+        """Create a new experiment."""
+        if not title:
+            return {"error": "Title required"}
+        slug = unique_slug(slugify(title))
+        exp_dir = os.path.join(EXPERIMENTS_DIR, slug)
+        os.makedirs(exp_dir, exist_ok=True)
+        meta = {'title': title, 'desc': desc, 'created': None, 'runs': []}
+        write_meta(slug, meta)
+        return {"id": slug, "title": title, "message": f"Experiment '{title}' created"}
 
     def do_GET(self):
         # WebSocket upgrade is handled in handle_one_request() before we get here
@@ -2405,12 +2642,14 @@ ch.postMessage({type:'preview-ready'});
                 messages = body.get('messages', [])
                 is_vision = body.get('vision', False)
                 client_model = body.get('model', '')
+                tools_enabled = body.get('tools', False)
                 if not messages:
                     self._send_json({'error': 'messages required'}, 400)
                     return
 
                 if is_vision:
                     model = client_model or "qwen3-vl:8b"
+                    tools_enabled = False  # no tools in vision mode
                     system_msg = (
                         "You are a helpful visual analysis assistant. The user has taken a screenshot "
                         "and wants to ask about it. Describe what you see and answer their questions "
@@ -2423,35 +2662,90 @@ ch.postMessage({type:'preview-ready'});
                             msg["images"] = m["images"]
                         ollama_messages.append(msg)
                 else:
-                    model = client_model or "qwen2.5:3b"
+                    model = client_model or ("qwen3:8b" if tools_enabled else "qwen2.5:3b")
                     truncated_ctx = context[:12000] if context else ''
+                    # Build page context string for tools
+                    page_ctx = ''
+                    if tools_enabled:
+                        page_url = body.get('pageUrl', '')
+                        page_title = body.get('pageTitle', '')
+                        if page_url:
+                            page_ctx = f'\n\nThe user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
                     if truncated_ctx:
                         system_msg = (
+                            "You are a helpful research assistant. The user is reading a document. "
+                            "Answer their questions based on the document text below when relevant. "
+                            "You also have tools available to search the web, find papers, fetch pages, "
+                            "bookmark posts, navigate the app, and create experiments." + page_ctx + "\n\n"
+                            "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
+                        ) if tools_enabled else (
                             "You are a helpful research assistant. The user is reading a document. "
                             "Answer their questions based ONLY on the document text below. "
                             "Do not make up information that is not in the document.\n\n"
                             "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
                         )
                     else:
-                        system_msg = "You are a helpful assistant."
+                        system_msg = (
+                            "You are a helpful assistant with tools to search the web, find papers, "
+                            "fetch page content, bookmark posts, navigate the app, and create experiments. "
+                            "Use tools when they would help answer the user's question." + page_ctx
+                        ) if tools_enabled else "You are a helpful assistant."
                     ollama_messages = [{"role": "system", "content": system_msg}] + messages
 
-                payload = json.dumps({
-                    "model": model,
-                    "messages": ollama_messages,
-                    "stream": True
-                }).encode()
-                req = urllib.request.Request(
-                    "http://localhost:11434/api/chat",
-                    data=payload,
-                    headers={"Content-Type": "application/json"}
-                )
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/event-stream')
                 self.send_header('Cache-Control', 'no-cache')
                 self.send_header('Connection', 'keep-alive')
                 self.end_headers()
                 try:
+                    # Tool call loop (max 5 iterations)
+                    if tools_enabled:
+                        for _ in range(5):
+                            payload = json.dumps({
+                                "model": model,
+                                "messages": ollama_messages,
+                                "tools": CHAT_TOOLS,
+                                "stream": False
+                            }).encode()
+                            req = urllib.request.Request(
+                                "http://localhost:11434/api/chat",
+                                data=payload,
+                                headers={"Content-Type": "application/json"}
+                            )
+                            with urllib.request.urlopen(req, timeout=120) as resp:
+                                result = json.loads(resp.read())
+                            msg = result.get("message", {})
+                            tool_calls = msg.get("tool_calls")
+                            if not tool_calls:
+                                # No tool calls — model produced text, break to stream
+                                break
+                            # Process each tool call
+                            ollama_messages.append(msg)
+                            for tc in tool_calls:
+                                fn = tc.get("function", {})
+                                tool_name = fn.get("name", "")
+                                tool_args = fn.get("arguments", {})
+                                # Send status event to frontend
+                                self.wfile.write(f'event: tool_call\ndata: {json.dumps({"name": tool_name, "args": tool_args})}\n\n'.encode())
+                                self.wfile.flush()
+                                # Execute tool
+                                tool_result = self._execute_chat_tool(tool_name, tool_args)
+                                ollama_messages.append({"role": "tool", "content": json.dumps(tool_result)})
+                        else:
+                            # Exhausted iterations — do final call without tools
+                            pass
+
+                    # Final streaming call
+                    payload = json.dumps({
+                        "model": model,
+                        "messages": ollama_messages,
+                        "stream": True
+                    }).encode()
+                    req = urllib.request.Request(
+                        "http://localhost:11434/api/chat",
+                        data=payload,
+                        headers={"Content-Type": "application/json"}
+                    )
                     with urllib.request.urlopen(req, timeout=120) as resp:
                         final_chunk = None
                         for line in resp:

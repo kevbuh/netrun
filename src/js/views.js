@@ -2098,9 +2098,24 @@ function _sendPopupChatMessage(popup, capturedText) {
       const body = { messages: filteredMsgs };
       const chatModel = localStorage.getItem('chatModel');
       if (chatModel) body.model = chatModel;
+      const toolsOn = localStorage.getItem('chatTools') !== 'off';
+      // Include current page info for tool context
+      if (toolsOn) {
+        const paper = _currentPaperViewPaper;
+        const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+          ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+        if (paper) {
+          body.pageUrl = paper.link || paper.url || '';
+          body.pageTitle = paper.title || '';
+        } else if (browseTab && browseTab.url) {
+          body.pageUrl = browseTab.url;
+          body.pageTitle = browseTab.title || '';
+        }
+      }
       if (hasVision) {
         body.vision = true;
       } else {
+        if (toolsOn) body.tools = true;
         // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
         if (noteContexts.length) {
@@ -2161,6 +2176,29 @@ function _sendPopupChatMessage(popup, capturedText) {
                 aiText += token;
                 _popupChatMessages[aiIdx].content = aiText;
                 _renderPopupChat(popup, false);
+              } catch (e) {}
+            } else if (currentEvent === 'tool_call') {
+              try {
+                const tc = JSON.parse(line.slice(6));
+                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…' };
+                _popupChatMessages[aiIdx].content = '';
+                _popupChatMessages[aiIdx]._thinking = true;
+                _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
+                _renderPopupChat(popup, false);
+              } catch (e) {}
+            } else if (currentEvent === 'action') {
+              try {
+                const act = JSON.parse(line.slice(6));
+                if (act.type === 'bookmark' && act.url) {
+                  const paper = { link: act.url, title: act.title || act.url };
+                  if (typeof toggleSavePost === 'function') {
+                    const saved = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+                    if (!saved[act.url]) toggleSavePost(paper);
+                  }
+                } else if (act.type === 'navigate' && act.view) {
+                  const routes = { home: '#', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+                  location.hash = routes[act.view] || '#';
+                }
               } catch (e) {}
             } else if (currentEvent === 'usage') {
               try {
@@ -2259,7 +2297,8 @@ function _renderPopupChat(popup, final) {
       return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
-      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
+      const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
+      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}</div>`;
     }
     // Search results
     if (m._searchResults && m._searchResults.length) {
@@ -3018,6 +3057,7 @@ document.addEventListener('mousedown', function(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
   if (e.target.isContentEditable) return;
   if (e.target.closest('#sidebar-nav')) return;
+  if (e.target.closest('#browse-bar')) return;
   if (e.target.closest('.doc-selection-popup')) return;
   if (e.target.closest('a[href]')) return;
   if (e.target.closest('[onclick]')) return;
@@ -3026,6 +3066,8 @@ document.addEventListener('mousedown', function(e) {
 
 document.addEventListener('selectionchange', function() {
   if (!_selPopupDragging) return;
+  const activeEl = document.activeElement;
+  if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
   if (!text || text.length < 3 || sel.rangeCount === 0) return;
@@ -3069,6 +3111,9 @@ document.addEventListener('mouseup', async function(e) {
 
   if (!_selPopupDragging) return;
   _selPopupDragging = false;
+
+  const activeEl = document.activeElement;
+  if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
 
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
@@ -3291,6 +3336,8 @@ function _handleContextMenuChat(e) {
   if (popup && popup.contains(e.target)) return;
   // Skip if clicking inside a sticky pinned panel
   if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
+  // Skip if clicking inside the browse URL bar
+  if (e.target.id === 'browse-url-input' || e.target.closest('#browse-bar')) return;
   // For inputs/textareas, show panel with paste support instead of native context menu
   const tag = e.target.tagName;
   const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;

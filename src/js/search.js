@@ -2679,6 +2679,7 @@ document.addEventListener('keydown', function(e) {
   else if (e.key === '-') { e.preventDefault(); browseZoom(-1); }
   else if (e.key === '0') { e.preventDefault(); browseZoom(0); }
   else if (e.key === 'f') { e.preventDefault(); _browseToggleFindBar(); }
+  else if (e.key === ']') { e.preventDefault(); if (typeof toggleBrowseSidebar === 'function') toggleBrowseSidebar(); }
 });
 
 // Cmd+W / Cmd+T work when the parent document has focus (clicking tab bar, URL bar,
