@@ -5371,6 +5371,8 @@ function _showPanel(config) {
         if (ev.key === 'ArrowDown') _lookupCmdIdx = Math.min(_lookupCmdIdx + 1, items.length - 1);
         else _lookupCmdIdx = Math.max(_lookupCmdIdx - 1, 0);
         _lookupRenderCmdDropdown(popup, val.slice(1).trim());
+        const sel = dropdown.querySelector('.lookup-cmd-item.selected');
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
         return;
       }
       if (isCmd && dropdown && ev.key === 'Tab') {

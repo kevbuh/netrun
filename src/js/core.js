@@ -861,7 +861,7 @@ async function openDevStats() {
   const view = await ensureView('dev-stats-view');
   view.classList.add('active');
   view.style.display = 'block';
-  window.location.hash = '#dev';
+  if (window.location.hash !== '#dev') window.location.hash = '#dev';
   setSidebarActive('sb-dev');
   renderDevStats();
 }

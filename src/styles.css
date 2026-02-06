@@ -5952,6 +5952,4 @@
     .dev-stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
     .dev-stat-label { font-size: 0.72rem; color: var(--text-dimmer); margin-top: 4px; }
     .dev-loc-chart { margin-top: 16px; }
-    .dev-charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px; }
-    .dev-charts-grid .dev-loc-chart { margin-top: 0; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 8px; padding: 12px; }
 

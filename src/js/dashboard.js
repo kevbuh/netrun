@@ -929,10 +929,8 @@ async function renderDevStats() {
 
   chart.innerHTML = `
     <div class="dev-loc-chart">${locChart}</div>
-    <div class="dev-charts-grid">
-      <div class="dev-loc-chart">${toolChart}</div>
-      <div class="dev-loc-chart">${lookupChart}</div>
-      <div class="dev-loc-chart">${searchChart}</div>
-    </div>`;
+    <div class="dev-loc-chart">${toolChart}</div>
+    <div class="dev-loc-chart">${lookupChart}</div>
+    <div class="dev-loc-chart">${searchChart}</div>`;
 }
 
