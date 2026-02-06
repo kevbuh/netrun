@@ -216,7 +216,11 @@ async function createWindow() {
   mainWindow.loadURL(`http://localhost:${serverPort}/`);
 
   // Intercept window.open from the main renderer → open in browse tabs instead
+  // Allow Google Sign-In popups to open natively (they need a real window)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://accounts.google.com/')) {
+      return { action: 'allow' };
+    }
     mainWindow.webContents.send('open-in-browse', url);
     return { action: 'deny' };
   });
