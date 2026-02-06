@@ -81,17 +81,29 @@ src/
     quality.js          — AI quality filter (Ollama integration, prompts, scoring, test suite)
     settings.js         — settings view (themes, accent, spinners, feed sources, quality filter UI), applyStoredAppearance
     dashboard.js        — dashboard view (activity heatmap, reading list, recent experiments, quotes)
-    views.js            — paper viewer, sidebar panels (insights, chat, notes, comments), lookup panel, read progress
+    views.js            — paper viewer core (reader view, topbar overflow, sidebar resize)
+    paper-sidebar.js    — paper sidebar panels (insights, notes, comments, citations, references)
+    chat-threads.js     — document chat, thread persistence, sidebar tabs
+    panel.js            — unified popup panel system, context menus, slash commands
+    browse-tabs.js      — browse tab/window management, downloads, navigation
+    browse-urlbar.js    — URL bar, instant answers, history, ad blocker
     search.js           — search view (feed search, arXiv search, OpenAlex, search history)
     calendar.js         — calendar view (month grid, event CRUD)
     whiteboard.js       — whiteboard view (multi-board canvas drawing, stroke eraser)
     pdfviewer.js        — PDF viewer (highlights, pen, search)
+    teams.js            — team collaboration features
     experiments.js      — experiment list/detail, rename, description, file sidebar
     editors.js          — markdown/python editors, file management helpers
     notebook-editor.js  — notebook editor (cell management, kernel status, venv, packages)
+    draw-editor.js      — drawing editor
+    slides-editor.js    — slides editor
+    terminal.js         — terminal emulator
+    vault.js            — vault (notes) management
+    vibe.js             — vibe coding assistant
+    neuralook.js        — neural network visualization
 ```
 
-**Script load order** (bottom of `<body>`): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `search.js` → `calendar.js` → `whiteboard.js` → `pdfviewer.js` → `experiments.js` → `editors.js` → `notebook-editor.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then settings/dashboard/views/search/calendar/whiteboard/experiments/editors/notebook-editor. All functions are global (no modules).
+**Script load order** (bottom of `<body>`): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `pdfviewer.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then settings/dashboard, then views → paper-sidebar → chat-threads → panel (popup system depends on views), then browse-tabs → browse-urlbar → search (browse depends on panel), then remaining views. All functions are global (no modules).
 
 ### Sidebar
 

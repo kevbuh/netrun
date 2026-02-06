@@ -1586,15 +1586,6 @@
       color: #fff;
     }
 
-    /* Legacy styles kept for compatibility */
-    .browse-window-tabs-list,
-    .browse-tab-row,
-    .browse-tab-row-new,
-    .browse-overview-dots,
-    .browse-overview-dot,
-    .browse-overview-new-window {
-      display: none;
-    }
     /* Save input row for windows */
     .browse-window-save-input {
       display: flex;

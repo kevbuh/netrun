@@ -1584,6 +1584,65 @@ function getFilteredPapers() {
   return filtered;
 }
 
+function _renderPaperCompactRow(p, i, ctx) {
+  const { readSet } = ctx;
+  const sourceChip = getSourceChip(p.source, p.arxivId);
+  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  const isRead = readSet.has(p.link);
+  const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
+  const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
+  return `<div class="group${isRead ? ' opacity-50' : ''}">
+    <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i}, event)">
+      ${newDot}${sourceChip}
+      <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
+      <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i)}</span>
+      ${date}
+    </div>
+    ${_cardCommentContainer(p, i)}
+  </div>`;
+}
+
+function _renderPaperCard(p, i, ctx) {
+  const { qfOn, qCache, readSet } = ctx;
+  const isHN = p.source === 'hn';
+  const isArxiv = p.source === 'arxiv';
+  const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+  const sourceChip = _hasExternalLink ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="text-[0.75rem] text-dim">${escapeHtml(h)}</span>`; } catch { return `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`; } })() : `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`;
+  const viaInfo = _hasExternalLink ? `<span class="text-[0.68rem] text-dimmer">via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</span>` : '';
+  const aiEntry = qfOn ? qCache[p.title] : null;
+  const aiVerdict = aiEntry?.v || aiEntry;
+  const aiScore = aiEntry?.s;
+  const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
+  const isPoly = p.source === 'polymarket';
+  const statsChips = (isHN && _hasExternalLink)
+    ? ''
+    : isHN
+    ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
+    : isPoly
+    ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
+    : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
+  const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
+  const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
+  const userRating = getPaperRating(p.link);
+  const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
+  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  const isRead = readSet.has(p.link);
+  const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+  // Card image: polymarket uses polyImage, others use favicon, fallback to pixel art
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
+  const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  const cardImg = cardImgSrc
+    ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
+    : pixelFallback;
+  return `
+  <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
+    <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
+    ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
+    <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
+    ${_cardCommentContainer(p, i)}
+  </div>`;
+}
+
 function renderPapers() {
   const filtered = getFilteredPapers();
   lastFilteredPapers = filtered;
@@ -1620,23 +1679,9 @@ function renderPapers() {
     </div>`;
     return;
   }
+  const _ctx = { qfOn, qCache, readSet };
   if (feedViewMode === 'compact') {
-    container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => {
-      const sourceChip = getSourceChip(p.source, p.arxivId);
-      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-      const isRead = readSet.has(p.link);
-      const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
-      const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
-      return `<div class="group${isRead ? ' opacity-50' : ''}">
-        <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i}, event)">
-          ${newDot}${sourceChip}
-          <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
-          <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i)}</span>
-          ${date}
-        </div>
-        ${_cardCommentContainer(p, i)}
-      </div>`;
-    }).join('') + `</div>`;
+    container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => _renderPaperCompactRow(p, i, _ctx)).join('') + `</div>`;
   } else if (feedViewMode === 'verbose') {
     container.innerHTML = `<div style="column-span:all" class="flex flex-col gap-3">` + visible.map((p, i) => {
       const isHN = p.source === 'hn';
@@ -1740,45 +1785,7 @@ function renderPapers() {
       </div>`;
     }).join('') + `</div>`;
   } else {
-    container.innerHTML = visible.map((p, i) => {
-      const isHN = p.source === 'hn';
-      const isArxiv = p.source === 'arxiv';
-      const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-      const sourceChip = _hasExternalLink ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="text-[0.75rem] text-dim">${escapeHtml(h)}</span>`; } catch { return `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`; } })() : `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`;
-      const viaInfo = _hasExternalLink ? `<span class="text-[0.68rem] text-dimmer">via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</span>` : '';
-      const aiEntry = qfOn ? qCache[p.title] : null;
-      const aiVerdict = aiEntry?.v || aiEntry;
-      const aiScore = aiEntry?.s;
-      const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
-      const isPoly = p.source === 'polymarket';
-      const statsChips = (isHN && _hasExternalLink)
-        ? ''
-        : isHN
-        ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
-        : isPoly
-        ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
-        : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
-      const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
-      const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
-      const userRating = getPaperRating(p.link);
-      const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-      const isRead = readSet.has(p.link);
-      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
-      // Card image: polymarket uses polyImage, others use favicon, fallback to pixel art
-      const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
-      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-      const cardImg = cardImgSrc
-        ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
-        : pixelFallback;
-      return `
-      <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
-        <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
-        ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
-        <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
-        ${_cardCommentContainer(p, i)}
-      </div>`;
-    }).join('');
+    container.innerHTML = visible.map((p, i) => _renderPaperCard(p, i, _ctx)).join('');
   }
   fetchCitationsFor(visible);
   // Fetch comment counts & re-expand open comment sections

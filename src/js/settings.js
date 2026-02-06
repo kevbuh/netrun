@@ -9,34 +9,8 @@ async function openSettings() {
   renderSettingsView();
 }
 
-function renderSettingsView() {
-  const container = document.getElementById('settings-view-content');
-
-  const currentTheme = localStorage.getItem('theme') || 'light';
-  const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
-  const accentColors = [
-    { color: '#b4451a', name: 'Orange' },
-    { color: '#e53e3e', name: 'Red' },
-    { color: '#d69e2e', name: 'Gold' },
-    { color: '#38a169', name: 'Green' },
-    { color: '#3182ce', name: 'Blue' },
-    { color: '#805ad5', name: 'Purple' },
-    { color: '#d53f8c', name: 'Pink' },
-    { color: '#718096', name: 'Gray' },
-    { color: '#111111', name: 'Black' },
-  ];
-
-  container.innerHTML = `
-    <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
-
-    <!-- HELP POINTER -->
-    <div class="mb-6 p-3 rounded-lg border border-border-subtle bg-card/50">
-      <div class="flex items-center gap-2 text-[0.8rem]">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span>
-      </div>
-    </div>
-
+function _renderAccountSettings() {
+  return `
     <!-- PROFILE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
@@ -71,7 +45,25 @@ function renderSettingsView() {
         <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
       </div>
     </div>
+  `;
+}
 
+function _renderAppearanceSettings() {
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
+  const accentColors = [
+    { color: '#b4451a', name: 'Orange' },
+    { color: '#e53e3e', name: 'Red' },
+    { color: '#d69e2e', name: 'Gold' },
+    { color: '#38a169', name: 'Green' },
+    { color: '#3182ce', name: 'Blue' },
+    { color: '#805ad5', name: 'Purple' },
+    { color: '#d53f8c', name: 'Pink' },
+    { color: '#718096', name: 'Gray' },
+    { color: '#111111', name: 'Black' },
+  ];
+
+  return `
     <!-- APPEARANCE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Appearance</h3>
@@ -167,7 +159,11 @@ function renderSettingsView() {
         </div>
       </div>
     </div>
+  `;
+}
 
+function _renderFeedSourceSettings() {
+  return `
     <!-- PAPER INSIGHTS -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Paper Insights</h3>
@@ -253,9 +249,28 @@ function renderSettingsView() {
       <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading filter info...</div>
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
     </div>
+  `;
+}
+
+function renderSettingsView() {
+  const container = document.getElementById('settings-view-content');
+
+  container.innerHTML = `
+    <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
+
+    <!-- HELP POINTER -->
+    <div class="mb-6 p-3 rounded-lg border border-border-subtle bg-card/50">
+      <div class="flex items-center gap-2 text-[0.8rem]">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span>
+      </div>
+    </div>
+
+    ${_renderAccountSettings()}
+    ${_renderAppearanceSettings()}
+    ${_renderFeedSourceSettings()}
 
     <div id="settings-version" class="mt-6 text-center" style="color:var(--text-dimmer);font-size:0.65rem"></div>
-
   `;
 
   // Load version
