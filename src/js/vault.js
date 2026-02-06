@@ -6,6 +6,7 @@ let _vaultPreviewMode = true; // Preview on by default
 let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
 let _vaultMarimoActive = false; // Whether a marimo server is running for current note
+let _vaultRightSidebarVisible = true;
 
 // Open vault view
 async function openVault() {
@@ -91,6 +92,20 @@ async function initVault() {
     if (editorContainer) editorContainer.style.display = 'none';
     if (previewContainer) previewContainer.style.display = '';
     updateVaultPreview();
+  }
+
+  // Keyboard shortcut: Cmd+] to toggle right sidebar
+  if (!window._vaultKeyHandler) {
+    window._vaultKeyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+        e.preventDefault();
+        const vaultView = document.getElementById('vault-view');
+        if (vaultView && vaultView.style.display !== 'none') {
+          vaultToggleRightSidebar();
+        }
+      }
+    };
+    document.addEventListener('keydown', window._vaultKeyHandler);
   }
 }
 
@@ -943,6 +958,23 @@ async function vaultDeleteNote(noteId) {
 // Filter notes
 function vaultFilterNotes(query) {
   renderVaultFileTree(query);
+}
+
+// Toggle right sidebar (backlinks/tags)
+function vaultToggleRightSidebar() {
+  _vaultRightSidebarVisible = !_vaultRightSidebarVisible;
+  const layout = document.querySelector('.vault-layout');
+  const sidebar = document.querySelector('.vault-backlinks');
+  const btn = document.getElementById('vault-sidebar-toggle-btn');
+  if (layout) {
+    layout.style.gridTemplateColumns = _vaultRightSidebarVisible ? '220px 1fr 240px' : '220px 1fr';
+  }
+  if (sidebar) {
+    sidebar.style.display = _vaultRightSidebarVisible ? '' : 'none';
+  }
+  if (btn) {
+    btn.classList.toggle('active', !_vaultRightSidebarVisible);
+  }
 }
 
 // Toggle preview mode
