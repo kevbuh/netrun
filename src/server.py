@@ -81,6 +81,7 @@ GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleuse
 # Neuralook — trained CNN model kept in memory for inference
 _neuralook_model = None
 _neuralook_screen = None  # (screen_w, screen_h, eye_w, eye_h)
+_whisper_model = None
 
 # In-memory cache for extracted document text: url -> { text, pages }
 _extract_cache = {}
@@ -2136,6 +2137,27 @@ ch.postMessage({type:'preview-ready'});
 
     def do_POST(self):
         global _neuralook_model, _neuralook_screen
+        if self.path == '/api/transcribe':
+            length = int(self.headers.get('Content-Length', 0))
+            if length == 0:
+                self._send_json({'error': 'No audio data'}, 400)
+                return
+            audio_data = self.rfile.read(length)
+            try:
+                import whisper
+                global _whisper_model
+                if '_whisper_model' not in globals() or _whisper_model is None:
+                    _whisper_model = whisper.load_model('tiny')
+                # Write to temp file — whisper needs a file path
+                tmp = os.path.join(tempfile.gettempdir(), f'whisper_{uuid.uuid4().hex}.webm')
+                with open(tmp, 'wb') as f:
+                    f.write(audio_data)
+                result = _whisper_model.transcribe(tmp, fp16=False)
+                os.remove(tmp)
+                self._send_json({'text': result.get('text', '').strip()})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
         if self.path == '/api/neuralook/train':
             body = self._read_body()
             try:
@@ -2217,6 +2239,36 @@ ch.postMessage({type:'preview-ready'});
                 no_improve = 0
                 stopped_epoch = 0
 
+                # wandb local logging (offline mode, no account needed)
+                wb = None
+                try:
+                    import wandb
+                    wandb.init(
+                        project='neuralook',
+                        mode='offline',
+                        config={
+                            'architecture': 'GazeCNN',
+                            'eye_w': eye_w, 'eye_h': eye_h,
+                            'n_samples': len(X_list),
+                            'n_train': int(train_mask.sum()),
+                            'n_val': int(val_mask.sum()),
+                            'n_cal_points': len(unique_targets),
+                            'n_val_points': n_val_points,
+                            'lr': 1e-3, 'weight_decay': 1e-4,
+                            'batch_size': batch_size,
+                            'max_epochs': max_epochs,
+                            'patience': patience,
+                            'dropout': 0.3,
+                            'screen_w': screen_w, 'screen_h': screen_h,
+                        }
+                    )
+                    wandb.watch(model, log='all', log_freq=50)
+                    wb = wandb
+                except ImportError:
+                    pass
+                except Exception:
+                    pass
+
                 # SSE stream for progress
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/event-stream')
@@ -2276,6 +2328,8 @@ ch.postMessage({type:'preview-ready'});
                         star = '  ★' if improved else ''
                         _sse('log', {'text': f'{epoch:>6}  {last_train_loss:>11.6f}  {val_loss:>11.6f}  {cur_lr:>10.2e}  {"✓" if improved else " ":>5}  {no_improve:>4}/{patience}{star}'})
                         _sse('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'train_loss': round(last_train_loss, 6), 'phase': 'training'})
+                        if wb:
+                            wb.log({'epoch': epoch, 'train_loss': last_train_loss, 'val_loss': val_loss, 'lr': cur_lr, 'best_val_loss': best_val_loss, 'no_improve': no_improve})
                         if no_improve >= patience:
                             _sse('log', {'text': f'\nEarly stopping at epoch {epoch} (no improvement for {patience} epochs)'})
                             stopped_epoch = epoch
@@ -2310,6 +2364,15 @@ ch.postMessage({type:'preview-ready'});
                 _sse('log', {'text': f'  quality:     {qual}'})
                 _sse('log', {'text': ''})
                 _sse('log', {'text': f'Done. Model ready for inference ({n_params:,} params, screen {screen_w}x{screen_h}).'})
+
+                if wb:
+                    wb.summary['train_error_px'] = round(train_err, 1)
+                    wb.summary['val_error_px'] = round(val_err, 1)
+                    wb.summary['stopped_epoch'] = stopped_epoch
+                    wb.summary['best_val_loss'] = round(best_val_loss, 6)
+                    wb.summary['quality'] = qual
+                    wb.finish()
+                    _sse('log', {'text': f'wandb: Run logged offline → wandb/latest-run'})
 
                 _sse('done', {
                     'train_error_px': round(train_err, 1),

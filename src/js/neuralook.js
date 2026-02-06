@@ -304,10 +304,13 @@ function _nlRenderTrainDetailView(container) {
       <!-- Loss graph -->
       <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-[0.85rem] font-semibold text-primary">Validation Loss</h3>
-          <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-train-loss-val">${latestLoss != null ? latestLoss.toFixed(6) : '—'}</span>
+          <h3 class="text-[0.85rem] font-semibold text-primary">Loss</h3>
+          <div class="flex items-center gap-4 text-[0.72rem] tabular-nums">
+            <span class="flex items-center gap-1.5"><span style="width:8px;height:3px;border-radius:2px;background:#f97316;display:inline-block;"></span> <span class="text-dimmer">Train</span> <span class="text-muted" id="nl-train-tloss-val">${_nlTrainLossHistory.length > 0 ? _nlTrainLossHistory[_nlTrainLossHistory.length - 1].train_loss?.toFixed(6) || '—' : '—'}</span></span>
+            <span class="flex items-center gap-1.5"><span style="width:8px;height:3px;border-radius:2px;background:#60a5fa;display:inline-block;"></span> <span class="text-dimmer">Val</span> <span class="text-muted" id="nl-train-loss-val">${latestLoss != null ? latestLoss.toFixed(6) : '—'}</span></span>
+          </div>
         </div>
-        <div style="height:200px;position:relative;">
+        <div style="height:220px;position:relative;">
           <canvas id="nl-train-loss-graph" style="width:100%;height:100%;display:block;"></canvas>
         </div>
       </div>
@@ -416,12 +419,20 @@ function _nlDrawTrainLossGraph() {
   ctx.clearRect(0, 0, w, h);
 
   const data = _nlTrainLossHistory;
-  const losses = data.map(d => d.val_loss);
+  const valLosses = data.map(d => d.val_loss);
+  const trainLosses = data.map(d => d.train_loss).filter(v => v != null);
+  const allLosses = valLosses.concat(trainLosses);
   const maxEpoch = data[data.length - 1].epoch || 1;
-  let min = Math.min(...losses);
-  let max = Math.max(...losses);
+  let min = Math.min(...allLosses);
+  let max = Math.max(...allLosses);
   if (max === min) max = min + 0.001;
+  // Clamp top to avoid early huge losses crushing the rest
+  const p90 = allLosses.slice().sort((a, b) => a - b)[Math.floor(allLosses.length * 0.95)];
+  if (p90 != null && max > p90 * 2) max = p90 * 2;
   const pad = h * 0.08;
+
+  function toY(v) { return pad + (h - 2 * pad) * (1 - Math.max(0, Math.min(1, (v - min) / (max - min)))); }
+  function toX(epoch) { return (epoch / maxEpoch) * w; }
 
   // Grid lines
   ctx.strokeStyle = 'rgba(255,255,255,0.05)';
@@ -432,46 +443,71 @@ function _nlDrawTrainLossGraph() {
   }
 
   // Y-axis labels
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.font = `${10 * dpr}px monospace`;
   ctx.textAlign = 'left';
   ctx.fillText(max.toFixed(4), 4 * dpr, pad + 10 * dpr);
   ctx.fillText(min.toFixed(4), 4 * dpr, h - pad);
+  const mid = (max + min) / 2;
+  ctx.fillText(mid.toFixed(4), 4 * dpr, h / 2 + 3 * dpr);
 
-  // Loss line
-  ctx.strokeStyle = '#60a5fa';
-  ctx.lineWidth = 2 * dpr;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = (data[i].epoch / maxEpoch) * w;
-    const y = pad + (h - 2 * pad) * (1 - (data[i].val_loss - min) / (max - min));
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  // Draw a filled curve helper
+  function drawCurve(values, color, fillAlpha) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 * dpr;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let firstX = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = values[i];
+      if (v == null) continue;
+      const x = toX(data[i].epoch);
+      const y = toY(v);
+      if (i === 0 || values[i - 1] == null) { ctx.moveTo(x, y); firstX = x; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    // Fill
+    const lastValid = data.length - 1;
+    const lx = toX(data[lastValid].epoch);
+    ctx.lineTo(lx, h); ctx.lineTo(firstX, h); ctx.closePath();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, color + fillAlpha);
+    grad.addColorStop(1, color + '00');
+    ctx.fillStyle = grad;
+    ctx.fill();
   }
-  ctx.stroke();
 
-  // Fill under curve
-  const lastX = (data[data.length - 1].epoch / maxEpoch) * w;
-  const lastY = pad + (h - 2 * pad) * (1 - (data[data.length - 1].val_loss - min) / (max - min));
-  ctx.lineTo(lastX, h);
-  ctx.lineTo((data[0].epoch / maxEpoch) * w, h);
-  ctx.closePath();
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, '#60a5fa18');
-  grad.addColorStop(1, '#60a5fa00');
-  ctx.fillStyle = grad;
-  ctx.fill();
+  // Train loss (orange, lighter fill)
+  if (trainLosses.length > 0) {
+    drawCurve(data.map(d => d.train_loss), '#f97316', '12');
+  }
 
-  // Best loss marker
-  const bestIdx = losses.indexOf(Math.min(...losses));
+  // Val loss (blue, slightly stronger fill)
+  drawCurve(valLosses, '#60a5fa', '18');
+
+  // Best val loss marker
+  const bestVal = Math.min(...valLosses);
+  const bestIdx = valLosses.indexOf(bestVal);
   if (bestIdx >= 0) {
-    const bx = (data[bestIdx].epoch / maxEpoch) * w;
-    const by = pad + (h - 2 * pad) * (1 - (data[bestIdx].val_loss - min) / (max - min));
+    const bx = toX(data[bestIdx].epoch);
+    const by = toY(data[bestIdx].val_loss);
     ctx.fillStyle = '#4ade80';
     ctx.beginPath();
     ctx.arc(bx, by, 3.5 * dpr, 0, Math.PI * 2);
     ctx.fill();
+    // Label
+    ctx.fillStyle = 'rgba(74,222,128,0.7)';
+    ctx.font = `${9 * dpr}px monospace`;
+    ctx.textAlign = bx > w / 2 ? 'right' : 'left';
+    ctx.fillText(bestVal.toFixed(5), bx + (bx > w / 2 ? -6 : 6) * dpr, by - 6 * dpr);
   }
+
+  // Update legend values
+  const tlv = document.getElementById('nl-train-tloss-val');
+  const vlv = document.getElementById('nl-train-loss-val');
+  if (tlv && data.length > 0) tlv.textContent = data[data.length - 1].train_loss?.toFixed(6) || '—';
+  if (vlv && data.length > 0) vlv.textContent = data[data.length - 1].val_loss.toFixed(6);
 }
 
 // ── MediaPipe Initialization ──
@@ -1029,7 +1065,7 @@ async function _nlOnCalibrationComplete() {
     const result = await _nlTrainOnServerSSE((prog) => {
       _nlTrainProgress = prog;
       _nlTrainPhase = prog.phase || 'training';
-      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss });
+      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
 
       if (prog.phase === 'evaluating') {
         _nlUpdateTrainPill('Training CNN', 'Evaluating...');

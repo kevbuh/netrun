@@ -5725,9 +5725,9 @@ function _showPanel(config) {
     if (wvCtx.children.length) popup.appendChild(wvCtx);
   }
 
-  // ── Paste into nearby editable or chat input (general right-click) ──
-  if (!editableTarget && !hasContext && !capturedText && !webviewEditable) {
-    const priorEditable = config.priorEditable || null;
+  // ── Paste into nearby editable or chat input (only when near an editable field) ──
+  if (!editableTarget && !hasContext && !capturedText && !webviewEditable && config.priorEditable) {
+    const priorEditable = config.priorEditable;
     const pasteCtx = document.createElement('div');
     pasteCtx.className = 'doc-lookup-context-items';
     const pasteItem = document.createElement('div');
@@ -6261,7 +6261,50 @@ function _showPanel(config) {
       }
     });
     askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    // Mic button for voice input (MediaRecorder + Whisper)
+    const micBtn = document.createElement('button');
+    micBtn.className = 'doc-ask-mic-btn';
+    micBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    micBtn.title = 'Voice input';
+    let micRecorder = null;
+    micBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    micBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (micRecorder) {
+        micRecorder.stop();
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        const chunks = [];
+        micRecorder = recorder;
+        micBtn.classList.add('doc-ask-mic-active');
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => {
+          micRecorder = null;
+          micBtn.classList.remove('doc-ask-mic-active');
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          // Show transcribing state
+          const prevPlaceholder = askInput.placeholder;
+          askInput.placeholder = 'Transcribing…';
+          fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob })
+            .then(r => r.json())
+            .then(data => {
+              askInput.placeholder = prevPlaceholder;
+              if (data.text) {
+                askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
+                askInput.focus();
+              }
+            })
+            .catch(() => { askInput.placeholder = prevPlaceholder; });
+        };
+        recorder.start();
+      }).catch(() => {});
+    });
+
     askWrap.appendChild(askInput);
+    askWrap.appendChild(micBtn);
     askWrap.appendChild(sendBtn);
     popup.appendChild(askWrap);
   }
