@@ -2402,6 +2402,58 @@ async function _fetchAuthorPreview(text, containerDiv) {
   }
 }
 
+// ── Panel suggestion (tiny model generates a question from context) ──
+let _panelSuggestAbort = null;
+
+function _fetchPanelSuggestion(popup, text) {
+  if (_panelSuggestAbort) { _panelSuggestAbort.abort(); _panelSuggestAbort = null; }
+  if (!text || text.length < 3) return;
+  const ctrl = _panelSuggestAbort = new AbortController();
+  fetch('/api/panel-suggest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+    signal: ctrl.signal
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (ctrl.signal.aborted || !popup.isConnected) return;
+      const suggestion = (data.suggestion || '').trim();
+      if (!suggestion) return;
+      // Don't show if user already started typing or chatting
+      const input = popup.querySelector('.doc-ask-inline-input');
+      if (input && input.value.trim()) return;
+      if (_popupChatMessages.length) return;
+      _renderPanelSuggestion(popup, suggestion);
+    })
+    .catch(() => {});
+}
+
+function _renderPanelSuggestion(popup, suggestion) {
+  let el = popup.querySelector('.lookup-suggestion');
+  if (el) el.remove();
+  el = document.createElement('div');
+  el.className = 'lookup-suggestion';
+  el.innerHTML = `<span class="lookup-suggestion-text">${escapeHtml(suggestion)}</span><span class="lookup-suggestion-hint">Tab</span>`;
+  el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  el.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    _acceptPanelSuggestion(popup, suggestion);
+  });
+  const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+  if (askWrap) popup.insertBefore(el, askWrap);
+  _repositionSelectionPopup();
+}
+
+function _acceptPanelSuggestion(popup, suggestion) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (!input) return;
+  input.value = suggestion;
+  const el = popup.querySelector('.lookup-suggestion');
+  if (el) el.remove();
+  _sendPopupChatMessage(popup, popup._capturedText || '');
+}
+
 function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
@@ -6011,19 +6063,16 @@ function _showPanel(config) {
       _lookupDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
     });
 
-    popup.appendChild(topBar);
-
-    // Model info row (stats + context usage) — below top bar
-    const infoRow = document.createElement('div');
-    infoRow.className = 'lookup-info-row';
+    // Stats + context usage — inline in the top bar after model label
     const statsSpan = document.createElement('span');
     statsSpan.className = 'doc-chat-stats';
-    infoRow.appendChild(statsSpan);
+    topBar.insertBefore(statsSpan, spacer.nextSibling);
     const ctxSpan = document.createElement('span');
     ctxSpan.className = 'lookup-context-usage';
     ctxSpan.textContent = '';
-    infoRow.appendChild(ctxSpan);
-    popup.appendChild(infoRow);
+    topBar.insertBefore(ctxSpan, statsSpan.nextSibling);
+
+    popup.appendChild(topBar);
   }
 
   // ── Chat area ──
@@ -6100,6 +6149,16 @@ function _showPanel(config) {
       // Let Cmd+I bubble up to document handler for toggle
       if ((ev.metaKey || ev.ctrlKey) && ev.key === 'i') return;
       ev.stopPropagation();
+      // Tab accepts AI suggestion
+      if (ev.key === 'Tab' && !ev.shiftKey) {
+        const suggEl = popup.querySelector('.lookup-suggestion');
+        if (suggEl) {
+          ev.preventDefault();
+          const text = suggEl.querySelector('.lookup-suggestion-text').textContent;
+          _acceptPanelSuggestion(popup, text);
+          return;
+        }
+      }
       const val = askInput.value;
       const isCmd = val.startsWith('/');
       const dropdown = popup.querySelector('.lookup-cmd-dropdown');
@@ -6268,6 +6327,9 @@ function _showPanel(config) {
       }
     });
     askInput.addEventListener('input', () => {
+      // Dismiss suggestion when user types
+      const suggEl = popup.querySelector('.lookup-suggestion');
+      if (suggEl) suggEl.remove();
       const val = askInput.value;
       if (val.startsWith('/')) {
         const notesMatch = val.match(/^\/notes(\s+(.*))?$/i);
@@ -6341,6 +6403,22 @@ function _showPanel(config) {
     askWrap.appendChild(micBtn);
     askWrap.appendChild(sendBtn);
     popup.appendChild(askWrap);
+
+    // Fetch AI suggestion when there's any text context
+    const suggestText = capturedText
+      || (contextMenu && contextMenu.linkText)
+      || (contextMenu && contextMenu.linkUrl)
+      || (() => {
+        // Use current page/tab title + URL as context
+        const bt = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+          ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+        if (bt && bt.title) return bt.title + (bt.url ? ' — ' + bt.url : '');
+        if (_docText) return _docText.slice(0, 300);
+        return '';
+      })();
+    if (suggestText) {
+      _fetchPanelSuggestion(popup, suggestText);
+    }
   }
 
   // Show "Save chat" button if in PDF text layer

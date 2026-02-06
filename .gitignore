@@ -4,3 +4,6 @@ dist/
 src/uploads/
 src/vault/
 src/alpha.db
+src/lookup.db
+src/__pycache__/
+wandb/

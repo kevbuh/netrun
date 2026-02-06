@@ -2235,13 +2235,13 @@ ch.postMessage({type:'preview-ready'});
 
                 model = GazeCNN()
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-                max_epochs = 3000
+                max_epochs = 50
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
                 n_train = X_train.shape[0]
                 batch_size = min(64, n_train)
                 best_val_loss = float('inf')
                 best_state = None
-                patience = 300
+                patience = 30
                 no_improve = 0
                 stopped_epoch = 0
 
@@ -3527,6 +3527,40 @@ ch.postMessage({type:'preview-ready'});
                     self._send_json(results)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/panel-suggest':
+            try:
+                body = self._read_body()
+                text = body.get('text', '').strip()
+                if not text or len(text) < 3:
+                    self._send_json({'suggestion': ''})
+                    return
+                snippet = text[:300]
+                payload = json.dumps({
+                    "model": "qwen3:0.6b",
+                    "messages": [
+                        {"role": "system", "content": "Given some text the user selected or is looking at, suggest ONE short question (under 12 words) they might want to ask about it. Return ONLY the question, nothing else. No quotes."},
+                        {"role": "user", "content": snippet}
+                    ],
+                    "stream": False,
+                    "think": False,
+                    "options": {"temperature": 0.7, "num_predict": 40}
+                }).encode()
+                req = urllib.request.Request(
+                    "http://localhost:11434/api/chat",
+                    data=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    resp_data = json.loads(resp.read())
+                raw = resp_data.get("message", {}).get("content", "").strip().strip('"\'')
+                # Take first line only
+                suggestion = raw.split('\n')[0].strip()
+                if len(suggestion) > 80:
+                    suggestion = suggestion[:77] + '…'
+                self._send_json({'suggestion': suggestion})
+            except Exception:
+                self._send_json({'suggestion': ''})
 
         elif self.path == '/api/search-suggest':
             try:

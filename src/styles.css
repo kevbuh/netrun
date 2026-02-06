@@ -3210,7 +3210,6 @@
     .doc-chat-stats {
       font-size: 0.6rem;
       color: var(--text-dimmer);
-      margin-left: auto;
       opacity: 0.7;
       white-space: nowrap;
     }
@@ -3243,16 +3242,7 @@
       transition: width 0.3s ease, background 0.3s ease;
       border-radius: 8px 8px 0 0;
     }
-    .lookup-info-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 0 8px 2px;
-      font-size: 0.62rem;
-      color: var(--text-dimmer);
-      min-height: 0;
-    }
-    .lookup-info-row:empty { display: none; }
+    .lookup-info-row { display: none; }
     .lookup-top-actions {
       border-top: none;
       border-bottom: none;
@@ -3409,6 +3399,37 @@
       height: 1px;
       background: var(--border-input);
       margin: 2px 0;
+    }
+    /* AI suggestion chip */
+    .lookup-suggestion {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: background 0.1s;
+      border-top: 1px solid var(--border-input);
+    }
+    .lookup-suggestion:hover {
+      background: var(--bg-hover);
+    }
+    .lookup-suggestion-text {
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      font-style: italic;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lookup-suggestion-hint {
+      font-size: 0.62rem;
+      color: var(--text-dimmest);
+      border: 1px solid var(--border-input);
+      border-radius: 3px;
+      padding: 0 4px;
+      line-height: 1.5;
+      flex-shrink: 0;
     }
     /* Slash command autocomplete */
     .lookup-cmd-dropdown {
