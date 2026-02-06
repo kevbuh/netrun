@@ -1971,7 +1971,29 @@ function renderDocChatMessages(final) {
 let _popupChatMessages = [];
 let _popupChatAbort = null;
 let _chatStreamStart = 0;
-let _lookupTrackMode = false;
+let _lookupTrackModeVal = false;
+Object.defineProperty(window, '_lookupTrackMode', {
+  get() { return _lookupTrackModeVal; },
+  set(v) {
+    const was = _lookupTrackModeVal;
+    _lookupTrackModeVal = v;
+    if (v && !was) {
+      // Entering track mode: disable iframe pointer events so clicks reach parent
+      document.querySelectorAll('iframe, webview').forEach(f => {
+        f.dataset.peTrack = f.style.pointerEvents || '';
+        f.style.pointerEvents = 'none';
+      });
+    } else if (!v && was) {
+      // Leaving track mode: restore iframe pointer events
+      document.querySelectorAll('iframe, webview').forEach(f => {
+        if ('peTrack' in f.dataset) {
+          f.style.pointerEvents = f.dataset.peTrack;
+          delete f.dataset.peTrack;
+        }
+      });
+    }
+  }
+});
 let _lastMouseX = 0;
 let _lastMouseY = 0;
 let _pendingScreenshots = [];
@@ -2510,9 +2532,54 @@ function _renderPopupChat(popup, final) {
   if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
 }
 
+const _modelContextSizes = {
+  'qwen2.5:1.5b': 32000, 'qwen2.5:3b': 32000, 'qwen2.5:7b': 32000,
+  'qwen3:8b': 32000, 'qwen3-vl:8b': 32000, 'llama3:8b': 8000,
+  'gemma2:9b': 8000, 'mistral:7b': 32000, 'deepseek-r1:8b': 64000,
+};
+
+function _getModelContextSize(model) {
+  if (!model) return 32000;
+  // Try exact match first, then prefix match
+  if (_modelContextSizes[model]) return _modelContextSizes[model];
+  const base = model.replace(/:latest$/, '');
+  if (_modelContextSizes[base]) return _modelContextSizes[base];
+  for (const k of Object.keys(_modelContextSizes)) {
+    if (base.startsWith(k.split(':')[0])) return _modelContextSizes[k];
+  }
+  return 32000;
+}
+
+function _fmtTokens(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+}
+
+function _updateContextUsage(popup) {
+  const el = popup.querySelector('.lookup-context-usage');
+  if (!el) return;
+  const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  const limit = _getModelContextSize(model);
+  // Sum prompt_tokens from all assistant messages with usage, or estimate
+  let used = 0;
+  const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && m._usage);
+  if (lastAi && lastAi._usage) {
+    used = (lastAi._usage.prompt_tokens || 0) + (lastAi._usage.completion_tokens || 0);
+  } else {
+    // Estimate from all message content
+    for (const m of _popupChatMessages) {
+      if (m.content) used += Math.round(m.content.length / 4);
+    }
+  }
+  const pct = limit > 0 ? Math.round((used / limit) * 100) : 0;
+  el.textContent = `${_fmtTokens(used)}/${_fmtTokens(limit)} (${pct}%)`;
+  // Color based on usage
+  el.style.color = pct > 80 ? '#e53e3e' : pct > 50 ? '#d69e2e' : '';
+}
+
 function _updateChatStats(popup, final) {
   const statsEl = popup.querySelector('.doc-chat-stats');
   if (!statsEl) return;
+  _updateContextUsage(popup);
   if (_popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
   const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
   if (!lastAi) { statsEl.textContent = ''; return; }
@@ -3115,7 +3182,7 @@ document.addEventListener('mousedown', function(e) {
   // In track mode with captureScreen available: pin panel and start screenshot drag
   if (existing && _lookupTrackMode && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
     e.preventDefault(); // prevent text selection during drag
-    _lookupTrackMode = false;
+    _lookupTrackModeVal = false; // bypass setter — keep iframes disabled during drag
     _screenshotDragStart = { x: e.clientX, y: e.clientY };
     // Create selection rect + dim overlay elements
     _screenshotDim = document.createElement('div');
@@ -3168,7 +3235,8 @@ document.addEventListener('mouseup', async function(e) {
     const y = Math.min(e.clientY, startPos.y);
     const w = Math.abs(e.clientX - startPos.x);
     const h = Math.abs(e.clientY - startPos.y);
-    // Remove selection visuals before capture
+    // Restore iframe pointer events and remove selection visuals before capture
+    _screenshotRestoreIframes();
     if (_screenshotSelection) { _screenshotSelection.remove(); _screenshotSelection = null; }
     if (_screenshotDim) { _screenshotDim.remove(); _screenshotDim = null; }
     if (w >= 10 && h >= 10 && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
@@ -3360,6 +3428,7 @@ document.addEventListener('keydown', function(e) {
     // Cancel screenshot drag if active
     if (_screenshotDragStart) {
       _screenshotDragStart = null;
+      _screenshotRestoreIframes();
       if (_screenshotSelection) { _screenshotSelection.remove(); _screenshotSelection = null; }
       if (_screenshotDim) { _screenshotDim.remove(); _screenshotDim = null; }
       return;
@@ -3549,6 +3618,16 @@ function _injectIframeChatHandler(iframe) {
 let _screenshotDragStart = null; // {x, y} or null
 let _screenshotSelection = null; // DOM element
 let _screenshotDim = null; // DOM element
+
+function _screenshotRestoreIframes() {
+  document.querySelectorAll('iframe, webview').forEach(f => {
+    if ('peTrack' in f.dataset) {
+      f.style.pointerEvents = f.dataset.peTrack;
+      delete f.dataset.peTrack;
+    }
+  });
+}
+
 
 async function _browserCaptureRect(rect) {
   const { x, y, width, height } = rect;
@@ -5073,6 +5152,12 @@ function _showPanel(config) {
     const statsSpan = document.createElement('span');
     statsSpan.className = 'doc-chat-stats';
     topBar.appendChild(statsSpan);
+
+    // Context usage indicator
+    const ctxSpan = document.createElement('span');
+    ctxSpan.className = 'lookup-context-usage';
+    ctxSpan.textContent = '0/32k (0%)';
+    topBar.appendChild(ctxSpan);
 
     // Spacer
     const spacer = document.createElement('span');

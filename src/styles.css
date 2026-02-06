@@ -753,11 +753,11 @@
     .browse-tab.active {
       background: var(--bg-card);
       color: var(--text-primary);
-      box-shadow: inset 0 0 0 1px var(--border-card), 0 1px 4px rgba(0,0,0,.15);
+      box-shadow: 0 1px 4px rgba(0,0,0,.15);
     }
     /* Tab bar focused state - shows arrow key navigation is active */
     #browse-tabs.tab-bar-focused .browse-tab.active {
-      box-shadow: 0 0 0 2px var(--accent), inset 0 0 0 1px var(--border-card), 0 1px 4px rgba(0,0,0,.15);
+      box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.15);
     }
     .browse-tab-favicon {
       width: 14px;
@@ -3153,6 +3153,13 @@
       margin-left: auto;
       opacity: 0.7;
       white-space: nowrap;
+    }
+    .lookup-context-usage {
+      font-size: 0.58rem;
+      color: var(--text-dimmer);
+      opacity: 0.7;
+      white-space: nowrap;
+      font-family: 'SF Mono', 'Fira Code', monospace;
     }
     .doc-popup-chat-actions {
       display: flex;
