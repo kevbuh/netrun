@@ -503,7 +503,9 @@ function _browseCreateTabInWindow(windowId, url) {
     title: _browseTitleFromUrl(resolved),
     favicon: _browseFaviconUrl(resolved),
     el,
-    blank: false
+    blank: false,
+    backStack: [],
+    forwardStack: []
   };
   win.tabs.push(tab);
   _browseBindFrame(tab);
@@ -642,7 +644,7 @@ function browseNewTab(url) {
     container.appendChild(el);
   }
 
-  const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank };
+  const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
   const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
   if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
   else win.tabs.push(tab);
@@ -2567,6 +2569,12 @@ function browseNavigate(input) {
   }
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
+  // Push current URL onto back stack for navigation history
+  if (tab.url && !tab.blank) {
+    if (!tab.backStack) tab.backStack = [];
+    tab.backStack.push(tab.url);
+    tab.forwardStack = [];
+  }
   tab.url = url;
   tab.title = _browseTitleFromUrl(url);
   tab.favicon = _browseFaviconUrl(url);
@@ -2614,14 +2622,46 @@ function browseBack() {
   const el = _browseActiveEl();
   if (!el) return;
   if (_browseIsElectron && el.canGoBack && el.canGoBack()) { el.goBack(); return; }
-  if (!_browseIsElectron) { try { el.contentWindow.history.back(); } catch(e) {} }
+  // Use our own history stack for non-Electron (cross-origin iframes block history.back())
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || !tab.backStack || !tab.backStack.length) return;
+  if (!tab.forwardStack) tab.forwardStack = [];
+  tab.forwardStack.push(tab.url);
+  const prevUrl = tab.backStack.pop();
+  tab.url = prevUrl;
+  tab.title = _browseTitleFromUrl(prevUrl);
+  tab.favicon = _browseFaviconUrl(prevUrl);
+  const proxied = _browseProxyUrl(prevUrl);
+  el.dataset.originalUrl = prevUrl;
+  el.src = proxied;
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput) urlInput.value = prevUrl;
+  _browseRenderTabs();
+  _browseUpdateSaveBtn();
+  _browseSaveTabs();
 }
 
 function browseForward() {
   const el = _browseActiveEl();
   if (!el) return;
   if (_browseIsElectron && el.canGoForward && el.canGoForward()) { el.goForward(); return; }
-  if (!_browseIsElectron) { try { el.contentWindow.history.forward(); } catch(e) {} }
+  // Use our own history stack for non-Electron
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || !tab.forwardStack || !tab.forwardStack.length) return;
+  if (!tab.backStack) tab.backStack = [];
+  tab.backStack.push(tab.url);
+  const nextUrl = tab.forwardStack.pop();
+  tab.url = nextUrl;
+  tab.title = _browseTitleFromUrl(nextUrl);
+  tab.favicon = _browseFaviconUrl(nextUrl);
+  const proxied = _browseProxyUrl(nextUrl);
+  el.dataset.originalUrl = nextUrl;
+  el.src = proxied;
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput) urlInput.value = nextUrl;
+  _browseRenderTabs();
+  _browseUpdateSaveBtn();
+  _browseSaveTabs();
 }
 
 function browseReload() {
