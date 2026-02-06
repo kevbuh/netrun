@@ -2357,6 +2357,21 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
+  // Update send/stop button state
+  const sendBtn = popup.querySelector('.doc-ask-inline-send');
+  if (sendBtn) {
+    if (_popupChatAbort && !final) {
+      sendBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>';
+      sendBtn.title = 'Stop';
+      sendBtn.disabled = false;
+      sendBtn.classList.add('doc-ask-inline-stop');
+    } else {
+      sendBtn.innerHTML = '↑';
+      sendBtn.title = 'Send';
+      sendBtn.classList.remove('doc-ask-inline-stop');
+    }
+  }
+
   // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
   const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
   if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length) || (lastMsg._noteResults && lastMsg._noteResults.length))) {
@@ -2544,6 +2559,7 @@ function _showChatHighlightPopup(e, hl) {
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   sendBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
     _sendPopupChatMessage(popup, hl.text);
   });
   askInput.addEventListener('keydown', (ev) => {
@@ -2706,6 +2722,7 @@ function _showReferencePopup(refNum, anchorEl) {
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   sendBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
     _sendPopupChatMessage(popup, refContextText);
   });
   askInput.addEventListener('keydown', (ev) => {
@@ -5022,6 +5039,7 @@ function _showPanel(config) {
     sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     sendBtn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
       _sendPopupChatMessage(popup, capturedText);
     });
     askInput.addEventListener('keydown', (ev) => {

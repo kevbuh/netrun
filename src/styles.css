@@ -3040,6 +3040,13 @@
       padding: 3px 6px;
       border-radius: 5px;
     }
+    .doc-ask-inline-send.doc-ask-inline-stop {
+      background: transparent;
+      color: var(--text-dimmer);
+    }
+    .doc-ask-inline-send.doc-ask-inline-stop:hover {
+      color: var(--text-primary);
+    }
     .doc-chat-stats {
       font-size: 0.6rem;
       color: var(--text-dimmer);
