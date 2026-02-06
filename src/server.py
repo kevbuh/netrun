@@ -2525,6 +2525,42 @@ ch.postMessage({type:'preview-ready'});
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path == '/api/search-suggest':
+            try:
+                body = self._read_body()
+                query = body.get('query', '').strip()
+                if not query or len(query) < 2:
+                    self._send_json({'suggestions': []})
+                    return
+                payload = json.dumps({
+                    "model": "qwen3:0.6b",
+                    "messages": [
+                        {"role": "system", "content": "You are a search autocomplete engine. Given a partial search query, suggest 4 completions. Return ONLY a JSON array of strings, nothing else. Example: [\"machine learning basics\", \"machine learning tutorial\"]"},
+                        {"role": "user", "content": query}
+                    ],
+                    "stream": False,
+                    "think": False,
+                    "options": {"temperature": 0.7, "num_predict": 120}
+                }).encode()
+                req = urllib.request.Request(
+                    "http://localhost:11434/api/chat",
+                    data=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    resp_data = json.loads(resp.read())
+                raw = resp_data.get("message", {}).get("content", "").strip()
+                # Parse the JSON array from the response
+                arr_match = re.search(r'\[.*\]', raw, re.DOTALL)
+                if arr_match:
+                    suggestions = json.loads(arr_match.group())
+                    suggestions = [s for s in suggestions if isinstance(s, str) and s.strip()][:4]
+                else:
+                    suggestions = []
+                self._send_json({'suggestions': suggestions})
+            except Exception:
+                self._send_json({'suggestions': []})
+
         elif m := self._match(r'^/api/experiments/([a-zA-Z0-9_-]+)/upload$'):
             exp_id = m.group(1)
             exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)

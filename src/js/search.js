@@ -3423,6 +3423,10 @@ function _searchHistoryKeydown(e) {
 // ── Browse URL Bar History Dropdown ──
 
 let _browseUrlHistIdx = -1;
+let _suggestDebounce = null;
+let _suggestAbort = null;
+let _suggestCache = {};
+let _currentSuggestions = [];
 
 function _browseUrlKeydown(e) {
   const dd = document.getElementById('browse-url-history-dd');
@@ -3489,7 +3493,21 @@ function _browseUrlShowHistory() {
   const projects = (filter && typeof allExperiments !== 'undefined') ?
     allExperiments.filter(exp => exp.title.toLowerCase().includes(filter) || (exp.desc || '').toLowerCase().includes(filter)).slice(0, 5) : [];
 
-  if (!showHist.length && !projects.length) { dd.style.display = 'none'; return; }
+  // Kick off suggestion fetch (debounced)
+  if (filter && filter.length >= 2) {
+    _fetchSearchSuggestions(filter);
+  } else {
+    _currentSuggestions = [];
+    if (_suggestDebounce) { clearTimeout(_suggestDebounce); _suggestDebounce = null; }
+  }
+
+  _browseUrlRenderDropdown(dd, input, projects, showHist, filter);
+}
+
+function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
+  const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
+
+  if (!showHist.length && !projects.length && !suggestions.length) { dd.style.display = 'none'; return; }
 
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
@@ -3503,8 +3521,21 @@ function _browseUrlShowHistory() {
 
   let html = '';
 
+  // Suggestions section (AI autocomplete)
+  if (suggestions.length) {
+    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
+    html += suggestions.map(s => {
+      const safeS = escapeHtml(s);
+      return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeS.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeS.replace(/'/g, "\\'")}');">
+        <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeS}</span>
+      </div>`;
+    }).join('');
+  }
+
   // Projects section
   if (projects.length) {
+    if (suggestions.length) html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
     html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
     html += projects.map(exp => {
       const safeId = escapeHtml(exp.id);
@@ -3519,7 +3550,7 @@ function _browseUrlShowHistory() {
 
   // Search history section
   if (showHist.length) {
-    if (projects.length) {
+    if (projects.length || suggestions.length) {
       html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
       html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
     }
@@ -3536,6 +3567,41 @@ function _browseUrlShowHistory() {
 
   dd.innerHTML = html;
   dd.style.display = '';
+}
+
+function _fetchSearchSuggestions(query) {
+  // Check cache
+  if (_suggestCache[query]) {
+    _currentSuggestions = _suggestCache[query];
+    return;
+  }
+  // Debounce: wait 300ms after last keystroke
+  if (_suggestDebounce) clearTimeout(_suggestDebounce);
+  _suggestDebounce = setTimeout(async () => {
+    if (_suggestAbort) _suggestAbort.abort();
+    const controller = new AbortController();
+    _suggestAbort = controller;
+    try {
+      const resp = await fetch('/api/search-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: controller.signal
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const suggestions = data.suggestions || [];
+      _suggestCache[query] = suggestions;
+      _currentSuggestions = suggestions;
+      // Re-render dropdown if input still matches
+      const input = document.getElementById('browse-url-input');
+      if (input && input.value.trim().toLowerCase() === query) {
+        _browseUrlShowHistory();
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') _currentSuggestions = [];
+    }
+  }, 300);
 }
 
 function _browseUrlHideHistory() {
