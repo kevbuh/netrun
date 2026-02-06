@@ -31,10 +31,23 @@ function _vibeCleanup() {
 
 // ── Terminal embedding ──
 
-function _vibeInitTerminals() {
+let _vibeVaultPath = null;
+
+async function _vibeInitTerminals() {
   const topEl = document.getElementById('vibe-term-top');
   const bottomEl = document.getElementById('vibe-term-bottom');
   if (!topEl || !bottomEl) return;
+
+  // Fetch vault path for terminal cwd
+  if (!_vibeVaultPath) {
+    try {
+      const resp = await fetch('/api/vault/path', { headers: _authHeaders() });
+      if (resp.ok) {
+        const data = await resp.json();
+        _vibeVaultPath = data.path || null;
+      }
+    } catch {}
+  }
 
   // Create two terminals if we haven't yet
   if (_vibeTerminals.length < 2) {
@@ -57,7 +70,7 @@ function _vibeInitTerminals() {
     if (!pane.querySelector('.xterm')) {
       t.term.open(pane);
       t.fitAddon.fit();
-      _connectTerminalWs(t);
+      _connectTerminalWs(t, _vibeVaultPath);
       const ro = new ResizeObserver(() => {
         try { t.fitAddon.fit(); } catch (_) {}
       });

@@ -566,13 +566,13 @@ function closeSplit() {
   }
 }
 
-function _connectTerminalWs(t) {
+function _connectTerminalWs(t, cwd) {
   if (t.ws) {
     try { t.ws.close(); } catch (_) {}
   }
 
   const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProto}//${location.host}/ws/terminal`;
+  const wsUrl = `${wsProto}//${location.host}/ws/terminal` + (cwd ? '?cwd=' + encodeURIComponent(cwd) : '');
   console.log(`[terminal ${t.id}] connecting to`, wsUrl);
 
   const ws = new WebSocket(wsUrl);

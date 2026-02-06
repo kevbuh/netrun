@@ -447,9 +447,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
 
             # Check for WebSocket upgrade BEFORE calling the method
-            if self.path == '/ws/terminal' and self.headers.get('Upgrade', '').lower() == 'websocket':
+            if self.path.startswith('/ws/terminal') and self.headers.get('Upgrade', '').lower() == 'websocket':
                 from terminal_server import handle_websocket_upgrade_raw
-                handle_websocket_upgrade_raw(self)
+                # Parse cwd from query param
+                cwd = None
+                if '?' in self.path:
+                    from urllib.parse import urlparse, parse_qs
+                    qs = parse_qs(urlparse(self.path).query)
+                    cwd = qs.get('cwd', [None])[0]
+                    if cwd and not os.path.isdir(cwd):
+                        cwd = None
+                handle_websocket_upgrade_raw(self, cwd=cwd)
                 return
 
             if self.path == '/ws/neuralook' and self.headers.get('Upgrade', '').lower() == 'websocket':
@@ -1097,6 +1105,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'models': models})
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
+
+        elif self.path == '/api/vault/path':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            self._send_json({'path': _get_user_vault_path(google_id)})
 
         # ── Vault Notes API ──
         elif self.path == '/api/vault/notes':

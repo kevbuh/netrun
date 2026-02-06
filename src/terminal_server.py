@@ -40,7 +40,7 @@ def _ws_send_raw(conn, data, opcode):
     conn.sendall(frame)
 
 
-def handle_websocket_upgrade_raw(handler):
+def handle_websocket_upgrade_raw(handler, cwd=None):
     """Handle WebSocket upgrade at a lower level, before normal HTTP processing.
 
     Called from handle_one_request() BEFORE wfile.flush() is called.
@@ -80,8 +80,8 @@ def handle_websocket_upgrade_raw(handler):
         handler.rfile.close = lambda: None
         handler.close_connection = True
 
-        print(f"[terminal] raw: starting terminal", file=sys.stderr, flush=True)
-        _run_terminal(conn, handler.client_address, b"")
+        print(f"[terminal] raw: starting terminal (cwd={cwd})", file=sys.stderr, flush=True)
+        _run_terminal(conn, handler.client_address, b"", cwd=cwd)
 
     except Exception as e:
         import traceback
@@ -175,9 +175,9 @@ def handle_websocket_upgrade(handler):
         traceback.print_exc(file=sys.stderr)
 
 
-def _run_terminal(conn, addr, initial_data=b""):
+def _run_terminal(conn, addr, initial_data=b"", cwd=None):
     """Bridge a WebSocket connection to a pty shell."""
-    print(f"[terminal] session started for {addr}", file=sys.stderr, flush=True)
+    print(f"[terminal] session started for {addr} cwd={cwd}", file=sys.stderr, flush=True)
 
     shell = os.environ.get("SHELL", "/bin/zsh")
     master_fd, slave_fd = pty.openpty()
@@ -190,6 +190,7 @@ def _run_terminal(conn, addr, initial_data=b""):
             stderr=slave_fd,
             preexec_fn=os.setsid,
             env={**os.environ, "TERM": "xterm-256color"},
+            cwd=cwd,
         )
     except Exception as e:
         print(f"[terminal] Popen failed: {e}", file=sys.stderr, flush=True)
