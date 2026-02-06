@@ -1,8 +1,30 @@
-// ── Traffic-light safe zone (macOS Electron) ──
-// Returns minimum {top, left} so popups never overlap the window controls.
+// ── Content safe bounds for popups ──
+// Returns {top, left, right, bottom} — the usable area where popups may appear,
+// avoiding the sidebar, tab row, URL bar, and macOS traffic lights.
+function _popupSafeBounds() {
+  const sidebar = document.getElementById('sidebar-nav');
+  const tabRow = document.getElementById('browse-tab-row');
+  const bar = document.getElementById('browse-bar');
+  let left = 0, top = 0;
+  if (sidebar) left = sidebar.getBoundingClientRect().right;
+  if (tabRow && tabRow.offsetParent !== null) {
+    top = Math.max(top, tabRow.getBoundingClientRect().bottom);
+  }
+  if (bar && bar.offsetParent !== null) {
+    top = Math.max(top, bar.getBoundingClientRect().bottom);
+  }
+  // macOS traffic lights
+  if (window.electronAPI && window.electronAPI.isElectron) {
+    top = Math.max(top, 42);
+    if (left < 80 && top <= 42) left = Math.max(left, 80);
+  }
+  return { top, left, right: window.innerWidth, bottom: window.innerHeight };
+}
+
+// Legacy alias
 function _trafficLightSafeZone() {
-  if (!(window.electronAPI && window.electronAPI.isElectron)) return { top: 0, left: 0 };
-  return { top: 42, left: 80 };
+  const b = _popupSafeBounds();
+  return { top: b.top, left: b.left };
 }
 
 // ── Cmd/Ctrl+click → open in new browse tab ──

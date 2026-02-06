@@ -3368,6 +3368,29 @@ function _buildRefContext(data, refNum) {
   return ctx;
 }
 
+// Position a popup so one of its four corners is at (cx, cy), picking the best
+// corner that keeps it within bounds. preferLeft = bottom-right corner at cursor.
+function _positionAtCursor(cx, cy, w, h, preferLeft) {
+  const bounds = _popupSafeBounds();
+  // Try preferred placement first, then flip axes as needed
+  let left, top;
+  const fitsLeft  = cx - w >= bounds.left;
+  const fitsRight = cx + w <= bounds.right;
+  const fitsAbove = cy - h >= bounds.top;
+  const fitsBelow = cy + h <= bounds.bottom;
+
+  // Horizontal: prefer putting panel on the preferred side of cursor
+  if (preferLeft) {
+    left = fitsLeft ? cx - w : cx;  // left of cursor, else right
+  } else {
+    left = fitsRight ? cx : cx - w; // right of cursor, else left
+  }
+  // Vertical: prefer above cursor, else below
+  top = fitsAbove ? cy - h : cy;
+
+  return { left, top };
+}
+
 function _repositionSelectionPopup() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
@@ -3386,44 +3409,33 @@ function _repositionSelectionPopup() {
   if (popup._isLookupPanel) {
     const anchorX = popup._lookupAnchorX ?? _lastMouseX;
     const anchorY = popup._lookupAnchorY ?? _lastMouseY;
-    const panelLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
-    const safe = _trafficLightSafeZone();
-    let top = anchorY - rect.height;
-    if (top < safe.top) top = safe.top;
-    let left = panelLeft ? anchorX - rect.width : anchorX;
-    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    if (left < safe.left && top < safe.top + 10) left = safe.left;
-    if (left < 0) left = 0;
-    popup.style.top = top + 'px';
-    popup.style.left = left + 'px';
+    const preferLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+    const pos = _positionAtCursor(anchorX, anchorY, rect.width, rect.height, preferLeft);
+    popup.style.top = pos.top + 'px';
+    popup.style.left = pos.left + 'px';
     return;
   }
 
   // Re-anchor relative to stored selection position so popup grows upward
+  const bounds = _popupSafeBounds();
   let top;
   if (popup._aboveSelection) {
-    // Anchor bottom edge above the selection
     top = popup._anchorTop - rect.height - 8;
-    if (top < 4) {
-      // No longer fits above — flip below
+    if (top < bounds.top) {
       top = popup._anchorBottom + 8;
       popup._aboveSelection = false;
     }
   } else {
-    // Below selection — keep top anchored below selection
     top = popup._anchorBottom + 8;
   }
-  // Clamp to viewport bottom
-  if (top + rect.height > window.innerHeight - 8) {
-    top = window.innerHeight - rect.height - 8;
+  if (top + rect.height > bounds.bottom - 8) {
+    top = bounds.bottom - rect.height - 8;
   }
-  const safe = _trafficLightSafeZone();
-  if (top < Math.max(4, safe.top)) top = Math.max(4, safe.top);
+  if (top < bounds.top) top = bounds.top;
 
   let left = popup._anchorLeft || parseFloat(popup.style.left);
-  if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
-  if (left < 4) left = 4;
-  if (left < safe.left && top < safe.top + 10) left = safe.left;
+  if (left + rect.width > bounds.right - 8) left = bounds.right - rect.width - 8;
+  if (left < bounds.left) left = bounds.left;
 
   popup.style.top = top + 'px';
   popup.style.left = left + 'px';
@@ -3648,14 +3660,13 @@ document.addEventListener('mousemove', function(e) {
   if (_lookupDragging) {
     const popup = _lookupDragPopup || document.getElementById('doc-chat-ask-float');
     if (!popup) { _lookupDragging = false; _lookupDragPopup = null; return; }
-    const safe = _trafficLightSafeZone();
+    const bounds = _popupSafeBounds();
     let left = e.clientX - _lookupDragOffset.x;
     let top = e.clientY - _lookupDragOffset.y;
-    if (left < 0) left = 0;
-    if (top < safe.top) top = safe.top;
-    if (left + popup.offsetWidth > window.innerWidth) left = window.innerWidth - popup.offsetWidth;
-    if (top + popup.offsetHeight > window.innerHeight) top = window.innerHeight - popup.offsetHeight;
-    if (left < safe.left && top < safe.top + 10) left = safe.left;
+    if (left < bounds.left) left = bounds.left;
+    if (top < bounds.top) top = bounds.top;
+    if (left + popup.offsetWidth > bounds.right) left = bounds.right - popup.offsetWidth;
+    if (top + popup.offsetHeight > bounds.bottom) top = bounds.bottom - popup.offsetHeight;
     popup.style.left = left + 'px';
     popup.style.top = top + 'px';
     popup._lookupAnchorX = left;
@@ -3669,18 +3680,10 @@ document.addEventListener('mousemove', function(e) {
   if (!popup) { _lookupTrackMode = false; return; }
   popup._lookupAnchorX = e.clientX;
   popup._lookupAnchorY = e.clientY;
-  const safe = _trafficLightSafeZone();
-  const w = popup.offsetWidth;
-  const h = popup.offsetHeight;
-  const _trackLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
-  let left = _trackLeft ? e.clientX - w : e.clientX;
-  let top = e.clientY - h;
-  if (top < safe.top) top = safe.top;
-  if (left + w > window.innerWidth) left = window.innerWidth - w;
-  if (left < 0) left = 0;
-  if (left < safe.left && top < safe.top + 10) left = safe.left;
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
+  const preferLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+  const pos = _positionAtCursor(e.clientX, e.clientY, popup.offsetWidth, popup.offsetHeight, preferLeft);
+  popup.style.left = pos.left + 'px';
+  popup.style.top = pos.top + 'px';
 });
 
 // End drag-to-move
@@ -5287,7 +5290,7 @@ function _showPanel(config) {
 
   const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
   if (isCursorAnchor) {
-    _lookupTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext && !editableTarget && !config.priorEditable;
+    _lookupTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext && !editableTarget && !config.priorEditable && !config.webviewEditable;
   } else {
     _lookupTrackMode = false;
   }
@@ -5476,8 +5479,34 @@ function _showPanel(config) {
     popup.appendChild(editCtx);
   }
 
+  // ── Webview editable field (cross-origin) — Cut/Copy/Paste via webview API ──
+  const webviewEditable = config.webviewEditable || null;
+  if (webviewEditable) {
+    const wvCtx = document.createElement('div');
+    wvCtx.className = 'doc-lookup-context-items';
+    const wv = webviewEditable.webview;
+    const flags = webviewEditable.editFlags || {};
+    const addWvItem = (label, fn) => {
+      const item = document.createElement('div');
+      item.className = 'doc-lookup-ctx-item';
+      item.textContent = label;
+      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      item.addEventListener('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        fn();
+        popup.remove();
+      });
+      wvCtx.appendChild(item);
+    };
+    if (flags.canCut) addWvItem('Cut', () => { wv.cut(); });
+    if (flags.canCopy) addWvItem('Copy', () => { wv.copy(); });
+    if (flags.canPaste) addWvItem('Paste', () => { wv.paste(); });
+    if (flags.canSelectAll) addWvItem('Select All', () => { wv.selectAll(); });
+    if (wvCtx.children.length) popup.appendChild(wvCtx);
+  }
+
   // ── Paste into nearby editable or chat input (general right-click) ──
-  if (!editableTarget && !hasContext && !capturedText) {
+  if (!editableTarget && !hasContext && !capturedText && !webviewEditable) {
     const priorEditable = config.priorEditable || null;
     const pasteCtx = document.createElement('div');
     pasteCtx.className = 'doc-lookup-context-items';
@@ -6067,13 +6096,9 @@ function _showPanel(config) {
     popup._lookupAnchorY = y;
     const rect = popup.getBoundingClientRect();
     const _initLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
-    let left = _initLeft ? x - rect.width : x;
-    let top = y - rect.height;
-    if (top < 0) top = 0;
-    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    if (left < 0) left = 0;
-    popup.style.left = left + 'px';
-    popup.style.top = top + 'px';
+    const pos = _positionAtCursor(x, y, rect.width, rect.height, _initLeft);
+    popup.style.left = pos.left + 'px';
+    popup.style.top = pos.top + 'px';
   }
 
   // Auto-focus input

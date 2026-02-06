@@ -1130,16 +1130,25 @@ function _browseBindFrame(tab) {
   });
 
   // Context menu — always show lookup panel (with context items for links/images)
-  el.addEventListener('context-menu', (e) => {
-    e.preventDefault();
+  el.addEventListener('context-menu', (ev) => {
+    ev.preventDefault();
     if (typeof _showPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) { popup.remove(); _lookupTrackMode = false; }
-    const ctxData = (e.linkURL || e.srcURL) ? {
-      linkUrl: e.linkURL || '', linkText: e.linkText || '',
-      imgUrl: e.srcURL || '', mediaType: e.mediaType || ''
+    // Convert webview-local coords to parent viewport coords
+    const wvRect = el.getBoundingClientRect();
+    const x = ev.x + wvRect.left;
+    const y = ev.y + wvRect.top;
+    // Editable field inside webview — show paste-only panel, no tracking
+    if (ev.inputFieldType && ev.inputFieldType !== 'none') {
+      _showPanel({ anchor: { x, y }, trackCursor: false, webviewEditable: { webview: el, editFlags: ev.editFlags || {} } });
+      return;
+    }
+    const ctxData = (ev.linkURL || ev.srcURL) ? {
+      linkUrl: ev.linkURL || '', linkText: ev.linkText || '',
+      imgUrl: ev.srcURL || '', mediaType: ev.mediaType || ''
     } : null;
-    _showPanel({ anchor: { x: e.x, y: e.y }, contextMenu: ctxData });
+    _showPanel({ anchor: { x, y }, contextMenu: ctxData });
   });
 
   // Inject right-click handler after page loads
@@ -1239,15 +1248,10 @@ function _browseBindFrame(tab) {
       _lastMouseY = y;
       const popup = document.getElementById('doc-chat-ask-float');
       if (!popup) { _lookupTrackMode = false; return; }
-      const w = popup.offsetWidth;
-      const h = popup.offsetHeight;
-      let left = x;
-      let top = y - h;
-      if (top < 0) top = 0;
-      if (left + w > window.innerWidth) left = window.innerWidth - w;
-      if (left < 0) left = 0;
-      popup.style.left = left + 'px';
-      popup.style.top = top + 'px';
+      const preferLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+      const pos = _positionAtCursor(x, y, popup.offsetWidth, popup.offsetHeight, preferLeft);
+      popup.style.left = pos.left + 'px';
+      popup.style.top = pos.top + 'px';
     } else if (e.message === '__ALPHA_CLOSE_MENU__') {
       _hideBrowseContextMenu();
     } else if (e.message && e.message.startsWith('__ALPHA_CONTEXT__')) {
@@ -1901,16 +1905,14 @@ function _showTabTooltip(tabEl) {
   const tabId = parseInt(idMatch[1]);
   const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
   const tab = tabs.find(t => t.id === tabId);
-  if (!tab) return;
+  if (!tab || !tab.url) return;
 
   _dismissTooltip();
   const tip = document.createElement('div');
   tip.className = 'browse-tab-tooltip';
-  const isBlank = !tab.url;
-  const domain = !isBlank ? (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })() : '';
   tip.innerHTML = `
-    ${isBlank ? '' : `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>`}
-    <button class="browse-tab-tooltip-add${isBlank ? ' disabled' : ''}" data-tab-id="${tabId}"${isBlank ? ' disabled' : ''}>
+    <div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>
+    <button class="browse-tab-tooltip-add" data-tab-id="${tabId}">
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add to assistant
     </button>`;
@@ -1922,13 +1924,11 @@ function _showTabTooltip(tabEl) {
   tip.style.top = (rect.bottom - 1) + 'px';
   tip.style.width = rect.width + 'px';
 
-  if (!isBlank) {
-    tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      _browseTabAddToAssistant(tabId);
-      _dismissTooltip();
-    });
-  }
+  tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    _browseTabAddToAssistant(tabId);
+    _dismissTooltip();
+  });
 
   tip.addEventListener('mouseenter', () => { clearTimeout(_tabHoverDismissTimeout); });
   tip.addEventListener('mouseleave', (ev) => {

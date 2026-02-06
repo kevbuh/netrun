@@ -493,7 +493,12 @@
   <script src="/js/vault.js"></script>
   <script src="/js/vibe.js"></script>
   <script src="/js/neuralook.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/webgazer@2.1.0/dist/webgazer.min.js"></script>
+  <script type="module">
+    import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs';
+    window.FaceLandmarker = FaceLandmarker;
+    window.FilesetResolver = FilesetResolver;
+    window.dispatchEvent(new Event('mediapipe-ready'));
+  </script>
 
   <!-- New Folder Modal -->
   <div id="vault-folder-modal" class="vault-modal-overlay" style="display:none;">

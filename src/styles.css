@@ -4597,6 +4597,38 @@
       background: var(--bg-hover);
       color: var(--text-primary);
     }
+    .vault-new-dropdown-wrapper {
+      position: relative;
+    }
+    .vault-new-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      z-index: 50;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      padding: 4px;
+      min-width: 160px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .vault-new-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 10px;
+      background: none;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-align: left;
+    }
+    .vault-new-dropdown-item:hover {
+      background: var(--bg-hover);
+    }
     .vault-search {
       position: relative;
       padding: 8px;
@@ -4901,7 +4933,7 @@
       filter: brightness(1.1);
     }
 
-    .vault-editor-content, .vault-preview-content, .vault-graph-content {
+    .vault-editor-content, .vault-preview-content, .vault-graph-content, .vault-marimo-content {
       flex: 1;
       overflow: auto;
     }
@@ -4996,6 +5028,34 @@
     }
     .vault-graph-node:hover circle {
       r: 8;
+    }
+
+    /* Marimo */
+    .vault-marimo-content {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .vault-marimo-iframe {
+      width: 100%;
+      flex: 1;
+      border: none;
+      min-height: 0;
+    }
+    .vault-marimo-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .vault-marimo-spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border-card);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
     .vault-graph-node.current circle {
       fill: var(--text-primary);

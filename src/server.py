@@ -15,6 +15,7 @@ import concurrent.futures
 import threading
 import tempfile
 import base64
+import socket
 from urllib.parse import unquote as url_unquote
 
 # Parse args before importing persistence so ARXIV_DATA_DIR is set
@@ -161,6 +162,17 @@ def _find_vault_note_by_id(user_vault, note_id):
         except:
             pass
     return None, None
+
+
+# ── Marimo notebook server management ──
+_marimo_servers = {}  # {note_id: {proc, port, py_path}}
+
+
+def _find_free_port():
+    """Find an available TCP port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
 
 
 def _vibe_ensure_git(vault_path):
@@ -3597,6 +3609,8 @@ ch.postMessage({type:'preview-ready'});
             }
             if body.get('forked_from'):
                 note['forked_from'] = body['forked_from']
+            if body.get('type'):
+                note['type'] = body['type']
             user_vault = _get_user_vault_path(google_id)
             base_fname = _sanitize_vault_filename(title)
             fname = f'{base_fname}.md'
@@ -3608,6 +3622,84 @@ ch.postMessage({type:'preview-ready'});
                 counter += 1
             _write_vault_md(fpath, note)
             self._send_json(note, 201)
+
+        # ── Marimo Notebook API ──
+        elif self.path == '/api/vault/marimo/start':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            note_id = body.get('note_id')
+            if not note_id:
+                self._send_json({'error': 'note_id required'}, 400)
+                return
+            # If already running, return existing port
+            if note_id in _marimo_servers:
+                self._send_json({'port': _marimo_servers[note_id]['port']})
+                return
+            user_vault = _get_user_vault_path(google_id)
+            note_path, note = _find_vault_note_by_id(user_vault, note_id)
+            if not note or note.get('type') != 'marimo':
+                self._send_json({'error': 'Marimo note not found'}, 404)
+                return
+            # Write content to temp .py file
+            py_path = os.path.join(user_vault, f'.marimo_{note_id}.py')
+            with open(py_path, 'w', encoding='utf-8') as f:
+                f.write(note.get('content', ''))
+            # Find free port and launch marimo
+            port = _find_free_port()
+            try:
+                proc = subprocess.Popen(
+                    ['marimo', 'edit', py_path, '--headless', '--no-token', '-p', str(port)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                _marimo_servers[note_id] = {'proc': proc, 'port': port, 'py_path': py_path, 'note_path': note_path}
+                self._send_json({'port': port})
+            except FileNotFoundError:
+                os.remove(py_path)
+                self._send_json({'error': 'marimo is not installed. Run: pip install marimo'}, 500)
+
+        elif self.path == '/api/vault/marimo/stop':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            note_id = body.get('note_id')
+            if not note_id or note_id not in _marimo_servers:
+                self._send_json({'error': 'No marimo server running for this note'}, 404)
+                return
+            info = _marimo_servers.pop(note_id)
+            # Read back the .py file to get updated content
+            updated_content = ''
+            try:
+                with open(info['py_path'], 'r', encoding='utf-8') as f:
+                    updated_content = f.read()
+            except:
+                pass
+            # Kill the marimo process
+            try:
+                info['proc'].terminate()
+                info['proc'].wait(timeout=5)
+            except:
+                try:
+                    info['proc'].kill()
+                except:
+                    pass
+            # Remove temp file
+            try:
+                os.remove(info['py_path'])
+            except:
+                pass
+            # Update the vault note content
+            user_vault = _get_user_vault_path(google_id)
+            note_path, note = _find_vault_note_by_id(user_vault, note_id)
+            if note and note_path:
+                note['content'] = updated_content
+                note['updated'] = int(time.time())
+                _write_vault_md(note_path, note)
+            self._send_json({'ok': True, 'content': updated_content})
 
         # ── Vault Path API (PUT) ──
         elif self.path == '/api/vault/path':

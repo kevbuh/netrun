@@ -5,6 +5,7 @@ let _vaultCurrentNote = null;
 let _vaultPreviewMode = true; // Preview on by default
 let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
+let _vaultMarimoActive = false; // Whether a marimo server is running for current note
 
 // Open vault view
 async function openVault() {
@@ -297,6 +298,9 @@ function renderVaultFileTree(filter = '') {
 
 function renderVaultFileItem(note) {
   const isActive = _vaultCurrentNote?.id === note.id;
+  const icon = note.type === 'marimo'
+    ? '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>'
+    : '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>';
   return `
     <div class="vault-file-item ${isActive ? 'active' : ''}" data-note-id="${note.id}"
          onclick="openVaultNote('${note.id}')"
@@ -304,7 +308,7 @@ function renderVaultFileItem(note) {
          draggable="true"
          ondragstart="vaultDragStart(event, '${note.id}')"
          ondragend="vaultDragEnd(event)">
-      <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+      ${icon}
       <span class="truncate">${escapeHtml(note.title || 'Untitled')}</span>
     </div>
   `;
@@ -584,8 +588,9 @@ async function openVaultNote(noteId) {
     return;
   }
 
-  // Save current note first
+  // Save current note first and stop marimo if active
   if (_vaultCurrentNote) {
+    await _stopCurrentMarimo();
     await saveCurrentNote();
   }
 
@@ -597,41 +602,102 @@ async function openVaultNote(noteId) {
 
   // Update UI
   document.getElementById('vault-note-title').value = note.title || '';
-  document.getElementById('vault-editor').value = note.content || '';
 
   // Update file tree selection
   document.querySelectorAll('.vault-file-item').forEach(el => {
     el.classList.toggle('active', el.dataset.noteId === noteId);
   });
 
-  // If note is empty or newly created, switch to edit mode to show placeholder
-  const isEmpty = !note.content || !note.content.trim();
-  const isNew = note._isNew;
-  if (isNew) delete note._isNew; // Clear the flag after use
-  if ((isEmpty || isNew) && _vaultPreviewMode) {
-    _vaultPreviewMode = false;
-    const btn = document.getElementById('vault-preview-btn');
-    const editorContainer = document.getElementById('vault-editor-container');
-    const previewContainer = document.getElementById('vault-preview-container');
-    if (btn) btn.classList.remove('active');
-    if (editorContainer) editorContainer.style.display = '';
-    if (previewContainer) previewContainer.style.display = 'none';
-    document.getElementById('vault-editor')?.focus();
-  }
-
-  updateVaultPreview();
-  updateVaultBacklinks();
-  updateVaultTags();
-  updateVaultPublishButton();
+  const editorContainer = document.getElementById('vault-editor-container');
+  const previewContainer = document.getElementById('vault-preview-container');
+  const marimoContainer = document.getElementById('vault-marimo-container');
+  const graphContainer = document.getElementById('vault-graph-container');
 
   // Reset graph view if active
   if (_vaultGraphMode) {
     _vaultGraphMode = false;
-    document.getElementById('vault-graph-btn').classList.remove('active');
-    document.getElementById('vault-graph-container').style.display = 'none';
-    document.getElementById('vault-editor-container').style.display = '';
-    document.getElementById('vault-preview-container').style.display = _vaultPreviewMode ? '' : 'none';
+    document.getElementById('vault-graph-btn')?.classList.remove('active');
+    if (graphContainer) graphContainer.style.display = 'none';
   }
+
+  if (note.type === 'marimo') {
+    // Hide editor/preview, show marimo container
+    if (editorContainer) editorContainer.style.display = 'none';
+    if (previewContainer) previewContainer.style.display = 'none';
+    if (marimoContainer) marimoContainer.style.display = '';
+
+    // Show loading, hide iframe
+    const loading = document.getElementById('vault-marimo-loading');
+    const iframe = document.getElementById('vault-marimo-iframe');
+    if (loading) loading.style.display = '';
+    if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+
+    // Start marimo server
+    try {
+      const res = await fetch('/api/vault/marimo/start', {
+        method: 'POST',
+        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note_id: noteId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        _vaultMarimoActive = true;
+        const marimoUrl = `http://localhost:${data.port}`;
+        // Poll until marimo is ready
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          try {
+            const check = await fetch(marimoUrl, { mode: 'no-cors' });
+            clearInterval(poll);
+            if (loading) loading.style.display = 'none';
+            if (iframe) {
+              iframe.src = marimoUrl;
+              iframe.style.display = '';
+            }
+          } catch (e) {
+            if (attempts > 30) { // ~15 seconds
+              clearInterval(poll);
+              if (loading) loading.innerHTML = '<div class="text-dimmer text-sm">Failed to start marimo. Is it installed?</div>';
+            }
+          }
+        }, 500);
+      } else {
+        const err = await res.json();
+        if (loading) loading.innerHTML = `<div class="text-dimmer text-sm">${escapeHtml(err.error || 'Failed to start marimo')}</div>`;
+      }
+    } catch (e) {
+      console.error('Failed to start marimo', e);
+      const loading = document.getElementById('vault-marimo-loading');
+      if (loading) loading.innerHTML = '<div class="text-dimmer text-sm">Failed to start marimo server</div>';
+    }
+  } else {
+    // Regular note — hide marimo, show editor/preview
+    if (marimoContainer) marimoContainer.style.display = 'none';
+    document.getElementById('vault-editor').value = note.content || '';
+
+    // If note is empty or newly created, switch to edit mode to show placeholder
+    const isEmpty = !note.content || !note.content.trim();
+    const isNew = note._isNew;
+    if (isNew) delete note._isNew; // Clear the flag after use
+    if ((isEmpty || isNew) && _vaultPreviewMode) {
+      _vaultPreviewMode = false;
+      const btn = document.getElementById('vault-preview-btn');
+      if (btn) btn.classList.remove('active');
+      if (editorContainer) editorContainer.style.display = '';
+      if (previewContainer) previewContainer.style.display = 'none';
+      document.getElementById('vault-editor')?.focus();
+    } else {
+      if (editorContainer) editorContainer.style.display = _vaultPreviewMode ? 'none' : '';
+      if (previewContainer) previewContainer.style.display = _vaultPreviewMode ? '' : 'none';
+    }
+
+    updateVaultPreview();
+  }
+
+  updateVaultBacklinks();
+  updateVaultTags();
+  updateVaultPublishButton();
 }
 
 // Clear editor (no note selected)
@@ -654,6 +720,7 @@ function clearVaultEditor() {
 // Save current note
 async function saveCurrentNote() {
   if (!_vaultCurrentNote) return;
+  if (_vaultCurrentNote.type === 'marimo') return; // Marimo saves via its own editor
 
   const title = document.getElementById('vault-note-title').value.trim() || 'Untitled';
   const content = document.getElementById('vault-editor').value;
@@ -694,6 +761,84 @@ async function vaultNewNote(folder = null) {
   } catch (e) {
     console.error('Failed to create note', e);
   }
+}
+
+// New note dropdown toggle
+function vaultToggleNewDropdown() {
+  const dd = document.getElementById('vault-new-dropdown');
+  if (!dd) return;
+  const show = dd.style.display === 'none';
+  dd.style.display = show ? '' : 'none';
+  if (show) {
+    // Close on outside click
+    const close = (e) => {
+      if (!e.target.closest('.vault-new-dropdown-wrapper')) {
+        dd.style.display = 'none';
+        document.removeEventListener('click', close, true);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', close, true), 0);
+  }
+}
+
+function vaultHideNewDropdown() {
+  const dd = document.getElementById('vault-new-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+// Create a new marimo notebook note
+async function vaultNewMarimoNote(folder = null) {
+  const title = 'Untitled notebook';
+  const content = `import marimo
+
+app = marimo.App()
+
+@app.cell
+def _():
+    import marimo as mo
+    mo.md("# Hello marimo")
+    return (mo,)
+
+if __name__ == "__main__":
+    app.run()
+`;
+
+  try {
+    const res = await fetch('/api/vault/notes', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, folder, type: 'marimo' })
+    });
+
+    if (res.ok) {
+      const note = await res.json();
+      note._isNew = true;
+      _vaultNotes.push(note);
+      renderVaultFileTree();
+      openVaultNote(note.id);
+    }
+  } catch (e) {
+    console.error('Failed to create marimo note', e);
+  }
+}
+
+// Stop current marimo server if active
+async function _stopCurrentMarimo() {
+  if (!_vaultMarimoActive || !_vaultCurrentNote) return;
+  try {
+    await fetch('/api/vault/marimo/stop', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note_id: _vaultCurrentNote.id })
+    });
+  } catch (e) {
+    console.error('Failed to stop marimo', e);
+  }
+  _vaultMarimoActive = false;
+  const container = document.getElementById('vault-marimo-container');
+  if (container) container.style.display = 'none';
+  const iframe = document.getElementById('vault-marimo-iframe');
+  if (iframe) iframe.src = '';
 }
 
 // Delete current note from toolbar
