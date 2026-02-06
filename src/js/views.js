@@ -1971,29 +1971,25 @@ function renderDocChatMessages(final) {
 let _popupChatMessages = [];
 let _popupChatAbort = null;
 let _chatStreamStart = 0;
-let _lookupTrackModeVal = false;
-Object.defineProperty(window, '_lookupTrackMode', {
-  get() { return _lookupTrackModeVal; },
-  set(v) {
-    const was = _lookupTrackModeVal;
-    _lookupTrackModeVal = v;
-    if (v && !was) {
-      // Entering track mode: disable iframe pointer events so clicks reach parent
-      document.querySelectorAll('iframe, webview').forEach(f => {
-        f.dataset.peTrack = f.style.pointerEvents || '';
-        f.style.pointerEvents = 'none';
-      });
-    } else if (!v && was) {
-      // Leaving track mode: restore iframe pointer events
-      document.querySelectorAll('iframe, webview').forEach(f => {
-        if ('peTrack' in f.dataset) {
-          f.style.pointerEvents = f.dataset.peTrack;
-          delete f.dataset.peTrack;
-        }
-      });
-    }
+let _lookupTrackMode = false;
+
+function _setLookupTrackMode(v) {
+  const was = _lookupTrackMode;
+  _lookupTrackMode = v;
+  if (v && !was) {
+    document.querySelectorAll('iframe, webview').forEach(f => {
+      f.dataset.peTrack = f.style.pointerEvents || '';
+      f.style.pointerEvents = 'none';
+    });
+  } else if (!v && was) {
+    document.querySelectorAll('iframe, webview').forEach(f => {
+      if ('peTrack' in f.dataset) {
+        f.style.pointerEvents = f.dataset.peTrack;
+        delete f.dataset.peTrack;
+      }
+    });
   }
-});
+}
 let _lastMouseX = 0;
 let _lastMouseY = 0;
 let _pendingScreenshots = [];
@@ -3182,7 +3178,7 @@ document.addEventListener('mousedown', function(e) {
   // In track mode with captureScreen available: pin panel and start screenshot drag
   if (existing && _lookupTrackMode && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
     e.preventDefault(); // prevent text selection during drag
-    _lookupTrackModeVal = false; // bypass setter — keep iframes disabled during drag
+    _lookupTrackMode = false; // don't call _setLookupTrackMode — keep iframes disabled during drag
     _screenshotDragStart = { x: e.clientX, y: e.clientY };
     // Create selection rect + dim overlay elements
     _screenshotDim = document.createElement('div');
@@ -4858,10 +4854,6 @@ function _showPanel(config) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
-  // DEBUG: trace what removes the panel during screenshot
-  const _origRemove = popup.remove.bind(popup);
-  popup.remove = function() { if (_screenshotDragStart || _screenshotCapturing) { console.trace('[PANEL REMOVED DURING SCREENSHOT]'); } _origRemove(); };
-
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;
   const isTabAnchor = !!anchor.tab;
@@ -4872,7 +4864,9 @@ function _showPanel(config) {
 
   const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
   if (isCursorAnchor) {
-    _lookupTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext;
+    const shouldTrack = config.trackCursor !== undefined ? config.trackCursor : !hasContext;
+    _lookupTrackMode = shouldTrack;
+    if (shouldTrack) _setLookupTrackMode(true);
   } else {
     _lookupTrackMode = false;
   }
