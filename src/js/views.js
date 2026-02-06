@@ -369,7 +369,7 @@ function _renderSidebarHTML(paper) {
     </div>
   `;
   const chatPanel = `
-    <div class="flex-1 flex flex-col border-t border-border-card pt-2" id="doc-chat-section" style="min-height:0">
+    <div class="flex-1 flex flex-col" id="doc-chat-section" style="min-height:0">
       <div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()">
         <span id="doc-chat-chevron">▾</span>
         <span>Chat</span>

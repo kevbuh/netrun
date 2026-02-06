@@ -1473,6 +1473,11 @@ function browseSelectTab(id) {
   if (!win) return;
   // Close find bar when switching tabs
   if (_browseFindBarActive) _browseCloseFindBar();
+  // Reset zoom when switching tabs
+  if (_browseZoomLevel !== 1) {
+    _browseZoomLevel = 1;
+    _browseApplyZoom();
+  }
 
   // Clean up PDF viewer when switching away from a PDF tab
   const prevTab = win.tabs.find(t => t.id === win.activeTab);
@@ -2698,9 +2703,7 @@ function browseReload() {
 
 let _browseZoomLevel = 1.0;
 let _browseZoomHideTimer = null;
-// Scroll offsets used for focal-point zoom
-let _browseZoomScrollX = 0;
-let _browseZoomScrollY = 0;
+let _browseZoomScrollBound = false;
 function _browseShowZoomControls() {
   const controls = document.getElementById('browse-zoom-controls');
   if (!controls) return;
@@ -2725,25 +2728,71 @@ function _browseApplyZoom(focalX, focalY) {
       const newZoom = _browseZoomLevel;
       el.dataset.zoom = newZoom;
 
-      if (focalX !== undefined && focalY !== undefined) {
-        // Adjust scroll so the point under the cursor stays fixed
+      // Optical zoom: magnify without changing the page layout.
+      // The iframe stays 100% width/height. A spacer makes the container
+      // scrollable, and we reposition the iframe via transform on scroll.
+      el.style.width = '100%';
+      el.style.height = '100%';
+
+      // Spacer creates scrollable area at scaled size
+      let spacer = container.querySelector('.browse-zoom-spacer');
+      if (newZoom > 1) {
+        if (!spacer) {
+          spacer = document.createElement('div');
+          spacer.className = 'browse-zoom-spacer';
+          spacer.style.cssText = 'position:relative;pointer-events:none;z-index:-1;';
+          container.appendChild(spacer);
+        }
+        spacer.style.width = (container.clientWidth * newZoom) + 'px';
+        spacer.style.height = (container.clientHeight * newZoom) + 'px';
+      } else if (spacer) {
+        spacer.remove();
+      }
+
+      // Bind scroll handler to reposition iframe when panning
+      if (!_browseZoomScrollBound) {
+        _browseZoomScrollBound = true;
+        container.addEventListener('scroll', _browseZoomOnScroll);
+      }
+
+      if (newZoom <= 1) {
+        container.scrollLeft = 0;
+        container.scrollTop = 0;
+        el.style.transform = 'none';
+        el.style.transformOrigin = '';
+      } else if (focalX !== undefined && focalY !== undefined) {
         const contentX = container.scrollLeft + focalX;
         const contentY = container.scrollTop + focalY;
         const ratio = newZoom / oldZoom;
         container.scrollLeft = contentX * ratio - focalX;
         container.scrollTop = contentY * ratio - focalY;
+        _browseZoomUpdateTransform(el, container, newZoom);
+      } else {
+        _browseZoomUpdateTransform(el, container, newZoom);
       }
-
-      el.style.transform = `scale(${newZoom})`;
-      el.style.transformOrigin = 'top left';
-      el.style.width = (100 / newZoom) + '%';
-      el.style.height = (100 / newZoom) + '%';
     }
   }
   const label = document.getElementById('browse-zoom-level');
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
   _browseShowZoomControls();
 }
+
+function _browseZoomUpdateTransform(el, container, zoom) {
+  const sx = container.scrollLeft;
+  const sy = container.scrollTop;
+  // Position the iframe so the visible area maps to the scroll offset
+  el.style.transformOrigin = 'top left';
+  el.style.transform = `translate(${-sx}px, ${-sy}px) scale(${zoom})`;
+}
+
+function _browseZoomOnScroll() {
+  if (_browseZoomLevel <= 1) return;
+  const el = _browseActiveEl();
+  const container = document.getElementById('browse-content');
+  if (!el || !container) return;
+  _browseZoomUpdateTransform(el, container, _browseZoomLevel);
+}
+
 // ── Find in page ──
 
 let _browseFindBarActive = false;
@@ -3025,12 +3074,13 @@ function _browseRemoveKeyGuard() {
 
 // Transparent overlay to capture pinch gestures over iframes
 function _browseInstallPinchOverlay() {
+  const wrap = document.getElementById('browse-content-wrap');
   const container = document.getElementById('browse-content');
-  if (!container || container.querySelector('.browse-pinch-overlay')) return;
+  if (!wrap || !container || wrap.querySelector('.browse-pinch-overlay')) return;
   const overlay = document.createElement('div');
   overlay.className = 'browse-pinch-overlay';
-  overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;pointer-events:auto;';
-  container.appendChild(overlay);
+  overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:auto;';
+  wrap.appendChild(overlay);
 
   // Pinch-to-zoom: capture ctrlKey+wheel (trackpad pinch gesture)
   overlay.addEventListener('wheel', function(e) {
@@ -3040,6 +3090,11 @@ function _browseInstallPinchOverlay() {
       _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
       const rect = container.getBoundingClientRect();
       _browseApplyZoom(e.clientX - rect.left, e.clientY - rect.top);
+    } else if (_browseZoomLevel > 1) {
+      // When zoomed in, scroll pans the magnified view
+      e.preventDefault();
+      container.scrollLeft += e.deltaX || 0;
+      container.scrollTop += e.deltaY || 0;
     } else {
       // Normal scroll: let it pass through to the iframe
       overlay.style.pointerEvents = 'none';
