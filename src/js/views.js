@@ -3194,7 +3194,7 @@ document.addEventListener('mousedown', function(e) {
     return;
   }
   // If NOT in track mode, remove existing panel
-  if (existing && !_lookupTrackMode) {
+  if (existing && !_lookupTrackMode && !_screenshotCapturing) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
     existing.remove();
@@ -3240,6 +3240,7 @@ document.addEventListener('mouseup', async function(e) {
     if (_screenshotSelection) { _screenshotSelection.remove(); _screenshotSelection = null; }
     if (_screenshotDim) { _screenshotDim.remove(); _screenshotDim = null; }
     if (w >= 10 && h >= 10 && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
+      _screenshotCapturing = true;
       // Small delay so overlay removal renders before capture
       await new Promise(r => setTimeout(r, 50));
       try {
@@ -3253,6 +3254,7 @@ document.addEventListener('mouseup', async function(e) {
       } catch (err) {
         console.error('Screenshot capture failed:', err);
       }
+      _screenshotCapturing = false;
     }
     return;
   }
@@ -3277,6 +3279,7 @@ document.addEventListener('mouseup', async function(e) {
   }
 
   // Single click, no selection → dismiss existing panel if not pinned
+  if (_screenshotCapturing) return;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) { existing.remove(); _lookupTrackMode = false; }
 });
@@ -3346,7 +3349,7 @@ async function _showWordLookup(word, x, y) {
 // Dismiss popup on outside click (only when NOT in track mode)
 document.addEventListener('mousedown', function(e) {
   if (_lookupTrackMode) return;
-  if (_screenshotDragStart) return; // screenshot drag in progress, keep panel open
+  if (_screenshotDragStart || _screenshotCapturing) return; // screenshot in progress, keep panel open
   const btn = document.getElementById('doc-chat-ask-float');
   if (btn && !btn.contains(e.target)) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -3618,6 +3621,7 @@ function _injectIframeChatHandler(iframe) {
 let _screenshotDragStart = null; // {x, y} or null
 let _screenshotSelection = null; // DOM element
 let _screenshotDim = null; // DOM element
+let _screenshotCapturing = false; // true while capture is in progress
 
 function _screenshotRestoreIframes() {
   document.querySelectorAll('iframe, webview').forEach(f => {
@@ -4854,6 +4858,9 @@ function _showPanel(config) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
+  // DEBUG: trace what removes the panel during screenshot
+  const _origRemove = popup.remove.bind(popup);
+  popup.remove = function() { if (_screenshotDragStart || _screenshotCapturing) { console.trace('[PANEL REMOVED DURING SCREENSHOT]'); } _origRemove(); };
 
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;

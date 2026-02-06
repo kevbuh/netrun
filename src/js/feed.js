@@ -2053,4 +2053,26 @@ window.addEventListener('scroll', () => {
   });
 });
 
+// Drag & drop files onto home feed to open in browse viewer
+(function() {
+  const feed = document.getElementById('home-feed-section');
+  if (!feed) return;
+  feed.addEventListener('dragover', function(e) {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    feed.style.outline = '2px dashed var(--accent)';
+  });
+  feed.addEventListener('dragleave', function(e) {
+    if (feed.contains(e.relatedTarget)) return;
+    feed.style.outline = '';
+  });
+  feed.addEventListener('drop', function(e) {
+    e.preventDefault();
+    feed.style.outline = '';
+    const file = e.dataTransfer.files[0];
+    if (file) openLocalPdf(file);
+  });
+})();
+
 // Feed loading is triggered by goHome() via routing
