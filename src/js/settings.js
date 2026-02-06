@@ -29,6 +29,14 @@ function renderSettingsView() {
   container.innerHTML = `
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-6">Settings</h2>
 
+    <!-- HELP POINTER -->
+    <div class="mb-6 p-3 rounded-lg border border-border-subtle bg-card/50">
+      <div class="flex items-center gap-2 text-[0.8rem]">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span>
+      </div>
+    </div>
+
     <!-- PROFILE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
@@ -252,22 +260,6 @@ function renderSettingsView() {
       <p class="text-dim text-[0.8rem] mb-3">Strips ads, tracking scripts, and sponsored content from pages in the browse tab via a server-side proxy.</p>
       <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading filter info...</div>
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
-    </div>
-
-    <!-- INSTANT ANSWERS -->
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Instant Answers</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Type these in the browser URL bar to get instant previews.</p>
-      <div class="grid gap-y-1 text-[0.78rem]" style="grid-template-columns:auto 1fr;gap:2px 12px;">
-        <span class="text-dimmer">Definition</span><span class="text-primary">any single word — <span class="text-dim">pug, ephemeral</span></span>
-        <span class="text-dimmer">Math</span><span class="text-primary">expression — <span class="text-dim">sqrt(144), 2^10, 15% of 230</span></span>
-        <span class="text-dimmer">Color</span><span class="text-primary">hex / rgb / hsl — <span class="text-dim">#ff5733, rgb(20,120,200)</span></span>
-        <span class="text-dimmer">Convert</span><span class="text-primary">N unit to unit — <span class="text-dim">5km to mi, 100f to c</span></span>
-        <span class="text-dimmer">Time zone</span><span class="text-primary">time in city — <span class="text-dim">time in tokyo</span></span>
-        <span class="text-dimmer">Weather</span><span class="text-primary">weather city — <span class="text-dim">weather boston</span></span>
-        <span class="text-dimmer">Sports</span><span class="text-primary">league or team — <span class="text-dim">nba, lakers, premier league</span></span>
-        <span class="text-dimmer">Stocks</span><span class="text-primary">$TICKER or name stock — <span class="text-dim">$AAPL, TSLA stock</span></span>
-      </div>
     </div>
 
     <!-- KEYBOARD SHORTCUTS -->

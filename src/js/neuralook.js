@@ -40,6 +40,7 @@ let _nlTrainPhase = ''; // 'training' | 'evaluating' | 'done' | 'error'
 let _nlTrainProgress = null; // latest progress event
 let _nlTrainResult = null; // final result from done event
 let _nlTrainLossHistory = []; // [{epoch, val_loss}]
+let _nlTrainLogs = []; // raw log lines from server
 let _nlTrainStartTime = 0;
 
 // Smoothing
@@ -301,6 +302,15 @@ function _nlRenderTrainDetailView(container) {
         </div>
       </div>
 
+      <!-- Training log -->
+      <div class="bg-card border border-border-card rounded-xl mt-4" style="display:flex;flex-direction:column;max-height:420px;">
+        <div class="flex items-center justify-between px-5 pt-4 pb-2" style="flex-shrink:0;">
+          <h3 class="text-[0.85rem] font-semibold text-primary">Training Log</h3>
+          <span class="text-[0.68rem] text-dimmer tabular-nums" id="nl-log-count">${_nlTrainLogs.length} lines</span>
+        </div>
+        <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 16px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.72rem;line-height:1.6;color:var(--text-secondary,#aaa);white-space:pre;tab-size:2;"></div>
+      </div>
+
       <!-- Stats grid -->
       <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
         <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Training Details</h3>
@@ -311,8 +321,25 @@ function _nlRenderTrainDetailView(container) {
     </div>
   `;
 
+  // Populate log from history
+  const logEl = document.getElementById('nl-train-log');
+  if (logEl && _nlTrainLogs.length > 0) {
+    logEl.textContent = _nlTrainLogs.join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
   _nlRefreshTrainDetails();
   _nlDrawTrainLossGraph();
+}
+
+function _nlAppendTrainLog(line) {
+  const logEl = document.getElementById('nl-train-log');
+  if (!logEl) return;
+  const wasAtBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 30;
+  logEl.textContent += (logEl.textContent ? '\n' : '') + line;
+  if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
+  const countEl = document.getElementById('nl-log-count');
+  if (countEl) countEl.textContent = _nlTrainLogs.length + ' lines';
 }
 
 function _nlRefreshTrainView() {
@@ -542,7 +569,7 @@ function _nlCaptureEyeCrops() {
 
 // ── Server Communication ──
 
-function _nlTrainOnServerSSE(onProgress) {
+function _nlTrainOnServerSSE(onProgress, onLog) {
   return new Promise((resolve, reject) => {
     const samples = _nlCalibData.map(s => ({
       eyeData: Array.from(s.eyeData),
@@ -576,7 +603,8 @@ function _nlTrainOnServerSSE(onProgress) {
             else if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                if (currentEvent === 'progress' && onProgress) onProgress(data);
+                if (currentEvent === 'log' && onLog) onLog(data.text);
+                else if (currentEvent === 'progress' && onProgress) onProgress(data);
                 else if (currentEvent === 'done') {
                   _nlTrainError = data.train_error_px;
                   _nlValError = data.val_error_px || null;
@@ -982,6 +1010,7 @@ async function _nlOnCalibrationComplete() {
   _nlTrainProgress = null;
   _nlTrainResult = null;
   _nlTrainLossHistory = [];
+  _nlTrainLogs = [];
   _nlTrainStartTime = Date.now();
   _nlShowTrainPill();
   renderNeuralookView();
@@ -1000,6 +1029,9 @@ async function _nlOnCalibrationComplete() {
         _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}`);
       }
       _nlRefreshTrainView();
+    }, (logLine) => {
+      _nlTrainLogs.push(logLine);
+      _nlAppendTrainLog(logLine);
     });
 
     _nlTrainResult = result;

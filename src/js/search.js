@@ -313,6 +313,7 @@ function _browseSaveTabs() {
     tabs: w.tabs.map(t => {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
       if (t._historyPage) saved._historyPage = true;
+      if (t._helpPage) saved._helpPage = true;
       if (t.paper) { saved.paper = t.paper; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null; }
       return saved;
     })
@@ -358,6 +359,12 @@ function _browseRestoreTabs() {
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
             const tab = { id: saved.id, url: 'lookup://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
+            win.tabs.push(tab);
+            continue;
+          }
+          // Help page tab
+          if (saved._helpPage) {
+            const tab = { id: saved.id, url: 'lookup://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true };
             win.tabs.push(tab);
             continue;
           }
@@ -641,6 +648,10 @@ function browseNewTab(url) {
   const trimUrl = (url || '').trim().toLowerCase();
   if (trimUrl === 'lookup://history' || trimUrl === 'lookup://history/') {
     openSearchHistoryPage();
+    return;
+  }
+  if (trimUrl === 'lookup://help' || trimUrl === 'lookup://help/') {
+    openHelpPage();
     return;
   }
   const win = _getCurrentWindow();
@@ -1527,11 +1538,22 @@ function browseSelectTab(id) {
     _renderWebSearchHistoryPage(el);
   }
 
+  // Restore help page tab if needed
+  if (tab && tab._helpPage && !tab.el) {
+    const container = document.getElementById('browse-content');
+    const el = document.createElement('div');
+    el.id = 'browse-help-' + tab.id;
+    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
+    container.appendChild(el);
+    tab.el = el;
+    _renderHelpPage(el);
+  }
+
   win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = tab ? (tab._historyPage ? 'lookup://history' : tab.url) : '';
+  if (urlInput) urlInput.value = tab ? (tab._historyPage ? 'lookup://history' : tab._helpPage ? 'lookup://help' : tab.url) : '';
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -2577,6 +2599,10 @@ function browseNavigate(input) {
     openSearchHistoryPage();
     return;
   }
+  if (cmd === '/help' || cmd === 'lookup://help' || cmd === 'lookup://help/') {
+    openHelpPage();
+    return;
+  }
   if (cmd === '/upload') {
     const fi = document.getElementById('browse-pdf-file-input');
     if (fi) { fi.click(); return; }
@@ -2608,11 +2634,12 @@ function browseNavigate(input) {
   }
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
-  // Tear down history page if this tab was showing it
-  if (tab._historyPage) {
+  // Tear down special pages if this tab was showing one
+  if (tab._historyPage || tab._helpPage) {
     if (tab.el) tab.el.remove();
     tab.el = null;
     delete tab._historyPage;
+    delete tab._helpPage;
   }
   // Push current URL onto back stack for navigation history
   if (tab.url && !tab.blank) {
@@ -4749,6 +4776,155 @@ function openSearchHistoryPage() {
   if (urlInput) urlInput.value = 'lookup://history';
 
   _renderWebSearchHistoryPage(el);
+}
+
+function openHelpPage() {
+  if (typeof openBrowse === 'function') openBrowse();
+
+  // Reuse existing help tab
+  for (const w of _browseWindows) {
+    const existing = w.tabs.find(t => t._helpPage);
+    if (existing) {
+      if (w.id !== _browseActiveWindow) browseSelectWindow(w.id);
+      browseSelectTab(existing.id);
+      return;
+    }
+  }
+
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab) return;
+
+  tab.blank = false;
+  tab.url = 'lookup://help';
+  tab.title = 'Help';
+  tab.favicon = '';
+  tab._helpPage = true;
+
+  if (tab.el) tab.el.remove();
+
+  const container = document.getElementById('browse-content');
+  const el = document.createElement('div');
+  el.id = 'browse-help-' + tab.id;
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
+  container.appendChild(el);
+  tab.el = el;
+
+  _browseUpdateNewTabPage(tab);
+  _browseRenderTabs();
+
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput) urlInput.value = 'lookup://help';
+
+  _renderHelpPage(el);
+}
+
+function _renderHelpPage(el) {
+  if (!el) return;
+  const s = 'style';
+  const section = `${s}="margin-bottom:24px;"`;
+  const h2 = `${s}="font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:10px;"`;
+  const table = `${s}="width:100%;border-collapse:collapse;font-size:0.82rem;"`;
+  const th = `${s}="text-align:left;padding:6px 12px;font-size:0.7rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-card);"`;
+  const td = `${s}="padding:6px 12px;border-bottom:1px solid var(--border-subtle);"`;
+  const tdk = `${s}="padding:6px 12px;border-bottom:1px solid var(--border-subtle);color:var(--text-primary);font-weight:500;white-space:nowrap;"`;
+  const tdv = `${s}="padding:6px 12px;border-bottom:1px solid var(--border-subtle);color:var(--text-dim);"`;
+
+  let html = '<div style="max-width:640px;margin:0 auto;padding:40px 24px;">';
+  html += '<h1 style="font-size:1.4rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Help</h1>';
+  html += '<p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:32px;">Everything you can do from the URL bar and lookup panel.</p>';
+
+  // Instant Answers
+  html += `<div ${section}><div ${h2}>Instant Answers</div>`;
+  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
+  html += `<table ${table}>`;
+  html += `<tr><th ${th}>Type</th><th ${th}>Try</th></tr>`;
+  const answers = [
+    ['Definition', 'pug, ephemeral'],
+    ['Math', 'sqrt(144), 2^10, 15% of 230'],
+    ['Color', '#ff5733, rgb(20,120,200)'],
+    ['Convert', '5km to mi, 100f to c'],
+    ['Time zone', 'time in tokyo'],
+    ['Weather', 'weather boston'],
+    ['Sports', 'nba, lakers, premier league'],
+    ['Stocks', '$AAPL, TSLA stock'],
+  ];
+  answers.forEach(([k, v]) => {
+    html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
+  });
+  html += '</table></div>';
+
+  // Slash Commands
+  html += `<div ${section}><div ${h2}>Slash Commands</div>`;
+  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Right-click → type / in the lookup panel.</p>';
+  html += `<table ${table}>`;
+  html += `<tr><th ${th}>Command</th><th ${th}>Action</th></tr>`;
+  const cmds = [
+    ['/help', 'This help page'],
+    ['/define word', 'Dictionary lookup'],
+    ['/search query', 'Web search in new tab'],
+    ['/paper query', 'Search arXiv papers'],
+    ['/user query', 'Search for users'],
+    ['/notes', 'Browse your notes'],
+    ['/links', 'List links on page'],
+    ['/tab', 'Add tab to chat context'],
+    ['/model', 'Change chat model'],
+    ['/history', 'Browse visited sites'],
+    ['/capture', 'Screenshot the page'],
+    ['/bookmark', 'Save to reading list'],
+    ['/find', 'Find in page'],
+    ['/note', 'Open in note viewer'],
+    ['/upload', 'Open a local file'],
+    ['/close', 'Close tab'],
+    ['/copy', 'Copy page URL'],
+    ['/mute', 'Mute/unmute tab'],
+    ['/print', 'Print page'],
+  ];
+  cmds.forEach(([k, v]) => {
+    html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
+  });
+  html += '</table></div>';
+
+  // Keyboard Shortcuts
+  html += `<div ${section}><div ${h2}>Keyboard Shortcuts</div>`;
+  html += `<table ${table}>`;
+  html += `<tr><th ${th}>Key</th><th ${th}>Action</th></tr>`;
+  const shortcuts = [
+    ['⌘T', 'New browser tab'],
+    ['⌘W', 'Close browser tab'],
+    ['⌘Y', 'History page'],
+    ['⌘⇧\\\\', 'Tab overview'],
+    ['⌘F', 'Find in page/PDF'],
+    ['⌘+/-/0', 'Zoom in/out/reset'],
+    ['⌘L', 'Focus URL bar'],
+    ['⌘⇧T', 'Reopen closed tab'],
+    ['Esc', 'Close panel / Go home'],
+    ['Enter', 'Send chat message'],
+    ['⇧Enter', 'Web search from panel'],
+  ];
+  shortcuts.forEach(([k, v]) => {
+    html += `<tr><td ${tdk}><kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border-card);background:var(--bg-card);">${k}</kbd></td><td ${tdv}>${v}</td></tr>`;
+  });
+  html += '</table></div>';
+
+  // Lookup Panel
+  html += `<div ${section}><div ${h2}>Lookup Panel</div>`;
+  html += '<div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;">';
+  html += '<strong style="color:var(--text-primary);">Right-click</strong> anywhere to open the panel.<br>';
+  html += 'Type to <strong style="color:var(--text-primary);">chat with AI</strong> about the current page.<br>';
+  html += '<strong style="color:var(--text-primary);">Select text</strong> → highlight, quote, or define.<br>';
+  html += '<strong style="color:var(--text-primary);">Drag</strong> while panel is open to capture a screenshot region.';
+  html += '</div></div>';
+
+  // Internal Pages
+  html += `<div ${section}><div ${h2}>Internal Pages</div>`;
+  html += `<table ${table}>`;
+  html += `<tr><th ${th}>URL</th><th ${th}>Page</th></tr>`;
+  html += `<tr><td ${tdk}>lookup://help</td><td ${tdv}>This page</td></tr>`;
+  html += `<tr><td ${tdk}>lookup://history</td><td ${tdv}>Browsing & search history</td></tr>`;
+  html += '</table></div>';
+
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 let _historyPageTab = 'browse'; // 'browse' or 'search'

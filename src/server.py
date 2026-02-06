@@ -2066,6 +2066,31 @@ ch.postMessage({type:'preview-ready'});
             self._send_json(get_adblock_stats())
             return
 
+        elif self.path.startswith('/api/image-proxy'):
+            from urllib.parse import parse_qs, urlparse as _urlparse
+            qs = parse_qs(_urlparse(self.path).query)
+            url = qs.get('url', [''])[0]
+            if not url:
+                self._send_json({'error': 'Missing url parameter'}, 400)
+                return
+            try:
+                body = cached_fetch(url, timeout=15)
+                # Guess content type from URL extension
+                ext = url.rsplit('.', 1)[-1].lower().split('?')[0] if '.' in url else ''
+                ct_map = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                          'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml', 'ico': 'image/x-icon'}
+                ct = ct_map.get(ext, 'image/png')
+                self.send_response(200)
+                self.send_header('Content-Type', ct)
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Cache-Control', 'public, max-age=3600')
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 502)
+            return
+
         elif self.path.startswith('/api/images/'):
             filename = os.path.basename(self.path.split('/')[-1])
             filepath = os.path.join(DIR, 'uploads', filename)
@@ -2205,9 +2230,24 @@ ch.postMessage({type:'preview-ready'});
 
                 _sse('progress', {'epoch': 0, 'max_epochs': max_epochs, 'phase': 'training', 'val_loss': None})
 
+                # Log setup info
+                n_params = sum(p.numel() for p in model.parameters())
+                _sse('log', {'text': f'GazeCNN | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]'})
+                _sse('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
+                _sse('log', {'text': f'  head: Flatten → Linear(2048,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+                _sse('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
+                _sse('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
+                _sse('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
+                _sse('log', {'text': ''})
+                _sse('log', {'text': f'{"epoch":>6}  {"train_loss":>11}  {"val_loss":>11}  {"lr":>10}  {"best":>5}  {"patience":>8}'})
+                _sse('log', {'text': '─' * 65})
+
+                last_train_loss = 0.0
                 for epoch in range(max_epochs):
                     model.train()
                     perm = torch.randperm(n_train)
+                    epoch_loss = 0.0
+                    n_batches = 0
                     for start in range(0, n_train, batch_size):
                         idx = perm[start:start + batch_size]
                         pred = model(X_train[idx])
@@ -2215,6 +2255,9 @@ ch.postMessage({type:'preview-ready'});
                         optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
+                        epoch_loss += loss.item()
+                        n_batches += 1
+                    last_train_loss = epoch_loss / max(n_batches, 1)
                     scheduler.step()
 
                     if epoch % 10 == 0:
@@ -2222,23 +2265,31 @@ ch.postMessage({type:'preview-ready'});
                         with torch.no_grad():
                             val_pred = model(X_val)
                             val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
-                        if val_loss < best_val_loss:
+                        improved = val_loss < best_val_loss
+                        if improved:
                             best_val_loss = val_loss
                             best_state = {k: v.clone() for k, v in model.state_dict().items()}
                             no_improve = 0
                         else:
                             no_improve += 10
+                        cur_lr = optimizer.param_groups[0]['lr']
+                        star = '  ★' if improved else ''
+                        _sse('log', {'text': f'{epoch:>6}  {last_train_loss:>11.6f}  {val_loss:>11.6f}  {cur_lr:>10.2e}  {"✓" if improved else " ":>5}  {no_improve:>4}/{patience}{star}'})
                         if epoch % 50 == 0:
                             _sse('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'phase': 'training'})
                         if no_improve >= patience:
+                            _sse('log', {'text': f'\nEarly stopping at epoch {epoch} (no improvement for {patience} epochs)'})
                             stopped_epoch = epoch
                             break
                     stopped_epoch = epoch
 
                 if best_state:
                     model.load_state_dict(best_state)
+                    _sse('log', {'text': f'Restored best model (val_loss={best_val_loss:.6f})'})
                 model.eval()
 
+                _sse('log', {'text': ''})
+                _sse('log', {'text': 'Evaluating on train/val sets...'})
                 _sse('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
 
                 with torch.no_grad():
@@ -2253,6 +2304,13 @@ ch.postMessage({type:'preview-ready'});
 
                 _neuralook_model = model
                 _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
+
+                _sse('log', {'text': f'  train error: {train_err:.1f}px'})
+                _sse('log', {'text': f'  val error:   {val_err:.1f}px'})
+                qual = 'Good' if val_err < 80 else 'Fair' if val_err < 150 else 'Poor'
+                _sse('log', {'text': f'  quality:     {qual}'})
+                _sse('log', {'text': ''})
+                _sse('log', {'text': f'Done. Model ready for inference ({n_params:,} params, screen {screen_w}x{screen_h}).'})
 
                 _sse('done', {
                     'train_error_px': round(train_err, 1),

@@ -2129,6 +2129,24 @@ def clean_html(html_str, base_url, color_scheme=''):
                     if not val.startswith(('http://', 'https://', 'data:', 'javascript:', '#', 'mailto:')):
                         attrs_dict[url_attr] = urljoin(base_url, val)
 
+            # Rewrite <img> src through image proxy so images are same-origin (enables canvas copy)
+            if tag == 'img' and 'src' in attrs_dict:
+                img_src = attrs_dict['src']
+                if img_src.startswith(('http://', 'https://')) and not img_src.startswith(('http://localhost', 'https://localhost')):
+                    from urllib.parse import quote as _url_quote
+                    attrs_dict['src'] = '/api/image-proxy?url=' + _url_quote(img_src, safe='')
+            # Also rewrite srcset for responsive images
+            if tag in ('img', 'source') and 'srcset' in attrs_dict:
+                import re as _re
+                def _rewrite_srcset_entry(m):
+                    url = m.group(1)
+                    rest = m.group(2)
+                    if url.startswith(('http://', 'https://')) and not url.startswith(('http://localhost', 'https://localhost')):
+                        from urllib.parse import quote as _url_quote2
+                        return '/api/image-proxy?url=' + _url_quote2(url, safe='') + rest
+                    return m.group(0)
+                attrs_dict['srcset'] = _re.sub(r'(\S+)(\s+[^,]*)', _rewrite_srcset_entry, attrs_dict['srcset'])
+
             # Rewrite same-origin <a> links to go through proxy
             if tag == 'a' and 'href' in attrs_dict:
                 href = attrs_dict['href']

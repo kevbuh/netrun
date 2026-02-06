@@ -4230,6 +4230,7 @@ const _lookupCommands = [
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
   { name: 'history', desc: 'Browse visited sites', _special: true },
+  { name: 'help', desc: 'Show all commands & features', _special: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -4284,6 +4285,9 @@ function _lookupRenderCmdDropdown(popup, query) {
         else if (cmd.name === 'model') _doLookupModel(popup);
         else if (cmd.name === 'links') _doLookupLinks(popup);
         else if (cmd.name === 'tab') _doLookupTab(popup);
+        else if (cmd.name === 'notes') _doLookupNotesBrowse(popup);
+        else if (cmd.name === 'history') _doLookupHistory(popup);
+        else if (cmd.name === 'help') _doLookupHelp(popup);
       } else {
         cmd.fn();
         _lookupTrackMode = false;
@@ -4985,6 +4989,78 @@ async function _lookupSelectTab(popup) {
   if (input) input.focus();
 }
 
+// ── /help command — show all commands & features ──
+function _doLookupHelp(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+
+  const helpMd = `## Instant Answers
+Type in the browser URL bar:
+
+| Trigger | Example |
+|---|---|
+| **word** → definition | \`pug\`, \`ephemeral\` |
+| **math** → calculator | \`sqrt(144)\`, \`2^10\`, \`15% of 230\` |
+| **#hex / rgb()** → color | \`#ff5733\`, \`rgb(20,120,200)\` |
+| **N unit to unit** → convert | \`5km to mi\`, \`100f to c\` |
+| **time in city** → clock | \`time in tokyo\` |
+| **weather city** → forecast | \`weather boston\` |
+| **league / team** → scores | \`nba\`, \`lakers\`, \`premier league\` |
+| **$TICKER** → stock | \`$AAPL\`, \`TSLA stock\` |
+
+## Slash Commands
+| Command | Action |
+|---|---|
+| \`/help\` | This help page |
+| \`/define word\` | Dictionary lookup |
+| \`/search query\` | Web search in new tab |
+| \`/paper query\` | Search arXiv papers |
+| \`/user query\` | Search for users |
+| \`/notes\` | Browse your notes |
+| \`/links\` | List links on page |
+| \`/tab\` | Add tab to context |
+| \`/model\` | Change chat model |
+| \`/history\` | Browse visited sites |
+| \`/capture\` | Screenshot the page |
+| \`/bookmark\` | Save to reading list |
+| \`/find\` | Find in page |
+| \`/note\` | Open in note viewer |
+| \`/upload\` | Open a local file |
+| \`/close\` | Close tab |
+| \`/copy\` | Copy page URL |
+| \`/mute\` | Mute/unmute tab |
+| \`/print\` | Print page |
+
+## Keyboard Shortcuts
+| Key | Action |
+|---|---|
+| \`⌘T\` | New browser tab |
+| \`⌘W\` | Close browser tab |
+| \`⌘Y\` | History page |
+| \`⌘⇧\\\\\` | Tab overview |
+| \`⌘F\` | Find in page/PDF |
+| \`⌘+/-/0\` | Zoom in/out/reset |
+| \`Enter\` | Send chat message |
+| \`⇧Enter\` | Web search |
+
+## Lookup Panel
+- **Right-click** anywhere to open
+- Type to chat with AI about the page
+- Select text → highlight, quote, or define
+- Drag to capture a screenshot region`;
+
+  _popupChatMessages.push({ role: 'assistant', content: helpMd });
+  _renderPopupChat(popup, true);
+  _repositionSelectionPopup();
+  if (input) input.focus();
+}
+
 // ── /define command — dictionary lookup ──
 async function _doLookupDefine(popup, word) {
   const input = popup.querySelector('.doc-ask-inline-input');
@@ -5071,6 +5147,7 @@ function _lookupExecCommand(popup, text) {
       else if (cmd.name === 'links') _doLookupLinks(popup);
       else if (cmd.name === 'tab') _doLookupTab(popup);
       else if (cmd.name === 'history') _doLookupHistory(popup);
+      else if (cmd.name === 'help') _doLookupHelp(popup);
       return true;
     }
     cmd.fn();
@@ -5445,25 +5522,22 @@ function _showPanel(config) {
       addItem('Open Image in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(imgUrl); });
       addItem('Copy Image Address', () => navigator.clipboard.writeText(imgUrl).catch(() => {}));
       addItem('Copy Image', () => {
-        fetch(imgUrl).then(r => r.blob()).then(blob => {
-          const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
-          if (type === 'image/png') {
-            navigator.clipboard.write([new ClipboardItem({ [type]: blob })]).catch(() => {});
-          } else {
-            // Convert to PNG for clipboard compatibility
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-              const c = document.createElement('canvas');
-              c.width = img.naturalWidth; c.height = img.naturalHeight;
-              c.getContext('2d').drawImage(img, 0, 0);
-              c.toBlob(pngBlob => {
-                if (pngBlob) navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]).catch(() => {});
-              }, 'image/png');
-            };
-            img.src = URL.createObjectURL(blob);
-          }
-        }).catch(() => {});
+        // Route through our image proxy so it's always same-origin
+        const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          c.getContext('2d').drawImage(img, 0, 0);
+          c.toBlob(b => {
+            if (b) navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).catch(() => {});
+          }, 'image/png');
+          // Also add as context to the chat panel
+          const dataUrl = c.toDataURL('image/png');
+          const base64 = dataUrl.split(',')[1];
+          if (base64) _addScreenshotToPanel(popup, base64);
+        };
+        img.src = proxyUrl;
       });
     }
     if (linkText && linkUrl) {
@@ -6048,6 +6122,7 @@ function _showPanel(config) {
               else if (cmd.name === 'tab') _doLookupTab(popup);
               else if (cmd.name === 'notes') _doLookupNotesBrowse(popup);
               else if (cmd.name === 'history') _doLookupHistory(popup);
+              else if (cmd.name === 'help') _doLookupHelp(popup);
             } else {
               _lookupHideCmdDropdown(popup);
               cmd.fn();
