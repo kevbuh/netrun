@@ -1680,6 +1680,10 @@ window.addEventListener('keydown', e => {
       else browseNewTab();
     }
   }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+    e.preventDefault();
+    if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
+  }
   if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
     const browseView = document.getElementById('browse-view');
     if (browseView && browseView.style.display !== 'none' && browseView.style.display !== '' && typeof _browseActiveTab !== 'undefined' && _browseActiveTab !== null) {
