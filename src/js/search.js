@@ -1476,6 +1476,8 @@ function browseSelectTab(id) {
   // Reset zoom when switching tabs
   if (_browseZoomLevel !== 1) {
     _browseZoomLevel = 1;
+    _browseZoomPanX = 0;
+    _browseZoomPanY = 0;
     _browseApplyZoom();
   }
 
@@ -1873,6 +1875,7 @@ function _dismissTooltip() {
   clearTimeout(_tabHoverTimeout);
   clearTimeout(_tabHoverDismissTimeout);
   if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
+  document.querySelectorAll('.browse-tab-tooltip-open').forEach(el => el.classList.remove('browse-tab-tooltip-open'));
 }
 
 function _browseTabHoverIn(e) {
@@ -1905,25 +1908,19 @@ function _showTabTooltip(tabEl) {
   tip.className = 'browse-tab-tooltip';
   const isBlank = !tab.url;
   const domain = !isBlank ? (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })() : '';
-  const favUrl = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
-  const favHtml = favUrl ? `<img src="${escapeAttr(favUrl)}" class="browse-tab-tooltip-favicon" onerror="this.style.display='none'">` : '';
   tip.innerHTML = `
-    <div class="browse-tab-tooltip-header">
-      ${favHtml}
-      <div class="browse-tab-tooltip-text">
-        <div class="browse-tab-tooltip-title">${escapeHtml(tab.title || (isBlank ? 'New Tab' : 'Untitled'))}</div>
-        ${isBlank ? '' : `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>`}
-      </div>
-    </div>
+    ${isBlank ? '' : `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>`}
     <button class="browse-tab-tooltip-add${isBlank ? ' disabled' : ''}" data-tab-id="${tabId}"${isBlank ? ' disabled' : ''}>
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add to assistant
     </button>`;
   document.body.appendChild(tip);
 
+  tabEl.classList.add('browse-tab-tooltip-open');
   const rect = tabEl.getBoundingClientRect();
-  tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 4)) + 'px';
-  tip.style.top = rect.bottom + 'px';
+  tip.style.left = rect.left + 'px';
+  tip.style.top = (rect.bottom - 1) + 'px';
+  tip.style.width = rect.width + 'px';
 
   if (!isBlank) {
     tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
@@ -2702,8 +2699,9 @@ function browseReload() {
 }
 
 let _browseZoomLevel = 1.0;
+let _browseZoomPanX = 0;
+let _browseZoomPanY = 0;
 let _browseZoomHideTimer = null;
-let _browseZoomScrollBound = false;
 function _browseShowZoomControls() {
   const controls = document.getElementById('browse-zoom-controls');
   if (!controls) return;
@@ -2712,11 +2710,11 @@ function _browseShowZoomControls() {
   _browseZoomHideTimer = setTimeout(() => { controls.style.display = 'none'; }, 1500);
 }
 function browseZoom(dir) {
-  if (dir === 0) _browseZoomLevel = 1.0;
-  else _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + dir * 0.1));
+  if (dir === 0) { _browseZoomLevel = 1.0; _browseZoomPanX = 0; _browseZoomPanY = 0; }
+  else _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + dir * 0.1));
   _browseApplyZoom();
 }
-// focalX/focalY are cursor coordinates relative to the browse-content container
+// focalX/focalY are cursor coords relative to the browse-content container viewport
 function _browseApplyZoom(focalX, focalY) {
   const el = _browseActiveEl();
   const container = document.getElementById('browse-content');
@@ -2728,69 +2726,44 @@ function _browseApplyZoom(focalX, focalY) {
       const newZoom = _browseZoomLevel;
       el.dataset.zoom = newZoom;
 
-      // Optical zoom: magnify without changing the page layout.
-      // The iframe stays 100% width/height. A spacer makes the container
-      // scrollable, and we reposition the iframe via transform on scroll.
+      // Optical zoom via CSS transform only — no layout change.
+      // iframe stays 100% width/height, we scale and translate it.
       el.style.width = '100%';
       el.style.height = '100%';
 
-      // Spacer creates scrollable area at scaled size
-      let spacer = container.querySelector('.browse-zoom-spacer');
-      if (newZoom > 1) {
-        if (!spacer) {
-          spacer = document.createElement('div');
-          spacer.className = 'browse-zoom-spacer';
-          spacer.style.cssText = 'position:relative;pointer-events:none;z-index:-1;';
-          container.appendChild(spacer);
-        }
-        spacer.style.width = (container.clientWidth * newZoom) + 'px';
-        spacer.style.height = (container.clientHeight * newZoom) + 'px';
-      } else if (spacer) {
-        spacer.remove();
-      }
-
-      // Bind scroll handler to reposition iframe when panning
-      if (!_browseZoomScrollBound) {
-        _browseZoomScrollBound = true;
-        container.addEventListener('scroll', _browseZoomOnScroll);
-      }
+      // Remove any leftover spacer from old approach
+      const spacer = container.querySelector('.browse-zoom-spacer');
+      if (spacer) spacer.remove();
 
       if (newZoom <= 1) {
-        container.scrollLeft = 0;
-        container.scrollTop = 0;
+        _browseZoomPanX = 0;
+        _browseZoomPanY = 0;
         el.style.transform = 'none';
         el.style.transformOrigin = '';
-      } else if (focalX !== undefined && focalY !== undefined) {
-        const contentX = container.scrollLeft + focalX;
-        const contentY = container.scrollTop + focalY;
-        const ratio = newZoom / oldZoom;
-        container.scrollLeft = contentX * ratio - focalX;
-        container.scrollTop = contentY * ratio - focalY;
-        _browseZoomUpdateTransform(el, container, newZoom);
       } else {
-        _browseZoomUpdateTransform(el, container, newZoom);
+        // Focal-point zoom: keep content under cursor stationary
+        if (focalX !== undefined && focalY !== undefined && oldZoom !== newZoom) {
+          // Content coord under cursor: (panX + focalX) / oldZoom
+          const contentX = (_browseZoomPanX + focalX) / oldZoom;
+          const contentY = (_browseZoomPanY + focalY) / oldZoom;
+          // New pan so same content coord stays under cursor
+          _browseZoomPanX = contentX * newZoom - focalX;
+          _browseZoomPanY = contentY * newZoom - focalY;
+        }
+        // Clamp pan to valid range
+        const maxPanX = container.clientWidth * (newZoom - 1);
+        const maxPanY = container.clientHeight * (newZoom - 1);
+        _browseZoomPanX = Math.max(0, Math.min(maxPanX, _browseZoomPanX));
+        _browseZoomPanY = Math.max(0, Math.min(maxPanY, _browseZoomPanY));
+
+        el.style.transformOrigin = '0 0';
+        el.style.transform = `scale(${newZoom}) translate(${-_browseZoomPanX / newZoom}px, ${-_browseZoomPanY / newZoom}px)`;
       }
     }
   }
   const label = document.getElementById('browse-zoom-level');
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
   _browseShowZoomControls();
-}
-
-function _browseZoomUpdateTransform(el, container, zoom) {
-  const sx = container.scrollLeft;
-  const sy = container.scrollTop;
-  // Position the iframe so the visible area maps to the scroll offset
-  el.style.transformOrigin = 'top left';
-  el.style.transform = `translate(${-sx}px, ${-sy}px) scale(${zoom})`;
-}
-
-function _browseZoomOnScroll() {
-  if (_browseZoomLevel <= 1) return;
-  const el = _browseActiveEl();
-  const container = document.getElementById('browse-content');
-  if (!el || !container) return;
-  _browseZoomUpdateTransform(el, container, _browseZoomLevel);
 }
 
 // ── Find in page ──
@@ -2915,19 +2888,47 @@ function _browseCloseFindBar() {
   if (bar) bar.remove();
 }
 
-// Pinch-to-zoom (trackpad pinch fires wheel with ctrlKey)
+// Block native browser zoom globally so our optical zoom works
 document.addEventListener('wheel', function(e) {
-  if (!e.ctrlKey) return;
+  if (e.ctrlKey) {
+    const browseView = document.getElementById('browse-view');
+    if (browseView && browseView.style.display !== 'none') {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + delta));
+      const container = document.getElementById('browse-content');
+      const rect = container ? container.getBoundingClientRect() : null;
+      const fx = rect ? e.clientX - rect.left : undefined;
+      const fy = rect ? e.clientY - rect.top : undefined;
+      _browseApplyZoom(fx, fy);
+    }
+  }
+}, { passive: false, capture: true });
+
+// Safari: gesturestart/gesturechange/gestureend for trackpad pinch
+let _browseGestureStartZoom = 1;
+document.addEventListener('gesturestart', function(e) {
   const browseView = document.getElementById('browse-view');
   if (!browseView || browseView.style.display === 'none') return;
   e.preventDefault();
-  const delta = e.deltaY > 0 ? -0.05 : 0.05;
-  _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
+  _browseGestureStartZoom = _browseZoomLevel;
+}, { passive: false });
+document.addEventListener('gesturechange', function(e) {
+  const browseView = document.getElementById('browse-view');
+  if (!browseView || browseView.style.display === 'none') return;
+  e.preventDefault();
+  _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseGestureStartZoom * e.scale));
   const container = document.getElementById('browse-content');
   const rect = container ? container.getBoundingClientRect() : null;
-  const fx = rect ? e.clientX - rect.left : undefined;
-  const fy = rect ? e.clientY - rect.top : undefined;
+  const fx = rect ? rect.width / 2 : undefined;
+  const fy = rect ? rect.height / 2 : undefined;
   _browseApplyZoom(fx, fy);
+}, { passive: false });
+document.addEventListener('gestureend', function(e) {
+  const browseView = document.getElementById('browse-view');
+  if (!browseView || browseView.style.display === 'none') return;
+  e.preventDefault();
 }, { passive: false });
 
 // Cmd+Plus / Cmd+Minus / Cmd+0 / Cmd+F / Cmd+T / Cmd+W for browse view
@@ -3074,32 +3075,57 @@ function _browseRemoveKeyGuard() {
 
 // Transparent overlay to capture pinch gestures over iframes
 function _browseInstallPinchOverlay() {
-  const wrap = document.getElementById('browse-content-wrap');
   const container = document.getElementById('browse-content');
-  if (!wrap || !container || wrap.querySelector('.browse-pinch-overlay')) return;
+  if (!container || container.querySelector('.browse-pinch-overlay')) return;
   const overlay = document.createElement('div');
   overlay.className = 'browse-pinch-overlay';
   overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:auto;';
-  wrap.appendChild(overlay);
+  container.appendChild(overlay);
 
-  // Pinch-to-zoom: capture ctrlKey+wheel (trackpad pinch gesture)
+  // Chrome: pinch fires wheel with ctrlKey
   overlay.addEventListener('wheel', function(e) {
     if (e.ctrlKey) {
       e.preventDefault();
+      e.stopPropagation();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
-      _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
+      _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + delta));
       const rect = container.getBoundingClientRect();
-      _browseApplyZoom(e.clientX - rect.left, e.clientY - rect.top);
+      const fx = e.clientX - rect.left;
+      const fy = e.clientY - rect.top;
+      _browseApplyZoom(fx, fy);
     } else if (_browseZoomLevel > 1) {
-      // When zoomed in, scroll pans the magnified view
+      // When zoomed in, two-finger scroll pans the magnified view
       e.preventDefault();
-      container.scrollLeft += e.deltaX || 0;
-      container.scrollTop += e.deltaY || 0;
+      _browseZoomPanX += e.deltaX || 0;
+      _browseZoomPanY += e.deltaY || 0;
+      const maxPanX = container.clientWidth * (_browseZoomLevel - 1);
+      const maxPanY = container.clientHeight * (_browseZoomLevel - 1);
+      _browseZoomPanX = Math.max(0, Math.min(maxPanX, _browseZoomPanX));
+      _browseZoomPanY = Math.max(0, Math.min(maxPanY, _browseZoomPanY));
+      _browseApplyZoom();
     } else {
       // Normal scroll: let it pass through to the iframe
       overlay.style.pointerEvents = 'none';
       setTimeout(function() { overlay.style.pointerEvents = 'auto'; }, 60);
     }
+  }, { passive: false });
+
+  // Safari: gesturestart/gesturechange/gestureend for trackpad pinch
+  let overlayGestureStartZoom = 1;
+  overlay.addEventListener('gesturestart', function(e) {
+    e.preventDefault();
+    overlayGestureStartZoom = _browseZoomLevel;
+  }, { passive: false });
+  overlay.addEventListener('gesturechange', function(e) {
+    e.preventDefault();
+    _browseZoomLevel = Math.min(5.0, Math.max(1.0, overlayGestureStartZoom * e.scale));
+    const rect = container.getBoundingClientRect();
+    const fx = rect.width / 2;
+    const fy = rect.height / 2;
+    _browseApplyZoom(fx, fy);
+  }, { passive: false });
+  overlay.addEventListener('gestureend', function(e) {
+    e.preventDefault();
   }, { passive: false });
 
   // Forward clicks/mousedown to iframe underneath
@@ -3556,41 +3582,31 @@ function toggleBrowseMoreMenu() {
   overflowIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const label = (el.title || (el.querySelector('[title]') || {}).title || id).replace('browse-', '').replace('-btn', '');
+    const label = el.title || id;
     const svgEl = el.querySelector('svg');
     let icon = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
+    const btnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;`;
 
     // Bookmark button: toggle in-place instead of removing from overflow
     if (id === 'browse-save-btn') {
       const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
       icon = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
-      overflowRows += `<button data-overflow-id="${id}" onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
+      overflowRows += `<button data-overflow-id="${id}" onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
     } else {
-      overflowRows += `<button data-overflow-id="${id}" onclick="removeFromBarOverflow('${id}');toggleBrowseMoreMenu();" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
+      // Click executes the button's action; long-press drag restores to bar
+      const onclick = el.getAttribute('onclick') || '';
+      overflowRows += `<button data-overflow-id="${id}" onclick="document.getElementById('browse-more-menu').style.display='none';${onclick.replace(/"/g, '&quot;')}" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
     }
   });
-  const overflowSep = overflowRows ? '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>' : '';
+
+  if (!overflowRows) {
+    // Nothing in overflow — don't show menu
+    return;
+  }
 
   const btnRect = document.getElementById('browse-more-btn').getBoundingClientRect();
   dd.innerHTML = `<div style="position:fixed;right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px;min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
-    ${overflowRows}${overflowSep}
-    <button onclick="document.getElementById('browse-more-menu').style.display='none'; openSearchHistoryPage();" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
-      Search History
-    </button>
-    <div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>
-    <button onclick="browseEnableNoteMode()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Note mode
-    </button>
-    <button onclick="togglePaperSidebar()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Toggle sidebar
-    </button>
-    <button onclick="browsePrintPage()" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>
-      Print page
-    </button>
+    ${overflowRows}
   </div>`;
   dd.style.display = '';
 

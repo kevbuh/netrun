@@ -755,6 +755,17 @@
       color: var(--text-primary);
       box-shadow: 0 1px 4px rgba(0,0,0,.15);
     }
+    .browse-tab.browse-tab-tooltip-open {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-card);
+      border-bottom-color: transparent;
+      border-radius: 8px 8px 0 0;
+      box-shadow: -2px -2px 8px rgba(0,0,0,.12), 2px -2px 8px rgba(0,0,0,.12);
+      clip-path: inset(-12px -12px 0 -12px);
+      position: relative;
+      z-index: 10001;
+    }
     /* Tab bar focused state - shows arrow key navigation is active */
     #browse-tabs.tab-bar-focused .browse-tab.active {
       box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.15);
@@ -808,11 +819,11 @@
       z-index: 10000;
       background: var(--bg-card);
       border: 1px solid var(--border-card);
-      border-radius: 8px;
-      padding: 8px 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.25);
-      max-width: 320px;
-      min-width: 180px;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      padding: 6px 10px 8px;
+      box-shadow: -2px 4px 8px rgba(0,0,0,.12), 2px 4px 8px rgba(0,0,0,.12);
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -820,11 +831,13 @@
     .browse-tab-tooltip::before {
       content: '';
       position: absolute;
-      top: -14px;
-      left: -4px;
-      right: -4px;
-      height: 16px;
+      top: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--bg-card);
       pointer-events: auto;
+      z-index: 1;
     }
     .browse-tab-tooltip-header {
       display: flex;

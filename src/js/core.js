@@ -1845,9 +1845,36 @@ window.addEventListener('keydown', e => {
     saveBrowseBarOrder();
   }
 
+  const DEFAULT_OVERFLOW = ['browse-search-history-btn', 'browse-notemode-btn'];
+
   function restoreBrowseBarOrder() {
+    // Ensure default overflow buttons are hidden if user hasn't explicitly moved them
+    const existingOverflow = localStorage.getItem('browseBarOverflow');
+    if (!existingOverflow) {
+      localStorage.setItem('browseBarOverflow', JSON.stringify(DEFAULT_OVERFLOW));
+    } else {
+      // For existing users: add new default overflow items they haven't seen yet
+      try {
+        const cur = JSON.parse(existingOverflow);
+        const savedOrder = localStorage.getItem('browseBarOrder');
+        const knownIds = savedOrder ? JSON.parse(savedOrder) : [];
+        let changed = false;
+        for (const id of DEFAULT_OVERFLOW) {
+          if (!cur.includes(id) && !knownIds.includes(id)) {
+            cur.push(id);
+            changed = true;
+          }
+        }
+        if (changed) localStorage.setItem('browseBarOverflow', JSON.stringify(cur));
+      } catch {}
+    }
     const saved = localStorage.getItem('browseBarOrder');
-    if (!saved) return;
+    if (!saved) {
+      // Still hide overflow buttons even with no saved order
+      const overflow = getOverflowIds();
+      overflow.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+      return;
+    }
     try {
       const order = JSON.parse(saved);
       const btns = getDraggables();
@@ -1890,9 +1917,11 @@ window.addEventListener('keydown', e => {
   let dragStarted = false;
   let dragPointerId = -1;
 
+  const NON_DRAGGABLE = ['browse-more-btn'];
+
   bar.addEventListener('pointerdown', e => {
     const btn = e.target.closest('.browse-bar-draggable');
-    if (!btn || btn.id === 'browse-more-btn') return;
+    if (!btn || NON_DRAGGABLE.includes(btn.id)) return;
     dragEl = btn;
     startX = e.clientX;
     dragStarted = false;
@@ -1906,9 +1935,14 @@ window.addEventListener('keydown', e => {
       dragStarted = true;
       dragEl.setPointerCapture(dragPointerId);
       dragEl.classList.add('dragging');
+      // Hide all tooltips during drag
+      getDraggables().forEach(b => {
+        if (b.title) { b.dataset.savedTitle = b.title; b.removeAttribute('title'); }
+      });
       dragGhost = dragEl.cloneNode(true);
       dragGhost.classList.add('browse-bar-drag-ghost');
       dragGhost.classList.remove('dragging');
+      dragGhost.removeAttribute('title');
       const r = dragEl.getBoundingClientRect();
       dragGhost.style.top = r.top + 'px';
       dragGhost.style.width = r.width + 'px';
@@ -1952,6 +1986,10 @@ window.addEventListener('keydown', e => {
     if (moreBtn) moreBtn.classList.remove('browse-more-btn-drop-target');
     dragEl.classList.remove('dragging');
     if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    // Restore tooltips
+    getDraggables().forEach(b => {
+      if (b.dataset.savedTitle) { b.title = b.dataset.savedTitle; delete b.dataset.savedTitle; }
+    });
     if (dragStarted) {
       if (droppedOnMore && dragEl !== moreBtn) {
         addToBarOverflow(dragEl.id);
