@@ -1899,6 +1899,7 @@ let _pendingNoteContexts = []; // {id, title, content} — vault notes attached 
 let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
 let _lookupDragging = false;
 let _lookupDragOffset = { x: 0, y: 0 };
+let _lookupDragPopup = null;
 
 function _isLookupEligible(text) {
   if (!text || text.length > 80) return false;
@@ -3184,8 +3185,8 @@ document.addEventListener('mousemove', function(e) {
 
   // Drag-to-move the lookup panel
   if (_lookupDragging) {
-    const popup = document.getElementById('doc-chat-ask-float');
-    if (!popup) { _lookupDragging = false; return; }
+    const popup = _lookupDragPopup || document.getElementById('doc-chat-ask-float');
+    if (!popup) { _lookupDragging = false; _lookupDragPopup = null; return; }
     let left = e.clientX - _lookupDragOffset.x;
     let top = e.clientY - _lookupDragOffset.y;
     if (left < 0) left = 0;
@@ -3221,7 +3222,9 @@ document.addEventListener('mousemove', function(e) {
 document.addEventListener('mouseup', function(e) {
   if (_lookupDragging) {
     _lookupDragging = false;
-    const topBar = document.querySelector('.lookup-top-actions');
+    const draggedPopup = _lookupDragPopup;
+    _lookupDragPopup = null;
+    const topBar = draggedPopup ? draggedPopup.querySelector('.lookup-top-actions') : document.querySelector('.lookup-top-actions');
     if (topBar) topBar.style.cursor = 'grab';
   }
 });
@@ -4556,6 +4559,7 @@ function _showPanel(config) {
     _pendingNoteContexts = [];
     _pendingTabContexts = [];
     _lookupDragging = false;
+    _lookupDragPopup = null;
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
   }
 
@@ -4963,6 +4967,7 @@ function _showPanel(config) {
       ev.stopPropagation();
       ev.preventDefault();
       _lookupDragging = true;
+      _lookupDragPopup = popup;
       _lookupTrackMode = false;
       topBar.style.cursor = 'grabbing';
       const r = popup.getBoundingClientRect();
