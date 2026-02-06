@@ -5506,41 +5506,39 @@ function _showPanel(config) {
       item.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
       item.addEventListener('mouseup', (ev) => {
         ev.stopPropagation(); ev.preventDefault();
-        popup.remove();
-        wv.focus();
-        setTimeout(() => fn(), 50);
+        fn();
       });
       wvCtx.appendChild(item);
     };
+    const wvExec = (js) => { popup.remove(); wv.focus(); setTimeout(() => wv.executeJavaScript(js).catch(() => {}), 50); };
     if (flags.canCut) addWvItem('Cut', () => {
-      wv.executeJavaScript(`
-        (function(){ var el=window.__alphaLastEditable; if(!el) return; el.focus();
-          var text=document.getSelection().toString();
-          if(text) navigator.clipboard.writeText(text).catch(function(){});
-          if(el.isContentEditable) document.execCommand('delete');
-          else if(el.selectionStart!==undefined){ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
-            el.value=v.slice(0,s)+v.slice(e); el.selectionStart=el.selectionEnd=s;
-            el.dispatchEvent(new Event('input',{bubbles:true})); }
-        })()
-      `).catch(() => {});
+      wvExec(`(function(){ var el=window.__alphaLastEditable; if(!el) return; el.focus();
+        var text=document.getSelection().toString();
+        if(text) navigator.clipboard.writeText(text).catch(function(){});
+        if(el.isContentEditable) document.execCommand('delete');
+        else if(el.selectionStart!==undefined){ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
+          el.value=v.slice(0,s)+v.slice(e); el.selectionStart=el.selectionEnd=s;
+          el.dispatchEvent(new Event('input',{bubbles:true})); } })()`);
     });
     if (flags.canCopy) addWvItem('Copy', () => {
-      wv.executeJavaScript(`
-        (function(){ var el=window.__alphaLastEditable; if(el) el.focus();
-          navigator.clipboard.writeText(document.getSelection().toString()).catch(function(){}); })()
-      `).catch(() => {});
+      wvExec(`(function(){ var el=window.__alphaLastEditable; if(el) el.focus();
+        navigator.clipboard.writeText(document.getSelection().toString()).catch(function(){}); })()`);
     });
     if (flags.canPaste) addWvItem('Paste', () => {
+      // Read clipboard BEFORE removing popup (document must be focused for clipboard API)
       navigator.clipboard.readText().then(text => {
         if (!text) return;
-        // Re-focus the saved editable element inside the webview, then use insertText
-        wv.executeJavaScript(`(function(){ var el=window.__alphaLastEditable; if(el) el.focus(); return !!el; })()`)
-          .then(() => wv.insertText(text))
-          .catch(() => {});
+        popup.remove();
+        wv.focus();
+        setTimeout(() => {
+          wv.executeJavaScript(`(function(){ var el=window.__alphaLastEditable; if(el) el.focus(); })()`)
+            .then(() => wv.insertText(text))
+            .catch(() => {});
+        }, 50);
       }).catch(() => {});
     });
     if (flags.canSelectAll) addWvItem('Select All', () => {
-      wv.executeJavaScript(`(function(){ var el=window.__alphaLastEditable; if(el){el.focus();el.select();}else document.execCommand('selectAll'); })()`).catch(() => {});
+      wvExec(`(function(){ var el=window.__alphaLastEditable; if(el){el.focus();el.select();}else document.execCommand('selectAll'); })()`);
     });
     if (wvCtx.children.length) popup.appendChild(wvCtx);
   }

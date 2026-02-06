@@ -2591,6 +2591,10 @@ function browseNavigate(input) {
   const trimmed = (input || '').trim();
   if (trimmed && url.startsWith('https://www.google.com/search?q=')) {
     _saveWebSearch(trimmed);
+    // Single-word search → show definition card
+    if (/^[a-zA-Z]{2,}$/.test(trimmed)) {
+      _showBrowseDefinition(trimmed);
+    }
   }
   // arXiv URL → open as paper tab
   const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
@@ -2606,6 +2610,8 @@ function browseNavigate(input) {
     browseNewPaperTab(url, paper);
     return;
   }
+  // Clear any definition card from previous search
+  document.querySelectorAll('.browse-def-card').forEach(el => el.remove());
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
   // Tear down history page if this tab was showing it
@@ -4495,6 +4501,66 @@ function _removeBrowseVisit(index) {
 
 function _clearBrowseHistory() {
   localStorage.setItem('browseHistory', '[]');
+}
+
+// ── Single-word definition card in search results ──
+
+async function _showBrowseDefinition(word) {
+  // Remove any existing definition card
+  document.querySelectorAll('.browse-def-card').forEach(el => el.remove());
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+
+  const card = document.createElement('div');
+  card.className = 'browse-def-card';
+  card.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:4;width:min(480px,calc(100% - 32px));background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px 20px;box-shadow:0 4px 24px rgba(0,0,0,0.18);';
+  card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span class="spinner" style="width:14px;height:14px;"></span><span style="font-size:0.8rem;color:var(--text-dim);">Looking up definition…</span></div>';
+  container.appendChild(card);
+
+  // Dismiss button
+  const closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;color:var(--text-dimmer);font-size:1.1rem;cursor:pointer;padding:2px 6px;line-height:1;';
+  closeBtn.onclick = () => card.remove();
+  card.appendChild(closeBtn);
+
+  try {
+    const resp = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word.toLowerCase()));
+    if (!resp.ok) { card.remove(); return; }
+    const data = await resp.json();
+    const entry = data[0];
+    if (!entry) { card.remove(); return; }
+
+    let html = '';
+    // Word + phonetic
+    html += '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">';
+    html += '<span style="font-size:1.15rem;font-weight:700;color:var(--text-primary);">' + escapeHtml(entry.word) + '</span>';
+    const phonetic = entry.phonetics?.find(p => p.text)?.text;
+    if (phonetic) html += '<span style="font-size:0.82rem;color:var(--text-dim);">' + escapeHtml(phonetic) + '</span>';
+    // Audio button
+    const audio = entry.phonetics?.find(p => p.audio);
+    if (audio) html += '<button onclick="new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);padding:0;" title="Listen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
+    html += '</div>';
+
+    // Meanings (up to 3 parts of speech, 2 defs each)
+    for (const meaning of (entry.meanings || []).slice(0, 3)) {
+      html += '<div style="margin-top:10px;">';
+      html += '<span style="font-size:0.7rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span>';
+      for (const def of (meaning.definitions || []).slice(0, 2)) {
+        html += '<div style="font-size:0.82rem;color:var(--text-primary);line-height:1.5;margin-top:4px;padding-left:10px;border-left:2px solid color-mix(in srgb, var(--accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
+        if (def.example) html += '<div style="font-size:0.75rem;color:var(--text-dim);font-style:italic;margin-top:2px;padding-left:10px;">"' + escapeHtml(def.example) + '"</div>';
+      }
+      html += '</div>';
+    }
+
+    card.innerHTML = html;
+    // Re-add close button
+    const close2 = closeBtn.cloneNode(true);
+    close2.onclick = () => card.remove();
+    card.appendChild(close2);
+  } catch {
+    card.remove();
+  }
 }
 
 // ── Ad Blocker toggle & badge ──
