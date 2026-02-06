@@ -218,7 +218,7 @@ async function _nlInitMediapipe() {
 
   try {
     const vision = await window.FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
     );
     _nlFaceLandmarker = await window.FaceLandmarker.createFromOptions(vision, {
       baseOptions: {

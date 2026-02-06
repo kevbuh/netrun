@@ -1135,20 +1135,11 @@ function _browseBindFrame(tab) {
     if (typeof _showPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) { popup.remove(); _lookupTrackMode = false; }
-    // Convert webview-local coords to parent viewport coords
-    const wvRect = el.getBoundingClientRect();
-    const x = ev.x + wvRect.left;
-    const y = ev.y + wvRect.top;
-    // Editable field inside webview — show paste-only panel, no tracking
-    if (ev.inputFieldType && ev.inputFieldType !== 'none') {
-      _showPanel({ anchor: { x, y }, trackCursor: false, webviewEditable: { webview: el, editFlags: ev.editFlags || {} } });
-      return;
-    }
     const ctxData = (ev.linkURL || ev.srcURL) ? {
       linkUrl: ev.linkURL || '', linkText: ev.linkText || '',
       imgUrl: ev.srcURL || '', mediaType: ev.mediaType || ''
     } : null;
-    _showPanel({ anchor: { x, y }, contextMenu: ctxData });
+    _showPanel({ anchor: { x: ev.x, y: ev.y }, contextMenu: ctxData });
   });
 
   // Inject right-click handler after page loads
@@ -1159,7 +1150,11 @@ function _browseBindFrame(tab) {
         window.__alphaContextMenuInjected=true;
         document.addEventListener('contextmenu',function(e){
           var tag = e.target.tagName;
-          if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable) return;
+          if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable){
+            e.preventDefault();e.stopPropagation();
+            console.log('__ALPHA_EDITABLE__'+JSON.stringify({x:e.screenX,y:e.screenY}));
+            return false;
+          }
           var data = {x:e.screenX,y:e.screenY};
           var a=e.target.closest('a[href]');
           if(a){
@@ -1274,6 +1269,17 @@ function _browseBindFrame(tab) {
           const popup = document.getElementById('doc-chat-ask-float');
           if (popup) { popup.remove(); _lookupTrackMode = false; }
           _showPanel({ anchor: { x, y } });
+        }
+      } catch (err) {}
+    } else if (e.message && e.message.startsWith('__ALPHA_EDITABLE__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__ALPHA_EDITABLE__'.length));
+        const x = data.x - window.screenX;
+        const y = data.y - window.screenY;
+        if (typeof _showPanel === 'function') {
+          const popup = document.getElementById('doc-chat-ask-float');
+          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          _showPanel({ anchor: { x, y }, trackCursor: false, webviewEditable: { webview: el, editFlags: { canCut: true, canCopy: true, canPaste: true, canSelectAll: true } } });
         }
       } catch (err) {}
     } else if (e.message === '__ALPHA_FIND__') {
