@@ -92,6 +92,16 @@ function renderNeuralookView() {
             <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block"></span>
             <span class="text-[0.82rem] text-primary font-medium">${statusText}</span>
           </div>
+          <div id="nl-mp-status" class="flex items-center gap-2 mb-2">
+            ${_nlMpModelReady
+              ? '<svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-[0.75rem] text-green-400">MediaPipe ready</span>'
+              : _nlMpModelLoading
+                ? '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-accent">Loading face model...</span>'
+                : _nlMpCdnLoaded
+                  ? '<svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-[0.75rem] text-muted">MediaPipe loaded</span>'
+                  : '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-muted" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-dimmer">Loading MediaPipe...</span>'
+            }
+          </div>
           <div id="nl-error-msg" class="text-[0.75rem] text-red-400 mb-2" style="display:none"></div>
           <div class="flex flex-col gap-2">
             <button onclick="_nlStartCalibration()" class="px-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full" ${_nlCalibrating ? 'disabled style="opacity:0.5"' : ''}>
@@ -187,10 +197,25 @@ function renderNeuralookView() {
 
 async function _nlInitMediapipe() {
   if (_nlFaceLandmarker) return true;
+
+  // Wait for CDN if not loaded yet (up to 15s)
   if (!window.FaceLandmarker || !window.FilesetResolver) {
-    console.warn('Neuralook: MediaPipe not loaded yet');
-    return false;
+    await new Promise((resolve) => {
+      if (window.FaceLandmarker && window.FilesetResolver) { resolve(); return; }
+      const onReady = () => { window.removeEventListener('mediapipe-ready', onReady); resolve(); };
+      window.addEventListener('mediapipe-ready', onReady);
+      setTimeout(onReady, 15000); // timeout fallback
+    });
+    if (!window.FaceLandmarker || !window.FilesetResolver) {
+      console.warn('Neuralook: MediaPipe CDN failed to load');
+      _nlMpModelLoading = false;
+      return false;
+    }
   }
+
+  _nlMpModelLoading = true;
+  if (document.getElementById('neuralook-content')) renderNeuralookView();
+
   try {
     const vision = await window.FilesetResolver.forVisionTasks(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
@@ -205,10 +230,12 @@ async function _nlInitMediapipe() {
       outputFacialTransformationMatrixes: false,
       outputFaceBlendshapes: false
     });
-    _nlMediapipeLoaded = true;
+    _nlMpModelLoading = false;
+    _nlMpModelReady = true;
     return true;
   } catch (e) {
     console.error('Neuralook: MediaPipe init error', e);
+    _nlMpModelLoading = false;
     return false;
   }
 }
@@ -419,12 +446,6 @@ function _nlShowError(msg) {
 async function _nlStartCalibration() {
   if (_nlCalibrating) return;
 
-  // Check MediaPipe availability
-  if (!window.FaceLandmarker || !window.FilesetResolver) {
-    _nlShowError('MediaPipe not loaded yet. Wait a moment and try again.');
-    return;
-  }
-
   _nlCalibrating = true;
   _nlCalibData = [];
   _nlCoeffs = null;
@@ -439,7 +460,7 @@ async function _nlStartCalibration() {
   const mpOk = await _nlInitMediapipe();
   if (!mpOk) {
     _nlCalibrating = false;
-    _nlShowError('Failed to initialize MediaPipe FaceLandmarker.');
+    _nlShowError(_nlMpCdnLoaded ? 'Failed to initialize face model.' : 'MediaPipe CDN failed to load. Check your network connection.');
     renderNeuralookView();
     return;
   }

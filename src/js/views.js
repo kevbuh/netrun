@@ -3730,9 +3730,7 @@ document.addEventListener('keydown', function(e) {
     if (popup) { if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _lookupTrackMode = false; return; }
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-    const x = window.innerWidth / 2;
-    const y = window.innerHeight / 2;
-    _showPanel({ anchor: { x, y } });
+    _showPanel({ anchor: { x: _lastMouseX, y: _lastMouseY } });
     return;
   }
   if (e.key !== '/') return;
