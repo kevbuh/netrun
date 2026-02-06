@@ -1814,10 +1814,125 @@ function _browseRenderTabs() {
     _renderToolbarSessions();
   }
 
-  // Attach tab drag-to-reorder handlers
+  // Attach tab drag-to-reorder handlers + hover tooltips
   bar.querySelectorAll('.browse-tab').forEach(tabEl => {
     tabEl.addEventListener('mousedown', _tabDragStart);
+    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
+    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
   });
+}
+
+// ── Tab hover tooltip ──
+
+let _tabHoverTooltip = null;
+let _tabHoverTimeout = null;
+
+let _tabHoverDismissTimeout = null;
+
+function _browseTabHoverIn(e) {
+  const tabEl = e.currentTarget;
+  clearTimeout(_tabHoverTimeout);
+  clearTimeout(_tabHoverDismissTimeout);
+  // If tooltip already showing, keep it
+  if (_tabHoverTooltip) return;
+  _tabHoverTimeout = setTimeout(() => {
+    const onclickAttr = tabEl.getAttribute('onclick') || '';
+    const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
+    if (!idMatch) return;
+    const tabId = parseInt(idMatch[1]);
+    const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    _browseTabHoverOut(true);
+    const tip = document.createElement('div');
+    tip.className = 'browse-tab-tooltip';
+    const isBlank = !tab.url;
+    const domain = !isBlank ? (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })() : '';
+    const favUrl = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
+    const favHtml = favUrl ? `<img src="${escapeAttr(favUrl)}" class="browse-tab-tooltip-favicon" onerror="this.style.display='none'">` : '';
+    tip.innerHTML = `
+      <div class="browse-tab-tooltip-header">
+        ${favHtml}
+        <div class="browse-tab-tooltip-text">
+          <div class="browse-tab-tooltip-title">${escapeHtml(tab.title || (isBlank ? 'New Tab' : 'Untitled'))}</div>
+          ${isBlank ? '' : `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>`}
+        </div>
+      </div>
+      <button class="browse-tab-tooltip-add${isBlank ? ' disabled' : ''}" data-tab-id="${tabId}"${isBlank ? ' disabled' : ''}>
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        Add to assistant
+      </button>`;
+    document.body.appendChild(tip);
+
+    const rect = tabEl.getBoundingClientRect();
+    tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 4)) + 'px';
+    tip.style.top = (rect.bottom + 2) + 'px';
+
+    if (!isBlank) {
+      tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        _browseTabAddToAssistant(tabId);
+        _browseTabHoverOut(true);
+      });
+    }
+
+    tip.addEventListener('mouseenter', () => { clearTimeout(_tabHoverTimeout); clearTimeout(_tabHoverDismissTimeout); });
+    tip.addEventListener('mouseleave', () => { _scheduleDismiss(); });
+
+    _tabHoverTooltip = tip;
+    // Store ref to source tab for bridge detection
+    _tabHoverTooltip._sourceTabEl = tabEl;
+  }, 400);
+}
+
+function _scheduleDismiss() {
+  clearTimeout(_tabHoverDismissTimeout);
+  _tabHoverDismissTimeout = setTimeout(() => {
+    if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
+  }, 300);
+}
+
+function _browseTabHoverOut(immediate) {
+  clearTimeout(_tabHoverTimeout);
+  if (immediate) {
+    clearTimeout(_tabHoverDismissTimeout);
+    if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
+    return;
+  }
+  _scheduleDismiss();
+}
+
+async function _browseTabAddToAssistant(tabId) {
+  const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab || !tab.url) return;
+
+  // Find or create the popup panel
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (!popup && typeof _showPanel === 'function') {
+    _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
+    await new Promise(r => setTimeout(r, 100));
+  }
+  const panel = document.getElementById('doc-chat-ask-float');
+  if (!panel) return;
+
+  // Fetch page content and add as context
+  try {
+    const resp = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: tab.url })
+    });
+    const data = await resp.json();
+    if (typeof _addTabContextToPanel === 'function') {
+      _addTabContextToPanel(panel, { tabId: tab.id, title: tab.title, url: tab.url, content: data.text || '' });
+    }
+  } catch (e) {
+    if (typeof _addTabContextToPanel === 'function') {
+      _addTabContextToPanel(panel, { tabId: tab.id, title: tab.title, url: tab.url, content: '' });
+    }
+  }
 }
 
 // ── Tab drag-to-reorder ──
@@ -3483,6 +3598,7 @@ function _searchHistoryKeydown(e) {
 // ── Browse URL Bar History Dropdown ──
 
 let _browseUrlHistIdx = -1;
+let _browseUrlOriginalInput = '';
 let _suggestDebounce = null;
 let _suggestAbort = null;
 let _suggestCache = {};
@@ -3514,14 +3630,28 @@ function _browseUrlKeydown(e) {
   }
   if (!visible) return;
   const items = dd.querySelectorAll('[data-histq]');
+  const input = document.getElementById('browse-url-input');
   if (e.key === 'ArrowDown') {
     e.preventDefault();
+    if (_browseUrlHistIdx === -1) _browseUrlOriginalInput = input ? input.value : '';
     _browseUrlHistIdx = Math.min(_browseUrlHistIdx + 1, items.length - 1);
     _browseUrlHighlight(items);
+    if (input && _browseUrlHistIdx >= 0 && items[_browseUrlHistIdx]) {
+      const q = items[_browseUrlHistIdx].dataset.histq;
+      input.value = q.startsWith('project:') ? items[_browseUrlHistIdx].querySelector('span').textContent : q;
+    }
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
     _browseUrlHistIdx = Math.max(_browseUrlHistIdx - 1, -1);
     _browseUrlHighlight(items);
+    if (input) {
+      if (_browseUrlHistIdx === -1) {
+        input.value = _browseUrlOriginalInput;
+      } else if (items[_browseUrlHistIdx]) {
+        const q = items[_browseUrlHistIdx].dataset.histq;
+        input.value = q.startsWith('project:') ? items[_browseUrlHistIdx].querySelector('span').textContent : q;
+      }
+    }
   } else if (e.key === 'Escape') {
     e.preventDefault();
     _browseUrlHideHistory();
@@ -3530,7 +3660,13 @@ function _browseUrlKeydown(e) {
 
 function _browseUrlHighlight(items) {
   items.forEach((el, i) => {
-    el.style.background = i === _browseUrlHistIdx ? 'var(--bg-hover)' : 'none';
+    if (i === _browseUrlHistIdx) {
+      el.style.background = 'color-mix(in srgb, var(--accent) 18%, transparent)';
+      el.style.borderRadius = '6px';
+    } else {
+      el.style.background = 'none';
+      el.style.borderRadius = '';
+    }
   });
   if (_browseUrlHistIdx >= 0 && items[_browseUrlHistIdx]) {
     items[_browseUrlHistIdx].scrollIntoView({ block: 'nearest' });

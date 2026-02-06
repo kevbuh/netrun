@@ -537,6 +537,7 @@
       border-radius: 8px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
+    #browse-url-input::placeholder { color: var(--text-muted); }
     .browse-bar-draggable { touch-action: none; }
     .browse-bar-draggable.dragging { opacity: 0.3; }
 
@@ -743,7 +744,7 @@
       white-space: nowrap;
       overflow: hidden;
       transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-      flex: 1 1 0;
+      flex: 0 1 auto;
     }
     .browse-tab:hover {
       background: var(--bg-hover);
@@ -802,6 +803,88 @@
     }
     .browse-tab-drag-source {
       opacity: 0.3;
+    }
+    /* Tab hover tooltip */
+    .browse-tab-tooltip {
+      position: fixed;
+      z-index: 10000;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 8px 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      max-width: 320px;
+      min-width: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .browse-tab-tooltip::before {
+      content: '';
+      position: absolute;
+      top: -20px;
+      left: -8px;
+      right: -8px;
+      height: 24px;
+    }
+    .browse-tab-tooltip-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .browse-tab-tooltip-favicon {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .browse-tab-tooltip-text {
+      min-width: 0;
+      flex: 1;
+    }
+    .browse-tab-tooltip-title {
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      font-weight: 500;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .browse-tab-tooltip-url {
+      font-size: 0.68rem;
+      color: var(--text-dimmer);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .browse-tab-tooltip-add {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      color: var(--accent);
+      background: transparent;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      width: 100%;
+      justify-content: center;
+    }
+    .browse-tab-tooltip-add:hover:not(.disabled) {
+      background: var(--accent);
+      color: white;
+    }
+    .browse-tab-tooltip-add.disabled {
+      opacity: 0.35;
+      cursor: default;
+      border-color: var(--text-dimmest);
+      color: var(--text-dimmest);
     }
     .browse-tab-insert-indicator {
       position: absolute;
