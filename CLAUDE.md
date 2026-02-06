@@ -208,7 +208,7 @@ Clicking a post marks it as read (`localStorage.readPosts`). Read posts render a
 
 Users must sign in before accessing the app. A full-screen login gate blocks all content until authenticated.
 
-**Backend (SQLite):** User data lives in `alpha.db` (auto-created on first run) with three tables:
+**Backend (SQLite):** User data lives in `lookup.db` (auto-created on first run) with three tables:
 - `users` — username (primary key), salted SHA-256 password hash, created timestamp
 - `sessions` — token (primary key), username, expires (30-day TTL)
 - `user_data` — per-user key-value store for synced settings (username + key composite PK)

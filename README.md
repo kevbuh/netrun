@@ -1,3 +1,3 @@
-# alpha
+# lookup
 
-find and create alpha
+find and create lookup
