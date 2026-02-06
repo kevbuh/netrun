@@ -4065,6 +4065,24 @@ ch.postMessage({type:'preview-ready'});
             else:
                 self._send_json({'error': message}, 400)
 
+        elif self.path == '/api/reveal-in-finder':
+            body = self._read_body()
+            filename = body.get('filename', '').strip()
+            if not filename:
+                self._send_json({'error': 'Missing filename'}, 400)
+                return
+            # Look for file in the user's Downloads folder
+            downloads_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+            filepath = os.path.join(downloads_dir, filename)
+            if os.path.exists(filepath):
+                # open -R selects the file in Finder
+                subprocess.Popen(['open', '-R', filepath])
+                self._send_json({'ok': True})
+            else:
+                # Fall back to just opening the Downloads folder
+                subprocess.Popen(['open', downloads_dir])
+                self._send_json({'ok': True, 'fallback': True})
+
         # ── Blog Vote API ──
         elif m := self._match(r'^/api/blog/([^/]+)/([^/]+)/vote$'):
             google_id = self._get_user()

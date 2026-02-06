@@ -2709,7 +2709,8 @@ function _renderPopupChat(popup, final) {
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
-    return `<div class="doc-msg-ai">${content}</div>`;
+    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
+    return `<div class="doc-msg-ai">${content}${speakBtn}</div>`;
   }).join('');
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
@@ -2754,6 +2755,28 @@ function _renderPopupChat(popup, final) {
       if (popup) { _lookupTrackMode = false; popup.remove(); }
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
+  // Attach speak button handlers
+  container.querySelectorAll('.doc-msg-speak-btn').forEach(btn => {
+    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+        container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
+        if (btn.classList.contains('doc-msg-speaking')) return; // was toggling off
+      }
+      const msgEl = btn.closest('.doc-msg-ai');
+      if (!msgEl) return;
+      const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.1;
+      btn.classList.add('doc-msg-speaking');
+      utter.onend = () => btn.classList.remove('doc-msg-speaking');
+      utter.onerror = () => btn.classList.remove('doc-msg-speaking');
+      speechSynthesis.speak(utter);
+    });
   });
   // Update send/stop button state
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
@@ -5593,6 +5616,16 @@ function _showPanel(config) {
         };
         img.src = proxyUrl;
       });
+      addItem('Save Image As…', () => {
+        const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
+        const a = document.createElement('a');
+        a.href = proxyUrl;
+        // Extract a filename from the URL, fallback to 'image.png'
+        try { a.download = imgUrl.split('/').pop().split('?')[0] || 'image.png'; } catch(_) { a.download = 'image.png'; }
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
       // "Add to Assistant" keeps the panel open and adds the image as chat context
       const assistItem = document.createElement('div');
       assistItem.className = 'doc-lookup-ctx-item';
@@ -5836,17 +5869,6 @@ function _showPanel(config) {
     modelLabel.title = 'Current model';
     topBar.appendChild(modelLabel);
 
-    // Stats (tokens, time, model) — updated in real-time by _updateChatStats
-    const statsSpan = document.createElement('span');
-    statsSpan.className = 'doc-chat-stats';
-    topBar.appendChild(statsSpan);
-
-    // Context usage indicator
-    const ctxSpan = document.createElement('span');
-    ctxSpan.className = 'lookup-context-usage';
-    ctxSpan.textContent = '0/32k (0%)';
-    topBar.appendChild(ctxSpan);
-
     // Spacer
     const spacer = document.createElement('span');
     spacer.style.flex = '1';
@@ -5990,6 +6012,18 @@ function _showPanel(config) {
     });
 
     popup.appendChild(topBar);
+
+    // Model info row (stats + context usage) — below top bar
+    const infoRow = document.createElement('div');
+    infoRow.className = 'lookup-info-row';
+    const statsSpan = document.createElement('span');
+    statsSpan.className = 'doc-chat-stats';
+    infoRow.appendChild(statsSpan);
+    const ctxSpan = document.createElement('span');
+    ctxSpan.className = 'lookup-context-usage';
+    ctxSpan.textContent = '';
+    infoRow.appendChild(ctxSpan);
+    popup.appendChild(infoRow);
   }
 
   // ── Chat area ──

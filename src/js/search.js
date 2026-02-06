@@ -1012,8 +1012,15 @@ function openDownloadFile(id) {
 
 function showDownloadInFolder(id) {
   const dl = _browseDownloads.find(d => d.id === id);
-  if (dl && dl.savePath && window.electronAPI) {
+  if (!dl) return;
+  if (dl.savePath && window.electronAPI) {
     window.electronAPI.showItemInFolder(dl.savePath);
+  } else if (dl.filename) {
+    fetch('/api/reveal-in-finder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: dl.filename })
+    }).catch(() => {});
   }
 }
 

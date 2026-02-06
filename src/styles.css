@@ -2567,6 +2567,15 @@
       line-height: 1.5;
       position: relative;
     }
+    .doc-msg-speak-btn {
+      position: absolute; top: 4px; right: 4px;
+      background: none; border: none; color: var(--text-dimmer); cursor: pointer;
+      padding: 2px; border-radius: 3px; opacity: 0; transition: opacity 0.15s, color 0.15s;
+      line-height: 1;
+    }
+    .doc-msg-ai:hover .doc-msg-speak-btn { opacity: 0.7; }
+    .doc-msg-speak-btn:hover { opacity: 1 !important; color: var(--accent); }
+    .doc-msg-speaking { opacity: 1 !important; color: var(--accent); animation: mic-pulse 1s ease-in-out infinite; }
     .doc-msg-ai p { margin: 0.3em 0; }
     .doc-msg-ai code { background: rgba(255,255,255,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
     .doc-msg-ai pre { background: rgba(255,255,255,0.04); padding: 0.6em; border-radius: 4px; overflow-x: auto; margin: 0.3em 0; }
@@ -3234,6 +3243,16 @@
       transition: width 0.3s ease, background 0.3s ease;
       border-radius: 8px 8px 0 0;
     }
+    .lookup-info-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px 2px;
+      font-size: 0.62rem;
+      color: var(--text-dimmer);
+      min-height: 0;
+    }
+    .lookup-info-row:empty { display: none; }
     .lookup-top-actions {
       border-top: none;
       border-bottom: none;

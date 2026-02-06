@@ -43,6 +43,7 @@ let _nlTrainLossHistory = []; // [{epoch, val_loss}]
 let _nlTrainLogs = []; // raw log lines from server
 let _nlTrainStartTime = 0;
 let _nlWandbUrl = null;
+let _nlWandbPanelOpen = false;
 
 // Smoothing
 let _nlGazeBuffer = [];
@@ -276,63 +277,89 @@ function _nlRenderTrainDetailView(container) {
       </div>`;
   }
 
+  const wandbOpen = _nlWandbPanelOpen && _nlWandbUrl;
+
   container.innerHTML = `
-    <div style="max-width:720px;margin:0 auto;padding:24px 16px;">
-      <div class="flex items-center gap-3 mb-6">
-        ${!_nlTraining ? `<button onclick="_nlTrainPhase='';renderNeuralookView();" class="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer" title="Back">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>` : ''}
-        <div style="width:10px;height:10px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
-        <h2 class="text-[1.1rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training CNN' : 'Training Complete'}</h2>
-        <span id="nl-wandb-link" class="ml-auto">${_nlWandbUrl ? `<a href="${_nlWandbUrl}" target="_blank" class="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-input text-[0.75rem] text-muted hover:text-accent hover:border-accent transition-colors no-underline" title="Open in Weights & Biases"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>W&B</a>` : ''}</span>
-        <span class="text-[0.78rem] text-muted">${elapsedStr}</span>
-      </div>
-
-      <!-- Progress bar -->
-      <div class="bg-card border border-border-card rounded-xl p-5">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-[0.78rem] text-muted">${phaseLabel}</span>
-          <span class="text-[0.82rem] text-primary font-medium tabular-nums">${isDone ? maxEpochs : epoch} / ${maxEpochs} epochs</span>
-        </div>
-        <div style="height:6px;border-radius:3px;background:var(--bg-secondary, #1a1a1f);overflow:hidden;">
-          <div id="nl-train-progbar" style="height:100%;border-radius:3px;background:${phaseColor};width:${isDone ? 100 : pct}%;transition:width 0.3s;"></div>
-        </div>
-        <div class="flex justify-between mt-3">
-          <span class="text-[0.72rem] text-dimmer tabular-nums">${isDone ? `${pct}%` : `${pct}% complete`}</span>
-          <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-train-loss-label">${latestLoss != null ? `Val loss: ${latestLoss.toFixed(6)}` : ''}</span>
-        </div>
-      </div>
-
-      <!-- Loss graph -->
-      <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-[0.85rem] font-semibold text-primary">Loss</h3>
-          <div class="flex items-center gap-4 text-[0.72rem] tabular-nums">
-            <span class="flex items-center gap-1.5"><span style="width:8px;height:3px;border-radius:2px;background:#f97316;display:inline-block;"></span> <span class="text-dimmer">Train</span> <span class="text-muted" id="nl-train-tloss-val">${_nlTrainLossHistory.length > 0 ? _nlTrainLossHistory[_nlTrainLossHistory.length - 1].train_loss?.toFixed(6) || '—' : '—'}</span></span>
-            <span class="flex items-center gap-1.5"><span style="width:8px;height:3px;border-radius:2px;background:#60a5fa;display:inline-block;"></span> <span class="text-dimmer">Val</span> <span class="text-muted" id="nl-train-loss-val">${latestLoss != null ? latestLoss.toFixed(6) : '—'}</span></span>
+    <div style="display:flex;height:calc(100vh - 60px);box-sizing:border-box;gap:0;">
+      <!-- Left: training details (scrollable) -->
+      <div style="flex:1;min-width:0;overflow-y:auto;padding:24px 16px;">
+        <div style="max-width:720px;margin:0 auto;">
+          <div class="flex items-center gap-3 mb-6">
+            ${!_nlTraining ? `<button onclick="_nlTrainPhase='';renderNeuralookView();" class="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer" title="Back">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>` : ''}
+            <div style="width:10px;height:10px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
+            <h2 class="text-[1.1rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training CNN' : 'Training Complete'}</h2>
+            <span class="ml-auto"></span>
+            ${_nlWandbUrl ? `<button onclick="_nlWandbPanelOpen=!_nlWandbPanelOpen;renderNeuralookView();" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[0.75rem] font-medium cursor-pointer transition-colors ${wandbOpen ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted hover:text-accent hover:border-accent'}" title="Toggle W&B panel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>
+              W&B
+            </button>` : ''}
+            <span class="text-[0.78rem] text-muted">${elapsedStr}</span>
           </div>
-        </div>
-        <div style="height:220px;position:relative;">
-          <canvas id="nl-train-loss-graph" style="width:100%;height:100%;display:block;"></canvas>
+
+          <!-- Progress bar -->
+          <div class="bg-card border border-border-card rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[0.78rem] text-muted">${phaseLabel}</span>
+              <span class="text-[0.82rem] text-primary font-medium tabular-nums">${isDone ? maxEpochs : epoch} / ${maxEpochs} epochs</span>
+            </div>
+            <div style="height:6px;border-radius:3px;background:var(--bg-secondary, #1a1a1f);overflow:hidden;">
+              <div id="nl-train-progbar" style="height:100%;border-radius:3px;background:${phaseColor};width:${isDone ? 100 : pct}%;transition:width 0.3s;"></div>
+            </div>
+            <div class="flex justify-between mt-3">
+              <span class="text-[0.72rem] text-dimmer tabular-nums">${isDone ? `${pct}%` : `${pct}% complete`}</span>
+              <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-train-loss-label">${latestLoss != null ? `Val loss: ${latestLoss.toFixed(6)}` : ''}</span>
+            </div>
+          </div>
+
+          <!-- Loss graph -->
+          <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-[0.85rem] font-semibold text-primary">Loss</h3>
+              <div class="flex items-center gap-4 text-[0.72rem] tabular-nums">
+                <span class="flex items-center gap-1.5"><span style="width:8px;height:3px;border-radius:2px;background:#f97316;display:inline-block;"></span> <span class="text-dimmer">Train</span> <span class="text-muted" id="nl-train-tloss-val">${_nlTrainLossHistory.length > 0 ? _nlTrainLossHistory[_nlTrainLossHistory.length - 1].train_loss?.toFixed(6) || '—' : '—'}</span></span>
+                <span class="flex items-center gap-1.5"><span style="width:8px;height:3px;border-radius:2px;background:#60a5fa;display:inline-block;"></span> <span class="text-dimmer">Val</span> <span class="text-muted" id="nl-train-loss-val">${latestLoss != null ? latestLoss.toFixed(6) : '—'}</span></span>
+              </div>
+            </div>
+            <div style="height:220px;position:relative;">
+              <canvas id="nl-train-loss-graph" style="width:100%;height:100%;display:block;"></canvas>
+            </div>
+          </div>
+
+          <!-- Training log -->
+          <div class="bg-card border border-border-card rounded-xl mt-4" style="display:flex;flex-direction:column;max-height:420px;">
+            <div class="flex items-center justify-between px-5 pt-4 pb-2" style="flex-shrink:0;">
+              <h3 class="text-[0.85rem] font-semibold text-primary">Training Log</h3>
+              <span class="text-[0.68rem] text-dimmer tabular-nums" id="nl-log-count">${_nlTrainLogs.length} lines</span>
+            </div>
+            <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 16px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.82rem;line-height:1.7;color:var(--text-primary,#e5e5e5);white-space:pre;tab-size:2;"></div>
+          </div>
+
+          <!-- Stats grid -->
+          <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
+            <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Training Details</h3>
+            <div id="nl-train-details" class="grid grid-cols-2 gap-x-8 gap-y-2 text-[0.78rem]"></div>
+          </div>
+
+          ${resultHTML}
         </div>
       </div>
 
-      <!-- Training log -->
-      <div class="bg-card border border-border-card rounded-xl mt-4" style="display:flex;flex-direction:column;max-height:420px;">
-        <div class="flex items-center justify-between px-5 pt-4 pb-2" style="flex-shrink:0;">
-          <h3 class="text-[0.85rem] font-semibold text-primary">Training Log</h3>
-          <span class="text-[0.68rem] text-dimmer tabular-nums" id="nl-log-count">${_nlTrainLogs.length} lines</span>
+      <!-- Right: W&B panel -->
+      ${wandbOpen ? `
+      <div style="width:50%;min-width:400px;max-width:60%;border-left:1px solid var(--border,#333);display:flex;flex-direction:column;">
+        <div class="flex items-center gap-2 px-4 py-2.5" style="flex-shrink:0;border-bottom:1px solid var(--border,#333);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent,#b4451a)"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>
+          <span class="text-[0.82rem] font-medium text-primary">Weights & Biases</span>
+          <a href="${_nlWandbUrl}" target="_blank" class="text-[0.7rem] text-dimmer hover:text-accent transition-colors ml-1 no-underline" title="Open in new tab">↗</a>
+          <span class="ml-auto"></span>
+          <button onclick="_nlWandbPanelOpen=false;renderNeuralookView();" class="p-1 rounded hover:bg-white/5 transition-colors cursor-pointer text-muted hover:text-primary" title="Close panel">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
         </div>
-        <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 16px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.82rem;line-height:1.7;color:var(--text-primary,#e5e5e5);white-space:pre;tab-size:2;"></div>
-      </div>
-
-      <!-- Stats grid -->
-      <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
-        <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Training Details</h3>
-        <div id="nl-train-details" class="grid grid-cols-2 gap-x-8 gap-y-2 text-[0.78rem]"></div>
-      </div>
-
-      ${resultHTML}
+        <iframe id="nl-wandb-iframe" src="${_nlWandbUrl}" style="flex:1;border:none;width:100%;background:var(--bg-primary,#111);" allow="clipboard-read; clipboard-write"></iframe>
+      </div>` : ''}
     </div>
   `;
 
@@ -348,9 +375,11 @@ function _nlRenderTrainDetailView(container) {
 }
 
 function _nlRefreshWandbLink() {
-  const el = document.getElementById('nl-wandb-link');
-  if (!el || !_nlWandbUrl) return;
-  el.innerHTML = `<a href="${_nlWandbUrl}" target="_blank" class="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-input text-[0.75rem] text-muted hover:text-accent hover:border-accent transition-colors no-underline" title="Open in Weights & Biases"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>W&B</a>`;
+  // Re-render the training view to show the W&B button when URL arrives
+  if (_nlWandbUrl && document.getElementById('nl-train-progbar')) {
+    const container = document.getElementById('neuralook-content');
+    if (container) _nlRenderTrainDetailView(container);
+  }
 }
 
 function _nlAppendTrainLog(line) {
