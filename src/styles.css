@@ -2574,10 +2574,8 @@
       font-size: 0.7rem;
       line-height: 1.4;
       color: var(--text-dim);
-      border-top: 1px solid var(--border-input);
       max-height: 60px;
       overflow: hidden;
-      margin-top: 2px;
     }
     .doc-ask-inline-wrap {
       display: flex;

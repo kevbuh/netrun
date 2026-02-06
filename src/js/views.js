@@ -3561,6 +3561,7 @@ const _lookupCommands = [
   { name: 'links', desc: 'List all links on page', _special: true },
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
+  { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -4381,6 +4382,7 @@ function _showPanel(config) {
   }
 
   const capturedText = selectionText;
+  popup._capturedText = capturedText || '';
 
   // Reset shared state for new panel (unless preview)
   if (finalized) {
@@ -4518,37 +4520,10 @@ function _showPanel(config) {
     popup.appendChild(ctxDiv);
   }
 
-  // ── Selection actions (Quote, Lookup, Highlight dots) ──
+  // ── Selection actions (Highlight dots) ──
   if (finalized && capturedText) {
     const btnRow = document.createElement('div');
     btnRow.className = 'doc-selection-popup-btns';
-
-    const quoteBtn = document.createElement('button');
-    quoteBtn.className = 'doc-selection-popup-btn';
-    quoteBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 21c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10zm12 0c3-3 4-6 4-9 0-3.31-2.69-6-6-6h1a5 5 0 015 5c0 3-1.5 6-4 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Quote';
-    quoteBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-    quoteBtn.addEventListener('click', function(ev) {
-      ev.stopPropagation(); ev.preventDefault();
-      popup.remove();
-      _postQuoteText(capturedText);
-    });
-    btnRow.appendChild(quoteBtn);
-
-    // Single word → Lookup
-    const isSingleWord = /^\w+$/.test(capturedText) && !capturedText.includes(' ');
-    if (isSingleWord) {
-      const lookupBtn = document.createElement('button');
-      lookupBtn.className = 'doc-selection-popup-btn';
-      lookupBtn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"/></svg> Lookup';
-      lookupBtn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-      lookupBtn.addEventListener('click', function(ev) {
-        ev.stopPropagation(); ev.preventDefault();
-        const px = popup.style.left, py = popup.style.top;
-        popup.remove();
-        _showWordLookup(capturedText, parseInt(px), parseInt(py));
-      });
-      btnRow.appendChild(lookupBtn);
-    }
 
     // Highlight color dots (only for PDF text layer)
     if (inTextLayer && selectionRange && typeof createHighlight === 'function') {
