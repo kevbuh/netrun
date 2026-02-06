@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -435,26 +435,6 @@ app.whenReady().then(() => {
     app.dock.setIcon(nativeImage.createFromPath(iconPath));
   }
   createMenu();
-
-  // Set Content Security Policy to silence Electron security warning
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self' http://localhost:*; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://accounts.google.com; " +
-          "style-src 'self' 'unsafe-inline' http://localhost:* https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
-          "font-src 'self' http://localhost:* https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
-          "img-src 'self' http://localhost:* https: data: blob:; " +
-          "connect-src 'self' http://localhost:* https: ws://localhost:*; " +
-          "frame-src 'self' http://localhost:* https:; " +
-          "media-src 'self' http://localhost:* https: blob:; " +
-          "worker-src 'self' blob: http://localhost:* https://cdn.jsdelivr.net https://cdnjs.cloudflare.com"
-        ]
-      }
-    });
-  });
 
   ipcMain.handle('capture-screen', async (event, rect) => {
     const win = BrowserWindow.fromWebContents(event.sender);
