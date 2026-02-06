@@ -1,9 +1,11 @@
-// ── Vibe Panel: Lazygit-style Git Dashboard ──
+// ── Vibe Panel: Split Terminals + Lazygit-style Git Dashboard ──
 
 let _vibeActivePane = 0;
 let _vibeData = {};
 let _vibeCmdLog = [];
-let _vibeSelectedIdx = {}; // per-pane selected index
+let _vibeSelectedIdx = {};
+let _vibeTerminals = []; // [{id, termObj}] — our two embedded terminals
+let _vibeTermSplitRatio = 0.5;
 
 async function openVibe() {
   setSidebarLoading('sb-vibe');
@@ -16,13 +18,102 @@ async function openVibe() {
   setSidebarActive('sb-vibe');
   _vibeActivePane = 0;
   _vibeSelectedIdx = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+  _vibeInitTerminals();
   _vibeRefresh();
+  _vibeInitResize();
   document.addEventListener('keydown', _vibeKeyHandler);
 }
 
 function _vibeCleanup() {
   document.removeEventListener('keydown', _vibeKeyHandler);
+  // Don't destroy terminals — just detach. They stay alive for re-mount.
 }
+
+// ── Terminal embedding ──
+
+function _vibeInitTerminals() {
+  const topEl = document.getElementById('vibe-term-top');
+  const bottomEl = document.getElementById('vibe-term-bottom');
+  if (!topEl || !bottomEl) return;
+
+  // Create two terminals if we haven't yet
+  if (_vibeTerminals.length < 2) {
+    _vibeTerminals = [];
+    for (let i = 0; i < 2; i++) {
+      const t = createTerminal('Claude ' + (i + 1), true); // skipLayoutUpdate
+      _vibeTerminals.push(t);
+    }
+  }
+
+  // Mount each into its container
+  [topEl, bottomEl].forEach((el, i) => {
+    const t = _vibeTerminals[i];
+    if (!t) return;
+    el.innerHTML = '';
+    const pane = t.container;
+    pane.style.cssText = 'width:100%;height:100%;position:relative;';
+    el.appendChild(pane);
+
+    if (!pane.querySelector('.xterm')) {
+      t.term.open(pane);
+      t.fitAddon.fit();
+      _connectTerminalWs(t);
+      const ro = new ResizeObserver(() => {
+        try { t.fitAddon.fit(); } catch (_) {}
+      });
+      ro.observe(pane);
+    } else {
+      setTimeout(() => {
+        try { t.fitAddon.fit(); } catch (_) {}
+      }, 50);
+    }
+  });
+}
+
+// ── Draggable terminal split resize ──
+
+function _vibeInitResize() {
+  const handle = document.getElementById('vibe-term-resize');
+  if (!handle) return;
+  let dragging = false;
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    document.body.style.cursor = 'row-resize';
+    const termContainer = handle.parentElement;
+    const onMove = (e2) => {
+      if (!dragging) return;
+      const rect = termContainer.getBoundingClientRect();
+      const y = e2.clientY - rect.top;
+      const ratio = Math.max(0.15, Math.min(0.85, y / rect.height));
+      _vibeTermSplitRatio = ratio;
+      _vibeApplyTermSplit();
+    };
+    const onUp = () => {
+      dragging = false;
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function _vibeApplyTermSplit() {
+  const top = document.getElementById('vibe-term-top');
+  const bottom = document.getElementById('vibe-term-bottom');
+  if (!top || !bottom) return;
+  const pct = (_vibeTermSplitRatio * 100).toFixed(1);
+  top.style.flex = `0 0 ${pct}%`;
+  bottom.style.flex = `0 0 ${100 - parseFloat(pct)}%`;
+  // Refit terminals
+  _vibeTerminals.forEach(t => {
+    try { t.fitAddon.fit(); } catch (_) {}
+  });
+}
+
+// ── Git data fetching ──
 
 async function _vibeGit(cmd, args) {
   const start = Date.now();
@@ -34,7 +125,7 @@ async function _vibeGit(cmd, args) {
     });
     const data = await resp.json();
     const elapsed = Date.now() - start;
-    _vibeLogCmd(cmd + (args && args.file ? ' ' + args.file : ''), elapsed);
+    _vibeLogCmd(cmd + (args && args.file ? ' ' + args.file : args && args.ref ? ' ' + args.ref : args && args.branch ? ' ' + args.branch : ''), elapsed);
     return data;
   } catch (e) {
     _vibeLogCmd(cmd + ' FAILED: ' + e.message, 0);
@@ -70,6 +161,8 @@ async function _vibeRefresh() {
   _vibeUpdateActivePane();
 }
 
+// ── Pane renderers ──
+
 function _vibeRenderStatus(data) {
   const el = document.getElementById('vibe-status-body');
   if (!el) return;
@@ -86,7 +179,7 @@ function _vibeRenderFiles(data) {
   if (!el) return;
   if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
   const files = data.files || [];
-  if (!files.length) { el.innerHTML = '<span class="text-dimmer">No changes</span>'; return; }
+  if (!files.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No changes</span>'; return; }
   el.innerHTML = files.map((f, i) =>
     `<div class="vibe-row vibe-selectable" data-pane="1" data-idx="${i}" onclick="_vibeSelectFile(${i})">${_vibeFileStatusBadge(f.status)} ${escapeHtml(f.path)}</div>`
   ).join('');
@@ -97,10 +190,12 @@ function _vibeRenderBranches(data) {
   if (!el) return;
   if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
   const branches = data.branches || [];
-  if (!branches.length) { el.innerHTML = '<span class="text-dimmer">No branches</span>'; return; }
-  el.innerHTML = branches.map((b, i) =>
-    `<div class="vibe-row vibe-selectable" data-pane="2" data-idx="${i}" onclick="_vibeSelectBranch(${i})">${b.current ? '<span class="text-green-400">* </span>' : '  '}${escapeHtml(b.name)} <span class="text-dimmer">${escapeHtml(b.hash || '')} ${escapeHtml(b.date || '')}</span>${b.track ? ' <span class="text-yellow-400">' + escapeHtml(b.track) + '</span>' : ''}</div>`
-  ).join('');
+  if (!branches.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No branches</span>'; return; }
+  el.innerHTML = branches.map((b, i) => {
+    const star = b.current ? '<span class="text-green-400">* </span>' : '  ';
+    const icon = '<span class="text-accent">\u2387 </span>';
+    return `<div class="vibe-row vibe-selectable" data-pane="2" data-idx="${i}" onclick="_vibeSelectBranch(${i})">${star}${icon}${escapeHtml(b.name)} <span class="text-dimmer">${escapeHtml(b.track || '')}</span></div>`;
+  }).join('');
 }
 
 function _vibeRenderCommits(data) {
@@ -108,9 +203,9 @@ function _vibeRenderCommits(data) {
   if (!el) return;
   if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
   const commits = data.commits || [];
-  if (!commits.length) { el.innerHTML = '<span class="text-dimmer">No commits</span>'; return; }
+  if (!commits.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No commits</span>'; return; }
   el.innerHTML = commits.map((c, i) =>
-    `<div class="vibe-row vibe-selectable" data-pane="3" data-idx="${i}" onclick="_vibeSelectCommit(${i})"><span class="text-accent">${escapeHtml(c.hash)}</span> ${escapeHtml(c.subject)} <span class="text-dimmer">${escapeHtml(c.author)} ${escapeHtml(c.date)}</span></div>`
+    `<div class="vibe-row vibe-selectable" data-pane="3" data-idx="${i}" onclick="_vibeSelectCommit(${i})"><span class="text-yellow-400">\u25C6</span> <span class="text-accent">${escapeHtml(c.hash)}</span> <span class="text-dimmer">${escapeHtml(c.author.substring(0, 2).toUpperCase())}</span> \u25CB ${escapeHtml(c.subject)}</div>`
   ).join('');
 }
 
@@ -119,11 +214,13 @@ function _vibeRenderStash(data) {
   if (!el) return;
   if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
   const entries = data.entries || [];
-  if (!entries.length) { el.innerHTML = '<span class="text-dimmer">No stash entries</span>'; return; }
+  if (!entries.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No stash entries</span>'; return; }
   el.innerHTML = entries.map((s, i) =>
     `<div class="vibe-row vibe-selectable" data-pane="4" data-idx="${i}" onclick="_vibeSelectStash(${i})">${escapeHtml(s)}</div>`
   ).join('');
 }
+
+// ── Status helpers ──
 
 function _vibeColorStatus(line) {
   const code = line.substring(0, 2);
@@ -139,8 +236,10 @@ function _vibeColorStatus(line) {
 function _vibeFileStatusBadge(status) {
   const colors = { M: 'text-yellow-400', A: 'text-green-400', D: 'text-red-400', '?': 'text-green-400', R: 'text-blue-400', U: 'text-red-400' };
   const c = colors[status] || 'text-dimmer';
-  return `<span class="${c} inline-block w-4 text-center">${escapeHtml(status)}</span>`;
+  return `<span class="${c} inline-block w-4 text-center font-bold">${escapeHtml(status)}</span>`;
 }
+
+// ── Selection handlers ──
 
 async function _vibeSelectFile(idx) {
   _vibeSelectedIdx[1] = idx;
@@ -192,6 +291,8 @@ async function _vibeSelectStash(idx) {
   _vibeShowDetail('Stash: ' + ref, data.output || data.error || 'No data');
 }
 
+// ── Detail pane ──
+
 function _vibeShowDetail(title, content) {
   const header = document.querySelector('#vibe-pane-detail .vibe-pane-header');
   if (header) header.innerHTML = `<span class="vibe-pane-key">0</span> ${escapeHtml(title)}`;
@@ -206,17 +307,18 @@ function _vibeColorDiff(escaped) {
     if (line.startsWith('-') && !line.startsWith('---')) return `<span class="text-red-400">${line}</span>`;
     if (line.startsWith('@@')) return `<span class="text-blue-400">${line}</span>`;
     if (line.startsWith('diff ') || line.startsWith('index ')) return `<span class="text-dimmer">${line}</span>`;
+    if (line.startsWith('commit ')) return `<span class="text-accent">${line}</span>`;
+    if (line.startsWith('Author:') || line.startsWith('Date:')) return `<span class="text-dimmer">${line}</span>`;
     return line;
   }).join('\n');
 }
 
+// ── Active pane / selection ──
+
 function _vibeUpdateActivePane() {
   document.querySelectorAll('.vibe-pane').forEach(p => p.classList.remove('vibe-pane-active'));
-  const panes = document.querySelectorAll('.vibe-pane');
-  // Map activePane index to pane
   const paneIds = ['vibe-pane-status', 'vibe-pane-files', 'vibe-pane-branches', 'vibe-pane-commits', 'vibe-pane-stash', 'vibe-pane-detail'];
-  const activeId = paneIds[_vibeActivePane];
-  const activeEl = document.getElementById(activeId);
+  const activeEl = document.getElementById(paneIds[_vibeActivePane]);
   if (activeEl) activeEl.classList.add('vibe-pane-active');
 }
 
@@ -230,15 +332,17 @@ function _vibeUpdateSelection(paneIdx) {
   }
 }
 
+// ── Keyboard navigation (only when not focused on terminal) ──
+
 function _vibeKeyHandler(e) {
-  // Don't intercept if typing in an input
+  // Don't intercept if typing in an input or terminal
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
-  // Don't handle if we're not on the vibe view
+  if (e.target.closest('.xterm')) return;
   if (window.location.hash !== '#vibe') return;
 
   const paneCount = 6;
 
-  if (e.key === 'Tab') {
+  if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey) {
     e.preventDefault();
     _vibeActivePane = (_vibeActivePane + (e.shiftKey ? -1 : 1) + paneCount) % paneCount;
     _vibeUpdateActivePane();
@@ -247,7 +351,6 @@ function _vibeKeyHandler(e) {
   if (e.key >= '0' && e.key <= '5') {
     e.preventDefault();
     const n = parseInt(e.key);
-    // 1-5 map to left panes (0-4), 0 maps to detail (5)
     _vibeActivePane = n === 0 ? 5 : n - 1;
     _vibeUpdateActivePane();
     return;
@@ -276,7 +379,7 @@ function _vibeKeyHandler(e) {
 
 function _vibeMoveSelection(delta) {
   const pane = _vibeActivePane;
-  if (pane >= 5) return; // detail pane has no selection
+  if (pane >= 5) return;
   const rows = document.querySelectorAll(`.vibe-selectable[data-pane="${pane}"]`);
   if (!rows.length) return;
   let idx = (_vibeSelectedIdx[pane] || 0) + delta;

@@ -163,8 +163,20 @@ def _find_vault_note_by_id(user_vault, note_id):
     return None, None
 
 
+def _vibe_ensure_git(vault_path):
+    """Initialize a git repo in the vault if one doesn't exist."""
+    git_dir = os.path.join(vault_path, '.git')
+    if not os.path.isdir(git_dir):
+        subprocess.run(['git', 'init'], cwd=vault_path, capture_output=True, text=True, timeout=10)
+        subprocess.run(['git', 'add', '.'], cwd=vault_path, capture_output=True, text=True, timeout=10)
+        subprocess.run(['git', 'commit', '-m', 'Initial commit', '--allow-empty'],
+                       cwd=vault_path, capture_output=True, text=True, timeout=10)
+
+
 def _vibe_run_git(cmd, body, vault_path):
     """Run a read-only git command on the vault directory and return parsed results."""
+    _vibe_ensure_git(vault_path)
+
     def _run(args, max_output=50000):
         r = subprocess.run(['git'] + args, cwd=vault_path, capture_output=True, text=True, timeout=10)
         out = r.stdout[:max_output] if r.stdout else ''
