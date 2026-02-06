@@ -163,6 +163,102 @@ def _find_vault_note_by_id(user_vault, note_id):
     return None, None
 
 
+def _vibe_run_git(cmd, body, vault_path):
+    """Run a read-only git command on the vault directory and return parsed results."""
+    def _run(args, max_output=50000):
+        r = subprocess.run(['git'] + args, cwd=vault_path, capture_output=True, text=True, timeout=10)
+        out = r.stdout[:max_output] if r.stdout else ''
+        if r.returncode != 0 and r.stderr:
+            return {'error': r.stderr[:2000]}
+        return out
+
+    if cmd == 'status':
+        out = _run(['status', '--porcelain', '-b'])
+        if isinstance(out, dict): return out
+        return {'output': out}
+
+    elif cmd == 'files':
+        out = _run(['status', '--porcelain'])
+        if isinstance(out, dict): return out
+        files = []
+        for line in out.strip().split('\n'):
+            if not line: continue
+            status = line[:2].strip()
+            path = line[3:]
+            files.append({'status': status, 'path': path})
+        return {'files': files}
+
+    elif cmd == 'branches':
+        out = _run(['branch', '-a', '--format=%(HEAD)%(refname:short)\t%(upstream:track)\t%(objectname:short)\t%(committerdate:relative)'])
+        if isinstance(out, dict): return out
+        branches = []
+        for line in out.strip().split('\n'):
+            if not line: continue
+            current = line.startswith('*')
+            parts = line.lstrip('* ').split('\t')
+            name = parts[0] if parts else ''
+            track = parts[1] if len(parts) > 1 else ''
+            hash_ = parts[2] if len(parts) > 2 else ''
+            date = parts[3] if len(parts) > 3 else ''
+            branches.append({'name': name, 'current': current, 'track': track, 'hash': hash_, 'date': date})
+        return {'branches': branches}
+
+    elif cmd == 'log':
+        branch = body.get('branch', '')
+        args = ['log', '--oneline', '--graph', '-50', '--format=%h\t%s\t%an\t%ar']
+        if branch:
+            args.append(branch)
+        out = _run(args)
+        if isinstance(out, dict): return out
+        commits = []
+        for line in out.strip().split('\n'):
+            if not line: continue
+            parts = line.split('\t')
+            if len(parts) >= 4:
+                commits.append({'hash': parts[0].strip('* |/\\'), 'subject': parts[1], 'author': parts[2], 'date': parts[3]})
+        return {'commits': commits}
+
+    elif cmd == 'stash':
+        out = _run(['stash', 'list'])
+        if isinstance(out, dict): return out
+        entries = [l for l in out.strip().split('\n') if l]
+        return {'entries': entries}
+
+    elif cmd == 'diff':
+        file_ = body.get('file', '')
+        args = ['diff']
+        if file_:
+            args.append('--')
+            args.append(file_)
+        out = _run(args)
+        if isinstance(out, dict): return out
+        # Also check staged diff
+        staged = _run(['diff', '--cached'] + (['--', file_] if file_ else []))
+        if isinstance(staged, dict): staged = ''
+        combined = ''
+        if staged: combined += '=== Staged ===\n' + staged + '\n'
+        if out: combined += '=== Unstaged ===\n' + out
+        if not combined: combined = 'No changes'
+        return {'output': combined}
+
+    elif cmd == 'show':
+        ref = body.get('ref', 'HEAD')
+        # Sanitize ref: only allow safe characters
+        if not re.match(r'^[a-zA-Z0-9_./@{}\-]+$', ref):
+            return {'error': 'Invalid ref'}
+        out = _run(['show', '--stat', '--patch', ref])
+        if isinstance(out, dict): return out
+        return {'output': out}
+
+    elif cmd == 'reflog':
+        out = _run(['reflog', '--format=%h\t%gd\t%gs\t%ar', '-50'])
+        if isinstance(out, dict): return out
+        entries = [l for l in out.strip().split('\n') if l]
+        return {'entries': entries}
+
+    return {'error': 'Unknown command'}
+
+
 def _get_user_vault_path(google_id):
     """Get the vault path for a user, checking for custom path first."""
     # Check for custom vault path in user data
@@ -4100,6 +4196,27 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not allowed or circular reference'}, 403)
+            return
+
+        # ── Vibe: Git dashboard ──
+        elif self.path == '/api/vibe/git':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            cmd = body.get('cmd', '')
+            user_vault = _get_user_vault_path(google_id)
+            # Only allow read-only git commands
+            ALLOWED = {'status', 'files', 'branches', 'log', 'stash', 'diff', 'show', 'reflog'}
+            if cmd not in ALLOWED:
+                self._send_json({'error': 'Command not allowed'}, 400)
+                return
+            try:
+                result = _vibe_run_git(cmd, body, user_vault)
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
             return
 
         else:

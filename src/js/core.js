@@ -665,6 +665,7 @@ const VIEW_REGISTRY = {
   'teams-view':          { template: '/views/teams.html',     tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
+  'vibe-view':           { template: '/views/vibe.html',     tier: 2 },
 };
 
 async function ensureView(viewId) {
@@ -713,6 +714,7 @@ function hideAllViews() {
   if (typeof _spinnerPreviewInterval !== 'undefined' && _spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; }
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
+  if (typeof _vibeCleanup === 'function') _vibeCleanup();
   // Reset vault icon to closed
   setVaultIconOpen(false);
 }
@@ -977,6 +979,7 @@ else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#terminal') openTerminal();
   else if (hash === '#neuralook') openNeuralook();
   else if (hash === '#dev') openDevStats();
+  else if (hash === '#vibe') openVibe();
   else if (hash === '#feed') goHome();
   else if (hash.startsWith('#experiment/')) {
     const expPart = hash.slice('#experiment/'.length);

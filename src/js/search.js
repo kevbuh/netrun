@@ -643,15 +643,19 @@ function browseNewTab(url) {
   }
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank };
-  win.tabs.push(tab);
+  const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
+  if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
+  else win.tabs.push(tab);
   if (el) _browseBindFrame(tab);
 
   browseSelectTab(id);
   _browseSaveTabs();
-  setTimeout(() => {
-    const urlInput = document.getElementById('browse-url-input');
-    if (urlInput) { urlInput.focus(); urlInput.select(); }
-  }, 50);
+  if (isBlank) {
+    setTimeout(() => {
+      const urlInput = document.getElementById('browse-url-input');
+      if (urlInput) { urlInput.focus(); urlInput.select(); }
+    }, 50);
+  }
 }
 
 function browseNewPaperTab(url, paper) {
@@ -673,7 +677,9 @@ function browseNewPaperTab(url, paper) {
   const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
                 paper, contentType: (arxivId || isUpload) ? 'pdf' : 'reader', arxivId: arxivId || null };
   if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
-  win.tabs.push(tab);
+  const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
+  if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
+  else win.tabs.push(tab);
   browseSelectTab(id);
   _browseSaveTabs();
 }

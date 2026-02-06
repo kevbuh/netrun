@@ -5953,3 +5953,23 @@
     .dev-stat-label { font-size: 0.72rem; color: var(--text-dimmer); margin-top: 4px; }
     .dev-loc-chart { margin-top: 16px; }
 
+    /* Vibe Panel (lazygit-style) */
+    .vibe-container { display: grid; grid-template-columns: 40% 60%; grid-template-rows: 1fr auto; height: 100vh; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.78rem; }
+    .vibe-left { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border-card); }
+    .vibe-right { overflow: hidden; display: flex; flex-direction: column; }
+    .vibe-cmdlog { grid-column: 1 / -1; border-top: 1px solid var(--border-card); max-height: 80px; overflow: hidden; }
+    .vibe-cmdlog-content { padding: 2px 8px; font-size: 0.7rem; line-height: 1.4; overflow-y: auto; max-height: 60px; }
+    .vibe-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; border-bottom: 1px solid var(--border-card); }
+    .vibe-pane:last-child { border-bottom: none; }
+    .vibe-detail-pane { flex: 1; border-bottom: none; }
+    .vibe-pane-header { padding: 3px 8px; font-size: 0.72rem; font-weight: 600; color: var(--text-dimmer); border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+    .vibe-pane-key { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; border-radius: 3px; background: var(--bg-hover); color: var(--text-muted); font-size: 0.65rem; margin-right: 4px; }
+    .vibe-pane-body { flex: 1; overflow-y: auto; padding: 2px 0; }
+    .vibe-pane-active { outline: 1px solid var(--accent); outline-offset: -1px; }
+    .vibe-pane-active .vibe-pane-header { color: var(--accent); }
+    .vibe-row { padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; cursor: default; }
+    .vibe-selectable:hover { background: var(--bg-hover); }
+    .vibe-row-selected { background: color-mix(in srgb, var(--accent) 18%, transparent) !important; }
+    .vibe-status-branch { padding: 1px 8px; color: var(--accent); font-weight: 600; }
+    .vibe-detail-pre { white-space: pre; margin: 0; padding: 4px 8px; font-size: 0.75rem; line-height: 1.5; }
+

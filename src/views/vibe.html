@@ -1,0 +1,37 @@
+<div class="vibe-container">
+  <!-- Left column: stacked panes -->
+  <div class="vibe-left">
+    <div class="vibe-pane" id="vibe-pane-status" data-pane="0">
+      <div class="vibe-pane-header"><span class="vibe-pane-key">1</span> Status</div>
+      <div class="vibe-pane-body" id="vibe-status-body"></div>
+    </div>
+    <div class="vibe-pane" id="vibe-pane-files" data-pane="1">
+      <div class="vibe-pane-header"><span class="vibe-pane-key">2</span> Files</div>
+      <div class="vibe-pane-body" id="vibe-files-body"></div>
+    </div>
+    <div class="vibe-pane" id="vibe-pane-branches" data-pane="2">
+      <div class="vibe-pane-header"><span class="vibe-pane-key">3</span> Branches</div>
+      <div class="vibe-pane-body" id="vibe-branches-body"></div>
+    </div>
+    <div class="vibe-pane" id="vibe-pane-commits" data-pane="3">
+      <div class="vibe-pane-header"><span class="vibe-pane-key">4</span> Commits</div>
+      <div class="vibe-pane-body" id="vibe-commits-body"></div>
+    </div>
+    <div class="vibe-pane" id="vibe-pane-stash" data-pane="4">
+      <div class="vibe-pane-header"><span class="vibe-pane-key">5</span> Stash</div>
+      <div class="vibe-pane-body" id="vibe-stash-body"></div>
+    </div>
+  </div>
+  <!-- Right column: detail/log view -->
+  <div class="vibe-right">
+    <div class="vibe-pane vibe-detail-pane" id="vibe-pane-detail" data-pane="5">
+      <div class="vibe-pane-header"><span class="vibe-pane-key">0</span> Detail</div>
+      <div class="vibe-pane-body" id="vibe-detail-body"><span class="text-dimmer">Select a file, commit, or branch to view details</span></div>
+    </div>
+  </div>
+  <!-- Bottom: command log -->
+  <div class="vibe-cmdlog">
+    <div class="vibe-pane-header" style="border-bottom:none;padding:2px 8px;font-size:0.68rem;">Command Log</div>
+    <div id="vibe-cmdlog-body" class="vibe-cmdlog-content"></div>
+  </div>
+</div>
