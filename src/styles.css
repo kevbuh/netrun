@@ -744,7 +744,7 @@
       white-space: nowrap;
       overflow: hidden;
       transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-      flex: 0 1 auto;
+      flex: 1 1 0;
     }
     .browse-tab:hover {
       background: var(--bg-hover);
@@ -754,8 +754,6 @@
       background: var(--bg-card);
       color: var(--text-primary);
       box-shadow: inset 0 0 0 1px var(--border-card), 0 1px 4px rgba(0,0,0,.15);
-      flex: 0 1 auto;
-      max-width: 240px;
     }
     /* Tab bar focused state - shows arrow key navigation is active */
     #browse-tabs.tab-bar-focused .browse-tab.active {
