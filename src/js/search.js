@@ -312,6 +312,7 @@ function _browseSaveTabs() {
     activeTab: w.activeTab,
     tabs: w.tabs.map(t => {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
+      if (t._historyPage) saved._historyPage = true;
       if (t.paper) { saved.paper = t.paper; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null; }
       return saved;
     })
@@ -351,6 +352,12 @@ function _browseRestoreTabs() {
         for (const saved of savedWin.tabs) {
           if (saved.blank) {
             const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
+            win.tabs.push(tab);
+            continue;
+          }
+          // History page tab — restore as special tab (content renders on select)
+          if (saved._historyPage) {
+            const tab = { id: saved.id, url: '', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
             win.tabs.push(tab);
             continue;
           }
@@ -1485,11 +1492,22 @@ function browseSelectTab(id) {
     tab.deferred = false;
   }
 
+  // Restore history page tab if needed
+  if (tab && tab._historyPage && !tab.el) {
+    const container = document.getElementById('browse-content');
+    const el = document.createElement('div');
+    el.id = 'browse-history-' + tab.id;
+    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+    container.appendChild(el);
+    tab.el = el;
+    _renderWebSearchHistoryPage(el);
+  }
+
   win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = tab ? tab.url : '';
+  if (urlInput) urlInput.value = tab ? (tab._historyPage ? '/history' : tab.url) : '';
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -3462,8 +3480,16 @@ function toggleBrowseMoreMenu() {
     if (!el) return;
     const label = (el.title || (el.querySelector('[title]') || {}).title || id).replace('browse-', '').replace('-btn', '');
     const svgEl = el.querySelector('svg');
-    const icon = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
-    overflowRows += `<button onclick="removeFromBarOverflow('${id}');toggleBrowseMoreMenu();" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
+    let icon = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
+
+    // Bookmark button: toggle in-place instead of removing from overflow
+    if (id === 'browse-save-btn') {
+      const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
+      icon = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
+      overflowRows += `<button data-overflow-id="${id}" onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
+    } else {
+      overflowRows += `<button data-overflow-id="${id}" onclick="removeFromBarOverflow('${id}');toggleBrowseMoreMenu();" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
+    }
   });
   const overflowSep = overflowRows ? '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>' : '';
 
@@ -3490,6 +3516,9 @@ function toggleBrowseMoreMenu() {
   </div>`;
   dd.style.display = '';
 
+  // Set up long-press drag on overflow items to drag back to bar
+  _setupOverflowDrag(dd);
+
   setTimeout(() => {
     const handler = (e) => {
       if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleBrowseMoreMenu"]')) {
@@ -3499,6 +3528,113 @@ function toggleBrowseMoreMenu() {
     };
     document.addEventListener('mousedown', handler);
   }, 0);
+}
+
+// Refresh bookmark button appearance in the overflow menu after toggling
+function _refreshOverflowBookmark(btn) {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
+  const svg = btn.querySelector('svg');
+  if (svg) {
+    svg.setAttribute('fill', isSaved ? 'var(--accent)' : 'none');
+    svg.setAttribute('stroke', isSaved ? 'var(--accent)' : 'currentColor');
+  }
+  // Update the label text
+  const textNode = Array.from(btn.childNodes).find(n => n.nodeType === 3 && n.textContent.trim());
+  if (textNode) textNode.textContent = ' ' + (isSaved ? 'Saved' : 'Save to Reading List');
+}
+
+// Long-press on overflow menu items to drag them back to the browse bar
+function _setupOverflowDrag(dd) {
+  let holdTimer = null;
+  let dragGhost = null;
+  let dragId = null;
+  let dragBtn = null;
+
+  function onPointerDown(e) {
+    const btn = e.target.closest('[data-overflow-id]');
+    if (!btn) return;
+    const id = btn.dataset.overflowId;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      dragId = id;
+      dragBtn = btn;
+      // Prevent the click from firing
+      btn.style.opacity = '0.4';
+      // Create floating ghost
+      dragGhost = btn.cloneNode(true);
+      dragGhost.style.cssText = 'position:fixed;z-index:100000;pointer-events:none;padding:6px 12px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);font-size:0.78rem;display:flex;align-items:center;gap:8px;opacity:0.9;color:var(--text-primary);white-space:nowrap;';
+      dragGhost.style.left = (e.clientX - 40) + 'px';
+      dragGhost.style.top = (e.clientY - 14) + 'px';
+      document.body.appendChild(dragGhost);
+      // Suppress click after drag
+      btn.addEventListener('click', suppressClick, { capture: true, once: true });
+    }, 400);
+  }
+
+  function suppressClick(e) { e.stopPropagation(); e.preventDefault(); }
+
+  function onPointerMove(e) {
+    if (holdTimer && (Math.abs(e.movementX) > 3 || Math.abs(e.movementY) > 3)) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+    if (!dragGhost) return;
+    dragGhost.style.left = (e.clientX - 40) + 'px';
+    dragGhost.style.top = (e.clientY - 14) + 'px';
+    // Highlight browse bar when hovering over it
+    const bar = document.getElementById('browse-bar');
+    if (bar) {
+      const r = bar.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        bar.style.outline = '2px solid var(--accent)';
+        bar.style.outlineOffset = '-2px';
+      } else {
+        bar.style.outline = '';
+        bar.style.outlineOffset = '';
+      }
+    }
+  }
+
+  function onPointerUp(e) {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; return; }
+    if (!dragGhost || !dragId) return;
+    const bar = document.getElementById('browse-bar');
+    let dropped = false;
+    if (bar) {
+      const r = bar.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        dropped = true;
+      }
+      bar.style.outline = '';
+      bar.style.outlineOffset = '';
+    }
+    dragGhost.remove();
+    dragGhost = null;
+    if (dragBtn) dragBtn.style.opacity = '';
+    if (dropped) {
+      removeFromBarOverflow(dragId);
+      // Close the menu
+      dd.style.display = 'none';
+    }
+    dragId = null;
+    dragBtn = null;
+  }
+
+  dd.addEventListener('pointerdown', onPointerDown);
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
+  // Clean up when menu hides
+  const obs = new MutationObserver(() => {
+    if (dd.style.display === 'none') {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+      obs.disconnect();
+    }
+  });
+  obs.observe(dd, { attributes: true, attributeFilter: ['style'] });
 }
 
 function browsePrintPage() {
@@ -3735,6 +3871,12 @@ function _browseUrlShowHistory() {
   if (!input || !dd) return;
   const filter = (input.value || '').trim().toLowerCase();
 
+  // /history command — show browsing history in the dropdown
+  if (filter === '/history') {
+    _browseUrlRenderHistoryCommand(dd, input);
+    return;
+  }
+
   // Search history matches
   const hist = _getWebSearchHistory();
   const filteredHist = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
@@ -3754,6 +3896,45 @@ function _browseUrlShowHistory() {
   }
 
   _browseUrlRenderDropdown(dd, input, projects, showHist, filter);
+}
+
+function _browseUrlRenderHistoryCommand(dd, input) {
+  const hist = _getBrowseHistory().slice(0, 20);
+  _browseUrlHistIdx = -1;
+  _browseUrlOriginalInput = '/history';
+
+  const rect = input.getBoundingClientRect();
+  dd.style.left = rect.left + 'px';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.width = rect.width + 'px';
+
+  if (!hist.length) {
+    dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--text-dim);text-align:center;">No browsing history</div>';
+    dd.style.display = '';
+    return;
+  }
+
+  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
+  const hoverOn = "this.style.background='var(--bg-hover)'";
+  const hoverOff = "if(this.dataset.idx!=window._browseUrlHistIdx)this.style.background='none'";
+
+  let html = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+  html += hist.map((h, i) => {
+    const favicon = _browseFaviconUrl(h.url);
+    let domain = '';
+    try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
+    const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
+    const time = _relativeTime(h.ts);
+    return `<div data-idx="${i}" data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
+      <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</span>
+      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+    </div>`;
+  }).join('');
+
+  dd.innerHTML = html;
+  dd.style.display = '';
 }
 
 function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
