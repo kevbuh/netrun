@@ -2888,53 +2888,75 @@ function _browseCloseFindBar() {
   if (bar) bar.remove();
 }
 
-// ── Pinch-to-magnify (Apple-like) ─────────────────────────────────
-// Trackpad pinch → temporary magnification centered on cursor.
-// Release (or Escape) → smoothly snaps back to 1×.
-// Cmd+/– keyboard zoom in browse view remains persistent (see below).
+// ── Pinch-to-magnify (Apple-like) — browse iframe only ────────────
+// Trackpad pinch over the browse view → temporary magnification of
+// the active iframe, centered on cursor. Release → snaps back to 1×.
 
 let _magnifyZoom = 1;
 let _magnifyX = 0;
 let _magnifyY = 0;
 let _magnifyGestureStart = 1;
 let _magnifySnapTimer = null;
+let _magnifyEl = null;
 
 document.addEventListener('mousemove', function(e) {
   _magnifyX = e.clientX;
   _magnifyY = e.clientY;
 }, { passive: true });
 
+function _magnifyTarget() {
+  var bv = document.getElementById('browse-view');
+  if (!bv || bv.style.display === 'none') return null;
+  return _browseActiveEl();
+}
+
 function _magnifyApply() {
+  var el = _magnifyEl;
+  if (!el) return;
+  var container = document.getElementById('browse-content');
+  if (!container) return;
+
   if (_magnifyZoom <= 1.005) {
-    document.body.style.transform = '';
-    document.body.style.transformOrigin = '';
-    document.documentElement.style.overflow = '';
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+    container.style.overflow = '';
     return;
   }
-  document.body.style.transformOrigin = _magnifyX + 'px ' + _magnifyY + 'px';
-  document.body.style.transform = 'scale(' + _magnifyZoom + ')';
-  document.documentElement.style.overflow = 'hidden';
+  var rect = container.getBoundingClientRect();
+  var fx = _magnifyX - rect.left;
+  var fy = _magnifyY - rect.top;
+  el.style.transformOrigin = fx + 'px ' + fy + 'px';
+  el.style.transform = 'scale(' + _magnifyZoom + ')';
+  container.style.overflow = 'hidden';
 }
 
 function _magnifySnapBack() {
   clearTimeout(_magnifySnapTimer);
   _magnifyZoom = 1;
-  document.body.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
-  document.body.style.transform = '';
-  document.documentElement.style.overflow = '';
-  setTimeout(function() {
-    document.body.style.transition = '';
-    document.body.style.transformOrigin = '';
-  }, 360);
+  var el = _magnifyEl;
+  if (el) {
+    el.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+    el.style.transform = '';
+    var container = document.getElementById('browse-content');
+    if (container) container.style.overflow = '';
+    setTimeout(function() {
+      el.style.transition = '';
+      el.style.transformOrigin = '';
+    }, 360);
+  }
+  _magnifyEl = null;
 }
 
 // Chrome/Firefox: trackpad pinch fires wheel with ctrlKey
 document.addEventListener('wheel', function(e) {
   if (!e.ctrlKey) return;
+  var target = _magnifyTarget();
+  if (!target) return;
   e.preventDefault();
   e.stopPropagation();
+  _magnifyEl = target;
   clearTimeout(_magnifySnapTimer);
-  document.body.style.transition = '';
+  target.style.transition = '';
   var delta = -e.deltaY * 0.01;
   _magnifyZoom = Math.min(5, Math.max(1, _magnifyZoom + delta));
   _magnifyApply();
@@ -2944,19 +2966,24 @@ document.addEventListener('wheel', function(e) {
 
 // Safari: native gesture events
 document.addEventListener('gesturestart', function(e) {
+  var target = _magnifyTarget();
+  if (!target) return;
   e.preventDefault();
+  _magnifyEl = target;
   _magnifyGestureStart = _magnifyZoom || 1;
   clearTimeout(_magnifySnapTimer);
-  document.body.style.transition = '';
+  target.style.transition = '';
 }, { passive: false, capture: true });
 
 document.addEventListener('gesturechange', function(e) {
+  if (!_magnifyEl) return;
   e.preventDefault();
   _magnifyZoom = Math.min(5, Math.max(1, _magnifyGestureStart * e.scale));
   _magnifyApply();
 }, { passive: false, capture: true });
 
 document.addEventListener('gestureend', function(e) {
+  if (!_magnifyEl) return;
   e.preventDefault();
   _magnifySnapTimer = setTimeout(_magnifySnapBack, 200);
 }, { passive: false, capture: true });

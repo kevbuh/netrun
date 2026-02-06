@@ -3784,9 +3784,12 @@ function _handleContextMenuChat(e) {
   const browseContent = e.target.closest('#browse-content');
   if (browseContent && (e.target.tagName === 'IFRAME' || e.target.tagName === 'WEBVIEW')) return;
   e.preventDefault();
+  // Capture the previously focused editable element before panel steals focus
+  const active = document.activeElement;
+  const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
   // _showPanel handles retiring pinned panels
   if (popup) { popup.remove(); _lookupTrackMode = false; }
-  _showPanel({ anchor: { x: e.clientX, y: e.clientY } });
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable });
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
@@ -5449,8 +5452,9 @@ function _showPanel(config) {
     popup.appendChild(editCtx);
   }
 
-  // ── Paste into chat input (general right-click, no editable target) ──
+  // ── Paste into nearby editable or chat input (general right-click) ──
   if (!editableTarget && !hasContext && !capturedText) {
+    const priorEditable = config.priorEditable || null;
     const pasteCtx = document.createElement('div');
     pasteCtx.className = 'doc-lookup-context-items';
     const pasteItem = document.createElement('div');
@@ -5461,8 +5465,23 @@ function _showPanel(config) {
       ev.stopPropagation(); ev.preventDefault();
       navigator.clipboard.readText().then(text => {
         if (!text) return;
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) { input.value = text; input.focus(); }
+        if (priorEditable && priorEditable.isConnected) {
+          priorEditable.focus();
+          if (priorEditable.isContentEditable) {
+            document.execCommand('insertText', false, text);
+          } else {
+            const start = priorEditable.selectionStart || 0;
+            const end = priorEditable.selectionEnd || 0;
+            const val = priorEditable.value || '';
+            priorEditable.value = val.slice(0, start) + text + val.slice(end);
+            priorEditable.selectionStart = priorEditable.selectionEnd = start + text.length;
+            priorEditable.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          popup.remove();
+        } else {
+          const input = popup.querySelector('.doc-ask-inline-input');
+          if (input) { input.value = text; input.focus(); }
+        }
       }).catch(() => {});
     });
     pasteCtx.appendChild(pasteItem);
