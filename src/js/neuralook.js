@@ -347,6 +347,12 @@ function _nlRenderTrainDetailView(container) {
   _nlDrawTrainLossGraph();
 }
 
+function _nlRefreshWandbLink() {
+  const el = document.getElementById('nl-wandb-link');
+  if (!el || !_nlWandbUrl) return;
+  el.innerHTML = `<a href="${_nlWandbUrl}" target="_blank" class="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-input text-[0.75rem] text-muted hover:text-accent hover:border-accent transition-colors no-underline" title="Open in Weights & Biases"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>W&B</a>`;
+}
+
 function _nlAppendTrainLog(line) {
   const logEl = document.getElementById('nl-train-log');
   if (!logEl) return;
@@ -1060,6 +1066,7 @@ async function _nlOnCalibrationComplete() {
   _nlTrainResult = null;
   _nlTrainLossHistory = [];
   _nlTrainLogs = [];
+  _nlWandbUrl = null;
   _nlTrainStartTime = Date.now();
   _nlShowTrainPill();
   renderNeuralookView();

@@ -2144,17 +2144,23 @@ ch.postMessage({type:'preview-ready'});
                 return
             audio_data = self.rfile.read(length)
             try:
-                import whisper
+                from pywhispercpp.model import Model as WhisperModel
                 global _whisper_model
-                if '_whisper_model' not in globals() or _whisper_model is None:
-                    _whisper_model = whisper.load_model('tiny')
-                # Write to temp file — whisper needs a file path
-                tmp = os.path.join(tempfile.gettempdir(), f'whisper_{uuid.uuid4().hex}.webm')
-                with open(tmp, 'wb') as f:
+                if _whisper_model is None:
+                    _whisper_model = WhisperModel('tiny')
+                # Save webm, convert to 16kHz mono wav via ffmpeg
+                uid = uuid.uuid4().hex
+                tmp_webm = os.path.join(tempfile.gettempdir(), f'whisper_{uid}.webm')
+                tmp_wav = os.path.join(tempfile.gettempdir(), f'whisper_{uid}.wav')
+                with open(tmp_webm, 'wb') as f:
                     f.write(audio_data)
-                result = _whisper_model.transcribe(tmp, fp16=False)
-                os.remove(tmp)
-                self._send_json({'text': result.get('text', '').strip()})
+                subprocess.run(['ffmpeg', '-y', '-i', tmp_webm, '-ar', '16000', '-ac', '1', '-f', 'wav', tmp_wav],
+                               capture_output=True, timeout=30)
+                segments = _whisper_model.transcribe(tmp_wav)
+                text = ' '.join(seg.text.strip() for seg in segments).strip()
+                os.remove(tmp_webm)
+                os.remove(tmp_wav)
+                self._send_json({'text': text})
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
             return

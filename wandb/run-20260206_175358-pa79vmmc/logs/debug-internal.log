@@ -1,0 +1,6 @@
+{"time":"2026-02-06T17:53:59.484328Z","level":"INFO","msg":"stream: starting","core version":"0.24.2"}
+{"time":"2026-02-06T17:53:59.930126Z","level":"INFO","msg":"stream: created new stream","id":"pa79vmmc"}
+{"time":"2026-02-06T17:53:59.93023Z","level":"INFO","msg":"handler: started","stream_id":"pa79vmmc"}
+{"time":"2026-02-06T17:53:59.930489Z","level":"INFO","msg":"stream: started","id":"pa79vmmc"}
+{"time":"2026-02-06T17:53:59.930514Z","level":"INFO","msg":"sender: started","stream_id":"pa79vmmc"}
+{"time":"2026-02-06T17:53:59.930483Z","level":"INFO","msg":"writer: started","stream_id":"pa79vmmc"}
