@@ -150,6 +150,17 @@ function _browseUrlShowHistory() {
   let showHist = filteredHist.slice(0, 8);
   if (showHist.length === 1 && showHist[0].q.toLowerCase() === filter) showHist = [];
 
+  // Browsing history matches
+  const browseHist = _getBrowseHistory();
+  const filteredBrowse = filter ? browseHist.filter(h => {
+    const t = (h.title || '').toLowerCase();
+    const u = (h.url || '').toLowerCase();
+    return t.includes(filter) || u.includes(filter);
+  }) : browseHist;
+  let showBrowse = filteredBrowse.slice(0, filter ? 6 : 4);
+  // Don't show if exact URL match
+  if (showBrowse.length === 1 && showBrowse[0].url.toLowerCase() === filter) showBrowse = [];
+
   // Project matches (only when there's a filter)
   const projects = (filter && typeof allExperiments !== 'undefined') ?
     allExperiments.filter(exp => exp.title.toLowerCase().includes(filter) || (exp.desc || '').toLowerCase().includes(filter)).slice(0, 5) : [];
@@ -173,7 +184,7 @@ function _browseUrlShowHistory() {
   // Kick off instant answers (math, color, conversion, weather, timezone, sports, stocks)
   _computeInstantAnswer(filter);
 
-  _browseUrlRenderDropdown(dd, input, projects, showHist, filter);
+  _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse);
 }
 
 function _browseUrlRenderHistoryCommand(dd, input) {
@@ -215,13 +226,14 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   dd.style.display = '';
 }
 
-function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
+function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse) {
+  showBrowse = showBrowse || [];
   const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
   const hasInstant = _instantAnswer && _instantAnswer.html;
 
   const showLucky = !filter;
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky) { dd.style.display = 'none'; return; }
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) { dd.style.display = 'none'; return; }
 
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
@@ -252,6 +264,24 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
       </span>
       ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
     </div>`;
+  }
+
+  // Browsing history section (visited sites)
+  if (showBrowse.length) {
+    if (showLucky) html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
+    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+    html += showBrowse.map(h => {
+      const favicon = _browseFaviconUrl(h.url);
+      let domain = '';
+      try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
+      const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
+      const displayTitle = escapeHtml(h.title || domain);
+      return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
+        <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
+        <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+      </div>`;
+    }).join('');
   }
 
   // Definition section for single-word searches

@@ -1,3 +1,30 @@
+// ── Link hover preview (bottom-left status bar) ──
+(function() {
+  var el, hideTimer;
+  function show(url) {
+    if (!el) el = document.getElementById('link-hover-preview');
+    if (!el) return;
+    clearTimeout(hideTimer);
+    el.textContent = url;
+    el.classList.add('visible');
+  }
+  function hide() {
+    if (!el) return;
+    hideTimer = setTimeout(function() { el.classList.remove('visible'); }, 80);
+  }
+  document.addEventListener('mouseover', function(e) {
+    var a = e.target.closest('a[href]');
+    if (a) {
+      var h = a.href || a.getAttribute('href');
+      if (h && h !== '#' && !h.startsWith('javascript:')) show(h);
+    } else hide();
+  });
+  document.addEventListener('mouseout', function(e) {
+    var a = e.target.closest('a[href]');
+    if (a) hide();
+  });
+})();
+
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the sidebar, tab row, URL bar, and macOS traffic lights.
