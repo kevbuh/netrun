@@ -2570,6 +2570,7 @@
       max-width: 85%;
       word-break: break-word;
       line-height: 1.5;
+      position: relative;
     }
     .doc-msg-ai p { margin: 0.3em 0; }
     .doc-msg-ai code { background: rgba(255,255,255,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
@@ -2620,6 +2621,54 @@
     }
     .doc-chat-input-row button:hover { background: var(--accent-hover); }
     .doc-chat-input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Chat branch button */
+    .chat-branch-btn {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+      padding: 2px 6px;
+      border-radius: 3px;
+      line-height: 1;
+    }
+    .doc-msg-ai:hover .chat-branch-btn { opacity: 0.6; }
+    .chat-branch-btn:hover { opacity: 1 !important; background: var(--bg-hover, rgba(128,128,128,0.12)); }
+
+    /* Chat clear button */
+    .chat-clear-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      cursor: pointer;
+      padding: 2px 4px;
+      opacity: 0.5;
+      transition: opacity 0.15s;
+      margin-left: 4px;
+    }
+    .chat-clear-btn:hover { opacity: 1; }
+
+    /* Thread tree navigator */
+    #doc-chat-thread-nav {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-card);
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    #doc-chat-thread-nav.hidden { display: none; }
+    .thread-tree-svg {
+      display: block;
+    }
+    .thread-tree-svg .thread-node:hover { r: 6; }
+    .thread-tree-svg .thread-label:hover { fill: var(--accent) !important; }
+
     .doc-selection-popup {
       position: fixed;
       display: flex;

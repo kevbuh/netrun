@@ -4074,6 +4074,19 @@ function _clearWebSearchHistory() {
 function openSearchHistoryPage() {
   // Open as a blank-style tab in browse view
   if (typeof openBrowse === 'function') openBrowse();
+
+  // Reuse existing history tab if one exists
+  for (const w of _browseWindows) {
+    const existing = w.tabs.find(t => t._historyPage);
+    if (existing) {
+      if (w.id !== _browseActiveWindow) browseSelectWindow(w.id);
+      browseSelectTab(existing.id);
+      // Re-render to pick up new history entries
+      if (existing.el) _renderWebSearchHistoryPage(existing.el);
+      return;
+    }
+  }
+
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) return;
 

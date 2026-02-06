@@ -374,8 +374,10 @@ function _renderSidebarHTML(paper) {
         <span id="doc-chat-chevron">▾</span>
         <span>Chat</span>
         <span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span>
+        <button class="chat-clear-btn" onclick="event.stopPropagation(); _clearChatThreads(_chatUrl())" title="Clear chat history">🗑</button>
       </div>
       <div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
+        <div id="doc-chat-thread-nav" class="hidden"></div>
         <div class="doc-chat-status" id="doc-chat-status"></div>
         <div class="doc-chat-messages" id="doc-chat-messages"></div>
         <div class="doc-chat-input-row">
@@ -481,22 +483,23 @@ function _initSidebar(sidebarEl) {
 function _initSidebarForUrl(url) {
   _paperNoteLink = url;
   _docChatPaperUrl = url;
-  _docChatMessages = [];
+  const saved = _getActiveMessages(url);
+  _docChatMessages = saved.length ? saved : [];
   _docText = '';
   _docTextLoading = false;
-  _docChatExpanded = false;
+  _docChatExpanded = saved.length > 0;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _paperNoteSelected = null;
-  _paperInsightsLoaded = false; // Reset insights loaded flag for new paper
-  _insightsDataCache = null; // Clear cached insights data
+  _paperInsightsLoaded = false;
+  _insightsDataCache = null;
   _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
-  // Reset scroll positions for new paper
   _sidebarScrollPositions = {};
   fetchPaperNotes();
   fetchPaperComments();
-  // Restore saved sidebar tab
   const savedTab = localStorage.getItem('sidebarTab');
-  if (savedTab && ['insights', 'notes', 'chat', 'comments', 'terminal'].includes(savedTab)) {
+  if (saved.length) {
+    setTimeout(() => { switchSidebarTab('chat'); _renderThreadNav(); }, 0);
+  } else if (savedTab && ['insights', 'notes', 'chat', 'comments', 'terminal'].includes(savedTab)) {
     setTimeout(() => switchSidebarTab(savedTab), 0);
   }
 }
@@ -1663,6 +1666,254 @@ let _docChatAbort = null;
 let _docChatExpanded = false;
 let _docChatPaperUrl = '';
 
+// ── Chat Thread Persistence ──
+let _chatSaveTimer = null;
+
+function _getChatData(url) {
+  try {
+    const all = JSON.parse(localStorage.getItem('chatThreads') || '{}');
+    return all[url] || null;
+  } catch { return null; }
+}
+
+function _saveChatData(url, data) {
+  clearTimeout(_chatSaveTimer);
+  _chatSaveTimer = setTimeout(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem('chatThreads') || '{}');
+      all[url] = data;
+      localStorage.setItem('chatThreads', JSON.stringify(all));
+    } catch {}
+  }, 500);
+}
+
+function _saveChatDataImmediate(url, data) {
+  clearTimeout(_chatSaveTimer);
+  try {
+    const all = JSON.parse(localStorage.getItem('chatThreads') || '{}');
+    all[url] = data;
+    localStorage.setItem('chatThreads', JSON.stringify(all));
+  } catch {}
+}
+
+function _ensureChatData(url) {
+  let data = _getChatData(url);
+  if (!data) {
+    data = {
+      threads: {
+        root: { id: 'root', parentThreadId: null, branchAfterIndex: null, messages: [] }
+      },
+      activeThreadId: 'root'
+    };
+  }
+  return data;
+}
+
+function _getThreadChain(data, threadId) {
+  const thread = data.threads[threadId];
+  if (!thread) return [];
+  if (!thread.parentThreadId) return thread.messages.slice();
+  const parentMsgs = _getThreadChain(data, thread.parentThreadId);
+  const sliced = parentMsgs.slice(0, thread.branchAfterIndex + 1);
+  return sliced.concat(thread.messages);
+}
+
+function _getActiveMessages(url) {
+  const data = _getChatData(url);
+  if (!data) return [];
+  return _getThreadChain(data, data.activeThreadId);
+}
+
+function _appendToActiveThread(url, msg) {
+  const data = _ensureChatData(url);
+  const thread = data.threads[data.activeThreadId];
+  if (!thread) return;
+  thread.messages.push(msg);
+  _saveChatData(url, data);
+}
+
+function _branchAtMessage(url, displayIndex) {
+  const data = _ensureChatData(url);
+  const activeId = data.activeThreadId;
+  const newId = 't_' + Date.now();
+  data.threads[newId] = {
+    id: newId,
+    parentThreadId: activeId,
+    branchAfterIndex: displayIndex,
+    messages: []
+  };
+  data.activeThreadId = newId;
+  _saveChatDataImmediate(url, data);
+  return newId;
+}
+
+function _switchThread(url, threadId) {
+  const data = _ensureChatData(url);
+  if (!data.threads[threadId]) return;
+  data.activeThreadId = threadId;
+  _saveChatDataImmediate(url, data);
+  _docChatMessages = _getThreadChain(data, threadId);
+  renderDocChatMessages(true);
+  _renderThreadNav();
+}
+
+function _clearChatThreads(url) {
+  try {
+    const all = JSON.parse(localStorage.getItem('chatThreads') || '{}');
+    delete all[url];
+    localStorage.setItem('chatThreads', JSON.stringify(all));
+  } catch {}
+  _docChatMessages = [];
+  renderDocChatMessages(true);
+  _renderThreadNav();
+}
+
+function _getSiblingThreads(data, threadId) {
+  const thread = data.threads[threadId];
+  if (!thread || !thread.parentThreadId) return [];
+  return Object.values(data.threads).filter(t =>
+    t.parentThreadId === thread.parentThreadId &&
+    t.branchAfterIndex === thread.branchAfterIndex
+  );
+}
+
+function _buildThreadTree(data) {
+  // Build tree: each node = { thread, children: [] }
+  const nodes = {};
+  for (const t of Object.values(data.threads)) {
+    nodes[t.id] = { thread: t, children: [] };
+  }
+  const roots = [];
+  for (const n of Object.values(nodes)) {
+    const pid = n.thread.parentThreadId;
+    if (pid && nodes[pid]) nodes[pid].children.push(n);
+    else roots.push(n);
+  }
+  // Sort children by branch point, then creation time
+  for (const n of Object.values(nodes)) {
+    n.children.sort((a, b) => {
+      const ai = a.thread.branchAfterIndex || 0;
+      const bi = b.thread.branchAfterIndex || 0;
+      if (ai !== bi) return ai - bi;
+      return (a.thread.id > b.thread.id ? 1 : -1);
+    });
+  }
+  return roots;
+}
+
+function _renderThreadNav() {
+  const nav = document.getElementById('doc-chat-thread-nav');
+  if (!nav) return;
+  const url = _chatUrl();
+  const data = _getChatData(url);
+  if (!data || Object.keys(data.threads).length <= 1) {
+    nav.classList.add('hidden');
+    return;
+  }
+  nav.classList.remove('hidden');
+  const activeId = data.activeThreadId;
+  const roots = _buildThreadTree(data);
+  const escUrl = url.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
+
+  // Flatten tree into rows with column assignments for git-graph layout
+  const rows = [];
+  let nextCol = 0;
+  function walk(node, col, depth) {
+    const msgCount = node.thread.messages.length;
+    const label = node.thread.id === 'root' ? 'main' : 'branch';
+    const branchPt = node.thread.branchAfterIndex;
+    rows.push({ id: node.thread.id, label, col, depth, msgCount, branchPt, children: node.children.map(c => c.thread.id) });
+    // First child continues on same column, rest get new columns
+    for (let i = 0; i < node.children.length; i++) {
+      if (i === 0) {
+        walk(node.children[i], col, depth + 1);
+      } else {
+        nextCol++;
+        walk(node.children[i], nextCol, depth + 1);
+      }
+    }
+  }
+  for (const r of roots) { walk(r, nextCol, 0); nextCol++; }
+
+  const maxCol = Math.max(...rows.map(r => r.col));
+  const colW = 20;
+  const rowH = 28;
+  const svgW = (maxCol + 1) * colW + 80;
+  const svgH = rows.length * rowH + 8;
+  const nodeR = 4;
+
+  // Build row lookup
+  const rowById = {};
+  rows.forEach((r, i) => { r.rowIdx = i; rowById[r.id] = r; });
+
+  let svg = `<svg class="thread-tree-svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
+
+  // Draw connections
+  for (const row of rows) {
+    const x1 = row.col * colW + colW / 2 + 4;
+    const y1 = row.rowIdx * rowH + rowH / 2 + 4;
+    for (const cid of row.children) {
+      const child = rowById[cid];
+      if (!child) continue;
+      const x2 = child.col * colW + colW / 2 + 4;
+      const y2 = child.rowIdx * rowH + rowH / 2 + 4;
+      if (x1 === x2) {
+        // Straight vertical line
+        svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--text-dimmer)" stroke-width="1.5"/>`;
+      } else {
+        // Curved branch line
+        const midY = y1 + (y2 - y1) * 0.4;
+        svg += `<path d="M${x1},${y1} L${x1},${midY} Q${x1},${y2} ${x2},${y2}" fill="none" stroke="var(--text-dimmer)" stroke-width="1.5"/>`;
+      }
+    }
+  }
+
+  // Draw nodes and labels
+  for (const row of rows) {
+    const x = row.col * colW + colW / 2 + 4;
+    const y = row.rowIdx * rowH + rowH / 2 + 4;
+    const isActive = row.id === activeId;
+    const fill = isActive ? 'var(--accent)' : 'var(--text-dim)';
+    const r = isActive ? nodeR + 1 : nodeR;
+    svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" class="thread-node" data-id="${row.id}" style="cursor:pointer"/>`;
+    // Label
+    const labelX = (maxCol + 1) * colW + 10;
+    const countStr = row.msgCount > 0 ? ` (${row.msgCount} msg${row.msgCount !== 1 ? 's' : ''})` : ' (empty)';
+    const textFill = isActive ? 'var(--accent)' : 'var(--text-dim)';
+    const fw = isActive ? 'bold' : 'normal';
+    svg += `<text x="${labelX}" y="${y + 4}" fill="${textFill}" font-size="11" font-weight="${fw}" class="thread-label" data-id="${row.id}" style="cursor:pointer">${row.label}${countStr}</text>`;
+  }
+
+  svg += '</svg>';
+  nav.innerHTML = svg;
+
+  // Click handlers
+  nav.querySelectorAll('.thread-node, .thread-label').forEach(el => {
+    el.addEventListener('click', () => {
+      const tid = el.dataset.id;
+      if (tid && tid !== activeId) _switchThread(url, tid);
+    });
+  });
+}
+
+function _chatUrl() {
+  if (_docChatPaperUrl) return _docChatPaperUrl;
+  if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+    const t = _browseTabs.find(t => t.id === _browseActiveTab);
+    if (t && t.url) { _docChatPaperUrl = t.url; return t.url; }
+  }
+  return '';
+}
+
+function branchFromMessage(displayIndex) {
+  const url = _chatUrl();
+  if (!url) return;
+  _branchAtMessage(url, displayIndex);
+  _docChatMessages = _getActiveMessages(url);
+  renderDocChatMessages(true);
+  _renderThreadNav();
+}
+
 // Store scroll positions per sidebar tab
 let _sidebarScrollPositions = {};
 
@@ -1872,6 +2123,7 @@ async function sendDocMessage(prefill) {
   if (input) input.value = '';
 
   _docChatMessages.push({ role: 'user', content: text });
+  _appendToActiveThread(_chatUrl(), { role: 'user', content: text, ts: Date.now() });
   // Add a thinking placeholder that will be replaced when tokens arrive
   _docChatMessages.push({ role: 'assistant', content: '', _thinking: true });
   renderDocChatMessages();
@@ -1937,10 +2189,13 @@ async function sendDocMessage(prefill) {
     }
     // Final render with parsed markdown
     _docChatMessages[aiIdx].content = aiText;
+    _appendToActiveThread(_chatUrl(), { role: 'assistant', content: aiText, ts: Date.now() });
     renderDocChatMessages(true);
   } catch (e) {
     if (e.name !== 'AbortError') {
-      _docChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
+      const errContent = 'Error: ' + e.message;
+      _docChatMessages.push({ role: 'assistant', content: errContent });
+      _appendToActiveThread(_chatUrl(), { role: 'assistant', content: errContent, ts: Date.now() });
       renderDocChatMessages(true);
     }
   }
@@ -1962,7 +2217,8 @@ function renderDocChatMessages(final) {
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
-    return `<div class="doc-msg-ai">${content}</div>`;
+    const branchBtn = (final || !isLast) ? `<button class="chat-branch-btn" onclick="branchFromMessage(${i})" title="Branch conversation here"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M12 15V12c0-2 2-3 6-3M12 12c0-2-2-3-6-3"/></svg></button>` : '';
+    return `<div class="doc-msg-ai">${content}${branchBtn}</div>`;
   }).join('');
   container.scrollTop = container.scrollHeight;
 }
@@ -2607,9 +2863,10 @@ function _updateChatStats(popup, final) {
 }
 
 function _sendPopupChatToSidebar() {
-  // Copy popup messages into sidebar doc chat
+  // Copy popup messages into sidebar doc chat and persist
   for (const m of _popupChatMessages) {
     _docChatMessages.push({ role: m.role, content: m.content });
+    _appendToActiveThread(_chatUrl(), { role: m.role, content: m.content, ts: Date.now() });
   }
   renderDocChatMessages(true);
   switchSidebarTab('chat');
@@ -3937,6 +4194,7 @@ const _lookupCommands = [
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
+  { name: 'history', desc: 'Browse visited sites', _special: true },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete
@@ -4019,6 +4277,116 @@ function _lookupHideTabDropdown(popup) {
   if (dropdown) dropdown.remove();
   _lookupTabList = [];
   _lookupTabIdx = 0;
+}
+
+let _lookupHistoryIdx = 0;
+let _lookupHistoryList = [];
+
+function _lookupHideHistoryDropdown(popup) {
+  const dropdown = popup.querySelector('.lookup-history-dropdown');
+  if (dropdown) dropdown.remove();
+  _lookupHistoryList = [];
+  _lookupHistoryIdx = -1;
+}
+
+function _doLookupHistory(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) { input.value = '/history '; input.style.height = 'auto'; }
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+  _lookupHistoryIdx = -1;
+  _lookupRenderHistoryDropdown(popup, '');
+}
+
+function _lookupRenderHistoryDropdown(popup, query) {
+  const hist = typeof _getBrowseHistory === 'function' ? _getBrowseHistory() : [];
+  const q = (query || '').toLowerCase();
+  _lookupHistoryList = q
+    ? hist.filter(h => (h.title || '').toLowerCase().includes(q) || (h.url || '').toLowerCase().includes(q)).slice(0, 15)
+    : hist.slice(0, 15);
+
+  let dropdown = popup.querySelector('.lookup-history-dropdown');
+
+  if (!_lookupHistoryList.length) {
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'lookup-history-dropdown lookup-note-dropdown';
+      dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+      if (askWrap) popup.insertBefore(dropdown, askWrap);
+      else popup.appendChild(dropdown);
+    }
+    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:0.8rem;color:var(--text-dim);text-align:center;">No history found</div>';
+    _repositionSelectionPopup();
+    return;
+  }
+
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'lookup-history-dropdown lookup-note-dropdown';
+    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (askWrap) popup.insertBefore(dropdown, askWrap);
+    else popup.appendChild(dropdown);
+  }
+  if (_lookupHistoryIdx >= _lookupHistoryList.length) _lookupHistoryIdx = _lookupHistoryList.length - 1;
+
+  const fullSelected = _lookupHistoryIdx === -1;
+  let html = `<div class="lookup-note-item lookup-history-full ${fullSelected ? 'selected' : ''}" data-idx="-1" style="padding:6px 10px;font-size:0.75rem;border-bottom:none;">See full history</div>`;
+  html += _lookupHistoryList.map((h, i) => {
+    let domain = '';
+    try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
+    const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(h.url) : '';
+    const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
+    return `<div class="lookup-note-item ${i === _lookupHistoryIdx ? 'selected' : ''}" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none;">
+      <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0;overflow:hidden;">
+        <div style="font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
+        <div style="font-size:0.68rem;color:var(--text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
+      </div>
+      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+    </div>`;
+  }).join('');
+  dropdown.innerHTML = html;
+
+  dropdown.querySelectorAll('.lookup-note-item').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      const idx = parseInt(el.dataset.idx);
+      if (idx === -1) {
+        _lookupHideHistoryDropdown(popup);
+        popup.remove();
+        _lookupTrackMode = false;
+        if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
+        return;
+      }
+      const entry = _lookupHistoryList[idx];
+      if (!entry) return;
+      _lookupHideHistoryDropdown(popup);
+      popup.remove();
+      _lookupTrackMode = false;
+      if (typeof browseNavigate === 'function') browseNavigate(entry.url);
+    });
+  });
+  _repositionSelectionPopup();
+}
+
+function _lookupSelectHistory(popup) {
+  if (_lookupHistoryIdx < 0) {
+    // No arrow selection — open full history page
+    _lookupHideHistoryDropdown(popup);
+    popup.remove();
+    _lookupTrackMode = false;
+    if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
+    return true;
+  }
+  const entry = _lookupHistoryList[_lookupHistoryIdx];
+  if (!entry) return false;
+  _lookupHideHistoryDropdown(popup);
+  popup.remove();
+  _lookupTrackMode = false;
+  if (typeof browseNavigate === 'function') browseNavigate(entry.url);
+  return true;
 }
 
 async function _lookupRenderNoteDropdown(popup, query) {
@@ -4667,6 +5035,7 @@ function _lookupExecCommand(popup, text) {
       else if (cmd.name === 'model') _doLookupModel(popup);
       else if (cmd.name === 'links') _doLookupLinks(popup);
       else if (cmd.name === 'tab') _doLookupTab(popup);
+      else if (cmd.name === 'history') _doLookupHistory(popup);
       return true;
     }
     cmd.fn();
@@ -5390,7 +5759,7 @@ function _showPanel(config) {
       const val = askInput.value;
       const isCmd = val.startsWith('/');
       const dropdown = popup.querySelector('.lookup-cmd-dropdown');
-      const noteDropdown = popup.querySelector('.lookup-note-dropdown:not(.lookup-model-dropdown)');
+      const noteDropdown = popup.querySelector('.lookup-note-dropdown:not(.lookup-model-dropdown):not(.lookup-history-dropdown)');
       const modelDropdown = popup.querySelector('.lookup-model-dropdown');
 
       // Arrow keys navigate model dropdown
@@ -5458,6 +5827,29 @@ function _showPanel(config) {
         return;
       }
 
+      // Arrow keys navigate history dropdown
+      const histDropdown = popup.querySelector('.lookup-history-dropdown');
+      if (histDropdown && _lookupHistoryList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _lookupHistoryIdx = Math.min(_lookupHistoryIdx + 1, _lookupHistoryList.length - 1);
+        else _lookupHistoryIdx = Math.max(_lookupHistoryIdx - 1, -1);
+        const items = histDropdown.querySelectorAll('.lookup-note-item');
+        items.forEach(el => el.classList.toggle('selected', parseInt(el.dataset.idx) === _lookupHistoryIdx));
+        const sel = histDropdown.querySelector(`.lookup-note-item[data-idx="${_lookupHistoryIdx}"]`);
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (histDropdown && ev.key === 'Enter') {
+        ev.preventDefault();
+        _lookupSelectHistory(popup);
+        return;
+      }
+      if (histDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _lookupHideHistoryDropdown(popup);
+        return;
+      }
+
       // Arrow keys navigate command autocomplete
       if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
@@ -5498,6 +5890,7 @@ function _showPanel(config) {
               else if (cmd.name === 'links') _doLookupLinks(popup);
               else if (cmd.name === 'tab') _doLookupTab(popup);
               else if (cmd.name === 'notes') _doLookupNotesBrowse(popup);
+              else if (cmd.name === 'history') _doLookupHistory(popup);
             } else {
               _lookupHideCmdDropdown(popup);
               cmd.fn();
@@ -5533,18 +5926,27 @@ function _showPanel(config) {
       const val = askInput.value;
       if (val.startsWith('/')) {
         const notesMatch = val.match(/^\/notes(\s+(.*))?$/i);
+        const histMatch = val.match(/^\/history(\s+(.*))?$/i);
         if (notesMatch && notesMatch[1] !== undefined) {
           _lookupHideCmdDropdown(popup);
+          _lookupHideHistoryDropdown(popup);
           _lookupNoteIdx = 0;
           _lookupRenderNoteDropdown(popup, (notesMatch[2] || '').trim());
+        } else if (histMatch && histMatch[1] !== undefined) {
+          _lookupHideCmdDropdown(popup);
+          _lookupHideNoteDropdown(popup);
+          _lookupHistoryIdx = -1;
+          _lookupRenderHistoryDropdown(popup, (histMatch[2] || '').trim());
         } else {
           _lookupHideNoteDropdown(popup);
+          _lookupHideHistoryDropdown(popup);
           _lookupCmdIdx = 0;
           _lookupRenderCmdDropdown(popup, val.slice(1).trim());
         }
       } else {
         _lookupHideCmdDropdown(popup);
         _lookupHideNoteDropdown(popup);
+        _lookupHideHistoryDropdown(popup);
       }
     });
     askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());

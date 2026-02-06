@@ -2328,7 +2328,7 @@ const SYNC_KEYS = [
   'pixelPet', 'pixelPetType', 'pixelPetMode',
   'feedNotifications', 'seenPostLinks',
   'adBlockEnabled', 'feedNotifSources', 'browseBarOrder',
-  'browseHistory', 'webSearchHistory'
+  'browseHistory', 'webSearchHistory', 'chatThreads'
 ];
 
 // Default ad blocker to enabled
