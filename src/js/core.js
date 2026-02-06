@@ -744,6 +744,7 @@ function hideAllViews() {
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
   if (typeof _vibeCleanup === 'function') _vibeCleanup();
+  _removePanelMargin();
 }
 
 function goHome() {
@@ -958,6 +959,146 @@ function openExperimentDetail(id, e) {
     fetchExperimentDetail(id);
   }
 }
+
+// ── Universal Side Panel ──
+let _panelRegistry = {};
+let _panelVisible = localStorage.getItem('universalPanelVisible') !== 'false'; // default true
+let _panelActiveView = null;
+let _panelActiveTab = null;
+let _panelWidth = parseInt(localStorage.getItem('universalPanelWidth') || '280', 10);
+
+function registerPanelTabs(viewKey, config) {
+  _panelRegistry[viewKey] = config;
+}
+
+function showPanelForView(viewKey) {
+  const reg = _panelRegistry[viewKey];
+  if (!reg || !reg.tabs || !reg.tabs.length) { hidePanel(); return; }
+  _panelActiveView = viewKey;
+  const panel = document.getElementById('universal-panel');
+  const tabBar = document.getElementById('universal-panel-tabs');
+  if (!panel || !tabBar) return;
+
+  // Render tab buttons
+  tabBar.innerHTML = reg.tabs.map(t =>
+    `<button class="universal-panel-tab-btn${_panelActiveTab === t.id ? ' active' : ''}" data-tab-id="${t.id}" onclick="switchPanelTab('${t.id}')">${t.icon ? t.icon : ''}${t.label}</button>`
+  ).join('');
+
+  // Select default tab
+  const defaultTab = reg.tabs.find(t => t.id === _panelActiveTab) ? _panelActiveTab : reg.tabs[0].id;
+  switchPanelTab(defaultTab);
+
+  if (_panelVisible) {
+    panel.style.display = 'flex';
+    panel.style.width = _panelWidth + 'px';
+    _applyPanelMargin();
+  }
+}
+
+function hidePanel() {
+  const panel = document.getElementById('universal-panel');
+  if (panel) panel.style.display = 'none';
+  _removePanelMargin();
+  if (_panelActiveView && _panelRegistry[_panelActiveView]?.onHide) {
+    _panelRegistry[_panelActiveView].onHide();
+  }
+  _panelActiveView = null;
+}
+
+function togglePanel() {
+  _panelVisible = !_panelVisible;
+  localStorage.setItem('universalPanelVisible', _panelVisible ? 'true' : 'false');
+  if (_panelVisible && _panelActiveView) {
+    showPanelForView(_panelActiveView);
+  } else {
+    const panel = document.getElementById('universal-panel');
+    if (panel) panel.style.display = 'none';
+    _removePanelMargin();
+  }
+}
+
+function switchPanelTab(tabId) {
+  const reg = _panelRegistry[_panelActiveView];
+  if (!reg) return;
+  const tab = reg.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+  _panelActiveTab = tabId;
+
+  // Update tab button active states
+  document.querySelectorAll('#universal-panel-tabs .universal-panel-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tabId === tabId);
+  });
+
+  const container = document.getElementById('universal-panel-content');
+  if (container) {
+    container.innerHTML = '';
+    tab.render(container);
+  }
+}
+
+function _applyPanelMargin() {
+  // Set margin-right on the active view element
+  const vaultView = document.getElementById('vault-view');
+  if (vaultView && vaultView.style.display !== 'none') {
+    vaultView.style.marginRight = _panelWidth + 'px';
+  }
+  // home-main
+  const homeMain = document.getElementById('home-main');
+  if (homeMain && homeMain.style.display !== 'none') {
+    homeMain.style.marginRight = _panelWidth + 'px';
+  }
+}
+
+function _removePanelMargin() {
+  document.querySelectorAll('.view, #home-main').forEach(el => {
+    el.style.marginRight = '';
+  });
+  // Also handle vault-view specifically
+  const vaultView = document.getElementById('vault-view');
+  if (vaultView) vaultView.style.marginRight = '';
+}
+
+function _initPanelResize() {
+  const handle = document.getElementById('universal-panel-resize');
+  const panel = document.getElementById('universal-panel');
+  if (!handle || !panel) return;
+  let startX, startW;
+  function onMouseMove(e) {
+    const newW = Math.max(200, Math.min(500, startW + (startX - e.clientX)));
+    _panelWidth = newW;
+    panel.style.width = newW + 'px';
+    _applyPanelMargin();
+  }
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.userSelect = '';
+    localStorage.setItem('universalPanelWidth', String(_panelWidth));
+  }
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = panel.offsetWidth;
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+}
+
+// Init resize on DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initPanelResize);
+} else {
+  _initPanelResize();
+}
+
+// Global Cmd+] shortcut for panel toggle
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+    e.preventDefault();
+    togglePanel();
+  }
+});
 
 function routeFromHash() {
   const hash = window.location.hash;

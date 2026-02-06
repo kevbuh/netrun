@@ -1152,6 +1152,7 @@ function _browseBindFrame(tab) {
           var tag = e.target.tagName;
           if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable){
             e.preventDefault();e.stopPropagation();
+            window.__alphaLastEditable=e.target;
             console.log('__ALPHA_EDITABLE__'+JSON.stringify({x:e.screenX,y:e.screenY}));
             return false;
           }
@@ -2641,8 +2642,9 @@ function browseNavigate(input) {
 function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
-  if (/^(https?|file|blob|data):\/\//i.test(input)) return input;
-  if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input)) return 'https://' + input;
+  // Collapse internal whitespace/newlines from multi-line pastes (e.g. URLs copied across line breaks)
+  if (/^(https?|file|blob|data):\/\//i.test(input)) return input.replace(/\s+/g, '');
+  if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input.replace(/\s+/g, ''))) return 'https://' + input.replace(/\s+/g, '');
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }
 
