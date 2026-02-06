@@ -1560,10 +1560,10 @@ function _browseUpdateNewTabPage(tab) {
     if (!ntp) {
       ntp = document.createElement('div');
       ntp.className = 'browse-ntp';
-      ntp.innerHTML = `<span class="browse-ntp-text">alpha</span>
-        <button id="browse-open-pdf-btn" class="mt-4 px-4 py-2 rounded-lg bg-hover text-dimmer hover:text-primary hover:bg-[var(--bg-hover)] border border-[var(--border)] cursor-pointer text-sm transition-colors" style="font-family:inherit">Open file</button>
+      ntp.innerHTML = `<div class="browse-ntp-inner"><svg class="browse-ntp-border" width="100%" height="100%"><rect width="100%" height="100%" fill="none" rx="16" ry="16" stroke="currentColor" stroke-width="1.5" stroke-dasharray="8 14" stroke-linecap="round"/></svg><span class="browse-ntp-text">alpha</span>
+        <button id="browse-open-pdf-btn" class="mt-2 px-3 py-1 rounded text-dimmer hover:text-primary cursor-pointer text-xs transition-colors" style="font-family:inherit;opacity:0.5">open file</button>
         <input type="file" id="browse-pdf-file-input" style="display:none">
-        <div id="browse-ntp-drop-hint" class="mt-2 text-xs text-dimmer" style="opacity:0.5">or drag & drop a file here</div>`;
+        <div id="browse-ntp-drop-hint" class="mt-1 text-xs text-dimmer" style="opacity:0.5">or drop here</div></div>`;
       container.appendChild(ntp);
       ntp.querySelector('#browse-open-pdf-btn').onclick = function() {
         ntp.querySelector('#browse-pdf-file-input').click();
@@ -1826,81 +1826,84 @@ function _browseRenderTabs() {
 
 let _tabHoverTooltip = null;
 let _tabHoverTimeout = null;
-
 let _tabHoverDismissTimeout = null;
+
+function _isInsideTooltip(el) {
+  return _tabHoverTooltip && (el === _tabHoverTooltip || _tabHoverTooltip.contains(el));
+}
+
+function _dismissTooltip() {
+  clearTimeout(_tabHoverTimeout);
+  clearTimeout(_tabHoverDismissTimeout);
+  if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
+}
 
 function _browseTabHoverIn(e) {
   const tabEl = e.currentTarget;
   clearTimeout(_tabHoverTimeout);
   clearTimeout(_tabHoverDismissTimeout);
-  // If tooltip already showing, keep it
   if (_tabHoverTooltip) return;
-  _tabHoverTimeout = setTimeout(() => {
-    const onclickAttr = tabEl.getAttribute('onclick') || '';
-    const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
-    if (!idMatch) return;
-    const tabId = parseInt(idMatch[1]);
-    const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
-    const tab = tabs.find(t => t.id === tabId);
-    if (!tab) return;
-
-    _browseTabHoverOut(true);
-    const tip = document.createElement('div');
-    tip.className = 'browse-tab-tooltip';
-    const isBlank = !tab.url;
-    const domain = !isBlank ? (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })() : '';
-    const favUrl = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
-    const favHtml = favUrl ? `<img src="${escapeAttr(favUrl)}" class="browse-tab-tooltip-favicon" onerror="this.style.display='none'">` : '';
-    tip.innerHTML = `
-      <div class="browse-tab-tooltip-header">
-        ${favHtml}
-        <div class="browse-tab-tooltip-text">
-          <div class="browse-tab-tooltip-title">${escapeHtml(tab.title || (isBlank ? 'New Tab' : 'Untitled'))}</div>
-          ${isBlank ? '' : `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>`}
-        </div>
-      </div>
-      <button class="browse-tab-tooltip-add${isBlank ? ' disabled' : ''}" data-tab-id="${tabId}"${isBlank ? ' disabled' : ''}>
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-        Add to assistant
-      </button>`;
-    document.body.appendChild(tip);
-
-    const rect = tabEl.getBoundingClientRect();
-    tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 4)) + 'px';
-    tip.style.top = (rect.bottom + 2) + 'px';
-
-    if (!isBlank) {
-      tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        _browseTabAddToAssistant(tabId);
-        _browseTabHoverOut(true);
-      });
-    }
-
-    tip.addEventListener('mouseenter', () => { clearTimeout(_tabHoverTimeout); clearTimeout(_tabHoverDismissTimeout); });
-    tip.addEventListener('mouseleave', () => { _scheduleDismiss(); });
-
-    _tabHoverTooltip = tip;
-    // Store ref to source tab for bridge detection
-    _tabHoverTooltip._sourceTabEl = tabEl;
-  }, 400);
+  _tabHoverTimeout = setTimeout(() => _showTabTooltip(tabEl), 400);
 }
 
-function _scheduleDismiss() {
-  clearTimeout(_tabHoverDismissTimeout);
-  _tabHoverDismissTimeout = setTimeout(() => {
-    if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
-  }, 300);
-}
-
-function _browseTabHoverOut(immediate) {
+function _browseTabHoverOut(e) {
   clearTimeout(_tabHoverTimeout);
-  if (immediate) {
-    clearTimeout(_tabHoverDismissTimeout);
-    if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
-    return;
+  // If mouse moved into the tooltip, don't dismiss
+  if (e && e.relatedTarget && _isInsideTooltip(e.relatedTarget)) return;
+  clearTimeout(_tabHoverDismissTimeout);
+  _tabHoverDismissTimeout = setTimeout(_dismissTooltip, 150);
+}
+
+function _showTabTooltip(tabEl) {
+  const onclickAttr = tabEl.getAttribute('onclick') || '';
+  const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
+  if (!idMatch) return;
+  const tabId = parseInt(idMatch[1]);
+  const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab) return;
+
+  _dismissTooltip();
+  const tip = document.createElement('div');
+  tip.className = 'browse-tab-tooltip';
+  const isBlank = !tab.url;
+  const domain = !isBlank ? (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })() : '';
+  const favUrl = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
+  const favHtml = favUrl ? `<img src="${escapeAttr(favUrl)}" class="browse-tab-tooltip-favicon" onerror="this.style.display='none'">` : '';
+  tip.innerHTML = `
+    <div class="browse-tab-tooltip-header">
+      ${favHtml}
+      <div class="browse-tab-tooltip-text">
+        <div class="browse-tab-tooltip-title">${escapeHtml(tab.title || (isBlank ? 'New Tab' : 'Untitled'))}</div>
+        ${isBlank ? '' : `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>`}
+      </div>
+    </div>
+    <button class="browse-tab-tooltip-add${isBlank ? ' disabled' : ''}" data-tab-id="${tabId}"${isBlank ? ' disabled' : ''}>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      Add to assistant
+    </button>`;
+  document.body.appendChild(tip);
+
+  const rect = tabEl.getBoundingClientRect();
+  tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 4)) + 'px';
+  tip.style.top = rect.bottom + 'px';
+
+  if (!isBlank) {
+    tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      _browseTabAddToAssistant(tabId);
+      _dismissTooltip();
+    });
   }
-  _scheduleDismiss();
+
+  tip.addEventListener('mouseenter', () => { clearTimeout(_tabHoverDismissTimeout); });
+  tip.addEventListener('mouseleave', (ev) => {
+    // If mouse moved back to a tab, let the tab's hover handler deal with it
+    clearTimeout(_tabHoverDismissTimeout);
+    _tabHoverDismissTimeout = setTimeout(_dismissTooltip, 150);
+  });
+
+  _tabHoverTooltip = tip;
 }
 
 async function _browseTabAddToAssistant(tabId) {

@@ -426,6 +426,7 @@ function _renderSidebarHTML(paper) {
       <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg></button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg></button>
+      <button id="sidebar-tab-terminal" class="sidebar-tab-btn" onclick="switchSidebarTab('terminal')" title="Terminal"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button>
     </div>
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
@@ -462,6 +463,9 @@ function _renderSidebarHTML(paper) {
     <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${commentsPanel}
     </div>
+    <div id="sidebar-pane-terminal" class="flex flex-col flex-1 min-h-0" style="display:none">
+      <div id="sidebar-terminal-container" style="flex:1;min-height:0;padding:4px;"></div>
+    </div>
   `;
 }
 
@@ -492,7 +496,7 @@ function _initSidebarForUrl(url) {
   fetchPaperComments();
   // Restore saved sidebar tab
   const savedTab = localStorage.getItem('sidebarTab');
-  if (savedTab && ['insights', 'notes', 'chat', 'comments'].includes(savedTab)) {
+  if (savedTab && ['insights', 'notes', 'chat', 'comments', 'terminal'].includes(savedTab)) {
     setTimeout(() => switchSidebarTab(savedTab), 0);
   }
 }
@@ -1663,7 +1667,7 @@ let _docChatPaperUrl = '';
 let _sidebarScrollPositions = {};
 
 function switchSidebarTab(tab) {
-  const panes = ['insights', 'notes', 'chat', 'comments'];
+  const panes = ['insights', 'notes', 'chat', 'comments', 'terminal'];
 
   // Save current tab's scroll position before switching
   panes.forEach(p => {
@@ -1693,8 +1697,84 @@ function switchSidebarTab(tab) {
   if (tab === 'insights' && !_paperInsightsLoaded && _currentPaperViewPaper) {
     fetchPaperInsights(_currentPaperViewPaper.link);
   }
+  // Initialize sidebar terminal on first open
+  if (tab === 'terminal') {
+    _initSidebarTerminal();
+  }
   // Remember the active tab
   localStorage.setItem('sidebarTab', tab);
+}
+
+let _sidebarTerminal = null;
+
+function _initSidebarTerminal() {
+  const container = document.getElementById('sidebar-terminal-container');
+  if (!container) return;
+  // Already initialized and container still has the terminal
+  if (_sidebarTerminal && _sidebarTerminal.term && container.querySelector('.xterm')) {
+    _sidebarTerminal.fitAddon.fit();
+    return;
+  }
+  // Clean up old instance
+  if (_sidebarTerminal) {
+    if (_sidebarTerminal.ws) try { _sidebarTerminal.ws.close(); } catch (_) {}
+    if (_sidebarTerminal.term) _sidebarTerminal.term.dispose();
+    _sidebarTerminal = null;
+  }
+  container.innerHTML = '';
+
+  const theme = TERMINAL_THEMES[_termSettings.theme] || TERMINAL_THEMES.dark;
+  const term = new Terminal({
+    cursorBlink: true,
+    cursorStyle: 'bar',
+    fontSize: 13,
+    fontFamily: "'SF Mono', Menlo, Monaco, monospace",
+    scrollback: 5000,
+    theme: theme,
+    allowProposedApi: true,
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+
+  const obj = { term, fitAddon, ws: null };
+  _sidebarTerminal = obj;
+
+  term.open(container);
+  setTimeout(() => fitAddon.fit(), 50);
+
+  // Connect WebSocket
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${wsProto}//${location.host}/ws/terminal`);
+  ws.binaryType = 'arraybuffer';
+  obj.ws = ws;
+
+  ws.onopen = () => {
+    fitAddon.fit();
+    const { cols, rows } = term;
+    ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+  };
+  ws.onmessage = (ev) => {
+    if (ev.data instanceof ArrayBuffer) {
+      term.write(new Uint8Array(ev.data));
+    } else {
+      term.write(ev.data);
+    }
+  };
+  ws.onerror = (e) => console.error('[sidebar-terminal] ws error', e);
+  ws.onclose = () => term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n');
+
+  term.onData((data) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(data);
+  });
+  term.onResize(({ cols, rows }) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+  });
+
+  // Re-fit on sidebar resize
+  const observer = new ResizeObserver(() => {
+    if (container.offsetWidth > 0 && container.offsetHeight > 0) fitAddon.fit();
+  });
+  observer.observe(container);
 }
 
 function toggleInsightDropdown(subtab) {
