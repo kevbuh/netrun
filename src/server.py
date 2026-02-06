@@ -2073,6 +2073,144 @@ ch.postMessage({type:'preview-ready'});
         return google_id
 
     def do_POST(self):
+        if self.path == '/api/neuralook/train':
+            body = self._read_body()
+            try:
+                import torch
+                import torch.nn as nn
+
+                samples = body.get('samples', [])
+                screen_w = body.get('screenW', 1920)
+                screen_h = body.get('screenH', 1080)
+                if len(samples) < 3:
+                    self._send_json({'error': 'Need at least 3 samples'}, 400)
+                    return
+
+                # Build tensors
+                X = torch.tensor([s['features'] for s in samples], dtype=torch.float32)
+                Y = torch.tensor([[s['screenX'] / screen_w, s['screenY'] / screen_h] for s in samples], dtype=torch.float32)
+
+                # Standardize inputs
+                x_mean = X.mean(dim=0)
+                x_std = X.std(dim=0).clamp(min=1e-6)
+                X_norm = (X - x_mean) / x_std
+
+                # Train/val split — hold out 2 full calibration points for validation
+                # Group samples by their target position
+                targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples]
+                unique_targets = list(set(targets_rounded))
+                # Pick ~25% of points for validation (at least 2)
+                n_val_points = max(2, len(unique_targets) // 4)
+                import random
+                random.shuffle(unique_targets)
+                val_targets = set(unique_targets[:n_val_points])
+                val_mask = torch.tensor([t in val_targets for t in targets_rounded])
+                train_mask = ~val_mask
+
+                X_train, Y_train = X_norm[train_mask], Y[train_mask]
+                X_val, Y_val = X_norm[val_mask], Y[val_mask]
+
+                # 5 → 32 → 32 → 2 MLP with dropout
+                model = nn.Sequential(
+                    nn.Linear(5, 32), nn.ReLU(), nn.Dropout(0.2),
+                    nn.Linear(32, 32), nn.ReLU(), nn.Dropout(0.2),
+                    nn.Linear(32, 2)
+                )
+
+                optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=1e-3)
+                n_train = X_train.shape[0]
+                batch_size = min(64, n_train)
+
+                best_val_loss = float('inf')
+                best_state = None
+                patience = 200
+                no_improve = 0
+
+                for epoch in range(5000):
+                    model.train()
+                    perm = torch.randperm(n_train)
+                    for start in range(0, n_train, batch_size):
+                        idx = perm[start:start + batch_size]
+                        pred = model(X_train[idx])
+                        loss = nn.functional.mse_loss(pred, Y_train[idx])
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+
+                    # Validation check every 10 epochs
+                    if epoch % 10 == 0:
+                        model.eval()
+                        with torch.no_grad():
+                            val_pred = model(X_val)
+                            val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
+                        if val_loss < best_val_loss:
+                            best_val_loss = val_loss
+                            best_state = {k: v.clone() for k, v in model.state_dict().items()}
+                            no_improve = 0
+                        else:
+                            no_improve += 10
+                        if no_improve >= patience:
+                            break
+
+                # Restore best model
+                if best_state:
+                    model.load_state_dict(best_state)
+                model.eval()
+
+                # Bake standardization into first layer (skip Dropout layers)
+                # Layer indices: 0=Linear, 1=ReLU, 2=Dropout, 3=Linear, 4=ReLU, 5=Dropout, 6=Linear
+                with torch.no_grad():
+                    w1 = model[0].weight.clone()
+                    b1 = model[0].bias.clone()
+                    model[0].weight.copy_(w1 / x_std.unsqueeze(0))
+                    model[0].bias.copy_(b1 - (w1 / x_std.unsqueeze(0)) @ x_mean)
+
+                # Extract weights (skip ReLU and Dropout layers)
+                weights = {
+                    'w0': model[0].weight.detach().tolist(),
+                    'b0': model[0].bias.detach().tolist(),
+                    'w1': model[3].weight.detach().tolist(),
+                    'b1': model[3].bias.detach().tolist(),
+                    'w2': model[6].weight.detach().tolist(),
+                    'b2': model[6].bias.detach().tolist(),
+                }
+
+                # Compute training error in pixels on ALL data (using raw X)
+                with torch.no_grad():
+                    pred = model(X)
+                    pred_px = pred.clone()
+                    pred_px[:, 0] *= screen_w
+                    pred_px[:, 1] *= screen_h
+                    Y_px = Y.clone()
+                    Y_px[:, 0] *= screen_w
+                    Y_px[:, 1] *= screen_h
+                    dists = torch.sqrt(((pred_px - Y_px) ** 2).sum(dim=1))
+                    train_err = dists.mean().item()
+                    # Val error
+                    val_pred_px = model(X[val_mask])
+                    val_pred_px[:, 0] *= screen_w
+                    val_pred_px[:, 1] *= screen_h
+                    val_Y_px = Y[val_mask].clone()
+                    val_Y_px[:, 0] *= screen_w
+                    val_Y_px[:, 1] *= screen_h
+                    val_dists = torch.sqrt(((val_pred_px - val_Y_px) ** 2).sum(dim=1))
+                    val_err = val_dists.mean().item()
+
+                self._send_json({
+                    'weights': weights,
+                    'screenW': screen_w,
+                    'screenH': screen_h,
+                    'train_error_px': round(train_err, 1),
+                    'val_error_px': round(val_err, 1),
+                    'stopped_epoch': epoch,
+                    'loss': round(best_val_loss, 6),
+                    'samples': len(samples)
+                })
+            except ImportError:
+                self._send_json({'error': 'PyTorch not installed on server'}, 500)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
         if self.path == '/api/vibe/git':
             google_id = self._get_user()
             if not google_id:

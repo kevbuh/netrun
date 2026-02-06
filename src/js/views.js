@@ -3558,6 +3558,7 @@ document.addEventListener('mouseup', async function(e) {
   // Single click, no selection → dismiss existing panel if not pinned
   if (_screenshotCapturing) return;
   const existing = document.getElementById('doc-chat-ask-float');
+  if (existing && existing.contains(e.target)) return; // click was inside the panel
   if (existing) { existing.remove(); _lookupTrackMode = false; }
 });
 
@@ -3819,14 +3820,12 @@ function _injectIframeChatHandler(iframe) {
         const f = iframe.getBoundingClientRect();
         const tag = e.target.tagName;
         const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
-        console.log('[iframe-ctx]', tag, 'isEditable:', isEditable, 'target:', e.target, 'iframe:', iframe.src || iframe.id);
         if (isEditable) {
           e.preventDefault();
           const popup = document.getElementById('doc-chat-ask-float');
           if (popup) { popup.remove(); _lookupTrackMode = false; }
           const sel = doc.getSelection();
           const selectedText = sel && sel.toString().trim() || '';
-          console.log('[iframe-ctx] opening panel with editableTarget:', e.target.tagName, 'ownerDoc===doc:', e.target.ownerDocument === doc);
           _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, editableTarget: e.target, selectionText: selectedText, finalized: true });
           return;
         }
@@ -5240,29 +5239,19 @@ async function _doLookupUserSearch(popup, query) {
 // Focus an element that may be inside an iframe — focuses the iframe first if needed
 function _focusCrossFrame(el) {
   const ownerDoc = el.ownerDocument;
-  console.log('[focusCrossFrame] el:', el.tagName, 'ownerDoc===document:', ownerDoc === document, 'el.isConnected:', el.isConnected);
   if (ownerDoc && ownerDoc !== document) {
     const iframes = document.querySelectorAll('iframe, webview');
-    let found = false;
     for (const f of iframes) {
       try {
-        if (f.contentDocument === ownerDoc) {
-          console.log('[focusCrossFrame] found parent iframe:', f.tagName, f.src || f.id);
-          f.focus();
-          found = true;
-          break;
-        }
-      } catch (e) { console.log('[focusCrossFrame] cross-origin iframe skip'); }
+        if (f.contentDocument === ownerDoc) { f.focus(); break; }
+      } catch (e) { /* cross-origin */ }
     }
-    if (!found) console.log('[focusCrossFrame] no matching iframe found among', iframes.length, 'iframes');
   }
   el.focus();
-  console.log('[focusCrossFrame] after focus, document.activeElement:', document.activeElement?.tagName, 'ownerDoc.activeElement:', ownerDoc?.activeElement?.tagName);
 }
 
 // Paste text into an element, handling iframe ownership for execCommand
 function _pasteIntoElement(el, text) {
-  console.log('[pasteInto] el:', el.tagName, 'text:', text?.slice(0, 50), 'isConnected:', el.isConnected);
   _focusCrossFrame(el);
   if (el.isContentEditable) {
     // execCommand must be called on the element's ownerDocument (matters for iframes)
@@ -5514,13 +5503,12 @@ function _showPanel(config) {
       const item = document.createElement('div');
       item.className = 'doc-lookup-ctx-item';
       item.textContent = label;
-      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      item.addEventListener('click', (ev) => {
+      item.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+      item.addEventListener('mouseup', (ev) => {
         ev.stopPropagation(); ev.preventDefault();
         popup.remove();
-        // Focus webview first, then execute command after focus is restored
         wv.focus();
-        setTimeout(fn, 50);
+        setTimeout(() => fn(), 50);
       });
       wvCtx.appendChild(item);
     };
@@ -5545,15 +5533,10 @@ function _showPanel(config) {
     if (flags.canPaste) addWvItem('Paste', () => {
       navigator.clipboard.readText().then(text => {
         if (!text) return;
-        const escaped = JSON.stringify(text);
-        wv.executeJavaScript(`
-          (function(){ var el=window.__alphaLastEditable; if(!el) return; el.focus(); var text=${escaped};
-            if(el.isContentEditable) document.execCommand('insertText',false,text);
-            else if(el.selectionStart!==undefined){ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
-              el.value=v.slice(0,s)+text+v.slice(e); el.selectionStart=el.selectionEnd=s+text.length;
-              el.dispatchEvent(new Event('input',{bubbles:true})); }
-          })()
-        `).catch(() => {});
+        // Re-focus the saved editable element inside the webview, then use insertText
+        wv.executeJavaScript(`(function(){ var el=window.__alphaLastEditable; if(el) el.focus(); return !!el; })()`)
+          .then(() => wv.insertText(text))
+          .catch(() => {});
       }).catch(() => {});
     });
     if (flags.canSelectAll) addWvItem('Select All', () => {

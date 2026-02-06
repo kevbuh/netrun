@@ -357,7 +357,7 @@ function _browseRestoreTabs() {
           }
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
-            const tab = { id: saved.id, url: '', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
+            const tab = { id: saved.id, url: 'lookup://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
             win.tabs.push(tab);
             continue;
           }
@@ -637,6 +637,12 @@ function openBrowse(url) {
 }
 
 function browseNewTab(url) {
+  // Intercept lookup:// URLs
+  const trimUrl = (url || '').trim().toLowerCase();
+  if (trimUrl === 'lookup://history' || trimUrl === 'lookup://history/') {
+    openSearchHistoryPage();
+    return;
+  }
   const win = _getCurrentWindow();
   if (!win) return;
 
@@ -1515,7 +1521,7 @@ function browseSelectTab(id) {
     const container = document.getElementById('browse-content');
     const el = document.createElement('div');
     el.id = 'browse-history-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
     container.appendChild(el);
     tab.el = el;
     _renderWebSearchHistoryPage(el);
@@ -1525,7 +1531,7 @@ function browseSelectTab(id) {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = tab ? (tab._historyPage ? '/history' : tab.url) : '';
+  if (urlInput) urlInput.value = tab ? (tab._historyPage ? 'lookup://history' : tab.url) : '';
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -2567,7 +2573,7 @@ function _browseFaviconUrl(url) {
 function browseNavigate(input) {
   // Handle slash commands
   const cmd = (input || '').trim().toLowerCase();
-  if (cmd === '/history') {
+  if (cmd === '/history' || cmd === 'lookup://history' || cmd === 'lookup://history/') {
     openSearchHistoryPage();
     return;
   }
@@ -2602,6 +2608,12 @@ function browseNavigate(input) {
   }
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
+  // Tear down history page if this tab was showing it
+  if (tab._historyPage) {
+    if (tab.el) tab.el.remove();
+    tab.el = null;
+    delete tab._historyPage;
+  }
   // Push current URL onto back stack for navigation history
   if (tab.url && !tab.blank) {
     if (!tab.backStack) tab.backStack = [];
@@ -2643,7 +2655,7 @@ function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
   // Collapse internal whitespace/newlines from multi-line pastes (e.g. URLs copied across line breaks)
-  if (/^(https?|file|blob|data):\/\//i.test(input)) return input.replace(/\s+/g, '');
+  if (/^(https?|file|blob|data|lookup):\/\//i.test(input)) return input.replace(/\s+/g, '');
   if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input.replace(/\s+/g, ''))) return 'https://' + input.replace(/\s+/g, '');
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }
@@ -4266,7 +4278,7 @@ function openSearchHistoryPage() {
 
   // Mark it as a history tab
   tab.blank = false;
-  tab.url = '';
+  tab.url = 'lookup://history';
   tab.title = 'History';
   tab.favicon = '';
   tab._historyPage = true;
@@ -4277,7 +4289,7 @@ function openSearchHistoryPage() {
   const container = document.getElementById('browse-content');
   const el = document.createElement('div');
   el.id = 'browse-history-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
   container.appendChild(el);
   tab.el = el;
 
@@ -4287,7 +4299,7 @@ function openSearchHistoryPage() {
 
   // Update URL bar
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = '/history';
+  if (urlInput) urlInput.value = 'lookup://history';
 
   _renderWebSearchHistoryPage(el);
 }
@@ -4387,7 +4399,7 @@ function _renderWebSearchHistoryList(hist) {
       const origIdx = allHist.findIndex(a => a.q === h.q && a.ts === h.ts);
       const time = _relativeTime(h.ts);
       const safeQ = escapeHtml(h.q).replace(/'/g, '&#39;');
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNavigate('${safeQ}')">
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeQ}')">
         <svg style="width:14px;height:14px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
         <span style="font-size:0.82rem;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.q)}</span>
         <span style="font-size:0.7rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
@@ -4438,7 +4450,7 @@ function _renderBrowseHistoryList(hist) {
       try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
       const favicon = _browseFaviconUrl(h.url);
       const safeUrl = escapeHtml(h.url).replace(/'/g, '&#39;');
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNavigate('${safeUrl}')">
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeUrl}')">
         <img src="${escapeHtml(favicon)}" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
         <div style="flex:1;overflow:hidden;min-width:0;">
           <div style="font-size:0.82rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>

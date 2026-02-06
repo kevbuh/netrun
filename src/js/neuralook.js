@@ -1,38 +1,42 @@
-// ── Neuralook — Eye Tracking View (MediaPipe Iris) ──
+// ── Neuralook — Eye Tracking View (CNN Gaze Estimation) ──
 
 let _nlCalibrating = false;
 let _nlTracking = false;
 let _nlGazeDot = null;
-let _nlReady = false;          // MediaPipe model loaded & calibrated
+let _nlReady = false;
 let _nlGazeX = 0;
 let _nlGazeY = 0;
 let _nlCurrentPoint = 0;
 let _nlAccuracy = null;
 let _nlCameraOn = false;
 
-// MediaPipe state
+// MediaPipe state (used to locate eyes in video frames)
 let _nlFaceLandmarker = null;
-let _nlVideoEl = null;          // shared <video> element for MediaPipe
-let _nlMpCdnLoaded = !!(window.FaceLandmarker && window.FilesetResolver); // CDN script loaded
-let _nlMpModelLoading = false;  // FaceLandmarker model currently loading
-let _nlMpModelReady = false;    // FaceLandmarker model created and ready
-let _nlTrackingRAF = null;      // requestAnimationFrame ID
+let _nlVideoEl = null;
+let _nlMpCdnLoaded = !!(window.FaceLandmarker && window.FilesetResolver);
+let _nlMpModelLoading = false;
+let _nlMpModelReady = false;
+let _nlTrackingRAF = null;
 
-// Listen for CDN load event
 window.addEventListener('mediapipe-ready', () => {
   _nlMpCdnLoaded = true;
-  // Re-render if on the neuralook view
   if (document.getElementById('neuralook-content')) renderNeuralookView();
 });
 
-// Calibration data: array of { features: [5], screenX, screenY }
+// Calibration data: array of { eyeData: [4096], screenX, screenY }
 let _nlCalibData = [];
-// MLP model weights (null = not trained)
-let _nlModel = null;
+// Model state — server-side, just track if trained
+let _nlModelTrained = false;
+let _nlTrainError = null;
+let _nlValError = null;
+let _nlInferPending = false; // prevent overlapping inference requests
 
-// Smoothing — ring buffer of recent predictions
+// Eye crop canvas (offscreen, reused)
+let _nlEyeCropCanvas = null;
+
+// Smoothing
 let _nlGazeBuffer = [];
-const _NL_BUFFER_SIZE = 8;
+const _NL_BUFFER_SIZE = 6;
 
 // Stats
 let _nlPredictionCount = 0;
@@ -41,28 +45,32 @@ let _nlPredictionRate = 0;
 let _nlStatsInterval = null;
 let _nlRateInterval = null;
 
-// Time-series history for graphs (rolling window, pushed every 500ms)
 const _NL_GRAPH_LEN = 60;
 let _nlHistGazeX = [];
 let _nlHistGazeY = [];
 let _nlHistJitter = [];
 let _nlHistRate = [];
 
-// 3x3 calibration grid (9 points), 1 click each
+// 5x5 calibration grid (25 points)
 const _NL_CAL_POSITIONS = [
-  [15, 15], [50, 15], [85, 15],
-  [15, 50], [50, 50], [85, 50],
-  [15, 85], [50, 85], [85, 85]
+  [8, 8],   [29, 8],  [50, 8],  [71, 8],  [92, 8],
+  [8, 29],  [29, 29], [50, 29], [71, 29], [92, 29],
+  [8, 50],  [29, 50], [50, 50], [71, 50], [92, 50],
+  [8, 71],  [29, 71], [50, 71], [71, 71], [92, 71],
+  [8, 92],  [29, 92], [50, 92], [71, 92], [92, 92]
 ];
 
 // 4 off-grid accuracy test positions
 const _NL_TEST_POSITIONS = [
-  [30, 30], [70, 30], [30, 70], [70, 70]
+  [20, 20], [80, 20], [20, 80], [80, 80]
 ];
 
-// Accuracy test state
-let _nlAccuracyCollecting = false;
-let _nlAccuracyPredictions = [];
+const _NL_STARE_MS = 1200;
+const _NL_SETTLE_MS = 400;
+
+// Eye crop dimensions
+const _NL_EYE_W = 64;
+const _NL_EYE_H = 32;
 
 async function openNeuralook() {
   hideAllViews();
@@ -83,9 +91,7 @@ function renderNeuralookView() {
 
   container.innerHTML = `
     <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;height:calc(100vh - 60px);box-sizing:border-box;">
-      <!-- Left panel — Controls -->
       <div class="flex flex-col gap-3">
-        <!-- Status -->
         <div class="bg-card border border-border-card rounded-xl p-4">
           <div class="flex items-center gap-2 mb-3">
             <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block"></span>
@@ -112,7 +118,6 @@ function renderNeuralookView() {
           </div>
         </div>
 
-        <!-- Gaze dot appearance -->
         <div class="bg-card border border-border-card rounded-xl p-4">
           <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Gaze Dot</h3>
           <div class="flex items-center gap-3">
@@ -126,23 +131,20 @@ function renderNeuralookView() {
           </div>
         </div>
 
-        <!-- How it works -->
         <div class="bg-card border border-border-card rounded-xl p-4">
           <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
           <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
-            <li>Click <strong>Start Calibration</strong> — 9-point grid</li>
-            <li>Click each dot once (~15 seconds)</li>
+            <li>Click <strong>Start Calibration</strong> — 25-point grid</li>
+            <li>Look at each dot for ~1 second</li>
+            <li>CNN trains on eye images (PyTorch)</li>
             <li>Accuracy test on 4 off-grid points</li>
             <li><strong>Start Tracking</strong> to show the gaze dot</li>
           </ol>
         </div>
       </div>
 
-      <!-- Center panel — Camera + Graphs row, then Model Info -->
       <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
-        <!-- Top row: Camera + Graphs side by side -->
         <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;">
-          <!-- Camera -->
           <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;min-height:0;">
             <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;">
               <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
@@ -154,7 +156,6 @@ function renderNeuralookView() {
             </div>
           </div>
 
-          <!-- Graphs -->
           <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden;">
             <h3 class="text-[0.78rem] font-semibold text-primary" style="flex-shrink:0;">Live Graphs</h3>
             <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;">
@@ -178,7 +179,6 @@ function renderNeuralookView() {
           </div>
         </div>
 
-        <!-- Model Info -->
         <div class="bg-card border border-border-card rounded-xl p-4" style="flex-shrink:0;">
           <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
           <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
@@ -196,25 +196,20 @@ function renderNeuralookView() {
 
 async function _nlInitMediapipe() {
   if (_nlFaceLandmarker) return true;
-
-  // Wait for CDN if not loaded yet (up to 15s)
   if (!window.FaceLandmarker || !window.FilesetResolver) {
     await new Promise((resolve) => {
       if (window.FaceLandmarker && window.FilesetResolver) { resolve(); return; }
       const onReady = () => { window.removeEventListener('mediapipe-ready', onReady); resolve(); };
       window.addEventListener('mediapipe-ready', onReady);
-      setTimeout(onReady, 15000); // timeout fallback
+      setTimeout(onReady, 15000);
     });
     if (!window.FaceLandmarker || !window.FilesetResolver) {
-      console.warn('Neuralook: MediaPipe CDN failed to load');
       _nlMpModelLoading = false;
       return false;
     }
   }
-
   _nlMpModelLoading = true;
   if (document.getElementById('neuralook-content')) renderNeuralookView();
-
   try {
     const vision = await window.FilesetResolver.forVisionTasks(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
@@ -239,186 +234,108 @@ async function _nlInitMediapipe() {
   }
 }
 
-// ── Iris Feature Extraction ──
+// ── Eye Crop Capture ──
 
-function _nlExtractIrisFeatures(landmarks) {
-  // Iris centers: 468 (left eye), 473 (right eye)
-  // Eye corners: 33, 133 (left eye inner/outer), 263, 362 (right eye inner/outer)
-  // Lids: 159, 145 (left upper/lower), 386, 374 (right upper/lower)
-  const lIris = landmarks[468];
-  const rIris = landmarks[473];
-  const lInner = landmarks[133];
-  const lOuter = landmarks[33];
-  const rInner = landmarks[362];
-  const rOuter = landmarks[263];
-
-  // Horizontal ratio: where iris sits between inner and outer corners
-  const lRatioX = Math.abs(lInner.x - lOuter.x) > 0.001 ? (lIris.x - lOuter.x) / (lInner.x - lOuter.x) : 0.5;
-  const rRatioX = Math.abs(rInner.x - rOuter.x) > 0.001 ? (rIris.x - rOuter.x) / (rInner.x - rOuter.x) : 0.5;
-
-  // Vertical ratio: where iris sits between upper and lower lids
-  const lUpper = landmarks[159], lLower = landmarks[145];
-  const rUpper = landmarks[386], rLower = landmarks[374];
-  const lRatioY = Math.abs(lLower.y - lUpper.y) > 0.001 ? (lIris.y - lUpper.y) / (lLower.y - lUpper.y) : 0.5;
-  const rRatioY = Math.abs(rLower.y - rUpper.y) > 0.001 ? (rIris.y - rUpper.y) / (rLower.y - rUpper.y) : 0.5;
-
-  const irisX = (lRatioX + rRatioX) / 2;
-  const irisY = (lRatioY + rRatioY) / 2;
-
-  // Head pose from nose tip (1), forehead (10), chin (152)
-  const nose = landmarks[1];
-  const forehead = landmarks[10];
-  const chin = landmarks[152];
-  const lCheek = landmarks[234];
-  const rCheek = landmarks[454];
-
-  // Yaw: horizontal offset of nose relative to cheeks midpoint
-  const cheekMidX = (lCheek.x + rCheek.x) / 2;
-  const cheekWidth = Math.abs(rCheek.x - lCheek.x);
-  const yaw = cheekWidth > 0.001 ? (nose.x - cheekMidX) / cheekWidth : 0;
-
-  // Pitch: vertical offset of nose relative to forehead-chin midpoint
-  const faceMidY = (forehead.y + chin.y) / 2;
-  const faceHeight = Math.abs(chin.y - forehead.y);
-  const pitch = faceHeight > 0.001 ? (nose.y - faceMidY) / faceHeight : 0;
-
-  // Roll: angle of line between eye corners
-  const roll = Math.atan2(rOuter.y - lOuter.y, rOuter.x - lOuter.x);
-
-  // Return 5-element feature vector
-  return [irisX, irisY, yaw, pitch, roll];
+function _nlGetEyeCropCanvas() {
+  if (!_nlEyeCropCanvas) {
+    _nlEyeCropCanvas = document.createElement('canvas');
+    _nlEyeCropCanvas.width = _NL_EYE_W;
+    _nlEyeCropCanvas.height = _NL_EYE_H;
+  }
+  return _nlEyeCropCanvas;
 }
 
-// ── Tiny MLP: 5 → 16 → 16 → 2 with ReLU ──
-// ~370 parameters, trained per-user during calibration via SGD
+function _nlCaptureEyeCrops() {
+  // Detect face, crop both eyes from video, return as flat grayscale array [4096]
+  if (!_nlFaceLandmarker || !_nlVideoEl) return null;
+  const result = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
+  if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) return null;
+  const lm = result.faceLandmarks[0];
 
-function _nlMlpInit() {
-  // Xavier initialization
-  function randMatrix(rows, cols) {
-    const scale = Math.sqrt(2 / cols);
-    const m = new Float64Array(rows * cols);
-    for (let i = 0; i < m.length; i++) m[i] = (Math.random() * 2 - 1) * scale;
-    return { data: m, rows, cols };
-  }
-  function zeroVec(n) { return new Float64Array(n); }
-  return {
-    w1: randMatrix(16, 5), b1: zeroVec(16),
-    w2: randMatrix(16, 16), b2: zeroVec(16),
-    w3: randMatrix(2, 16), b3: zeroVec(2)
-  };
-}
+  const vw = _nlVideoEl.videoWidth;
+  const vh = _nlVideoEl.videoHeight;
+  if (!vw || !vh) return null;
 
-function _nlMlpForward(model, input) {
-  // input: Float64Array(5), returns { out: Float64Array(2), h1, h2, a1, a2 } for backprop
-  const { w1, b1, w2, b2, w3, b3 } = model;
+  const canvas = _nlGetEyeCropCanvas();
+  const ctx = canvas.getContext('2d');
 
-  // Layer 1: 5→16 + ReLU
-  const h1 = new Float64Array(16);
-  const a1 = new Float64Array(16);
-  for (let i = 0; i < 16; i++) {
-    let s = b1[i];
-    for (let j = 0; j < 5; j++) s += w1.data[i * 5 + j] * input[j];
-    a1[i] = s;
-    h1[i] = s > 0 ? s : 0; // ReLU
-  }
+  // Eye bounding boxes from landmarks (normalized 0-1 coords)
+  // Left eye: outer=33, inner=133, top=159, bottom=145
+  // Right eye: outer=263, inner=362, top=386, bottom=374
+  function cropEye(outer, inner, top, bottom) {
+    const cx = (lm[outer].x + lm[inner].x) / 2;
+    const cy = (lm[top].y + lm[bottom].y) / 2;
+    const ew = Math.abs(lm[inner].x - lm[outer].x) * 1.8; // 80% padding
+    const eh = ew * 0.5; // 2:1 aspect ratio
 
-  // Layer 2: 16→16 + ReLU
-  const h2 = new Float64Array(16);
-  const a2 = new Float64Array(16);
-  for (let i = 0; i < 16; i++) {
-    let s = b2[i];
-    for (let j = 0; j < 16; j++) s += w2.data[i * 16 + j] * h1[j];
-    a2[i] = s;
-    h2[i] = s > 0 ? s : 0;
-  }
+    const sx = Math.max(0, (cx - ew / 2) * vw);
+    const sy = Math.max(0, (cy - eh / 2) * vh);
+    const sw = Math.min(ew * vw, vw - sx);
+    const sh = Math.min(eh * vh, vh - sy);
 
-  // Layer 3: 16→2 (linear output)
-  const out = new Float64Array(2);
-  for (let i = 0; i < 2; i++) {
-    let s = b3[i];
-    for (let j = 0; j < 16; j++) s += w3.data[i * 16 + j] * h2[j];
-    out[i] = s;
-  }
-
-  return { out, h1, h2, a1, a2 };
-}
-
-function _nlMlpTrain(data, epochs, lr) {
-  // data: array of { features: Float64Array(5), target: Float64Array(2) }
-  if (data.length < 3) return null;
-
-  const model = _nlMlpInit();
-  const n = data.length;
-
-  for (let epoch = 0; epoch < epochs; epoch++) {
-    // Shuffle
-    for (let i = n - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [data[i], data[j]] = [data[j], data[i]];
+    canvas.width = _NL_EYE_W;
+    canvas.height = _NL_EYE_H;
+    ctx.drawImage(_nlVideoEl, sx, sy, sw, sh, 0, 0, _NL_EYE_W, _NL_EYE_H);
+    const imgData = ctx.getImageData(0, 0, _NL_EYE_W, _NL_EYE_H);
+    const gray = new Uint8Array(_NL_EYE_W * _NL_EYE_H);
+    for (let i = 0; i < gray.length; i++) {
+      gray[i] = Math.round(0.299 * imgData.data[i * 4] + 0.587 * imgData.data[i * 4 + 1] + 0.114 * imgData.data[i * 4 + 2]);
     }
-
-    for (const sample of data) {
-      const input = sample.features;
-      const target = sample.target;
-      const { out, h1, h2, a1, a2 } = _nlMlpForward(model, input);
-
-      // MSE loss gradient: dL/dout = 2*(out - target)/2 = (out - target)
-      const dOut = new Float64Array(2);
-      dOut[0] = out[0] - target[0];
-      dOut[1] = out[1] - target[1];
-
-      // Backprop layer 3: 16→2
-      const dH2 = new Float64Array(16);
-      for (let i = 0; i < 2; i++) {
-        for (let j = 0; j < 16; j++) {
-          model.w3.data[i * 16 + j] -= lr * dOut[i] * h2[j];
-          dH2[j] += model.w3.data[i * 16 + j] * dOut[i];
-        }
-        model.b3[i] -= lr * dOut[i];
-      }
-
-      // ReLU derivative for layer 2
-      const dA2 = new Float64Array(16);
-      for (let i = 0; i < 16; i++) dA2[i] = a2[i] > 0 ? dH2[i] : 0;
-
-      // Backprop layer 2: 16→16
-      const dH1 = new Float64Array(16);
-      for (let i = 0; i < 16; i++) {
-        for (let j = 0; j < 16; j++) {
-          model.w2.data[i * 16 + j] -= lr * dA2[i] * h1[j];
-          dH1[j] += model.w2.data[i * 16 + j] * dA2[i];
-        }
-        model.b2[i] -= lr * dA2[i];
-      }
-
-      // ReLU derivative for layer 1
-      const dA1 = new Float64Array(16);
-      for (let i = 0; i < 16; i++) dA1[i] = a1[i] > 0 ? dH1[i] : 0;
-
-      // Backprop layer 1: 5→16
-      for (let i = 0; i < 16; i++) {
-        for (let j = 0; j < 5; j++) {
-          model.w1.data[i * 5 + j] -= lr * dA1[i] * input[j];
-        }
-        model.b1[i] -= lr * dA1[i];
-      }
-    }
+    return gray;
   }
 
-  return model;
+  const leftGray = cropEye(33, 133, 159, 145);
+  const rightGray = cropEye(263, 362, 386, 374);
+  if (!leftGray || !rightGray) return null;
+
+  // Concatenate: [left 2048 + right 2048] = 4096 bytes
+  const combined = new Uint8Array(4096);
+  combined.set(leftGray, 0);
+  combined.set(rightGray, 2048);
+  return combined;
 }
 
-function _nlMlpPredict(model, features) {
-  const { out } = _nlMlpForward(model, features);
-  return { x: out[0], y: out[1] };
+// ── Server Communication ──
+
+async function _nlTrainOnServer() {
+  // Convert calibration data to compact format and POST
+  const samples = _nlCalibData.map(s => ({
+    eyeData: Array.from(s.eyeData),
+    screenX: s.screenX,
+    screenY: s.screenY
+  }));
+
+  const resp = await fetch('/api/neuralook/train', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      samples,
+      screenW: window.innerWidth,
+      screenH: window.innerHeight,
+      eyeW: _NL_EYE_W,
+      eyeH: _NL_EYE_H
+    })
+  });
+  const result = await resp.json();
+  if (result.error) throw new Error(result.error);
+  _nlTrainError = result.train_error_px;
+  _nlValError = result.val_error_px || null;
+  _nlModelTrained = true;
+  return result;
 }
 
-// ── Camera / Video Element ──
-
-function _nlGetVideoElement() {
-  if (_nlVideoEl && _nlVideoEl.srcObject) return _nlVideoEl;
-  return null;
+async function _nlPredictOnServer(eyeData) {
+  const resp = await fetch('/api/neuralook/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eyeData: Array.from(eyeData) })
+  });
+  const result = await resp.json();
+  if (result.error) return null;
+  return { x: result.x, y: result.y };
 }
+
+// ── Camera / Video ──
 
 async function _nlEnsureVideo() {
   if (_nlVideoEl && _nlVideoEl.srcObject) return _nlVideoEl;
@@ -428,10 +345,8 @@ async function _nlEnsureVideo() {
   _nlVideoEl.autoplay = true;
   _nlVideoEl.muted = true;
   _nlVideoEl.playsInline = true;
-  // Wait for video to be ready
   await new Promise(resolve => {
     _nlVideoEl.onloadeddata = resolve;
-    // Fallback if already loaded
     if (_nlVideoEl.readyState >= 2) resolve();
   });
   return _nlVideoEl;
@@ -447,10 +362,8 @@ function _nlStopVideo() {
 
 function _nlAttachCameraPreview() {
   const previewBox = document.getElementById('nl-camera-preview');
-  if (!previewBox) return;
-  if (previewBox.querySelector('video')) return;
-
-  const vid = _nlGetVideoElement();
+  if (!previewBox || previewBox.querySelector('video')) return;
+  const vid = _nlVideoEl;
   if (vid && vid.srcObject) {
     const placeholder = document.getElementById('nl-camera-placeholder');
     if (placeholder) placeholder.remove();
@@ -459,28 +372,20 @@ function _nlAttachCameraPreview() {
     clone.autoplay = true;
     clone.muted = true;
     clone.playsInline = true;
-    Object.assign(clone.style, {
-      width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'
-    });
+    Object.assign(clone.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
     previewBox.appendChild(clone);
     return;
   }
-
-  // Fallback: grab camera directly for preview
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
       const box = document.getElementById('nl-camera-preview');
       if (!box || box.querySelector('video')) { stream.getTracks().forEach(t => t.stop()); return; }
-      const placeholder = document.getElementById('nl-camera-placeholder');
-      if (placeholder) placeholder.remove();
+      const ph = document.getElementById('nl-camera-placeholder');
+      if (ph) ph.remove();
       const video = document.createElement('video');
       video.srcObject = stream;
-      video.autoplay = true;
-      video.muted = true;
-      video.playsInline = true;
-      Object.assign(video.style, {
-        width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'
-      });
+      video.autoplay = true; video.muted = true; video.playsInline = true;
+      Object.assign(video.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
       box.appendChild(video);
     }).catch(() => {});
   }
@@ -489,7 +394,6 @@ function _nlAttachCameraPreview() {
 function _nlToggleCamera() {
   if (_nlCameraOn) {
     _nlCameraOn = false;
-    // Only stop video if not tracking
     if (!_nlTracking && !_nlCalibrating) _nlStopVideo();
     const box = document.getElementById('nl-camera-preview');
     if (box) {
@@ -506,23 +410,18 @@ function _nlToggleCamera() {
   } else {
     _nlCameraOn = true;
     _nlAttachCameraPreview();
-    // If no shared video yet, grab camera directly
-    if (!_nlGetVideoElement()) {
+    if (!(_nlVideoEl && _nlVideoEl.srcObject)) {
       const box = document.getElementById('nl-camera-preview');
       if (box && !box.querySelector('video')) {
         navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
           const b = document.getElementById('nl-camera-preview');
           if (!b || b.querySelector('video')) { stream.getTracks().forEach(t => t.stop()); return; }
-          const placeholder = document.getElementById('nl-camera-placeholder');
-          if (placeholder) placeholder.remove();
+          const ph = document.getElementById('nl-camera-placeholder');
+          if (ph) ph.remove();
           const video = document.createElement('video');
           video.srcObject = stream;
-          video.autoplay = true;
-          video.muted = true;
-          video.playsInline = true;
-          Object.assign(video.style, {
-            width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'
-          });
+          video.autoplay = true; video.muted = true; video.playsInline = true;
+          Object.assign(video.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
           b.appendChild(video);
         }).catch(() => {});
       }
@@ -544,30 +443,30 @@ async function _nlStartCalibration() {
 
   _nlCalibrating = true;
   _nlCalibData = [];
-  _nlModel = null;
+  _nlModelTrained = false;
   _nlReady = false;
   _nlCurrentPoint = 0;
   _nlAccuracy = null;
   _nlPredictionCount = 0;
+  _nlTrainError = null;
+  _nlValError = null;
   _nlGazeBuffer = [];
   renderNeuralookView();
 
-  // Initialize MediaPipe
   const mpOk = await _nlInitMediapipe();
   if (!mpOk) {
     _nlCalibrating = false;
-    _nlShowError(_nlMpCdnLoaded ? 'Failed to initialize face model.' : 'MediaPipe CDN failed to load. Check your network connection.');
+    _nlShowError(_nlMpCdnLoaded ? 'Failed to initialize face model.' : 'MediaPipe CDN failed to load.');
     renderNeuralookView();
     return;
   }
 
-  // Ensure camera
   try {
     await _nlEnsureVideo();
     _nlCameraOn = true;
   } catch (e) {
     _nlCalibrating = false;
-    _nlShowError('Camera error: ' + (e.message || e) + '. Check browser permissions.');
+    _nlShowError('Camera error: ' + (e.message || e));
     renderNeuralookView();
     return;
   }
@@ -576,11 +475,9 @@ async function _nlStartCalibration() {
   const el = document.documentElement;
   const reqFs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
   if (reqFs) {
-    try {
-      await reqFs.call(el);
-    } catch (e) {
+    try { await reqFs.call(el); } catch (e) {
       _nlCalibrating = false;
-      _nlShowError('Fullscreen is required for calibration. Please allow fullscreen access.');
+      _nlShowError('Fullscreen required for calibration.');
       renderNeuralookView();
       return;
     }
@@ -597,11 +494,8 @@ function _nlFullscreenChange() {
   if (!isFs && _nlCalibrating) {
     _nlCalibrating = false;
     _nlCurrentPoint = 0;
-    _nlAccuracyCollecting = false;
     const overlay = document.getElementById('nl-calibration-overlay');
     if (overlay) overlay.remove();
-    const style = document.getElementById('nl-cal-style');
-    if (style) style.remove();
     renderNeuralookView();
   }
   if (!isFs) {
@@ -614,30 +508,26 @@ function _nlShowCalibrationOverlay() {
   const existing = document.getElementById('nl-calibration-overlay');
   if (existing) existing.remove();
 
+  // Transparent overlay — no dimming so lighting matches normal usage
   const overlay = document.createElement('div');
   overlay.id = 'nl-calibration-overlay';
   Object.assign(overlay.style, {
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    background: 'rgba(0,0,0,0.85)', zIndex: '99999',
+    background: 'transparent', zIndex: '99999',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
   });
 
   const instr = document.createElement('div');
   instr.id = 'nl-cal-instr';
-  instr.style.cssText = 'position:absolute;top:30px;left:50%;transform:translateX(-50%);color:#fff;font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;';
+  instr.style.cssText = 'position:absolute;top:30px;left:50%;transform:translateX(-50%);font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:8px;';
   overlay.appendChild(instr);
-
-  const style = document.createElement('style');
-  style.id = 'nl-cal-style';
-  style.textContent = `@keyframes nl-pulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.3); } }`;
-  document.head.appendChild(style);
 
   // Progress bar
   const progBar = document.createElement('div');
   progBar.id = 'nl-cal-progbar';
   Object.assign(progBar.style, {
     position: 'absolute', bottom: '24px', left: '10%', width: '80%', height: '4px',
-    background: 'rgba(255,255,255,0.1)', borderRadius: '2px', zIndex: '100000'
+    background: 'rgba(255,255,255,0.2)', borderRadius: '2px', zIndex: '100000'
   });
   const progFill = document.createElement('div');
   progFill.id = 'nl-cal-progfill';
@@ -649,16 +539,8 @@ function _nlShowCalibrationOverlay() {
   overlay.appendChild(progBar);
 
   document.body.appendChild(overlay);
-
   _nlCurrentPoint = 0;
   _nlShowNextCalibrationDot();
-}
-
-function _nlGetIrisFeaturesNow() {
-  if (!_nlFaceLandmarker || !_nlVideoEl) return null;
-  const result = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
-  if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) return null;
-  return _nlExtractIrisFeatures(result.faceLandmarks[0]);
 }
 
 function _nlShowNextCalibrationDot() {
@@ -667,6 +549,8 @@ function _nlShowNextCalibrationDot() {
 
   const prev = document.getElementById('nl-cal-dot');
   if (prev) prev.remove();
+  const prevRing = document.getElementById('nl-cal-ring');
+  if (prevRing) prevRing.remove();
 
   if (_nlCurrentPoint >= _NL_CAL_POSITIONS.length) {
     _nlOnCalibrationComplete();
@@ -675,76 +559,87 @@ function _nlShowNextCalibrationDot() {
 
   const [xPct, yPct] = _NL_CAL_POSITIONS[_nlCurrentPoint];
 
-  // Update instruction
   const instr = document.getElementById('nl-cal-instr');
   if (instr) {
-    instr.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">Calibration</div>` +
-      `<div style="color:#aaa;font-size:0.78rem;">Point ${_nlCurrentPoint + 1}/${_NL_CAL_POSITIONS.length} — click the dot</div>`;
+    instr.innerHTML = `<strong>Calibration</strong> &mdash; Point ${_nlCurrentPoint + 1}/${_NL_CAL_POSITIONS.length}, look at the dot`;
   }
 
-  // Update progress bar
   const progFill = document.getElementById('nl-cal-progfill');
-  if (progFill) {
-    progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 100) + '%';
-  }
+  if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 100) + '%';
 
-  // Create dot
+  // Dot with outline for visibility on any background
   const dot = document.createElement('div');
   dot.id = 'nl-cal-dot';
   Object.assign(dot.style, {
-    position: 'absolute',
-    left: xPct + '%', top: yPct + '%',
-    width: '24px', height: '24px',
-    borderRadius: '50%',
+    position: 'absolute', left: xPct + '%', top: yPct + '%',
+    width: '20px', height: '20px', borderRadius: '50%',
     background: 'var(--accent, #b4451a)',
+    border: '2px solid #fff',
+    boxShadow: '0 0 8px rgba(0,0,0,0.5)',
     transform: 'translate(-50%, -50%)',
-    cursor: 'pointer',
-    zIndex: '100001',
-    opacity: '0',
-    transition: 'opacity 0.3s',
-    animation: 'nl-pulse 1.5s ease-in-out infinite'
+    zIndex: '100001', opacity: '0', transition: 'opacity 0.3s'
   });
 
-  dot.addEventListener('click', () => {
-    // Capture iris features at click time
-    const iris = _nlGetIrisFeaturesNow();
-    if (!iris) {
-      // Face not detected — flash the dot red briefly
-      dot.style.background = '#f87171';
-      setTimeout(() => { dot.style.background = 'var(--accent, #b4451a)'; }, 300);
-      return;
-    }
-
-    const screenX = window.innerWidth * xPct / 100;
-    const screenY = window.innerHeight * yPct / 100;
-    _nlCalibData.push({ features: new Float64Array(iris), target: new Float64Array([screenX, screenY]) });
-
-    // Fade out and next
-    dot.style.opacity = '0';
-    dot.style.pointerEvents = 'none';
-    _nlCurrentPoint++;
-    setTimeout(_nlShowNextCalibrationDot, 300);
+  // Shrinking ring
+  const ring = document.createElement('div');
+  ring.id = 'nl-cal-ring';
+  Object.assign(ring.style, {
+    position: 'absolute', left: xPct + '%', top: yPct + '%',
+    width: '44px', height: '44px', borderRadius: '50%',
+    border: '2px solid var(--accent, #b4451a)',
+    transform: 'translate(-50%, -50%) scale(1)',
+    zIndex: '100001', opacity: '0',
+    transition: `opacity 0.3s, transform ${_NL_STARE_MS}ms linear`
   });
 
+  overlay.appendChild(ring);
   overlay.appendChild(dot);
-  // Small delay before showing dot (let user's eyes settle)
-  setTimeout(() => { dot.style.opacity = '1'; }, 200);
+
+  const screenX = window.innerWidth * xPct / 100;
+  const screenY = window.innerHeight * yPct / 100;
+
+  requestAnimationFrame(() => { dot.style.opacity = '1'; ring.style.opacity = '0.6'; });
+
+  setTimeout(() => {
+    ring.style.transform = 'translate(-50%, -50%) scale(0)';
+
+    const startTime = performance.now();
+    function collect() {
+      const elapsed = performance.now() - startTime;
+      if (elapsed > _NL_STARE_MS) {
+        dot.style.opacity = '0';
+        ring.style.opacity = '0';
+        _nlCurrentPoint++;
+        setTimeout(() => { dot.remove(); ring.remove(); _nlShowNextCalibrationDot(); }, 200);
+        return;
+      }
+
+      const eyeData = _nlCaptureEyeCrops();
+      if (eyeData) {
+        _nlCalibData.push({ eyeData, screenX, screenY });
+      }
+      requestAnimationFrame(collect);
+    }
+    requestAnimationFrame(collect);
+  }, _NL_SETTLE_MS);
 }
 
-function _nlOnCalibrationComplete() {
-  // Train MLP on calibration data (500 epochs, lr 0.01)
-  _nlModel = _nlMlpTrain(_nlCalibData.slice(), 500, 0.01);
-  if (!_nlModel) {
+async function _nlOnCalibrationComplete() {
+  const instr = document.getElementById('nl-cal-instr');
+  if (instr) instr.innerHTML = '<strong>Training CNN</strong> on eye images...';
+
+  try {
+    await _nlTrainOnServer();
+  } catch (e) {
     _nlFinishCalibration();
-    _nlShowError('Training failed — not enough valid data. Try again.');
+    _nlShowError('Training failed: ' + (e.message || e));
     return;
   }
 
-  // Run accuracy test
   _nlRunAccuracyTest();
 }
 
-// ── Post-calibration accuracy test ──
+// ── Accuracy Test ──
 
 function _nlRunAccuracyTest() {
   const overlay = document.getElementById('nl-calibration-overlay');
@@ -754,10 +649,7 @@ function _nlRunAccuracyTest() {
   if (dot) dot.remove();
 
   const instr = document.getElementById('nl-cal-instr');
-  if (instr) {
-    instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Accuracy Test</div>' +
-      '<div style="color:#aaa;font-size:0.78rem;">Look at each dot — measuring accuracy...</div>';
-  }
+  if (instr) instr.innerHTML = '<strong>Accuracy Test</strong> — look at each dot';
 
   _nlAccuracyTestLoop(0, []);
 }
@@ -777,39 +669,27 @@ function _nlAccuracyTestLoop(idx, distances) {
   const targetX = window.innerWidth * xPct / 100;
   const targetY = window.innerHeight * yPct / 100;
 
-  // Show test dot
   const testDot = document.createElement('div');
   testDot.id = 'nl-test-dot';
   Object.assign(testDot.style, {
-    position: 'absolute',
-    left: xPct + '%', top: yPct + '%',
-    width: '20px', height: '20px',
-    borderRadius: '50%',
-    background: '#60a5fa',
-    transform: 'translate(-50%, -50%)',
-    zIndex: '100001',
-    opacity: '0',
-    transition: 'opacity 0.25s'
+    position: 'absolute', left: xPct + '%', top: yPct + '%',
+    width: '20px', height: '20px', borderRadius: '50%',
+    background: '#60a5fa', border: '2px solid #fff', boxShadow: '0 0 8px rgba(0,0,0,0.5)',
+    transform: 'translate(-50%, -50%)', zIndex: '100001',
+    opacity: '0', transition: 'opacity 0.25s'
   });
   overlay.appendChild(testDot);
   requestAnimationFrame(() => { testDot.style.opacity = '1'; });
 
   const instr = document.getElementById('nl-cal-instr');
-  if (instr) {
-    instr.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Accuracy Test</div>' +
-      `<div style="color:#aaa;font-size:0.78rem;">Point ${idx + 1}/${_NL_TEST_POSITIONS.length} — look at the dot</div>`;
-  }
+  if (instr) instr.innerHTML = `<strong>Accuracy Test</strong> — Point ${idx + 1}/${_NL_TEST_POSITIONS.length}`;
 
-  // Collect predictions for 1.5 seconds
   const predictions = [];
-  let collectRAF = null;
   const startTime = performance.now();
 
   function collect() {
     if (performance.now() - startTime > 1500) {
-      // Done collecting
       testDot.style.opacity = '0';
-
       let dist = Infinity;
       if (predictions.length > 0) {
         let sx = 0, sy = 0;
@@ -819,26 +699,22 @@ function _nlAccuracyTestLoop(idx, distances) {
         dist = Math.sqrt((avgX - targetX) ** 2 + (avgY - targetY) ** 2);
       }
       distances.push(dist);
-
-      setTimeout(() => {
-        testDot.remove();
-        _nlAccuracyTestLoop(idx + 1, distances);
-      }, 300);
+      setTimeout(() => { testDot.remove(); _nlAccuracyTestLoop(idx + 1, distances); }, 300);
       return;
     }
 
-    // Get current iris prediction
-    const iris = _nlGetIrisFeaturesNow();
-    if (iris && _nlModel) {
-      const pred = _nlMlpPredict(_nlModel, new Float64Array(iris));
-      predictions.push(pred);
+    const eyeData = _nlCaptureEyeCrops();
+    if (eyeData && !_nlInferPending) {
+      _nlInferPending = true;
+      _nlPredictOnServer(eyeData).then(pred => {
+        _nlInferPending = false;
+        if (pred) predictions.push(pred);
+      }).catch(() => { _nlInferPending = false; });
     }
-
-    collectRAF = requestAnimationFrame(collect);
+    requestAnimationFrame(collect);
   }
 
-  // Wait a moment for eyes to settle, then start collecting
-  setTimeout(() => { collectRAF = requestAnimationFrame(collect); }, 500);
+  setTimeout(() => requestAnimationFrame(collect), 500);
 }
 
 function _nlShowAccuracyResult(avgPx) {
@@ -856,12 +732,12 @@ function _nlShowAccuracyResult(avgPx) {
 
   const result = document.createElement('div');
   result.id = 'nl-accuracy-result';
-  result.style.cssText = 'text-align:center;color:#fff;';
+  result.style.cssText = 'text-align:center;background:rgba(0,0,0,0.75);padding:24px 32px;border-radius:16px;';
   result.innerHTML = `
-    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;">Calibration Complete</div>
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;color:#fff;">Calibration Complete</div>
     <div style="font-size:2rem;font-weight:700;color:${labelColor};margin-bottom:4px;">~${px}px</div>
     <div style="font-size:0.85rem;color:${labelColor};font-weight:500;">${label}</div>
-    <div style="font-size:0.75rem;color:#888;margin-top:12px;">Average accuracy across ${_NL_TEST_POSITIONS.length} test points</div>
+    <div style="font-size:0.75rem;color:#888;margin-top:12px;">Average across ${_NL_TEST_POSITIONS.length} test points</div>
   `;
   overlay.appendChild(result);
 
@@ -871,22 +747,15 @@ function _nlShowAccuracyResult(avgPx) {
 
 function _nlFinishCalibration() {
   _nlCalibrating = false;
-  _nlAccuracyCollecting = false;
-
   const overlay = document.getElementById('nl-calibration-overlay');
   if (overlay) overlay.remove();
-  const style = document.getElementById('nl-cal-style');
-  if (style) style.remove();
 
   const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
-  if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
-    exitFs.call(document);
-  }
-
+  if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) exitFs.call(document);
   renderNeuralookView();
 }
 
-// ── Tracking Loop ──
+// ── Tracking Loop (server-side inference) ──
 
 function _nlTrackingLoop() {
   if (!_nlTracking || !_nlFaceLandmarker || !_nlVideoEl) {
@@ -894,48 +763,42 @@ function _nlTrackingLoop() {
     return;
   }
 
-  const iris = _nlGetIrisFeaturesNow();
-  if (iris && _nlModel) {
-    const pred = _nlMlpPredict(_nlModel, new Float64Array(iris));
-    const px = pred.x, py = pred.y;
+  if (!_nlInferPending) {
+    const eyeData = _nlCaptureEyeCrops();
+    if (eyeData) {
+      _nlInferPending = true;
+      _nlPredictOnServer(eyeData).then(pred => {
+        _nlInferPending = false;
+        if (!pred || !_nlTracking) return;
 
-    _nlPredictionCount++;
-    _nlPredictionsThisSec++;
+        _nlPredictionCount++;
+        _nlPredictionsThisSec++;
 
-    // Ring buffer smoothing
-    _nlGazeBuffer.push({ x: px, y: py });
-    if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-    let sx = 0, sy = 0;
-    for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
-    _nlGazeX = sx / _nlGazeBuffer.length;
-    _nlGazeY = sy / _nlGazeBuffer.length;
-    _nlMoveDot(_nlGazeX, _nlGazeY);
+        _nlGazeBuffer.push(pred);
+        if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+        let sx = 0, sy = 0;
+        for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+        _nlGazeX = sx / _nlGazeBuffer.length;
+        _nlGazeY = sy / _nlGazeBuffer.length;
+        _nlMoveDot(_nlGazeX, _nlGazeY);
+      }).catch(() => { _nlInferPending = false; });
+    }
   }
 
   _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
 }
 
-// ── Tracking Toggle ──
-
 function _nlToggleTracking() {
-  if (_nlTracking) {
-    _nlStopTracking();
-  } else {
-    _nlStartTracking();
-  }
+  if (_nlTracking) _nlStopTracking();
+  else _nlStartTracking();
 }
 
 async function _nlStartTracking() {
-  if (!_nlReady || !_nlModel) return;
-
-  // Ensure video and mediapipe
-  try {
-    await _nlEnsureVideo();
-  } catch (e) {
+  if (!_nlReady || !_nlModelTrained) return;
+  try { await _nlEnsureVideo(); } catch (e) {
     _nlShowError('Camera error: ' + (e.message || e));
     return;
   }
-
   _nlTracking = true;
   _nlGazeBuffer = [];
   _nlCreateDot();
@@ -960,19 +823,10 @@ function _nlCreateDot() {
   const savedSize = document.getElementById('nl-dot-size')?.value || '20';
   const sz = parseInt(savedSize, 10);
   Object.assign(dot.style, {
-    position: 'fixed',
-    width: sz + 'px',
-    height: sz + 'px',
-    borderRadius: '50%',
-    background: savedColor,
-    opacity: '0.7',
-    pointerEvents: 'none',
-    zIndex: '99998',
-    transform: 'translate(-50%, -50%)',
-    transition: 'left 0.05s linear, top 0.05s linear',
-    boxShadow: '0 0 8px ' + savedColor + '80',
-    left: '-100px',
-    top: '-100px'
+    position: 'fixed', width: sz + 'px', height: sz + 'px', borderRadius: '50%',
+    background: savedColor, opacity: '0.7', pointerEvents: 'none', zIndex: '99998',
+    transform: 'translate(-50%, -50%)', transition: 'left 0.05s linear, top 0.05s linear',
+    boxShadow: '0 0 8px ' + savedColor + '80', left: '-100px', top: '-100px'
   });
   document.body.appendChild(dot);
   _nlGazeDot = dot;
@@ -991,34 +845,24 @@ function _nlMoveDot(x, y) {
 }
 
 function _nlUpdateDotColor(color) {
-  if (_nlGazeDot) {
-    _nlGazeDot.style.background = color;
-    _nlGazeDot.style.boxShadow = '0 0 8px ' + color + '80';
-  }
+  if (_nlGazeDot) { _nlGazeDot.style.background = color; _nlGazeDot.style.boxShadow = '0 0 8px ' + color + '80'; }
 }
 
 function _nlUpdateDotSize(size) {
   const label = document.getElementById('nl-dot-size-label');
   if (label) label.textContent = size + 'px';
-  if (_nlGazeDot) {
-    _nlGazeDot.style.width = size + 'px';
-    _nlGazeDot.style.height = size + 'px';
-  }
+  if (_nlGazeDot) { _nlGazeDot.style.width = size + 'px'; _nlGazeDot.style.height = size + 'px'; }
 }
 
-// ── Model Stats ──
+// ── Stats & Graphs ──
 
 function _nlStartStatsInterval() {
   _nlStopStatsInterval();
   _nlStatsInterval = setInterval(() => {
-    const el = document.getElementById('nl-model-stats');
-    if (!el) { _nlStopStatsInterval(); return; }
+    if (!document.getElementById('nl-model-stats')) { _nlStopStatsInterval(); return; }
     _nlRefreshStats();
   }, 500);
-  _nlRateInterval = setInterval(() => {
-    _nlPredictionRate = _nlPredictionsThisSec;
-    _nlPredictionsThisSec = 0;
-  }, 1000);
+  _nlRateInterval = setInterval(() => { _nlPredictionRate = _nlPredictionsThisSec; _nlPredictionsThisSec = 0; }, 1000);
 }
 
 function _nlStopStatsInterval() {
@@ -1030,13 +874,10 @@ function _nlComputeJitter() {
   if (_nlGazeBuffer.length < 2) return 0;
   let sx = 0, sy = 0;
   for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
-  const mx = sx / _nlGazeBuffer.length;
-  const my = sy / _nlGazeBuffer.length;
-  let variance = 0;
-  for (const p of _nlGazeBuffer) {
-    variance += (p.x - mx) ** 2 + (p.y - my) ** 2;
-  }
-  return Math.sqrt(variance / _nlGazeBuffer.length);
+  const mx = sx / _nlGazeBuffer.length, my = sy / _nlGazeBuffer.length;
+  let v = 0;
+  for (const p of _nlGazeBuffer) v += (p.x - mx) ** 2 + (p.y - my) ** 2;
+  return Math.sqrt(v / _nlGazeBuffer.length);
 }
 
 function _nlRefreshStats() {
@@ -1053,17 +894,19 @@ function _nlRefreshStats() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
   el.innerHTML =
-    row('Model', 'MediaPipe Iris') +
-    row('Calibration points', `${_nlCalibData.length} / ${_NL_CAL_POSITIONS.length}`) +
-    row('Regression', _nlCoeffs ? '<span style="color:#4ade80">Fitted</span>' : '<span class="text-dimmer">Not fitted</span>') +
+    row('Model', 'PyTorch CNN (server)') +
+    row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
+    row('Calibration', `${_nlCalibData.length} frames / ${_NL_CAL_POSITIONS.length} pts`) +
+    row('CNN', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
+    (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
+    (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +
     row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
-    row('Jitter (stddev)', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
-    row('Gaze position', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +
-    row('Buffer size', `${_NL_BUFFER_SIZE} samples`) +
-    row('Total predictions', `${_nlPredictionCount.toLocaleString()}`);
+    row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
+    row('Gaze', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +
+    row('Buffer', `${_NL_BUFFER_SIZE} samples`) +
+    row('Predictions', `${_nlPredictionCount.toLocaleString()}`);
 
-  // Push history for graphs
   _nlHistGazeX.push(_nlTracking ? _nlGazeX : null);
   _nlHistGazeY.push(_nlTracking ? _nlGazeY : null);
   _nlHistJitter.push(_nlTracking ? _nlComputeJitter() : null);
@@ -1091,69 +934,37 @@ function _nlRefreshStats() {
 function _nlDrawGraph(canvasId, data, color, fixedMin, fixedMax) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  const w = Math.round(rect.width * dpr);
-  const h = Math.round(rect.height * dpr);
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (w <= 0 || h <= 0) return;
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-  }
-
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, w, h);
-
   const valid = data.filter(v => v !== null);
   if (valid.length < 2) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = dpr;
-    ctx.beginPath();
-    ctx.moveTo(0, h / 2);
-    ctx.lineTo(w, h / 2);
-    ctx.stroke();
-    return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = dpr;
+    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke(); return;
   }
-
   let min = fixedMin != null ? fixedMin : Math.min(...valid);
   let max = fixedMax != null ? fixedMax : Math.max(...valid);
-  if (max === min) { max = min + 1; }
+  if (max === min) max = min + 1;
   const pad = h * 0.08;
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.lineWidth = dpr;
-  for (let i = 1; i < 4; i++) {
-    const gy = pad + (h - 2 * pad) * (i / 4);
-    ctx.beginPath();
-    ctx.moveTo(0, gy);
-    ctx.lineTo(w, gy);
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = dpr;
+  for (let i = 1; i < 4; i++) { const gy = pad + (h - 2 * pad) * (i / 4); ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5 * dpr; ctx.lineJoin = 'round'; ctx.beginPath();
   let started = false;
   for (let i = 0; i < data.length; i++) {
-    const v = data[i];
-    if (v === null) { started = false; continue; }
+    const v = data[i]; if (v === null) { started = false; continue; }
     const x = (i / (_NL_GRAPH_LEN - 1)) * w;
     const y = pad + (h - 2 * pad) * (1 - (v - min) / (max - min));
-    if (!started) { ctx.moveTo(x, y); started = true; }
-    else ctx.lineTo(x, y);
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
   }
   ctx.stroke();
-
   if (started) {
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
+    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, color + '18');
-    grad.addColorStop(1, color + '00');
-    ctx.fillStyle = grad;
-    ctx.fill();
+    grad.addColorStop(0, color + '18'); grad.addColorStop(1, color + '00');
+    ctx.fillStyle = grad; ctx.fill();
   }
 }
