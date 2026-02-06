@@ -64,7 +64,7 @@ from persistence import (
     mark_team_chat_read, get_unread_team_chats, get_unread_team_chat_count,
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
-    read_adblock_rules, write_adblock_rules, DEFAULT_ADBLOCK_RULES, clean_html,
+    get_adblock_stats, update_adblock_lists, clean_html,
     get_cached_references, set_cached_references,
     get_cached_author, set_cached_author,
 )
@@ -1461,7 +1461,7 @@ ch.postMessage({type:'preview-ready'});
             return
 
         elif self.path == '/api/adblock-rules':
-            self._send_json(read_adblock_rules())
+            self._send_json(get_adblock_stats())
             return
 
         elif self.path.startswith('/api/images/'):
@@ -3057,8 +3057,8 @@ ch.postMessage({type:'preview-ready'});
             self._send_json({'ok': True})
 
         elif self.path == '/api/adblock-rules/reset':
-            write_adblock_rules(DEFAULT_ADBLOCK_RULES)
-            self._send_json(DEFAULT_ADBLOCK_RULES)
+            update_adblock_lists()
+            self._send_json(get_adblock_stats())
 
         elif self.path == '/api/comments':
             google_id = self._get_user()

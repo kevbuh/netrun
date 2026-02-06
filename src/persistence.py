@@ -1902,122 +1902,160 @@ def get_team_ancestors(team_id):
     return ancestors
 
 
-# ── Ad Block Rules ──
+# ── Ad Block (Brave adblock-rust via Python bindings) ──
 
-ADBLOCK_RULES_FILE = os.path.join(DIR, 'adblock_rules.json')
+ADBLOCK_ENGINE_FILE = os.path.join(DIR, 'adblock_engine.dat')
+ADBLOCK_META_FILE = os.path.join(DIR, 'adblock_meta.json')
+ADBLOCK_FILTER_LISTS = [
+    ('EasyList', 'https://easylist.to/easylist/easylist.txt'),
+    ('EasyPrivacy', 'https://easylist.to/easylist/easyprivacy.txt'),
+]
 
-DEFAULT_ADBLOCK_RULES = {
-    'domains': [
-        'doubleclick.net', 'googlesyndication.com', 'googletagmanager.com',
-        'googleadservices.com', 'google-analytics.com', 'adnxs.com',
-        'taboola.com', 'outbrain.com', 'hotjar.com', 'criteo.com',
-        'amazon-adsystem.com', 'facebook.net', 'fbcdn.net',
-        'scorecardresearch.com', 'quantserve.com', 'adsrvr.org',
-        'rubiconproject.com', 'pubmatic.com', 'casalemedia.com',
-        'moatads.com', 'chartbeat.com', 'newrelic.com', 'optimizely.com',
-        'mixpanel.com', 'segment.io', 'amplitude.com',
-    ],
-    'selectors': [
-        '[class*="advertisement"]', '[class*="ad-banner"]', '[class*="ad-slot"]',
-        '[class*="ad-container"]', '[class*="ad-wrapper"]', '[class*="ad-unit"]',
-        '[id*="google_ads"]', '[id*="ad-banner"]', '[id*="ad-slot"]',
-        '[class*="sponsored"]', '[class*="promotion"]', '[class*="promo-"]',
-        '[data-ad]', '[data-ad-slot]', '[data-google-query-id]',
-        '.adsbygoogle', '#carbonads', '.carbon-wrap',
-        '[class*="taboola"]', '[class*="outbrain"]',
-    ],
-    'scriptPatterns': [
-        r'/ads[./]', r'adsbygoogle', r'googletag', r'doubleclick',
-        r'analytics\.js', r'gtag/js', r'gtm\.js', r'fbevents',
-        r'hotjar', r'taboola', r'outbrain', r'chartbeat',
-    ],
-}
+_adblock_engine = None
+_adblock_meta = None
 
 
-def read_adblock_rules():
-    if os.path.exists(ADBLOCK_RULES_FILE):
+def _read_adblock_meta():
+    global _adblock_meta
+    if _adblock_meta is not None:
+        return _adblock_meta
+    if os.path.exists(ADBLOCK_META_FILE):
         try:
-            with open(ADBLOCK_RULES_FILE, 'r') as f:
-                return json.load(f)
+            with open(ADBLOCK_META_FILE, 'r') as f:
+                _adblock_meta = json.load(f)
+                return _adblock_meta
         except (json.JSONDecodeError, ValueError):
             pass
-    return DEFAULT_ADBLOCK_RULES
+    return None
 
 
-def write_adblock_rules(rules):
-    with open(ADBLOCK_RULES_FILE, 'w') as f:
-        json.dump(rules, f, indent=2)
+def _write_adblock_meta(meta):
+    global _adblock_meta
+    _adblock_meta = meta
+    with open(ADBLOCK_META_FILE, 'w') as f:
+        json.dump(meta, f, indent=2)
+
+
+def _get_adblock_engine():
+    """Lazy-load the Brave adblock engine. Tries deserialize first, then downloads lists."""
+    global _adblock_engine
+    if _adblock_engine is not None:
+        return _adblock_engine
+    try:
+        import adblock
+    except ImportError:
+        print("[adblock] adblock package not installed, ad blocking disabled")
+        return None
+    # Try loading serialized engine from disk
+    if os.path.exists(ADBLOCK_ENGINE_FILE):
+        try:
+            engine = adblock.Engine(adblock.FilterSet())
+            engine.deserialize_from_file(ADBLOCK_ENGINE_FILE)
+            _adblock_engine = engine
+            print(f"[adblock] Loaded engine from {ADBLOCK_ENGINE_FILE}")
+            return engine
+        except Exception as e:
+            print(f"[adblock] Failed to deserialize engine: {e}")
+    # Build fresh engine by downloading filter lists
+    return update_adblock_lists()
+
+
+def update_adblock_lists():
+    """Download filter lists, build engine, serialize to disk. Returns engine or None."""
+    global _adblock_engine
+    try:
+        import adblock
+    except ImportError:
+        print("[adblock] adblock package not installed")
+        return None
+    fs = adblock.FilterSet()
+    total_rules = 0
+    list_names = []
+    ctx = ssl._create_unverified_context()
+    for name, url in ADBLOCK_FILTER_LISTS:
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+                text = resp.read().decode('utf-8', errors='replace')
+            rule_count = len([l for l in text.splitlines() if l.strip() and not l.startswith('!')])
+            fs.add_filter_list(text, format='standard')
+            total_rules += rule_count
+            list_names.append(name)
+            print(f"[adblock] Loaded {name}: ~{rule_count} rules")
+        except Exception as e:
+            print(f"[adblock] Failed to download {name} ({url}): {e}")
+    engine = adblock.Engine(fs)
+    try:
+        engine.serialize_to_file(ADBLOCK_ENGINE_FILE)
+        print(f"[adblock] Serialized engine to {ADBLOCK_ENGINE_FILE}")
+    except Exception as e:
+        print(f"[adblock] Failed to serialize engine: {e}")
+    _write_adblock_meta({
+        'lists': list_names,
+        'ruleCount': total_rules,
+        'updatedAt': time.time(),
+    })
+    _adblock_engine = engine
+    return engine
+
+
+def get_adblock_stats():
+    """Return info about the current adblock engine for the settings UI."""
+    meta = _read_adblock_meta()
+    if meta:
+        return meta
+    return {'lists': [], 'ruleCount': 0, 'updatedAt': None}
 
 
 def clean_html(html_str, base_url, color_scheme=''):
-    """Strip ads, trackers, and sponsored content from HTML.
+    """Strip ads, trackers, and sponsored content from HTML using Brave adblock-rust.
     Returns (cleaned_html, blocked_count)."""
     from html.parser import HTMLParser
     from urllib.parse import urljoin, urlparse
 
-    rules = read_adblock_rules()
-    blocked_domains = set(rules.get('domains', []))
-    selectors = rules.get('selectors', [])
-    script_patterns = [re.compile(p, re.IGNORECASE) for p in rules.get('scriptPatterns', [])]
+    engine = _get_adblock_engine()
 
-    # Build selector matchers: extract class/id substrings
-    _class_matches = []
-    _id_matches = []
-    _data_attrs = []
-    _class_exact = []
-    _id_exact = []
-    for sel in selectors:
-        m = re.match(r'\[class\*="([^"]+)"\]', sel)
-        if m:
-            _class_matches.append(m.group(1).lower())
-            continue
-        m = re.match(r'\[id\*="([^"]+)"\]', sel)
-        if m:
-            _id_matches.append(m.group(1).lower())
-            continue
-        m = re.match(r'\[(data-[a-z-]+)\]', sel)
-        if m:
-            _data_attrs.append(m.group(1).lower())
-            continue
-        if sel.startswith('.'):
-            _class_exact.append(sel[1:].lower())
-        elif sel.startswith('#'):
-            _id_exact.append(sel[1:].lower())
+    # Map HTML tag context to adblock request types
+    _tag_request_type = {
+        'script': 'script',
+        'img': 'image',
+        'iframe': 'subdocument',
+        'video': 'media',
+        'audio': 'media',
+        'source': 'media',
+        'object': 'object',
+        'embed': 'object',
+    }
 
-    def _url_blocked(url):
-        if not url:
+    def _url_blocked(url, tag='other'):
+        if not engine or not url:
             return False
         try:
-            host = urlparse(url).hostname or ''
+            req_type = _tag_request_type.get(tag, 'other')
+            result = engine.check_network_urls(url, base_url, req_type)
+            return result.matched
         except Exception:
             return False
-        for d in blocked_domains:
-            if host == d or host.endswith('.' + d):
-                return True
-        for pat in script_patterns:
-            if pat.search(url):
-                return True
-        return False
 
-    def _attrs_match_ad(attrs_dict):
-        cls = attrs_dict.get('class', '').lower()
-        eid = attrs_dict.get('id', '').lower()
-        for s in _class_matches:
-            if s in cls:
-                return True
-        for s in _id_matches:
-            if s in eid:
-                return True
-        for c in _class_exact:
-            if c in cls.split():
-                return True
-        for i in _id_exact:
-            if eid == i:
-                return True
-        for da in _data_attrs:
-            if da in attrs_dict:
-                return True
-        return False
+    def _link_blocked(href, rel=''):
+        """Check if a <link> element should be blocked."""
+        if not engine or not href:
+            return False
+        try:
+            req_type = 'stylesheet' if 'stylesheet' in rel else 'other'
+            result = engine.check_network_urls(href, base_url, req_type)
+            return result.matched
+        except Exception:
+            return False
+
+    # Get cosmetic hide selectors from engine
+    cosmetic_selectors = set()
+    if engine:
+        try:
+            cr = engine.url_cosmetic_resources(base_url)
+            cosmetic_selectors = cr.hide_selectors or set()
+        except Exception:
+            pass
 
     blocked_count = 0
     output = []
@@ -2035,24 +2073,24 @@ def clean_html(html_str, base_url, color_scheme=''):
                 skip_depth += 1
                 return
 
-            # Block scripts/iframes with ad sources
-            if tag in ('script', 'iframe'):
+            # Block scripts/iframes/img with ad sources
+            if tag in ('script', 'iframe', 'img', 'video', 'audio', 'source', 'object', 'embed'):
                 src = attrs_dict.get('src', '')
-                if src and _url_blocked(src):
+                if src and _url_blocked(src, tag):
                     blocked_count += 1
                     skip_depth = 1
                     skip_tag = tag
                     return
-                # Block inline tracking scripts (no src but suspicious content handled in handle_data)
-                if tag == 'script' and not src:
-                    pass  # let it through, handle_data will check
 
-            # Block elements matching ad selectors
-            if _attrs_match_ad(attrs_dict):
-                blocked_count += 1
-                skip_depth = 1
-                skip_tag = tag
-                return
+            # Block <link> elements (stylesheets, etc.)
+            if tag == 'link':
+                href = attrs_dict.get('href', '')
+                rel = attrs_dict.get('rel', '')
+                if href and _link_blocked(href, rel):
+                    blocked_count += 1
+                    skip_depth = 1
+                    skip_tag = tag
+                    return
 
             # Rewrite relative URLs to absolute
             for url_attr in ('src', 'href', 'action', 'poster'):
@@ -2110,12 +2148,16 @@ def clean_html(html_str, base_url, color_scheme=''):
             if skip_depth > 0:
                 return
             attrs_dict = dict(attrs)
-            if tag in ('img', 'link') and _url_blocked(attrs_dict.get('src', '') or attrs_dict.get('href', '')):
-                blocked_count += 1
-                return
-            if _attrs_match_ad(attrs_dict):
-                blocked_count += 1
-                return
+            src_or_href = attrs_dict.get('src', '') or attrs_dict.get('href', '')
+            if tag in ('img', 'link') and src_or_href:
+                if tag == 'link':
+                    rel = attrs_dict.get('rel', '')
+                    if _link_blocked(src_or_href, rel):
+                        blocked_count += 1
+                        return
+                elif _url_blocked(src_or_href, tag):
+                    blocked_count += 1
+                    return
             for url_attr in ('src', 'href'):
                 if url_attr in attrs_dict and attrs_dict[url_attr]:
                     val = attrs_dict[url_attr]
@@ -2132,9 +2174,11 @@ def clean_html(html_str, base_url, color_scheme=''):
     parser = AdBlockParser(convert_charrefs=False)
     parser.feed(html_str)
 
-    # Inject cosmetic CSS to hide ad elements
-    css_rules = ', '.join(selectors)
-    cosmetic = f'<style>{css_rules} {{ display: none !important; }}</style>'
+    # Inject cosmetic CSS to hide ad elements (from engine + generic selectors)
+    cosmetic = ''
+    if cosmetic_selectors:
+        css_rules = ', '.join(cosmetic_selectors)
+        cosmetic = f'<style>{css_rules} {{ display: none !important; }}</style>'
     # Inject blocked count as meta tag
     meta = f'<meta name="adblock-count" content="{blocked_count}">'
 

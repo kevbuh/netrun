@@ -226,8 +226,8 @@ function renderSettingsView() {
         </label>
       </div>
       <p class="text-dim text-[0.8rem] mb-3">Strips ads, tracking scripts, and sponsored content from pages in the browse tab via a server-side proxy.</p>
-      <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading rules info...</div>
-      <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Reset rules to defaults</button>
+      <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading filter info...</div>
+      <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
     </div>
 
     <!-- KEYBOARD SHORTCUTS -->
@@ -271,10 +271,16 @@ function renderSettingsView() {
 
   `;
 
-  // Load adblock rules info
-  fetch('/api/adblock-rules').then(r => r.json()).then(rules => {
+  // Load adblock filter list info
+  fetch('/api/adblock-rules').then(r => r.json()).then(stats => {
     const el = document.getElementById('adblock-rules-info');
-    if (el) el.textContent = `Blocking ${(rules.domains || []).length} tracker domains, ${(rules.selectors || []).length} ad selectors, ${(rules.scriptPatterns || []).length} script patterns.`;
+    if (!el) return;
+    if (stats.lists && stats.lists.length > 0) {
+      const count = (stats.ruleCount || 0).toLocaleString();
+      el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
+    } else {
+      el.textContent = 'No filter lists loaded yet. Click "Update filter lists" to download.';
+    }
   }).catch(() => {});
   // Start spinner preview
   updateSpinnerPreview(getSelectedSpinner());
@@ -474,12 +480,19 @@ async function toggleProfilePrivacy(on) {
 }
 
 function resetAdBlockRules() {
+  const el = document.getElementById('adblock-rules-info');
+  if (el) el.textContent = 'Updating filter lists...';
   fetch('/api/adblock-rules/reset', { method: 'POST' })
     .then(r => r.json())
-    .then(rules => {
-      const el = document.getElementById('adblock-rules-info');
-      if (el) el.textContent = `Blocking ${(rules.domains || []).length} tracker domains, ${(rules.selectors || []).length} ad selectors, ${(rules.scriptPatterns || []).length} script patterns.`;
-    }).catch(() => {});
+    .then(stats => {
+      if (!el) return;
+      if (stats.lists && stats.lists.length > 0) {
+        const count = (stats.ruleCount || 0).toLocaleString();
+        el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
+      } else {
+        el.textContent = 'Failed to download filter lists.';
+      }
+    }).catch(() => { if (el) el.textContent = 'Error updating filter lists.'; });
 }
 
 function setEditorTheme(theme) {
