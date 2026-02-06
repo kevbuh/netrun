@@ -680,8 +680,18 @@ function browseNewPaperTab(url, paper) {
 
 function openLocalPdf(file) {
   const blobUrl = URL.createObjectURL(file);
-  const paper = { title: file.name, link: blobUrl, source: 'upload', pdfUrl: blobUrl };
-  browseNewPaperTab(blobUrl, paper);
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    const paper = { title: file.name, link: blobUrl, source: 'upload', pdfUrl: blobUrl };
+    browseNewPaperTab(blobUrl, paper);
+  } else {
+    browseNewTab(blobUrl);
+    // Update title after tab is created
+    const win = _getCurrentWindow();
+    if (win) {
+      const tab = win.tabs.find(t => t.url === blobUrl);
+      if (tab) { tab.title = file.name; _browseRenderTabs(); }
+    }
+  }
 }
 
 function openBrowseWithPaper(url, paper) {
@@ -721,6 +731,10 @@ function _browseRefreshScheme() {
 }
 
 function _browseProxyUrl(url) {
+  // Never proxy blob: or data: URLs
+  if (url && (url.startsWith('blob:') || url.startsWith('data:'))) return url;
+  // Serve file:// URLs through the local server
+  if (url && url.startsWith('file://')) return '/api/local-file?path=' + encodeURIComponent(url.replace(/^file:\/\//, ''));
   // Always proxy in browser mode (not Electron) to enable link context menu and ad blocking
   if (!_browseIsElectron && url) {
     const scheme = typeof getThemeColorScheme === 'function' ? getThemeColorScheme() : 'light';
@@ -1513,7 +1527,7 @@ function _browseUpdateBarForTab(tab) {
       citeBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center';
       citeBtn.onclick = function() { if (typeof showCitePopup === 'function') showCitePopup(); };
       citeBtn.title = 'Cite';
-      citeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25"/></svg>';
+      citeBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>';
       if (moreBtn) moreBtn.parentElement.insertBefore(citeBtn, moreBtn);
     }
     citeBtn.style.display = '';
@@ -1547,16 +1561,16 @@ function _browseUpdateNewTabPage(tab) {
       ntp = document.createElement('div');
       ntp.className = 'browse-ntp';
       ntp.innerHTML = `<span class="browse-ntp-text">alpha</span>
-        <button id="browse-open-pdf-btn" class="mt-4 px-4 py-2 rounded-lg bg-hover text-dimmer hover:text-primary hover:bg-[var(--bg-hover)] border border-[var(--border)] cursor-pointer text-sm transition-colors" style="font-family:inherit">Open PDF</button>
-        <input type="file" id="browse-pdf-file-input" accept=".pdf" style="display:none">
-        <div id="browse-ntp-drop-hint" class="mt-2 text-xs text-dimmer" style="opacity:0.5">or drag & drop a PDF here</div>`;
+        <button id="browse-open-pdf-btn" class="mt-4 px-4 py-2 rounded-lg bg-hover text-dimmer hover:text-primary hover:bg-[var(--bg-hover)] border border-[var(--border)] cursor-pointer text-sm transition-colors" style="font-family:inherit">Open file</button>
+        <input type="file" id="browse-pdf-file-input" style="display:none">
+        <div id="browse-ntp-drop-hint" class="mt-2 text-xs text-dimmer" style="opacity:0.5">or drag & drop a file here</div>`;
       container.appendChild(ntp);
       ntp.querySelector('#browse-open-pdf-btn').onclick = function() {
         ntp.querySelector('#browse-pdf-file-input').click();
       };
       ntp.querySelector('#browse-pdf-file-input').onchange = function(e) {
         const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') openLocalPdf(file);
+        if (file) openLocalPdf(file);
         e.target.value = '';
       };
       ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--accent)'; });
@@ -1565,7 +1579,7 @@ function _browseUpdateNewTabPage(tab) {
         e.preventDefault();
         ntp.style.outline = '';
         const file = e.dataTransfer.files[0];
-        if (file && file.type === 'application/pdf') openLocalPdf(file);
+        if (file) openLocalPdf(file);
       });
     }
     ntp.style.display = '';
@@ -2402,7 +2416,7 @@ function browseNavigate(input) {
     const fi = document.getElementById('browse-pdf-file-input');
     if (fi) { fi.click(); return; }
     const tmp = document.createElement('input');
-    tmp.type = 'file'; tmp.accept = '.pdf'; tmp.style.display = 'none';
+    tmp.type = 'file'; tmp.style.display = 'none';
     tmp.onchange = function() { if (tmp.files[0]) openLocalPdf(tmp.files[0]); tmp.remove(); };
     document.body.appendChild(tmp); tmp.click();
     return;
@@ -2417,6 +2431,14 @@ function browseNavigate(input) {
   const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
   if (arxivMatch) {
     browseNewPaperTab(url, { title: 'arXiv: ' + arxivMatch[1], link: url, source: 'arxiv', arxivId: arxivMatch[1], description: '', authors: '', categories: [] });
+    return;
+  }
+  // Local/blob PDF → open in PDF viewer
+  if (/\.pdf$/i.test(url) && /^(file|blob):/.test(url)) {
+    const name = url.split('/').pop().replace(/\.pdf$/i, '') || 'Local PDF';
+    const pdfUrl = url.startsWith('file://') ? '/api/local-file?path=' + encodeURIComponent(url.replace(/^file:\/\//, '')) : url;
+    const paper = { title: decodeURIComponent(name), link: url, source: 'upload', pdfUrl };
+    browseNewPaperTab(url, paper);
     return;
   }
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
@@ -2454,7 +2476,7 @@ function browseNavigate(input) {
 function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
-  if (/^https?:\/\//i.test(input)) return input;
+  if (/^(https?|file|blob|data):\/\//i.test(input)) return input;
   if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input)) return 'https://' + input;
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }

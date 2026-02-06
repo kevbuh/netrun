@@ -424,23 +424,29 @@ function _renderSidebarHTML(paper) {
     <div class="sidebar-tab-toolbar">
       <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg></button>
+      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg></button>
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg></button>
     </div>
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
-      <div class="insight-subtabs px-4 pt-2 pb-1 border-b border-border-card flex gap-1 shrink-0">
-        <button class="insight-subtab active" data-subtab="authors" onclick="switchInsightSubtab('authors')">Authors</button>
-        <button class="insight-subtab" data-subtab="ai" onclick="switchInsightSubtab('ai')">AI</button>
-        <button class="insight-subtab" data-subtab="references" onclick="switchInsightSubtab('references')">References</button>
-        <button class="insight-subtab" data-subtab="links" onclick="switchInsightSubtab('links')">Links</button>
-      </div>
       <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        <div id="insight-pane-authors" class="insight-subpane"></div>
-        <div id="insight-pane-ai" class="insight-subpane" style="display:none"></div>
-        <div id="insight-pane-references" class="insight-subpane" style="display:none"></div>
-        <div id="insight-pane-links" class="insight-subpane" style="display:none">
-          <div id="pdf-links-section"></div>
+        <div class="insight-dropdown" id="insight-drop-authors">
+          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('authors')"><span>Authors</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="insight-dropdown-body" id="insight-pane-authors"></div>
+        </div>
+        <div class="insight-dropdown" id="insight-drop-ai">
+          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('ai')"><span>AI</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="insight-dropdown-body" id="insight-pane-ai" style="display:none"></div>
+        </div>
+        <div class="insight-dropdown" id="insight-drop-references">
+          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('references')"><span>References</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="insight-dropdown-body" id="insight-pane-references" style="display:none"></div>
+        </div>
+        <div class="insight-dropdown" id="insight-drop-links">
+          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('links')"><span>Links</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="insight-dropdown-body" id="insight-pane-links" style="display:none">
+            <div id="pdf-links-section"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1691,18 +1697,30 @@ function switchSidebarTab(tab) {
   localStorage.setItem('sidebarTab', tab);
 }
 
+function toggleInsightDropdown(subtab) {
+  const drop = document.getElementById(`insight-drop-${subtab}`);
+  const body = document.getElementById(`insight-pane-${subtab}`);
+  if (!drop || !body) return;
+  const isOpen = body.style.display !== 'none';
+  if (isOpen) {
+    body.style.display = 'none';
+    drop.classList.remove('open');
+  } else {
+    body.style.display = '';
+    drop.classList.add('open');
+    _loadInsightSubtab(subtab);
+  }
+}
+
 function switchInsightSubtab(subtab) {
-  // Update active button
-  document.querySelectorAll('.insight-subtab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.subtab === subtab);
-  });
-  // Show/hide panes
-  document.querySelectorAll('.insight-subpane').forEach(pane => {
-    pane.style.display = pane.id === `insight-pane-${subtab}` ? '' : 'none';
-  });
-  // Remember the active subtab
+  // Open the requested dropdown (used on initial load)
+  const drop = document.getElementById(`insight-drop-${subtab}`);
+  const body = document.getElementById(`insight-pane-${subtab}`);
+  if (drop && body) {
+    body.style.display = '';
+    drop.classList.add('open');
+  }
   localStorage.setItem('insightSubtab', subtab);
-  // Lazy load this sub-tab's data
   _loadInsightSubtab(subtab);
 }
 
@@ -3683,7 +3701,7 @@ const _lookupCommands = [
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
-  { name: 'upload', desc: 'Open a local PDF file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.accept = '.pdf'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
+  { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
 ];
 
 let _lookupCmdIdx = 0; // selected index in autocomplete

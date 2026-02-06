@@ -423,6 +423,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
 
+        elif self.path.startswith('/api/local-file'):
+            from urllib.parse import urlparse, parse_qs, unquote
+            qs = parse_qs(urlparse(self.path).query)
+            file_path = unquote(qs.get('path', [''])[0]).strip()
+            if not file_path or not os.path.isfile(file_path):
+                self.send_response(404)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'File not found')
+                return
+            import mimetypes
+            ct = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+            try:
+                with open(file_path, 'rb') as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', ct)
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+
         elif self.path.startswith('/api/arxiv-pdf'):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
