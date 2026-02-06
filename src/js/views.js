@@ -3815,12 +3815,26 @@ function _injectIframeChatHandler(iframe) {
       // Right-click → lookup panel
       doc.addEventListener('contextmenu', function(e) {
         if (localStorage.getItem('clickLookup') === 'off') return;
+        const f = iframe.getBoundingClientRect();
+        const tag = e.target.tagName;
+        const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+        if (isEditable) {
+          e.preventDefault();
+          const popup = document.getElementById('doc-chat-ask-float');
+          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          const sel = doc.getSelection();
+          const selectedText = sel && sel.toString().trim() || '';
+          _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, editableTarget: e.target, selectionText: selectedText, finalized: true });
+          return;
+        }
         if (isInteractive(e.target)) return;
         e.preventDefault();
-        const f = iframe.getBoundingClientRect();
+        // Capture focused editable inside iframe before panel steals focus
+        const active = doc.activeElement;
+        const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
         const popup = document.getElementById('doc-chat-ask-float');
         if (popup) { popup.remove(); _lookupTrackMode = false; }
-        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top } });
+        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable });
       });
 
       // Text selection → selection popup
