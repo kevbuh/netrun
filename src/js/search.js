@@ -2891,7 +2891,6 @@ function _browseCloseFindBar() {
 // ── Pinch-to-magnify (Apple-like) — browse iframe only ────────────
 // Trackpad pinch over the browse view → temporary magnification of
 // the active iframe, centered on cursor. Release → snaps back to 1×.
-// Optimised: rAF-batched updates, will-change hint, cached rects.
 
 let _magnifyZoom = 1;
 let _magnifyX = 0;
@@ -2899,9 +2898,6 @@ let _magnifyY = 0;
 let _magnifyGestureStart = 1;
 let _magnifySnapTimer = null;
 let _magnifyEl = null;
-let _magnifyRaf = 0;
-let _magnifyContainerRect = null;
-let _magnifyDirty = false;
 
 document.addEventListener('mousemove', function(e) {
   _magnifyX = e.clientX;
@@ -2914,70 +2910,57 @@ function _magnifyTarget() {
   return _browseActiveEl();
 }
 
-function _magnifyBegin(el) {
-  _magnifyEl = el;
-  el.style.willChange = 'transform';
-  var container = document.getElementById('browse-content');
-  _magnifyContainerRect = container ? container.getBoundingClientRect() : null;
-}
-
-function _magnifyFlush() {
-  _magnifyRaf = 0;
-  _magnifyDirty = false;
+function _magnifyApply() {
   var el = _magnifyEl;
-  if (!el || !_magnifyContainerRect) return;
-  var z = _magnifyZoom;
-  if (z <= 1.005) {
-    el.style.transform = 'translateZ(0)';
+  if (!el) return;
+  var container = document.getElementById('browse-content');
+  if (!container) return;
+
+  if (_magnifyZoom <= 1.005) {
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+    container.style.overflow = '';
     return;
   }
-  var fx = _magnifyX - _magnifyContainerRect.left;
-  var fy = _magnifyY - _magnifyContainerRect.top;
+  var rect = container.getBoundingClientRect();
+  var fx = _magnifyX - rect.left;
+  var fy = _magnifyY - rect.top;
   el.style.transformOrigin = fx + 'px ' + fy + 'px';
-  el.style.transform = 'scale3d(' + z + ',' + z + ',1)';
-}
-
-function _magnifySchedule() {
-  if (_magnifyDirty) return;
-  _magnifyDirty = true;
-  _magnifyRaf = requestAnimationFrame(_magnifyFlush);
+  el.style.transform = 'scale(' + _magnifyZoom + ')';
+  container.style.overflow = 'hidden';
 }
 
 function _magnifySnapBack() {
   clearTimeout(_magnifySnapTimer);
-  if (_magnifyRaf) { cancelAnimationFrame(_magnifyRaf); _magnifyRaf = 0; }
   _magnifyZoom = 1;
-  _magnifyDirty = false;
   var el = _magnifyEl;
   if (el) {
-    el.style.transition = 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
+    el.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
     el.style.transform = '';
     var container = document.getElementById('browse-content');
     if (container) container.style.overflow = '';
     setTimeout(function() {
       el.style.transition = '';
       el.style.transformOrigin = '';
-      el.style.willChange = '';
-    }, 320);
+    }, 360);
   }
   _magnifyEl = null;
-  _magnifyContainerRect = null;
 }
 
 // Chrome/Firefox: trackpad pinch fires wheel with ctrlKey
 document.addEventListener('wheel', function(e) {
   if (!e.ctrlKey) return;
-  var target = _magnifyEl || _magnifyTarget();
+  var target = _magnifyTarget();
   if (!target) return;
   e.preventDefault();
   e.stopPropagation();
-  if (!_magnifyEl) _magnifyBegin(target);
+  _magnifyEl = target;
   clearTimeout(_magnifySnapTimer);
   target.style.transition = '';
-  _magnifyZoom = Math.min(5, Math.max(1, _magnifyZoom - e.deltaY * 0.01));
-  var container = document.getElementById('browse-content');
-  if (container) container.style.overflow = 'hidden';
-  _magnifySchedule();
+  var delta = -e.deltaY * 0.01;
+  _magnifyZoom = Math.min(5, Math.max(1, _magnifyZoom + delta));
+  _magnifyApply();
+  // No gestureend in Chrome — snap back after inactivity
   _magnifySnapTimer = setTimeout(_magnifySnapBack, 600);
 }, { passive: false, capture: true });
 
@@ -2986,7 +2969,7 @@ document.addEventListener('gesturestart', function(e) {
   var target = _magnifyTarget();
   if (!target) return;
   e.preventDefault();
-  _magnifyBegin(target);
+  _magnifyEl = target;
   _magnifyGestureStart = _magnifyZoom || 1;
   clearTimeout(_magnifySnapTimer);
   target.style.transition = '';
@@ -2996,9 +2979,7 @@ document.addEventListener('gesturechange', function(e) {
   if (!_magnifyEl) return;
   e.preventDefault();
   _magnifyZoom = Math.min(5, Math.max(1, _magnifyGestureStart * e.scale));
-  var container = document.getElementById('browse-content');
-  if (container) container.style.overflow = 'hidden';
-  _magnifySchedule();
+  _magnifyApply();
 }, { passive: false, capture: true });
 
 document.addEventListener('gestureend', function(e) {

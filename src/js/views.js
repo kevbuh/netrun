@@ -5232,6 +5232,25 @@ async function _doLookupUserSearch(popup, query) {
 //   initialValue: string      — pre-fill input (e.g. '/')
 //   finalized: bool           — false = selection preview only (no buttons/input)
 //   editableTarget: HTMLElement — the input/textarea/contentEditable element (for paste)
+//   priorEditable: HTMLElement  — editable element that was focused before panel opened
+
+// Paste text into an element, handling iframe ownership for execCommand
+function _pasteIntoElement(el, text) {
+  el.focus();
+  if (el.isContentEditable) {
+    // execCommand must be called on the element's ownerDocument (matters for iframes)
+    const ownerDoc = el.ownerDocument || document;
+    ownerDoc.execCommand('insertText', false, text);
+  } else {
+    const start = el.selectionStart || 0;
+    const end = el.selectionEnd || 0;
+    const val = el.value || '';
+    el.value = val.slice(0, start) + text + val.slice(end);
+    el.selectionStart = el.selectionEnd = start + text.length;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
 function _showPanel(config) {
   config = config || {};
   const anchor = config.anchor || {};
@@ -5268,7 +5287,7 @@ function _showPanel(config) {
 
   const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
   if (isCursorAnchor) {
-    _lookupTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext;
+    _lookupTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext && !editableTarget && !config.priorEditable;
   } else {
     _lookupTrackMode = false;
   }
@@ -5432,8 +5451,9 @@ function _showPanel(config) {
     if (capturedText) {
       addEditItem('Cut', () => {
         navigator.clipboard.writeText(capturedText).catch(() => {});
+        editableTarget.focus();
         if (editableTarget.isContentEditable) {
-          document.execCommand('delete');
+          (editableTarget.ownerDocument || document).execCommand('delete');
         } else {
           const start = editableTarget.selectionStart;
           const end = editableTarget.selectionEnd;
@@ -5450,17 +5470,7 @@ function _showPanel(config) {
     addEditItem('Paste', () => {
       navigator.clipboard.readText().then(text => {
         if (!text) return;
-        editableTarget.focus();
-        if (editableTarget.isContentEditable) {
-          document.execCommand('insertText', false, text);
-        } else {
-          const start = editableTarget.selectionStart;
-          const end = editableTarget.selectionEnd;
-          const val = editableTarget.value;
-          editableTarget.value = val.slice(0, start) + text + val.slice(end);
-          editableTarget.selectionStart = editableTarget.selectionEnd = start + text.length;
-          editableTarget.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        _pasteIntoElement(editableTarget, text);
       }).catch(() => {});
     });
     popup.appendChild(editCtx);
@@ -5480,17 +5490,7 @@ function _showPanel(config) {
       navigator.clipboard.readText().then(text => {
         if (!text) return;
         if (priorEditable && priorEditable.isConnected) {
-          priorEditable.focus();
-          if (priorEditable.isContentEditable) {
-            document.execCommand('insertText', false, text);
-          } else {
-            const start = priorEditable.selectionStart || 0;
-            const end = priorEditable.selectionEnd || 0;
-            const val = priorEditable.value || '';
-            priorEditable.value = val.slice(0, start) + text + val.slice(end);
-            priorEditable.selectionStart = priorEditable.selectionEnd = start + text.length;
-            priorEditable.dispatchEvent(new Event('input', { bubbles: true }));
-          }
+          _pasteIntoElement(priorEditable, text);
           popup.remove();
         } else {
           const input = popup.querySelector('.doc-ask-inline-input');
