@@ -1853,9 +1853,10 @@ window.addEventListener('keydown', e => {
     if (!existingOverflow) {
       localStorage.setItem('browseBarOverflow', JSON.stringify(DEFAULT_OVERFLOW));
     } else {
-      // For existing users: add new default overflow items they haven't seen yet
+      // For existing users: add new default overflow items they haven't seen yet,
+      // and remove stale IDs for buttons that no longer exist in the bar
       try {
-        const cur = JSON.parse(existingOverflow);
+        let cur = JSON.parse(existingOverflow);
         const savedOrder = localStorage.getItem('browseBarOrder');
         const knownIds = savedOrder ? JSON.parse(savedOrder) : [];
         let changed = false;
@@ -1865,6 +1866,10 @@ window.addEventListener('keydown', e => {
             changed = true;
           }
         }
+        // Remove IDs for buttons no longer in the DOM
+        const before = cur.length;
+        cur = cur.filter(id => document.getElementById(id));
+        if (cur.length !== before) changed = true;
         if (changed) localStorage.setItem('browseBarOverflow', JSON.stringify(cur));
       } catch {}
     }
@@ -1876,6 +1881,7 @@ window.addEventListener('keydown', e => {
       return;
     }
     try {
+      const PINNED_RIGHT = ['browse-more-btn', 'browse-sidebar-toggle'];
       const order = JSON.parse(saved);
       const btns = getDraggables();
       const btnMap = {};
@@ -1883,18 +1889,26 @@ window.addEventListener('keydown', e => {
       // Insert in saved order, each after the previous (or after anchor for first)
       let ref = getAnchor();
       order.forEach(id => {
-        if (btnMap[id]) {
+        if (btnMap[id] && !PINNED_RIGHT.includes(id)) {
           ref.after(btnMap[id]);
           ref = btnMap[id];
         }
       });
-      // Append any buttons not in saved order (new buttons) after the last one
+      // Append any buttons not in saved order (new buttons) before pinned
       btns.forEach(b => {
-        if (!order.includes(b.id)) {
+        if (!order.includes(b.id) && !PINNED_RIGHT.includes(b.id)) {
           ref.after(b);
           ref = b;
         }
       });
+      // Ensure pinned-right buttons are always last (more, then sidebar toggle)
+      const moreEl = btnMap['browse-more-btn'];
+      const sidebarEl = btnMap['browse-sidebar-toggle'];
+      if (moreEl) { ref.after(moreEl); ref = moreEl; }
+      // more-menu div sits between more btn and sidebar toggle in DOM
+      const menuDiv = document.getElementById('browse-more-menu');
+      if (menuDiv) { ref.after(menuDiv); ref = menuDiv; }
+      if (sidebarEl) { ref.after(sidebarEl); }
     } catch {}
     // Hide any buttons in overflow
     const overflow = getOverflowIds();
@@ -1962,11 +1976,12 @@ window.addEventListener('keydown', e => {
       }
     }
 
-    // Find drop target
-    const btns = getDraggables();
+    // Find drop target (skip pinned-right buttons)
+    const PINNED_RIGHT = ['browse-more-btn', 'browse-sidebar-toggle'];
+    const btns = getDraggables().filter(b => !PINNED_RIGHT.includes(b.id));
     for (const b of btns) {
       if (b === dragEl) continue;
-      if (b.offsetParent === null && b.style.display === 'none') continue; // skip hidden
+      if (b.offsetParent === null && b.style.display === 'none') continue;
       const r = b.getBoundingClientRect();
       const mid = r.left + r.width / 2;
       if (e.clientX < mid) {
@@ -1974,9 +1989,9 @@ window.addEventListener('keydown', e => {
         return;
       }
     }
-    // Past all — insert after last draggable
-    const last = btns[btns.length - 1];
-    if (last && last !== dragEl) last.after(dragEl);
+    // Past all reorderable buttons — insert before the more button
+    const moreEl = document.getElementById('browse-more-btn');
+    if (moreEl) bar.insertBefore(dragEl, moreEl);
   });
 
   function endDrag() {

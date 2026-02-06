@@ -5441,6 +5441,26 @@ function _showPanel(config) {
     popup.appendChild(editCtx);
   }
 
+  // ── Paste into chat input (general right-click, no editable target) ──
+  if (!editableTarget && !hasContext && !capturedText) {
+    const pasteCtx = document.createElement('div');
+    pasteCtx.className = 'doc-lookup-context-items';
+    const pasteItem = document.createElement('div');
+    pasteItem.className = 'doc-lookup-ctx-item';
+    pasteItem.textContent = 'Paste text';
+    pasteItem.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    pasteItem.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      navigator.clipboard.readText().then(text => {
+        if (!text) return;
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) { input.value = text; input.focus(); }
+      }).catch(() => {});
+    });
+    pasteCtx.appendChild(pasteItem);
+    popup.appendChild(pasteCtx);
+  }
+
   // ── Selection actions (Copy + Highlight dots) ──
   if (finalized && capturedText && !editableTarget) {
     const btnRow = document.createElement('div');
