@@ -4996,9 +4996,9 @@ function _doLookupHelp(popup) {
   _lookupHideCmdDropdown(popup);
   _lookupTrackMode = false;
 
-  popup.classList.add('has-chat');
-  const chatArea = popup.querySelector('.doc-popup-chat-area');
-  if (chatArea) chatArea.classList.add('visible');
+  // Toggle: remove existing help panel if already open
+  const existing = document.getElementById('lookup-help-panel');
+  if (existing) { existing.remove(); if (input) input.focus(); return; }
 
   const helpMd = `## Instant Answers
 Type in the browser URL bar:
@@ -5055,9 +5055,65 @@ Type in the browser URL bar:
 - Select text → highlight, quote, or define
 - Drag to capture a screenshot region`;
 
-  _popupChatMessages.push({ role: 'assistant', content: helpMd });
-  _renderPopupChat(popup, true);
-  _repositionSelectionPopup();
+  const popupRect = popup.getBoundingClientRect();
+
+  const panel = document.createElement('div');
+  panel.id = 'lookup-help-panel';
+  panel.className = 'lookup-help-preview-panel';
+  panel.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
+  // Title bar (reuse note editor styles)
+  const titleBar = document.createElement('div');
+  titleBar.className = 'lookup-note-editor-title-bar';
+
+  let hDragging = false, hDragOff = { x: 0, y: 0 };
+  titleBar.addEventListener('mousedown', (ev) => {
+    if (ev.target.closest('button')) return;
+    ev.preventDefault();
+    hDragging = true;
+    const r = panel.getBoundingClientRect();
+    hDragOff = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  });
+  const hMove = (ev) => { if (!hDragging) return; panel.style.left = (ev.clientX - hDragOff.x) + 'px'; panel.style.top = (ev.clientY - hDragOff.y) + 'px'; };
+  const hUp = () => { hDragging = false; };
+  document.addEventListener('mousemove', hMove);
+  document.addEventListener('mouseup', hUp);
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'lookup-note-editor-title';
+  titleSpan.textContent = 'Help';
+  titleBar.appendChild(titleSpan);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'lookup-note-editor-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.title = 'Close';
+  closeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
+  titleBar.appendChild(closeBtn);
+  panel.appendChild(titleBar);
+
+  // Rendered markdown content
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'lookup-help-preview-content nb-rendered-md';
+  contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
+  panel.appendChild(contentDiv);
+
+  document.body.appendChild(panel);
+
+  // Position to the right of the lookup panel
+  const panelRect = panel.getBoundingClientRect();
+  let left = popupRect.right + 6;
+  let top = popupRect.top;
+  if (left + panelRect.width > window.innerWidth - 10) {
+    left = popupRect.left - panelRect.width - 6;
+  }
+  if (top + panelRect.height > window.innerHeight - 10) {
+    top = window.innerHeight - panelRect.height - 10;
+  }
+  if (top < 10) top = 10;
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+
   if (input) input.focus();
 }
 
@@ -5370,9 +5426,11 @@ function _showPanel(config) {
     if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
-  // Remove any open note editor
+  // Remove any open note editor or help panel
   const existingEditor = document.getElementById('lookup-note-editor');
   if (existingEditor) existingEditor.remove();
+  const existingHelp = document.getElementById('lookup-help-panel');
+  if (existingHelp) existingHelp.remove();
 
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
@@ -5532,13 +5590,34 @@ function _showPanel(config) {
           c.toBlob(b => {
             if (b) navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).catch(() => {});
           }, 'image/png');
-          // Also add as context to the chat panel
-          const dataUrl = c.toDataURL('image/png');
-          const base64 = dataUrl.split(',')[1];
+        };
+        img.src = proxyUrl;
+      });
+      // "Add to Assistant" keeps the panel open and adds the image as chat context
+      const assistItem = document.createElement('div');
+      assistItem.className = 'doc-lookup-ctx-item';
+      assistItem.textContent = 'Add to Assistant';
+      assistItem.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      assistItem.addEventListener('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        _lookupTrackMode = false;
+        // Remove context menu items but keep the panel
+        const ctxItems = popup.querySelector('.doc-lookup-context-items');
+        if (ctxItems) ctxItems.remove();
+        const preview = popup.querySelector('.doc-link-preview');
+        if (preview) preview.remove();
+        const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          c.getContext('2d').drawImage(img, 0, 0);
+          const base64 = c.toDataURL('image/png').split(',')[1];
           if (base64) _addScreenshotToPanel(popup, base64);
         };
         img.src = proxyUrl;
       });
+      ctxDiv.appendChild(assistItem);
     }
     if (linkText && linkUrl) {
       const truncated = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;

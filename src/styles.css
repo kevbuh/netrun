@@ -3570,6 +3570,62 @@
       min-height: 18px;
     }
 
+    /* Help preview panel (/help command) */
+    .lookup-help-preview-panel {
+      position: fixed;
+      z-index: 10003;
+      width: 380px;
+      max-height: 480px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-input);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px var(--shadow-popup);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .lookup-help-preview-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+    .lookup-help-preview-content h2 {
+      font-size: 0.85rem;
+      margin: 10px 0 6px;
+      color: var(--text-primary);
+    }
+    .lookup-help-preview-content h2:first-child { margin-top: 0; }
+    .lookup-help-preview-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4px 0 10px;
+      font-size: 0.75rem;
+    }
+    .lookup-help-preview-content th,
+    .lookup-help-preview-content td {
+      padding: 3px 6px;
+      border: 1px solid var(--border-input);
+      text-align: left;
+    }
+    .lookup-help-preview-content th {
+      background: var(--bg-card);
+      font-weight: 600;
+    }
+    .lookup-help-preview-content code {
+      background: var(--bg-card);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.72rem;
+    }
+    .lookup-help-preview-content ul {
+      padding-left: 18px;
+      margin: 4px 0;
+    }
+    .lookup-help-preview-content li { margin: 2px 0; }
+
     /* Tab dropdown (/tab command) */
     .lookup-tab-dropdown {
       border-top: 1px solid var(--border-input);

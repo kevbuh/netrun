@@ -155,6 +155,13 @@ function renderNeuralookView() {
             <li><strong>Start Tracking</strong> to show the gaze dot</li>
           </ol>
         </div>
+
+        ${_nlTrainLogs.length > 0 ? `
+        <button onclick="_nlTrainPhase='done';renderNeuralookView();" class="w-full px-4 py-2.5 rounded-xl border border-border-card bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors flex items-center gap-2.5">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="flex-shrink-0"><rect x="1" y="3" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 6.5h8M4 9h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Training Log
+          <span class="text-[0.7rem] text-dimmer ml-auto">${_nlTrainLogs.length} lines</span>
+        </button>` : ''}
       </div>
 
       <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
@@ -271,8 +278,11 @@ function _nlRenderTrainDetailView(container) {
   container.innerHTML = `
     <div style="max-width:720px;margin:0 auto;padding:24px 16px;">
       <div class="flex items-center gap-3 mb-6">
+        ${!_nlTraining ? `<button onclick="_nlTrainPhase='';renderNeuralookView();" class="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer" title="Back">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>` : ''}
         <div style="width:10px;height:10px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
-        <h2 class="text-[1.1rem] font-semibold text-primary">${isDone ? 'Training Complete' : isError ? 'Training Error' : 'Training CNN'}</h2>
+        <h2 class="text-[1.1rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training CNN' : 'Training Complete'}</h2>
         <span class="text-[0.78rem] text-muted ml-auto">${elapsedStr}</span>
       </div>
 
