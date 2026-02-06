@@ -275,10 +275,16 @@ function searchNext() {
 
 // ── Browse View (multi-window, multi-tab embedded browser) ──
 
-let _browseWindows = []; // { id, name, tabs: [], activeTab }
+let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
 let _browseActiveWindow = null;
 let _browseNextWindowId = 1;
 let _browseNextTabId = 1;
+let _browseNextGroupId = 1;
+const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
+const _BROWSE_GROUP_COLOR_MAP = {
+  grey:'#808080', blue:'#5b8def', red:'#e05656', yellow:'#d4a844',
+  green:'#4caf50', pink:'#e06090', purple:'#9c6ade', cyan:'#3dc0c0'
+};
 const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
 // Audio tracking: { tabId: { windowId, muted } }
@@ -310,11 +316,14 @@ function _browseSaveTabs() {
     id: w.id,
     name: w.name,
     activeTab: w.activeTab,
+    groups: w.groups || [],
     tabs: w.tabs.map(t => {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
       if (t._historyPage) saved._historyPage = true;
       if (t._helpPage) saved._helpPage = true;
       if (t.paper) { saved.paper = t.paper; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null; }
+      if (t.pinned) saved.pinned = true;
+      if (t.groupId != null) saved.groupId = t.groupId;
       return saved;
     })
   }));
@@ -322,7 +331,8 @@ function _browseSaveTabs() {
     windows: data,
     activeWindow: _browseActiveWindow,
     nextWindowId: _browseNextWindowId,
-    nextTabId: _browseNextTabId
+    nextTabId: _browseNextTabId,
+    nextGroupId: _browseNextGroupId
   }));
 }
 
@@ -341,30 +351,37 @@ function _browseRestoreTabs() {
     // Try new multi-window format first (user-specific key)
     let raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
     if (raw) {
-      const { windows, activeWindow, nextWindowId, nextTabId } = JSON.parse(raw);
+      const { windows, activeWindow, nextWindowId, nextTabId, nextGroupId } = JSON.parse(raw);
       if (!windows || !windows.length) return false;
       _browseNextWindowId = nextWindowId || 1;
       _browseNextTabId = nextTabId || 1;
+      _browseNextGroupId = nextGroupId || 1;
       const container = document.getElementById('browse-content');
 
       for (const savedWin of windows) {
         if (!savedWin.tabs.length) continue;
-        const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab };
+        const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab, groups: savedWin.groups || [] };
         for (const saved of savedWin.tabs) {
           if (saved.blank) {
             const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
+            if (saved.pinned) tab.pinned = true;
+            if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
             continue;
           }
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
             const tab = { id: saved.id, url: 'lookup://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
+            if (saved.pinned) tab.pinned = true;
+            if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
             continue;
           }
           // Help page tab
           if (saved._helpPage) {
             const tab = { id: saved.id, url: 'lookup://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true };
+            if (saved.pinned) tab.pinned = true;
+            if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
             continue;
           }
@@ -376,6 +393,8 @@ function _browseRestoreTabs() {
             container.appendChild(el);
             const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false,
                           paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null };
+            if (saved.pinned) tab.pinned = true;
+            if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
             continue;
           }
@@ -390,6 +409,8 @@ function _browseRestoreTabs() {
             container.appendChild(el);
           }
           const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, deferred: shouldDefer };
+          if (saved.pinned) tab.pinned = true;
+          if (saved.groupId != null) tab.groupId = saved.groupId;
           win.tabs.push(tab);
           if (el) _browseBindFrame(tab);
         }
@@ -436,7 +457,7 @@ function _browseRestoreTabs() {
 // Window management
 function browseCreateWindow(name) {
   const id = _browseNextWindowId++;
-  const win = { id, name: name || `Window ${id}`, tabs: [], activeTab: null };
+  const win = { id, name: name || `Window ${id}`, tabs: [], activeTab: null, groups: [] };
   _browseWindows.push(win);
   browseSelectWindow(id);
   browseNewTab(); // Create initial tab
@@ -1853,12 +1874,39 @@ function _updateAudioIndicator() {
   indicator.style.display = 'flex';
 }
 
+function _browseRenderTabHtml(t, activeTab) {
+  const active = t.id === activeTab;
+  const hasAudio = _browseAudioTabs.has(t.id);
+  const audioInfo = _browseAudioTabs.get(t.id);
+  const isMuted = audioInfo?.muted;
+  const title = escapeHtml(t.title);
+  const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+  const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
+    ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
+  const isPinned = !!t.pinned;
+  const groupColor = t.groupId != null ? _browseGetGroupColor(t.groupId) : null;
+  const groupStyle = groupColor ? ` style="--group-color:${groupColor}"` : '';
+  const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : ''].filter(Boolean).join(' ');
+  return `<div class="${classes}" data-tab-id="${t.id}"${groupStyle} onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
+    ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
+    <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
+  </div>`;
+}
+
+function _browseGetGroupColor(groupId) {
+  const win = _getCurrentWindow();
+  if (!win) return null;
+  const group = (win.groups || []).find(g => g.id === groupId);
+  return group ? (_BROWSE_GROUP_COLOR_MAP[group.color] || group.color) : null;
+}
+
 function _browseRenderTabs() {
   const bar = document.getElementById('browse-tabs');
   if (!bar) return;
   const win = _getCurrentWindow();
   const tabs = win ? win.tabs : [];
   const activeTab = win ? win.activeTab : null;
+  const groups = win ? (win.groups || []) : [];
 
   // Window switcher (if multiple windows)
   let windowSelector = '';
@@ -1874,20 +1922,49 @@ function _browseRenderTabs() {
     </div>`;
   }
 
-  bar.innerHTML = windowSelector + tabs.map(t => {
-    const active = t.id === activeTab;
-    const hasAudio = _browseAudioTabs.has(t.id);
-    const audioInfo = _browseAudioTabs.get(t.id);
-    const isMuted = audioInfo?.muted;
-    const title = escapeHtml(t.title);
-    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
-    const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
-      ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
-    return `<div class="browse-tab ${active ? 'active' : ''} ${hasAudio ? 'has-audio' : ''}" onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
-      ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
-      <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
+  // Split into pinned (left) and unpinned (right)
+  const pinned = tabs.filter(t => t.pinned);
+  const unpinned = tabs.filter(t => !t.pinned);
+
+  // Build pinned section
+  let html = windowSelector;
+  html += pinned.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+  if (pinned.length > 0 && unpinned.length > 0) {
+    html += '<div class="browse-tab-pin-separator"></div>';
+  }
+
+  // Sort unpinned: grouped tabs contiguous by group, ungrouped at end
+  const groupedIds = new Set(groups.map(g => g.id));
+  const groupOrder = groups.map(g => g.id);
+  const sortedUnpinned = [];
+  // Collect tabs per group (preserve relative order within group)
+  const byGroup = new Map();
+  const ungrouped = [];
+  for (const t of unpinned) {
+    if (t.groupId != null && groupedIds.has(t.groupId)) {
+      if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, []);
+      byGroup.get(t.groupId).push(t);
+    } else {
+      ungrouped.push(t);
+    }
+  }
+  // Render groups in order, then ungrouped
+  for (const gid of groupOrder) {
+    const group = groups.find(g => g.id === gid);
+    const gTabs = byGroup.get(gid);
+    if (!gTabs || !gTabs.length) continue;
+    const gc = _BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
+    html += `<div class="browse-tab-group-chip" style="--group-color:${gc}" data-group-id="${gid}" onclick="_browseToggleGroupCollapse(${gid})" oncontextmenu="event.preventDefault();_browseShowGroupContextMenu(event,${gid})">
+      <span class="browse-tab-group-name">${escapeHtml(group.name)}</span>
+      <span class="browse-tab-group-count">${gTabs.length}</span>
     </div>`;
-  }).join('');
+    if (!group.collapsed) {
+      html += gTabs.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+    }
+  }
+  html += ungrouped.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+
+  bar.innerHTML = html;
 
   // Update tab count on overview button
   const totalTabs = _browseWindows.reduce((sum, w) => sum + w.tabs.length, 0);
@@ -1905,6 +1982,177 @@ function _browseRenderTabs() {
     tabEl.addEventListener('mouseenter', _browseTabHoverIn);
     tabEl.addEventListener('mouseleave', _browseTabHoverOut);
   });
+}
+
+// ── Tab pin / group helpers ──
+
+function _browseToggleGroupCollapse(groupId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const group = (win.groups || []).find(g => g.id === groupId);
+  if (!group) return;
+  group.collapsed = !group.collapsed;
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function browseTogglePin(tabId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+  tab.pinned = !tab.pinned;
+  // If pinning, remove from group
+  if (tab.pinned && tab.groupId != null) {
+    delete tab.groupId;
+  }
+  // Sort: pinned tabs first, preserve relative order otherwise
+  const pinned = win.tabs.filter(t => t.pinned);
+  const unpinned = win.tabs.filter(t => !t.pinned);
+  win.tabs = [...pinned, ...unpinned];
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function browseAddTabToNewGroup(tabId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab || tab.pinned) return;
+  if (!win.groups) win.groups = [];
+  const gid = _browseNextGroupId++;
+  const color = _BROWSE_GROUP_COLORS[win.groups.length % _BROWSE_GROUP_COLORS.length];
+  win.groups.push({ id: gid, name: 'New group', color, collapsed: false });
+  tab.groupId = gid;
+  _browseRenderTabs();
+  _browseSaveTabs();
+  // Inline rename the new group chip
+  setTimeout(() => {
+    const chip = document.querySelector(`.browse-tab-group-chip[data-group-id="${gid}"] .browse-tab-group-name`);
+    if (chip) _browseStartRenameGroup(gid, chip);
+  }, 50);
+}
+
+function browseAddTabToGroup(tabId, groupId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab || tab.pinned) return;
+  tab.groupId = groupId;
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function browseRemoveTabFromGroup(tabId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+  delete tab.groupId;
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function _browseUngroupAll(groupId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  win.tabs.forEach(t => { if (t.groupId === groupId) delete t.groupId; });
+  win.groups = (win.groups || []).filter(g => g.id !== groupId);
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function _browseCloseGroup(groupId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const toClose = win.tabs.filter(t => t.groupId === groupId).map(t => t.id);
+  win.groups = (win.groups || []).filter(g => g.id !== groupId);
+  // Close all tabs in group (from end to avoid index shifting)
+  for (const id of toClose.reverse()) browseCloseTab(id);
+}
+
+function _browseChangeGroupColor(groupId, color) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const group = (win.groups || []).find(g => g.id === groupId);
+  if (!group) return;
+  group.color = color;
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function _browseStartRenameGroup(groupId, nameEl) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const group = (win.groups || []).find(g => g.id === groupId);
+  if (!group) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'browse-tab-group-rename';
+  input.value = group.name;
+  input.style.cssText = 'width:60px;font-size:0.65rem;font-weight:600;background:transparent;border:1px solid var(--border-card);border-radius:3px;color:inherit;padding:0 3px;outline:none;';
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const finish = () => {
+    const val = input.value.trim() || 'New group';
+    group.name = val;
+    _browseRenderTabs();
+    _browseSaveTabs();
+  };
+  input.addEventListener('blur', finish);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = group.name; input.blur(); }
+  });
+}
+
+function _browseDismissTabContextMenu() {
+  const m = document.querySelector('.browse-ctx-menu');
+  if (m) m.remove();
+}
+
+function _browseCloseOtherTabs(keepId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const toClose = win.tabs.filter(t => t.id !== keepId && !t.pinned).map(t => t.id);
+  for (const id of toClose.reverse()) browseCloseTab(id);
+}
+
+function _browseShowGroupContextMenu(e, groupId) {
+  _browseDismissTabContextMenu();
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const group = (win.groups || []).find(g => g.id === groupId);
+  if (!group) return;
+
+  const colorDots = _BROWSE_GROUP_COLORS.map(c => {
+    const hex = _BROWSE_GROUP_COLOR_MAP[c];
+    const sel = c === group.color ? ' browse-ctx-color-selected' : '';
+    return `<span class="browse-ctx-color-dot${sel}" style="background:${hex}" onclick="event.stopPropagation();_browseDismissTabContextMenu();_browseChangeGroupColor(${groupId},'${c}')"></span>`;
+  }).join('');
+
+  const items = [
+    `<div class="browse-ctx-item" onclick="event.stopPropagation();_browseDismissTabContextMenu();setTimeout(()=>{const c=document.querySelector('.browse-tab-group-chip[data-group-id=\\'${groupId}\\'] .browse-tab-group-name');if(c)_browseStartRenameGroup(${groupId},c);},50)">Rename</div>`,
+    `<div class="browse-ctx-colors">${colorDots}</div>`,
+    '<div class="browse-ctx-sep"></div>',
+    `<div class="browse-ctx-item" onclick="_browseDismissTabContextMenu();_browseUngroupAll(${groupId})">Ungroup all</div>`,
+    `<div class="browse-ctx-item" onclick="_browseDismissTabContextMenu();_browseCloseGroup(${groupId})">Close group</div>`
+  ];
+
+  const menu = document.createElement('div');
+  menu.className = 'browse-ctx-menu';
+  menu.innerHTML = items.join('');
+  menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:10002;`;
+  document.body.appendChild(menu);
+
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 4) + 'px';
+  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 4) + 'px';
+
+  setTimeout(() => {
+    document.addEventListener('mousedown', _browseDismissTabContextMenu, { once: true });
+  }, 0);
 }
 
 // ── Tab hover tooltip ──
@@ -1941,23 +2189,47 @@ function _browseTabHoverOut(e) {
 }
 
 function _showTabTooltip(tabEl) {
-  const onclickAttr = tabEl.getAttribute('onclick') || '';
-  const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
-  if (!idMatch) return;
-  const tabId = parseInt(idMatch[1]);
+  const tabId = parseInt(tabEl.dataset.tabId);
+  if (isNaN(tabId)) return;
   const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
   const tab = tabs.find(t => t.id === tabId);
-  if (!tab || !tab.url) return;
+  if (!tab) return;
 
   _dismissTooltip();
+  const win = _getCurrentWindow();
+  const groups = win ? (win.groups || []) : [];
+  const isPinned = !!tab.pinned;
+  const inGroup = tab.groupId != null;
+
+  // Build menu items
+  let menuHtml = '';
+  menuHtml += `<div class="browse-tab-tooltip-action" data-action="pin">${isPinned ? 'Unpin tab' : 'Pin tab'}</div>`;
+  if (!isPinned) {
+    menuHtml += `<div class="browse-tab-tooltip-action" data-action="new-group">Add to new group</div>`;
+    for (const g of groups) {
+      if (g.id === tab.groupId) continue;
+      const gc = _BROWSE_GROUP_COLOR_MAP[g.color] || g.color;
+      menuHtml += `<div class="browse-tab-tooltip-action" data-action="add-group" data-group-id="${g.id}"><span class="browse-ctx-color-dot" style="background:${gc}"></span>${escapeHtml(g.name)}</div>`;
+    }
+    if (inGroup) {
+      menuHtml += `<div class="browse-tab-tooltip-action" data-action="remove-group">Remove from group</div>`;
+    }
+  }
+  menuHtml += `<div class="browse-tab-tooltip-sep"></div>`;
+  menuHtml += `<div class="browse-tab-tooltip-action" data-action="close">Close tab</div>`;
+  menuHtml += `<div class="browse-tab-tooltip-action" data-action="close-others">Close other tabs</div>`;
+
+  const urlLine = tab.url ? `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>` : '';
+
   const tip = document.createElement('div');
   tip.className = 'browse-tab-tooltip';
   tip.innerHTML = `
-    <div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>
+    ${urlLine}
     <button class="browse-tab-tooltip-add" data-tab-id="${tabId}">
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add to assistant
-    </button>`;
+    </button>
+    <div class="browse-tab-tooltip-menu">${menuHtml}</div>`;
   document.body.appendChild(tip);
 
   tabEl.classList.add('browse-tab-tooltip-open');
@@ -1966,7 +2238,6 @@ function _showTabTooltip(tabEl) {
   const tipW = Math.max(rect.width, minW);
   tip.style.top = (rect.bottom - 1) + 'px';
   tip.style.width = tipW + 'px';
-  // Default left-aligned with tab; flip right-aligned if it overflows viewport
   const leftAligned = rect.left;
   if (leftAligned + tipW <= window.innerWidth) {
     tip.style.left = leftAligned + 'px';
@@ -1980,9 +2251,23 @@ function _showTabTooltip(tabEl) {
     _dismissTooltip();
   });
 
+  // Handle menu actions
+  tip.querySelectorAll('.browse-tab-tooltip-action').forEach(item => {
+    item.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const action = item.dataset.action;
+      _dismissTooltip();
+      if (action === 'pin') browseTogglePin(tabId);
+      else if (action === 'new-group') browseAddTabToNewGroup(tabId);
+      else if (action === 'add-group') browseAddTabToGroup(tabId, parseInt(item.dataset.groupId));
+      else if (action === 'remove-group') browseRemoveTabFromGroup(tabId);
+      else if (action === 'close') browseCloseTab(tabId);
+      else if (action === 'close-others') _browseCloseOtherTabs(tabId);
+    });
+  });
+
   tip.addEventListener('mouseenter', () => { clearTimeout(_tabHoverDismissTimeout); });
   tip.addEventListener('mouseleave', (ev) => {
-    // If mouse moved back to a tab, let the tab's hover handler deal with it
     clearTimeout(_tabHoverDismissTimeout);
     _tabHoverDismissTimeout = setTimeout(_dismissTooltip, 150);
   });
@@ -2031,13 +2316,16 @@ function _tabDragStart(e) {
   if (e.button !== 0) return;
   if (e.target.closest('.browse-tab-close, .browse-tab-audio')) return;
   const tabEl = e.currentTarget;
-  const onclickAttr = tabEl.getAttribute('onclick') || '';
-  const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
-  if (!idMatch) return;
-  e.preventDefault(); // prevent text selection and let _tabDragEnd handle click
-  const tabId = parseInt(idMatch[1]);
+  let tabId = parseInt(tabEl.dataset.tabId);
+  if (isNaN(tabId)) {
+    // Fallback: parse from onclick
+    const onclickAttr = tabEl.getAttribute('onclick') || '';
+    const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
+    if (!idMatch) return;
+    tabId = parseInt(idMatch[1]);
+  }
+  e.preventDefault();
   _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false };
-  // Suppress the inline onclick so _tabDragEnd controls selection
   const origOnclick = tabEl.getAttribute('onclick');
   tabEl.removeAttribute('onclick');
   _tabDragState._origOnclick = origOnclick;
@@ -2088,7 +2376,17 @@ function _tabDragUpdatePosition(clientX) {
   if (!_tabDragState || !_tabDragState.indicator) return;
   const bar = document.getElementById('browse-tabs');
   if (!bar) return;
-  const tabs = Array.from(bar.querySelectorAll('.browse-tab'));
+  const win = _getCurrentWindow();
+  const dragTab = win ? win.tabs.find(t => t.id === _tabDragState.tabId) : null;
+  const isDragPinned = dragTab && dragTab.pinned;
+
+  // Only allow dragging among same region (pinned <-> pinned, unpinned <-> unpinned)
+  const allTabEls = Array.from(bar.querySelectorAll('.browse-tab'));
+  const tabs = allTabEls.filter(t => {
+    const isPinned = t.classList.contains('browse-tab-pinned');
+    return isDragPinned ? isPinned : !isPinned;
+  });
+
   let insertBeforeId = null;
   let indicatorLeft = null;
   const barRect = bar.getBoundingClientRect();
@@ -2097,15 +2395,13 @@ function _tabDragUpdatePosition(clientX) {
     const rect = t.getBoundingClientRect();
     const mid = rect.left + rect.width / 2;
     if (clientX < mid) {
-      const onclickAttr = t.getAttribute('onclick') || '';
-      const m = onclickAttr.match(/browseSelectTab\((\d+)\)/);
-      if (m) insertBeforeId = parseInt(m[1]);
+      const tid = parseInt(t.dataset.tabId);
+      if (!isNaN(tid)) insertBeforeId = tid;
       indicatorLeft = rect.left - barRect.left - 1;
       break;
     }
   }
 
-  // If no tab found, insert at end
   if (indicatorLeft === null && tabs.length > 0) {
     const lastRect = tabs[tabs.length - 1].getBoundingClientRect();
     indicatorLeft = lastRect.right - barRect.left + 1;
@@ -2150,6 +2446,16 @@ function _tabDragEnd(e) {
       }
     } else {
       win.tabs.push(movedTab);
+    }
+    // Update group membership based on neighbors (for unpinned tabs)
+    if (!movedTab.pinned) {
+      const newIdx = win.tabs.indexOf(movedTab);
+      const prev = newIdx > 0 ? win.tabs[newIdx - 1] : null;
+      const next = newIdx < win.tabs.length - 1 ? win.tabs[newIdx + 1] : null;
+      // If dropped between two tabs of the same group, join that group
+      if (prev && next && !prev.pinned && !next.pinned && prev.groupId != null && prev.groupId === next.groupId) {
+        movedTab.groupId = prev.groupId;
+      }
     }
     _browseRenderTabs();
     _browseSaveTabs();
@@ -2391,13 +2697,22 @@ function _renderBrowseTabOverview() {
         </svg>
       ` : '';
 
+      // Pin badge & group color for overview
+      const pinBadge = t.pinned ? '<span class="browse-tab-cell-pin" title="Pinned">📌</span>' : '';
+      let groupColorBorder = '';
+      if (t.groupId != null) {
+        const g = (win.groups || []).find(g => g.id === t.groupId);
+        if (g) groupColorBorder = `border-left:3px solid ${_BROWSE_GROUP_COLOR_MAP[g.color] || g.color};`;
+      }
+
       return `
         <div class="browse-tab-cell ${isActiveTab ? 'active' : ''} ${isSelected ? 'keyboard-selected' : ''}"
              data-win-idx="${winIdx}" data-tab-idx="${tabIdx}"
+             style="${groupColorBorder}"
              onclick="event.stopPropagation();_selectTabFromOverview(${win.id}, ${t.id})">
           <div class="browse-tab-cell-favicon">${favContent}</div>
           <div class="browse-tab-cell-info">
-            <div class="browse-tab-cell-title">${title}</div>
+            <div class="browse-tab-cell-title">${pinBadge}${title}</div>
             <div class="browse-tab-cell-url">${escapeHtml(urlDisplay)}</div>
           </div>
           ${audioIcon}

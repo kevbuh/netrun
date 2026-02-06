@@ -433,6 +433,10 @@ function _renderSidebarHTML(paper) {
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
+        <div class="insight-dropdown" id="insight-drop-contents">
+          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('contents')"><span>Contents</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="insight-dropdown-body" id="insight-pane-contents" style="display:none"></div>
+        </div>
         <div class="insight-dropdown" id="insight-drop-authors">
           <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('authors')"><span>Authors</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
           <div class="insight-dropdown-body" id="insight-pane-authors"></div>
@@ -492,7 +496,7 @@ function _initSidebarForUrl(url) {
   _paperNoteSelected = null;
   _paperInsightsLoaded = false;
   _insightsDataCache = null;
-  _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
+  _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
   _sidebarScrollPositions = {};
   fetchPaperNotes();
   fetchPaperComments();
@@ -709,11 +713,11 @@ async function _verifyInsightsInPdf(insights) {
 }
 
 // Track which insight sub-tabs have been loaded
-let _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
+let _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
 
 async function fetchPaperInsights(url) {
   _paperInsightsLoaded = true;
-  _insightSubLoaded = { authors: false, ai: false, references: false, links: false };
+  _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
 
   // Restore saved subtab or default to authors
   const savedSubtab = localStorage.getItem('insightSubtab');
@@ -733,6 +737,8 @@ function _loadInsightSubtab(subtab) {
     _fetchReferences(url);
   }
   // 'links' is rendered from PDF extraction, no fetch needed
+  // 'contents' is rendered from PDF outline, no fetch needed
+  if (subtab === 'contents' && typeof _renderPdfToc === 'function') _renderPdfToc();
 }
 
 let _insightsDataCache = null;

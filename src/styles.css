@@ -898,6 +898,30 @@
       border-color: var(--text-dimmest);
       color: var(--text-dimmest);
     }
+    .browse-tab-tooltip-menu {
+      border-top: 1px solid var(--border-card);
+      padding-top: 4px;
+      margin-top: 2px;
+    }
+    .browse-tab-tooltip-action {
+      padding: 4px 6px;
+      font-size: 0.7rem;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .browse-tab-tooltip-action:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .browse-tab-tooltip-sep {
+      height: 1px;
+      background: var(--border-card);
+      margin: 2px 0;
+    }
     .browse-tab-insert-indicator {
       position: absolute;
       width: 2px;
@@ -906,6 +930,50 @@
       z-index: 1000;
       border-radius: 1px;
     }
+    /* Pinned tabs */
+    .browse-tab-pinned {
+      max-width: 34px; min-width: 34px; padding: 4px 8px; justify-content: center; flex: 0 0 34px;
+    }
+    .browse-tab-pinned .browse-tab-title,
+    .browse-tab-pinned .browse-tab-close { display: none !important; }
+    .browse-tab-pin-separator {
+      width: 1px; background: var(--border-card); margin: 6px 2px; align-self: stretch; flex-shrink: 0;
+    }
+    /* Tab groups */
+    .browse-tab-group-chip {
+      padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600;
+      background: color-mix(in srgb, var(--group-color) 20%, transparent);
+      color: var(--group-color); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      display: flex; align-items: center; gap: 4px; user-select: none;
+    }
+    .browse-tab-group-chip:hover {
+      background: color-mix(in srgb, var(--group-color) 30%, transparent);
+    }
+    .browse-tab-group-count {
+      opacity: 0.6; font-size: 0.6rem;
+    }
+    .browse-tab-grouped {
+      border-bottom: 2px solid var(--group-color); border-radius: 8px 8px 0 0;
+    }
+    /* Tab & group context menu */
+    .browse-ctx-menu {
+      background: var(--bg-card); border: 1px solid var(--border-card);
+      border-radius: 8px; padding: 4px 0; min-width: 160px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35); font-size: 0.75rem;
+    }
+    .browse-ctx-item {
+      padding: 6px 12px; cursor: pointer; color: var(--text-dimmer);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .browse-ctx-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .browse-ctx-sep { height: 1px; background: var(--border-card); margin: 3px 8px; }
+    .browse-ctx-color-dot {
+      display: inline-block; width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; transition: border-color 0.1s;
+    }
+    .browse-ctx-color-dot:hover, .browse-ctx-color-selected { border-color: var(--text-primary); }
+    .browse-ctx-colors { display: flex; gap: 4px; padding: 4px 12px; flex-wrap: wrap; }
+    .browse-tab-cell-pin { font-size: 0.6rem; margin-right: 3px; }
     /* Tab context menu — merged below tab */
     .tab-context-panel {
       border-top-left-radius: 0;

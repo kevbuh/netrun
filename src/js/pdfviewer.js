@@ -38,6 +38,9 @@ let _pdfRedoStacks = {};   // { pageNum: [ snapshotArray, ... ] }
 // ── Extracted links from PDF annotations ──
 let _pdfExtractedLinks = new Set();
 
+// ── PDF outline / table of contents ──
+let _pdfOutline = null;
+
 // ── Storage ──
 
 function loadPdfHighlights(arxivId) {
@@ -235,6 +238,12 @@ function initPdfViewer(container, url, arxivId) {
 
     // Render sidebar panel for existing highlights
     renderHighlightsPanel();
+
+    // Fetch PDF outline for table of contents
+    pdf.getOutline().then(outline => {
+      _pdfOutline = outline;
+      _renderPdfToc();
+    }).catch(() => {});
   }).catch(err => {
     console.error('PDF load error', err);
     container.innerHTML = `<div class="flex items-center justify-center h-full text-dim">
@@ -1034,6 +1043,7 @@ function cleanupPdfViewer() {
   _pdfDrawings = {};
   _pdfCurrentStroke = null;
   _pdfCurrentDrawCanvas = null;
+  _pdfOutline = null;
   pdfClearSearchHighlights();
   dismissHighlightPopup();
   dismissNotePopup();
@@ -1648,6 +1658,40 @@ function _navigateToPdfDest(destRaw) {
     const wrapper = _pdfPagesContainer.querySelector(`.pdf-page-wrapper[data-page="${pageNum}"]`);
     if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }).catch(() => {});
+}
+
+// ── Table of Contents ──
+
+function _renderPdfToc() {
+  const pane = document.getElementById('insight-pane-contents');
+  if (!pane) return;
+  if (!_pdfOutline || _pdfOutline.length === 0) {
+    pane.innerHTML = '<div class="text-[0.75rem] text-dimmer py-1">No table of contents available</div>';
+    return;
+  }
+  pane.innerHTML = _buildTocTree(_pdfOutline, 0);
+}
+
+function _buildTocTree(items, depth) {
+  if (!items || items.length === 0) return '';
+  let html = '';
+  for (const item of items) {
+    const dest = item.dest;
+    const destAttr = dest ? ` data-dest="${typeof dest === 'string' ? dest : JSON.stringify(dest).replace(/"/g, '&quot;')}"` : '';
+    const indent = depth * 12;
+    html += `<div class="pdf-toc-item" style="padding-left:${indent}px;" ${destAttr} onclick="_onTocItemClick(this)">
+      <span class="text-[0.78rem] ${depth === 0 ? 'text-primary font-medium' : 'text-muted'} cursor-pointer hover:text-accent transition-colors leading-relaxed">${item.title}</span>
+    </div>`;
+    if (item.items && item.items.length > 0) {
+      html += _buildTocTree(item.items, depth + 1);
+    }
+  }
+  return html;
+}
+
+function _onTocItemClick(el) {
+  const dest = el.dataset.dest;
+  if (dest) _navigateToPdfDest(dest);
 }
 
 // Close citation popup when clicking outside
