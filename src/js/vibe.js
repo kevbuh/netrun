@@ -179,7 +179,7 @@ function _vibeRenderFiles(data) {
   if (!el) return;
   if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
   const files = data.files || [];
-  if (!files.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No changes</span>'; return; }
+  if (!files.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No files</span>'; return; }
   el.innerHTML = files.map((f, i) =>
     `<div class="vibe-row vibe-selectable" data-pane="1" data-idx="${i}" onclick="_vibeSelectFile(${i})">${_vibeFileStatusBadge(f.status)} ${escapeHtml(f.path)}</div>`
   ).join('');
@@ -234,6 +234,7 @@ function _vibeColorStatus(line) {
 }
 
 function _vibeFileStatusBadge(status) {
+  if (!status || status.trim() === '') return '<span class="text-dimmer inline-block w-4 text-center">\u00B7</span>';
   const colors = { M: 'text-yellow-400', A: 'text-green-400', D: 'text-red-400', '?': 'text-green-400', R: 'text-blue-400', U: 'text-red-400' };
   const c = colors[status] || 'text-dimmer';
   return `<span class="${c} inline-block w-4 text-center font-bold">${escapeHtml(status)}</span>`;
@@ -249,8 +250,15 @@ async function _vibeSelectFile(idx) {
   const files = (_vibeData.files && _vibeData.files.files) || [];
   const f = files[idx];
   if (!f) return;
-  const data = await _vibeGit('diff', { file: f.path });
-  _vibeShowDetail('Diff: ' + f.path, data.output || data.error || 'No diff');
+  if (f.status && f.status.trim()) {
+    // Changed file — show diff
+    const data = await _vibeGit('diff', { file: f.path });
+    _vibeShowDetail('Diff: ' + f.path, data.output || data.error || 'No diff');
+  } else {
+    // Tracked file — show contents via git show
+    const data = await _vibeGit('show', { ref: 'HEAD:' + f.path });
+    _vibeShowDetail(f.path, data.output || data.error || '(empty)');
+  }
 }
 
 async function _vibeSelectBranch(idx) {

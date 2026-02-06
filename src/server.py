@@ -190,14 +190,28 @@ def _vibe_run_git(cmd, body, vault_path):
         return {'output': out}
 
     elif cmd == 'files':
-        out = _run(['status', '--porcelain'])
-        if isinstance(out, dict): return out
+        # Show changed files first, then all tracked files
+        changed_out = _run(['status', '--porcelain'])
+        changed = {}
+        if isinstance(changed_out, str):
+            for line in changed_out.strip().split('\n'):
+                if not line: continue
+                status = line[:2].strip()
+                path = line[3:]
+                changed[path] = status
+        # All tracked files
+        tracked_out = _run(['ls-files'])
+        if isinstance(tracked_out, dict): return tracked_out
         files = []
-        for line in out.strip().split('\n'):
-            if not line: continue
-            status = line[:2].strip()
-            path = line[3:]
+        seen = set()
+        # Changed files first
+        for path, status in changed.items():
             files.append({'status': status, 'path': path})
+            seen.add(path)
+        # Then tracked files not already listed
+        for line in tracked_out.strip().split('\n'):
+            if not line or line in seen: continue
+            files.append({'status': ' ', 'path': line})
         return {'files': files}
 
     elif cmd == 'branches':
@@ -256,7 +270,7 @@ def _vibe_run_git(cmd, body, vault_path):
     elif cmd == 'show':
         ref = body.get('ref', 'HEAD')
         # Sanitize ref: only allow safe characters
-        if not re.match(r'^[a-zA-Z0-9_./@{}\-]+$', ref):
+        if not re.match(r'^[a-zA-Z0-9_./@{}\-: ]+$', ref):
             return {'error': 'Invalid ref'}
         out = _run(['show', '--stat', '--patch', ref])
         if isinstance(out, dict): return out
