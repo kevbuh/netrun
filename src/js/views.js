@@ -2351,6 +2351,10 @@ function _renderPopupChat(popup, final) {
   }
   _updateContextBar(popup);
   _updateChatStats(popup, final);
+  // Show/hide redo + copy buttons
+  const hasAiMsg = _popupChatMessages.some(m => m.role === 'assistant' && !m._thinking && m.content);
+  if (popup._redoBtn) popup._redoBtn.style.display = hasAiMsg ? '' : 'none';
+  if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
 }
 
 function _updateChatStats(popup, final) {
@@ -4817,6 +4821,56 @@ function _showPanel(config) {
       _repositionSelectionPopup();
     });
     topBar.appendChild(clearBtn);
+
+    // Redo button — resend last user message
+    const redoBtn = document.createElement('button');
+    redoBtn.className = 'lookup-topbar-btn';
+    redoBtn.textContent = 'Redo';
+    redoBtn.style.display = 'none';
+    redoBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    redoBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      // Find last user message
+      let lastUserIdx = -1;
+      for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
+        if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+      }
+      if (lastUserIdx < 0) return;
+      // Remove the last user message and everything after it
+      const lastUserMsg = _popupChatMessages[lastUserIdx];
+      _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      // Re-insert user message and re-send
+      const input = popup.querySelector('.doc-ask-inline-input');
+      if (input) input.value = lastUserMsg._display || lastUserMsg.content;
+      _sendPopupChatMessage(popup, popup._capturedText || '');
+    });
+    topBar.appendChild(redoBtn);
+    popup._redoBtn = redoBtn;
+
+    // Copy chat button — copy last AI response
+    const copyChatBtn = document.createElement('button');
+    copyChatBtn.className = 'lookup-topbar-btn';
+    copyChatBtn.style.display = 'none';
+    copyChatBtn.textContent = 'Copy';
+    copyChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    copyChatBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      // Find last assistant message
+      let lastAi = '';
+      for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
+        if (_popupChatMessages[i].role === 'assistant' && !_popupChatMessages[i]._thinking) {
+          lastAi = _popupChatMessages[i].content; break;
+        }
+      }
+      if (!lastAi) return;
+      navigator.clipboard.writeText(lastAi).then(() => {
+        copyChatBtn.textContent = 'Copied';
+        setTimeout(() => { if (copyChatBtn.isConnected) copyChatBtn.textContent = 'Copy'; }, 1200);
+      }).catch(() => {});
+    });
+    topBar.appendChild(copyChatBtn);
+    popup._copyChatBtn = copyChatBtn;
 
     const openSidebarBtn = document.createElement('button');
     openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
