@@ -78,6 +78,10 @@ from kernels import (
 PORT = _args.port
 GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
 
+# Neuralook — trained CNN model kept in memory for inference
+_neuralook_model = None
+_neuralook_screen = None  # (screen_w, screen_h, eye_w, eye_h)
+
 # In-memory cache for extracted document text: url -> { text, pages }
 _extract_cache = {}
 
@@ -2073,60 +2077,102 @@ ch.postMessage({type:'preview-ready'});
         return google_id
 
     def do_POST(self):
+        global _neuralook_model, _neuralook_screen
         if self.path == '/api/neuralook/train':
             body = self._read_body()
             try:
                 import torch
                 import torch.nn as nn
+                import random
 
                 samples = body.get('samples', [])
                 screen_w = body.get('screenW', 1920)
                 screen_h = body.get('screenH', 1080)
-                if len(samples) < 3:
-                    self._send_json({'error': 'Need at least 3 samples'}, 400)
+                eye_w = body.get('eyeW', 64)
+                eye_h = body.get('eyeH', 32)
+                if len(samples) < 10:
+                    self._send_json({'error': f'Need at least 10 samples, got {len(samples)}'}, 400)
                     return
 
-                # Build tensors
-                X = torch.tensor([s['features'] for s in samples], dtype=torch.float32)
-                Y = torch.tensor([[s['screenX'] / screen_w, s['screenY'] / screen_h] for s in samples], dtype=torch.float32)
+                # Build tensors — eyeData is flat array of 4096 uint8 (left eye 2048 + right eye 2048)
+                eye_size = eye_w * eye_h  # 2048 per eye
+                X_list = []
+                Y_list = []
+                for s in samples:
+                    raw = s['eyeData']
+                    if len(raw) != eye_size * 2:
+                        continue
+                    left = torch.tensor(raw[:eye_size], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
+                    right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
+                    X_list.append(torch.cat([left, right], dim=0))  # [2, 32, 64]
+                    Y_list.append([s['screenX'] / screen_w, s['screenY'] / screen_h])
 
-                # Standardize inputs
-                x_mean = X.mean(dim=0)
-                x_std = X.std(dim=0).clamp(min=1e-6)
-                X_norm = (X - x_mean) / x_std
+                if len(X_list) < 10:
+                    self._send_json({'error': f'Only {len(X_list)} valid samples'}, 400)
+                    return
 
-                # Train/val split — hold out 2 full calibration points for validation
-                # Group samples by their target position
-                targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples]
+                X = torch.stack(X_list)  # [N, 2, 32, 64]
+                Y = torch.tensor(Y_list, dtype=torch.float32)  # [N, 2]
+
+                # Train/val split — hold out ~25% of calibration points
+                targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples if len(s['eyeData']) == eye_size * 2]
                 unique_targets = list(set(targets_rounded))
-                # Pick ~25% of points for validation (at least 2)
                 n_val_points = max(2, len(unique_targets) // 4)
-                import random
                 random.shuffle(unique_targets)
                 val_targets = set(unique_targets[:n_val_points])
                 val_mask = torch.tensor([t in val_targets for t in targets_rounded])
                 train_mask = ~val_mask
 
-                X_train, Y_train = X_norm[train_mask], Y[train_mask]
-                X_val, Y_val = X_norm[val_mask], Y[val_mask]
+                X_train, Y_train = X[train_mask], Y[train_mask]
+                X_val, Y_val = X[val_mask], Y[val_mask]
 
-                # 5 → 32 → 32 → 2 MLP with dropout
-                model = nn.Sequential(
-                    nn.Linear(5, 32), nn.ReLU(), nn.Dropout(0.2),
-                    nn.Linear(32, 32), nn.ReLU(), nn.Dropout(0.2),
-                    nn.Linear(32, 2)
-                )
+                # CNN: 2-channel 32x64 eye crops → 2 screen coords
+                class GazeCNN(nn.Module):
+                    def __init__(self):
+                        super().__init__()
+                        self.features = nn.Sequential(
+                            nn.Conv2d(2, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+                            nn.MaxPool2d(2),  # → [32, 16, 32]
+                            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+                            nn.MaxPool2d(2),  # → [64, 8, 16]
+                            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+                            nn.AdaptiveAvgPool2d((4, 4)),  # → [128, 4, 4]
+                        )
+                        self.head = nn.Sequential(
+                            nn.Flatten(),
+                            nn.Linear(128 * 4 * 4, 256), nn.ReLU(), nn.Dropout(0.3),
+                            nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
+                            nn.Linear(64, 2)
+                        )
+                    def forward(self, x):
+                        return self.head(self.features(x))
 
-                optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=1e-3)
+                model = GazeCNN()
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+                max_epochs = 3000
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
                 n_train = X_train.shape[0]
                 batch_size = min(64, n_train)
-
                 best_val_loss = float('inf')
                 best_state = None
-                patience = 200
+                patience = 300
                 no_improve = 0
+                stopped_epoch = 0
 
-                for epoch in range(5000):
+                # SSE stream for progress
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.send_header('Cache-Control', 'no-cache')
+                self.send_header('Connection', 'keep-alive')
+                self.end_headers()
+
+                def _sse(event, data):
+                    self.wfile.write(f'event: {event}\ndata: {json.dumps(data)}\n\n'.encode())
+                    self.wfile.flush()
+
+                _sse('progress', {'epoch': 0, 'max_epochs': max_epochs, 'phase': 'training', 'val_loss': None})
+
+                for epoch in range(max_epochs):
                     model.train()
                     perm = torch.randperm(n_train)
                     for start in range(0, n_train, batch_size):
@@ -2136,8 +2182,8 @@ ch.postMessage({type:'preview-ready'});
                         optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
+                    scheduler.step()
 
-                    # Validation check every 10 epochs
                     if epoch % 10 == 0:
                         model.eval()
                         with torch.no_grad():
@@ -2149,65 +2195,73 @@ ch.postMessage({type:'preview-ready'});
                             no_improve = 0
                         else:
                             no_improve += 10
+                        if epoch % 50 == 0:
+                            _sse('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'phase': 'training'})
                         if no_improve >= patience:
+                            stopped_epoch = epoch
                             break
+                    stopped_epoch = epoch
 
-                # Restore best model
                 if best_state:
                     model.load_state_dict(best_state)
                 model.eval()
 
-                # Bake standardization into first layer (skip Dropout layers)
-                # Layer indices: 0=Linear, 1=ReLU, 2=Dropout, 3=Linear, 4=ReLU, 5=Dropout, 6=Linear
+                _sse('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
+
                 with torch.no_grad():
-                    w1 = model[0].weight.clone()
-                    b1 = model[0].bias.clone()
-                    model[0].weight.copy_(w1 / x_std.unsqueeze(0))
-                    model[0].bias.copy_(b1 - (w1 / x_std.unsqueeze(0)) @ x_mean)
+                    train_pred = model(X_train)
+                    tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
+                    yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
+                    train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
 
-                # Extract weights (skip ReLU and Dropout layers)
-                weights = {
-                    'w0': model[0].weight.detach().tolist(),
-                    'b0': model[0].bias.detach().tolist(),
-                    'w1': model[3].weight.detach().tolist(),
-                    'b1': model[3].bias.detach().tolist(),
-                    'w2': model[6].weight.detach().tolist(),
-                    'b2': model[6].bias.detach().tolist(),
-                }
+                    vp = model(X_val); vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
+                    yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
+                    val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
 
-                # Compute training error in pixels on ALL data (using raw X)
-                with torch.no_grad():
-                    pred = model(X)
-                    pred_px = pred.clone()
-                    pred_px[:, 0] *= screen_w
-                    pred_px[:, 1] *= screen_h
-                    Y_px = Y.clone()
-                    Y_px[:, 0] *= screen_w
-                    Y_px[:, 1] *= screen_h
-                    dists = torch.sqrt(((pred_px - Y_px) ** 2).sum(dim=1))
-                    train_err = dists.mean().item()
-                    # Val error
-                    val_pred_px = model(X[val_mask])
-                    val_pred_px[:, 0] *= screen_w
-                    val_pred_px[:, 1] *= screen_h
-                    val_Y_px = Y[val_mask].clone()
-                    val_Y_px[:, 0] *= screen_w
-                    val_Y_px[:, 1] *= screen_h
-                    val_dists = torch.sqrt(((val_pred_px - val_Y_px) ** 2).sum(dim=1))
-                    val_err = val_dists.mean().item()
+                _neuralook_model = model
+                _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
 
-                self._send_json({
-                    'weights': weights,
-                    'screenW': screen_w,
-                    'screenH': screen_h,
+                _sse('done', {
                     'train_error_px': round(train_err, 1),
                     'val_error_px': round(val_err, 1),
-                    'stopped_epoch': epoch,
+                    'stopped_epoch': stopped_epoch,
                     'loss': round(best_val_loss, 6),
-                    'samples': len(samples)
+                    'samples': len(X_list),
+                    'train_samples': int(train_mask.sum()),
+                    'val_samples': int(val_mask.sum()),
+                    'val_points': n_val_points
                 })
             except ImportError:
-                self._send_json({'error': 'PyTorch not installed on server'}, 500)
+                try: _sse('error', {'error': 'PyTorch not installed on server'})
+                except Exception: self._send_json({'error': 'PyTorch not installed on server'}, 500)
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                try: _sse('error', {'error': str(e)})
+                except Exception: self._send_json({'error': str(e)}, 500)
+            return
+        if self.path == '/api/neuralook/predict':
+            body = self._read_body()
+            try:
+                import torch
+
+                if _neuralook_model is None:
+                    self._send_json({'error': 'Model not trained'}, 400)
+                    return
+                raw = body.get('eyeData', [])
+                screen_w, screen_h, eye_w, eye_h = _neuralook_screen
+                eye_size = eye_w * eye_h
+                if len(raw) != eye_size * 2:
+                    self._send_json({'error': f'Expected {eye_size * 2} values, got {len(raw)}'}, 400)
+                    return
+                left = torch.tensor(raw[:eye_size], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
+                right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
+                inp = torch.cat([left, right], dim=0).unsqueeze(0)  # [1, 2, 32, 64]
+                with torch.no_grad():
+                    pred = _neuralook_model(inp)[0]
+                self._send_json({
+                    'x': round(pred[0].item() * screen_w, 1),
+                    'y': round(pred[1].item() * screen_h, 1)
+                })
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
             return
