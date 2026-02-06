@@ -192,9 +192,22 @@ function isQualityFilterOn() {
 }
 function setQualityFilter(on) {
   localStorage.setItem('qualityFilter', on ? 'on' : 'off');
+  _updateQualityFilterIcon();
   if (on && allPapers.length) qualityFilterPapers();
   renderPapers();
 }
+function _updateQualityFilterIcon() {
+  const btn = document.getElementById('quality-filter-btn');
+  if (!btn) return;
+  const svg = btn.querySelector('svg');
+  if (!svg) return;
+  if (isQualityFilterOn()) {
+    svg.innerHTML = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>';
+  } else {
+    svg.innerHTML = '<path d="m2 2 20 20"/><path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.97 5.9-3.71"/><path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.784 9.784 0 0 1-.08 1.264"/>';
+  }
+}
+setTimeout(_updateQualityFilterIcon, 0);
 function getQualityThreshold() {
   const v = parseInt(localStorage.getItem('qualityThreshold'), 10);
   return isNaN(v) ? 30 : Math.min(v, 100);
