@@ -5000,20 +5000,45 @@ function _renderHelpPage(el) {
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Key</th><th ${th}>Action</th></tr>`;
   const shortcuts = [
+    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Global</strong>'],
+    ['Esc', 'Close panel / Go home'],
     ['⌘T', 'New browser tab'],
     ['⌘W', 'Close browser tab'],
     ['⌘Y', 'History page'],
     ['⌘⇧\\\\', 'Tab overview'],
-    ['⌘F', 'Find in page/PDF'],
-    ['⌘+/-/0', 'Zoom in/out/reset'],
     ['⌘L', 'Focus URL bar'],
     ['⌘⇧T', 'Reopen closed tab'],
-    ['Esc', 'Close panel / Go home'],
     ['Enter', 'Send chat message'],
     ['⇧Enter', 'Web search from panel'],
+    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Tab Overview</strong>'],
+    ['←→', 'Switch windows'],
+    ['↑↓', 'Switch tabs'],
+    ['Enter', 'Select tab'],
+    ['N', 'New window'],
+    ['T', 'New tab'],
+    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Browser</strong>'],
+    ['⌘+', 'Zoom in'],
+    ['⌘-', 'Zoom out'],
+    ['⌘0', 'Reset zoom'],
+    ['⌘F', 'Find in page'],
+    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">PDF Viewer</strong>'],
+    ['←', 'Previous page'],
+    ['→', 'Next page'],
+    ['⌘F', 'Find in document'],
+    ['H', 'Highlight mode'],
+    ['P', 'Pen mode'],
+    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Editors</strong>'],
+    ['⌘S', 'Save'],
+    ['⌘Z', 'Undo'],
+    ['⌘⇧Z', 'Redo'],
+    ['⇧Enter', 'Run cell (notebook)'],
   ];
   shortcuts.forEach(([k, v]) => {
-    html += `<tr><td ${tdk}><kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border-card);background:var(--bg-card);">${k}</kbd></td><td ${tdv}>${v}</td></tr>`;
+    if (!k) {
+      html += `<tr><td colspan="2" style="padding:10px 12px 4px;">${v}</td></tr>`;
+    } else {
+      html += `<tr><td ${tdk}><kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border-card);background:var(--bg-card);">${k}</kbd></td><td ${tdv}>${v}</td></tr>`;
+    }
   });
   html += '</table></div>';
 
@@ -5025,6 +5050,24 @@ function _renderHelpPage(el) {
   html += '<strong style="color:var(--text-primary);">Select text</strong> → highlight, quote, or define.<br>';
   html += '<strong style="color:var(--text-primary);">Drag</strong> while panel is open to capture a screenshot region.';
   html += '</div></div>';
+
+  // Chat Tools
+  html += `<div ${section}><div ${h2}>Chat Tools</div>`;
+  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
+  html += `<table ${table}>`;
+  html += `<tr><th ${th}>Tool</th><th ${th}>Description</th></tr>`;
+  const tools = [
+    ['Web Search', 'Searches DuckDuckGo for current info'],
+    ['Paper Search', 'Finds papers on arXiv'],
+    ['Fetch Page', 'Reads content from any URL'],
+    ['Bookmark', 'Saves posts to your reading list'],
+    ['Navigate', 'Opens views (home, experiments, etc.)'],
+    ['New Experiment', 'Creates a project from chat'],
+  ];
+  tools.forEach(([k, v]) => {
+    html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
+  });
+  html += '</table></div>';
 
   // Internal Pages
   html += `<div ${section}><div ${h2}>Internal Pages</div>`;

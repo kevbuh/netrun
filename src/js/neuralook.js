@@ -61,6 +61,7 @@ let _nlTrainStartTime = 0;
 let _nlWandbUrl = null;
 let _nlWandbPanelOpen = false;
 let _nlShowTrainView = true; // toggle between training detail and normal view
+let _nlTrainAbort = null; // AbortController for in-flight training request
 
 // Smoothing
 let _nlGazeBuffer = [];
@@ -340,6 +341,9 @@ function _nlRenderTrainDetailView(container) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>W&B
           </button>` : ''}
           <span class="text-[0.72rem] text-muted">${elapsedStr}</span>
+          ${_nlTraining ? `<button onclick="_nlStopTraining()" class="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-border-input text-[0.72rem] text-red-400 font-medium cursor-pointer hover:border-red-400 transition-colors" title="Stop training">
+            <svg width="8" height="8" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/></svg>Stop
+          </button>` : ''}
         </div>
 
         <!-- Two-column body -->
@@ -923,9 +927,11 @@ function _nlTrainOnServerSSE(onProgress, onLog, method) {
       headPose: s.headPose || [0, 0, 0]
     }));
 
+    _nlTrainAbort = new AbortController();
     fetch('/api/neuralook/train', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: _nlTrainAbort.signal,
       body: JSON.stringify({
         method,
         samples,
@@ -1005,6 +1011,9 @@ function _nlShowTrainPill() {
       <div id="nl-pill-title" style="font-weight:600;font-size:0.8rem;">Training CNN</div>
       <div id="nl-pill-detail" style="font-size:0.7rem;color:var(--text-secondary,#888);">Starting...</div>
     </div>
+    <div id="nl-pill-stop" onclick="event.stopPropagation();_nlStopTraining();" style="width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:1px solid var(--border,#333);transition:border-color 0.2s;" onmouseover="this.style.borderColor='#f87171'" onmouseout="this.style.borderColor='var(--border,#333)'">
+      <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#f87171"/></svg>
+    </div>
   `;
   pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); };
   document.body.appendChild(pill);
@@ -1028,6 +1037,16 @@ function _nlTrainETA(epoch, maxEpochs) {
   return remaining < 60 ? ` · ~${remaining}s` : ` · ~${Math.floor(remaining / 60)}m${remaining % 60 ? ' ' + (remaining % 60) + 's' : ''}`;
 }
 
+function _nlStopTraining() {
+  if (_nlTrainAbort) { _nlTrainAbort.abort(); _nlTrainAbort = null; }
+  _nlTraining = false;
+  _nlTrainPhase = 'error';
+  _nlTrainResult = { error: 'Stopped by user' };
+  _nlErrorTrainPill('Stopped');
+  _nlRefreshTrainView();
+  renderNeuralookView();
+}
+
 function _nlUpdateTrainPill(title, detail) {
   const t = document.getElementById('nl-pill-title');
   const d = document.getElementById('nl-pill-detail');
@@ -1039,6 +1058,8 @@ function _nlFinishTrainPill(title, detail, color) {
   const c = color || '#4ade80';
   const icon = document.getElementById('nl-pill-icon');
   if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="${c}"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const stopBtn = document.getElementById('nl-pill-stop');
+  if (stopBtn) stopBtn.style.display = 'none';
   _nlUpdateTrainPill(title, detail);
   if (_nlTrainPill) {
     _nlTrainPill.style.cursor = 'pointer';
@@ -1058,6 +1079,8 @@ function _nlFinishTrainPill(title, detail, color) {
 function _nlErrorTrainPill(msg) {
   const icon = document.getElementById('nl-pill-icon');
   if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const stopBtn = document.getElementById('nl-pill-stop');
+  if (stopBtn) stopBtn.style.display = 'none';
   _nlUpdateTrainPill('Training Failed', msg);
   if (_nlTrainPill) _nlTrainPill.style.cursor = 'pointer';
   if (_nlTrainPill) _nlTrainPill.onclick = () => { openNeuralook(); _nlDismissTrainPill(); };
@@ -1266,7 +1289,7 @@ function _nlShowCalibrationOverlay() {
   overlay.id = 'nl-calibration-overlay';
   Object.assign(overlay.style, {
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    background: '#000', zIndex: '99999',
+    background: 'var(--bg-body, #0a0a0a)', zIndex: '99999',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
   });
 

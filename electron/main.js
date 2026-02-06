@@ -4,6 +4,8 @@ const path = require('path');
 const net = require('net');
 const http = require('http');
 
+app.setName('Lookup');
+
 let pythonProcess = null;
 let mainWindow = null;
 let serverPort = null;

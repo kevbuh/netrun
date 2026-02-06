@@ -200,14 +200,6 @@ function renderSettingsView() {
           </span>
         </label>
       </div>
-      <div class="text-dimmer text-[0.72rem] mt-3 space-y-1">
-        <div><b>Web Search</b> — searches DuckDuckGo for current info</div>
-        <div><b>Paper Search</b> — finds papers on arXiv</div>
-        <div><b>Fetch Page</b> — reads content from any URL</div>
-        <div><b>Bookmark</b> — saves posts to your reading list</div>
-        <div><b>Navigate</b> — opens views (home, experiments, etc.)</div>
-        <div><b>New Experiment</b> — creates a project from chat</div>
-      </div>
     </div>
 
     <!-- CLICK LOOKUP -->
@@ -260,45 +252,6 @@ function renderSettingsView() {
       <p class="text-dim text-[0.8rem] mb-3">Strips ads, tracking scripts, and sponsored content from pages in the browse tab via a server-side proxy.</p>
       <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading filter info...</div>
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
-    </div>
-
-    <!-- KEYBOARD SHORTCUTS -->
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
-      <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-[0.78rem]">
-        <div class="text-dimmer">Global</div><div></div>
-        <div><kbd class="kbd-key">Esc</kbd> Close panel / Go home</div>
-        <div><kbd class="kbd-key">⌘T</kbd> New browser tab</div>
-        <div><kbd class="kbd-key">⌘W</kbd> Close browser tab</div>
-        <div><kbd class="kbd-key">⌘⇧\\</kbd> Tab overview panel</div>
-
-        <div class="text-dimmer mt-2">Tab Overview</div><div></div>
-        <div><kbd class="kbd-key">←→</kbd> Switch windows</div>
-        <div><kbd class="kbd-key">↑↓</kbd> Switch tabs</div>
-        <div><kbd class="kbd-key">Enter</kbd> Select tab</div>
-        <div><kbd class="kbd-key">N</kbd> New window</div>
-        <div><kbd class="kbd-key">T</kbd> New tab</div>
-        <div><kbd class="kbd-key">Esc</kbd> Close panel</div>
-
-        <div class="text-dimmer mt-2">Internet Browser</div><div></div>
-        <div><kbd class="kbd-key">⌘+</kbd> Zoom in</div>
-        <div><kbd class="kbd-key">⌘-</kbd> Zoom out</div>
-        <div><kbd class="kbd-key">⌘0</kbd> Reset zoom</div>
-
-        <div class="text-dimmer mt-2">PDF Viewer</div><div></div>
-        <div><kbd class="kbd-key">←</kbd> Previous page</div>
-        <div><kbd class="kbd-key">→</kbd> Next page</div>
-        <div><kbd class="kbd-key">⌘F</kbd> Find in document</div>
-        <div><kbd class="kbd-key">H</kbd> Highlight mode</div>
-        <div><kbd class="kbd-key">P</kbd> Pen mode</div>
-        <div><kbd class="kbd-key">Esc</kbd> Exit mode</div>
-
-        <div class="text-dimmer mt-2">Editors</div><div></div>
-        <div><kbd class="kbd-key">⌘S</kbd> Save</div>
-        <div><kbd class="kbd-key">⌘Z</kbd> Undo</div>
-        <div><kbd class="kbd-key">⌘⇧Z</kbd> Redo</div>
-        <div><kbd class="kbd-key">⇧Enter</kbd> Run cell (notebook)</div>
-      </div>
     </div>
 
     <div id="settings-version" class="mt-6 text-center" style="color:var(--text-dimmer);font-size:0.65rem"></div>
