@@ -2952,7 +2952,7 @@ document.addEventListener('mousedown', function(e) {
   // Skip if clicking inside a sticky pinned panel
   if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
   // In track mode with captureScreen available: pin panel and start screenshot drag
-  if (existing && _lookupTrackMode && window.electronAPI?.captureScreen) {
+  if (existing && _lookupTrackMode && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
     e.preventDefault(); // prevent text selection during drag
     _lookupTrackMode = false;
     _screenshotDragStart = { x: e.clientX, y: e.clientY };
@@ -3007,12 +3007,14 @@ document.addEventListener('mouseup', async function(e) {
     // Remove selection visuals before capture
     if (_screenshotSelection) { _screenshotSelection.remove(); _screenshotSelection = null; }
     if (_screenshotDim) { _screenshotDim.remove(); _screenshotDim = null; }
-    if (w >= 10 && h >= 10 && window.electronAPI?.captureScreen) {
+    if (w >= 10 && h >= 10 && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
       // Small delay so overlay removal renders before capture
       await new Promise(r => setTimeout(r, 50));
       try {
         const popup = document.getElementById('doc-chat-ask-float');
-        const base64 = await window.electronAPI.captureScreen({ x, y, width: w, height: h });
+        const base64 = window.electronAPI?.captureScreen
+          ? await window.electronAPI.captureScreen({ x, y, width: w, height: h })
+          : await _browserCaptureRect({ x, y, width: w, height: h });
         if (base64 && popup) {
           _addScreenshotToPanel(popup, base64);
         }
@@ -3239,9 +3241,17 @@ function _handleContextMenuChat(e) {
   if (popup && popup.contains(e.target)) return;
   // Skip if clicking inside a sticky pinned panel
   if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
-  // Skip inputs/textareas
+  // For inputs/textareas, show panel with paste support instead of native context menu
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+  const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+  if (isEditable) {
+    e.preventDefault();
+    if (popup) { popup.remove(); _lookupTrackMode = false; }
+    const sel = window.getSelection();
+    const selectedText = sel && sel.toString().trim() || '';
+    _showPanel({ anchor: { x: e.clientX, y: e.clientY }, editableTarget: e.target, selectionText: selectedText, finalized: true });
+    return;
+  }
   // Intercept right-click on browse tabs for tab context menu
   const browseTab = e.target.closest('.browse-tab');
   if (browseTab) {
@@ -3362,6 +3372,51 @@ function _injectIframeChatHandler(iframe) {
 let _screenshotDragStart = null; // {x, y} or null
 let _screenshotSelection = null; // DOM element
 let _screenshotDim = null; // DOM element
+
+async function _browserCaptureRect(rect) {
+  const { x, y, width, height } = rect;
+  const cx = x + width / 2, cy = y + height / 2;
+  const el = document.elementFromPoint(cx, cy);
+  try {
+    // If the center point is over a canvas (PDF page), crop directly
+    const canvas = el?.closest('canvas') || (el?.tagName === 'CANVAS' ? el : null);
+    if (canvas) {
+      const cr = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / cr.width, scaleY = canvas.height / cr.height;
+      const sx = (x - cr.left) * scaleX, sy = (y - cr.top) * scaleY;
+      const sw = width * scaleX, sh = height * scaleY;
+      const tmp = document.createElement('canvas');
+      tmp.width = Math.round(sw); tmp.height = Math.round(sh);
+      tmp.getContext('2d').drawImage(canvas, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, tmp.width, tmp.height);
+      return tmp.toDataURL('image/png').split(',')[1];
+    }
+    // If over an iframe, try to capture its content document
+    const iframe = el?.closest('iframe') || (el?.tagName === 'IFRAME' ? el : null);
+    if (iframe && iframe.contentDocument) {
+      const ir = iframe.getBoundingClientRect();
+      const full = await html2canvas(iframe.contentDocument.body, { useCORS: true, scale: window.devicePixelRatio || 1 });
+      const scaleX = full.width / ir.width, scaleY = full.height / ir.height;
+      const sx = (x - ir.left) * scaleX, sy = (y - ir.top) * scaleY;
+      const sw = width * scaleX, sh = height * scaleY;
+      const tmp = document.createElement('canvas');
+      tmp.width = Math.round(sw); tmp.height = Math.round(sh);
+      tmp.getContext('2d').drawImage(full, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, tmp.width, tmp.height);
+      return tmp.toDataURL('image/png').split(',')[1];
+    }
+    // Fallback: capture body and crop
+    const full = await html2canvas(document.body, { useCORS: true, scale: window.devicePixelRatio || 1 });
+    const scaleX = full.width / window.innerWidth, scaleY = full.height / window.innerHeight;
+    const sx = x * scaleX, sy = y * scaleY;
+    const sw = width * scaleX, sh = height * scaleY;
+    const tmp = document.createElement('canvas');
+    tmp.width = Math.round(sw); tmp.height = Math.round(sh);
+    tmp.getContext('2d').drawImage(full, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, tmp.width, tmp.height);
+    return tmp.toDataURL('image/png').split(',')[1];
+  } catch (err) {
+    console.error('Browser screenshot capture failed:', err);
+    return null;
+  }
+}
 
 function _addNoteContextToPanel(popup, note) {
   // Don't add duplicate
@@ -3835,13 +3890,19 @@ async function _doLookupCapture(popup) {
     } catch (e) {
       console.error('Screenshot capture failed:', e);
     }
+  } else if (typeof html2canvas !== 'undefined') {
+    try {
+      screenshot = await _browserCaptureRect(captureRect);
+    } catch (e) {
+      console.error('Browser screenshot capture failed:', e);
+    }
   }
 
   // Show the popup again
   popup.style.visibility = '';
 
   if (!screenshot) {
-    _popupChatMessages.push({ role: 'assistant', content: 'Screenshot capture not available. Run the app in Electron to use /capture.', _thinking: false });
+    _popupChatMessages.push({ role: 'assistant', content: 'Screenshot capture failed. Make sure html2canvas is loaded.', _thinking: false });
     popup.classList.add('has-chat');
     const chatArea = popup.querySelector('.doc-popup-chat-area');
     if (chatArea) chatArea.classList.add('visible');
@@ -4398,6 +4459,7 @@ async function _doLookupUserSearch(popup, query) {
 //   inTextLayer: bool         — PDF text layer (show highlight dots)
 //   initialValue: string      — pre-fill input (e.g. '/')
 //   finalized: bool           — false = selection preview only (no buttons/input)
+//   editableTarget: HTMLElement — the input/textarea/contentEditable element (for paste)
 function _showPanel(config) {
   config = config || {};
   const anchor = config.anchor || {};
@@ -4405,6 +4467,7 @@ function _showPanel(config) {
   const selectionText = config.selectionText || '';
   const selectionRange = config.selectionRange || null;
   const inTextLayer = !!config.inTextLayer;
+  const editableTarget = config.editableTarget || null;
   const initialValue = config.initialValue || '';
   const finalized = config.finalized !== false; // default true
 
@@ -4574,10 +4637,77 @@ function _showPanel(config) {
     popup.appendChild(ctxDiv);
   }
 
-  // ── Selection actions (Highlight dots) ──
-  if (finalized && capturedText) {
+  // ── Editable field actions (Cut, Copy, Paste) ──
+  if (editableTarget) {
+    const editCtx = document.createElement('div');
+    editCtx.className = 'doc-lookup-context-items';
+    const addEditItem = (label, fn) => {
+      const item = document.createElement('div');
+      item.className = 'doc-lookup-ctx-item';
+      item.textContent = label;
+      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      item.addEventListener('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        fn();
+        popup.remove();
+      });
+      editCtx.appendChild(item);
+    };
+    if (capturedText) {
+      addEditItem('Cut', () => {
+        navigator.clipboard.writeText(capturedText).catch(() => {});
+        if (editableTarget.isContentEditable) {
+          document.execCommand('delete');
+        } else {
+          const start = editableTarget.selectionStart;
+          const end = editableTarget.selectionEnd;
+          const val = editableTarget.value;
+          editableTarget.value = val.slice(0, start) + val.slice(end);
+          editableTarget.selectionStart = editableTarget.selectionEnd = start;
+          editableTarget.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+      addEditItem('Copy', () => {
+        navigator.clipboard.writeText(capturedText).catch(() => {});
+      });
+    }
+    addEditItem('Paste', () => {
+      navigator.clipboard.readText().then(text => {
+        if (!text) return;
+        editableTarget.focus();
+        if (editableTarget.isContentEditable) {
+          document.execCommand('insertText', false, text);
+        } else {
+          const start = editableTarget.selectionStart;
+          const end = editableTarget.selectionEnd;
+          const val = editableTarget.value;
+          editableTarget.value = val.slice(0, start) + text + val.slice(end);
+          editableTarget.selectionStart = editableTarget.selectionEnd = start + text.length;
+          editableTarget.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }).catch(() => {});
+    });
+    popup.appendChild(editCtx);
+  }
+
+  // ── Selection actions (Copy + Highlight dots) ──
+  if (finalized && capturedText && !editableTarget) {
     const btnRow = document.createElement('div');
     btnRow.className = 'doc-selection-popup-btns';
+
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'doc-selection-copy-btn';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+    copyBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      navigator.clipboard.writeText(capturedText).then(() => {
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => { if (copyBtn.isConnected) copyBtn.textContent = 'Copy'; }, 1200);
+      }).catch(() => {});
+    });
+    btnRow.appendChild(copyBtn);
 
     // Highlight color dots (only for PDF text layer)
     if (inTextLayer && selectionRange && typeof createHighlight === 'function') {
@@ -4611,14 +4741,8 @@ function _showPanel(config) {
     popup.appendChild(btnRow);
   }
 
-  // ── Selected text preview ──
-  if (capturedText) {
-    const preview = document.createElement('div');
-    preview.className = 'doc-selection-preview';
-    const truncated = capturedText.length > 150 ? capturedText.slice(0, 150) + '…' : capturedText;
-    preview.textContent = truncated;
-    popup.appendChild(preview);
-  }
+  // ── Selected text context chip (added to attachment strip below) ──
+  const _selectionChipText = capturedText;
 
   // ── Author / Wikipedia preview (async) ──
   if (finalized && capturedText) {
@@ -4772,6 +4896,27 @@ function _showPanel(config) {
   if (finalized) {
     const attachStrip = document.createElement('div');
     attachStrip.className = 'doc-screenshot-attachments';
+    // Add selected text as a context chip in the strip
+    if (_selectionChipText) {
+      attachStrip.style.display = 'flex';
+      const chip = document.createElement('div');
+      chip.className = 'doc-tab-context-chip';
+      const truncated = _selectionChipText.length > 60 ? _selectionChipText.slice(0, 60) + '…' : _selectionChipText;
+      chip.innerHTML = `<svg class="w-3 h-3 flex-shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>` +
+        `<span class="truncate">${escapeHtml(truncated)}</span>`;
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'doc-note-context-remove';
+      removeBtn.textContent = '\u00d7';
+      removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      removeBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        chip.remove();
+        popup._capturedText = '';
+        if (!attachStrip.children.length) attachStrip.style.display = 'none';
+      });
+      chip.appendChild(removeBtn);
+      attachStrip.appendChild(chip);
+    }
     popup.appendChild(attachStrip);
   }
 
