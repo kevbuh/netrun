@@ -652,7 +652,7 @@ function _nlFinishTrainPill(title, detail, color) {
   if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="${color || '#4ade80'}"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   _nlUpdateTrainPill(title, detail);
   if (_nlTrainPill) _nlTrainPill.style.cursor = 'pointer';
-  if (_nlTrainPill) _nlTrainPill.onclick = () => _nlDismissTrainPill();
+  if (_nlTrainPill) _nlTrainPill.onclick = () => { openNeuralook(); _nlDismissTrainPill(); };
   setTimeout(() => _nlDismissTrainPill(), 6000);
 }
 
@@ -661,7 +661,7 @@ function _nlErrorTrainPill(msg) {
   if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`;
   _nlUpdateTrainPill('Training Failed', msg);
   if (_nlTrainPill) _nlTrainPill.style.cursor = 'pointer';
-  if (_nlTrainPill) _nlTrainPill.onclick = () => _nlDismissTrainPill();
+  if (_nlTrainPill) _nlTrainPill.onclick = () => { openNeuralook(); _nlDismissTrainPill(); };
   setTimeout(() => _nlDismissTrainPill(), 8000);
 }
 

@@ -254,6 +254,22 @@ function renderSettingsView() {
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
     </div>
 
+    <!-- INSTANT ANSWERS -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Instant Answers</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Type these in the browser URL bar to get instant previews.</p>
+      <div class="grid gap-y-1 text-[0.78rem]" style="grid-template-columns:auto 1fr;gap:2px 12px;">
+        <span class="text-dimmer">Definition</span><span class="text-primary">any single word — <span class="text-dim">pug, ephemeral</span></span>
+        <span class="text-dimmer">Math</span><span class="text-primary">expression — <span class="text-dim">sqrt(144), 2^10, 15% of 230</span></span>
+        <span class="text-dimmer">Color</span><span class="text-primary">hex / rgb / hsl — <span class="text-dim">#ff5733, rgb(20,120,200)</span></span>
+        <span class="text-dimmer">Convert</span><span class="text-primary">N unit to unit — <span class="text-dim">5km to mi, 100f to c</span></span>
+        <span class="text-dimmer">Time zone</span><span class="text-primary">time in city — <span class="text-dim">time in tokyo</span></span>
+        <span class="text-dimmer">Weather</span><span class="text-primary">weather city — <span class="text-dim">weather boston</span></span>
+        <span class="text-dimmer">Sports</span><span class="text-primary">league or team — <span class="text-dim">nba, lakers, premier league</span></span>
+        <span class="text-dimmer">Stocks</span><span class="text-primary">$TICKER or name stock — <span class="text-dim">$AAPL, TSLA stock</span></span>
+      </div>
+    </div>
+
     <!-- KEYBOARD SHORTCUTS -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>

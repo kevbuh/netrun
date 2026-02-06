@@ -3836,7 +3836,15 @@ function _injectIframeChatHandler(iframe) {
         const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
         const popup = document.getElementById('doc-chat-ask-float');
         if (popup) { popup.remove(); _lookupTrackMode = false; }
-        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable });
+        // Detect link/image targets for context menu
+        const linkEl = e.target.closest('a[href]');
+        const imgEl = e.target.tagName === 'IMG' ? e.target : e.target.closest('img');
+        const contextMenu = (linkEl || imgEl) ? {
+          linkUrl: linkEl ? linkEl.href : '',
+          linkText: linkEl ? (linkEl.textContent || '').trim() : '',
+          imgUrl: imgEl ? imgEl.src : ''
+        } : null;
+        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu });
       });
 
       // Text selection → selection popup
@@ -5436,6 +5444,27 @@ function _showPanel(config) {
       if (linkUrl) addSep();
       addItem('Open Image in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(imgUrl); });
       addItem('Copy Image Address', () => navigator.clipboard.writeText(imgUrl).catch(() => {}));
+      addItem('Copy Image', () => {
+        fetch(imgUrl).then(r => r.blob()).then(blob => {
+          const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
+          if (type === 'image/png') {
+            navigator.clipboard.write([new ClipboardItem({ [type]: blob })]).catch(() => {});
+          } else {
+            // Convert to PNG for clipboard compatibility
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              const c = document.createElement('canvas');
+              c.width = img.naturalWidth; c.height = img.naturalHeight;
+              c.getContext('2d').drawImage(img, 0, 0);
+              c.toBlob(pngBlob => {
+                if (pngBlob) navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]).catch(() => {});
+              }, 'image/png');
+            };
+            img.src = URL.createObjectURL(blob);
+          }
+        }).catch(() => {});
+      });
     }
     if (linkText && linkUrl) {
       const truncated = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
