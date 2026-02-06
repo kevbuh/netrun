@@ -1948,6 +1948,7 @@ function _showTabTooltip(tabEl) {
       menuHtml += `<div class="browse-tab-tooltip-action" data-action="remove-group">Remove from group</div>`;
     }
   }
+  menuHtml += `<div class="browse-tab-tooltip-action" data-action="reload">Reload tab</div>`;
   menuHtml += `<div class="browse-tab-tooltip-sep"></div>`;
   menuHtml += `<div class="browse-tab-tooltip-action" data-action="close">Close tab</div>`;
   menuHtml += `<div class="browse-tab-tooltip-action" data-action="close-others">Close other tabs</div>`;
@@ -1994,6 +1995,7 @@ function _showTabTooltip(tabEl) {
       else if (action === 'new-group') browseAddTabToNewGroup(tabId);
       else if (action === 'add-group') browseAddTabToGroup(tabId, parseInt(item.dataset.groupId));
       else if (action === 'remove-group') browseRemoveTabFromGroup(tabId);
+      else if (action === 'reload') { browseSelectTab(tabId); browseReload(); }
       else if (action === 'close') browseCloseTab(tabId);
       else if (action === 'close-others') _browseCloseOtherTabs(tabId);
     });
