@@ -1587,6 +1587,19 @@ ch.postMessage({type:'preview-ready'});
             else:
                 self._send_json({'error': 'Not authenticated'}, 401)
 
+        elif self.path == '/api/version':
+            try:
+                git_root = os.path.dirname(DIR)
+                r = subprocess.run(['git', 'rev-list', '--count', 'HEAD'],
+                                   capture_output=True, text=True, cwd=git_root, timeout=5)
+                count = int(r.stdout.strip()) if r.returncode == 0 else 0
+                h = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+                                   capture_output=True, text=True, cwd=git_root, timeout=5)
+                sha = h.stdout.strip() if h.returncode == 0 else ''
+                self._send_json({'version': f'0.{count}', 'sha': sha})
+            except:
+                self._send_json({'version': '0.0', 'sha': ''})
+
         elif self.path == '/api/dev-stats':
             try:
                 from persistence import _get_db
@@ -1686,6 +1699,31 @@ ch.postMessage({type:'preview-ready'});
                     from persistence import get_usage_history
                     usage_history = get_usage_history(30)
                 except: pass
+                # Git log (last 50 commits)
+                git_log = []
+                try:
+                    r = subprocess.run(
+                        ['git', 'log', '--format=%H|%an|%ad|%s', '--date=iso'],
+                        capture_output=True, text=True, cwd=git_root, timeout=10)
+                    if r.returncode == 0:
+                        for line in r.stdout.strip().split('\n'):
+                            if not line.strip(): continue
+                            parts = line.split('|', 3)
+                            if len(parts) == 4:
+                                git_log.append({'sha': parts[0][:8], 'author': parts[1], 'date': parts[2], 'message': parts[3]})
+                except: pass
+                # Commits per day (last 30 days)
+                commits_per_day = []
+                try:
+                    r = subprocess.run(
+                        ['git', 'log', '--format=%ad', '--date=short', '--since=30 days ago'],
+                        capture_output=True, text=True, cwd=git_root, timeout=10)
+                    if r.returncode == 0:
+                        from collections import Counter
+                        counts = Counter(d.strip() for d in r.stdout.strip().split('\n') if d.strip())
+                        for date in sorted(counts.keys()):
+                            commits_per_day.append({'date': date, 'count': counts[date]})
+                except: pass
                 self._send_json({
                     'users': users,
                     'active_sessions': active_sessions,
@@ -1694,6 +1732,8 @@ ch.postMessage({type:'preview-ready'});
                     'commits_today': commits_today,
                     'loc_history': loc_history,
                     'usage_history': usage_history,
+                    'git_log': git_log,
+                    'commits_per_day': commits_per_day,
                 })
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
@@ -1997,6 +2037,24 @@ ch.postMessage({type:'preview-ready'});
         return google_id
 
     def do_POST(self):
+        if self.path == '/api/vibe/git':
+            google_id = self._get_user()
+            if not google_id:
+                self._send_json({'error': 'Not authenticated'}, 401)
+                return
+            body = self._read_body()
+            cmd = body.get('cmd', '')
+            user_vault = _get_user_vault_path(google_id)
+            ALLOWED = {'status', 'files', 'branches', 'log', 'stash', 'diff', 'show', 'reflog'}
+            if cmd not in ALLOWED:
+                self._send_json({'error': 'Command not allowed'}, 400)
+                return
+            try:
+                result = _vibe_run_git(cmd, body, user_vault)
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
         if self.path == '/api/auth/google':
             body = self._read_body()
             credential = body.get('credential', '')
@@ -4208,27 +4266,6 @@ ch.postMessage({type:'preview-ready'});
                 self._send_json({'ok': True})
             else:
                 self._send_json({'error': 'Not allowed or circular reference'}, 403)
-            return
-
-        # ── Vibe: Git dashboard ──
-        elif self.path == '/api/vibe/git':
-            google_id = self._get_user()
-            if not google_id:
-                self._send_json({'error': 'Not authenticated'}, 401)
-                return
-            body = self._read_body()
-            cmd = body.get('cmd', '')
-            user_vault = _get_user_vault_path(google_id)
-            # Only allow read-only git commands
-            ALLOWED = {'status', 'files', 'branches', 'log', 'stash', 'diff', 'show', 'reflog'}
-            if cmd not in ALLOWED:
-                self._send_json({'error': 'Command not allowed'}, 400)
-                return
-            try:
-                result = _vibe_run_git(cmd, body, user_vault)
-                self._send_json(result)
-            except Exception as e:
-                self._send_json({'error': str(e)}, 500)
             return
 
         else:

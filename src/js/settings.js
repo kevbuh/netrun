@@ -293,7 +293,15 @@ function renderSettingsView() {
       </div>
     </div>
 
+    <div id="settings-version" class="mt-6 text-center" style="color:var(--text-dimmer);font-size:0.65rem"></div>
+
   `;
+
+  // Load version
+  fetch('/api/version').then(r => r.json()).then(v => {
+    const el = document.getElementById('settings-version');
+    if (el && v.version) el.textContent = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
+  }).catch(() => {});
 
   // Load adblock filter list info
   fetch('/api/adblock-rules').then(r => r.json()).then(stats => {

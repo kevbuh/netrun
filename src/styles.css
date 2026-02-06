@@ -5952,6 +5952,20 @@
     .dev-stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
     .dev-stat-label { font-size: 0.72rem; color: var(--text-dimmer); margin-top: 4px; }
     .dev-loc-chart { margin-top: 16px; }
+    .dev-git-log-list { display: flex; flex-direction: column; gap: 0; }
+    .dev-git-log-item {
+      display: grid;
+      grid-template-columns: 60px 1fr auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-card);
+      font-size: 0.78rem;
+    }
+    .dev-git-log-item:last-child { border-bottom: none; }
+    .dev-git-log-sha { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.72rem; color: var(--accent); }
+    .dev-git-log-msg { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dev-git-log-meta { color: var(--text-dimmer); font-size: 0.7rem; white-space: nowrap; }
 
     /* Vibe Panel (lazygit-style + split terminals) */
     .vibe-container { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; overflow: hidden; }

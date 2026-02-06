@@ -852,6 +852,15 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px">${svg}</svg>`;
 }
 
+function _devRelativeTime(d) {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+  return d.toLocaleDateString();
+}
+
 async function renderDevStats() {
   if (_devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
 
@@ -932,5 +941,30 @@ async function renderDevStats() {
     <div class="dev-loc-chart">${toolChart}</div>
     <div class="dev-loc-chart">${lookupChart}</div>
     <div class="dev-loc-chart">${searchChart}</div>`;
+
+  // Commits over time chart
+  const commitsChartEl = document.getElementById('dev-commits-chart');
+  const cpd = data.commits_per_day || [];
+  if (commitsChartEl && cpd.length) {
+    const commitsChart = _devLineChart(cpd, 'count', 'Commits per Day', '#f6b26b', h => `${h.count} commits`);
+    commitsChartEl.innerHTML = `<div class="dev-loc-chart">${commitsChart}</div>`;
+  }
+
+  // Git log
+  const gitLogEl = document.getElementById('dev-git-log');
+  const log = data.git_log || [];
+  if (gitLogEl && log.length) {
+    gitLogEl.innerHTML = `
+      <h3 style="color:var(--text-primary);font-size:0.85rem;font-weight:600;margin-bottom:8px">Recent Commits</h3>
+      <div class="dev-git-log-list">${log.map(c => {
+        const d = new Date(c.date);
+        const relative = _devRelativeTime(d);
+        return `<div class="dev-git-log-item">
+          <span class="dev-git-log-sha">${c.sha}</span>
+          <span class="dev-git-log-msg">${escapeHtml(c.message)}</span>
+          <span class="dev-git-log-meta">${escapeHtml(c.author)} &middot; ${relative}</span>
+        </div>`;
+      }).join('')}</div>`;
+  }
 }
 
