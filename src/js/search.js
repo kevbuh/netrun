@@ -1122,9 +1122,35 @@ function _browseBindFrame(tab) {
           }
           return false;
         },true);
-        // Close menu/chat when left-clicking or pressing Escape
+        // Text selection inside webview → relay to parent
+        var _wvSelDragging=false;
         document.addEventListener('mousedown',function(e){
-          if(e.button===0) { console.log('__ALPHA_CLOSE_MENU__'); console.log('__ALPHA_DISMISS_CHAT__'); }
+          if(e.button!==0) return;
+          console.log('__ALPHA_CLOSE_MENU__'); console.log('__ALPHA_DISMISS_CHAT__');
+          var tag=e.target.tagName;
+          if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON') return;
+          if(e.target.isContentEditable) return;
+          _wvSelDragging=true;
+        },true);
+        document.addEventListener('selectionchange',function(){
+          if(!_wvSelDragging) return;
+          var sel=document.getSelection();
+          var text=sel?sel.toString().trim():'';
+          if(!text||text.length<3||sel.rangeCount===0) return;
+          var r=sel.getRangeAt(0).getBoundingClientRect();
+          console.log('__ALPHA_SEL_PREVIEW__'+JSON.stringify({text:text,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}));
+        });
+        document.addEventListener('mouseup',function(e){
+          if(!_wvSelDragging) return;
+          _wvSelDragging=false;
+          var sel=document.getSelection();
+          var text=sel?sel.toString().trim():'';
+          if(text&&text.length>=3&&sel.rangeCount>0){
+            var r=sel.getRangeAt(0).getBoundingClientRect();
+            console.log('__ALPHA_SEL_FINAL__'+JSON.stringify({text:text,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}));
+          } else {
+            console.log('__ALPHA_SEL_CLEAR__');
+          }
         },true);
         document.addEventListener('keydown',function(e){
           if(e.key==='Escape') console.log('__ALPHA_DISMISS_CHAT__');
@@ -1200,6 +1226,27 @@ function _browseBindFrame(tab) {
       _switchTabLeft();
     } else if (e.message === '__ALPHA_TAB_RIGHT__') {
       _switchTabRight();
+    } else if (e.message && e.message.startsWith('__ALPHA_SEL_PREVIEW__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__ALPHA_SEL_PREVIEW__'.length));
+        const wvRect = el.getBoundingClientRect();
+        const selectionRect = { top: data.top + wvRect.top, bottom: data.bottom + wvRect.top, left: data.left + wvRect.left, right: data.right + wvRect.left, width: data.width, height: data.height };
+        _lookupTrackMode = false;
+        const existing = document.getElementById('doc-chat-ask-float');
+        if (existing && existing._isLookupPanel) existing.remove();
+        _showPanel({ anchor: { selectionRect }, selectionText: data.text, finalized: false });
+      } catch (err) {}
+    } else if (e.message && e.message.startsWith('__ALPHA_SEL_FINAL__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__ALPHA_SEL_FINAL__'.length));
+        const wvRect = el.getBoundingClientRect();
+        const selectionRect = { top: data.top + wvRect.top, bottom: data.bottom + wvRect.top, left: data.left + wvRect.left, right: data.right + wvRect.left, width: data.width, height: data.height };
+        _lookupTrackMode = false;
+        _showPanel({ anchor: { selectionRect }, selectionText: data.text, finalized: true });
+      } catch (err) {}
+    } else if (e.message === '__ALPHA_SEL_CLEAR__') {
+      const existing = document.getElementById('doc-chat-ask-float');
+      if (existing) { existing.remove(); _lookupTrackMode = false; }
     } else if (e.message && e.message.startsWith('__ALPHA_LINK__')) {
       // Legacy support
       try {

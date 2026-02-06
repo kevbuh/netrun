@@ -3228,6 +3228,53 @@ function _injectIframeChatHandler(iframe) {
         if (popup) { popup.remove(); _lookupTrackMode = false; }
         _showPanel({ anchor: { x, y } });
       });
+      // Text selection inside iframe → show popup in parent
+      let iframeDragging = false;
+      doc.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        const existing = document.getElementById('doc-chat-ask-float');
+        if (existing && existing.contains(e.target)) return;
+        if (existing && !_lookupTrackMode) {
+          if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+          _savePopupChatToHighlight(existing);
+          existing.remove();
+        }
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+        if (e.target.isContentEditable) return;
+        iframeDragging = true;
+      });
+      doc.addEventListener('selectionchange', function() {
+        if (!iframeDragging) return;
+        const sel = doc.getSelection();
+        const text = sel ? sel.toString().trim() : '';
+        if (!text || text.length < 3 || sel.rangeCount === 0) return;
+        _lookupTrackMode = false;
+        const existing = document.getElementById('doc-chat-ask-float');
+        if (existing && existing._isLookupPanel) existing.remove();
+        const range = sel.getRangeAt(0);
+        const rects = range.getBoundingClientRect();
+        const iframeRect = iframe.getBoundingClientRect();
+        const selectionRect = { top: rects.top + iframeRect.top, bottom: rects.bottom + iframeRect.top, left: rects.left + iframeRect.left, right: rects.right + iframeRect.left, width: rects.width, height: rects.height };
+        _showPanel({ anchor: { selectionRect }, selectionText: text, finalized: false });
+      });
+      doc.addEventListener('mouseup', function(e) {
+        if (!iframeDragging) return;
+        iframeDragging = false;
+        const sel = doc.getSelection();
+        const text = sel ? sel.toString().trim() : '';
+        if (text && text.length >= 3 && sel.rangeCount > 0) {
+          _lookupTrackMode = false;
+          const range = sel.getRangeAt(0);
+          const rects = range.getBoundingClientRect();
+          const iframeRect = iframe.getBoundingClientRect();
+          const selectionRect = { top: rects.top + iframeRect.top, bottom: rects.bottom + iframeRect.top, left: rects.left + iframeRect.left, right: rects.right + iframeRect.left, width: rects.width, height: rects.height };
+          _showPanel({ anchor: { selectionRect }, selectionText: text, finalized: true });
+          return;
+        }
+        const existing = document.getElementById('doc-chat-ask-float');
+        if (existing) { existing.remove(); _lookupTrackMode = false; }
+      });
       doc.addEventListener('click', function(e) {
         if (!(e.metaKey || e.ctrlKey)) return;
         const a = e.target.closest('a');
