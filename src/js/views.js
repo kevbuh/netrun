@@ -3243,6 +3243,11 @@ document.addEventListener('keydown', function(e) {
 // Right-click anywhere opens lookup panel
 function _handleContextMenuChat(e) {
   if (localStorage.getItem('clickLookup') === 'off') return;
+  // Don't intercept on login or onboarding screens
+  const loginGate = document.getElementById('login-gate');
+  if (loginGate && loginGate.style.display !== 'none') return;
+  const onboard = document.getElementById('onboard-view');
+  if (onboard && onboard.style.display !== 'none') return;
   // Skip if right-clicking inside an existing popup
   const popup = document.getElementById('doc-chat-ask-float');
   if (popup && popup.contains(e.target)) return;

@@ -649,17 +649,22 @@
     /* ── Auth / login gate ── */
     .login-gate {
       position: fixed; inset: 0; z-index: 10000;
-      background: var(--bg-body);
+      background: #0a0a0f !important;
       display: flex; align-items: center; justify-content: center;
     }
+    #login-galaxy {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    }
     .auth-modal {
-      background: var(--bg-popup);
-      border: 1px solid var(--border-card);
+      background: rgba(18, 18, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 16px;
       padding: 24px;
       width: 340px;
       max-width: 90vw;
-      box-shadow: var(--shadow-popup);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      color: #e0e0e0;
     }
     .auth-error {
       color: #e74c3c; font-size: 13px;

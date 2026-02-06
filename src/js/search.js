@@ -2738,16 +2738,41 @@ function _browseInstallPinchOverlay() {
   if (!container || container.querySelector('.browse-pinch-overlay')) return;
   const overlay = document.createElement('div');
   overlay.className = 'browse-pinch-overlay';
-  overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;pointer-events:none;';
+  overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;pointer-events:auto;';
   container.appendChild(overlay);
-  // On pinch start (ctrlKey+wheel), temporarily capture events
-  container.addEventListener('wheel', function(e) {
-    if (!e.ctrlKey) return;
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
-    _browseApplyZoom();
+
+  // Pinch-to-zoom: capture ctrlKey+wheel (trackpad pinch gesture)
+  overlay.addEventListener('wheel', function(e) {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
+      _browseApplyZoom();
+    } else {
+      // Normal scroll: let it pass through to the iframe
+      overlay.style.pointerEvents = 'none';
+      setTimeout(function() { overlay.style.pointerEvents = 'auto'; }, 60);
+    }
   }, { passive: false });
+
+  // Forward clicks/mousedown to iframe underneath
+  function _pinchPassthrough(e) {
+    overlay.style.pointerEvents = 'none';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    overlay.style.pointerEvents = 'auto';
+    if (el && el !== overlay) {
+      el.dispatchEvent(new MouseEvent(e.type, e));
+    }
+  }
+  overlay.addEventListener('mousedown', _pinchPassthrough);
+  overlay.addEventListener('click', _pinchPassthrough);
+  overlay.addEventListener('dblclick', _pinchPassthrough);
+  // After mousedown, keep overlay transparent so drag/select works in iframe
+  overlay.addEventListener('mousedown', function() {
+    overlay.style.pointerEvents = 'none';
+    function _restore() { overlay.style.pointerEvents = 'auto'; document.removeEventListener('mouseup', _restore); }
+    document.addEventListener('mouseup', _restore);
+  });
 }
 
 function browseSaveToReadingList() {

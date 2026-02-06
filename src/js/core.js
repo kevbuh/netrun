@@ -2265,9 +2265,84 @@ function _authHeaders() {
 
 // ── Login gate ──
 
+let _galaxyAnimId = null;
+function _startGalaxyAnimation() {
+  // Defer to next frame so the login gate has layout dimensions
+  requestAnimationFrame(function() { _startGalaxyAnimationInner(); });
+}
+function _startGalaxyAnimationInner() {
+  const canvas = document.getElementById('login-galaxy');
+  if (!canvas) return;
+  const gate = canvas.parentElement;
+  const ctx = canvas.getContext('2d');
+  const stars = [];
+  const COUNT = 220;
+  const GLYPHS = ['.', '.', '.', ',', ',', "'", '`', '*', '*', '+', 'o', '~', '-', ':', ';'];
+  const BRIGHT_GLYPHS = ['*', '+', '#', '@', '%'];
+
+  function resize() {
+    const w = gate.clientWidth || window.innerWidth;
+    const h = gate.clientHeight || window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const cx = 0.5, cy = 0.5;
+  for (let i = 0; i < COUNT; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * 0.45 + 0.02;
+    const isBright = Math.random() < 0.15;
+    stars.push({
+      angle: angle,
+      dist: dist,
+      ch: isBright ? BRIGHT_GLYPHS[Math.floor(Math.random() * BRIGHT_GLYPHS.length)]
+                    : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+      fontSize: isBright ? (Math.random() * 8 + 12) : (Math.random() * 6 + 8),
+      brightness: isBright ? (Math.random() * 0.3 + 0.7) : (Math.random() * 0.5 + 0.2),
+      speed: (0.0003 + Math.random() * 0.0008) / (dist + 0.2),
+      drift: Math.random() * 0.00002 - 0.00001,
+      twinkleSpeed: Math.random() * 0.02 + 0.005,
+      twinklePhase: Math.random() * Math.PI * 2
+    });
+  }
+
+  let t = 0;
+  function frame() {
+    t++;
+    const w = canvas.width, h = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, w, h);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < COUNT; i++) {
+      const s = stars[i];
+      s.angle += s.speed;
+      s.dist += s.drift;
+      if (s.dist < 0.01 || s.dist > 0.5) s.drift = -s.drift;
+      const x = (cx + Math.cos(s.angle) * s.dist) * w;
+      const y = (cy + Math.sin(s.angle) * s.dist) * h;
+      const twinkle = 0.5 + 0.5 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
+      const alpha = s.brightness * (0.3 + 0.7 * twinkle);
+      ctx.font = (s.fontSize * dpr) + 'px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+      ctx.fillText(s.ch, x, y);
+    }
+    _galaxyAnimId = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+function _stopGalaxyAnimation() {
+  if (_galaxyAnimId) { cancelAnimationFrame(_galaxyAnimId); _galaxyAnimId = null; }
+}
+
 function _showLoginGate() {
   const gate = document.getElementById('login-gate');
   if (gate) gate.style.display = '';
+  _startGalaxyAnimation();
   // Defer until DOM is ready (login gate HTML is at bottom of body, after scripts)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _renderGoogleButton);
@@ -2277,6 +2352,7 @@ function _showLoginGate() {
 }
 
 function _hideLoginGate() {
+  _stopGalaxyAnimation();
   const gate = document.getElementById('login-gate');
   if (gate) gate.style.display = 'none';
 }
