@@ -2265,71 +2265,594 @@ function _authHeaders() {
 
 // ── Login gate ──
 
-let _galaxyAnimId = null;
+// ── Login ASCII animations ──
+var _galaxyAnimId = null;
+var _galaxyResizeHandler = null;
+var _galaxyCtx = null;
+var _galaxyCols = 0, _galaxyRows = 0;
+var _galaxyCELL = 14;
+var _galaxyDpr = 1;
+var _galaxyCanvas = null;
+var _galaxyT = 0;
+var _galaxyCurrentAnim = 0;
+var _galaxyState = {};  // per-animation state
+var RAMP = ' .\'`^",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$';
+
+// ── Perlin noise (shared by all animations) ──
+var _noisePERM = new Uint8Array(512);
+(function() {
+  for (var i = 0; i < 256; i++) _noisePERM[i] = i;
+  for (var i = 255; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var tmp = _noisePERM[i]; _noisePERM[i] = _noisePERM[j]; _noisePERM[j] = tmp; }
+  for (var i = 0; i < 256; i++) _noisePERM[i + 256] = _noisePERM[i];
+})();
+function _nFade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function _nLerp(a, b, t) { return a + t * (b - a); }
+function _nGrad(hash, x, y) { var h = hash & 3, u = h < 2 ? x : y, v = h < 2 ? y : x; return ((h & 1) ? -u : u) + ((h & 2) ? -v : v); }
+function _pnoise(x, y) {
+  var xi = Math.floor(x) & 255, yi = Math.floor(y) & 255;
+  var xf = x - Math.floor(x), yf = y - Math.floor(y);
+  var u = _nFade(xf), v = _nFade(yf);
+  var P = _noisePERM;
+  var aa = P[P[xi] + yi], ab = P[P[xi] + yi + 1], ba = P[P[xi + 1] + yi], bb = P[P[xi + 1] + yi + 1];
+  return _nLerp(_nLerp(_nGrad(aa, xf, yf), _nGrad(ba, xf - 1, yf), u),
+                _nLerp(_nGrad(ab, xf, yf - 1), _nGrad(bb, xf - 1, yf - 1), u), v);
+}
+function _pfbm(x, y) { return _pnoise(x, y) * 0.6 + _pnoise(x * 2.1, y * 2.1) * 0.4; }
+function _pfbm3(x, y) { return _pnoise(x, y) * 0.5 + _pnoise(x * 2, y * 2) * 0.3 + _pnoise(x * 4, y * 4) * 0.2; }
+function _clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+function _rampChar(n) { return RAMP[Math.floor(_clamp01(n) * (RAMP.length - 1))]; }
+
+// ── Animation definitions ──
+var _loginAnims = [
+
+// 0: Galaxy spiral
+{ name: 'Galaxy', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var cxg = cols * 0.5, cyg = rows * 0.5;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var dx = (c - cxg) / cols, dy = (r - cyg) / rows;
+    var dist = Math.sqrt(dx * dx + dy * dy), angle = Math.atan2(dy, dx);
+    var twist = angle + dist * 6.0 - t * 0.7;
+    var nx = dist * Math.cos(twist) * 3.0, ny = dist * Math.sin(twist) * 3.0;
+    var n = _pfbm(nx + t * 0.3, ny + t * 0.2) + _pfbm(nx * 1.5 - t * 0.15, ny * 1.5 + t * 0.25) * 0.5;
+    n = (n + 1.2) / 2.4;
+    var ef = 1.0 - Math.min(1.0, dist * 2.2); n *= ef * ef;
+    n = _clamp01(n); var ch = _rampChar(n); if (ch === ' ') continue;
+    var hue = dist < 0.15 ? '180,160,140' : dist < 0.3 ? '140,150,170' : '100,120,160';
+    ctx.fillStyle = 'rgba(' + hue + ',' + (n * 0.7 + 0.05) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 1: Smoke
+{ name: 'Smoke', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols, y = r / rows;
+    var rise = y + t * 0.4;
+    var n = _pfbm3(x * 3 + _pnoise(x * 2, rise * 2) * 0.5, rise * 2);
+    n += _pnoise(x * 5 + t * 0.1, rise * 3) * 0.3;
+    n = (n + 1.0) / 2.5;
+    // Wispy: only show mid-range values, fade at edges
+    var wisp = Math.exp(-Math.pow((x - 0.5) * 2.5, 2)) * Math.exp(-Math.pow((y - 0.3) * 1.5, 2));
+    n *= wisp;
+    n = _clamp01(n); var ch = _rampChar(n); if (ch === ' ') continue;
+    var a = n * 0.6;
+    ctx.fillStyle = 'rgba(160,170,190,' + a + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 2: Ocean
+{ name: 'Ocean', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols, y = r / rows;
+    var wave = Math.sin(x * 8 - t * 2 + Math.sin(y * 3 + t) * 2) * 0.3;
+    wave += Math.sin(x * 12 + t * 1.3 + y * 4) * 0.15;
+    wave += _pnoise(x * 4 + t * 0.5, y * 4 - t * 0.3) * 0.25;
+    var depth = y * 0.5;
+    var n = _clamp01(wave + 0.4 + depth);
+    // Foam at wave peaks
+    var foam = wave > 0.2 ? (wave - 0.2) * 3 : 0;
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    var rb = Math.floor(40 + depth * 60), g = Math.floor(80 + depth * 80), bb = Math.floor(140 + foam * 100);
+    ctx.fillStyle = 'rgba(' + rb + ',' + g + ',' + Math.min(255, bb) + ',' + (n * 0.7) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 3: Rain
+{ name: 'Rain', init: function() {
+  var drops = [];
+  for (var i = 0; i < 120; i++) drops.push({ x: Math.random(), y: Math.random(), speed: 0.01 + Math.random() * 0.02, len: 2 + Math.floor(Math.random() * 4) });
+  _galaxyState.rainDrops = drops;
+  _galaxyState.rainRipples = [];
+}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var drops = _galaxyState.rainDrops, ripples = _galaxyState.rainRipples;
+  // Grid buffer
+  var grid = new Float32Array(cols * rows);
+  // Update drops
+  for (var i = 0; i < drops.length; i++) {
+    var d = drops[i]; d.y += d.speed;
+    if (d.y > 1) { d.y = -0.05; d.x = Math.random(); ripples.push({ x: d.x, y: 1.0, age: 0 }); }
+    for (var l = 0; l < d.len; l++) {
+      var gy = Math.floor((d.y - l * 0.015) * rows), gx = Math.floor(d.x * cols);
+      if (gy >= 0 && gy < rows && gx >= 0 && gx < cols) grid[gy * cols + gx] = Math.max(grid[gy * cols + gx], 0.5 - l * 0.1);
+    }
+  }
+  // Update ripples
+  for (var i = ripples.length - 1; i >= 0; i--) {
+    var rp = ripples[i]; rp.age += 0.03;
+    if (rp.age > 1) { ripples.splice(i, 1); continue; }
+    var rad = rp.age * 6;
+    for (var a = 0; a < 20; a++) {
+      var ang = a / 20 * Math.PI * 2;
+      var gx = Math.floor((rp.x + Math.cos(ang) * rad / cols) * cols);
+      var gy = Math.floor((rp.y - rp.age * 0.1 + Math.sin(ang) * rad / rows * 0.3) * rows);
+      if (gx >= 0 && gx < cols && gy >= 0 && gy < rows) grid[gy * cols + gx] = Math.max(grid[gy * cols + gx], (1 - rp.age) * 0.6);
+    }
+  }
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var n = grid[r * cols + c]; if (n < 0.05) continue;
+    var ch = _rampChar(n);
+    ctx.fillStyle = 'rgba(100,140,200,' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 4: Lava Lamp
+{ name: 'Lava Lamp', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols * 4, y = r / rows * 4;
+    var n = 0;
+    // Metaballs: 4 blobs that drift
+    var bx1 = 2 + Math.sin(t * 0.7) * 1.2, by1 = 2 + Math.cos(t * 0.5) * 1.5;
+    var bx2 = 2 + Math.sin(t * 0.5 + 2) * 1.0, by2 = 1 + Math.sin(t * 0.3) * 0.8 + 1;
+    var bx3 = 2 + Math.cos(t * 0.6 + 4) * 1.3, by3 = 3 + Math.cos(t * 0.4 + 1) * 1.0;
+    var bx4 = 2 + Math.sin(t * 0.8 + 1) * 0.8, by4 = 2 + Math.sin(t * 0.9 + 3) * 1.3;
+    n += 0.6 / (Math.pow(x - bx1, 2) + Math.pow(y - by1, 2) + 0.1);
+    n += 0.5 / (Math.pow(x - bx2, 2) + Math.pow(y - by2, 2) + 0.1);
+    n += 0.4 / (Math.pow(x - bx3, 2) + Math.pow(y - by3, 2) + 0.1);
+    n += 0.35 / (Math.pow(x - bx4, 2) + Math.pow(y - by4, 2) + 0.1);
+    n = _clamp01((n - 0.3) * 1.5);
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    var rr = Math.floor(180 + n * 75), g = Math.floor(60 + n * 40), b = Math.floor(30 + n * 20);
+    ctx.fillStyle = 'rgba(' + rr + ',' + g + ',' + b + ',' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 5: Reaction-Diffusion
+{ name: 'Reaction-Diffusion', init: function() {
+  var cols = _galaxyCols, rows = _galaxyRows;
+  var a = new Float32Array(cols * rows), b = new Float32Array(cols * rows);
+  for (var i = 0; i < cols * rows; i++) { a[i] = 1; b[i] = 0; }
+  // Seed some spots
+  for (var s = 0; s < 12; s++) {
+    var sx = Math.floor(Math.random() * cols), sy = Math.floor(Math.random() * rows);
+    for (var dy = -3; dy <= 3; dy++) for (var dx = -3; dx <= 3; dx++) {
+      var i = ((sy + dy + rows) % rows) * cols + ((sx + dx + cols) % cols);
+      b[i] = 1;
+    }
+  }
+  _galaxyState.rdA = a; _galaxyState.rdB = b;
+}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var a = _galaxyState.rdA, b = _galaxyState.rdB;
+  var na = new Float32Array(cols * rows), nb = new Float32Array(cols * rows);
+  var dA = 1.0, dB = 0.5, feed = 0.055, kill = 0.062;
+  for (var iter = 0; iter < 4; iter++) {
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+      var i = r * cols + c;
+      var lA = -a[i] * 4, lB = -b[i] * 4;
+      var up = ((r - 1 + rows) % rows) * cols + c, dn = ((r + 1) % rows) * cols + c;
+      var lt = r * cols + ((c - 1 + cols) % cols), rt = r * cols + ((c + 1) % cols);
+      lA += a[up] + a[dn] + a[lt] + a[rt]; lB += b[up] + b[dn] + b[lt] + b[rt];
+      var abb = a[i] * b[i] * b[i];
+      na[i] = _clamp01(a[i] + dA * lA - abb + feed * (1 - a[i]));
+      nb[i] = _clamp01(b[i] + dB * lB + abb - (kill + feed) * b[i]);
+    }
+    var tmp = a; a = na; na = tmp; tmp = b; b = nb; nb = tmp;
+  }
+  _galaxyState.rdA = a; _galaxyState.rdB = b;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var n = _clamp01(1 - a[r * cols + c] + b[r * cols + c]);
+    n = n * n;
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    var g = Math.floor(80 + n * 120), bl = Math.floor(100 + n * 155);
+    ctx.fillStyle = 'rgba(60,' + g + ',' + bl + ',' + (n * 0.75 + 0.1) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 6: Voronoi
+{ name: 'Voronoi', init: function() {
+  var pts = [];
+  for (var i = 0; i < 20; i++) pts.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.003, vy: (Math.random() - 0.5) * 0.003 });
+  _galaxyState.vorPts = pts;
+}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var pts = _galaxyState.vorPts;
+  for (var i = 0; i < pts.length; i++) {
+    var p = pts[i]; p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > 1) p.vx *= -1;
+    if (p.y < 0 || p.y > 1) p.vy *= -1;
+  }
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols, y = r / rows, d1 = 99, d2 = 99;
+    for (var i = 0; i < pts.length; i++) {
+      var dx = x - pts[i].x, dy = y - pts[i].y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
+    }
+    var edge = _clamp01(1 - (d2 - d1) * 15);
+    var cell = _clamp01(d1 * 5);
+    var n = edge * 0.7 + cell * 0.3;
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    ctx.fillStyle = 'rgba(130,160,180,' + (n * 0.7) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 7: Mandelbrot zoom
+{ name: 'Mandelbrot', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var zoom = Math.pow(1.5, t * 2 % 30);
+  var cx = -0.7435 + 0.0003 * Math.sin(t * 0.1), cy = 0.1314 + 0.0002 * Math.cos(t * 0.1);
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x0 = (c / cols - 0.5) * 3 / zoom + cx;
+    var y0 = (r / rows - 0.5) * 2 / zoom + cy;
+    var x = 0, y = 0, iter = 0, maxIter = 40;
+    while (x * x + y * y < 4 && iter < maxIter) { var xt = x * x - y * y + x0; y = 2 * x * y + y0; x = xt; iter++; }
+    if (iter === maxIter) continue;
+    var n = _clamp01(iter / maxIter);
+    var ch = _rampChar(n);
+    var hue = (iter * 9 + t * 20) % 360;
+    var hr = hue < 120 ? (120 - hue) / 120 : hue > 240 ? (hue - 240) / 120 : 0;
+    var hg = hue < 120 ? hue / 120 : hue < 240 ? (240 - hue) / 120 : 0;
+    var hb = hue > 120 && hue < 240 ? (hue - 120) / 120 : hue >= 240 ? (360 - hue) / 120 : 0;
+    ctx.fillStyle = 'rgba(' + Math.floor(80 + hr * 175) + ',' + Math.floor(60 + hg * 175) + ',' + Math.floor(80 + hb * 175) + ',' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 8: Moire
+{ name: 'Moire', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols - 0.5, y = r / rows - 0.5;
+    var d1 = Math.sqrt(Math.pow(x - 0.15 * Math.sin(t * 0.5), 2) + Math.pow(y - 0.15 * Math.cos(t * 0.3), 2));
+    var d2 = Math.sqrt(Math.pow(x + 0.15 * Math.cos(t * 0.4), 2) + Math.pow(y + 0.15 * Math.sin(t * 0.6), 2));
+    var d3 = Math.sqrt(Math.pow(x - 0.1 * Math.cos(t * 0.7), 2) + Math.pow(y + 0.1 * Math.sin(t * 0.5), 2));
+    var v = Math.sin(d1 * 40) + Math.sin(d2 * 35) + Math.sin(d3 * 45);
+    var n = _clamp01((v + 3) / 6);
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    ctx.fillStyle = 'rgba(140,130,170,' + (n * 0.65) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 9: Wormhole tunnel
+{ name: 'Wormhole', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = (c / cols - 0.5) * 2, y = (r / rows - 0.5) * 2;
+    var dist = Math.sqrt(x * x + y * y) + 0.001;
+    var angle = Math.atan2(y, x);
+    var tunnel = 1.0 / dist;
+    var u = tunnel + t * 3, v = angle / Math.PI;
+    var n = _pnoise(u * 0.5, v * 3) * 0.5 + _pnoise(u * 1.2, v * 6) * 0.3;
+    n = (n + 0.5);
+    var depthFade = _clamp01(1 - dist * 0.8);
+    n = _clamp01(n * depthFade);
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    var g = Math.floor(60 + depthFade * 140), bl = Math.floor(100 + depthFade * 155);
+    ctx.fillStyle = 'rgba(' + Math.floor(40 + depthFade * 60) + ',' + g + ',' + bl + ',' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 10: Nebula
+{ name: 'Nebula', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols, y = r / rows;
+    var n1 = _pfbm3(x * 3 + t * 0.1, y * 3 + t * 0.05);
+    var n2 = _pfbm3(x * 4 - t * 0.08, y * 2 + t * 0.12);
+    var n3 = _pfbm(x * 2 + n1 * 0.5 + t * 0.06, y * 3 + n2 * 0.5);
+    var n = (n1 + n2 + n3 + 2) / 4;
+    var dist = Math.sqrt(Math.pow(x - 0.5, 2) + Math.pow(y - 0.5, 2));
+    n *= _clamp01(1 - dist * 1.5);
+    n = _clamp01(n);
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    // Purple-teal-pink
+    var phase = (n1 + 1) * 0.5;
+    var rr = Math.floor(80 + phase * 120 + n * 50);
+    var g = Math.floor(40 + (1 - phase) * 100 + n * 30);
+    var bl = Math.floor(120 + n * 100);
+    ctx.fillStyle = 'rgba(' + Math.min(255, rr) + ',' + g + ',' + Math.min(255, bl) + ',' + (n * 0.75) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 11: Black Hole
+{ name: 'Black Hole', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = (c / cols - 0.5) * 2, y = (r / rows - 0.5) * 2;
+    var dist = Math.sqrt(x * x + y * y) + 0.001;
+    var angle = Math.atan2(y, x);
+    // Gravitational lensing: warp angle based on distance
+    var warp = 1.5 / (dist * dist + 0.3);
+    var wa = angle + warp * 0.5 + t * 0.3;
+    var wd = dist + 0.3 * Math.sin(angle * 3 + t);
+    var n = _pfbm(Math.cos(wa) * wd * 3, Math.sin(wa) * wd * 3 + t * 0.2);
+    n = (n + 1) * 0.5;
+    // Accretion disk
+    var diskDist = Math.abs(dist - 0.4 - 0.05 * Math.sin(angle * 6 + t * 2));
+    var disk = _clamp01(1 - diskDist * 8) * 0.8;
+    n = _clamp01(n * _clamp01(dist * 2.5 - 0.2) + disk);
+    // Event horizon: black at center
+    n *= _clamp01((dist - 0.1) * 5);
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    var hot = _clamp01(disk * 2);
+    var rr = Math.floor(80 + hot * 175 + n * 40);
+    var g = Math.floor(60 + hot * 100 + n * 30);
+    var bl = Math.floor(80 + (1 - hot) * 100 + n * 40);
+    ctx.fillStyle = 'rgba(' + Math.min(255, rr) + ',' + g + ',' + Math.min(255, bl) + ',' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 12: Aurora
+{ name: 'Aurora', init: function() {}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var x = c / cols, y = r / rows;
+    // Curtains of light in the upper portion
+    var curtain1 = Math.sin(x * 6 + t * 0.8 + _pnoise(x * 3, t * 0.3) * 3) * 0.5 + 0.5;
+    var curtain2 = Math.sin(x * 8 - t * 0.5 + _pnoise(x * 4 + 1, t * 0.2) * 2) * 0.5 + 0.5;
+    var curtain3 = Math.sin(x * 4 + t * 0.3 + _pnoise(x * 2 + 2, t * 0.4) * 4) * 0.5 + 0.5;
+    // Vertical fade: strong at top, fading down
+    var yFade = _clamp01(1 - y * 1.8) * _clamp01(y * 5);
+    // Shimmer
+    var shimmer = _pnoise(x * 10 + t, y * 8 - t * 0.5) * 0.3 + 0.7;
+    var n = (curtain1 * 0.4 + curtain2 * 0.35 + curtain3 * 0.25) * yFade * shimmer;
+    n = _clamp01(n);
+    var ch = _rampChar(n); if (ch === ' ') continue;
+    var blend = curtain1;
+    var rr = Math.floor(30 + blend * 40);
+    var g = Math.floor(100 + n * 155);
+    var bl = Math.floor(80 + (1 - blend) * 120 + n * 50);
+    ctx.fillStyle = 'rgba(' + rr + ',' + Math.min(255, g) + ',' + Math.min(255, bl) + ',' + (n * 0.7) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 13: Flocking
+{ name: 'Flocking', init: function() {
+  var boids = [];
+  for (var i = 0; i < 150; i++) boids.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.005, vy: (Math.random() - 0.5) * 0.005 });
+  _galaxyState.boids = boids;
+}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var boids = _galaxyState.boids, N = boids.length;
+  // Simple flocking rules
+  for (var i = 0; i < N; i++) {
+    var b = boids[i], ax = 0, ay = 0, sx = 0, sy = 0, cx = 0, cy = 0, cnt = 0;
+    for (var j = 0; j < N; j++) {
+      if (i === j) continue;
+      var dx = boids[j].x - b.x, dy = boids[j].y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+      if (d > 0.15) continue;
+      cnt++;
+      cx += boids[j].x; cy += boids[j].y;
+      sx += boids[j].vx; sy += boids[j].vy;
+      if (d < 0.04) { ax -= dx / d * 0.0002; ay -= dy / d * 0.0002; }
+    }
+    if (cnt > 0) {
+      cx = cx / cnt - b.x; cy = cy / cnt - b.y;
+      b.vx += cx * 0.001 + sx / cnt * 0.05 + ax;
+      b.vy += cy * 0.001 + sy / cnt * 0.05 + ay;
+    }
+    // Bound to screen
+    if (b.x < 0.05) b.vx += 0.0003; if (b.x > 0.95) b.vx -= 0.0003;
+    if (b.y < 0.05) b.vy += 0.0003; if (b.y > 0.95) b.vy -= 0.0003;
+    var speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+    if (speed > 0.008) { b.vx = b.vx / speed * 0.008; b.vy = b.vy / speed * 0.008; }
+    b.x += b.vx; b.y += b.vy;
+  }
+  var grid = new Float32Array(cols * rows);
+  for (var i = 0; i < N; i++) {
+    var gc = Math.floor(boids[i].x * cols), gr = Math.floor(boids[i].y * rows);
+    if (gc >= 0 && gc < cols && gr >= 0 && gr < rows) {
+      grid[gr * cols + gc] = 0.8;
+      // Trail
+      for (var d = -1; d <= 1; d++) for (var e = -1; e <= 1; e++) {
+        var rr = gr + d, cc = gc + e;
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) grid[rr * cols + cc] = Math.max(grid[rr * cols + cc], 0.3);
+      }
+    }
+  }
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var n = grid[r * cols + c]; if (n < 0.05) continue;
+    var ch = _rampChar(n);
+    ctx.fillStyle = 'rgba(150,180,130,' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 14: Game of Life
+{ name: 'Game of Life', init: function() {
+  var cols = _galaxyCols, rows = _galaxyRows;
+  var grid = new Uint8Array(cols * rows);
+  var age = new Float32Array(cols * rows);
+  for (var i = 0; i < cols * rows; i++) { grid[i] = Math.random() < 0.3 ? 1 : 0; age[i] = 0; }
+  _galaxyState.golGrid = grid; _galaxyState.golAge = age; _galaxyState.golFrame = 0;
+}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var grid = _galaxyState.golGrid, age = _galaxyState.golAge;
+  _galaxyState.golFrame++;
+  if (_galaxyState.golFrame % 3 === 0) {
+    var next = new Uint8Array(cols * rows);
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+      var neighbors = 0;
+      for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        var nr = (r + dr + rows) % rows, nc = (c + dc + cols) % cols;
+        neighbors += grid[nr * cols + nc];
+      }
+      var alive = grid[r * cols + c];
+      var i = r * cols + c;
+      if (alive && (neighbors === 2 || neighbors === 3)) { next[i] = 1; age[i] = Math.min(age[i] + 0.05, 1); }
+      else if (!alive && neighbors === 3) { next[i] = 1; age[i] = 0.1; }
+      else { next[i] = 0; age[i] = Math.max(age[i] - 0.02, 0); }
+    }
+    _galaxyState.golGrid = next; grid = next;
+  }
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var i = r * cols + c;
+    var n = grid[i] ? 0.4 + age[i] * 0.6 : age[i] * 0.3;
+    if (n < 0.03) continue;
+    var ch = _rampChar(n);
+    var g = Math.floor(100 + age[i] * 155);
+    ctx.fillStyle = 'rgba(80,' + g + ',100,' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}},
+
+// 15: Mycelium
+{ name: 'Mycelium', init: function() {
+  var cols = _galaxyCols, rows = _galaxyRows;
+  var grid = new Float32Array(cols * rows);
+  var tips = [];
+  // Start from center
+  var sc = Math.floor(cols / 2), sr = Math.floor(rows / 2);
+  grid[sr * cols + sc] = 1;
+  for (var i = 0; i < 8; i++) tips.push({ x: sc, y: sr, angle: i * Math.PI / 4, energy: 1 });
+  _galaxyState.mycGrid = grid; _galaxyState.mycTips = tips; _galaxyState.mycFrame = 0;
+}, frame: function(t) {
+  var ctx = _galaxyCtx, cols = _galaxyCols, rows = _galaxyRows, CELL = _galaxyCELL, dpr = _galaxyDpr;
+  var grid = _galaxyState.mycGrid, tips = _galaxyState.mycTips;
+  _galaxyState.mycFrame++;
+  // Grow
+  for (var step = 0; step < 3; step++) {
+    var newTips = [];
+    for (var i = 0; i < tips.length; i++) {
+      var tip = tips[i];
+      tip.angle += (Math.random() - 0.5) * 0.6;
+      tip.x += Math.cos(tip.angle); tip.y += Math.sin(tip.angle);
+      var gc = Math.floor(tip.x), gr = Math.floor(tip.y);
+      if (gc < 0 || gc >= cols || gr < 0 || gr >= rows) continue;
+      grid[gr * cols + gc] = Math.min(1, grid[gr * cols + gc] + 0.3);
+      tip.energy -= 0.005;
+      if (tip.energy > 0) newTips.push(tip);
+      // Branch
+      if (Math.random() < 0.02 && tips.length + newTips.length < 500) {
+        newTips.push({ x: tip.x, y: tip.y, angle: tip.angle + (Math.random() < 0.5 ? 0.8 : -0.8), energy: tip.energy * 0.7 });
+      }
+    }
+    tips = newTips;
+  }
+  // Reinject if dead
+  if (tips.length < 3) {
+    var sc = Math.floor(cols * (0.3 + Math.random() * 0.4)), sr = Math.floor(rows * (0.3 + Math.random() * 0.4));
+    for (var i = 0; i < 5; i++) tips.push({ x: sc, y: sr, angle: Math.random() * Math.PI * 2, energy: 0.8 });
+  }
+  _galaxyState.mycTips = tips;
+  // Fade
+  for (var i = 0; i < cols * rows; i++) grid[i] = Math.max(0, grid[i] - 0.001);
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var n = grid[r * cols + c]; if (n < 0.03) continue;
+    var ch = _rampChar(n);
+    var g = Math.floor(120 + n * 100), bl = Math.floor(80 + n * 60);
+    ctx.fillStyle = 'rgba(90,' + g + ',' + bl + ',' + (n * 0.8) + ')';
+    ctx.fillText(ch, (c + 0.5) * CELL * dpr, (r + 0.5) * CELL * dpr);
+  }
+}}
+
+]; // end _loginAnims
+
 function _startGalaxyAnimation() {
-  // Defer to next frame so the login gate has layout dimensions
   requestAnimationFrame(function() { _startGalaxyAnimationInner(); });
 }
 function _startGalaxyAnimationInner() {
-  const canvas = document.getElementById('login-galaxy');
-  if (!canvas) return;
-  const gate = canvas.parentElement;
-  const ctx = canvas.getContext('2d');
-  const stars = [];
-  const COUNT = 220;
-  const GLYPHS = ['.', '.', '.', ',', ',', "'", '`', '*', '*', '+', 'o', '~', '-', ':', ';'];
-  const BRIGHT_GLYPHS = ['*', '+', '#', '@', '%'];
+  _galaxyCanvas = document.getElementById('login-galaxy');
+  if (!_galaxyCanvas) return;
+  if (_galaxyAnimId) return;
+  var gate = _galaxyCanvas.parentElement;
+  _galaxyCtx = _galaxyCanvas.getContext('2d');
+  _galaxyDpr = window.devicePixelRatio || 1;
 
   function resize() {
-    const w = gate.clientWidth || window.innerWidth;
-    const h = gate.clientHeight || window.innerHeight;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
+    var w = gate.clientWidth || window.innerWidth;
+    var h = gate.clientHeight || window.innerHeight;
+    _galaxyCanvas.width = w * _galaxyDpr;
+    _galaxyCanvas.height = h * _galaxyDpr;
+    _galaxyCols = Math.ceil(w / _galaxyCELL);
+    _galaxyRows = Math.ceil(h / _galaxyCELL);
   }
   resize();
+  _galaxyResizeHandler = resize;
   window.addEventListener('resize', resize);
 
-  const cx = 0.5, cy = 0.5;
-  for (let i = 0; i < COUNT; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * 0.45 + 0.02;
-    const isBright = Math.random() < 0.15;
-    stars.push({
-      angle: angle,
-      dist: dist,
-      ch: isBright ? BRIGHT_GLYPHS[Math.floor(Math.random() * BRIGHT_GLYPHS.length)]
-                    : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
-      fontSize: isBright ? (Math.random() * 8 + 12) : (Math.random() * 6 + 8),
-      brightness: isBright ? (Math.random() * 0.3 + 0.7) : (Math.random() * 0.5 + 0.2),
-      speed: (0.0003 + Math.random() * 0.0008) / (dist + 0.2),
-      drift: Math.random() * 0.00002 - 0.00001,
-      twinkleSpeed: Math.random() * 0.02 + 0.005,
-      twinklePhase: Math.random() * Math.PI * 2
-    });
+  // Build toggle buttons
+  var toggleContainer = document.getElementById('login-anim-toggle');
+  if (toggleContainer) {
+    toggleContainer.innerHTML = '';
+    for (var i = 0; i < _loginAnims.length; i++) {
+      var btn = document.createElement('button');
+      btn.textContent = _loginAnims[i].name;
+      btn.dataset.idx = i;
+      btn.style.cssText = 'padding:3px 10px;border-radius:12px;font-size:11px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);cursor:pointer;transition:all 0.2s;font-family:monospace;';
+      btn.onmouseenter = function() { if (this.dataset.idx != _galaxyCurrentAnim) this.style.background = 'rgba(255,255,255,0.1)'; };
+      btn.onmouseleave = function() { if (this.dataset.idx != _galaxyCurrentAnim) this.style.background = 'rgba(255,255,255,0.05)'; };
+      btn.onclick = function() { _switchLoginAnim(parseInt(this.dataset.idx)); };
+      toggleContainer.appendChild(btn);
+    }
+    _highlightAnimBtn();
   }
 
-  let t = 0;
-  function frame() {
-    t++;
-    const w = canvas.width, h = canvas.height;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.clearRect(0, 0, w, h);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (let i = 0; i < COUNT; i++) {
-      const s = stars[i];
-      s.angle += s.speed;
-      s.dist += s.drift;
-      if (s.dist < 0.01 || s.dist > 0.5) s.drift = -s.drift;
-      const x = (cx + Math.cos(s.angle) * s.dist) * w;
-      const y = (cy + Math.sin(s.angle) * s.dist) * h;
-      const twinkle = 0.5 + 0.5 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
-      const alpha = s.brightness * (0.3 + 0.7 * twinkle);
-      ctx.font = (s.fontSize * dpr) + 'px monospace';
-      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
-      ctx.fillText(s.ch, x, y);
+  _switchLoginAnim(_galaxyCurrentAnim);
+}
+
+function _highlightAnimBtn() {
+  var toggleContainer = document.getElementById('login-anim-toggle');
+  if (!toggleContainer) return;
+  var btns = toggleContainer.children;
+  for (var i = 0; i < btns.length; i++) {
+    if (i === _galaxyCurrentAnim) {
+      btns[i].style.background = 'rgba(255,255,255,0.2)';
+      btns[i].style.color = 'rgba(255,255,255,0.9)';
+      btns[i].style.borderColor = 'rgba(255,255,255,0.3)';
+    } else {
+      btns[i].style.background = 'rgba(255,255,255,0.05)';
+      btns[i].style.color = 'rgba(255,255,255,0.5)';
+      btns[i].style.borderColor = 'rgba(255,255,255,0.15)';
     }
+  }
+}
+
+function _switchLoginAnim(idx) {
+  if (_galaxyAnimId) { cancelAnimationFrame(_galaxyAnimId); _galaxyAnimId = null; }
+  _galaxyCurrentAnim = idx;
+  _galaxyState = {};
+  _galaxyT = 0;
+  _highlightAnimBtn();
+  var anim = _loginAnims[idx];
+  if (anim.init) anim.init();
+
+  function frame() {
+    _galaxyT += 0.008;
+    var w = _galaxyCanvas.width, h = _galaxyCanvas.height;
+    _galaxyCtx.fillStyle = '#0a0a0f';
+    _galaxyCtx.fillRect(0, 0, w, h);
+    _galaxyCtx.textAlign = 'center';
+    _galaxyCtx.textBaseline = 'middle';
+    _galaxyCtx.font = (_galaxyCELL * _galaxyDpr) + 'px monospace';
+    anim.frame(_galaxyT);
     _galaxyAnimId = requestAnimationFrame(frame);
   }
   frame();
@@ -2337,17 +2860,21 @@ function _startGalaxyAnimationInner() {
 
 function _stopGalaxyAnimation() {
   if (_galaxyAnimId) { cancelAnimationFrame(_galaxyAnimId); _galaxyAnimId = null; }
+  if (_galaxyResizeHandler) { window.removeEventListener('resize', _galaxyResizeHandler); _galaxyResizeHandler = null; }
 }
 
 function _showLoginGate() {
   const gate = document.getElementById('login-gate');
   if (gate) gate.style.display = '';
-  _startGalaxyAnimation();
   // Defer until DOM is ready (login gate HTML is at bottom of body, after scripts)
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _renderGoogleButton);
+    document.addEventListener('DOMContentLoaded', function() {
+      _renderGoogleButton();
+      _startGalaxyAnimation();
+    });
   } else {
     _renderGoogleButton();
+    _startGalaxyAnimation();
   }
 }
 
