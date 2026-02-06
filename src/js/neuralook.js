@@ -318,7 +318,7 @@ function _nlRenderTrainDetailView(container) {
           <h3 class="text-[0.85rem] font-semibold text-primary">Training Log</h3>
           <span class="text-[0.68rem] text-dimmer tabular-nums" id="nl-log-count">${_nlTrainLogs.length} lines</span>
         </div>
-        <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 16px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.72rem;line-height:1.6;color:var(--text-secondary,#aaa);white-space:pre;tab-size:2;"></div>
+        <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 16px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.82rem;line-height:1.7;color:var(--text-primary,#e5e5e5);white-space:pre;tab-size:2;"></div>
       </div>
 
       <!-- Stats grid -->

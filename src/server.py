@@ -2275,8 +2275,7 @@ ch.postMessage({type:'preview-ready'});
                         cur_lr = optimizer.param_groups[0]['lr']
                         star = '  ★' if improved else ''
                         _sse('log', {'text': f'{epoch:>6}  {last_train_loss:>11.6f}  {val_loss:>11.6f}  {cur_lr:>10.2e}  {"✓" if improved else " ":>5}  {no_improve:>4}/{patience}{star}'})
-                        if epoch % 50 == 0:
-                            _sse('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'phase': 'training'})
+                        _sse('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'train_loss': round(last_train_loss, 6), 'phase': 'training'})
                         if no_improve >= patience:
                             _sse('log', {'text': f'\nEarly stopping at epoch {epoch} (no improvement for {patience} epochs)'})
                             stopped_epoch = epoch
