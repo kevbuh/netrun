@@ -974,25 +974,7 @@
     .browse-find-btn:hover { background: var(--hover); color: var(--text-primary); }
 
     .browse-tab-new {
-      flex-shrink: 0;
-      width: 32px;
-      height: 32px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 2px;
-      align-self: center;
       transition: background 0.15s, color 0.15s;
-    }
-    .browse-tab-new:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
     }
     .browse-ntp {
       position: absolute;

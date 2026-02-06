@@ -1841,7 +1841,7 @@ function _browseRenderTabs() {
       ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
       <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
     </div>`;
-  }).join('') + `<button class="browse-tab-new" onclick="browseNewTab()" title="New tab">+</button>`;
+  }).join('');
 
   // Update tab count on overview button
   const totalTabs = _browseWindows.reduce((sum, w) => sum + w.tabs.length, 0);
@@ -2888,48 +2888,86 @@ function _browseCloseFindBar() {
   if (bar) bar.remove();
 }
 
-// Block native browser zoom globally so our optical zoom works
-document.addEventListener('wheel', function(e) {
-  if (e.ctrlKey) {
-    const browseView = document.getElementById('browse-view');
-    if (browseView && browseView.style.display !== 'none') {
-      e.preventDefault();
-      e.stopPropagation();
-      const delta = e.deltaY > 0 ? -0.05 : 0.05;
-      _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + delta));
-      const container = document.getElementById('browse-content');
-      const rect = container ? container.getBoundingClientRect() : null;
-      const fx = rect ? e.clientX - rect.left : undefined;
-      const fy = rect ? e.clientY - rect.top : undefined;
-      _browseApplyZoom(fx, fy);
-    }
+// ── Pinch-to-magnify (Apple-like) ─────────────────────────────────
+// Trackpad pinch → temporary magnification centered on cursor.
+// Release (or Escape) → smoothly snaps back to 1×.
+// Cmd+/– keyboard zoom in browse view remains persistent (see below).
+
+let _magnifyZoom = 1;
+let _magnifyX = 0;
+let _magnifyY = 0;
+let _magnifyGestureStart = 1;
+let _magnifySnapTimer = null;
+
+document.addEventListener('mousemove', function(e) {
+  _magnifyX = e.clientX;
+  _magnifyY = e.clientY;
+}, { passive: true });
+
+function _magnifyApply() {
+  if (_magnifyZoom <= 1.005) {
+    document.body.style.transform = '';
+    document.body.style.transformOrigin = '';
+    document.documentElement.style.overflow = '';
+    return;
   }
+  document.body.style.transformOrigin = _magnifyX + 'px ' + _magnifyY + 'px';
+  document.body.style.transform = 'scale(' + _magnifyZoom + ')';
+  document.documentElement.style.overflow = 'hidden';
+}
+
+function _magnifySnapBack() {
+  clearTimeout(_magnifySnapTimer);
+  _magnifyZoom = 1;
+  document.body.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+  document.body.style.transform = '';
+  document.documentElement.style.overflow = '';
+  setTimeout(function() {
+    document.body.style.transition = '';
+    document.body.style.transformOrigin = '';
+  }, 360);
+}
+
+// Chrome/Firefox: trackpad pinch fires wheel with ctrlKey
+document.addEventListener('wheel', function(e) {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  clearTimeout(_magnifySnapTimer);
+  document.body.style.transition = '';
+  var delta = -e.deltaY * 0.01;
+  _magnifyZoom = Math.min(5, Math.max(1, _magnifyZoom + delta));
+  _magnifyApply();
+  // No gestureend in Chrome — snap back after inactivity
+  _magnifySnapTimer = setTimeout(_magnifySnapBack, 600);
 }, { passive: false, capture: true });
 
-// Safari: gesturestart/gesturechange/gestureend for trackpad pinch
-let _browseGestureStartZoom = 1;
+// Safari: native gesture events
 document.addEventListener('gesturestart', function(e) {
-  const browseView = document.getElementById('browse-view');
-  if (!browseView || browseView.style.display === 'none') return;
   e.preventDefault();
-  _browseGestureStartZoom = _browseZoomLevel;
-}, { passive: false });
+  _magnifyGestureStart = _magnifyZoom || 1;
+  clearTimeout(_magnifySnapTimer);
+  document.body.style.transition = '';
+}, { passive: false, capture: true });
+
 document.addEventListener('gesturechange', function(e) {
-  const browseView = document.getElementById('browse-view');
-  if (!browseView || browseView.style.display === 'none') return;
   e.preventDefault();
-  _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseGestureStartZoom * e.scale));
-  const container = document.getElementById('browse-content');
-  const rect = container ? container.getBoundingClientRect() : null;
-  const fx = rect ? rect.width / 2 : undefined;
-  const fy = rect ? rect.height / 2 : undefined;
-  _browseApplyZoom(fx, fy);
-}, { passive: false });
+  _magnifyZoom = Math.min(5, Math.max(1, _magnifyGestureStart * e.scale));
+  _magnifyApply();
+}, { passive: false, capture: true });
+
 document.addEventListener('gestureend', function(e) {
-  const browseView = document.getElementById('browse-view');
-  if (!browseView || browseView.style.display === 'none') return;
   e.preventDefault();
-}, { passive: false });
+  _magnifySnapTimer = setTimeout(_magnifySnapBack, 200);
+}, { passive: false, capture: true });
+
+// Escape snaps back from magnify
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && _magnifyZoom > 1.01) {
+    e.preventDefault();
+    _magnifySnapBack();
+  }
+}, { capture: true });
 
 // Cmd+Plus / Cmd+Minus / Cmd+0 / Cmd+F / Cmd+T / Cmd+W for browse view
 document.addEventListener('keydown', function(e) {

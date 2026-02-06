@@ -1,3 +1,10 @@
+// ── Traffic-light safe zone (macOS Electron) ──
+// Returns minimum {top, left} so popups never overlap the window controls.
+function _trafficLightSafeZone() {
+  if (!(window.electronAPI && window.electronAPI.isElectron)) return { top: 0, left: 0 };
+  return { top: 42, left: 80 };
+}
+
 // ── Cmd/Ctrl+click → open in new browse tab ──
 function _isNewTabClick(e) { return e && (e.metaKey || e.ctrlKey); }
 function _openInNewTab(url) {

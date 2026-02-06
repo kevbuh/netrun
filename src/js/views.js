@@ -3387,10 +3387,12 @@ function _repositionSelectionPopup() {
     const anchorX = popup._lookupAnchorX ?? _lastMouseX;
     const anchorY = popup._lookupAnchorY ?? _lastMouseY;
     const panelLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+    const safe = _trafficLightSafeZone();
     let top = anchorY - rect.height;
-    if (top < 0) top = 0;
+    if (top < safe.top) top = safe.top;
     let left = panelLeft ? anchorX - rect.width : anchorX;
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
+    if (left < safe.left && top < safe.top + 10) left = safe.left;
     if (left < 0) left = 0;
     popup.style.top = top + 'px';
     popup.style.left = left + 'px';
@@ -3415,11 +3417,13 @@ function _repositionSelectionPopup() {
   if (top + rect.height > window.innerHeight - 8) {
     top = window.innerHeight - rect.height - 8;
   }
-  if (top < 4) top = 4;
+  const safe = _trafficLightSafeZone();
+  if (top < Math.max(4, safe.top)) top = Math.max(4, safe.top);
 
   let left = popup._anchorLeft || parseFloat(popup.style.left);
   if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
   if (left < 4) left = 4;
+  if (left < safe.left && top < safe.top + 10) left = safe.left;
 
   popup.style.top = top + 'px';
   popup.style.left = left + 'px';
@@ -3644,12 +3648,14 @@ document.addEventListener('mousemove', function(e) {
   if (_lookupDragging) {
     const popup = _lookupDragPopup || document.getElementById('doc-chat-ask-float');
     if (!popup) { _lookupDragging = false; _lookupDragPopup = null; return; }
+    const safe = _trafficLightSafeZone();
     let left = e.clientX - _lookupDragOffset.x;
     let top = e.clientY - _lookupDragOffset.y;
     if (left < 0) left = 0;
-    if (top < 0) top = 0;
+    if (top < safe.top) top = safe.top;
     if (left + popup.offsetWidth > window.innerWidth) left = window.innerWidth - popup.offsetWidth;
     if (top + popup.offsetHeight > window.innerHeight) top = window.innerHeight - popup.offsetHeight;
+    if (left < safe.left && top < safe.top + 10) left = safe.left;
     popup.style.left = left + 'px';
     popup.style.top = top + 'px';
     popup._lookupAnchorX = left;
@@ -3663,14 +3669,16 @@ document.addEventListener('mousemove', function(e) {
   if (!popup) { _lookupTrackMode = false; return; }
   popup._lookupAnchorX = e.clientX;
   popup._lookupAnchorY = e.clientY;
+  const safe = _trafficLightSafeZone();
   const w = popup.offsetWidth;
   const h = popup.offsetHeight;
   const _trackLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
   let left = _trackLeft ? e.clientX - w : e.clientX;
   let top = e.clientY - h;
-  if (top < 0) top = 0;
+  if (top < safe.top) top = safe.top;
   if (left + w > window.innerWidth) left = window.innerWidth - w;
   if (left < 0) left = 0;
+  if (left < safe.left && top < safe.top + 10) left = safe.left;
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
 });
