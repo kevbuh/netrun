@@ -4253,19 +4253,20 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
 
   // "Feeling Lucky" row when input is empty
   if (showLucky) {
-    const loading = _feelingLuckyLoading;
-    const hasQuery = !!_feelingLuckyQuery && !loading;
+    const hasText = !!_feelingLuckyQuery;
+    const waiting = _feelingLuckyLoading && !hasText;
     // Auto-trigger on first show if no query yet
     if (!_feelingLuckyQuery && !_feelingLuckyLoading) {
       setTimeout(_browseUrlFeelingLucky, 0);
     }
-    html += `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${loading ? 'opacity:0.7;cursor:wait;' : ''}">
+    const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : '');
+    html += `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
       <span style="font-size:1rem;flex-shrink:0;">&#x2728;</span>
       <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
         <span style="font-weight:600;color:var(--accent);">Feeling Lucky</span>
-        <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${loading ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : (hasQuery ? escapeHtml(_feelingLuckyQuery) : '')}</span>
+        <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${displayText}</span>
       </span>
-      ${hasQuery ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
+      ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
     </div>`;
   }
 
@@ -4350,7 +4351,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
       if (ev.target.closest('.browse-lucky-redo')) return;
       ev.preventDefault();
       ev.stopPropagation();
-      if (_feelingLuckyQuery && !_feelingLuckyLoading) {
+      if (_feelingLuckyQuery) {
         const inp = document.getElementById('browse-url-input');
         if (inp) inp.value = _feelingLuckyQuery;
         _browseUrlHideHistory();

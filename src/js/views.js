@@ -5483,6 +5483,21 @@ function _pasteIntoElement(el, text) {
   }
 }
 
+function _flashCopyBtn(popup) {
+  // Find the right copy button: selection copy or chat copy
+  const btn = popup.querySelector('.doc-selection-copy-btn')
+    || (popup._copyChatBtn && popup._copyChatBtn.style.display !== 'none' ? popup._copyChatBtn : null);
+  if (!btn) return;
+  btn.textContent = 'Copied';
+  btn.classList.remove('doc-copy-flash');
+  // Force reflow so animation restarts if already playing
+  void btn.offsetWidth;
+  btn.classList.add('doc-copy-flash');
+  setTimeout(() => {
+    if (btn.isConnected) { btn.textContent = 'Copy'; btn.classList.remove('doc-copy-flash'); }
+  }, 1200);
+}
+
 function _showPanel(config) {
   config = config || {};
   const anchor = config.anchor || {};
@@ -6431,6 +6446,23 @@ function _showPanel(config) {
   });
 
   document.body.appendChild(popup);
+
+  // ── Cmd+C: copy captured text + animate copy button ──
+  function _onCopyKey(e) {
+    if (!((e.metaKey || e.ctrlKey) && e.key === 'c')) return;
+    if (!popup.isConnected) { document.removeEventListener('keydown', _onCopyKey, true); return; }
+    // Only act when the input is empty (user hasn't typed anything)
+    const input = popup.querySelector('.doc-ask-inline-input');
+    if (input && input.value) return;
+    // Copy the captured selection text if available
+    const text = popup._capturedText;
+    if (text) {
+      e.preventDefault();
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    _flashCopyBtn(popup);
+  }
+  document.addEventListener('keydown', _onCopyKey, true);
 
   // ── Positioning ──
   if (isTabAnchor) {

@@ -1020,6 +1020,14 @@ function _nlShowTrainPill() {
   }
 }
 
+function _nlTrainETA(epoch, maxEpochs) {
+  if (!_nlTrainStartTime || epoch <= 0) return '';
+  const elapsed = (Date.now() - _nlTrainStartTime) / 1000;
+  const remaining = Math.round((maxEpochs - epoch) * elapsed / epoch);
+  if (remaining <= 0) return '';
+  return remaining < 60 ? ` · ~${remaining}s` : ` · ~${Math.floor(remaining / 60)}m${remaining % 60 ? ' ' + (remaining % 60) + 's' : ''}`;
+}
+
 function _nlUpdateTrainPill(title, detail) {
   const t = document.getElementById('nl-pill-title');
   const d = document.getElementById('nl-pill-detail');
@@ -1253,12 +1261,12 @@ function _nlShowCalibrationOverlay() {
   const existing = document.getElementById('nl-calibration-overlay');
   if (existing) existing.remove();
 
-  // Transparent overlay — no dimming so lighting matches normal usage
+  // Blank background so calibration dots are clearly visible
   const overlay = document.createElement('div');
   overlay.id = 'nl-calibration-overlay';
   Object.assign(overlay.style, {
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    background: 'transparent', zIndex: '99999',
+    background: '#000', zIndex: '99999',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
   });
 
@@ -1428,7 +1436,8 @@ async function _nlOnCalibrationComplete() {
       } else {
         const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
         const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
-        _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}`);
+        const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
+        _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       }
       _nlRefreshTrainView();
     }, (logLine) => {
@@ -1524,7 +1533,8 @@ async function _nlTrainMethod(methodKey) {
       if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
       const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
       const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
-      _nlUpdateTrainPill(`Training ${methodKey}`, `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}`);
+      const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
+      _nlUpdateTrainPill(`Training ${methodKey}`, `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       _nlRefreshTrainView();
     }, (logLine) => {
       _nlTrainLogs.push(logLine);
