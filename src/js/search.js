@@ -2698,6 +2698,9 @@ function browseReload() {
 
 let _browseZoomLevel = 1.0;
 let _browseZoomHideTimer = null;
+// Scroll offsets used for focal-point zoom
+let _browseZoomScrollX = 0;
+let _browseZoomScrollY = 0;
 function _browseShowZoomControls() {
   const controls = document.getElementById('browse-zoom-controls');
   if (!controls) return;
@@ -2710,20 +2713,35 @@ function browseZoom(dir) {
   else _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + dir * 0.1));
   _browseApplyZoom();
 }
-function _browseApplyZoom() {
+// focalX/focalY are cursor coordinates relative to the browse-content container
+function _browseApplyZoom(focalX, focalY) {
   const el = _browseActiveEl();
-  if (el) {
-    if (_browseIsElectron && el.setZoomFactor) el.setZoomFactor(_browseZoomLevel);
-    else {
-      el.style.transform = `scale(${_browseZoomLevel})`;
+  const container = document.getElementById('browse-content');
+  if (el && container) {
+    if (_browseIsElectron && el.setZoomFactor) {
+      el.setZoomFactor(_browseZoomLevel);
+    } else {
+      const oldZoom = parseFloat(el.dataset.zoom || '1');
+      const newZoom = _browseZoomLevel;
+      el.dataset.zoom = newZoom;
+
+      if (focalX !== undefined && focalY !== undefined) {
+        // Adjust scroll so the point under the cursor stays fixed
+        const contentX = container.scrollLeft + focalX;
+        const contentY = container.scrollTop + focalY;
+        const ratio = newZoom / oldZoom;
+        container.scrollLeft = contentX * ratio - focalX;
+        container.scrollTop = contentY * ratio - focalY;
+      }
+
+      el.style.transform = `scale(${newZoom})`;
       el.style.transformOrigin = 'top left';
-      el.style.width = (100 / _browseZoomLevel) + '%';
-      el.style.height = (100 / _browseZoomLevel) + '%';
+      el.style.width = (100 / newZoom) + '%';
+      el.style.height = (100 / newZoom) + '%';
     }
   }
   const label = document.getElementById('browse-zoom-level');
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
-  // Show zoom controls briefly
   _browseShowZoomControls();
 }
 // ── Find in page ──
@@ -2856,7 +2874,11 @@ document.addEventListener('wheel', function(e) {
   e.preventDefault();
   const delta = e.deltaY > 0 ? -0.05 : 0.05;
   _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
-  _browseApplyZoom();
+  const container = document.getElementById('browse-content');
+  const rect = container ? container.getBoundingClientRect() : null;
+  const fx = rect ? e.clientX - rect.left : undefined;
+  const fy = rect ? e.clientY - rect.top : undefined;
+  _browseApplyZoom(fx, fy);
 }, { passive: false });
 
 // Cmd+Plus / Cmd+Minus / Cmd+0 / Cmd+F / Cmd+T / Cmd+W for browse view
@@ -3016,7 +3038,8 @@ function _browseInstallPinchOverlay() {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
       _browseZoomLevel = Math.min(3.0, Math.max(0.25, _browseZoomLevel + delta));
-      _browseApplyZoom();
+      const rect = container.getBoundingClientRect();
+      _browseApplyZoom(e.clientX - rect.left, e.clientY - rect.top);
     } else {
       // Normal scroll: let it pass through to the iframe
       overlay.style.pointerEvents = 'none';
