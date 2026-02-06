@@ -509,6 +509,7 @@ function _browseCreateTabInWindow(windowId, url) {
   };
   win.tabs.push(tab);
   _browseBindFrame(tab);
+  if (resolved) _saveBrowseVisit(resolved, tab.title);
 
   return tab;
 }
@@ -649,6 +650,7 @@ function browseNewTab(url) {
   if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
   else win.tabs.push(tab);
   if (el) _browseBindFrame(tab);
+  if (!isBlank && resolved) _saveBrowseVisit(resolved, tab.title);
 
   browseSelectTab(id);
   _browseSaveTabs();
@@ -682,6 +684,7 @@ function browseNewPaperTab(url, paper) {
   const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
   if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
   else win.tabs.push(tab);
+  if (url) _saveBrowseVisit(url, tab.title);
   browseSelectTab(id);
   _browseSaveTabs();
 }
@@ -1063,6 +1066,7 @@ function _browseBindFrame(tab) {
     tab.title = _browseTitleFromUrl(e.url);
     tab.favicon = _browseFaviconUrl(e.url);
     tab.blank = false;
+    _saveBrowseVisit(e.url, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
     if (_browseActiveTab === tab.id) {
@@ -1088,6 +1092,8 @@ function _browseBindFrame(tab) {
   });
   el.addEventListener('page-title-updated', (e) => {
     tab.title = e.title || _browseTitleFromUrl(tab.url);
+    // Update the most recent browse history entry with the real title
+    if (tab.url) _saveBrowseVisit(tab.url, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
   });
@@ -2579,6 +2585,7 @@ function browseNavigate(input) {
   tab.title = _browseTitleFromUrl(url);
   tab.favicon = _browseFaviconUrl(url);
   tab.blank = false;
+  _saveBrowseVisit(url, tab.title);
   if (!tab.el) {
     const container = document.getElementById('browse-content');
     tab.el = _browseCreateFrame(tab.id, url);
@@ -3892,7 +3899,7 @@ function openSearchHistoryPage() {
   // Mark it as a history tab
   tab.blank = false;
   tab.url = '';
-  tab.title = 'Search History';
+  tab.title = 'History';
   tab.favicon = '';
   tab._historyPage = true;
 
@@ -3917,40 +3924,63 @@ function openSearchHistoryPage() {
   _renderWebSearchHistoryPage(el);
 }
 
+let _historyPageTab = 'browse'; // 'browse' or 'search'
+
 function _renderWebSearchHistoryPage(el) {
   if (!el) return;
-  const hist = _getWebSearchHistory();
+  const searchHist = _getWebSearchHistory();
+  const browseHist = _getBrowseHistory();
+  const isBrowse = _historyPageTab === 'browse';
 
   let html = '<div style="max-width:680px;margin:0 auto;padding:32px 24px 64px;">';
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">';
+
+  // Header with tabs
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
   html += '<div style="display:flex;align-items:center;gap:10px;">';
   html += '<svg style="width:20px;height:20px;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>';
-  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">Search History</span>';
-  if (hist.length) html += '<span style="font-size:0.7rem;color:var(--text-dimmest);">' + hist.length + ' searches</span>';
+  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">History</span>';
   html += '</div>';
-  if (hist.length) {
-    html += '<button onclick="_clearWebSearchHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-muted);font-size:0.75rem;cursor:pointer;">Clear all</button>';
+  const clearFn = isBrowse
+    ? '_clearBrowseHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));'
+    : '_clearWebSearchHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));';
+  const activeHist = isBrowse ? browseHist : searchHist;
+  if (activeHist.length) {
+    html += '<button onclick="' + clearFn + '" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-muted);font-size:0.75rem;cursor:pointer;">Clear all</button>';
   }
   html += '</div>';
 
-  // Search filter
+  // Tab switcher
+  const tabStyle = (active) => `padding:6px 14px;border:none;border-bottom:2px solid ${active ? 'var(--accent)' : 'transparent'};background:none;color:${active ? 'var(--text-primary)' : 'var(--text-dim)'};font-size:0.82rem;cursor:pointer;font-weight:${active ? '600' : '400'};`;
+  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--border-input);margin-bottom:16px;">';
+  html += `<button onclick="_historyPageTab='browse';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(isBrowse)}">Sites <span style="font-size:0.7rem;color:var(--text-dimmest);">${browseHist.length}</span></button>`;
+  html += `<button onclick="_historyPageTab='search';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(!isBrowse)}">Searches <span style="font-size:0.7rem;color:var(--text-dimmest);">${searchHist.length}</span></button>`;
+  html += '</div>';
+
+  // Filter
   html += '<div style="position:relative;margin-bottom:16px;">';
   html += '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-dimmer);pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
   html += '<input type="text" id="history-page-filter" placeholder="Filter history..." oninput="_filterWebSearchHistory()" style="width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.82rem;outline:none;" />';
   html += '</div>';
 
   html += '<div id="history-page-list">';
-  html += _renderWebSearchHistoryList(hist);
+  html += isBrowse ? _renderBrowseHistoryList(browseHist) : _renderWebSearchHistoryList(searchHist);
   html += '</div></div>';
   el.innerHTML = html;
 }
 
 function _filterWebSearchHistory() {
   const filter = (document.getElementById('history-page-filter')?.value || '').trim().toLowerCase();
-  const hist = _getWebSearchHistory();
-  const filtered = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
   const list = document.getElementById('history-page-list');
-  if (list) list.innerHTML = _renderWebSearchHistoryList(filtered);
+  if (!list) return;
+  if (_historyPageTab === 'browse') {
+    const hist = _getBrowseHistory();
+    const filtered = filter ? hist.filter(h => (h.title || '').toLowerCase().includes(filter) || (h.url || '').toLowerCase().includes(filter)) : hist;
+    list.innerHTML = _renderBrowseHistoryList(filtered);
+  } else {
+    const hist = _getWebSearchHistory();
+    const filtered = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
+    list.innerHTML = _renderWebSearchHistoryList(filtered);
+  }
 }
 
 function _renderWebSearchHistoryList(hist) {
@@ -4001,6 +4031,90 @@ function _renderWebSearchHistoryList(hist) {
     html += '</div>';
   }
   return html;
+}
+
+function _renderBrowseHistoryList(hist) {
+  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--text-dim);font-size:0.85rem;">No browsing history</div>';
+
+  const groups = [];
+  const groupMap = {};
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+  const weekAgo = today - 604800000;
+
+  const allHist = _getBrowseHistory();
+
+  hist.forEach(h => {
+    let label;
+    if (!h.ts) { label = 'Older'; }
+    else if (h.ts >= today) { label = 'Today'; }
+    else if (h.ts >= yesterday) { label = 'Yesterday'; }
+    else if (h.ts >= weekAgo) { label = 'This Week'; }
+    else {
+      const d = new Date(h.ts);
+      label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    if (!groupMap[label]) { groupMap[label] = []; groups.push(label); }
+    groupMap[label].push(h);
+  });
+
+  let html = '';
+  for (const label of groups) {
+    html += '<div style="margin-bottom:16px;">';
+    html += '<div style="font-size:0.7rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    groupMap[label].forEach(h => {
+      const origIdx = allHist.findIndex(a => a.url === h.url && a.ts === h.ts);
+      const time = _relativeTime(h.ts);
+      let domain = '';
+      try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
+      const favicon = _browseFaviconUrl(h.url);
+      const safeUrl = escapeHtml(h.url).replace(/'/g, '&#39;');
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNavigate('${safeUrl}')">
+        <img src="${escapeHtml(favicon)}" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+        <div style="flex:1;overflow:hidden;min-width:0;">
+          <div style="font-size:0.82rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
+          <div style="font-size:0.7rem;color:var(--text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
+        </div>
+        <span style="font-size:0.7rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
+        <button class="hist-del" onclick="event.stopPropagation(); _removeBrowseVisit(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-dimmer);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
+          <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+// ── Browsing History ──
+
+function _getBrowseHistory() {
+  try { return JSON.parse(localStorage.getItem('browseHistory') || '[]'); } catch { return []; }
+}
+
+function _saveBrowseVisit(url, title) {
+  if (!url || url === 'about:blank') return;
+  let hist = _getBrowseHistory();
+  // Don't duplicate the same URL if it's the most recent entry
+  if (hist.length && hist[0].url === url) {
+    hist[0].title = title || hist[0].title;
+    hist[0].ts = Date.now();
+  } else {
+    hist.unshift({ url, title: title || _browseTitleFromUrl(url), ts: Date.now() });
+  }
+  if (hist.length > 1000) hist = hist.slice(0, 1000);
+  localStorage.setItem('browseHistory', JSON.stringify(hist));
+}
+
+function _removeBrowseVisit(index) {
+  const hist = _getBrowseHistory();
+  hist.splice(index, 1);
+  localStorage.setItem('browseHistory', JSON.stringify(hist));
+}
+
+function _clearBrowseHistory() {
+  localStorage.setItem('browseHistory', '[]');
 }
 
 // ── Ad Blocker toggle & badge ──
