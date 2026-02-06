@@ -3207,29 +3207,38 @@ function _handleContextMenuChat(e) {
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
-// Inject right-click handler into same-origin iframes (browse proxy)
+// Convert a rect from inside an iframe/webview to parent viewport coordinates
+function _iframeRectToParent(r, frame) {
+  const f = frame.getBoundingClientRect();
+  return { top: r.top + f.top, bottom: r.bottom + f.top, left: r.left + f.left, right: r.right + f.left, width: r.width, height: r.height };
+}
+
+// Inject context-menu, text-selection, and keyboard handlers into same-origin iframes
 function _injectIframeChatHandler(iframe) {
   const tryInject = () => {
     try {
       const doc = iframe.contentDocument || iframe.contentWindow.document;
-      if (!doc) return;
-      if (doc._chatHandlerInjected) return;
+      if (!doc || doc._chatHandlerInjected) return;
       doc._chatHandlerInjected = true;
+
+      const isInteractive = (el) => {
+        const tag = el.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || el.isContentEditable;
+      };
+
+      // Right-click → lookup panel
       doc.addEventListener('contextmenu', function(e) {
         if (localStorage.getItem('clickLookup') === 'off') return;
-        const tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+        if (isInteractive(e.target)) return;
         e.preventDefault();
-        // Convert iframe-relative coords to parent viewport coords
-        const rect = iframe.getBoundingClientRect();
-        const x = e.clientX + rect.left;
-        const y = e.clientY + rect.top;
+        const f = iframe.getBoundingClientRect();
         const popup = document.getElementById('doc-chat-ask-float');
         if (popup) { popup.remove(); _lookupTrackMode = false; }
-        _showPanel({ anchor: { x, y } });
+        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top } });
       });
-      // Text selection inside iframe → show popup in parent
-      let iframeDragging = false;
+
+      // Text selection → selection popup
+      let dragging = false;
       doc.addEventListener('mousedown', function(e) {
         if (e.button !== 0) return;
         const existing = document.getElementById('doc-chat-ask-float');
@@ -3239,42 +3248,33 @@ function _injectIframeChatHandler(iframe) {
           _savePopupChatToHighlight(existing);
           existing.remove();
         }
-        const tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
-        if (e.target.isContentEditable) return;
-        iframeDragging = true;
+        if (!isInteractive(e.target)) dragging = true;
       });
       doc.addEventListener('selectionchange', function() {
-        if (!iframeDragging) return;
+        if (!dragging) return;
         const sel = doc.getSelection();
         const text = sel ? sel.toString().trim() : '';
         if (!text || text.length < 3 || sel.rangeCount === 0) return;
         _lookupTrackMode = false;
         const existing = document.getElementById('doc-chat-ask-float');
         if (existing && existing._isLookupPanel) existing.remove();
-        const range = sel.getRangeAt(0);
-        const rects = range.getBoundingClientRect();
-        const iframeRect = iframe.getBoundingClientRect();
-        const selectionRect = { top: rects.top + iframeRect.top, bottom: rects.bottom + iframeRect.top, left: rects.left + iframeRect.left, right: rects.right + iframeRect.left, width: rects.width, height: rects.height };
-        _showPanel({ anchor: { selectionRect }, selectionText: text, finalized: false });
+        _showPanel({ anchor: { selectionRect: _iframeRectToParent(sel.getRangeAt(0).getBoundingClientRect(), iframe) }, selectionText: text, finalized: false });
       });
-      doc.addEventListener('mouseup', function(e) {
-        if (!iframeDragging) return;
-        iframeDragging = false;
+      doc.addEventListener('mouseup', function() {
+        if (!dragging) return;
+        dragging = false;
         const sel = doc.getSelection();
         const text = sel ? sel.toString().trim() : '';
         if (text && text.length >= 3 && sel.rangeCount > 0) {
           _lookupTrackMode = false;
-          const range = sel.getRangeAt(0);
-          const rects = range.getBoundingClientRect();
-          const iframeRect = iframe.getBoundingClientRect();
-          const selectionRect = { top: rects.top + iframeRect.top, bottom: rects.bottom + iframeRect.top, left: rects.left + iframeRect.left, right: rects.right + iframeRect.left, width: rects.width, height: rects.height };
-          _showPanel({ anchor: { selectionRect }, selectionText: text, finalized: true });
+          _showPanel({ anchor: { selectionRect: _iframeRectToParent(sel.getRangeAt(0).getBoundingClientRect(), iframe) }, selectionText: text, finalized: true });
           return;
         }
         const existing = document.getElementById('doc-chat-ask-float');
         if (existing) { existing.remove(); _lookupTrackMode = false; }
       });
+
+      // Cmd+click → open link in new tab
       doc.addEventListener('click', function(e) {
         if (!(e.metaKey || e.ctrlKey)) return;
         const a = e.target.closest('a');
@@ -3283,6 +3283,8 @@ function _injectIframeChatHandler(iframe) {
         e.stopPropagation();
         window.top.open(a.href, '_blank');
       }, true);
+
+      // Keyboard shortcuts
       doc.addEventListener('keydown', function(e) {
         if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
           e.preventDefault();
@@ -3294,11 +3296,10 @@ function _injectIframeChatHandler(iframe) {
         }
       });
     } catch (e) {
-      // Cross-origin — can't inject
+      // Cross-origin — can't inject (webview uses executeJavaScript path instead)
     }
   };
   iframe.addEventListener('load', tryInject);
-  // Also try immediately in case already loaded
   tryInject();
 }
 

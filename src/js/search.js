@@ -1226,23 +1226,18 @@ function _browseBindFrame(tab) {
       _switchTabLeft();
     } else if (e.message === '__ALPHA_TAB_RIGHT__') {
       _switchTabRight();
-    } else if (e.message && e.message.startsWith('__ALPHA_SEL_PREVIEW__')) {
+    } else if (e.message && (e.message.startsWith('__ALPHA_SEL_PREVIEW__') || e.message.startsWith('__ALPHA_SEL_FINAL__'))) {
       try {
-        const data = JSON.parse(e.message.slice('__ALPHA_SEL_PREVIEW__'.length));
-        const wvRect = el.getBoundingClientRect();
-        const selectionRect = { top: data.top + wvRect.top, bottom: data.bottom + wvRect.top, left: data.left + wvRect.left, right: data.right + wvRect.left, width: data.width, height: data.height };
+        const isFinal = e.message.startsWith('__ALPHA_SEL_FINAL__');
+        const prefix = isFinal ? '__ALPHA_SEL_FINAL__' : '__ALPHA_SEL_PREVIEW__';
+        const data = JSON.parse(e.message.slice(prefix.length));
+        const selectionRect = _iframeRectToParent(data, el);
         _lookupTrackMode = false;
-        const existing = document.getElementById('doc-chat-ask-float');
-        if (existing && existing._isLookupPanel) existing.remove();
-        _showPanel({ anchor: { selectionRect }, selectionText: data.text, finalized: false });
-      } catch (err) {}
-    } else if (e.message && e.message.startsWith('__ALPHA_SEL_FINAL__')) {
-      try {
-        const data = JSON.parse(e.message.slice('__ALPHA_SEL_FINAL__'.length));
-        const wvRect = el.getBoundingClientRect();
-        const selectionRect = { top: data.top + wvRect.top, bottom: data.bottom + wvRect.top, left: data.left + wvRect.left, right: data.right + wvRect.left, width: data.width, height: data.height };
-        _lookupTrackMode = false;
-        _showPanel({ anchor: { selectionRect }, selectionText: data.text, finalized: true });
+        if (!isFinal) {
+          const existing = document.getElementById('doc-chat-ask-float');
+          if (existing && existing._isLookupPanel) existing.remove();
+        }
+        _showPanel({ anchor: { selectionRect }, selectionText: data.text, finalized: isFinal });
       } catch (err) {}
     } else if (e.message === '__ALPHA_SEL_CLEAR__') {
       const existing = document.getElementById('doc-chat-ask-float');
