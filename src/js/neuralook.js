@@ -23,13 +23,29 @@ window.addEventListener('mediapipe-ready', () => {
   if (document.getElementById('neuralook-content')) renderNeuralookView();
 });
 
-// Calibration data: array of { eyeData: [4096], screenX, screenY }
+// Calibration data: array of { eyeData: [4096], screenX, screenY, headPose: [yaw, pitch, roll] }
 let _nlCalibData = [];
 // Model state — server-side, just track if trained
 let _nlModelTrained = false;
 let _nlTrainError = null;
 let _nlValError = null;
 let _nlInferPending = false; // prevent overlapping inference requests
+
+// ── A/B Testing: Multi-Method Support ──
+let _nlActiveMethod = 'cnn';
+let _nlAvailableMethods = [
+  { key: 'cnn', name: 'CNN', trained: false, trainError: null, valError: null },
+  { key: 'cnn_kalman', name: 'CNN+Kalman', trained: false, trainError: null, valError: null },
+  { key: 'cnn_headpose', name: 'CNN+Head', trained: false, trainError: null, valError: null },
+  { key: 'linear', name: 'Linear', trained: false, trainError: null, valError: null },
+];
+let _nlCalibSaved = false;
+
+// Kalman filter state: [x, y, vx, vy]
+let _nlKalman = null;
+
+// Linear regression coefficients: { A: [[a,b,c],[d,e,f]] } where screen = A * [ratioX, ratioY, 1]
+let _nlLinRegCoeffs = null;
 
 // Eye crop canvas (offscreen, reused)
 let _nlEyeCropCanvas = null;
@@ -162,13 +178,23 @@ function renderNeuralookView() {
         </div>
 
         <div class="bg-card border border-border-card rounded-xl p-4">
-          <h3 class="text-[0.85rem] font-semibold text-primary mb-2">How it works</h3>
-          <ol class="text-[0.78rem] text-muted leading-relaxed list-decimal pl-4 space-y-1">
-            <li>Click <strong>Start Calibration</strong> — 25-point grid</li>
-            <li>Look at each dot for ~1 second</li>
-            <li>CNN trains on eye images (PyTorch)</li>
-            <li><strong>Start Tracking</strong> to show the gaze dot</li>
-          </ol>
+          <h3 class="text-[0.85rem] font-semibold text-primary mb-2">Methods</h3>
+          <div class="flex flex-col gap-1.5">
+            ${_nlAvailableMethods.map(m => {
+              const isActive = m.key === _nlActiveMethod;
+              const hasCalib = _nlCalibSaved || _nlCalibData.length > 0;
+              const statusText = m.trained ? `${m.valError || '—'}px` : '—';
+              const statusColor = m.trained ? (m.valError < 80 ? '#4ade80' : m.valError < 150 ? '#fbbf24' : '#f87171') : '#6b7280';
+              return `<div class="flex items-center gap-2 py-1" style="font-size:0.78rem;">
+                <input type="radio" name="nl-method" value="${m.key}" ${isActive ? 'checked' : ''} ${!m.trained ? 'disabled' : ''}
+                  onchange="_nlSwitchMethod('${m.key}')" class="accent-[var(--accent)]" style="margin:0;">
+                <span class="text-primary flex-1 ${!m.trained ? 'opacity-50' : ''}">${m.name}</span>
+                <span class="tabular-nums text-[0.72rem]" style="color:${statusColor};min-width:40px;text-align:right;">${statusText}</span>
+                ${!m.trained && hasCalib ? `<button onclick="_nlTrainMethod('${m.key}')" class="px-2 py-0.5 rounded border border-border-input text-[0.68rem] text-muted hover:text-accent hover:border-accent cursor-pointer transition-colors" ${_nlTraining ? 'disabled style="opacity:0.4"' : ''}>Train</button>` : ''}
+                ${m.trained ? '<span style="color:#4ade80;font-size:0.72rem;">✓</span>' : ''}
+              </div>`;
+            }).join('')}
+          </div>
         </div>
 
         ${_nlTrainLogs.length > 0 ? `
@@ -708,20 +734,200 @@ function _nlCaptureEyeCrops() {
   return combined;
 }
 
+// ── Head Pose Extraction ──
+
+function _nlExtractHeadPose(landmarks) {
+  if (!landmarks || landmarks.length < 400) return [0, 0, 0];
+  // Key landmarks: nose tip #1, chin #152, left eye corner #33, right eye corner #263, forehead #10
+  const nose = landmarks[1];
+  const chin = landmarks[152];
+  const leftEye = landmarks[33];
+  const rightEye = landmarks[263];
+  const forehead = landmarks[10];
+  // Yaw: horizontal angle between eyes relative to nose
+  const eyeMidX = (leftEye.x + rightEye.x) / 2;
+  const yaw = Math.atan2(nose.x - eyeMidX, Math.abs(rightEye.x - leftEye.x)) * (180 / Math.PI);
+  // Pitch: vertical angle from forehead to chin
+  const pitch = Math.atan2(chin.y - forehead.y, 1.0) * (180 / Math.PI) - 70;
+  // Roll: tilt of eye line
+  const roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * (180 / Math.PI);
+  return [yaw, pitch, roll];
+}
+
+// ── Kalman Filter (client-side smoothing) ──
+
+function _nlKalmanInit() {
+  const dt = 1 / 30;
+  _nlKalman = {
+    x: [0, 0, 0, 0], // [x, y, vx, vy]
+    P: [[1000,0,0,0],[0,1000,0,0],[0,0,1000,0],[0,0,0,1000]],
+    dt: dt,
+    Q: [[1,0,0,0],[0,1,0,0],[0,0,10,0],[0,0,0,10]], // process noise
+    R: [[2500,0],[0,2500]], // measurement noise (~50px std)
+    initialized: false
+  };
+}
+
+function _nlKalmanPredict() {
+  if (!_nlKalman) return;
+  const dt = _nlKalman.dt;
+  const x = _nlKalman.x;
+  // State transition: pos += vel * dt
+  _nlKalman.x = [x[0] + x[2] * dt, x[1] + x[3] * dt, x[2], x[3]];
+  // P = F*P*F' + Q
+  const P = _nlKalman.P;
+  const F = [[1,0,dt,0],[0,1,0,dt],[0,0,1,0],[0,0,0,1]];
+  const FP = _nlMat4Mul(F, P);
+  const FT = _nlMat4Transpose(F);
+  const FPFT = _nlMat4Mul(FP, FT);
+  for (let i = 0; i < 4; i++)
+    for (let j = 0; j < 4; j++)
+      _nlKalman.P[i][j] = FPFT[i][j] + _nlKalman.Q[i][j];
+}
+
+function _nlKalmanUpdate(mx, my) {
+  if (!_nlKalman) _nlKalmanInit();
+  if (!_nlKalman.initialized) {
+    _nlKalman.x = [mx, my, 0, 0];
+    _nlKalman.initialized = true;
+    return { x: mx, y: my };
+  }
+  _nlKalmanPredict();
+  const x = _nlKalman.x;
+  const P = _nlKalman.P;
+  // Innovation: z - H*x (H = [[1,0,0,0],[0,1,0,0]])
+  const y0 = mx - x[0], y1 = my - x[1];
+  // S = H*P*H' + R
+  const S = [[P[0][0] + _nlKalman.R[0][0], P[0][1]], [P[1][0], P[1][1] + _nlKalman.R[1][1]]];
+  // K = P*H' * inv(S)
+  const detS = S[0][0] * S[1][1] - S[0][1] * S[1][0];
+  if (Math.abs(detS) < 1e-10) return { x: x[0], y: x[1] };
+  const Si = [[S[1][1]/detS, -S[0][1]/detS], [-S[1][0]/detS, S[0][0]/detS]];
+  // K is 4x2: P * H' * Si  (H' is 4x2: first two cols of identity)
+  const PH = [[P[0][0],P[0][1]],[P[1][0],P[1][1]],[P[2][0],P[2][1]],[P[3][0],P[3][1]]];
+  const K = [];
+  for (let i = 0; i < 4; i++) K.push([PH[i][0]*Si[0][0]+PH[i][1]*Si[1][0], PH[i][0]*Si[0][1]+PH[i][1]*Si[1][1]]);
+  // Update state
+  for (let i = 0; i < 4; i++) _nlKalman.x[i] = x[i] + K[i][0]*y0 + K[i][1]*y1;
+  // Update P: (I - K*H) * P
+  const KH = [[K[0][0],K[0][1],0,0],[K[1][0],K[1][1],0,0],[K[2][0],K[2][1],0,0],[K[3][0],K[3][1],0,0]];
+  const IKH = [[1-KH[0][0],-KH[0][1],0,0],[-KH[1][0],1-KH[1][1],0,0],[-KH[2][0],-KH[2][1],1,0],[-KH[3][0],-KH[3][1],0,1]];
+  _nlKalman.P = _nlMat4Mul(IKH, P);
+  return { x: _nlKalman.x[0], y: _nlKalman.x[1] };
+}
+
+function _nlMat4Mul(A, B) {
+  const R = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  for (let i = 0; i < 4; i++)
+    for (let j = 0; j < 4; j++)
+      for (let k = 0; k < 4; k++)
+        R[i][j] += A[i][k] * B[k][j];
+  return R;
+}
+
+function _nlMat4Transpose(M) {
+  return [[M[0][0],M[1][0],M[2][0],M[3][0]],[M[0][1],M[1][1],M[2][1],M[3][1]],[M[0][2],M[1][2],M[2][2],M[3][2]],[M[0][3],M[1][3],M[2][3],M[3][3]]];
+}
+
+// ── Linear Regression (client-side, no neural net) ──
+
+function _nlExtractIrisRatios(landmarks) {
+  if (!landmarks || landmarks.length < 400) return null;
+  // Left eye: outer=33, inner=133; iris center ~468
+  // Right eye: outer=263, inner=362; iris center ~473
+  const le_outer = landmarks[33], le_inner = landmarks[133];
+  const re_outer = landmarks[263], re_inner = landmarks[362];
+  const le_top = landmarks[159], le_bot = landmarks[145];
+  const re_top = landmarks[386], re_bot = landmarks[374];
+  const li = landmarks[468] || le_outer; // iris center (if available)
+  const ri = landmarks[473] || re_outer;
+  // X ratio: iris position within eye width
+  const leW = Math.abs(le_inner.x - le_outer.x) || 0.01;
+  const reW = Math.abs(re_inner.x - re_outer.x) || 0.01;
+  const lxr = (li.x - le_outer.x) / leW;
+  const rxr = (ri.x - re_outer.x) / reW;
+  // Y ratio: iris position within eye height
+  const leH = Math.abs(le_bot.y - le_top.y) || 0.01;
+  const reH = Math.abs(re_bot.y - re_top.y) || 0.01;
+  const lyr = (li.y - le_top.y) / leH;
+  const ryr = (ri.y - re_top.y) / reH;
+  return { ratioX: (lxr + rxr) / 2, ratioY: (lyr + ryr) / 2 };
+}
+
+function _nlSolveLinearRegression(calibData) {
+  // Normal equations: Y = X * A^T, solve A = (X^T X)^-1 X^T Y
+  // X is [N, 3] (ratioX, ratioY, 1), Y is [N, 2] (screenX, screenY)
+  const N = calibData.length;
+  if (N < 3) return null;
+  const X = [], Ys = [];
+  for (const s of calibData) {
+    if (!s.irisRatios) continue;
+    X.push([s.irisRatios.ratioX, s.irisRatios.ratioY, 1]);
+    Ys.push([s.screenX, s.screenY]);
+  }
+  if (X.length < 3) return null;
+  const n = X.length;
+  // X^T X (3x3)
+  const XtX = [[0,0,0],[0,0,0],[0,0,0]];
+  const XtY = [[0,0],[0,0],[0,0]];
+  for (let i = 0; i < n; i++) {
+    for (let a = 0; a < 3; a++) {
+      for (let b = 0; b < 3; b++) XtX[a][b] += X[i][a] * X[i][b];
+      for (let b = 0; b < 2; b++) XtY[a][b] += X[i][a] * Ys[i][b];
+    }
+  }
+  // Invert 3x3 XtX
+  const inv = _nlInvert3x3(XtX);
+  if (!inv) return null;
+  // A = inv * XtY  (3x2)
+  const A = [[0,0],[0,0],[0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 2; j++)
+      for (let k = 0; k < 3; k++)
+        A[i][j] += inv[i][k] * XtY[k][j];
+  return A;
+}
+
+function _nlInvert3x3(m) {
+  const a=m[0][0],b=m[0][1],c=m[0][2],d=m[1][0],e=m[1][1],f=m[1][2],g=m[2][0],h=m[2][1],k=m[2][2];
+  const det = a*(e*k-f*h) - b*(d*k-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-12) return null;
+  const id = 1/det;
+  return [
+    [(e*k-f*h)*id, (c*h-b*k)*id, (b*f-c*e)*id],
+    [(f*g-d*k)*id, (a*k-c*g)*id, (c*d-a*f)*id],
+    [(d*h-e*g)*id, (b*g-a*h)*id, (a*e-b*d)*id]
+  ];
+}
+
+function _nlLinRegPredict(ratioX, ratioY) {
+  if (!_nlLinRegCoeffs) return null;
+  const A = _nlLinRegCoeffs;
+  return {
+    x: A[0][0] * ratioX + A[1][0] * ratioY + A[2][0],
+    y: A[0][1] * ratioX + A[1][1] * ratioY + A[2][1]
+  };
+}
+
 // ── Server Communication ──
 
-function _nlTrainOnServerSSE(onProgress, onLog) {
+function _nlTrainOnServerSSE(onProgress, onLog, method) {
+  method = method || _nlActiveMethod;
   return new Promise((resolve, reject) => {
-    const samples = _nlCalibData.map(s => ({
+    // If calibration is saved on disk, let the server load it (send minimal body)
+    const useSaved = _nlCalibSaved && _nlCalibData.length > 0;
+    const samples = useSaved ? [] : _nlCalibData.map(s => ({
       eyeData: Array.from(s.eyeData),
       screenX: s.screenX,
-      screenY: s.screenY
+      screenY: s.screenY,
+      headPose: s.headPose || [0, 0, 0]
     }));
 
     fetch('/api/neuralook/train', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        method,
         samples,
         screenW: window.innerWidth,
         screenH: window.innerHeight,
@@ -751,6 +957,10 @@ function _nlTrainOnServerSSE(onProgress, onLog) {
                   _nlTrainError = data.train_error_px;
                   _nlValError = data.val_error_px || null;
                   _nlModelTrained = true;
+                  // Update method-specific state
+                  const m = data.method || method;
+                  const mObj = _nlAvailableMethods.find(x => x.key === m);
+                  if (mObj) { mObj.trained = true; mObj.trainError = data.train_error_px; mObj.valError = data.val_error_px; }
                   resolve(data);
                   return;
                 } else if (currentEvent === 'error') {
@@ -855,11 +1065,15 @@ function _nlDismissTrainPill() {
   setTimeout(() => p.remove(), 300);
 }
 
-async function _nlPredictOnServer(eyeData) {
+async function _nlPredictOnServer(eyeData, headPose) {
+  // cnn_kalman uses the cnn model on server (kalman is client-side smoothing only)
+  const serverMethod = _nlActiveMethod === 'cnn_kalman' ? 'cnn' : _nlActiveMethod;
+  const body = { eyeData: Array.from(eyeData), method: serverMethod };
+  if (_nlActiveMethod === 'cnn_headpose' && headPose) body.headPose = headPose;
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ eyeData: Array.from(eyeData) })
+    body: JSON.stringify(body)
   });
   const result = await resp.json();
   if (result.error) return null;
@@ -1147,7 +1361,17 @@ function _nlShowNextCalibrationDot() {
 
       const eyeData = _nlCaptureEyeCrops();
       if (eyeData) {
-        _nlCalibData.push({ eyeData, screenX, screenY });
+        // Also capture head pose and iris ratios for each sample
+        let headPose = [0, 0, 0];
+        let irisRatios = null;
+        if (_nlFaceLandmarker && _nlVideoEl) {
+          const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
+          if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
+            headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
+            irisRatios = _nlExtractIrisRatios(r.faceLandmarks[0]);
+          }
+        }
+        _nlCalibData.push({ eyeData, screenX, screenY, headPose, irisRatios });
       }
       requestAnimationFrame(collect);
     }
@@ -1158,6 +1382,29 @@ function _nlShowNextCalibrationDot() {
 async function _nlOnCalibrationComplete() {
   // Close fullscreen overlay immediately, train in background via pill
   _nlFinishCalibration();
+
+  // Save calibration data to server for reuse by other methods
+  try {
+    const calibPayload = {
+      samples: _nlCalibData.map(s => ({
+        eyeData: Array.from(s.eyeData),
+        screenX: s.screenX, screenY: s.screenY,
+        headPose: s.headPose || [0, 0, 0]
+      })),
+      screenW: window.innerWidth, screenH: window.innerHeight,
+      eyeW: _NL_EYE_W, eyeH: _NL_EYE_H
+    };
+    await fetch('/api/neuralook/save-calibration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(calibPayload)
+    });
+    _nlCalibSaved = true;
+  } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
+
+  // Reset all method trained states
+  for (const m of _nlAvailableMethods) { m.trained = false; m.trainError = null; m.valError = null; }
+
   _nlTraining = true;
   _nlTrainPhase = 'training';
   _nlTrainProgress = null;
@@ -1210,6 +1457,108 @@ async function _nlOnCalibrationComplete() {
   }
 }
 
+// ── Method Selector: Train & Switch ──
+
+async function _nlTrainMethod(methodKey) {
+  if (methodKey === 'linear') {
+    // Client-side: solve linear regression from calibration iris ratios
+    const A = _nlSolveLinearRegression(_nlCalibData);
+    if (!A) { alert('Linear regression failed — not enough iris ratio data.'); return; }
+    _nlLinRegCoeffs = A;
+    const mObj = _nlAvailableMethods.find(x => x.key === 'linear');
+    if (mObj) { mObj.trained = true; }
+    // Compute validation error estimate
+    let totalErr = 0, count = 0;
+    for (const s of _nlCalibData) {
+      if (!s.irisRatios) continue;
+      const pred = _nlLinRegPredict(s.irisRatios.ratioX, s.irisRatios.ratioY);
+      if (pred) {
+        totalErr += Math.sqrt((pred.x - s.screenX) ** 2 + (pred.y - s.screenY) ** 2);
+        count++;
+      }
+    }
+    if (mObj && count > 0) { mObj.valError = Math.round(totalErr / count); mObj.trainError = mObj.valError; }
+    _nlReady = true;
+    renderNeuralookView();
+    return;
+  }
+
+  if (methodKey === 'cnn_kalman') {
+    // CNN+Kalman shares the CNN model, just needs CNN to be trained
+    const cnnObj = _nlAvailableMethods.find(x => x.key === 'cnn');
+    if (!cnnObj || !cnnObj.trained) {
+      // Train CNN first, then mark kalman as trained
+      await _nlTrainMethod('cnn');
+    }
+    const mObj = _nlAvailableMethods.find(x => x.key === 'cnn_kalman');
+    if (mObj) {
+      mObj.trained = true;
+      mObj.trainError = cnnObj ? cnnObj.trainError : null;
+      mObj.valError = cnnObj ? cnnObj.valError : null;
+    }
+    _nlKalmanInit();
+    _nlReady = true;
+    renderNeuralookView();
+    return;
+  }
+
+  // Server-side training (cnn or cnn_headpose)
+  if (!_nlCalibSaved && _nlCalibData.length === 0) { alert('No calibration data. Please calibrate first.'); return; }
+
+  _nlTraining = true;
+  _nlTrainPhase = 'training';
+  _nlTrainProgress = null;
+  _nlTrainResult = null;
+  _nlTrainLossHistory = [];
+  _nlTrainLogs = [];
+  _nlWandbUrl = null;
+  _nlTrainStartTime = Date.now();
+  _nlShowTrainView = true;
+  _nlShowTrainPill();
+  renderNeuralookView();
+
+  try {
+    const result = await _nlTrainOnServerSSE((prog) => {
+      _nlTrainProgress = prog;
+      _nlTrainPhase = prog.phase || 'training';
+      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
+      const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
+      const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+      _nlUpdateTrainPill(`Training ${methodKey}`, `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}`);
+      _nlRefreshTrainView();
+    }, (logLine) => {
+      _nlTrainLogs.push(logLine);
+      _nlAppendTrainLog(logLine);
+    }, methodKey);
+
+    _nlTrainResult = result;
+    _nlTrainPhase = 'done';
+    _nlTraining = false;
+    _nlReady = true;
+    const valPx = result.val_error_px;
+    const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
+    _nlFinishTrainPill('Training Done', `Val ${valPx}px`, color);
+    _nlRefreshTrainView();
+    renderNeuralookView();
+  } catch (e) {
+    _nlTrainPhase = 'error';
+    _nlTraining = false;
+    _nlTrainResult = { error: e.message || String(e) };
+    _nlErrorTrainPill(e.message || String(e));
+    _nlRefreshTrainView();
+    renderNeuralookView();
+  }
+}
+
+function _nlSwitchMethod(key) {
+  _nlActiveMethod = key;
+  _nlGazeBuffer = [];
+  if (key === 'cnn_kalman') _nlKalmanInit();
+  // For server-based methods that use 'cnn' model under a different key (kalman),
+  // the predict endpoint uses the method key; kalman uses 'cnn' model on server
+  renderNeuralookView();
+}
+
 function _nlFinishCalibration() {
   _nlCalibrating = false;
   const overlay = document.getElementById('nl-calibration-overlay');
@@ -1228,23 +1577,68 @@ function _nlTrackingLoop() {
     return;
   }
 
+  // Linear regression: client-side only, no server call
+  if (_nlActiveMethod === 'linear') {
+    const result = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
+    if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
+      const ratios = _nlExtractIrisRatios(result.faceLandmarks[0]);
+      if (ratios) {
+        const pred = _nlLinRegPredict(ratios.ratioX, ratios.ratioY);
+        if (pred) {
+          _nlPredictionCount++;
+          _nlPredictionsThisSec++;
+          _nlGazeBuffer.push(pred);
+          if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+          let sx = 0, sy = 0;
+          for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+          _nlGazeX = sx / _nlGazeBuffer.length;
+          _nlGazeY = sy / _nlGazeBuffer.length;
+          _nlMoveDot(_nlGazeX, _nlGazeY);
+        }
+      }
+    }
+    _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
+    return;
+  }
+
+  // Server-based methods: cnn, cnn_kalman, cnn_headpose
   if (!_nlInferPending) {
     const eyeData = _nlCaptureEyeCrops();
     if (eyeData) {
+      // Extract head pose for cnn_headpose method
+      let headPose = null;
+      if (_nlActiveMethod === 'cnn_headpose') {
+        const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
+        if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
+          headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
+        }
+      }
+
       _nlInferPending = true;
-      _nlPredictOnServer(eyeData).then(pred => {
+      _nlPredictOnServer(eyeData, headPose).then(pred => {
         _nlInferPending = false;
         if (!pred || !_nlTracking) return;
 
         _nlPredictionCount++;
         _nlPredictionsThisSec++;
 
-        _nlGazeBuffer.push(pred);
-        if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-        let sx = 0, sy = 0;
-        for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
-        _nlGazeX = sx / _nlGazeBuffer.length;
-        _nlGazeY = sy / _nlGazeBuffer.length;
+        if (_nlActiveMethod === 'cnn_kalman') {
+          // Kalman filter smoothing instead of ring buffer
+          const filtered = _nlKalmanUpdate(pred.x, pred.y);
+          _nlGazeX = filtered.x;
+          _nlGazeY = filtered.y;
+          // Still push to buffer for jitter stats
+          _nlGazeBuffer.push(pred);
+          if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+        } else {
+          // Ring buffer smoothing (cnn, cnn_headpose)
+          _nlGazeBuffer.push(pred);
+          if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+          let sx = 0, sy = 0;
+          for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+          _nlGazeX = sx / _nlGazeBuffer.length;
+          _nlGazeY = sy / _nlGazeBuffer.length;
+        }
         _nlMoveDot(_nlGazeX, _nlGazeY);
       }).catch(() => { _nlInferPending = false; });
     }
@@ -1259,13 +1653,17 @@ function _nlToggleTracking() {
 }
 
 async function _nlStartTracking() {
-  if (!_nlReady || !_nlModelTrained) return;
+  if (!_nlReady) return;
+  // Check the active method is trained
+  const mObj = _nlAvailableMethods.find(x => x.key === _nlActiveMethod);
+  if (!mObj || !mObj.trained) return;
   try { await _nlEnsureVideo(); } catch (e) {
     _nlShowError('Camera error: ' + (e.message || e));
     return;
   }
   _nlTracking = true;
   _nlGazeBuffer = [];
+  if (_nlActiveMethod === 'cnn_kalman') _nlKalmanInit();
   _nlCreateDot();
   _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
   renderNeuralookView();
@@ -1359,10 +1757,10 @@ function _nlRefreshStats() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
   el.innerHTML =
-    row('Model', 'PyTorch CNN (server)') +
+    row('Method', (_nlAvailableMethods.find(m => m.key === _nlActiveMethod) || {}).name || _nlActiveMethod) +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
     row('Calibration', `${_nlCalibData.length} frames / ${_NL_CAL_POSITIONS.length} pts`) +
-    row('CNN', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
+    row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
     (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +
     row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +

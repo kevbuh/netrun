@@ -78,8 +78,8 @@ from kernels import (
 PORT = _args.port
 GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
 
-# Neuralook — trained CNN model kept in memory for inference
-_neuralook_model = None
+# Neuralook — trained models kept in memory for inference (keyed by method name)
+_neuralook_models = {}  # { 'cnn': model, 'cnn_headpose': model, ... }
 _neuralook_screen = None  # (screen_w, screen_h, eye_w, eye_h)
 _whisper_model = None
 
@@ -701,6 +701,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if self.path == '/api/settings':
             self._send_json({'ok': True})
+            return
+
+        elif self.path == '/api/neuralook/calibration':
+            calib_path = os.path.join(DIR, 'neuralook_calibration.json')
+            if os.path.exists(calib_path):
+                with open(calib_path, 'r') as f:
+                    self._send_json(json.loads(f.read()))
+            else:
+                self._send_json({'error': 'No calibration data saved'}, 404)
             return
 
         elif self.path == '/favicon.ico':
@@ -2136,7 +2145,7 @@ ch.postMessage({type:'preview-ready'});
         return google_id
 
     def do_POST(self):
-        global _neuralook_model, _neuralook_screen
+        global _neuralook_models, _neuralook_screen
         if self.path == '/api/transcribe':
             length = int(self.headers.get('Content-Length', 0))
             if length == 0:
@@ -2164,6 +2173,16 @@ ch.postMessage({type:'preview-ready'});
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
             return
+        if self.path == '/api/neuralook/save-calibration':
+            body = self._read_body()
+            calib_path = os.path.join(DIR, 'neuralook_calibration.json')
+            try:
+                with open(calib_path, 'w') as f:
+                    json.dump(body, f)
+                self._send_json({'ok': True, 'samples': len(body.get('samples', []))})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
         if self.path == '/api/neuralook/train':
             body = self._read_body()
             try:
@@ -2171,7 +2190,21 @@ ch.postMessage({type:'preview-ready'});
                 import torch.nn as nn
                 import random
 
+                method = body.get('method', 'cnn')  # 'cnn' | 'cnn_headpose'
+
+                # Load calibration from disk (saved during calibration)
                 samples = body.get('samples', [])
+                if not samples:
+                    calib_path = os.path.join(DIR, 'neuralook_calibration.json')
+                    if os.path.exists(calib_path):
+                        with open(calib_path, 'r') as f:
+                            calib = json.loads(f.read())
+                        samples = calib.get('samples', [])
+                        body.setdefault('screenW', calib.get('screenW', 1920))
+                        body.setdefault('screenH', calib.get('screenH', 1080))
+                        body.setdefault('eyeW', calib.get('eyeW', 64))
+                        body.setdefault('eyeH', calib.get('eyeH', 32))
+
                 screen_w = body.get('screenW', 1920)
                 screen_h = body.get('screenH', 1080)
                 eye_w = body.get('eyeW', 64)
@@ -2184,6 +2217,7 @@ ch.postMessage({type:'preview-ready'});
                 eye_size = eye_w * eye_h  # 2048 per eye
                 X_list = []
                 Y_list = []
+                H_list = []  # head pose [yaw, pitch, roll] per sample
                 for s in samples:
                     raw = s['eyeData']
                     if len(raw) != eye_size * 2:
@@ -2192,6 +2226,8 @@ ch.postMessage({type:'preview-ready'});
                     right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
                     X_list.append(torch.cat([left, right], dim=0))  # [2, 32, 64]
                     Y_list.append([s['screenX'] / screen_w, s['screenY'] / screen_h])
+                    hp = s.get('headPose', [0, 0, 0])
+                    H_list.append(hp if len(hp) == 3 else [0, 0, 0])
 
                 if len(X_list) < 10:
                     self._send_json({'error': f'Only {len(X_list)} valid samples'}, 400)
@@ -2199,6 +2235,7 @@ ch.postMessage({type:'preview-ready'});
 
                 X = torch.stack(X_list)  # [N, 2, 32, 64]
                 Y = torch.tensor(Y_list, dtype=torch.float32)  # [N, 2]
+                H = torch.tensor(H_list, dtype=torch.float32)  # [N, 3] head pose
 
                 # Train/val split — hold out ~25% of calibration points
                 targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples if len(s['eyeData']) == eye_size * 2]
@@ -2211,6 +2248,7 @@ ch.postMessage({type:'preview-ready'});
 
                 X_train, Y_train = X[train_mask], Y[train_mask]
                 X_val, Y_val = X[val_mask], Y[val_mask]
+                H_train, H_val = H[train_mask], H[val_mask]
 
                 # CNN: 2-channel 32x64 eye crops → 2 screen coords
                 class GazeCNN(nn.Module):
@@ -2233,7 +2271,35 @@ ch.postMessage({type:'preview-ready'});
                     def forward(self, x):
                         return self.head(self.features(x))
 
-                model = GazeCNN()
+                # CNN + Head Pose: same conv backbone, head pose concatenated before FC
+                class GazeCNNHeadPose(nn.Module):
+                    def __init__(self):
+                        super().__init__()
+                        self.features = nn.Sequential(
+                            nn.Conv2d(2, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+                            nn.MaxPool2d(2),
+                            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+                            nn.MaxPool2d(2),
+                            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+                            nn.AdaptiveAvgPool2d((4, 4)),
+                        )
+                        self.flatten = nn.Flatten()
+                        # 128*4*4 = 2048 from conv + 3 from head pose
+                        self.head = nn.Sequential(
+                            nn.Linear(2048 + 3, 256), nn.ReLU(), nn.Dropout(0.3),
+                            nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
+                            nn.Linear(64, 2)
+                        )
+                    def forward(self, x, head_pose=None):
+                        feat = self.flatten(self.features(x))
+                        if head_pose is not None:
+                            feat = torch.cat([feat, head_pose], dim=1)
+                        else:
+                            feat = torch.cat([feat, torch.zeros(x.shape[0], 3)], dim=1)
+                        return self.head(feat)
+
+                is_headpose = method == 'cnn_headpose'
+                model = GazeCNNHeadPose() if is_headpose else GazeCNN()
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 max_epochs = 50
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
@@ -2253,7 +2319,8 @@ ch.postMessage({type:'preview-ready'});
                         project='neuralook',
                         mode='online',
                         config={
-                            'architecture': 'GazeCNN',
+                            'architecture': 'GazeCNNHeadPose' if is_headpose else 'GazeCNN',
+                            'method': method,
                             'eye_w': eye_w, 'eye_h': eye_h,
                             'n_samples': len(X_list),
                             'n_train': int(train_mask.sum()),
@@ -2291,9 +2358,11 @@ ch.postMessage({type:'preview-ready'});
 
                 # Log setup info
                 n_params = sum(p.numel() for p in model.parameters())
-                _sse('log', {'text': f'GazeCNN | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]'})
+                arch_name = 'GazeCNNHeadPose' if is_headpose else 'GazeCNN'
+                _sse('log', {'text': f'{arch_name} | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]{" + [B, 3] head pose" if is_headpose else ""}'})
                 _sse('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
-                _sse('log', {'text': f'  head: Flatten → Linear(2048,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+                fc_in = '2048+3' if is_headpose else '2048'
+                _sse('log', {'text': f'  head: Flatten → Linear({fc_in},256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
                 _sse('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
                 _sse('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
                 _sse('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
@@ -2312,7 +2381,7 @@ ch.postMessage({type:'preview-ready'});
                     n_batches = 0
                     for start in range(0, n_train, batch_size):
                         idx = perm[start:start + batch_size]
-                        pred = model(X_train[idx])
+                        pred = model(X_train[idx], H_train[idx]) if is_headpose else model(X_train[idx])
                         loss = nn.functional.mse_loss(pred, Y_train[idx])
                         optimizer.zero_grad()
                         loss.backward()
@@ -2325,7 +2394,7 @@ ch.postMessage({type:'preview-ready'});
                     if epoch % 10 == 0:
                         model.eval()
                         with torch.no_grad():
-                            val_pred = model(X_val)
+                            val_pred = model(X_val, H_val) if is_headpose else model(X_val)
                             val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
                         improved = val_loss < best_val_loss
                         if improved:
@@ -2356,16 +2425,17 @@ ch.postMessage({type:'preview-ready'});
                 _sse('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
 
                 with torch.no_grad():
-                    train_pred = model(X_train)
+                    train_pred = model(X_train, H_train) if is_headpose else model(X_train)
                     tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
                     yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
                     train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
 
-                    vp = model(X_val); vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
+                    vp = model(X_val, H_val) if is_headpose else model(X_val)
+                    vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
                     yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
                     val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
 
-                _neuralook_model = model
+                _neuralook_models[method] = model
                 _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
 
                 _sse('log', {'text': f'  train error: {train_err:.1f}px'})
@@ -2385,6 +2455,7 @@ ch.postMessage({type:'preview-ready'});
                     _sse('log', {'text': f'wandb: Run logged offline → wandb/latest-run'})
 
                 _sse('done', {
+                    'method': method,
                     'train_error_px': round(train_err, 1),
                     'val_error_px': round(val_err, 1),
                     'stopped_epoch': stopped_epoch,
@@ -2407,8 +2478,10 @@ ch.postMessage({type:'preview-ready'});
             try:
                 import torch
 
-                if _neuralook_model is None:
-                    self._send_json({'error': 'Model not trained'}, 400)
+                method = body.get('method', 'cnn')
+                model = _neuralook_models.get(method)
+                if model is None:
+                    self._send_json({'error': f'Model not trained for method: {method}'}, 400)
                     return
                 raw = body.get('eyeData', [])
                 screen_w, screen_h, eye_w, eye_h = _neuralook_screen
@@ -2420,7 +2493,12 @@ ch.postMessage({type:'preview-ready'});
                 right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
                 inp = torch.cat([left, right], dim=0).unsqueeze(0)  # [1, 2, 32, 64]
                 with torch.no_grad():
-                    pred = _neuralook_model(inp)[0]
+                    if method == 'cnn_headpose':
+                        hp = body.get('headPose', [0, 0, 0])
+                        hp_tensor = torch.tensor([hp], dtype=torch.float32)
+                        pred = model(inp, hp_tensor)[0]
+                    else:
+                        pred = model(inp)[0]
                 self._send_json({
                     'x': round(pred[0].item() * screen_w, 1),
                     'y': round(pred[1].item() * screen_h, 1)

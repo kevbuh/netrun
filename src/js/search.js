@@ -4050,7 +4050,8 @@ function _browseUrlKeydown(e) {
       }
     } else {
       _browseUrlHideHistory();
-      browseNavigate(document.getElementById('browse-url-input').value);
+      const urlInput = document.getElementById('browse-url-input');
+      browseNavigate(urlInput ? urlInput.value : '');
     }
     return;
   }
@@ -4097,6 +4098,54 @@ function _browseUrlHighlight(items) {
   if (_browseUrlHistIdx >= 0 && items[_browseUrlHistIdx]) {
     items[_browseUrlHistIdx].scrollIntoView({ block: 'nearest' });
   }
+}
+
+let _feelingLuckyQuery = '';
+let _feelingLuckyLoading = false;
+
+function _browseUrlFeelingLucky() {
+  const input = document.getElementById('browse-url-input');
+  const dd = document.getElementById('browse-url-history-dd');
+  _feelingLuckyLoading = true;
+  _feelingLuckyQuery = '';
+  _browseUrlRenderLuckyRow(dd);
+  const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  fetch('/api/doc-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: [{ role: 'user', content: 'Give me a single interesting, surprising, or obscure topic to search on the web right now. Just reply with the search query, nothing else. No quotes. Be creative and varied — pick from science, history, art, philosophy, technology, nature, space, culture, or anything fascinating. Do not repeat yourself.' }],
+      model: model
+    })
+  }).then(r => {
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          _feelingLuckyLoading = false;
+          _feelingLuckyQuery = _feelingLuckyQuery.replace(/^["']|["']$/g, '').trim();
+          _browseUrlRenderLuckyRow(dd);
+          return;
+        }
+        const chunk = dec.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const evt = line.slice(6).trim();
+          if (evt === '[DONE]') continue;
+          try { const token = JSON.parse(evt); if (typeof token === 'string') _feelingLuckyQuery += token; } catch (_) {}
+        }
+        _browseUrlRenderLuckyRow(dd);
+        read();
+      });
+    }
+    read();
+  }).catch(() => { _feelingLuckyLoading = false; _browseUrlRenderLuckyRow(dd); });
+}
+
+function _browseUrlRenderLuckyRow(dd) {
+  // Re-render the full dropdown so styles (pointer-events, redo btn) update
+  _browseUrlShowHistory();
 }
 
 function _browseUrlShowHistory() {
@@ -4187,7 +4236,8 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
   const hasInstant = _instantAnswer && _instantAnswer.html;
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant) { dd.style.display = 'none'; return; }
+  const showLucky = !filter;
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky) { dd.style.display = 'none'; return; }
 
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
@@ -4200,6 +4250,24 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
   const hoverOff = "this.style.background='none'";
 
   let html = '';
+
+  // "Feeling Lucky" row when input is empty
+  if (showLucky) {
+    const loading = _feelingLuckyLoading;
+    const hasQuery = !!_feelingLuckyQuery && !loading;
+    // Auto-trigger on first show if no query yet
+    if (!_feelingLuckyQuery && !_feelingLuckyLoading) {
+      setTimeout(_browseUrlFeelingLucky, 0);
+    }
+    html += `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${loading ? 'opacity:0.7;cursor:wait;' : ''}">
+      <span style="font-size:1rem;flex-shrink:0;">&#x2728;</span>
+      <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+        <span style="font-weight:600;color:var(--accent);">Feeling Lucky</span>
+        <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${loading ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : (hasQuery ? escapeHtml(_feelingLuckyQuery) : '')}</span>
+      </span>
+      ${hasQuery ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
+    </div>`;
+  }
 
   // Definition section for single-word searches
   if (hasDef) {
@@ -4273,6 +4341,33 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter) {
 
   dd.innerHTML = html;
   dd.style.display = '';
+
+  // Attach feeling lucky click handlers (must be after innerHTML)
+  const luckyRow = dd.querySelector('.browse-lucky-row');
+  if (luckyRow) {
+    luckyRow.addEventListener('mousedown', (ev) => {
+      // Don't navigate if clicking the redo button
+      if (ev.target.closest('.browse-lucky-redo')) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (_feelingLuckyQuery && !_feelingLuckyLoading) {
+        const inp = document.getElementById('browse-url-input');
+        if (inp) inp.value = _feelingLuckyQuery;
+        _browseUrlHideHistory();
+        browseNavigate(_feelingLuckyQuery);
+      }
+    });
+    const redo = luckyRow.querySelector('.browse-lucky-redo');
+    if (redo) {
+      redo.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        _browseUrlFeelingLucky();
+      });
+      redo.addEventListener('mouseenter', () => { redo.style.color = 'var(--accent)'; });
+      redo.addEventListener('mouseleave', () => { redo.style.color = 'var(--text-dimmer)'; });
+    }
+  }
 }
 
 function _fetchSearchSuggestions(query) {
