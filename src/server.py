@@ -1050,6 +1050,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'results': [], 'error': str(e)})
 
+        elif self.path.startswith('/api/stock-quote'):
+            try:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                symbol = qs.get('symbol', [''])[0].strip().upper()
+                if not symbol:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(b'{"error":"symbol required"}')
+                    return
+                import urllib.request, json
+                url = f'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d'
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read())
+                result = data.get('chart', {}).get('result', [{}])[0]
+                meta = result.get('meta', {})
+                price = meta.get('regularMarketPrice', 0)
+                prev = meta.get('chartPreviousClose', 0)
+                change = round(price - prev, 2) if prev else 0
+                change_pct = round((change / prev) * 100, 2) if prev else 0
+                name = meta.get('shortName', '') or meta.get('longName', '') or symbol
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'price': price, 'change': change, 'changePercent': change_pct, 'name': name}).encode())
+            except Exception as e:
+                self.send_response(502)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode())
+
         elif self.path.startswith('/api/rss-proxy'):
             try:
                 from urllib.parse import urlparse, parse_qs

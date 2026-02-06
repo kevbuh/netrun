@@ -34,6 +34,14 @@ let _nlInferPending = false; // prevent overlapping inference requests
 // Eye crop canvas (offscreen, reused)
 let _nlEyeCropCanvas = null;
 
+// Training state (for full-page training view)
+let _nlTraining = false;
+let _nlTrainPhase = ''; // 'training' | 'evaluating' | 'done' | 'error'
+let _nlTrainProgress = null; // latest progress event
+let _nlTrainResult = null; // final result from done event
+let _nlTrainLossHistory = []; // [{epoch, val_loss}]
+let _nlTrainStartTime = 0;
+
 // Smoothing
 let _nlGazeBuffer = [];
 const _NL_BUFFER_SIZE = 6;
@@ -84,6 +92,12 @@ async function openNeuralook() {
 function renderNeuralookView() {
   const container = document.getElementById('neuralook-content');
   if (!container) return;
+
+  // If training is active or just completed, show training detail view
+  if (_nlTraining || _nlTrainPhase === 'done' || _nlTrainPhase === 'error') {
+    _nlRenderTrainDetailView(container);
+    return;
+  }
 
   const trackingLabel = _nlTracking ? 'Stop Tracking' : 'Start Tracking';
   const statusColor = _nlTracking ? '#4ade80' : _nlReady ? '#fbbf24' : '#6b7280';
@@ -137,7 +151,6 @@ function renderNeuralookView() {
             <li>Click <strong>Start Calibration</strong> — 25-point grid</li>
             <li>Look at each dot for ~1 second</li>
             <li>CNN trains on eye images (PyTorch)</li>
-            <li>Accuracy test on 4 off-grid points</li>
             <li><strong>Start Tracking</strong> to show the gaze dot</li>
           </ol>
         </div>
@@ -190,6 +203,238 @@ function renderNeuralookView() {
   if (_nlCameraOn) _nlAttachCameraPreview();
   _nlRefreshStats();
   _nlStartStatsInterval();
+}
+
+// ── Training Detail View ──
+
+function _nlRenderTrainDetailView(container) {
+  const isDone = _nlTrainPhase === 'done';
+  const isError = _nlTrainPhase === 'error';
+  const prog = _nlTrainProgress || {};
+  const epoch = prog.epoch || 0;
+  const maxEpochs = prog.max_epochs || 3000;
+  const pct = Math.round((epoch / maxEpochs) * 100);
+  const elapsed = Math.round((Date.now() - _nlTrainStartTime) / 1000);
+  const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+  const latestLoss = _nlTrainLossHistory.length > 0 ? _nlTrainLossHistory[_nlTrainLossHistory.length - 1].val_loss : null;
+
+  let phaseLabel, phaseColor;
+  if (isError) { phaseLabel = 'Error'; phaseColor = '#f87171'; }
+  else if (isDone) { phaseLabel = 'Complete'; phaseColor = '#4ade80'; }
+  else if (_nlTrainPhase === 'evaluating') { phaseLabel = 'Evaluating'; phaseColor = '#60a5fa'; }
+  else { phaseLabel = 'Training'; phaseColor = 'var(--accent, #b4451a)'; }
+
+  // Result rows for done state
+  let resultHTML = '';
+  if (isDone && _nlTrainResult) {
+    const r = _nlTrainResult;
+    const valLabel = r.val_error_px < 80 ? 'Good' : r.val_error_px < 150 ? 'Fair' : 'Poor';
+    const valColor = r.val_error_px < 80 ? '#4ade80' : r.val_error_px < 150 ? '#fbbf24' : '#f87171';
+    resultHTML = `
+      <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
+        <h3 class="text-[0.85rem] font-semibold text-primary mb-4">Results</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
+          <div>
+            <div class="text-[2rem] font-bold" style="color:${valColor}">${r.val_error_px}px</div>
+            <div class="text-[0.75rem] text-muted">Validation Error</div>
+            <div class="text-[0.7rem] font-medium" style="color:${valColor}">${valLabel}</div>
+          </div>
+          <div>
+            <div class="text-[2rem] font-bold text-primary">${r.train_error_px}px</div>
+            <div class="text-[0.75rem] text-muted">Training Error</div>
+          </div>
+          <div>
+            <div class="text-[2rem] font-bold text-primary">${r.stopped_epoch}</div>
+            <div class="text-[0.75rem] text-muted">Stopped Epoch</div>
+          </div>
+        </div>
+        <div class="flex justify-center mt-5">
+          <button onclick="_nlTrainPhase='';renderNeuralookView();" class="px-6 py-2 rounded-lg bg-accent text-white text-[0.82rem] font-medium cursor-pointer hover:opacity-90 transition-opacity">
+            Continue to Tracking
+          </button>
+        </div>
+      </div>`;
+  } else if (isError && _nlTrainResult) {
+    resultHTML = `
+      <div class="bg-card border border-red-500/30 rounded-xl p-5 mt-4">
+        <div class="text-[0.85rem] font-semibold text-red-400 mb-2">Training Failed</div>
+        <div class="text-[0.78rem] text-muted">${_nlTrainResult.error}</div>
+        <div class="flex justify-center mt-4">
+          <button onclick="_nlTrainPhase='';renderNeuralookView();" class="px-6 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
+            Back
+          </button>
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML = `
+    <div style="max-width:720px;margin:0 auto;padding:24px 16px;">
+      <div class="flex items-center gap-3 mb-6">
+        <div style="width:10px;height:10px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
+        <h2 class="text-[1.1rem] font-semibold text-primary">${isDone ? 'Training Complete' : isError ? 'Training Error' : 'Training CNN'}</h2>
+        <span class="text-[0.78rem] text-muted ml-auto">${elapsedStr}</span>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="bg-card border border-border-card rounded-xl p-5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[0.78rem] text-muted">${phaseLabel}</span>
+          <span class="text-[0.82rem] text-primary font-medium tabular-nums">${isDone ? maxEpochs : epoch} / ${maxEpochs} epochs</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--bg-secondary, #1a1a1f);overflow:hidden;">
+          <div id="nl-train-progbar" style="height:100%;border-radius:3px;background:${phaseColor};width:${isDone ? 100 : pct}%;transition:width 0.3s;"></div>
+        </div>
+        <div class="flex justify-between mt-3">
+          <span class="text-[0.72rem] text-dimmer tabular-nums">${isDone ? `${pct}%` : `${pct}% complete`}</span>
+          <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-train-loss-label">${latestLoss != null ? `Val loss: ${latestLoss.toFixed(6)}` : ''}</span>
+        </div>
+      </div>
+
+      <!-- Loss graph -->
+      <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[0.85rem] font-semibold text-primary">Validation Loss</h3>
+          <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-train-loss-val">${latestLoss != null ? latestLoss.toFixed(6) : '—'}</span>
+        </div>
+        <div style="height:200px;position:relative;">
+          <canvas id="nl-train-loss-graph" style="width:100%;height:100%;display:block;"></canvas>
+        </div>
+      </div>
+
+      <!-- Stats grid -->
+      <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
+        <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Training Details</h3>
+        <div id="nl-train-details" class="grid grid-cols-2 gap-x-8 gap-y-2 text-[0.78rem]"></div>
+      </div>
+
+      ${resultHTML}
+    </div>
+  `;
+
+  _nlRefreshTrainDetails();
+  _nlDrawTrainLossGraph();
+}
+
+function _nlRefreshTrainView() {
+  // Called on each SSE progress event — update in-place if the training view is visible
+  if (!document.getElementById('nl-train-progbar')) return;
+
+  const prog = _nlTrainProgress || {};
+  const epoch = prog.epoch || 0;
+  const maxEpochs = prog.max_epochs || 3000;
+  const pct = Math.round((epoch / maxEpochs) * 100);
+  const latestLoss = _nlTrainLossHistory.length > 0 ? _nlTrainLossHistory[_nlTrainLossHistory.length - 1].val_loss : null;
+
+  const bar = document.getElementById('nl-train-progbar');
+  if (bar) bar.style.width = pct + '%';
+
+  const lossLabel = document.getElementById('nl-train-loss-label');
+  if (lossLabel) lossLabel.textContent = latestLoss != null ? `Val loss: ${latestLoss.toFixed(6)}` : '';
+
+  const lossVal = document.getElementById('nl-train-loss-val');
+  if (lossVal) lossVal.textContent = latestLoss != null ? latestLoss.toFixed(6) : '—';
+
+  _nlRefreshTrainDetails();
+  _nlDrawTrainLossGraph();
+}
+
+function _nlRefreshTrainDetails() {
+  const el = document.getElementById('nl-train-details');
+  if (!el) return;
+  const prog = _nlTrainProgress || {};
+  const elapsed = Math.round((Date.now() - _nlTrainStartTime) / 1000);
+  const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+  const epoch = prog.epoch || 0;
+  const maxEpochs = prog.max_epochs || 3000;
+  const rate = elapsed > 0 ? (epoch / elapsed).toFixed(1) : '—';
+  const eta = elapsed > 0 && epoch > 0 && _nlTraining ? Math.round((maxEpochs - epoch) * elapsed / epoch) : null;
+  const etaStr = eta != null ? (eta < 60 ? `~${eta}s` : `~${Math.floor(eta / 60)}m ${eta % 60}s`) : '—';
+  const bestLoss = _nlTrainLossHistory.length > 0 ? Math.min(..._nlTrainLossHistory.map(h => h.val_loss)) : null;
+
+  const row = (label, value) =>
+    `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
+
+  el.innerHTML =
+    row('Architecture', 'CNN (2ch 32x64 → 128 feat → 256 → 64 → 2)') +
+    row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
+    row('Calibration Frames', `${_nlCalibData.length}`) +
+    row('Calibration Points', `${_NL_CAL_POSITIONS.length}`) +
+    row('Elapsed', elapsedStr) +
+    row('Epoch', `${epoch} / ${maxEpochs}`) +
+    row('Speed', `${rate} epochs/s`) +
+    row('ETA', etaStr) +
+    row('Best Val Loss', bestLoss != null ? bestLoss.toFixed(6) : '—') +
+    row('Loss History', `${_nlTrainLossHistory.length} points`);
+}
+
+function _nlDrawTrainLossGraph() {
+  const canvas = document.getElementById('nl-train-loss-graph');
+  if (!canvas || _nlTrainLossHistory.length < 2) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+  if (w <= 0 || h <= 0) return;
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const data = _nlTrainLossHistory;
+  const losses = data.map(d => d.val_loss);
+  const maxEpoch = data[data.length - 1].epoch || 1;
+  let min = Math.min(...losses);
+  let max = Math.max(...losses);
+  if (max === min) max = min + 0.001;
+  const pad = h * 0.08;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = dpr;
+  for (let i = 1; i < 4; i++) {
+    const gy = pad + (h - 2 * pad) * (i / 4);
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = `${10 * dpr}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillText(max.toFixed(4), 4 * dpr, pad + 10 * dpr);
+  ctx.fillText(min.toFixed(4), 4 * dpr, h - pad);
+
+  // Loss line
+  ctx.strokeStyle = '#60a5fa';
+  ctx.lineWidth = 2 * dpr;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (data[i].epoch / maxEpoch) * w;
+    const y = pad + (h - 2 * pad) * (1 - (data[i].val_loss - min) / (max - min));
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Fill under curve
+  const lastX = (data[data.length - 1].epoch / maxEpoch) * w;
+  const lastY = pad + (h - 2 * pad) * (1 - (data[data.length - 1].val_loss - min) / (max - min));
+  ctx.lineTo(lastX, h);
+  ctx.lineTo((data[0].epoch / maxEpoch) * w, h);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#60a5fa18');
+  grad.addColorStop(1, '#60a5fa00');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Best loss marker
+  const bestIdx = losses.indexOf(Math.min(...losses));
+  if (bestIdx >= 0) {
+    const bx = (data[bestIdx].epoch / maxEpoch) * w;
+    const by = pad + (h - 2 * pad) * (1 - (data[bestIdx].val_loss - min) / (max - min));
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath();
+    ctx.arc(bx, by, 3.5 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // ── MediaPipe Initialization ──
@@ -381,6 +626,7 @@ function _nlShowTrainPill() {
       <div id="nl-pill-detail" style="font-size:0.7rem;color:var(--text-secondary,#888);">Starting...</div>
     </div>
   `;
+  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); };
   document.body.appendChild(pill);
   _nlTrainPill = pill;
   requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
@@ -731,10 +977,21 @@ function _nlShowNextCalibrationDot() {
 async function _nlOnCalibrationComplete() {
   // Close fullscreen overlay immediately, train in background via pill
   _nlFinishCalibration();
+  _nlTraining = true;
+  _nlTrainPhase = 'training';
+  _nlTrainProgress = null;
+  _nlTrainResult = null;
+  _nlTrainLossHistory = [];
+  _nlTrainStartTime = Date.now();
   _nlShowTrainPill();
+  renderNeuralookView();
 
   try {
     const result = await _nlTrainOnServerSSE((prog) => {
+      _nlTrainProgress = prog;
+      _nlTrainPhase = prog.phase || 'training';
+      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss });
+
       if (prog.phase === 'evaluating') {
         _nlUpdateTrainPill('Training CNN', 'Evaluating...');
       } else {
@@ -742,17 +999,26 @@ async function _nlOnCalibrationComplete() {
         const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
         _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}`);
       }
+      _nlRefreshTrainView();
     });
 
+    _nlTrainResult = result;
+    _nlTrainPhase = 'done';
+    _nlTraining = false;
     const trainPx = result.train_error_px;
     const valPx = result.val_error_px;
     const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
     _nlReady = true;
     _nlFinishTrainPill('Calibration Done', `Train ${trainPx}px · Val ${valPx}px — ${label}`, color);
+    _nlRefreshTrainView();
     renderNeuralookView();
   } catch (e) {
+    _nlTrainPhase = 'error';
+    _nlTraining = false;
+    _nlTrainResult = { error: e.message || String(e) };
     _nlErrorTrainPill(e.message || String(e));
+    _nlRefreshTrainView();
     renderNeuralookView();
   }
 }
