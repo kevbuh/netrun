@@ -42,6 +42,7 @@ let _nlTrainResult = null; // final result from done event
 let _nlTrainLossHistory = []; // [{epoch, val_loss}]
 let _nlTrainLogs = []; // raw log lines from server
 let _nlTrainStartTime = 0;
+let _nlWandbUrl = null;
 
 // Smoothing
 let _nlGazeBuffer = [];
@@ -283,7 +284,8 @@ function _nlRenderTrainDetailView(container) {
         </button>` : ''}
         <div style="width:10px;height:10px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
         <h2 class="text-[1.1rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training CNN' : 'Training Complete'}</h2>
-        <span class="text-[0.78rem] text-muted ml-auto">${elapsedStr}</span>
+        <span id="nl-wandb-link" class="ml-auto">${_nlWandbUrl ? `<a href="${_nlWandbUrl}" target="_blank" class="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-input text-[0.75rem] text-muted hover:text-accent hover:border-accent transition-colors no-underline" title="Open in Weights & Biases"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>W&B</a>` : ''}</span>
+        <span class="text-[0.78rem] text-muted">${elapsedStr}</span>
       </div>
 
       <!-- Progress bar -->
@@ -650,6 +652,7 @@ function _nlTrainOnServerSSE(onProgress, onLog) {
               try {
                 const data = JSON.parse(line.slice(6));
                 if (currentEvent === 'log' && onLog) onLog(data.text);
+                else if (currentEvent === 'wandb' && data.url) { _nlWandbUrl = data.url; _nlRefreshWandbLink(); }
                 else if (currentEvent === 'progress' && onProgress) onProgress(data);
                 else if (currentEvent === 'done') {
                   _nlTrainError = data.train_error_px;

@@ -2245,7 +2245,7 @@ ch.postMessage({type:'preview-ready'});
                     import wandb
                     wandb.init(
                         project='neuralook',
-                        mode='offline',
+                        mode='online',
                         config={
                             'architecture': 'GazeCNN',
                             'eye_w': eye_w, 'eye_h': eye_h,
@@ -2264,10 +2264,11 @@ ch.postMessage({type:'preview-ready'});
                     )
                     wandb.watch(model, log='all', log_freq=50)
                     wb = wandb
+                    wb_url = wandb.run.get_url() if wandb.run else None
                 except ImportError:
-                    pass
+                    wb_url = None
                 except Exception:
-                    pass
+                    wb_url = None
 
                 # SSE stream for progress
                 self.send_response(200)
@@ -2290,6 +2291,9 @@ ch.postMessage({type:'preview-ready'});
                 _sse('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
                 _sse('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
                 _sse('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
+                if wb_url:
+                    _sse('log', {'text': f'wandb: {wb_url}'})
+                    _sse('wandb', {'url': wb_url})
                 _sse('log', {'text': ''})
                 _sse('log', {'text': f'{"epoch":>6}  {"train_loss":>11}  {"val_loss":>11}  {"lr":>10}  {"best":>5}  {"patience":>8}'})
                 _sse('log', {'text': '─' * 65})
