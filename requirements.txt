@@ -1,0 +1,7 @@
+flask
+flask-cors
+flask-sock
+jupyter-client
+ipykernel
+PyMuPDF
+PyYAML
