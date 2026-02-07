@@ -74,7 +74,7 @@ const _NL_CAL_POSITIONS = [
   [8,92],[22,92],[36,92],[50,92],[64,92],[78,92],[92,92]
 ];
 
-const _NL_STARE_MS = 1200;
+const _NL_STARE_MS = 1800;
 const _NL_SETTLE_MS = 400;
 
 // Eye crop dimensions
@@ -367,7 +367,7 @@ function _nlRefreshTrainDetails() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
 
   el.innerHTML =
-    row('Architecture', 'CNN (2ch 64x128 → 128 feat → 256 → 64 → 2)') +
+    row('Architecture', 'CNN (2ch 64x128 + headPose → 256 → 64 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
     row('Calibration', `${_NL_CAL_POSITIONS.length} fixed grid points`) +
@@ -634,7 +634,19 @@ function _nlCaptureEyeCrops() {
   const combined = new Uint8Array(eyeSize * 2);
   combined.set(leftGray, 0);
   combined.set(rightGray, eyeSize);
-  return combined;
+
+  // Head pose from landmarks (yaw, pitch, roll)
+  const leftEyeX = lm[33].x, leftEyeY = lm[33].y;
+  const rightEyeX = lm[263].x, rightEyeY = lm[263].y;
+  const noseX = lm[1].x, noseY = lm[1].y;
+  const foreheadY = lm[10].y, chinY = lm[152].y;
+  const eyeSpan = rightEyeX - leftEyeX;
+  const yaw = eyeSpan > 0.001 ? ((noseX - leftEyeX) / eyeSpan - 0.5) * 2 : 0;
+  const faceH = chinY - foreheadY;
+  const pitch = faceH > 0.001 ? ((noseY - foreheadY) / faceH - 0.5) * 2 : 0;
+  const roll = Math.atan2((rightEyeY - leftEyeY) * vh, (rightEyeX - leftEyeX) * vw);
+
+  return { eyeData: combined, headPose: [yaw, pitch, roll] };
 }
 
 // ── Server Communication ──
@@ -644,6 +656,7 @@ function _nlTrainOnServerSSE(onProgress, onLog) {
     const useSaved = _nlCalibSaved && _nlCalibData.length > 0;
     const samples = useSaved ? [] : _nlCalibData.map(s => ({
       eyeData: Array.from(s.eyeData),
+      headPose: s.headPose,
       screenX: s.screenX,
       screenY: s.screenY
     }));
@@ -814,8 +827,8 @@ function _nlDismissTrainPill() {
   setTimeout(() => p.remove(), 300);
 }
 
-async function _nlPredictOnServer(eyeData) {
-  const body = { eyeData: Array.from(eyeData), method: 'cnn' };
+async function _nlPredictOnServer(eyeData, headPose) {
+  const body = { eyeData: Array.from(eyeData), headPose: headPose, method: 'cnn' };
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: _authHeaders(),
@@ -1122,9 +1135,9 @@ function _nlShowNextCalibrationDot() {
         return;
       }
 
-      const eyeData = _nlCaptureEyeCrops();
-      if (eyeData) {
-        _nlCalibData.push({ eyeData, screenX, screenY });
+      const capture = _nlCaptureEyeCrops();
+      if (capture) {
+        _nlCalibData.push({ eyeData: capture.eyeData, headPose: capture.headPose, screenX, screenY });
       }
       requestAnimationFrame(collect);
     }
@@ -1140,6 +1153,7 @@ async function _nlOnCalibrationComplete() {
     const calibPayload = {
       samples: _nlCalibData.map(s => ({
         eyeData: Array.from(s.eyeData),
+        headPose: s.headPose,
         screenX: s.screenX, screenY: s.screenY
       })),
       screenW: window.innerWidth, screenH: window.innerHeight,
@@ -1235,10 +1249,10 @@ function _nlTrackingLoop() {
   }
 
   if (!_nlInferPending) {
-    const eyeData = _nlCaptureEyeCrops();
-    if (eyeData) {
+    const capture = _nlCaptureEyeCrops();
+    if (capture) {
       _nlInferPending = true;
-      _nlPredictOnServer(eyeData).then(pred => {
+      _nlPredictOnServer(capture.eyeData, capture.headPose).then(pred => {
         _nlInferPending = false;
         if (!pred || !_nlTracking) return;
         _nlPredictionCount++;
@@ -1354,7 +1368,7 @@ function _nlRefreshStats() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
   el.innerHTML =
-    row('Model', 'CNN (2ch 64x128)') +
+    row('Model', 'CNN (2ch 64x128 + hp)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +

@@ -586,6 +586,11 @@
       opacity: 0;
       pointer-events: none;
     }
+    .browse-mode.menu-expanded #pill-nav-icons {
+      max-width: 800px;
+      opacity: 1;
+      pointer-events: auto;
+    }
 
     /* Menu button — hidden by default, appears in browse mode, pinned far left */
     #pill-menu-btn {
@@ -665,6 +670,9 @@
     }
     #pill-browse-tabs .browse-window-switcher {
       flex-shrink: 0;
+      background: transparent;
+      margin-right: 0;
+      margin-left: auto;
     }
     #pill-browse-tabs .browse-split-pill {
       height: 26px;
@@ -692,31 +700,6 @@
     /* Push overview button to far right */
     .browse-mode #pill-overview-btn {
       margin-left: auto;
-    }
-
-    /* Menu dropdown — floating grid of nav icons */
-    #pill-menu-dropdown {
-      position: fixed;
-      z-index: 10002;
-      background: var(--bg-popup, rgba(30, 30, 30, 0.95));
-      border: 1px solid var(--border-card, rgba(255, 255, 255, 0.08));
-      border-radius: 12px;
-      padding: 8px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, 36px);
-      gap: 4px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      animation: pill-menu-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    #pill-menu-dropdown .sidebar-icon {
-      width: 32px;
-      height: 32px;
-    }
-    @keyframes pill-menu-pop {
-      0% { opacity: 0; transform: scale(0.8) translateY(-4px); }
-      100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     /* Light theme overrides for browse mode */

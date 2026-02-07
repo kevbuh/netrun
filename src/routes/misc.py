@@ -588,7 +588,7 @@ def neuralook_train(google_id):
                 return
 
             eye_size = eye_w * eye_h
-            X_list, Y_list = [], []
+            X_list, HP_list, Y_list = [], [], []
             for s in samples:
                 raw = s['eyeData']
                 if len(raw) != eye_size * 2:
@@ -596,6 +596,8 @@ def neuralook_train(google_id):
                 left = torch.tensor(raw[:eye_size], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
                 right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
                 X_list.append(torch.cat([left, right], dim=0))
+                hp = s.get('headPose', [0.0, 0.0, 0.0])
+                HP_list.append(hp[:3] if len(hp) >= 3 else hp + [0.0] * (3 - len(hp)))
                 Y_list.append([s['screenX'] / screen_w, s['screenY'] / screen_h])
 
             if len(X_list) < 10:
@@ -603,6 +605,7 @@ def neuralook_train(google_id):
                 return
 
             X = torch.stack(X_list)
+            HP = torch.tensor(HP_list, dtype=torch.float32)
             Y = torch.tensor(Y_list, dtype=torch.float32)
 
             targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples if len(s['eyeData']) == eye_size * 2]
@@ -613,8 +616,8 @@ def neuralook_train(google_id):
             val_mask = torch.tensor([t in val_targets for t in targets_rounded])
             train_mask = ~val_mask
 
-            X_train, Y_train = X[train_mask], Y[train_mask]
-            X_val, Y_val = X[val_mask], Y[val_mask]
+            X_train, HP_train, Y_train = X[train_mask], HP[train_mask], Y[train_mask]
+            X_val, HP_val, Y_val = X[val_mask], HP[val_mask], Y[val_mask]
 
             class GazeCNN(nn.Module):
                 def __init__(self):
@@ -627,14 +630,17 @@ def neuralook_train(google_id):
                         nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
                         nn.AdaptiveAvgPool2d((4, 4)),
                     )
+                    # 128*4*4 = 2048 from conv features + 3 head pose values
                     self.head = nn.Sequential(
-                        nn.Flatten(),
-                        nn.Linear(128 * 4 * 4, 256), nn.ReLU(), nn.Dropout(0.3),
+                        nn.Linear(128 * 4 * 4 + 3, 256), nn.ReLU(), nn.Dropout(0.3),
                         nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
                         nn.Linear(64, 2)
                     )
-                def forward(self, x):
-                    return self.head(self.features(x))
+                def forward(self, x, hp):
+                    feat = self.features(x)
+                    feat = feat.view(feat.size(0), -1)
+                    combined = torch.cat([feat, hp], dim=1)
+                    return self.head(combined)
 
             def augment_batch(x_batch):
                 B = x_batch.shape[0]
@@ -673,7 +679,7 @@ def neuralook_train(google_id):
             n_params = sum(p.numel() for p in model.parameters())
             yield sse_event('log', {'text': f'GazeCNN | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]'})
             yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
-            yield sse_event('log', {'text': f'  head: Flatten → Linear(2048,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+            yield sse_event('log', {'text': f'  head: Flatten(2048) + headPose(3) → Linear(2051,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
             yield sse_event('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
             yield sse_event('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
@@ -691,7 +697,7 @@ def neuralook_train(google_id):
                 for start in range(0, n_train, batch_size):
                     idx = perm[start:start + batch_size]
                     x_batch = augment_batch(X_train[idx])
-                    pred = model(x_batch)
+                    pred = model(x_batch, HP_train[idx])
                     loss = nn.functional.mse_loss(pred, Y_train[idx])
                     optimizer.zero_grad()
                     loss.backward()
@@ -704,7 +710,7 @@ def neuralook_train(google_id):
                 if epoch % 10 == 0:
                     model.eval()
                     with torch.no_grad():
-                        val_pred = model(X_val)
+                        val_pred = model(X_val, HP_val)
                         val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
                     improved = val_loss < best_val_loss
                     if improved:
@@ -731,11 +737,11 @@ def neuralook_train(google_id):
             yield sse_event('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
 
             with torch.no_grad():
-                train_pred = model(X_train)
+                train_pred = model(X_train, HP_train)
                 tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
                 yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
                 train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
-                vp = model(X_val)
+                vp = model(X_val, HP_val)
                 vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
                 yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
                 val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
@@ -784,6 +790,7 @@ def neuralook_predict(google_id):
         if model is None:
             return jsonify({'error': f'Model not trained for method: {method}'}), 400
         raw = body.get('eyeData', [])
+        hp_raw = body.get('headPose', [0.0, 0.0, 0.0])
         screen_w, screen_h, eye_w, eye_h = _neuralook_screen
         eye_size = eye_w * eye_h
         if len(raw) != eye_size * 2:
@@ -791,8 +798,9 @@ def neuralook_predict(google_id):
         left = torch.tensor(raw[:eye_size], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
         right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
         inp = torch.cat([left, right], dim=0).unsqueeze(0)
+        hp = torch.tensor([hp_raw[:3]], dtype=torch.float32)
         with torch.no_grad():
-            pred = model(inp)[0]
+            pred = model(inp, hp)[0]
         return jsonify({
             'x': round(pred[0].item() * screen_w, 1),
             'y': round(pred[1].item() * screen_h, 1)

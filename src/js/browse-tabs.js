@@ -4808,19 +4808,7 @@ function _pillSyncTabs() {
   const activeTab = win.activeTab;
   const groups = win.groups || [];
 
-  // Window switcher (if multiple windows)
   let html = '';
-  if (_browseWindows.length > 1) {
-    const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-    html += '<div class="browse-window-switcher" data-window-idx="' + winIdx + '" onclick="toggleBrowseTabOverview()">' +
-      '<button class="browse-window-arrow up ' + (winIdx === 0 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">' +
-        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>' +
-      '</button>' +
-      '<button class="browse-window-arrow down ' + (winIdx === _browseWindows.length - 1 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowDown()" title="Next window">' +
-        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>' +
-      '</button>' +
-    '</div>';
-  }
 
   // Split into pinned and unpinned
   const pinned = tabs.filter(t => t.pinned);
@@ -4876,6 +4864,19 @@ function _pillSyncTabs() {
     }
   }
 
+  // Window switcher at the end (next to overview button)
+  if (_browseWindows.length > 1) {
+    const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+    html += '<div class="browse-window-switcher" data-window-idx="' + winIdx + '" onclick="toggleBrowseTabOverview()">' +
+      '<button class="browse-window-arrow up ' + (winIdx === 0 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">' +
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>' +
+      '</button>' +
+      '<button class="browse-window-arrow down ' + (winIdx === _browseWindows.length - 1 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowDown()" title="Next window">' +
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>' +
+      '</button>' +
+    '</div>';
+  }
+
   pillTabs.innerHTML = html;
 
   // Attach event listeners
@@ -4894,65 +4895,13 @@ function _pillSyncTabs() {
 }
 
 function _togglePillMenu() {
-  const existing = document.getElementById('pill-menu-dropdown');
-  if (existing) { _closePillMenu(); return; }
-
-  const btn = document.getElementById('pill-menu-btn');
-  if (!btn) return;
-  const rect = btn.getBoundingClientRect();
-
-  const dropdown = document.createElement('div');
-  dropdown.id = 'pill-menu-dropdown';
-  dropdown.style.top = (rect.bottom + 4) + 'px';
-  dropdown.style.left = rect.left + 'px';
-
-  // Clone icons from pill-nav-icons
-  const icons = document.getElementById('pill-nav-icons');
-  if (icons) {
-    icons.querySelectorAll('.sidebar-icon, .pill-separator').forEach(el => {
-      if (el.classList.contains('pill-separator')) return; // skip separators
-      const clone = el.cloneNode(true);
-      clone.classList.remove('active', 'sb-loading');
-      clone.style.maxWidth = '';
-      clone.style.opacity = '';
-      // For buttons with onclick, keep the original onclick
-      const origOnclick = el.getAttribute('onclick');
-      if (origOnclick) {
-        clone.setAttribute('onclick', origOnclick + ';_closePillMenu()');
-      }
-      // For elements without onclick (rain, pet, user), attach click handler
-      if (!origOnclick && el.id === 'sb-rain') {
-        clone.addEventListener('click', () => { el.click(); _closePillMenu(); });
-      }
-      dropdown.appendChild(clone);
-    });
-  }
-
-  document.body.appendChild(dropdown);
-
-  // Close on click outside or Escape
-  setTimeout(() => {
-    const closeHandler = (e) => {
-      if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-        _closePillMenu();
-        document.removeEventListener('mousedown', closeHandler);
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    const escHandler = (e) => {
-      if (e.key === 'Escape') {
-        _closePillMenu();
-        document.removeEventListener('mousedown', closeHandler);
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    document.addEventListener('mousedown', closeHandler);
-    document.addEventListener('keydown', escHandler);
-  }, 0);
+  const pill = document.getElementById('sidebar-nav');
+  if (!pill) return;
+  pill.classList.toggle('menu-expanded');
 }
 
 function _closePillMenu() {
-  const dropdown = document.getElementById('pill-menu-dropdown');
-  if (dropdown) dropdown.remove();
+  const pill = document.getElementById('sidebar-nav');
+  if (pill) pill.classList.remove('menu-expanded');
 }
 
