@@ -2879,6 +2879,9 @@ function _installOverviewKeyHandler() {
         e.preventDefault();
         if (_overviewBrowseTabIdx >= 0) {
           _overviewBrowseTabIdx--;
+        } else {
+          // Already at window header — collapse back to app strip
+          _overviewBrowseExpanded = false;
         }
         _renderWindowOverview();
       } else if (e.key === 'ArrowDown') {
@@ -2939,15 +2942,8 @@ function _installOverviewKeyHandler() {
       e.preventDefault();
       var w = _wmWindows[_overviewSelectedIdx];
       if (!w) return;
-      if (w.key === 'browse') {
-        _overviewBrowseExpanded = true;
-        _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
-        _overviewBrowseTabIdx = -1;
-        _renderWindowOverview();
-      } else {
-        wmOpen(w.key);
-        hideBrowseTabOverview();
-      }
+      wmOpen(w.key);
+      hideBrowseTabOverview();
     } else if (e.key === 'ArrowDown') {
       // If on browse, expand
       var wDown = _wmWindows[_overviewSelectedIdx];

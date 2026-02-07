@@ -491,6 +491,11 @@ function _renderBrowserSettings() {
       <p class="text-dim text-[0.8rem] mb-3">Manage camera, microphone, location, notification, and pop-up permissions per site.</p>
       <div id="settings-site-permissions">${_renderSettingsSitePermissions()}</div>
     </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">URL Bar Sections</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Reorder and toggle sections in the URL bar dropdown. Drag to reorder.</p>
+      <div id="settings-urlbar-sections">${_renderUrlBarSectionsSettings()}</div>
+    </div>
   `;
 }
 
@@ -538,6 +543,103 @@ function _renderSettingsSitePermissions() {
     html += '</div>';
   }
   return html;
+}
+
+function _renderUrlBarSectionsSettings() {
+  if (typeof _getUrlBarSections !== 'function') return '<div class="text-dimmer text-[0.75rem]">URL bar sections not available.</div>';
+  const sections = _getUrlBarSections();
+  let html = '<div id="urlbar-section-list">';
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    const safeKey = escapeHtml(s.key);
+    html += '<div class="urlbar-sec-row" data-seckey="' + safeKey + '" style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;margin-bottom:4px;background:var(--bg-card);cursor:grab;user-select:none;">';
+    html += '<span style="color:var(--text-dimmer);font-size:0.9rem;cursor:grab;flex-shrink:0;" title="Drag to reorder">\u2847</span>';
+    html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);">' + escapeHtml(s.label) + '</span>';
+    html += '<label class="toggle-switch" style="flex-shrink:0;">';
+    html += '<input type="checkbox" ' + (s.enabled !== false ? 'checked' : '') + ' onchange="_toggleUrlBarSection(\'' + safeKey + '\', this.checked)">';
+    html += '<span class="slider"></span>';
+    html += '</label>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function _toggleUrlBarSection(key, enabled) {
+  const sections = _getUrlBarSections();
+  const sec = sections.find(s => s.key === key);
+  if (sec) sec.enabled = enabled;
+  _saveUrlBarSections(sections);
+}
+
+function _urlBarSectionDragSetup() {
+  const list = document.getElementById('urlbar-section-list');
+  if (!list) return;
+  let dragEl = null;
+  let dragGhost = null;
+  let startY = 0;
+  let dragStarted = false;
+
+  list.addEventListener('pointerdown', e => {
+    const row = e.target.closest('.urlbar-sec-row');
+    if (!row) return;
+    // Don't interfere with toggle clicks
+    if (e.target.closest('.toggle-switch')) return;
+    dragEl = row;
+    startY = e.clientY;
+    dragStarted = false;
+    dragEl.setPointerCapture(e.pointerId);
+  });
+
+  list.addEventListener('pointermove', e => {
+    if (!dragEl) return;
+    if (!dragStarted && Math.abs(e.clientY - startY) < 5) return;
+    if (!dragStarted) {
+      dragStarted = true;
+      dragEl.style.opacity = '0.3';
+      dragGhost = dragEl.cloneNode(true);
+      dragGhost.style.cssText = 'position:fixed;left:' + dragEl.getBoundingClientRect().left + 'px;width:' + dragEl.offsetWidth + 'px;pointer-events:none;z-index:999;opacity:0.85;box-shadow:0 4px 16px rgba(0,0,0,0.3);border-radius:8px;';
+      document.body.appendChild(dragGhost);
+    }
+    dragGhost.style.top = (e.clientY - 18) + 'px';
+    // Find drop target
+    const rows = Array.from(list.querySelectorAll('.urlbar-sec-row'));
+    for (const r of rows) {
+      if (r === dragEl) continue;
+      const rect = r.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (e.clientY < mid) {
+        list.insertBefore(dragEl, r);
+        return;
+      }
+    }
+    list.appendChild(dragEl);
+  });
+
+  function endDrag() {
+    if (!dragEl) return;
+    dragEl.style.opacity = '';
+    if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    if (dragStarted) {
+      // Save new order
+      const rows = Array.from(list.querySelectorAll('.urlbar-sec-row'));
+      const currentSections = _getUrlBarSections();
+      const newSections = rows.map(r => {
+        const key = r.dataset.seckey;
+        const existing = currentSections.find(s => s.key === key);
+        return { key, label: existing ? existing.label : key, enabled: existing ? existing.enabled : true };
+      });
+      _saveUrlBarSections(newSections);
+      // Suppress click
+      const suppress = ev => { ev.stopPropagation(); ev.preventDefault(); };
+      dragEl.addEventListener('click', suppress, { capture: true, once: true });
+    }
+    dragEl = null;
+    dragStarted = false;
+  }
+
+  list.addEventListener('pointerup', endDrag);
+  list.addEventListener('pointercancel', endDrag);
 }
 
 function _renderHelpSettings() {
@@ -661,6 +763,7 @@ function renderSettingsView() {
   } else if (_settingsSection === 'tools') {
     loadVaultPath();
   } else if (_settingsSection === 'browser') {
+    _urlBarSectionDragSetup();
     fetch('/api/adblock-rules').then(r => r.json()).then(stats => {
       const el = document.getElementById('adblock-rules-info');
       if (!el) return;

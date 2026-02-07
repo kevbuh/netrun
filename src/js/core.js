@@ -2830,7 +2830,8 @@ const SYNC_KEYS = [
   'adBlockEnabled', 'feedNotifSources', 'browseBarOrder',
   'browseHistory', 'webSearchHistory', 'chatThreads',
   'aetherColor',
-  'interestProfile'
+  'interestProfile',
+  'urlBarSections'
 ];
 
 // Default ad blocker to enabled

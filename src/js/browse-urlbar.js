@@ -264,8 +264,8 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
   const hasInstant = _instantAnswer && _instantAnswer.html;
-
   const showLucky = !filter;
+
   if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) { dd.style.display = 'none'; return; }
 
   _browseUrlHistIdx = -1;
@@ -278,113 +278,116 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const hoverOn = "this.style.background='var(--bg-hover)'";
   const hoverOff = "this.style.background='none'";
 
-  let html = '';
-
-  // "Feeling Lucky" row when input is empty
-  if (showLucky) {
-    const hasText = !!_feelingLuckyQuery;
-    const waiting = _feelingLuckyLoading && !hasText;
-    // Auto-trigger on first show if no query yet
-    if (!_feelingLuckyQuery && !_feelingLuckyLoading) {
-      setTimeout(_browseUrlFeelingLucky, 0);
-    }
-    const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : '');
-    html += `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
-      <svg style="width:14px;height:14px;flex-shrink:0;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
-        <span style="font-weight:600;color:var(--text-primary);">Feeling Lucky</span>
-        <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${displayText}</span>
-      </span>
-      ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
-    </div>`;
-  }
-
-  // Definition section for single-word searches (always at top)
-  if (hasDef) {
-    const entry = _currentDef;
-    html += '<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);">';
-    html += '<div style="display:flex;align-items:baseline;gap:8px;">';
-    html += '<span style="font-size:1rem;font-weight:700;color:var(--text-primary);">' + escapeHtml(entry.word) + '</span>';
-    const phonetic = entry.phonetics?.find(p => p.text)?.text;
-    if (phonetic) html += '<span style="font-size:0.78rem;color:var(--text-dim);">' + escapeHtml(phonetic) + '</span>';
-    const audio = entry.phonetics?.find(p => p.audio);
-    if (audio) html += '<button onclick="event.stopPropagation();event.preventDefault();new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);padding:0;margin-left:2px;" title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
-    html += '</div>';
-    for (const meaning of (entry.meanings || []).slice(0, 2)) {
-      html += '<div style="margin-top:6px;"><span style="font-size:0.65rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span></div>';
-      for (const def of (meaning.definitions || []).slice(0, 1)) {
-        html += '<div style="font-size:0.8rem;color:var(--text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
-        if (def.example) html += '<div style="font-size:0.72rem;color:var(--text-dim);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
+  // Section renderers — each returns HTML string or '' if nothing to show
+  const _urlBarRenderers = {
+    lucky: () => {
+      if (!showLucky) return '';
+      const hasText = !!_feelingLuckyQuery;
+      const waiting = _feelingLuckyLoading && !hasText;
+      if (!_feelingLuckyQuery && !_feelingLuckyLoading) setTimeout(_browseUrlFeelingLucky, 0);
+      const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : '');
+      return `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
+        <svg style="width:14px;height:14px;flex-shrink:0;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+          <span style="font-weight:600;color:var(--text-primary);">Feeling Lucky</span>
+          <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${displayText}</span>
+        </span>
+        ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
+      </div>`;
+    },
+    definition: () => {
+      if (!hasDef) return '';
+      const entry = _currentDef;
+      let h = '<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);">';
+      h += '<div style="display:flex;align-items:baseline;gap:8px;">';
+      h += '<span style="font-size:1rem;font-weight:700;color:var(--text-primary);">' + escapeHtml(entry.word) + '</span>';
+      const phonetic = entry.phonetics?.find(p => p.text)?.text;
+      if (phonetic) h += '<span style="font-size:0.78rem;color:var(--text-dim);">' + escapeHtml(phonetic) + '</span>';
+      const audio = entry.phonetics?.find(p => p.audio);
+      if (audio) h += '<button onclick="event.stopPropagation();event.preventDefault();new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);padding:0;margin-left:2px;" title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
+      h += '</div>';
+      for (const meaning of (entry.meanings || []).slice(0, 2)) {
+        h += '<div style="margin-top:6px;"><span style="font-size:0.65rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span></div>';
+        for (const def of (meaning.definitions || []).slice(0, 1)) {
+          h += '<div style="font-size:0.8rem;color:var(--text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
+          if (def.example) h += '<div style="font-size:0.72rem;color:var(--text-dim);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
+        }
       }
-    }
-    html += '</div>';
+      h += '</div>';
+      return h;
+    },
+    instant: () => {
+      if (!hasInstant) return '';
+      return _instantAnswer.html;
+    },
+    recent: () => {
+      if (!showBrowse.length) return '';
+      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+      h += showBrowse.map(bh => {
+        const favicon = _browseFaviconUrl(bh.url);
+        let domain = '';
+        try { domain = new URL(bh.url).hostname.replace('www.', ''); } catch {}
+        const safeUrl = escapeHtml(bh.url).replace(/"/g, '&quot;');
+        const displayTitle = escapeHtml(bh.title || domain);
+        return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(bh.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(bh.url).replace(/'/g, "\\'")}');">
+          <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
+          <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
+    suggestions: () => {
+      if (!suggestions.length) return '';
+      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
+      h += suggestions.map(s => {
+        const safeS = escapeHtml(s);
+        return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeS.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeS.replace(/'/g, "\\'")}');">
+          <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeS}</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
+    projects: () => {
+      if (!projects.length) return '';
+      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
+      h += projects.map(exp => {
+        const safeId = escapeHtml(exp.id);
+        const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
+        return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); openExperimentDetail('${safeId}');">
+          <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
+          ${updated ? `<span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
+        </div>`;
+      }).join('');
+      return h;
+    },
+    history: () => {
+      if (!showHist.length) return '';
+      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
+      h += showHist.map(sh => {
+        const time = _relativeTime(sh.ts);
+        const safeQ = escapeHtml(sh.q);
+        return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeQ.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeQ.replace(/'/g, "\\'")}');">
+          <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
+          <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
+  };
+
+  let html = '';
+  const sections = _getUrlBarSections();
+  for (const sec of sections) {
+    if (sec.enabled === false) continue;
+    const renderer = _urlBarRenderers[sec.key];
+    if (renderer) html += renderer();
   }
 
-  // Instant answer section (math, color, conversion, weather, timezone, sports, stocks — always at top)
-  if (hasInstant) {
-    html += _instantAnswer.html;
-  }
-
-  // Browsing history section (visited sites)
-  if (showBrowse.length) {
-    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
-    html += showBrowse.map(h => {
-      const favicon = _browseFaviconUrl(h.url);
-      let domain = '';
-      try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
-      const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
-      const displayTitle = escapeHtml(h.title || domain);
-      return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
-        <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
-        <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
-      </div>`;
-    }).join('');
-  }
-
-  // Suggestions section (AI autocomplete)
-  if (suggestions.length) {
-    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
-    html += suggestions.map(s => {
-      const safeS = escapeHtml(s);
-      return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeS.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeS.replace(/'/g, "\\'")}');">
-        <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeS}</span>
-      </div>`;
-    }).join('');
-  }
-
-  // Projects section
-  if (projects.length) {
-    if (suggestions.length) html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
-    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
-    html += projects.map(exp => {
-      const safeId = escapeHtml(exp.id);
-      const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
-      return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); openExperimentDetail('${safeId}');">
-        <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
-        ${updated ? `<span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
-      </div>`;
-    }).join('');
-  }
-
-  // Search history section
-  if (showHist.length) {
-    if (projects.length || suggestions.length) {
-      html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
-      html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
-    }
-    html += showHist.map(h => {
-      const time = _relativeTime(h.ts);
-      const safeQ = escapeHtml(h.q);
-      return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeQ.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeQ.replace(/'/g, "\\'")}');">
-        <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
-        <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
-      </div>`;
-    }).join('');
-  }
+  if (!html) { dd.style.display = 'none'; return; }
 
   dd.innerHTML = html;
   dd.style.display = '';
@@ -393,7 +396,6 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const luckyRow = dd.querySelector('.browse-lucky-row');
   if (luckyRow) {
     luckyRow.addEventListener('mousedown', (ev) => {
-      // Don't navigate if clicking the redo button
       if (ev.target.closest('.browse-lucky-redo')) return;
       ev.preventDefault();
       ev.stopPropagation();
