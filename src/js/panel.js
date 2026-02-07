@@ -4553,7 +4553,6 @@ function _showPanel(config) {
 
 function openPaper(index, e) {
   const paper = lastFilteredPapers[index];
-  console.log('[openPaper]', index, paper?.title, paper?.link, '_browseActiveWindow=', typeof _browseActiveWindow !== 'undefined' ? _browseActiveWindow : 'undef', '_browseWindows.length=', typeof _browseWindows !== 'undefined' ? _browseWindows.length : 'undef');
   if (!paper) return;
   if (_isNewTabClick(e)) { _openInNewTab(paper.link); return; }
   markPostAsRead(paper.link);

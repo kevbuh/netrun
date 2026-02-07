@@ -450,7 +450,7 @@ function browseNewTab(url) {
 
 function browseNewPaperTab(url, paper) {
   const win = _getCurrentWindow();
-  if (!win) { console.warn('[browseNewPaperTab] no current window, _browseActiveWindow=', _browseActiveWindow, '_browseWindows.length=', _browseWindows.length); return false; }
+  if (!win) return false;
   const id = _browseNextTabId++;
   const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/(abs|pdf)\//.test(url);
   const arxivId = isArxiv ? (paper.arxivId || (url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
@@ -515,16 +515,7 @@ function openBrowseWithPaper(url, paper) {
   }
   const created = browseNewPaperTab(url, paper);
   if (!created) {
-    // Fallback: navigate the current blank tab or create a regular tab
-    console.warn('[openBrowseWithPaper] paper tab failed, falling back to browseNewTab', url);
-    const win = _getCurrentWindow();
-    const activeTab = win && win.tabs.find(t => t.id === win.activeTab);
-    if (activeTab && activeTab.blank) {
-      // Navigate existing blank tab to the URL
-      browseNavigate(url);
-    } else {
-      browseNewTab(url);
-    }
+    browseNewTab(url);
     return;
   }
   // Close initial blank tab if one was just created by openBrowse
