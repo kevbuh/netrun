@@ -18,21 +18,25 @@ ollama pull qwen2.5:1.5b
 
 Ollama is optional — the app works without it, but the AI quality filter will have no effect.
 
-### 2. Start the server
+### 2. Start the app
 
 ```bash
-python3 src/server.py
+npm start
 ```
 
-Starts an HTTP server on port 8000 serving the app at `http://localhost:8000`.
+Launches the Electron app, which spawns the Flask server (`src/app.py`) as a child process. For the server only:
+
+```bash
+npm run server
+```
 
 ## Architecture
 
-Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Python stdlib backend, no build step. **Optimized for running in the browser** (not Electron) — always prioritize the web browser experience when making decisions about navigation, tabs, popups, and link handling.
+Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Flask backend, Electron shell. **Optimized for running in the browser** (not Electron) — always prioritize the web browser experience when making decisions about navigation, tabs, popups, and link handling.
 
-### Backend — `src/server.py` + `persistence.py` + `kernels.py`
+### Backend — Flask app in `src/`
 
-Python HTTP server (`http.server`) that acts as an API proxy and local data store. Helper functions are split into `persistence.py` (file I/O, prompts, caching, classification) and `kernels.py` (Jupyter kernel management).
+Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`. Helper functions in `helpers.py` (auth decorators, SSE, chat tools), `vault_helpers.py` (vault file I/O, git), `persistence.py` (DB, caching, classification), and `kernels.py` (Jupyter kernel management).
 
 - `/feed` — proxies arXiv CS RSS feed
 - `/hn-feed` — proxies Hacker News top stories API
@@ -71,9 +75,21 @@ Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.cs
 src/
   index.html            — HTML skeleton, Tailwind config, <link>/<script> tags
   styles.css            — CSS variables, dark/light themes, toggle switch, masonry, CodeMirror overrides
-  server.py             — HTTP server, API proxy, request handler
+  app.py                — Flask app factory, CLI args, WebSocket terminal, static serving
+  helpers.py            — auth decorators, SSE helpers, chat tools, arxiv query builder
+  vault_helpers.py      — vault .md file I/O, git operations (shared by vault + social routes)
   persistence.py        — file-path constants, read/write helpers, slugify, prompts, classify_title, cached_fetch
   kernels.py            — Jupyter kernel management, code execution (sync + streaming)
+  terminal_server.py    — WebSocket-to-pty bridge for flask-sock
+  routes/
+    auth.py             — 6 routes: login, logout, username, delete, me, sync
+    feed.py             — 11 routes: feeds, RSS proxy, quality filter, models
+    experiments.py      — 35 routes: experiment CRUD, files, runs, kernel, venv, execute (SSE)
+    social.py           — 51 routes: teams, users, messages, comments, blog, achievements
+    content.py          — 11 routes: doc-chat (SSE), extract-text, paper-insights, citations
+    browse.py           — 9 routes: web-search, browse-proxy, image-proxy, link-preview
+    vault.py            — 9 routes: notes CRUD, marimo start/stop, vault path
+    misc.py             — 22 routes: neuralook (SSE), transcribe, vibe/git, todos, calendar
   js/
     core.js             — globals, constants, FEED_CATALOG, utilities, routing, view management
     pixel-pet.js        — pixel pet system (IIFE: rendering, AI states, mouse interaction)
@@ -180,7 +196,7 @@ The aether panel is the unified right-click interaction surface across the app. 
 - `ipcMain.handle('capture-screen', ...)` — captures a rectangular region of the window
 - `electronAPI.captureScreen(rect)` — exposed to renderer via preload
 
-**Server endpoints (`server.py`):**
+**Server endpoints:**
 - `/api/doc-chat` — POST, accepts `vision: true` for screenshot chat
 - `/api/web-search?q=` — GET, DuckDuckGo HTML search, returns `{ results: [{title, url, snippet}] }`
 - Vision mode uses `deepseek-ocr` model and passes `images` arrays through to Ollama
@@ -251,7 +267,7 @@ Users must sign in before accessing the app. A full-screen login gate blocks all
 - Tailwind CSS loaded via CDN (`https://cdn.tailwindcss.com`) with custom theme colors mapped to CSS variables
 - No frameworks, bundlers, or package managers — all vanilla
 - No tests or linting configured
-- Experiment slugs are generated via `slugify()` in `server.py`
+- Experiment slugs are generated via `slugify()` in `persistence.py`
 - All feed-related rendering is data-driven from `FEED_CATALOG`
 - `getSourceChip(source, arxivId)` resolves any source key to its inline logo + name
 - Quality filter prompts are defined as constants in `persistence.py` (`DEFAULT_VERDICT_PROMPT`, `DEFAULT_SCORING_PROMPT`) and mirrored in `js/quality.js` (`DEFAULT_QUALITY_PROMPT`)
