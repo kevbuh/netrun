@@ -4526,11 +4526,49 @@ function _pillSyncTabs() {
 function _togglePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (!pill) return;
+  const opening = !pill.classList.contains('menu-expanded');
   pill.classList.toggle('menu-expanded');
+  if (opening) {
+    _pillMenuInsertSeparator();
+    setTimeout(() => {
+      document.addEventListener('mousedown', _pillMenuOutsideClick);
+    }, 0);
+  } else {
+    _pillMenuRemoveSeparator();
+    document.removeEventListener('mousedown', _pillMenuOutsideClick);
+  }
+}
+
+function _pillMenuInsertSeparator() {
+  if (document.getElementById('pill-menu-separator')) return;
+  const icons = document.getElementById('pill-nav-icons');
+  if (!icons) return;
+  const sep = document.createElement('div');
+  sep.id = 'pill-menu-separator';
+  sep.className = 'pill-separator';
+  icons.parentNode.insertBefore(sep, icons.nextSibling);
+}
+
+function _pillMenuRemoveSeparator() {
+  const sep = document.getElementById('pill-menu-separator');
+  if (sep) sep.remove();
+}
+
+function _pillMenuOutsideClick(e) {
+  const pill = document.getElementById('sidebar-nav');
+  if (!pill || !pill.classList.contains('menu-expanded')) {
+    document.removeEventListener('mousedown', _pillMenuOutsideClick);
+    return;
+  }
+  if (e.target.closest('#pill-menu-btn') || e.target.closest('#pill-nav-icons')) return;
+  _closePillMenu();
+  document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 
 function _closePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.remove('menu-expanded');
+  _pillMenuRemoveSeparator();
+  document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 

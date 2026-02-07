@@ -75,12 +75,31 @@ def dev_stats():
                     except Exception:
                         pass
         commits_today = 0
+        total_commits = 0
+        project_age_days = 0
+        first_commit_date = ''
         git_root = os.path.dirname(DIR)
         try:
             today = time.strftime('%Y-%m-%dT00:00:00')
             result = subprocess.run(['git', 'rev-list', '--count', '--since=' + today, 'HEAD'],
                                     capture_output=True, text=True, cwd=git_root)
             commits_today = int(result.stdout.strip()) if result.returncode == 0 else 0
+        except Exception:
+            pass
+        try:
+            r = subprocess.run(['git', 'rev-list', '--count', 'HEAD'],
+                               capture_output=True, text=True, cwd=git_root)
+            total_commits = int(r.stdout.strip()) if r.returncode == 0 else 0
+        except Exception:
+            pass
+        try:
+            r = subprocess.run(['git', 'log', '--reverse', '--format=%ad', '--date=short', '-1'],
+                               capture_output=True, text=True, cwd=git_root)
+            if r.returncode == 0 and r.stdout.strip():
+                first_commit_date = r.stdout.strip()
+                from datetime import datetime
+                fd = datetime.strptime(first_commit_date, '%Y-%m-%d')
+                project_age_days = max(1, (datetime.now() - fd).days)
         except Exception:
             pass
         # LOC history
@@ -99,7 +118,7 @@ def dev_stats():
                         day_commits[parts[1]] = parts[0]
                 day_stats = {}
                 stat_result = subprocess.run(
-                    ['git', 'log', '--numstat', '--format=%ad', '--date=short', '--since=30 days ago', '--', 'src/'],
+                    ['git', 'log', '--numstat', '--format=%ad', '--date=short', '--since=30 days ago'],
                     capture_output=True, text=True, cwd=git_root, timeout=30)
                 if stat_result.returncode == 0:
                     current_date = None
@@ -114,20 +133,22 @@ def dev_stats():
                         elif current_date and '\t' in sline:
                             parts3 = sline.split('\t')
                             if len(parts3) >= 3:
-                                try:
-                                    day_stats[current_date]['added'] += int(parts3[0])
-                                    day_stats[current_date]['deleted'] += int(parts3[1])
-                                except (ValueError, IndexError):
-                                    pass
+                                fname = parts3[2]
+                                if fname.endswith(('.js', '.py', '.css', '.html')):
+                                    try:
+                                        day_stats[current_date]['added'] += int(parts3[0])
+                                        day_stats[current_date]['deleted'] += int(parts3[1])
+                                    except (ValueError, IndexError):
+                                        pass
                 for date in sorted(day_commits.keys()):
                     sha = day_commits[date]
                     lines = 0
                     try:
-                        r = subprocess.run(['git', 'ls-tree', '-r', '--name-only', sha, 'src/'],
+                        r = subprocess.run(['git', 'ls-tree', '-r', '--name-only', sha],
                                            capture_output=True, text=True, cwd=git_root, timeout=5)
                         if r.returncode == 0:
                             for fp in r.stdout.strip().split('\n'):
-                                if fp and fp.endswith(('.js', '.py', '.css', '.html')):
+                                if fp and fp.endswith(('.js', '.py', '.css', '.html')) and not fp.startswith('node_modules/'):
                                     try:
                                         cr = subprocess.run(['git', 'show', sha + ':' + fp],
                                                             capture_output=True, text=True, cwd=git_root, timeout=5)
@@ -207,12 +228,17 @@ def dev_stats():
                     pass
         project_mb = round(project_bytes / (1024**2), 1)
 
+        avg_commits_day = round(total_commits / project_age_days, 1) if project_age_days else 0
         return jsonify({
             'users': users,
             'active_sessions': active_sessions,
             'total_loc': total_loc,
             'files': file_count,
             'commits_today': commits_today,
+            'total_commits': total_commits,
+            'project_age_days': project_age_days,
+            'first_commit_date': first_commit_date,
+            'avg_commits_day': avg_commits_day,
             'loc_history': loc_history,
             'usage_history': usage_history,
             'git_log': git_log,

@@ -815,8 +815,12 @@ async function openAllSaved() {
 
 let _devFpsRaf = null;
 
+var _devChartId = 0;
+var _devChartRegistry = [];
+
 function _devLineChart(hist, yKey, label, color, tooltipFn) {
   if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
+  const id = '_dchart_' + (_devChartId++);
   const W = 400, H = 130, PAD = { t: 16, r: 12, b: 24, l: 42 };
   const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
   const vals = hist.map(h => typeof yKey === 'function' ? yKey(h) : h[yKey]);
@@ -826,9 +830,7 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
   function yp(v) { return PAD.t + ch - ((v - minV) / range) * ch; }
   const gridColor = 'rgba(255,255,255,0.06)';
   const textColor = 'var(--text-dimmer)';
-  // Title
   let svg = `<text x="${PAD.l}" y="11" fill="${textColor}" font-size="9" font-weight="600">${label}</text>`;
-  // Grid
   const yTicks = 3;
   for (let i = 0; i <= yTicks; i++) {
     const val = minV + (range / yTicks) * i;
@@ -836,22 +838,78 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
     svg += `<line x1="${PAD.l}" y1="${yy}" x2="${W - PAD.r}" y2="${yy}" stroke="${gridColor}"/>`;
     svg += `<text x="${PAD.l - 4}" y="${yy + 3}" text-anchor="end" fill="${textColor}" font-size="8">${Math.round(val).toLocaleString()}</text>`;
   }
-  // Line
+  // Area fill
   const pts = hist.map((h, i) => `${xp(i)},${yp(vals[i])}`);
+  const areaPts = [`${xp(0)},${PAD.t + ch}`, ...pts, `${xp(hist.length - 1)},${PAD.t + ch}`].join(' ');
+  svg += `<polygon points="${areaPts}" fill="${color}" opacity="0.07"/>`;
+  // Line
   svg += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>`;
-  // Dots with hover targets
+  // Static dots
   hist.forEach((h, i) => {
-    const cx = xp(i), cy = yp(vals[i]);
-    const tip = tooltipFn ? tooltipFn(h) : `${vals[i].toLocaleString()}`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="2" fill="${color}"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="8" fill="transparent" class="dev-chart-hover"><title>${h.date}\n${tip}</title></circle>`;
+    svg += `<circle cx="${xp(i)}" cy="${yp(vals[i])}" r="2" fill="${color}"/>`;
   });
+  // Crosshair line + hover dot (hidden by default)
+  svg += `<line id="${id}-vline" x1="0" y1="${PAD.t}" x2="0" y2="${PAD.t + ch}" stroke="${color}" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" style="display:none"/>`;
+  svg += `<circle id="${id}-hdot" cx="0" cy="0" r="4" fill="${color}" stroke="var(--bg-primary)" stroke-width="1.5" style="display:none"/>`;
+  // Invisible hover rect
+  svg += `<rect x="${PAD.l}" y="${PAD.t}" width="${cw}" height="${ch}" fill="transparent" style="cursor:crosshair" id="${id}-hover"/>`;
   // X labels
   const step = Math.max(1, Math.floor(hist.length / 5));
   for (let i = 0; i < hist.length; i += step) {
     svg += `<text x="${xp(i)}" y="${H - 3}" text-anchor="middle" fill="${textColor}" font-size="7">${hist[i].date.slice(5)}</text>`;
   }
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px">${svg}</svg>`;
+  // Store chart data for binding
+  _devChartRegistry.push({ id, hist, vals, color, tooltipFn, W, H, PAD, cw, ch, minV, range, xp, yp });
+  return `<div class="dev-chart-wrap" style="position:relative"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px" id="${id}">${svg}</svg><div id="${id}-tip" class="dev-chart-tooltip"></div></div>`;
+}
+
+function _devBindCharts() {
+  _devChartRegistry.forEach(c => {
+    const svg = document.getElementById(c.id);
+    const tip = document.getElementById(c.id + '-tip');
+    const vline = document.getElementById(c.id + '-vline');
+    const hdot = document.getElementById(c.id + '-hdot');
+    const hoverRect = document.getElementById(c.id + '-hover');
+    if (!svg || !tip || !hoverRect) return;
+
+    function nearest(mx) {
+      const rect = svg.getBoundingClientRect();
+      const svgX = (mx - rect.left) / rect.width * c.W;
+      let best = 0, bestDist = Infinity;
+      for (let i = 0; i < c.hist.length; i++) {
+        const d = Math.abs(c.xp(i) - svgX);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      return best;
+    }
+
+    hoverRect.addEventListener('mousemove', e => {
+      const i = nearest(e.clientX);
+      const h = c.hist[i];
+      const cx = c.xp(i), cy = c.yp(c.vals[i]);
+      vline.setAttribute('x1', cx); vline.setAttribute('x2', cx);
+      vline.style.display = '';
+      hdot.setAttribute('cx', cx); hdot.setAttribute('cy', cy);
+      hdot.style.display = '';
+      const tipText = c.tooltipFn ? c.tooltipFn(h) : `${c.vals[i].toLocaleString()}`;
+      const lines = tipText.split('\n');
+      tip.innerHTML = `<div style="font-weight:600;margin-bottom:1px">${h.date.slice(5)}</div>` + lines.map(l => `<div>${l}</div>`).join('');
+      tip.style.display = 'block';
+      // Position tooltip relative to chart container
+      const rect = svg.getBoundingClientRect();
+      const pxX = (cx / c.W) * rect.width;
+      const pxY = (cy / c.H) * rect.height;
+      const tipW = tip.offsetWidth;
+      const flip = pxX + tipW + 12 > rect.width;
+      tip.style.left = flip ? (pxX - tipW - 8) + 'px' : (pxX + 10) + 'px';
+      tip.style.top = Math.max(0, pxY - tip.offsetHeight / 2) + 'px';
+    });
+    hoverRect.addEventListener('mouseleave', () => {
+      vline.style.display = 'none';
+      hdot.style.display = 'none';
+      tip.style.display = 'none';
+    });
+  });
 }
 
 function _devRelativeTime(d) {
@@ -885,13 +943,14 @@ async function renderDevStats() {
 
   // Stat cards
   const stats = [
-    { value: data.users, label: 'Users' },
+    { value: (data.project_age_days || 0) + 'd', label: 'Project Age' },
     { value: data.total_loc.toLocaleString(), label: 'Lines of Code' },
     { value: data.files, label: 'Files' },
+    { value: (data.total_commits || 0).toLocaleString(), label: 'Total Commits' },
     { value: data.commits_today, label: 'Commits Today' },
+    { value: data.avg_commits_day || 0, label: 'Avg Commits/Day' },
     { value: '—', label: 'FPS', id: 'dev-fps-value' },
     { value: (data.ram_mb || 0) + ' MB', label: 'Server RAM' },
-    { value: (data.disk_used_gb || 0) + ' / ' + (data.disk_total_gb || 0) + ' GB', label: 'Disk Usage' },
     { value: (data.project_mb || 0) + ' MB', label: 'Project Size' },
   ];
   cards.innerHTML = stats.map(s =>
@@ -919,12 +978,15 @@ async function renderDevStats() {
     _devFpsRaf = requestAnimationFrame(fpsLoop);
   }
 
+  _devChartId = 0;
+  _devChartRegistry = [];
+
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
   const hist = data.loc_history || [];
 
   // LOC chart with +/- hover
   const locChart = _devLineChart(hist, 'lines', 'Lines of Code', accent, h =>
-    `${h.lines.toLocaleString()} lines\n+${(h.added || 0).toLocaleString()} / -${(h.deleted || 0).toLocaleString()}`
+    `${h.lines.toLocaleString()} lines\n<span style="color:#3fb950">+${(h.added || 0).toLocaleString()}</span> <span style="color:#f85149">-${(h.deleted || 0).toLocaleString()}</span>`
   );
 
   // Build usage history arrays aligned to loc_history dates
@@ -950,6 +1012,7 @@ async function renderDevStats() {
     <div class="dev-loc-chart">${toolChart}</div>
     <div class="dev-loc-chart">${aetherChart}</div>
   </div>`;
+  _devBindCharts();
 
   // Git log
   const gitLogEl = document.getElementById('dev-git-log');
