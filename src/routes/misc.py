@@ -663,14 +663,17 @@ def neuralook_train(google_id):
                 return aug.clamp(0.0, 1.0)
 
             model = GazeCNN()
+            # Register model globally so prediction endpoint can use it during training
+            _neuralook_models[method] = model
+            _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-            max_epochs = 50
+            max_epochs = 300
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
             n_train = X_train.shape[0]
             batch_size = min(64, n_train)
             best_val_loss = float('inf')
             best_state = None
-            patience = 30
+            patience = 80
             no_improve = 0
             stopped_epoch = 0
 
@@ -721,7 +724,10 @@ def neuralook_train(google_id):
                         no_improve += 10
                     cur_lr = optimizer.param_groups[0]['lr']
                     yield sse_event('log', {'text': f'{epoch:>6}  {last_train_loss:>11.6f}  {val_loss:>11.6f}  {cur_lr:>10.2e}  {"✓" if improved else " ":>5}  {no_improve:>4}/{patience}'})
-                    yield sse_event('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'train_loss': round(last_train_loss, 6), 'phase': 'training'})
+                    prog_data = {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'train_loss': round(last_train_loss, 6), 'phase': 'training'}
+                    if epoch == 0:
+                        prog_data['model_ready'] = True
+                    yield sse_event('progress', prog_data)
                     if no_improve >= patience:
                         yield sse_event('log', {'text': f'\nEarly stopping at epoch {epoch} (no improvement for {patience} epochs)'})
                         stopped_epoch = epoch
@@ -799,8 +805,12 @@ def neuralook_predict(google_id):
         right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
         inp = torch.cat([left, right], dim=0).unsqueeze(0)
         hp = torch.tensor([hp_raw[:3]], dtype=torch.float32)
+        was_training = model.training
+        model.eval()
         with torch.no_grad():
             pred = model(inp, hp)[0]
+        if was_training:
+            model.train()
         return jsonify({
             'x': round(pred[0].item() * screen_w, 1),
             'y': round(pred[1].item() * screen_h, 1)

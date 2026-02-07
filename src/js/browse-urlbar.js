@@ -194,7 +194,7 @@ function _browseUrlRenderHistoryCommand(dd, input) {
 
   const rect = input.getBoundingClientRect();
   dd.style.left = rect.left + 'px';
-  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.top = (rect.bottom + 1) + 'px';
   dd.style.width = rect.width + 'px';
 
   if (!hist.length) {
@@ -238,7 +238,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
   dd.style.left = rect.left + 'px';
-  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.top = (rect.bottom + 1) + 'px';
   dd.style.width = rect.width + 'px';
 
   const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
@@ -257,9 +257,9 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     }
     const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : '');
     html += `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
-      <span style="font-size:1rem;flex-shrink:0;">&#x2728;</span>
+      <svg style="width:14px;height:14px;flex-shrink:0;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
-        <span style="font-weight:600;color:var(--accent);">Feeling Lucky</span>
+        <span style="font-weight:600;color:var(--text-primary);">Feeling Lucky</span>
         <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${displayText}</span>
       </span>
       ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
@@ -268,7 +268,6 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
 
   // Browsing history section (visited sites)
   if (showBrowse.length) {
-    if (showLucky) html += '<div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>';
     html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
     html += showBrowse.map(h => {
       const favicon = _browseFaviconUrl(h.url);

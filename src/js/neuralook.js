@@ -1183,6 +1183,10 @@ async function _nlOnCalibrationComplete() {
       _nlTrainProgress = prog;
       _nlTrainPhase = prog.phase || 'training';
       if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
+      if (prog.model_ready && !_nlModelTrained) {
+        _nlModelTrained = true;
+        _nlReady = true;
+      }
       if (prog.phase === 'evaluating') {
         _nlUpdateTrainPill('Training CNN', 'Evaluating...');
       } else {

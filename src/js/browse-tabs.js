@@ -2977,41 +2977,26 @@ function _tabDragEnd(e) {
   }
 }
 
-// ── Tab Overview (Safari iPad style) ──
+// ── Window Overview ──
 
 let _browseTabOverviewVisible = false;
+let _overviewSelectedIdx = 0;
+let _overviewKeyHandler = null;
 
 function toggleBrowseTabOverview() {
   _browseTabOverviewVisible ? hideBrowseTabOverview() : showBrowseTabOverview();
 }
 
-let _overviewKeyHandler = null;
-
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = true;
-
-  // Initialize selection to current active window and tab (niri-style)
-  const currentWinIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-  _overviewSelectedWinIdx = currentWinIdx >= 0 ? currentWinIdx : 0;
-  const currentWin = _browseWindows[_overviewSelectedWinIdx];
-  if (currentWin) {
-    const tabIdx = currentWin.tabs.findIndex(t => t.id === currentWin.activeTab);
-    _overviewSelectedTabIdx = tabIdx >= 0 ? tabIdx : 0;
-  } else {
-    _overviewSelectedTabIdx = 0;
-  }
-
-  _renderBrowseTabOverview();
+  _overviewSelectedIdx = Math.max(0, _browseWindows.findIndex(w => w.id === _browseActiveWindow));
+  _renderWindowOverview();
   overlay.style.display = 'flex';
-  // Install keyboard handler
   _installOverviewKeyHandler();
-  // Trigger animation
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      overlay.classList.add('visible');
-    });
+    requestAnimationFrame(() => overlay.classList.add('visible'));
   });
 }
 
@@ -3021,74 +3006,40 @@ function hideBrowseTabOverview() {
   _browseTabOverviewVisible = false;
   _removeOverviewKeyHandler();
   overlay.classList.remove('visible');
-  setTimeout(() => {
-    overlay.style.display = 'none';
-  }, 200);
+  setTimeout(() => { overlay.style.display = 'none'; }, 180);
 }
-
-// Track selected window and tab index for niri-style navigation
-let _overviewSelectedWinIdx = 0;
-let _overviewSelectedTabIdx = 0;
 
 function _installOverviewKeyHandler() {
   if (_overviewKeyHandler) return;
   _overviewKeyHandler = (e) => {
     if (!_browseTabOverviewVisible) return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-    // Left/Right: switch windows (horizontal)
-    if (e.key === 'ArrowLeft') {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      if (_overviewSelectedWinIdx > 0) {
-        _overviewSelectedWinIdx--;
-        _overviewSelectedTabIdx = Math.min(_overviewSelectedTabIdx, _browseWindows[_overviewSelectedWinIdx].tabs.length - 1);
-        _updateOverviewSelection();
-        _scrollToOverviewWindow(_browseWindows[_overviewSelectedWinIdx].id);
+      if (_overviewSelectedIdx > 0) {
+        _overviewSelectedIdx--;
+        _updateOverviewHighlight();
       }
-    } else if (e.key === 'ArrowRight') {
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
-      if (_overviewSelectedWinIdx < _browseWindows.length - 1) {
-        _overviewSelectedWinIdx++;
-        _overviewSelectedTabIdx = Math.min(_overviewSelectedTabIdx, _browseWindows[_overviewSelectedWinIdx].tabs.length - 1);
-        _updateOverviewSelection();
-        _scrollToOverviewWindow(_browseWindows[_overviewSelectedWinIdx].id);
+      if (_overviewSelectedIdx < _browseWindows.length - 1) {
+        _overviewSelectedIdx++;
+        _updateOverviewHighlight();
       }
-    }
-    // Up/Down: switch tabs within window (vertical)
-    else if (e.key === 'ArrowUp') {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (_overviewSelectedTabIdx > 0) {
-        _overviewSelectedTabIdx--;
-        _updateOverviewSelection();
-      }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const win = _browseWindows[_overviewSelectedWinIdx];
-      if (win && _overviewSelectedTabIdx < win.tabs.length - 1) {
-        _overviewSelectedTabIdx++;
-        _updateOverviewSelection();
-      }
-    }
-    // Enter: select current tab
-    else if (e.key === 'Enter') {
-      e.preventDefault();
-      _selectOverviewItem();
-    }
-    // Escape: close overview
-    else if (e.key === 'Escape') {
+      const win = _browseWindows[_overviewSelectedIdx];
+      if (win) { browseSelectWindow(win.id); hideBrowseTabOverview(); }
+    } else if (e.key === 'Escape') {
       e.preventDefault();
       hideBrowseTabOverview();
-    }
-    // N: new window
-    else if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
-      _newWindowFromOverview();
-    }
-    // T: new tab in current window
-    else if (e.key === 't' && !e.metaKey && !e.ctrlKey) {
-      e.preventDefault();
-      const win = _browseWindows[_overviewSelectedWinIdx];
-      if (win) _newTabInWindowFromOverview(win.id);
+      const win = _browseWindows[_overviewSelectedIdx];
+      if (win && _browseWindows.length > 1) {
+        browseCloseWindow(win.id);
+        _overviewSelectedIdx = Math.min(_overviewSelectedIdx, _browseWindows.length - 1);
+        _renderWindowOverview();
+      }
     }
   };
   document.addEventListener('keydown', _overviewKeyHandler);
@@ -3101,29 +3052,73 @@ function _removeOverviewKeyHandler() {
   }
 }
 
-function _updateOverviewSelection() {
-  // Re-render to update selection state
-  _renderBrowseTabOverview();
+function _updateOverviewHighlight() {
+  const overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  overlay.querySelectorAll('.wov-card').forEach((card, i) => {
+    card.classList.toggle('wov-selected', i === _overviewSelectedIdx);
+  });
+  const sel = overlay.querySelector('.wov-card.wov-selected');
+  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function _scrollSelectedCellIntoView() {
-  const cell = document.querySelector('.browse-tab-cell.keyboard-selected');
-  if (cell) {
-    cell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-  }
+function _renderWindowOverview() {
+  const overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+
+  const cards = _browseWindows.map((win, i) => {
+    const isActive = win.id === _browseActiveWindow;
+    const isSelected = i === _overviewSelectedIdx;
+    const activeTab = win.tabs.find(t => t.id === win.activeTab);
+
+    // Show up to 4 tab previews
+    const previews = win.tabs.slice(0, 4).map(t => {
+      const fav = t.favicon
+        ? `<img src="${escapeHtml(t.favicon)}" class="wov-tab-fav" onerror="this.style.display='none'">`
+        : '';
+      const title = escapeHtml(t.title || 'New Tab');
+      return `<div class="wov-tab-row">${fav}<span class="wov-tab-title">${title}</span></div>`;
+    }).join('');
+    const moreCount = win.tabs.length - 4;
+    const moreLabel = moreCount > 0 ? `<div class="wov-tab-more">+${moreCount} more</div>` : '';
+
+    // Active tab domain for subtitle
+    let subtitle = '';
+    if (activeTab && activeTab.url) {
+      try { subtitle = new URL(activeTab.url).hostname.replace(/^www\./, ''); } catch {}
+    }
+
+    return `
+      <div class="wov-card ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
+           data-idx="${i}" onclick="_overviewClickWindow(${win.id})">
+        <div class="wov-card-header">
+          <span class="wov-card-name">${escapeHtml(win.name)}</span>
+          <span class="wov-card-count">${win.tabs.length} tab${win.tabs.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${subtitle ? `<div class="wov-card-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+        <div class="wov-tab-list">${previews}${moreLabel}</div>
+      </div>
+    `;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="wov-backdrop" onclick="hideBrowseTabOverview()"></div>
+    <div class="wov-container">
+      <div class="wov-header">
+        <span class="wov-title">Windows</span>
+        <span class="wov-hint"><kbd>↑↓</kbd> navigate <kbd>Enter</kbd> select <kbd>Esc</kbd> close</span>
+      </div>
+      <div class="wov-list">${cards}</div>
+    </div>
+  `;
 }
 
-function _selectOverviewItem() {
-  const win = _browseWindows[_overviewSelectedWinIdx];
-  if (!win) return;
-
-  const tab = win.tabs[_overviewSelectedTabIdx];
-  if (tab) {
-    _selectTabFromOverview(win.id, tab.id);
-  }
+function _overviewClickWindow(windowId) {
+  browseSelectWindow(windowId);
+  hideBrowseTabOverview();
 }
 
-// Keyboard shortcut for tab overview (Cmd+Shift+\)
+// Keyboard shortcut for window overview (Cmd+Shift+\)
 document.addEventListener('keydown', (e) => {
   const view = document.getElementById('browse-view');
   if (!view || view.style.display === 'none') return;
@@ -3133,251 +3128,11 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     toggleBrowseTabOverview();
   }
-  // Escape to close overview
   if (e.key === 'Escape' && _browseTabOverviewVisible) {
     e.preventDefault();
     hideBrowseTabOverview();
   }
 });
-
-function _renderBrowseTabOverview() {
-  const overlay = document.getElementById('browse-tab-overview');
-  if (!overlay) return;
-
-  const totalTabs = _browseWindows.reduce((sum, w) => sum + w.tabs.length, 0);
-
-  // Render each window as a column in a 2D grid
-  const windowColumns = _browseWindows.map((win, winIdx) => {
-    const isActiveWindow = win.id === _browseActiveWindow;
-    const isSelectedColumn = winIdx === _overviewSelectedWinIdx;
-
-    // Window header
-    const hasNonBlankTabs = win.tabs.some(t => !t.blank && t.url);
-    const windowHeader = `
-      <div class="browse-window-header">
-        <span class="browse-window-title" ondblclick="event.stopPropagation();_startRenameWindow(${win.id}, this)">${escapeHtml(win.name)}</span>
-        <span class="browse-window-tab-count">${win.tabs.length}</span>
-        <div class="browse-window-actions">
-          ${hasNonBlankTabs ? `<button class="browse-window-save" onclick="event.stopPropagation();_saveWindowAsSession(${win.id})" title="Save as session">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-          </button>` : ''}
-          ${_browseWindows.length > 1 ? `<button class="browse-window-close" onclick="event.stopPropagation();_closeWindowFromOverview(${win.id})" title="Close window">&times;</button>` : ''}
-        </div>
-      </div>
-    `;
-
-    // Render tabs as cells
-    const tabCells = win.tabs.map((t, tabIdx) => {
-      const isActiveTab = isActiveWindow && t.id === win.activeTab;
-      const isSelected = isSelectedColumn && tabIdx === _overviewSelectedTabIdx;
-      const title = escapeHtml(t.title);
-      let urlDisplay = '';
-      try {
-        const u = new URL(t.url);
-        urlDisplay = u.hostname.replace(/^www\./, '');
-      } catch { urlDisplay = t.url || 'New Tab'; }
-
-      const favContent = t.favicon
-        ? `<img src="${escapeHtml(t.favicon)}" onerror="this.parentElement.innerHTML='●'">`
-        : `<span style="color:var(--text-dimmer);font-size:0.7rem;">●</span>`;
-
-      // Audio indicator
-      const hasAudio = _browseAudioTabs.has(t.id);
-      const audioInfo = _browseAudioTabs.get(t.id);
-      const isMuted = audioInfo?.muted;
-      const audioIcon = hasAudio ? `
-        <svg class="w-4 h-4" style="flex-shrink:0;color:${isMuted ? 'var(--text-dimmer)' : 'var(--accent)'}" fill="currentColor" viewBox="0 0 24 24">
-          ${isMuted
-            ? '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>'
-            : '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>'}
-        </svg>
-      ` : '';
-
-      // Pin badge & group color for overview
-      const pinBadge = t.pinned ? '<span class="browse-tab-cell-pin" title="Pinned">📌</span>' : '';
-      let groupColorBorder = '';
-      if (t.groupId != null) {
-        const g = (win.groups || []).find(g => g.id === t.groupId);
-        if (g) groupColorBorder = `border-left:3px solid ${_BROWSE_GROUP_COLOR_MAP[g.color] || g.color};`;
-      }
-
-      return `
-        <div class="browse-tab-cell ${isActiveTab ? 'active' : ''} ${isSelected ? 'keyboard-selected' : ''}"
-             data-win-idx="${winIdx}" data-tab-idx="${tabIdx}"
-             style="${groupColorBorder}"
-             onclick="event.stopPropagation();_selectTabFromOverview(${win.id}, ${t.id})">
-          <div class="browse-tab-cell-favicon">${favContent}</div>
-          <div class="browse-tab-cell-info">
-            <div class="browse-tab-cell-title">${pinBadge}${title}</div>
-            <div class="browse-tab-cell-url">${escapeHtml(urlDisplay)}</div>
-          </div>
-          ${audioIcon}
-          <button class="browse-tab-cell-close" onclick="event.stopPropagation();_closeTabFromOverview(${win.id}, ${t.id})" title="Close">&times;</button>
-        </div>
-      `;
-    }).join('');
-
-    // New tab cell
-    const newTabCell = `
-      <div class="browse-tab-cell-new" onclick="event.stopPropagation();_newTabInWindowFromOverview(${win.id})">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-        New Tab
-      </div>
-    `;
-
-    return `
-      <div class="browse-window-section ${isSelectedColumn ? 'column-selected' : ''}" data-window-id="${win.id}" data-win-idx="${winIdx}">
-        ${windowHeader}
-        ${tabCells}
-        ${newTabCell}
-      </div>
-    `;
-  }).join('');
-
-  // New window column at the end
-  const newWindowColumn = `
-    <div class="browse-window-new" onclick="event.stopPropagation();_newWindowFromOverview()">
-      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-      <span>New Window</span>
-    </div>
-  `;
-
-  // Position indicator
-  const currentWin = _browseWindows[_overviewSelectedWinIdx];
-  const positionIndicator = `
-    <div class="browse-overview-position">
-      <span class="browse-overview-position-cell active">
-        Window ${_overviewSelectedWinIdx + 1}/${_browseWindows.length}
-      </span>
-      <span>·</span>
-      <span class="browse-overview-position-cell active">
-        Tab ${_overviewSelectedTabIdx + 1}/${currentWin ? currentWin.tabs.length : 0}
-      </span>
-      <span style="margin-left:auto;opacity:0.6">
-        <kbd>←→</kbd> windows
-        <kbd>↑↓</kbd> tabs
-        <kbd>Enter</kbd> select
-      </span>
-    </div>
-  `;
-
-  // Header row with window/tab info and panel button
-  const headerRow = `
-    <div class="browse-overview-header">
-      <span class="browse-overview-title">${_browseWindows.length} Window${_browseWindows.length !== 1 ? 's' : ''}</span>
-      <span class="browse-overview-count">${totalTabs} tab${totalTabs !== 1 ? 's' : ''}</span>
-      <div class="browse-overview-hints">
-        <span><kbd>←→</kbd> windows</span>
-        <span><kbd>↑↓</kbd> tabs</span>
-        <span><kbd>N</kbd> new window</span>
-        <span><kbd>T</kbd> new tab</span>
-      </div>
-      <button class="browse-overview-close-btn" onclick="hideBrowseTabOverview()" title="Close panel">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-        </svg>
-      </button>
-    </div>
-  `;
-
-  overlay.innerHTML = `
-    ${headerRow}
-    <div class="browse-tab-overview-grid-container" id="browse-overview-scroll">
-      <div class="browse-tab-overview-windows">
-        ${windowColumns}
-        ${newWindowColumn}
-      </div>
-    </div>
-    ${positionIndicator}
-  `;
-
-  // Scroll selected cell into view
-  requestAnimationFrame(() => {
-    _scrollSelectedCellIntoView();
-  });
-}
-
-function _selectTabFromOverview(windowId, tabId) {
-  if (_browseActiveWindow !== windowId) {
-    browseSelectWindow(windowId);
-  }
-  browseSelectTab(tabId);
-  hideBrowseTabOverview();
-}
-
-function _closeTabFromOverview(windowId, tabId) {
-  const win = _browseWindows.find(w => w.id === windowId);
-  if (!win) return;
-
-  const idx = win.tabs.findIndex(t => t.id === tabId);
-  if (idx === -1) return;
-
-  const tab = win.tabs[idx];
-  if (tab.el) tab.el.remove();
-  win.tabs.splice(idx, 1);
-
-  // If window is now empty, close it or create new tab
-  if (win.tabs.length === 0) {
-    if (_browseWindows.length > 1) {
-      browseCloseWindow(windowId);
-    } else {
-      // Last window - create a new tab
-      _browseActiveWindow = windowId;
-      browseNewTab();
-    }
-  } else if (win.activeTab === tabId) {
-    win.activeTab = win.tabs[Math.min(idx, win.tabs.length - 1)].id;
-  }
-
-  _browseSaveTabs();
-  _renderBrowseTabOverview();
-}
-
-function _newTabInWindowFromOverview(windowId) {
-  browseSelectWindow(windowId);
-  browseNewTab();
-  hideBrowseTabOverview();
-}
-
-function _newWindowFromOverview() {
-  browseCreateWindow();
-  hideBrowseTabOverview();
-}
-
-function _closeWindowFromOverview(windowId) {
-  browseCloseWindow(windowId);
-  _renderBrowseTabOverview();
-}
-
-function _startRenameWindow(windowId, el) {
-  const win = _browseWindows.find(w => w.id === windowId);
-  if (!win) return;
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = win.name;
-  input.className = 'browse-window-rename-input';
-
-  const finish = () => {
-    const newName = input.value.trim() || win.name;
-    browseRenameWindow(windowId, newName);
-    _renderBrowseTabOverview();
-  };
-
-  input.onblur = finish;
-  input.onkeydown = (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.value = win.name; input.blur(); }
-  };
-
-  el.innerHTML = '';
-  el.appendChild(input);
-  input.focus();
-  input.select();
-}
 
 function _browseTitleFromUrl(url) {
   try {

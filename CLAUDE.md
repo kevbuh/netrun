@@ -36,10 +36,21 @@ Self-contained feed reader, paper browser, and experiment tracker — vanilla Ja
 
 ### Backend — Flask app in `src/`
 
-Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`. Helper functions in `helpers.py` (auth decorators, SSE, chat tools), `vault_helpers.py` (vault file I/O, git), `persistence.py` (DB, caching, classification), and `kernels.py` (Jupyter kernel management).
+Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`. Helper modules:
+- `helpers.py` — auth decorators, SSE helpers, chat tools, arxiv query builder
+- `vault_helpers.py` — vault .md file I/O, git operations (shared by vault + social routes)
+- `persistence.py` — DB schema (24 tables), read/write helpers, slugify, prompts, classify_title, cached_fetch
+- `kernels.py` — Jupyter kernel management, code execution (sync + streaming)
+- `feed_catalog.py` — server-side mirror of `FEED_CATALOG` from `js/core.js` (must be kept in sync)
+- `feed_parser.py` — RSS/Atom/HN/Polymarket parsing using stdlib only (no external deps)
+- `feed_poller.py` — background daemon polling all catalog sources every 10 minutes into SQLite `feed_items` table
 
+**Key API endpoints:**
 - `/feed` — proxies arXiv CS RSS feed
 - `/hn-feed` — proxies Hacker News top stories API
+- `/polymarket-feed` — proxies Polymarket breaking markets
+- `/api/feed-items` — GET cached feed items from server-side poller
+- `/api/feed-items/custom` — POST poll custom RSS feeds on demand
 - `/api/rss-proxy?url=` — generic RSS proxy for any feed URL (used by all non-special sources)
 - `/api/arxiv-search` — proxies arXiv search API
 - `/api/citations` — fetches citation counts from Semantic Scholar batch API
@@ -50,6 +61,9 @@ Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`
 - `/api/check-embed` — checks if a URL can be embedded in an iframe
 - `/api/extract-text` — POST a URL, returns extracted text (PDF via PyMuPDF for arXiv, HTML text extraction for other sites)
 - `/api/paper-insights` — POST a URL, returns extracted repo links and key insights from the document
+- `/api/doc-chat` — POST, SSE streaming chat with optional `vision: true` for screenshot chat
+- `/api/web-search?q=` — GET, DuckDuckGo HTML search, returns `{ results: [{title, url, snippet}] }`
+- `/api/images` — POST saves base64 PNG to `uploads/`, GET serves saved images
 
 Experiments are stored on disk as `experiments/{slug}/meta.json`.
 
@@ -59,15 +73,27 @@ Experiments are stored on disk as `experiments/{slug}/meta.json`.
 
 ### Frontend — `src/index.html` + `js/` + `styles.css`
 
-Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.css`, JS split across 14 files in `js/`. Views managed by client-side hash routing:
+Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.css`, JS split across 26 files in `js/`. HTML templates in `views/` are lazy-loaded via `VIEW_REGISTRY`. Views managed by client-side hash routing:
 
 1. **Onboarding** (`#`) — shown on first visit (no `feedSources` in localStorage) or when all sources are off. 2×N grid of source cards grouped by category, user picks sources, clicks "Start reading"
-2. **Home** (`#`) — multi-source feed with masonry grid, sorting (latest/most cited), trend panels, infinite scroll, search
-3. **Paper Viewer** (`#view/` or `#paper/`) — arXiv papers use full PDF viewer (highlights, pen, search); non-arXiv posts show the original website in an iframe. Both get sidebar with insights, chat, notes, and comments.
-4. **Reading List** (`#saved`) — bookmarked posts with read/unread tracking
-5. **Experiments List** (`#experiments`) — create/delete experiment ideas, sorted by last modified (includes file mtimes)
-6. **Experiment Detail** (`#experiment/{id}`) — version tree with SVG visualization, interactive version cards, auto-save (600ms debounce), branching
-7. **Quality Filter** (`#quality`) — dedicated sidebar tab for AI filter management: prompts, scoring threshold, blocked posts, test suite, cache stats
+2. **Feed** (`#feed`) — multi-source feed with masonry grid, sorting (latest/most cited/for you), trend panels, infinite scroll, search
+3. **Dashboard** (`#saved`) — activity heatmap, reading list, recent experiments, quotes
+4. **Research** (`#research`) — research view with tabs
+5. **Paper Viewer** (`#view/` or `#paper/`) — arXiv papers use full PDF viewer (highlights, pen, search); non-arXiv posts show the original website in an iframe. Both get sidebar with insights, chat, notes, and comments.
+6. **Browse** (`#browse`) — built-in browser with tabs, URL bar, ad blocker, downloads
+7. **Experiments** (`#experiment/{id}`) — experiment detail with file sidebar, editors, kernel, venv
+8. **Calendar** (`#calendar`) — month grid, event CRUD
+9. **Vault** (`#vault`) — notes management with marimo integration
+10. **Teams** (`#teams`, `#team/{id}`) — team collaboration, messages, todos
+11. **Inbox** (`#inbox`) — unified inbox
+12. **Terminal** (`#terminal`) — WebSocket terminal emulator
+13. **Neuralook** (`#neuralook`) — neural network visualization
+14. **Vibe** (`#vibe`) — vibe coding assistant
+15. **Settings** (`#settings`) — themes, accent, spinners, feed sources, quality filter UI
+16. **Quality Filter** (`#quality`) — AI filter management: prompts, scoring threshold, blocked posts, test suite, cache stats
+17. **Profile** (`#profile/{username}`) — user profile, blog posts
+18. **Author** (`#author/{id}`) — author profile view
+19. **Dev** (`#dev`) — dev stats view
 
 ### File Structure
 
@@ -78,23 +104,27 @@ src/
   app.py                — Flask app factory, CLI args, WebSocket terminal, static serving
   helpers.py            — auth decorators, SSE helpers, chat tools, arxiv query builder
   vault_helpers.py      — vault .md file I/O, git operations (shared by vault + social routes)
-  persistence.py        — file-path constants, read/write helpers, slugify, prompts, classify_title, cached_fetch
+  persistence.py        — DB schema (24 tables), read/write helpers, slugify, prompts, classify_title, cached_fetch
   kernels.py            — Jupyter kernel management, code execution (sync + streaming)
   terminal_server.py    — WebSocket-to-pty bridge for flask-sock
+  feed_catalog.py       — server-side feed catalog (mirror of JS FEED_CATALOG, must be kept in sync)
+  feed_parser.py        — RSS/Atom/HN/Polymarket parsing (stdlib only, no external deps)
+  feed_poller.py        — background feed polling daemon (10min interval, 8 concurrent, 30-day retention)
+  views/                — 18 HTML templates lazy-loaded by VIEW_REGISTRY
   routes/
     auth.py             — 6 routes: login, logout, username, delete, me, sync
-    feed.py             — 11 routes: feeds, RSS proxy, quality filter, models
-    experiments.py      — 35 routes: experiment CRUD, files, runs, kernel, venv, execute (SSE)
+    feed.py             — 14 routes: feeds, RSS proxy, quality filter, models, feed-items
+    experiments.py      — 29 routes: experiment CRUD, files, runs, kernel, venv, execute (SSE)
     social.py           — 51 routes: teams, users, messages, comments, blog, achievements
     content.py          — 11 routes: doc-chat (SSE), extract-text, paper-insights, citations
-    browse.py           — 9 routes: web-search, browse-proxy, image-proxy, link-preview
-    vault.py            — 9 routes: notes CRUD, marimo start/stop, vault path
-    misc.py             — 22 routes: neuralook (SSE), transcribe, vibe/git, todos, calendar
+    browse.py           — 8 routes: web-search, browse-proxy, image-proxy, link-preview, stock-quote, adblock
+    vault.py            — 10 routes: notes CRUD, marimo start/stop, vault path, vault tree
+    misc.py             — 26 routes: neuralook (SSE), transcribe, vibe/git, todos, calendar, images, saved-content
   js/
-    core.js             — globals, constants, FEED_CATALOG, utilities, routing, view management
+    core.js             — globals, constants, FEED_CATALOG (166 sources), utilities, routing, window manager, view registry
     pixel-pet.js        — pixel pet system (IIFE: rendering, AI states, mouse interaction)
-    feed.js             — feed loading/parsing/rendering, reading list, citations, trends
-    quality.js          — AI quality filter (Ollama integration, prompts, scoring, test suite)
+    feed.js             — feed loading/parsing/rendering, reading list, citations, trends, personalization panel
+    quality.js          — AI quality filter (Ollama integration, prompts, scoring, test suite, interest profiling)
     settings.js         — settings view (themes, accent, spinners, feed sources, quality filter UI), applyStoredAppearance
     dashboard.js        — dashboard view (activity heatmap, reading list, recent experiments, quotes)
     views.js            — paper viewer core (reader view, topbar overflow, sidebar resize)
@@ -121,27 +151,48 @@ src/
 
 **Script load order** (bottom of `<body>`): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `pdfviewer.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then settings/dashboard, then views → paper-sidebar → chat-threads → panel (popup system depends on views), then browse-tabs → browse-urlbar → search (browse depends on panel), then remaining views. All functions are global (no modules).
 
+### Window Manager
+
+The app uses a tiling/fullscreen window manager (`wmOpen()` in `core.js`) to manage views:
+
+- **`_wmWindows`** — array of open windows `{ key, label, sidebarId }`
+- **`_wmMode`** — `'fullscreen'` or `'tiling'`
+- **`_wmViewMeta`** — maps view keys (dashboard, feed, research, vault, browse, inbox, terminal, neuralook, dev, vibe, settings, calendar) to sidebar IDs, labels, and open functions
+- **`wmOpen(key)`** — opens or focuses a view, captures preview snapshot after 600ms
+- **Tiling mode** (`Cmd+T`) — shows overlay with tile cards for all open windows using `html2canvas` previews; keyboard navigable (arrows, Enter, Backspace)
+- **Fullscreen mode** — activates a single window via its `openFn()`
+
 ### Sidebar
 
-The left sidebar (`60px` wide) has buttons for: Home, Experiments, Reading List (with unread badge), Calendar, and Settings (gear icon).
+The left sidebar (`60px` wide) has buttons for views (dashboard, feed, research, vault, browse, inbox, terminal, neuralook, dev, vibe, settings, calendar). Order is customizable via `localStorage.sidebarOrder`. Keyboard navigable (Up/Down arrows, Enter).
 
 ### Feed System
 
-All available feeds are defined in `FEED_CATALOG` (JS array). Each entry has: `key`, `name`, `desc`, `cat` (category), `url` (RSS URL or null for special fetchers), `special` (`'arxiv'` or `'hn'` for custom fetch functions), and logo properties (`letter`, `bg`, `fg`, or `img`).
+All available feeds are defined in `FEED_CATALOG` (JS array in `core.js`, mirrored in `feed_catalog.py`). Each entry has: `key`, `name`, `desc`, `cat` (category), `url` (RSS URL or null for special fetchers), `special` (`'arxiv'`, `'hn'`, or `'polymarket'` for custom fetch functions), and logo properties (`letter`, `bg`, `fg`, or `img`).
 
-Adding a new feed source requires only appending to `FEED_CATALOG` in `js/core.js` — the onboarding grid, settings toggles, `loadAllFeeds()`, source chip rendering, and paper viewer source names all derive from it.
+Adding a new feed source requires appending to both `FEED_CATALOG` in `js/core.js` and `CATALOG` in `feed_catalog.py` — the onboarding grid, settings toggles, `loadAllFeeds()`, source chip rendering, paper viewer source names, and server-side polling all derive from them.
 
-**Built-in sources (15):**
-- Research & Science: arXiv, Nature, Science, Quanta Magazine
-- Tech & News: Hacker News, The Verge, Ars Technica, TechCrunch, Wired, MIT Tech Review
-- Programming: Lobsters
-- AI & Machine Learning: The Gradient
-- Security: Krebs on Security
-- Ideas & Culture: Aeon, Nautilus
+**Built-in sources (166) across 14 categories:**
+- Research & Science (7): arXiv, Nature, Science, Quanta Magazine, PNAS, Cell, NEJM
+- Tech & News (6): Hacker News, The Verge, Ars Technica, TechCrunch, Wired, MIT Tech Review
+- Programming (10): Lobsters, Go Blog, Rust Blog, Julia Blog, Python Insider, Swift Blog, Node.js Blog, Ruby News, PHP News, Zig News
+- AI & Machine Learning (4): The Gradient, Distill, Google AI Blog, OpenAI Blog
+- Security (1): Krebs on Security
+- Ideas & Culture (5): Aeon, Nautilus, Longreads, The Marginalian, Works in Progress
+- Sports (3): ESPN, The Athletic, Bleacher Report
+- Prediction Markets (1): Polymarket (special fetcher)
+- Design (2): Designer News, Sidebar
+- Finance & Economics (3): Financial Times, The Economist, BIG by Matt Stoller
+- Space (2): NASA, SpaceNews
+- News & World (4): Reuters, BBC, NPR, AP News
+- Blogs & Newsletters (35): Astral Codex Ten, Dwarkesh, geohot, Lilian Weng, colah, Gwern, LessWrong, Karpathy, Simon Willison, etc.
+- HN Top Blogs 2025 (83): Daring Fireball, antirez, Pluralistic, Paul Graham, and many more
 
 Users can also add custom RSS feeds via settings.
 
-**Source selection** is stored in `localStorage.feedSources` as `{ key: boolean }`. `FEED_SOURCE_DEFAULTS` has all keys `false`; first-time visitors see the onboarding screen.
+**Source selection** is stored in `localStorage.feedSources` as `{ key: boolean }`. First-time visitors see the onboarding screen.
+
+**Server-side feed polling:** `feed_poller.py` runs a background daemon that fetches all catalog sources every 10 minutes using 8 concurrent threads. Items are stored in the `feed_items` SQLite table with 30-day retention. The frontend can fetch cached items via `/api/feed-items` instead of proxying RSS directly.
 
 ### AI Quality Filter
 
@@ -238,13 +289,6 @@ The aether panel is the unified right-click interaction surface across the app. 
 - `ipcMain.handle('capture-screen', ...)` — captures a rectangular region of the window
 - `electronAPI.captureScreen(rect)` — exposed to renderer via preload
 
-**Server endpoints:**
-- `/api/doc-chat` — POST, accepts `vision: true` for screenshot chat
-- `/api/web-search?q=` — GET, DuckDuckGo HTML search, returns `{ results: [{title, url, snippet}] }`
-- Vision mode uses `deepseek-ocr` model and passes `images` arrays through to Ollama
-- `/api/images` POST — saves base64 PNG to `uploads/` directory, returns URL
-- `/api/images/<filename>` GET — serves saved images
-
 ### Post Actions
 
 Each feed card has two action buttons (top-right corner):
@@ -260,41 +304,138 @@ Clicking a post marks it as read (`localStorage.readPosts`). Read posts render a
 - Hacker News: `https://hacker-news.firebaseio.com/v0/`
 - Semantic Scholar: `https://api.semanticscholar.org/graph/v1/paper/batch`
 - Ollama (local): `http://localhost:11434/api/chat`
+- DuckDuckGo (web search): `https://html.duckduckgo.com/html/`
+- Polymarket: `https://polymarket.com/breaking` (scraped for breaking markets)
+
+### Database Schema (SQLite — `aether.db`)
+
+Auto-created on first run. 24 tables:
+
+**Auth & Users:** `users` (google_id PK, email, name, username, picture, profile_private, last_seen, status), `sessions` (token PK, google_id, expires 30-day TTL), `user_data` (google_id + key composite PK, per-user settings sync)
+
+**Teams:** `teams`, `team_members`, `team_invites`, `experiment_teams`
+
+**Content:** `experiment_owners`, `calendar_events`, `todos` (with experiment_id and paper_link), `comments` (paper comments with threading)
+
+**Messaging:** `direct_messages`, `team_messages`, `team_todos`, `team_chat_read`
+
+**Social:** `message_reactions`, `reposts`, `blog_votes`, `achievements`
+
+**Caching:** `reference_cache` (paper references), `author_cache` (author info), `quality_cache` (AI filter verdicts/scores)
+
+**Feeds:** `feed_items` (source, title, link, authors, categories, description, pub_date, display_date, arxiv_id, extra, fetched_at — indexed on source, unique on source+link)
+
+**Analytics:** `usage_log` (event, timestamp)
 
 ### localStorage Keys
 
 | Key | Purpose |
 |-----|---------|
+| **Auth** | |
+| `authToken` | Session bearer token |
+| `authUser` | Authenticated user email/name |
+| `authUserInfo` | Full user info object |
+| **Feed & Quality** | |
 | `feedSources` | `{ key: boolean }` — which catalog feeds are enabled |
 | `customFeeds` | Array of `{ url, name, enabled }` for user-added RSS feeds |
 | `qualityFilter` | `'on'` or `'off'` — AI filter toggle state |
 | `qualityPrompt` | Custom verdict prompt (if different from default) |
-| `qualityThreshold` | `0-10` integer — minimum score to display (default 8) |
+| `qualityThreshold` | `0-10` integer — minimum score to display |
 | `qualityCache` | `{ title: { v: 'keep'\|'skip', s: number\|null } }` — cached verdicts and scores |
+| `qualityBypass` | Bypass rules for quality filter |
+| `qualityTestTitles` | Array of strings — titles that must be classified as SKIP |
 | `hiddenPosts` | Array of post URLs permanently hidden by user |
 | `savedPosts` | `{ url: { paper, savedAt, read } }` — reading list |
 | `readPosts` | Array of post URLs that have been clicked/opened |
-| `qualityTestTitles` | Array of strings — titles that must be classified as SKIP (prompt test suite) |
-| `interestProfile` | `{ sourceCounts, catCounts, topTopics, topCategories, updatedAt }` — personalized interest profile |
-| `maxPerCategoryRun` | `1-10` integer — max same-category posts in a row before diversity mixing (default 3) |
-| `fyWeightBase` | `0.0-1.0` float — base weight in composite score formula (default 0.7) |
-| `fyWeightAffinity` | `0.0-1.0` float — affinity multiplier in composite score formula (default 0.3) |
-| `fyWeightRecency` | `0.0-2.0` float — recency boost multiplier in composite score formula (default 1.0) |
+| `paperRatings` | Per-paper rating data |
+| `blockedWords` | Blocked word list for feed filtering |
+| `seenPostLinks` | Set of seen post URLs |
+| `repostedLinks` | Reposted link URLs |
+| `offlineCached` | Offline cached posts |
+| `userQuotes` | User-saved quotes |
+| `searchHistory` | Feed search history |
+| **Personalization** | |
+| `interestProfile` | `{ sourceCounts, catCounts, topTopics, topCategories, updatedAt }` |
+| `maxPerCategoryRun` | `1-10` integer — diversity mixing parameter (default 3) |
+| `fyWeightBase` | `0.0-1.0` float — base weight in composite score (default 0.7) |
+| `fyWeightAffinity` | `0.0-1.0` float — affinity multiplier (default 0.3) |
+| `fyWeightRecency` | `0.0-2.0` float — recency boost multiplier (default 1.0) |
+| **Appearance** | |
+| `theme` | dark/light/auto |
+| `accentColor` | Accent color hex |
+| `aetherColor` | Aether panel color |
+| `spinner` | Loading animation style |
+| `editorTheme` | Code editor theme |
+| `pixelPet` | Pet on/off |
+| `pixelPetType` | Pet type (cat, froog, etc.) |
+| `pixelPetMode` | Pet behavior mode |
+| **UI State** | |
+| `userName` | User display name |
+| `sidebarOrder` | Sidebar button order |
+| `sidebarTab` | Active sidebar tab |
+| `lastHash` | Last hash route |
+| `universalPanelVisible` | Right panel visibility |
+| `universalPanelWidth` | Right panel width |
+| `paperSidebarWidth` | Paper sidebar width |
+| `expSidebarWidth` | Experiment sidebar width |
+| `expSidebarCollapsed` | Experiment sidebar collapsed |
+| `teamSidebarCollapsed` | Team sidebar collapsed |
+| `dismissedInboxTasks` | Dismissed inbox task IDs |
+| `downloadBannerDismissed` | Banner dismissal state |
+| **Sound** | |
+| `clickSound` | Click sound on/off |
+| `clickSoundType` | Click sound type |
+| `clickAether` | Aether click interaction on/off |
+| `rainOn` | Ambient noise on/off |
+| `rainVolume` | Ambient noise volume |
+| `rainNoiseType` | Ambient noise type |
+| `rainSidebarVisible` | Rain sidebar visibility |
+| **Browse** | |
+| `browseHistory` | Browse history |
+| `browseClosedTabs` | Closed tab stack for reopen |
+| `browseDownloads` | Download history |
+| `browseDownloadsLastSeen` | Last seen download count |
+| `browseBarOrder` | Browse bar button order |
+| `browseBarOverflow` | Overflow menu items |
+| `browseTabSessions` | Saved tab sessions |
+| `webSearchHistory` | Web search history |
+| `adBlockEnabled` | Ad blocker on/off |
+| `sitePermissions` | Per-site permissions |
+| `aetherPanelSide` | Left/right panel preference |
+| **Chat** | |
+| `chatModel` | Selected chat model |
+| `chatThreads` | Document chat threads |
+| `chatTools` | Chat tools on/off |
+| **Insights** | |
+| `insightsAllowHeuristics` | Allow heuristic insights |
+| `insightSubtab` | Active insight subtab |
+| **Notifications** | |
+| `feedNotifications` | Feed notification array |
+| `feedNotifSources` | Notification settings per source |
+| **PDF** | |
+| `pdfHighlights` | PDF highlight annotations |
+| `pdfDrawings` | PDF pen drawings |
+| **Other** | |
+| `terminalState` | Terminal state persistence |
+| `vaultLastNote` | Last opened note ID |
+| `vaultWelcomeCreated` | Welcome note creation flag |
+| `whiteboardBoards` | Board list |
+| `whiteboardLastId` | Last active board ID |
 
 ### Authentication & User Accounts
 
 Users must sign in before accessing the app. A full-screen login gate blocks all content until authenticated.
 
-**Backend (SQLite):** User data lives in `aether.db` (auto-created on first run) with three tables:
-- `users` — username (primary key), salted SHA-256 password hash, created timestamp
-- `sessions` — token (primary key), username, expires (30-day TTL)
-- `user_data` — per-user key-value store for synced settings (username + key composite PK)
+**Backend (SQLite):** User data lives in `aether.db` with:
+- `users` — google_id (primary key), email, name, username (unique), picture, created, profile_private, last_seen, status_emoji, status_text
+- `sessions` — token (primary key), google_id (FK), expires (30-day TTL)
+- `user_data` — per-user key-value store for synced settings (google_id + key composite PK)
 
 **Auth endpoints:**
-- `POST /api/auth/register` — create account (username 2-30 chars, password 4+ chars), returns session token
+- `POST /api/auth/register` — create account, returns session token
 - `POST /api/auth/login` — verify credentials, returns session token
 - `POST /api/auth/logout` — delete session (requires `Authorization: Bearer <token>`)
-- `GET /api/auth/me` — validate session, returns `{ username }`
+- `GET /api/auth/me` — validate session, returns user info
 - `POST /api/sync` — bidirectional settings sync (last-write-wins by timestamp per key)
 
 **Frontend flow:**
@@ -304,17 +445,17 @@ Users must sign in before accessing the app. A full-screen login gate blocks all
 4. On register → push current localStorage defaults to server as initial settings
 5. Account button in sidebar opens a modal to sync or sign out
 
-**Synced settings (`SYNC_KEYS`):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible
-
-**Design:** This is a placeholder auth system. The username/password flow is structured to be easily replaceable with Google Sign-In or any OAuth provider — just swap the login form and the `/api/auth/register` + `/api/auth/login` endpoints. Sessions, sync, and per-user data storage remain unchanged.
+**Synced settings (`SYNC_KEYS`):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile
 
 ## Key Conventions
 
 - UI uses a dark theme (and light theme) with accent color `#b4451a`
 - Tailwind CSS loaded via CDN (`https://cdn.tailwindcss.com`) with custom theme colors mapped to CSS variables
 - No frameworks, bundlers, or package managers — all vanilla
-- No tests or linting configured
+- No tests or linting configured; use `node -c file.js` to check syntax
 - Experiment slugs are generated via `slugify()` in `persistence.py`
 - All feed-related rendering is data-driven from `FEED_CATALOG`
 - `getSourceChip(source, arxivId)` resolves any source key to its inline logo + name
+- `catalogLogo(entry, size)` generates SVG/img logos (supports 'onboard', 'inline', or card sizes)
 - Quality filter prompts are defined as constants in `persistence.py` (`DEFAULT_VERDICT_PROMPT`, `DEFAULT_SCORING_PROMPT`) and mirrored in `js/quality.js` (`DEFAULT_QUALITY_PROMPT`)
+- Feed catalog must be kept in sync between `js/core.js` (frontend) and `feed_catalog.py` (backend)

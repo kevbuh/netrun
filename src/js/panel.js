@@ -208,6 +208,8 @@ function _fetchPanelSuggestion(popup, text) {
 function _renderPanelSuggestion(popup, suggestion) {
   let el = popup.querySelector('.aether-suggestion');
   if (el) el.remove();
+  const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+  if (!askWrap) return;
   el = document.createElement('div');
   el.className = 'aether-suggestion';
   el.innerHTML = `<span class="aether-suggestion-text">${escapeHtml(suggestion)}</span><span class="aether-suggestion-hint">Tab</span>`;
@@ -216,8 +218,11 @@ function _renderPanelSuggestion(popup, suggestion) {
     ev.stopPropagation();
     _acceptPanelSuggestion(popup, suggestion);
   });
-  const askWrap = popup.querySelector('.doc-ask-inline-wrap');
-  if (askWrap) popup.insertBefore(el, askWrap);
+  askWrap.style.position = 'relative';
+  askWrap.insertBefore(el, askWrap.firstChild);
+  // Hide placeholder when suggestion is visible
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.placeholder = '';
   _repositionSelectionPopup();
 }
 
@@ -4242,7 +4247,10 @@ function _panelBuildChatInput(popup, config) {
   askInput.addEventListener('input', () => {
     // Dismiss suggestion when user types
     const suggEl = popup.querySelector('.aether-suggestion');
-    if (suggEl) suggEl.remove();
+    if (suggEl) {
+      suggEl.remove();
+      if (!askInput.value.trim()) askInput.placeholder = popup._capturedText ? 'Ask about this…' : 'Ask anything…';
+    }
     const val = askInput.value;
     if (val.startsWith('/')) {
       const notesMatch = val.match(/^\/notes(\s+(.*))?$/i);
