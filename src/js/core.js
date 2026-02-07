@@ -1017,37 +1017,62 @@ function _wmToggleTiling() {
 
 /* ── Drag pill — horizontal drag to switch windows ── */
 (function() {
-  var STEP = 24; // px per window step (sensitive)
+  var STEP = 5; // px per window step
   var _dragStartX = 0;
   var _dragAccum = 0;
-  var _previewIndex = -1;
-  var _originIndex = -1;
+  var _previewIdx = -1;
+  var _originIdx = -1;
+  var _icons = []; // visible sidebar icons for this drag
 
+  function _getVisibleIcons() {
+    var nav = document.getElementById('sidebar-nav');
+    if (!nav) return [];
+    var all = nav.querySelectorAll('.sidebar-icon');
+    var visible = [];
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].offsetParent !== null || all[i].offsetWidth > 0) visible.push(all[i]);
+    }
+    return visible;
+  }
+  function _iconToWmIndex(el) {
+    var id = el.id;
+    for (var i = 0; i < _wmWindows.length; i++) {
+      if (_wmWindows[i].sidebarId === id) return i;
+    }
+    // Profile icon → dashboard
+    if (id === 'sb-user-avatar') {
+      for (var j = 0; j < _wmWindows.length; j++) {
+        if (_wmWindows[j].key === 'dashboard') return j;
+      }
+    }
+    return -1;
+  }
   function _clearPreview() {
     document.querySelectorAll('.sidebar-icon.drag-preview').forEach(function(el) {
       el.classList.remove('drag-preview');
     });
-    _previewIndex = -1;
+    _previewIdx = -1;
   }
   function _showPreview(idx) {
-    if (idx === _previewIndex) return;
+    if (idx === _previewIdx) return;
     _clearPreview();
-    _previewIndex = idx;
-    var w = _wmWindows[idx];
-    if (!w) return;
-    var el = document.getElementById(w.sidebarId);
-    if (el) el.classList.add('drag-preview');
+    _previewIdx = idx;
+    if (_icons[idx]) _icons[idx].classList.add('drag-preview');
+  }
+  function _currentIconIdx() {
+    for (var i = 0; i < _icons.length; i++) {
+      if (_icons[i].classList.contains('active')) return i;
+    }
+    return 0;
   }
 
   function onMove(e) {
     var x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
     _dragAccum += x - _dragStartX;
     _dragStartX = x;
-    // Calculate how many steps from origin
     var steps = Math.round(_dragAccum / STEP);
-    var target = _originIndex + steps;
-    // Clamp to valid range
-    target = Math.max(0, Math.min(_wmWindows.length - 1, target));
+    var target = _originIdx + steps;
+    target = Math.max(0, Math.min(_icons.length - 1, target));
     _showPreview(target);
   }
   function onUp() {
@@ -1055,10 +1080,23 @@ function _wmToggleTiling() {
     document.removeEventListener('mouseup', onUp);
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onUp);
-    if (_previewIndex >= 0 && _previewIndex !== _originIndex) {
-      _wmActivateWindow(_previewIndex);
+    if (_previewIdx >= 0 && _previewIdx !== _originIdx) {
+      var targetIcon = _icons[_previewIdx];
+      if (targetIcon) {
+        var wmIdx = _iconToWmIndex(targetIcon);
+        if (wmIdx >= 0) _wmActivateWindow(wmIdx);
+        else targetIcon.click();
+      }
     }
     _clearPreview();
+  }
+
+  function startDrag(x) {
+    _dragStartX = x;
+    _dragAccum = 0;
+    _icons = _getVisibleIcons();
+    _originIdx = _currentIconIdx();
+    _previewIdx = -1;
   }
 
   document.addEventListener('DOMContentLoaded', function() {
@@ -1066,18 +1104,12 @@ function _wmToggleTiling() {
     if (!pill) return;
     pill.addEventListener('mousedown', function(e) {
       e.preventDefault();
-      _dragStartX = e.clientX;
-      _dragAccum = 0;
-      _originIndex = _wmFocusIndex;
-      _previewIndex = -1;
+      startDrag(e.clientX);
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
     pill.addEventListener('touchstart', function(e) {
-      _dragStartX = e.touches[0].clientX;
-      _dragAccum = 0;
-      _originIndex = _wmFocusIndex;
-      _previewIndex = -1;
+      startDrag(e.touches[0].clientX);
       document.addEventListener('touchmove', onMove, { passive: true });
       document.addEventListener('touchend', onUp);
     }, { passive: true });
