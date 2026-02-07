@@ -1456,7 +1456,7 @@
     }
     .browse-tab-overview.visible { opacity: 1; }
     .wov-container {
-      width: 360px;
+      width: 480px;
       max-height: 80vh;
       display: flex;
       flex-direction: column;
@@ -1595,6 +1595,55 @@
       font-size: 0.65rem;
       color: var(--text-dimmer);
       padding: 2px 0;
+    }
+    .wov-section-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--text-dimmer);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 8px 16px 4px;
+    }
+    .wov-app-strip {
+      display: flex;
+      gap: 6px;
+      padding: 4px 12px 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .wov-app-strip::-webkit-scrollbar { display: none; }
+    .wov-app-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+      min-width: 62px;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      flex-shrink: 0;
+      color: var(--text-muted);
+    }
+    .wov-app-card svg { width: 18px; height: 18px; }
+    .wov-app-card:hover { background: var(--bg-hover); }
+    .wov-app-card.wov-active {
+      background: color-mix(in srgb, var(--accent) 6%, transparent);
+      color: var(--text-primary);
+    }
+    .wov-app-card.wov-selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+      color: var(--text-primary);
+    }
+    .wov-app-label {
+      font-size: 0.6rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 60px;
     }
 
     /* Window switcher arrows in tab bar */
