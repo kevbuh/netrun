@@ -97,15 +97,7 @@
         document.documentElement.style.setProperty('--accent', a);
         document.documentElement.style.setProperty('--accent-hover', h);
       }
-      if (localStorage.getItem('glassEffect') === 'on') {
-        var scheme = (t === 'light' || t === 'sepia' || t === 'daylight') ? 'light' : (!t || t === 'dark' || t === 'thermal') ? 'dark' : (t === 'auto' ? (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : 'dark');
-        document.documentElement.setAttribute('data-glass', scheme);
-        var gi = parseInt(localStorage.getItem('glassIntensity') || '50', 10);
-        var ga = 0.75 - (gi / 100) * 0.6;
-        var gb = 8 + (gi / 100) * 32;
-        document.documentElement.style.setProperty('--ga', ga.toFixed(2));
-        document.documentElement.style.setProperty('--gb', gb.toFixed(0) + 'px');
-      }
+
       var et = localStorage.getItem('editorTheme');
       if (et && et !== 'auto') document.documentElement.setAttribute('data-editor-theme', et);
     })();

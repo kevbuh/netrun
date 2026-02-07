@@ -890,6 +890,9 @@ async function renderDevStats() {
     { value: data.files, label: 'Files' },
     { value: data.commits_today, label: 'Commits Today' },
     { value: '—', label: 'FPS', id: 'dev-fps-value' },
+    { value: (data.ram_mb || 0) + ' MB', label: 'Server RAM' },
+    { value: (data.disk_used_gb || 0) + ' / ' + (data.disk_total_gb || 0) + ' GB', label: 'Disk Usage' },
+    { value: (data.project_mb || 0) + ' MB', label: 'Project Size' },
   ];
   cards.innerHTML = stats.map(s =>
     `<div class="dev-stat-card">

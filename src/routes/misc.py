@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -176,6 +177,25 @@ def dev_stats():
                     commits_per_day.append({'date': date, 'count': counts[date]})
         except Exception:
             pass
+        # RAM usage (this process)
+        import resource
+        ram_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)  # macOS returns bytes
+        # Disk usage
+        disk = shutil.disk_usage('/')
+        disk_total_gb = round(disk.total / (1024**3), 1)
+        disk_used_gb = round(disk.used / (1024**3), 1)
+        disk_free_gb = round(disk.free / (1024**3), 1)
+        # Project size
+        project_bytes = 0
+        for root2, dirs2, files2 in os.walk(DIR):
+            dirs2[:] = [d for d in dirs2 if d not in ('node_modules', '.git', '__pycache__', 'experiments', 'uploads')]
+            for f2 in files2:
+                try:
+                    project_bytes += os.path.getsize(os.path.join(root2, f2))
+                except OSError:
+                    pass
+        project_mb = round(project_bytes / (1024**2), 1)
+
         return jsonify({
             'users': users,
             'active_sessions': active_sessions,
@@ -186,6 +206,11 @@ def dev_stats():
             'usage_history': usage_history,
             'git_log': git_log,
             'commits_per_day': commits_per_day,
+            'ram_mb': round(ram_mb, 1),
+            'disk_total_gb': disk_total_gb,
+            'disk_used_gb': disk_used_gb,
+            'disk_free_gb': disk_free_gb,
+            'project_mb': project_mb,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
