@@ -82,6 +82,7 @@ const _NL_EYE_W = 128;
 const _NL_EYE_H = 64;
 
 async function openNeuralook() {
+  _nlDismissTrainPill();
   hideAllViews();
   const view = await ensureView('neuralook-view');
   if (view) { view.classList.remove('hidden'); view.style.display = ''; }
@@ -106,14 +107,34 @@ function renderNeuralookView() {
 
   // Training active/done banner
   const showTrainBanner = _nlTraining || _nlTrainPhase === 'done' || _nlTrainPhase === 'error';
-  const bannerHTML = showTrainBanner ? `
-    <div onclick="_nlShowTrainView=true;renderNeuralookView();" style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--bg-card,#23232a);border:1px solid var(--border,#333);cursor:pointer;margin-bottom:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent,#b4451a)'" onmouseout="this.style.borderColor='var(--border,#333)'">
-      ${_nlTraining ? '<svg width="14" height="14" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite;flex-shrink:0;"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>'
-        : _nlTrainPhase === 'done' ? '<svg width="14" height="14" viewBox="0 0 18 18" class="flex-shrink-0"><circle cx="9" cy="9" r="8" fill="#4ade80"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-        : '<svg width="14" height="14" viewBox="0 0 18 18" class="flex-shrink-0"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>'}
-      <span class="text-[0.8rem] text-primary font-medium">${_nlTraining ? 'Training in progress...' : _nlTrainPhase === 'done' ? 'Training complete' : 'Training failed'}</span>
-      <span class="text-[0.72rem] text-dimmer ml-auto">View details →</span>
-    </div>` : '';
+  let bannerHTML = '';
+  if (showTrainBanner) {
+    if (_nlTraining) {
+      const prog = _nlTrainProgress || {};
+      const epoch = prog.epoch || 0;
+      const maxEpochs = prog.max_epochs || 300;
+      const pct = Math.round((epoch / maxEpochs) * 100);
+      const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+      const eta = _nlTrainETA(epoch, maxEpochs);
+      bannerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--bg-card,#23232a);border:1px solid var(--border,#333);margin-bottom:8px;">
+          <svg width="14" height="14" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite;flex-shrink:0;"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>
+          <span class="text-[0.8rem] text-primary font-medium">Training</span>
+          <span id="nl-banner-detail" class="text-[0.72rem] text-muted tabular-nums">Epoch ${epoch}/${maxEpochs} (${pct}%)${loss}${eta}</span>
+          <span class="ml-auto"></span>
+          <button onclick="_nlStopTraining()" class="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-border-input text-[0.72rem] text-red-400 font-medium cursor-pointer hover:border-red-400 transition-colors"><svg width="8" height="8" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/></svg>Stop</button>
+          <span onclick="_nlShowTrainView=true;renderNeuralookView();" class="text-[0.72rem] text-dimmer cursor-pointer hover:text-accent transition-colors">View log →</span>
+        </div>`;
+    } else {
+      bannerHTML = `
+        <div onclick="_nlShowTrainView=true;if(!_nlTrainPhase)_nlTrainPhase='done';renderNeuralookView();" style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--bg-card,#23232a);border:1px solid var(--border,#333);cursor:pointer;margin-bottom:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent,#b4451a)'" onmouseout="this.style.borderColor='var(--border,#333)'">
+          ${_nlTrainPhase === 'done' ? '<svg width="14" height="14" viewBox="0 0 18 18" class="flex-shrink-0"><circle cx="9" cy="9" r="8" fill="#4ade80"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 18 18" class="flex-shrink-0"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>'}
+          <span class="text-[0.8rem] text-primary font-medium">${_nlTrainPhase === 'done' ? 'Training complete' : 'Training failed'}</span>
+          <span class="text-[0.72rem] text-dimmer ml-auto">View log →</span>
+        </div>`;
+    }
+  }
 
   container.innerHTML = `
     ${bannerHTML}
@@ -144,61 +165,17 @@ function renderNeuralookView() {
             </button>
           </div>
         </div>
-
-        <div class="bg-card border border-border-card rounded-xl p-4">
-          <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Gaze Dot</h3>
-          <div class="flex items-center gap-3">
-            <label class="text-[0.78rem] text-muted">Color</label>
-            <input type="color" id="nl-dot-color" value="#ef4444" onchange="_nlUpdateDotColor(this.value)" class="w-8 h-8 rounded cursor-pointer border border-border-input bg-transparent p-0">
-          </div>
-          <div class="flex items-center gap-3 mt-2">
-            <label class="text-[0.78rem] text-muted">Size</label>
-            <input type="range" id="nl-dot-size" min="8" max="40" value="20" oninput="_nlUpdateDotSize(this.value)" class="flex-1">
-            <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-dot-size-label">20px</span>
-          </div>
-        </div>
-
-        ${_nlTrainLogs.length > 0 ? `
-        <button onclick="_nlShowTrainView=true;if(!_nlTrainPhase)_nlTrainPhase='done';renderNeuralookView();" class="w-full px-4 py-2.5 rounded-xl border border-border-card bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors flex items-center gap-2.5">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="flex-shrink-0"><rect x="1" y="3" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 6.5h8M4 9h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-          Training Log
-          <span class="text-[0.7rem] text-dimmer ml-auto">${_nlTrainLogs.length} lines</span>
-        </button>` : ''}
       </div>
 
       <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
-        <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;">
-          <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
-            <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;max-height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
-              <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
-            </div>
-            <div class="flex justify-center mt-2">
-              <button id="nl-camera-toggle" onclick="_nlToggleCamera()" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.78rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
-                ${_nlCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
-              </button>
-            </div>
+        <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+          <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;max-height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
+            <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
           </div>
-
-          <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden;">
-            <h3 class="text-[0.78rem] font-semibold text-primary" style="flex-shrink:0;">Live Graphs</h3>
-            <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;">
-              <div style="flex:1;min-height:0;">
-                <div class="text-[0.68rem] text-dimmer mb-0.5">Gaze X <span class="text-muted" style="float:right" id="nl-graph-gaze-x-val"></span></div>
-                <canvas id="nl-graph-gaze-x" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
-              </div>
-              <div style="flex:1;min-height:0;">
-                <div class="text-[0.68rem] text-dimmer mb-0.5">Gaze Y <span class="text-muted" style="float:right" id="nl-graph-gaze-y-val"></span></div>
-                <canvas id="nl-graph-gaze-y" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
-              </div>
-              <div style="flex:1;min-height:0;">
-                <div class="text-[0.68rem] text-dimmer mb-0.5">Jitter <span class="text-muted" style="float:right" id="nl-graph-jitter-val"></span></div>
-                <canvas id="nl-graph-jitter" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
-              </div>
-              <div style="flex:1;min-height:0;">
-                <div class="text-[0.68rem] text-dimmer mb-0.5">Prediction Rate <span class="text-muted" style="float:right" id="nl-graph-rate-val"></span></div>
-                <canvas id="nl-graph-rate" style="width:100%;height:calc(100% - 16px);display:block;"></canvas>
-              </div>
-            </div>
+          <div class="flex justify-center mt-2">
+            <button id="nl-camera-toggle" onclick="_nlToggleCamera()" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.78rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
+              ${_nlCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
+            </button>
           </div>
         </div>
 
@@ -720,17 +697,19 @@ function _nlTrainOnServerSSE(onProgress, onLog) {
 let _nlTrainPill = null;
 
 function _nlShowTrainPill() {
+  if (window.location.hash === '#neuralook') return;
   _nlDismissTrainPill();
   const pill = document.createElement('div');
   pill.id = 'nl-train-pill';
   Object.assign(pill.style, {
     position: 'fixed', bottom: '20px', right: '20px', zIndex: '99999',
-    background: 'var(--bg-card, #23232a)', border: '1px solid var(--border, #333)',
-    borderRadius: '12px', padding: '12px 18px', minWidth: '220px',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.4)', fontFamily: 'inherit',
-    fontSize: '0.8rem', color: 'var(--text-primary, #e5e5e5)',
+    background: 'var(--bg-card, #23232a)', border: '1px solid var(--border-card, #2a2a2f)',
+    borderRadius: '14px', padding: '10px 16px', minWidth: '220px', maxWidth: '360px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
     transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
-    cursor: 'default', display: 'flex', alignItems: 'center', gap: '10px'
+    cursor: 'default', display: 'flex', alignItems: 'center', gap: '10px',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'
   });
   pill.innerHTML = `
     <div style="width:18px;height:18px;flex-shrink:0;" id="nl-pill-icon">
@@ -779,6 +758,15 @@ function _nlStopTraining() {
 }
 
 function _nlUpdateTrainPill(title, detail) {
+  // Auto-show pill when navigating away from neuralook during training
+  if (!_nlTrainPill && _nlTraining && window.location.hash !== '#neuralook') {
+    _nlShowTrainPill();
+  }
+  // Auto-dismiss when on neuralook page
+  if (_nlTrainPill && window.location.hash === '#neuralook') {
+    _nlDismissTrainPill();
+    return;
+  }
   const t = document.getElementById('nl-pill-title');
   const d = document.getElementById('nl-pill-detail');
   if (t) t.textContent = title;
@@ -898,7 +886,8 @@ function _nlAttachCameraPreview() {
 function _nlToggleCamera() {
   if (_nlCameraOn) {
     _nlCameraOn = false;
-    if (!_nlTracking && !_nlCalibrating) _nlStopVideo();
+    if (_nlTracking) _nlStopTracking();
+    if (!_nlCalibrating) _nlStopVideo();
     const box = document.getElementById('nl-camera-preview');
     if (box) {
       const vid = box.querySelector('video');
@@ -1186,6 +1175,8 @@ async function _nlOnCalibrationComplete() {
       if (prog.model_ready && !_nlModelTrained) {
         _nlModelTrained = true;
         _nlReady = true;
+        _nlTrainLogs.push('✓ Model ready — tracking available');
+        _nlAppendTrainLog('✓ Model ready — tracking available');
       }
       if (prog.phase === 'evaluating') {
         _nlUpdateTrainPill('Training CNN', 'Evaluating...');
@@ -1196,6 +1187,7 @@ async function _nlOnCalibrationComplete() {
         _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       }
       _nlRefreshTrainView();
+      _nlRefreshBanner();
     }, (logLine) => {
       _nlTrainLogs.push(logLine);
       _nlAppendTrainLog(logLine);
@@ -1361,6 +1353,18 @@ function _nlComputeJitter() {
   return Math.sqrt(v / _nlGazeBuffer.length);
 }
 
+function _nlRefreshBanner() {
+  const el = document.getElementById('nl-banner-detail');
+  if (!el || !_nlTraining) return;
+  const prog = _nlTrainProgress || {};
+  const epoch = prog.epoch || 0;
+  const maxEpochs = prog.max_epochs || 300;
+  const pct = Math.round((epoch / maxEpochs) * 100);
+  const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+  const eta = _nlTrainETA(epoch, maxEpochs);
+  el.textContent = `Epoch ${epoch}/${maxEpochs} (${pct}%)${loss}${eta}`;
+}
+
 function _nlRefreshStats() {
   const el = document.getElementById('nl-model-stats');
   if (!el) return;
@@ -1379,33 +1383,12 @@ function _nlRefreshStats() {
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
     (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
-    row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
     row('Gaze', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +
-    row('Buffer', `${_NL_BUFFER_SIZE} samples`) +
+    row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
     row('Predictions', `${_nlPredictionCount.toLocaleString()}`);
 
-  _nlHistGazeX.push(_nlTracking ? _nlGazeX : null);
-  _nlHistGazeY.push(_nlTracking ? _nlGazeY : null);
-  _nlHistJitter.push(_nlTracking ? _nlComputeJitter() : null);
-  _nlHistRate.push(_nlPredictionRate);
-  if (_nlHistGazeX.length > _NL_GRAPH_LEN) _nlHistGazeX.shift();
-  if (_nlHistGazeY.length > _NL_GRAPH_LEN) _nlHistGazeY.shift();
-  if (_nlHistJitter.length > _NL_GRAPH_LEN) _nlHistJitter.shift();
-  if (_nlHistRate.length > _NL_GRAPH_LEN) _nlHistRate.shift();
-
-  const gxv = document.getElementById('nl-graph-gaze-x-val');
-  const gyv = document.getElementById('nl-graph-gaze-y-val');
-  const jv = document.getElementById('nl-graph-jitter-val');
-  const rv = document.getElementById('nl-graph-rate-val');
-  if (gxv) gxv.textContent = _nlTracking ? Math.round(_nlGazeX) + 'px' : '—';
-  if (gyv) gyv.textContent = _nlTracking ? Math.round(_nlGazeY) + 'px' : '—';
-  if (jv) jv.textContent = jitter !== null ? jitter + 'px' : '—';
-  if (rv) rv.textContent = _nlPredictionRate + ' Hz';
-
-  _nlDrawGraph('nl-graph-gaze-x', _nlHistGazeX, '#60a5fa', 0, window.innerWidth);
-  _nlDrawGraph('nl-graph-gaze-y', _nlHistGazeY, '#a78bfa', 0, window.innerHeight);
-  _nlDrawGraph('nl-graph-jitter', _nlHistJitter, '#fbbf24', 0, 150);
-  _nlDrawGraph('nl-graph-rate', _nlHistRate, '#4ade80', 0, null);
+  // Update banner detail if training is in progress
+  _nlRefreshBanner();
 }
 
 function _nlDrawGraph(canvasId, data, color, fixedMin, fixedMax) {

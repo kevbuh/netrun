@@ -562,7 +562,7 @@ function _browseCreateFrame(id, url) {
   const el = document.createElement(_browseIsElectron ? 'webview' : 'iframe');
   el.id = 'browse-frame-' + id;
   el.dataset.originalUrl = url;
-  el.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;';
+  el.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;background:#fff;';
   if (!_browseIsElectron) {
     // Set sandbox + permissions policy BEFORE src so the browser enforces them
     // from the very start of navigation
@@ -2780,13 +2780,6 @@ function showBrowseTabOverview() {
   if (!overlay) return;
   _browseTabOverviewVisible = true;
   _overviewSelectedIdx = Math.max(0, _browseWindows.findIndex(w => w.id === _browseActiveWindow));
-  // Hide browser chrome and content
-  const tabRow = document.getElementById('browse-tab-row');
-  const bar = document.getElementById('browse-bar');
-  const content = document.getElementById('browse-content');
-  if (tabRow) tabRow.style.display = 'none';
-  if (bar) bar.style.display = 'none';
-  if (content) content.style.display = 'none';
   _renderWindowOverview();
   overlay.style.display = 'flex';
   _installOverviewKeyHandler();
@@ -2801,13 +2794,6 @@ function hideBrowseTabOverview() {
   _browseTabOverviewVisible = false;
   _removeOverviewKeyHandler();
   overlay.classList.remove('visible');
-  // Restore browser chrome and content
-  const tabRow = document.getElementById('browse-tab-row');
-  const bar = document.getElementById('browse-bar');
-  const content = document.getElementById('browse-content');
-  if (tabRow) tabRow.style.display = _pillBrowseMode ? 'none' : '';
-  if (bar) bar.style.display = '';
-  if (content) content.style.display = '';
   setTimeout(() => { overlay.style.display = 'none'; }, 180);
 }
 
@@ -2929,8 +2915,6 @@ function _overviewCloseWindow(windowId) {
 
 // Keyboard shortcut for window overview (Cmd+Shift+\)
 document.addEventListener('keydown', (e) => {
-  const view = document.getElementById('browse-view');
-  if (!view || view.style.display === 'none') return;
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const cmdKey = isMac ? e.metaKey : e.ctrlKey;
   if (cmdKey && e.shiftKey && e.key === '\\') {
