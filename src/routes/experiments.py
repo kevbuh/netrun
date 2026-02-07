@@ -27,7 +27,8 @@ bp = Blueprint('experiments', __name__)
 
 
 def _require_project_access(f):
-    """Decorator: require auth + resolve exp_dir from vault. Passes google_id=, exp_id=, exp_dir=."""
+    """Decorator: require auth + resolve exp_dir from vault. Passes google_id=, exp_id=, exp_dir=.
+    Special case: exp_id='_root' maps to the vault root itself (for loose files)."""
     from functools import wraps
     from persistence import get_session_user, touch_last_seen
     @wraps(f)
@@ -39,7 +40,10 @@ def _require_project_access(f):
         if not google_id:
             return jsonify({'error': 'Invalid session'}), 401
         touch_last_seen(google_id)
-        exp_dir = get_vault_project_dir(google_id, exp_id)
+        if exp_id == '_root':
+            exp_dir = _get_user_vault_path(google_id)
+        else:
+            exp_dir = get_vault_project_dir(google_id, exp_id)
         if not exp_dir:
             return jsonify({'error': 'Invalid project path'}), 400
         return f(exp_id, *args, google_id=google_id, exp_dir=exp_dir, **kwargs)
@@ -91,7 +95,8 @@ def get_experiment(exp_id, google_id, exp_dir):
     """Get a single project's info."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
-    return jsonify({'id': exp_id, 'title': exp_id, 'desc': '', 'runs': []})
+    title = 'Vault' if exp_id == '_root' else exp_id
+    return jsonify({'id': exp_id, 'title': title, 'desc': '', 'runs': []})
 
 
 @bp.route('/api/experiments/<exp_id>/files', methods=['GET'])

@@ -321,7 +321,27 @@ function renderVaultFileTree(filter = '') {
     html += renderVaultFileItem(note);
   });
 
-  container.innerHTML = html || '<div class="text-dimmer text-[0.75rem] px-3 py-2">No notes yet</div>';
+  // Render loose files from tree (non-.md files at vault root, not already shown as vault notes)
+  const noteFilenames = new Set(_vaultNotes.map(n => (n.title || 'Untitled').replace(/[^a-zA-Z0-9 _-]/g, '') + '.md'));
+  const looseFiles = _vaultTree.filter(item =>
+    item.type === 'file' && !item.name.endsWith('.md')
+  );
+  if (looseFiles.length) {
+    const filteredLoose = filter ? looseFiles.filter(f => f.name.toLowerCase().includes(filterLower)) : looseFiles;
+    filteredLoose.forEach(file => {
+      const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+      const [badge, badgeCls] = typeof _fileExtBadge === 'function' ? _fileExtBadge(file.name) : [ext || '?', 'text-dimmer'];
+      const escapedName = escapeHtml(file.name).replace(/'/g, "\\'");
+      html += `
+        <div class="vault-file-item" onclick="vaultOpenLooseFile('${escapedName}')">
+          <span class="text-[0.6rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
+          <span class="truncate">${escapeHtml(file.name)}</span>
+        </div>
+      `;
+    });
+  }
+
+  container.innerHTML = html || '<div class="text-dimmer text-[0.75rem] px-3 py-2">No files yet</div>';
 
   // Setup root drop zone for moving notes out of folders
   container.ondragover = (e) => { e.preventDefault(); container.classList.add('vault-drop-target'); };
@@ -886,6 +906,39 @@ async function vaultNewProject() {
     }
   } catch (e) {
     console.error('Failed to create project', e);
+  }
+}
+
+// Open a loose file from the vault root in the experiment detail view
+function vaultOpenLooseFile(fname) {
+  openExperimentDetail('_root');
+  setTimeout(() => { if (typeof openFile === 'function') openFile(fname); }, 400);
+}
+
+// Create a loose file in the vault root (opens in experiment detail view)
+async function vaultCreateFile(ext) {
+  const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'file';
+  let name = `${base}${ext}`;
+  // Check existing files in tree to find unique name
+  const existing = new Set((_vaultTree || []).filter(f => f.type === 'file').map(f => f.name));
+  let i = 2;
+  const sep = ext === '.py' ? '_' : '-';
+  while (existing.has(name)) { name = `${base}${sep}${i}${ext}`; i++; }
+  try {
+    const resp = await fetch('/api/experiments/_root/files', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    if (resp.ok) {
+      await loadVaultTree();
+      renderVaultFileTree();
+      // Open the file in experiment detail view
+      openExperimentDetail('_root');
+      setTimeout(() => { if (typeof openFile === 'function') openFile(name); }, 400);
+    }
+  } catch (e) {
+    console.error('Failed to create file', e);
   }
 }
 
