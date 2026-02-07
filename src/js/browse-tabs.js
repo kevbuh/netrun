@@ -1522,19 +1522,13 @@ function _browseUpdateNewTabPage(tab) {
     if (!ntp) {
       ntp = document.createElement('div');
       ntp.className = 'browse-ntp';
-      ntp.innerHTML = `<div class="browse-ntp-inner"><span class="browse-ntp-text">alpha</span>
-        <button id="browse-open-pdf-btn" class="mt-2 px-3 py-1 rounded text-dimmer hover:text-primary cursor-pointer text-xs transition-colors" style="font-family:inherit;opacity:0.5">open file</button>
-        <input type="file" id="browse-pdf-file-input" style="display:none">
-        <div id="browse-ntp-drop-hint" class="mt-1 text-xs text-dimmer" style="opacity:0.5">or drop here</div></div>`;
+      ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
+        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">lookup</div>`;
       container.appendChild(ntp);
-      ntp.querySelector('#browse-open-pdf-btn').onclick = function() {
-        ntp.querySelector('#browse-pdf-file-input').click();
-      };
-      ntp.querySelector('#browse-pdf-file-input').onchange = function(e) {
-        const file = e.target.files[0];
-        if (file) openLocalPdf(file);
-        e.target.value = '';
-      };
+      fetch('/api/version').then(r => r.json()).then(v => {
+        const el = ntp.querySelector('.browse-ntp-version');
+        if (el && v.version) el.textContent = 'lookup v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
+      }).catch(() => {});
       ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--accent)'; });
       ntp.addEventListener('dragleave', function() { ntp.style.outline = ''; });
       ntp.addEventListener('drop', function(e) {

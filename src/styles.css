@@ -1,12 +1,5 @@
-    /* Electron: draggable title bar region + space for traffic lights */
+    /* Electron: pill bar is not draggable */
     body.electron-app #sidebar-nav {
-      -webkit-app-region: drag;
-      padding-top: 44px;
-    }
-    body.electron-app #sidebar-nav button,
-    body.electron-app #sidebar-nav canvas,
-    body.electron-app #sidebar-nav a,
-    body.electron-app #sidebar-nav .sidebar-icon {
       -webkit-app-region: no-drag;
     }
     body.electron-app #browse-tab-row {
@@ -477,32 +470,90 @@
     [data-glass] input,
     [data-glass] textarea { backdrop-filter: blur(var(--gb, 20px)); -webkit-backdrop-filter: blur(var(--gb, 20px)); }
     [data-glass] .tooltip,
-    [data-glass] .sidebar-tooltip { backdrop-filter: blur(var(--gb, 20px)); -webkit-backdrop-filter: blur(var(--gb, 20px)); }
+    [data-glass] .pill-bar { backdrop-filter: blur(var(--gb, 20px)); -webkit-backdrop-filter: blur(var(--gb, 20px)); }
     [data-glass] #browse-content { background: transparent !important; }
     [data-glass] .browse-ntp { background: var(--bg-body); backdrop-filter: blur(var(--gb, 20px)); -webkit-backdrop-filter: blur(var(--gb, 20px)); }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* ── Sidebar tooltip (parent-hover child reveal) ── */
-    .sidebar-icon .sidebar-tooltip { display: none; }
-    .sidebar-icon:hover .sidebar-tooltip { display: block; }
-
-    /* ── Sidebar user avatar (force circle) ── */
-    #sb-user-avatar {
-      border-radius: 50% !important;
-      overflow: hidden !important;
-      padding: 0 !important;
+    /* ── Bottom Pill Bar ── */
+    .pill-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 6px;
+      background: rgba(20, 20, 22, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 100px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
     }
 
-    /* ── Sidebar active inset shadow ── */
+    .pill-separator {
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-icon {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.5);
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      flex-shrink: 0;
+      padding: 0;
+    }
+
+    .sidebar-icon:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.9);
+      border-radius: 100px;
+      padding: 0 6px;
+      width: auto;
+      min-width: 34px;
+    }
+
     .sidebar-icon.active {
-      background: var(--bg-hover);
-      box-shadow: inset 3px 0 0 var(--accent);
+      background: var(--accent, #b4451a);
+      color: #fff;
+      border-radius: 100px;
+      padding: 0 6px;
+      width: auto;
+      min-width: 34px;
+      box-shadow: 0 0 12px rgba(180, 69, 26, 0.4);
+    }
+
+    .sidebar-icon.active:hover {
+      background: var(--accent, #b4451a);
+      filter: brightness(1.15);
+    }
+
+    /* Pill label (text shown on hover/active) */
+    .pill-label {
+      font-size: 0.82rem;
+      white-space: nowrap;
+      line-height: 1;
     }
 
     /* ── Sidebar icon click animation ── */
     .sidebar-icon.sb-loading > svg,
-    .sidebar-icon.sb-loading > span:first-child:not(.sidebar-tooltip) {
+    .sidebar-icon.sb-loading > .pill-label {
       animation: sb-icon-bounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     @keyframes sb-icon-bounce {
@@ -516,17 +567,45 @@
       box-shadow: 0 0 0 2px var(--accent);
     }
     .sidebar-icon.active.sidebar-kbd-selected {
-      box-shadow: inset 3px 0 0 var(--accent), 0 0 0 2px var(--accent);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 0 12px rgba(180, 69, 26, 0.4);
     }
 
-    /* ── Sidebar drag ghost ── */
-    .sidebar-drag-ghost {
-      background: var(--bg-hover);
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    /* ── Sidebar user avatar (force circle) ── */
+    #sb-user-avatar {
+      border-radius: 50% !important;
+      overflow: hidden !important;
+      padding: 0 !important;
     }
-    .sidebar-drag-ghost .sidebar-tooltip { display: none !important; }
-    .sidebar-draggable { touch-action: none; }
+
+    /* ── Pill bar light theme overrides ── */
+    [data-theme="light"] .pill-bar,
+    [data-theme="daylight"] .pill-bar,
+    [data-theme="sepia"] .pill-bar {
+      background: rgba(255, 255, 255, 0.85);
+      border-color: rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    }
+    [data-theme="light"] .pill-separator,
+    [data-theme="daylight"] .pill-separator,
+    [data-theme="sepia"] .pill-separator {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    [data-theme="light"] .sidebar-icon,
+    [data-theme="daylight"] .sidebar-icon,
+    [data-theme="sepia"] .sidebar-icon {
+      color: rgba(0, 0, 0, 0.4);
+    }
+    [data-theme="light"] .sidebar-icon:hover,
+    [data-theme="daylight"] .sidebar-icon:hover,
+    [data-theme="sepia"] .sidebar-icon:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: rgba(0, 0, 0, 0.75);
+    }
+    [data-theme="light"] .sidebar-icon.active,
+    [data-theme="daylight"] .sidebar-icon.active,
+    [data-theme="sepia"] .sidebar-icon.active {
+      color: #fff;
+    }
 
     /* ── Browse bar drag ghost ── */
     .browse-bar-drag-ghost {
@@ -653,9 +732,6 @@
       position: fixed; inset: 0; z-index: 10000;
       background: #0a0a0f !important;
       display: flex; align-items: center; justify-content: center;
-    }
-    #login-galaxy {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     }
     .auth-modal {
       background: rgba(18, 18, 26, 0.85);
@@ -1054,32 +1130,7 @@
       align-items: center;
       justify-content: center;
       background: var(--bg-body);
-    }
-    .browse-ntp-inner {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 3rem;
-      border: none;
-      border-radius: 1rem;
-      opacity: 0.45;
-      position: relative;
-      color: var(--text-dimmer);
-    }
-    .browse-ntp-border {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-    }
-    .browse-ntp-text {
-      font-size: 1.3rem;
-      font-weight: 400;
-      letter-spacing: 0.12em;
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-      color: var(--text-dimmer);
-      opacity: 0.5;
-      user-select: none;
+      overflow: hidden;
     }
 
     /* ── Download Indicator ── */
