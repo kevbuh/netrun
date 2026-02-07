@@ -2903,6 +2903,48 @@ function showBrowseTabOverview() {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => overlay.classList.add('visible'));
   });
+  // Capture missing snapshots in the background (overlay hides the view switching)
+  _wovCaptureAllMissing();
+}
+
+function _wovCaptureAllMissing() {
+  if (typeof html2canvas === 'undefined') return;
+  var missing = [];
+  for (var i = 0; i < _wmWindows.length; i++) {
+    if (!_wmSnapshots[_wmWindows[i].key]) missing.push(i);
+  }
+  if (!missing.length) return;
+  var originalIdx = _wmFocusIndex;
+  var mi = 0;
+
+  function captureNext() {
+    if (mi >= missing.length || !_browseTabOverviewVisible) {
+      // Restore original view
+      var orig = _wmWindows[originalIdx];
+      if (orig) { var m = _wmViewMeta[orig.key]; if (m) m.openFn(); }
+      _wmFocusIndex = originalIdx;
+      return;
+    }
+    var idx = missing[mi++];
+    var w = _wmWindows[idx];
+    var meta = _wmViewMeta[w.key];
+    if (!meta) { captureNext(); return; }
+    // Activate view so it renders into app-bezel
+    meta.openFn();
+    setTimeout(function() {
+      var bezel = document.getElementById('app-bezel');
+      if (!bezel) { captureNext(); return; }
+      html2canvas(bezel, {
+        scale: 0.3, logging: false, useCORS: true, allowTaint: true,
+        ignoreElements: function(el) { return el.id === 'wm-tiling-overlay' || el.id === 'browse-tab-overview'; }
+      }).then(function(canvas) {
+        _wmSnapshots[w.key] = canvas.toDataURL('image/jpeg', 0.65);
+        if (_browseTabOverviewVisible) _renderWindowOverview();
+        captureNext();
+      }).catch(function() { captureNext(); });
+    }, 300);
+  }
+  captureNext();
 }
 
 function hideBrowseTabOverview() {

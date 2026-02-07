@@ -266,7 +266,7 @@ function _renderSemanticResults(container, results, heading) {
     container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No similar posts found. Read more posts to build the semantic index.</div>';
     return;
   }
-  container.innerHTML = `<div class="mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">${escapeHtml(heading)} (${results.length})</div>` +
+  container.innerHTML = `<div class="mt-6 mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">${escapeHtml(heading)} (${results.length})</div>` +
     results.map(r => {
       const sourceChip = getSourceChip(r.source);
       const scorePct = Math.round(r.score * 100);
