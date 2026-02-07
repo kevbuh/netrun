@@ -984,7 +984,7 @@ function _browseInjectContentScripts(tab, frame) {
       linkUrl: ev.linkURL || '', linkText: ev.linkText || '',
       imgUrl: ev.srcURL || '', mediaType: ev.mediaType || ''
     } : null;
-    _showPanel({ anchor: { x: ev.x, y: ev.y }, contextMenu: ctxData });
+    _showPanel({ anchor: { x: ev.x, y: ev.y }, contextMenu: ctxData, trackCursor: !ctxData });
   });
 
   // Inject right-click handler after page loads
@@ -1138,7 +1138,7 @@ function _browseInjectContentScripts(tab, frame) {
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
           if (popup) { popup.remove(); _aetherTrackMode = false; }
-          _showPanel({ anchor: { x, y } });
+          _showPanel({ anchor: { x, y }, trackCursor: true });
         }
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__AETHER_EDITABLE__')) {

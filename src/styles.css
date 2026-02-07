@@ -1553,6 +1553,43 @@
       max-width: 64px;
       text-align: center;
     }
+    .wov-browse-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .wov-browse-subs {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-top: 4px;
+      width: 100%;
+    }
+    .wov-card-browse {
+      min-width: unset;
+      max-width: unset;
+      width: 100%;
+      flex-direction: row;
+      padding: 6px 8px;
+      gap: 6px;
+      border-radius: 8px;
+      min-height: unset;
+    }
+    .wov-card-browse .wov-card-name {
+      text-align: left;
+      max-width: 56px;
+      font-size: 0.56rem;
+    }
+    .wov-card-browse .wov-card-close {
+      position: static;
+      opacity: 0;
+      width: 14px;
+      height: 14px;
+      font-size: 0.7rem;
+      margin-left: auto;
+    }
+    .wov-card-browse .wov-card-subtitle { display: none; }
 
     /* Window switcher arrows in tab bar */
     .browse-window-switcher {
