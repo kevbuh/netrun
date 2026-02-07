@@ -363,6 +363,12 @@
       </span>
       <input id="browse-url-input" type="text" class="flex-1 bg-hover border border-transparent rounded-lg px-2.5 py-1 text-[0.8rem] text-primary outline-none focus:bg-card focus:border-accent" placeholder="Search or enter URL…" onkeydown="_browseUrlKeydown(event)" oninput="_browseUrlShowHistory()" onfocus="this.select();_browseUrlShowHistory()" onblur="setTimeout(_browseUrlHideHistory,150)">
       <div id="browse-url-history-dd" style="display:none;position:fixed;border-radius:8px;border:1px solid var(--border-card);background:var(--bg-popup);box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;max-height:320px;overflow-y:auto;"></div>
+      <div class="relative shrink-0">
+        <button id="browse-permissions-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="toggleSitePermissions()" title="Site Permissions">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+        </button>
+        <div id="browse-permissions-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;z-index:10001;min-width:280px;border-radius:10px;border:1px solid var(--border-card);background:var(--bg-popup);box-shadow:0 6px 24px var(--shadow-popup);"></div>
+      </div>
       <button id="browse-adblock-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center relative" onclick="toggleAdBlock()" title="Ad Blocker">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
         <span id="browse-adblock-badge" class="absolute -top-0.5 -right-0.5 text-[0.55rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none" style="display:none;background:var(--accent);color:#fff;"></span>
@@ -542,7 +548,7 @@
   <div id="quality-filter-panel" style="display:none" class="fixed w-64 p-3 rounded-lg border border-border-card bg-card shadow-lg z-[9999]"></div>
 
   <!-- Link hover preview (bottom-left status bar) -->
-  <div id="link-hover-preview"></div>
+  <div id="link-hover-preview" style="position:fixed;bottom:0;left:0;max-width:50vw;padding:3px 10px;font-size:12px;color:#999;background:#1a1a1a;border:1px solid #333;border-bottom:none;border-left:none;border-top-right-radius:6px;z-index:99999;pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0;transition:opacity 0.15s;font-family:system-ui,sans-serif"></div>
 
   <!-- Bottom Terminal Panel (Cmd+J) -->
   <div id="bottom-terminal-panel" class="bottom-terminal-panel" style="display:none;">

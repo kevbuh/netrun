@@ -1,29 +1,62 @@
 // ── Link hover preview (bottom-left status bar) ──
-(function() {
-  var el, hideTimer;
-  function show(url) {
-    if (!el) el = document.getElementById('link-hover-preview');
-    if (!el) return;
-    clearTimeout(hideTimer);
-    el.textContent = url;
-    el.classList.add('visible');
+var _linkPreviewEl = null;
+var _linkPreviewTimer = 0;
+function _showLinkPreview(url) {
+  if (!_linkPreviewEl) _linkPreviewEl = document.getElementById('link-hover-preview');
+  if (!_linkPreviewEl) return;
+  clearTimeout(_linkPreviewTimer);
+  _linkPreviewEl.textContent = url;
+  _linkPreviewEl.style.opacity = '1';
+}
+function _hideLinkPreview() {
+  if (!_linkPreviewEl) return;
+  _linkPreviewTimer = setTimeout(function() { _linkPreviewEl.style.opacity = '0'; }, 80);
+}
+function _linkUrlFromElement(target) {
+  if (!target || !target.closest) return null;
+  // 1. Real <a> tags
+  var a = target.closest('a[href]');
+  if (a) {
+    var h = a.href || a.getAttribute('href');
+    if (h && h !== '#' && !h.startsWith('javascript:')) return h;
   }
-  function hide() {
-    if (!el) return;
-    hideTimer = setTimeout(function() { el.classList.remove('visible'); }, 80);
+  // 2. Walk up to find onclick handlers
+  var node = target;
+  while (node && node !== document.body) {
+    var oc = node.getAttribute && node.getAttribute('onclick');
+    if (oc) {
+      // Feed cards: openPaper(index, event)
+      var paperM = oc.match(/openPaper\((\d+)/);
+      if (paperM && typeof lastFilteredPapers !== 'undefined') {
+        var paper = lastFilteredPapers[+paperM[1]];
+        if (paper) return paper.link;
+      }
+      // Browse tabs: browseSelectTab(id)
+      var tabM = oc.match(/browseSelectTab\((\d+)\)/);
+      if (tabM && typeof _browseWindows !== 'undefined') {
+        for (var wi = 0; wi < _browseWindows.length; wi++) {
+          var tabs = _browseWindows[wi].tabs;
+          for (var ti = 0; ti < tabs.length; ti++) {
+            if (tabs[ti].id === +tabM[1] && tabs[ti].url) return tabs[ti].url;
+          }
+        }
+      }
+      // Hash navigation: location.hash='#...'
+      var hashM = oc.match(/location\.hash\s*=\s*['"]([^'"]+)['"]/);
+      if (hashM) return location.origin + '/' + hashM[1];
+    }
+    node = node.parentElement;
   }
-  document.addEventListener('mouseover', function(e) {
-    var a = e.target.closest('a[href]');
-    if (a) {
-      var h = a.href || a.getAttribute('href');
-      if (h && h !== '#' && !h.startsWith('javascript:')) show(h);
-    } else hide();
-  });
-  document.addEventListener('mouseout', function(e) {
-    var a = e.target.closest('a[href]');
-    if (a) hide();
-  });
-})();
+  return null;
+}
+document.addEventListener('mouseover', function(e) {
+  var url = _linkUrlFromElement(e.target);
+  if (url) _showLinkPreview(url);
+  else _hideLinkPreview();
+}, true);
+document.addEventListener('mouseout', function(e) {
+  if (_linkUrlFromElement(e.target)) _hideLinkPreview();
+});
 
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,

@@ -6148,33 +6148,7 @@
       margin: 4px 8px;
     }
 
-    /* ── Link Hover Preview (bottom-left) ── */
-    #link-hover-preview {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      max-width: 50vw;
-      padding: 3px 10px;
-      font-size: 12px;
-      color: var(--text-secondary);
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border-sidebar);
-      border-bottom: none;
-      border-left: none;
-      border-top-right-radius: 6px;
-      z-index: 99999;
-      pointer-events: none;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      opacity: 0;
-      transition: opacity 0.15s;
-    }
-    #link-hover-preview.visible {
-      opacity: 1;
-    }
-
-    /* ── Bottom Terminal Panel (Cmd+J) ── */
+/* ── Bottom Terminal Panel (Cmd+J) ── */
     .bottom-terminal-panel {
       position: fixed;
       bottom: 0;
@@ -6365,4 +6339,14 @@
     .vibe-row-selected { background: color-mix(in srgb, var(--accent) 18%, transparent) !important; }
     .vibe-status-branch { padding: 1px 8px; color: var(--accent); font-weight: 600; }
     .vibe-detail-pre { white-space: pre; margin: 0; padding: 4px 8px; font-size: 0.75rem; line-height: 1.5; }
+
+    /* ── Split Pane System ── */
+    .browse-split-pane { position: relative; overflow: hidden; height: 100%; }
+    .browse-split-pane.focused { box-shadow: inset 0 0 0 2px var(--accent); }
+    .browse-split-divider { width: 4px; cursor: col-resize; background: var(--border-card); flex-shrink: 0; transition: background 0.15s; }
+    .browse-split-divider:hover, .browse-split-divider.dragging { background: var(--accent); }
+    .browse-pane-close { position: absolute; top: 6px; right: 6px; z-index: 10; opacity: 0; background: var(--bg-card); border: 1px solid var(--border-card); color: var(--text-dimmer); cursor: pointer; font-size: 1rem; line-height: 1; padding: 2px 6px; border-radius: 4px; transition: opacity 0.15s, color 0.15s; }
+    .browse-split-pane:hover .browse-pane-close { opacity: 0.7; }
+    .browse-pane-close:hover { opacity: 1 !important; color: var(--text-primary); }
+    .browse-tab-split-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-right: 2px; }
 

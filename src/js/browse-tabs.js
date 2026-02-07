@@ -18,6 +18,9 @@ let _browseAudioTabs = new Map();
 const _BROWSE_CLOSED_TABS_MAX = 50;
 let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
 
+// ── Split pane state ──
+let _browseNextPaneId = 1;
+
 // Convenience getters for current window's tabs
 function _getCurrentWindow() {
   return _browseWindows.find(w => w.id === _browseActiveWindow);
@@ -43,6 +46,8 @@ function _browseSaveTabs() {
     name: w.name,
     activeTab: w.activeTab,
     groups: w.groups || [],
+    splitPanes: w.splitPanes || [],
+    focusedPane: w.focusedPane || null,
     tabs: w.tabs.map(t => {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
       if (t._historyPage) saved._historyPage = true;
@@ -58,7 +63,8 @@ function _browseSaveTabs() {
     activeWindow: _browseActiveWindow,
     nextWindowId: _browseNextWindowId,
     nextTabId: _browseNextTabId,
-    nextGroupId: _browseNextGroupId
+    nextGroupId: _browseNextGroupId,
+    nextPaneId: _browseNextPaneId
   }));
 }
 
@@ -77,16 +83,17 @@ function _browseRestoreTabs() {
     // Try new multi-window format first (user-specific key)
     let raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
     if (raw) {
-      const { windows, activeWindow, nextWindowId, nextTabId, nextGroupId } = JSON.parse(raw);
+      const { windows, activeWindow, nextWindowId, nextTabId, nextGroupId, nextPaneId } = JSON.parse(raw);
       if (!windows || !windows.length) return false;
       _browseNextWindowId = nextWindowId || 1;
       _browseNextTabId = nextTabId || 1;
       _browseNextGroupId = nextGroupId || 1;
+      _browseNextPaneId = nextPaneId || 1;
       const container = document.getElementById('browse-content');
 
       for (const savedWin of windows) {
         if (!savedWin.tabs.length) continue;
-        const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab, groups: savedWin.groups || [] };
+        const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab, groups: savedWin.groups || [], splitPanes: savedWin.splitPanes || [], focusedPane: savedWin.focusedPane || null };
         for (const saved of savedWin.tabs) {
           if (saved.blank) {
             const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
@@ -148,6 +155,10 @@ function _browseRestoreTabs() {
       if (win && win.tabs.length) {
         const target = win.tabs.find(t => t.id === win.activeTab) ? win.activeTab : win.tabs[0].id;
         browseSelectTab(target);
+        // Restore split layout if saved
+        if (win.splitPanes && win.splitPanes.length >= 2) {
+          _browseRebuildSplitLayout();
+        }
       }
       return true;
     }
@@ -535,6 +546,8 @@ function _browseCreateFrame(id, url) {
   if (!_browseIsElectron) {
     el.sandbox = 'allow-scripts allow-same-origin allow-popups allow-forms';
     el.referrerPolicy = 'no-referrer';
+    // Apply stored site permissions as iframe allow attribute
+    _browseSetFrameAllow(el, url);
   }
   // Fetch blocked count after load
   if (proxied !== url) {
@@ -545,6 +558,39 @@ function _browseCreateFrame(id, url) {
     _injectIframeChatHandler(el);
   }
   return el;
+}
+
+function _browseSetFrameAllow(el, url) {
+  if (!url) return;
+  let domain = '';
+  try { domain = new URL(url).hostname.replace('www.', ''); } catch { return; }
+  if (typeof _getSitePermissions !== 'function') return;
+  const perms = _getSitePermissions(domain);
+  const allowParts = [];
+  const permToAllow = { camera: 'camera', microphone: 'microphone', location: 'geolocation' };
+  for (const [key, allowVal] of Object.entries(permToAllow)) {
+    // Use wildcard origin so cross-origin iframes can use the permission
+    if (perms[key] === 'allow') allowParts.push(allowVal + ' *');
+  }
+  // Rebuild sandbox: base flags + allow-popups unless explicitly denied
+  let sandboxFlags = 'allow-scripts allow-same-origin allow-forms';
+  if (perms.popups !== 'deny') sandboxFlags += ' allow-popups';
+  el.sandbox = sandboxFlags;
+  if (allowParts.length) {
+    el.allow = allowParts.join('; ');
+  } else {
+    el.removeAttribute('allow');
+  }
+}
+
+function _browseApplyPermissions() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || !tab.el || !tab.url || tab.blank) return;
+  if (_browseIsElectron) return;
+  _browseSetFrameAllow(tab.el, tab.url);
+  // Reload to apply new permissions
+  const proxied = _browseProxyUrl(tab.url);
+  tab.el.src = proxied;
 }
 
 // ── Download Manager ──
@@ -983,6 +1029,21 @@ function _browseInjectContentScripts(tab, frame) {
           if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();console.log('__ALPHA_FIND__');}
           if(e.altKey&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey){if(e.key==='ArrowLeft'){e.preventDefault();console.log('__ALPHA_TAB_LEFT__');}if(e.key==='ArrowRight'){e.preventDefault();console.log('__ALPHA_TAB_RIGHT__');}}
         },true);
+        // Link hover preview — relay to parent
+        var _lastHoveredHref='';
+        document.addEventListener('mouseover',function(e){
+          var a=e.target.closest('a[href]');
+          if(a){
+            var h=a.href;
+            if(h&&h!=='#'&&h.indexOf('javascript:')!==0&&h!==_lastHoveredHref){
+              _lastHoveredHref=h;
+              console.log('__ALPHA_LINK_HOVER__'+h);
+            }
+          } else if(_lastHoveredHref){
+            _lastHoveredHref='';
+            console.log('__ALPHA_LINK_LEAVE__');
+          }
+        },true);
         // Throttled mousemove for lookup panel
         var _lastMove=0;
         document.addEventListener('mousemove',function(e){
@@ -997,7 +1058,13 @@ function _browseInjectContentScripts(tab, frame) {
 
   // Listen for context menu via console message
   frame.addEventListener('console-message', (e) => {
-    if (e.message === '__ALPHA_DISMISS_CHAT__') {
+    if (e.message && e.message.startsWith('__ALPHA_LINK_HOVER__')) {
+      _showLinkPreview(e.message.slice('__ALPHA_LINK_HOVER__'.length));
+      return;
+    } else if (e.message === '__ALPHA_LINK_LEAVE__') {
+      _hideLinkPreview();
+      return;
+    } else if (e.message === '__ALPHA_DISMISS_CHAT__') {
       const popup = document.getElementById('doc-chat-ask-float');
       if (popup) {
         if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -1260,6 +1327,41 @@ window.addEventListener('blur', () => {
 function browseSelectTab(id) {
   const win = _getCurrentWindow();
   if (!win) return;
+
+  // Split mode branch: if tab is in a pane, focus it; else replace focused pane
+  if (_browseIsSplitMode()) {
+    const panes = _browseGetSplitPanes();
+    const paneWithTab = panes.find(p => p.tabId === id);
+    if (paneWithTab) {
+      _browseFocusPane(paneWithTab.id);
+      _browseSaveTabs();
+      return;
+    }
+    // Replace focused pane's tab with this one
+    const focusedId = _browseGetFocusedPane();
+    const focusedPane = panes.find(p => p.id === focusedId) || panes[0];
+    focusedPane.tabId = id;
+    _browseSetSplitPanes(panes);
+    const tab = win.tabs.find(t => t.id === id);
+    if (tab) _browseEnsureTabFrame(tab);
+    _browseRebuildSplitLayout();
+    _browseFocusPane(focusedPane.id);
+    _browseRenderTabs();
+    _browseSaveTabs();
+    // Handle paper tab in split mode
+    if (tab && tab.paper) {
+      _currentPaperViewPaper = tab.paper;
+      if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
+        cleanupPdfViewer();
+        const pdfUrl = tab.pdfUrl || ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId));
+        initPdfViewer(tab.el, pdfUrl, tab.arxivId || ('upload-' + tab.id));
+      } else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
+        _tryRenderSavedContent(tab.el, tab.paper);
+      }
+    }
+    return;
+  }
+
   // Close find bar when switching tabs
   if (_browseFindBarActive) _browseCloseFindBar();
   // Reset zoom when switching tabs
@@ -1433,7 +1535,13 @@ function browseCloseTab(id) {
   const idx = win.tabs.findIndex(t => t.id === id);
   if (idx === -1) return;
   const tab = win.tabs[idx];
-  const wasLast = win.tabs.length === 1;
+
+  // If tab is in a split pane, remove that pane first
+  if (_browseIsSplitMode()) {
+    const pane = _browsePaneForTab(id);
+    if (pane) browseUnsplitPane(pane.id);
+  }
+
   _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank, paper: tab.paper || null, contentType: tab.contentType || null, arxivId: tab.arxivId || null });
   if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
   localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
@@ -1483,6 +1591,378 @@ function _browseAnimateBounce() {
       content.style.transform = '';
       setTimeout(() => { content.style.transition = ''; }, 350);
     }, 120);
+  });
+}
+
+// ── Split Pane System ──
+
+function _browseGetSplitPanes() {
+  const win = _getCurrentWindow();
+  return win ? (win.splitPanes || []) : [];
+}
+
+function _browseSetSplitPanes(panes) {
+  const win = _getCurrentWindow();
+  if (win) win.splitPanes = panes;
+}
+
+function _browseGetFocusedPane() {
+  const win = _getCurrentWindow();
+  return win ? (win.focusedPane || null) : null;
+}
+
+function _browseSetFocusedPane(paneId) {
+  const win = _getCurrentWindow();
+  if (win) win.focusedPane = paneId;
+}
+
+function _browsePaneForTab(tabId) {
+  const panes = _browseGetSplitPanes();
+  return panes.find(p => p.tabId === tabId) || null;
+}
+
+function _browseIsSplitMode() {
+  return _browseGetSplitPanes().length >= 2;
+}
+
+function browseSplitTab(tabId, position) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === tabId);
+  if (!tab) return;
+
+  let panes = _browseGetSplitPanes();
+
+  // Already in a pane? Just focus it
+  const existing = panes.find(p => p.tabId === tabId);
+  if (existing) {
+    _browseFocusPane(existing.id);
+    return;
+  }
+
+  if (panes.length === 0) {
+    // Enter split mode: create pane for current active tab + pane for tabId
+    const activeTab = win.activeTab;
+    if (activeTab === tabId) {
+      // Splitting the active tab — pick another tab for the second pane, or create a new blank tab
+      const otherTab = win.tabs.find(t => t.id !== tabId);
+      if (!otherTab) {
+        // Only one tab — create a new blank tab for the second pane
+        const newId = _browseNextTabId++;
+        const newTab = { id: newId, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
+        win.tabs.push(newTab);
+        panes = [
+          { id: _browseNextPaneId++, tabId: tabId, width: 50 },
+          { id: _browseNextPaneId++, tabId: newId, width: 50 }
+        ];
+      } else {
+        panes = [
+          { id: _browseNextPaneId++, tabId: tabId, width: 50 },
+          { id: _browseNextPaneId++, tabId: otherTab.id, width: 50 }
+        ];
+        _browseEnsureTabFrame(otherTab);
+      }
+    } else {
+      panes = [
+        { id: _browseNextPaneId++, tabId: activeTab, width: 50 },
+        { id: _browseNextPaneId++, tabId: tabId, width: 50 }
+      ];
+    }
+  } else if (panes.length < 3) {
+    // Add a new pane, redistribute evenly
+    const newPane = { id: _browseNextPaneId++, tabId: tabId, width: 0 };
+    panes.push(newPane);
+    const w = Math.floor(100 / panes.length);
+    panes.forEach((p, i) => p.width = i === panes.length - 1 ? 100 - w * (panes.length - 1) : w);
+  } else {
+    // Max 3 panes — replace focused pane's tab
+    const focused = panes.find(p => p.id === _browseGetFocusedPane()) || panes[panes.length - 1];
+    focused.tabId = tabId;
+  }
+
+  _browseSetSplitPanes(panes);
+  _browseSetFocusedPane(panes.find(p => p.tabId === tabId)?.id || panes[0].id);
+  // Ensure frame exists for the tab
+  _browseEnsureTabFrame(tab);
+  _browseRebuildSplitLayout();
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function _browseEnsureTabFrame(tab) {
+  if (tab.el) return;
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+  if (tab.blank) return;
+  if (tab._historyPage) {
+    const el = document.createElement('div');
+    el.id = 'browse-history-' + tab.id;
+    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+    container.appendChild(el);
+    tab.el = el;
+    _renderWebSearchHistoryPage(el);
+    return;
+  }
+  if (tab._helpPage) {
+    const el = document.createElement('div');
+    el.id = 'browse-help-' + tab.id;
+    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+    container.appendChild(el);
+    tab.el = el;
+    _renderHelpPage(el);
+    return;
+  }
+  if (tab.paper && tab.contentType) {
+    const el = document.createElement('div');
+    el.id = 'browse-paper-' + tab.id;
+    el.style.cssText = 'width:100%;height:100%;overflow:hidden;';
+    container.appendChild(el);
+    tab.el = el;
+    return;
+  }
+  if (tab.deferred || !tab.url) return;
+  tab.el = _browseCreateFrame(tab.id, tab.url);
+  container.appendChild(tab.el);
+  _browseBindFrame(tab);
+}
+
+function browseUnsplitPane(paneId) {
+  let panes = _browseGetSplitPanes();
+  const idx = panes.findIndex(p => p.id === paneId);
+  if (idx === -1) return;
+  panes.splice(idx, 1);
+
+  if (panes.length <= 1) {
+    // If 1 or 0 panes left, exit split mode
+    const lastTabId = panes.length === 1 ? panes[0].tabId : null;
+    _browseSetSplitPanes([]);
+    _browseSetFocusedPane(null);
+    browseExitSplitMode();
+    if (lastTabId) browseSelectTab(lastTabId);
+  } else {
+    // Redistribute widths
+    const w = Math.floor(100 / panes.length);
+    panes.forEach((p, i) => p.width = i === panes.length - 1 ? 100 - w * (panes.length - 1) : w);
+    _browseSetSplitPanes(panes);
+    // Focus another pane if the focused one was removed
+    if (_browseGetFocusedPane() === paneId) {
+      _browseSetFocusedPane(panes[0].id);
+      const win = _getCurrentWindow();
+      if (win) win.activeTab = panes[0].tabId;
+    }
+    _browseRebuildSplitLayout();
+  }
+  _browseRenderTabs();
+  _browseSaveTabs();
+}
+
+function browseExitSplitMode() {
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+
+  // Remove pane wrappers and dividers
+  container.querySelectorAll('.browse-split-pane, .browse-split-divider').forEach(el => {
+    // Move children (frames) back to container before removing wrapper
+    if (el.classList.contains('browse-split-pane')) {
+      while (el.firstChild) {
+        if (!el.firstChild.classList?.contains('browse-pane-close')) {
+          container.appendChild(el.firstChild);
+        } else {
+          el.firstChild.remove();
+        }
+      }
+    }
+    el.remove();
+  });
+
+  // Reset container style
+  container.style.display = '';
+
+  _browseSetSplitPanes([]);
+  _browseSetFocusedPane(null);
+
+  // Show only the active tab
+  const win = _getCurrentWindow();
+  if (win) {
+    win.tabs.forEach(t => {
+      if (t.el) {
+        t.el.style.display = t.id === win.activeTab ? '' : 'none';
+        // Restore absolute positioning for non-split mode
+        if (t.el.tagName === 'IFRAME' || t.el.tagName === 'WEBVIEW') {
+          t.el.style.position = 'absolute';
+          t.el.style.top = '0';
+          t.el.style.left = '0';
+          t.el.style.width = '100%';
+          t.el.style.height = '100%';
+        } else if (t.el.style) {
+          t.el.style.position = 'absolute';
+          t.el.style.top = '0';
+          t.el.style.left = '0';
+        }
+      }
+    });
+  }
+  _browseSaveTabs();
+}
+
+function _browseRebuildSplitLayout() {
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const panes = _browseGetSplitPanes();
+  if (panes.length < 2) return;
+
+  // Remove existing pane wrappers and dividers (move frames back first)
+  container.querySelectorAll('.browse-split-pane').forEach(wrapper => {
+    while (wrapper.firstChild) {
+      if (!wrapper.firstChild.classList?.contains('browse-pane-close')) {
+        container.appendChild(wrapper.firstChild);
+      } else {
+        wrapper.firstChild.remove();
+      }
+    }
+    wrapper.remove();
+  });
+  container.querySelectorAll('.browse-split-divider').forEach(d => d.remove());
+
+  // Set flex display
+  container.style.display = 'flex';
+
+  // Hide all tab frames first
+  win.tabs.forEach(t => { if (t.el) t.el.style.display = 'none'; });
+
+  const focusedPaneId = _browseGetFocusedPane();
+
+  // Build pane wrappers
+  panes.forEach((pane, i) => {
+    const tab = win.tabs.find(t => t.id === pane.tabId);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'browse-split-pane' + (pane.id === focusedPaneId ? ' focused' : '');
+    wrapper.dataset.pane = pane.id;
+    wrapper.style.width = pane.width + '%';
+    wrapper.style.height = '100%';
+    wrapper.style.position = 'relative';
+    wrapper.style.overflow = 'hidden';
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'browse-pane-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.title = 'Close split pane';
+    closeBtn.onclick = (e) => { e.stopPropagation(); browseUnsplitPane(pane.id); };
+    wrapper.appendChild(closeBtn);
+
+    // Move tab's frame into wrapper
+    if (tab && tab.el) {
+      tab.el.style.display = '';
+      tab.el.style.position = 'relative';
+      tab.el.style.width = '100%';
+      tab.el.style.height = '100%';
+      tab.el.style.top = '';
+      tab.el.style.left = '';
+      wrapper.appendChild(tab.el);
+    }
+
+    // Click to focus
+    wrapper.addEventListener('mousedown', () => {
+      if (_browseGetFocusedPane() !== pane.id) {
+        _browseFocusPane(pane.id);
+      }
+    });
+
+    container.appendChild(wrapper);
+
+    // Insert divider between panes (not after last)
+    if (i < panes.length - 1) {
+      const divider = document.createElement('div');
+      divider.className = 'browse-split-divider';
+      divider.dataset.leftPane = pane.id;
+      divider.dataset.rightPane = panes[i + 1].id;
+      _browseAttachDividerDrag(divider, pane.id, panes[i + 1].id);
+      container.appendChild(divider);
+    }
+  });
+
+  // Update active tab to focused pane's tab
+  const focusedPane = panes.find(p => p.id === focusedPaneId);
+  if (focusedPane) {
+    win.activeTab = focusedPane.tabId;
+  }
+}
+
+function _browseFocusPane(paneId) {
+  const panes = _browseGetSplitPanes();
+  const pane = panes.find(p => p.id === paneId);
+  if (!pane) return;
+
+  _browseSetFocusedPane(paneId);
+  const win = _getCurrentWindow();
+  if (win) win.activeTab = pane.tabId;
+
+  // Update visual focus indicator
+  const container = document.getElementById('browse-content');
+  if (container) {
+    container.querySelectorAll('.browse-split-pane').forEach(el => {
+      el.classList.toggle('focused', el.dataset.pane == paneId);
+    });
+  }
+
+  // Update URL bar
+  const tab = win?.tabs.find(t => t.id === pane.tabId);
+  const urlInput = document.getElementById('browse-url-input');
+  if (urlInput && tab) {
+    urlInput.value = tab._historyPage ? 'lookup://history' : tab._helpPage ? 'lookup://help' : (tab.url || '');
+  }
+  _browseUpdateSaveBtn();
+  _browseRenderTabs();
+}
+
+function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
+  divider.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const container = document.getElementById('browse-content');
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const panes = _browseGetSplitPanes();
+    const leftPane = panes.find(p => p.id === leftPaneId);
+    const rightPane = panes.find(p => p.id === rightPaneId);
+    if (!leftPane || !rightPane) return;
+
+    const startX = e.clientX;
+    const startLeftWidth = leftPane.width;
+    const startRightWidth = rightPane.width;
+    const totalWidth = startLeftWidth + startRightWidth;
+    const minWidth = 20;
+
+    divider.classList.add('dragging');
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      const dPct = (dx / containerRect.width) * 100;
+      let newLeft = startLeftWidth + dPct;
+      let newRight = startRightWidth - dPct;
+      if (newLeft < minWidth) { newLeft = minWidth; newRight = totalWidth - minWidth; }
+      if (newRight < minWidth) { newRight = minWidth; newLeft = totalWidth - minWidth; }
+      leftPane.width = newLeft;
+      rightPane.width = newRight;
+
+      // Update DOM widths
+      const leftEl = container.querySelector(`.browse-split-pane[data-pane="${leftPaneId}"]`);
+      const rightEl = container.querySelector(`.browse-split-pane[data-pane="${rightPaneId}"]`);
+      if (leftEl) leftEl.style.width = newLeft + '%';
+      if (rightEl) rightEl.style.width = newRight + '%';
+    };
+
+    const onUp = () => {
+      divider.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      _browseSaveTabs();
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
 }
 
@@ -1617,11 +2097,13 @@ function _browseRenderTabHtml(t, activeTab) {
   const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
     ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
   const isPinned = !!t.pinned;
+  const inSplit = _browseIsSplitMode() && !!_browsePaneForTab(t.id);
   const groupColor = t.groupId != null ? _browseGetGroupColor(t.groupId) : null;
   const groupStyle = groupColor ? ` style="--group-color:${groupColor}"` : '';
-  const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : ''].filter(Boolean).join(' ');
+  const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : '', inSplit ? 'browse-tab-in-split' : ''].filter(Boolean).join(' ');
+  const splitDot = inSplit ? '<span class="browse-tab-split-dot"></span>' : '';
   return `<div class="${classes}" data-tab-id="${t.id}"${groupStyle} onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
-    ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
+    ${fav}${audioIcon}${splitDot}<span class="browse-tab-title">${title}</span>
     <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
   </div>`;
 }
@@ -1948,6 +2430,7 @@ function _showTabTooltip(tabEl) {
       menuHtml += `<div class="browse-tab-tooltip-action" data-action="remove-group">Remove from group</div>`;
     }
   }
+  menuHtml += `<div class="browse-tab-tooltip-action" data-action="split">Split tab</div>`;
   menuHtml += `<div class="browse-tab-tooltip-action" data-action="reload">Reload tab</div>`;
   menuHtml += `<div class="browse-tab-tooltip-sep"></div>`;
   menuHtml += `<div class="browse-tab-tooltip-action" data-action="close">Close tab</div>`;
@@ -1995,6 +2478,7 @@ function _showTabTooltip(tabEl) {
       else if (action === 'new-group') browseAddTabToNewGroup(tabId);
       else if (action === 'add-group') browseAddTabToGroup(tabId, parseInt(item.dataset.groupId));
       else if (action === 'remove-group') browseRemoveTabFromGroup(tabId);
+      else if (action === 'split') browseSplitTab(tabId, 'right');
       else if (action === 'reload') { browseSelectTab(tabId); browseReload(); }
       else if (action === 'close') browseCloseTab(tabId);
       else if (action === 'close-others') _browseCloseOtherTabs(tabId);

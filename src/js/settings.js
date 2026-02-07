@@ -249,7 +249,60 @@ function _renderFeedSourceSettings() {
       <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading filter info...</div>
       <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
     </div>
+
+    <!-- SITE PERMISSIONS -->
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Site Permissions</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Manage camera, microphone, location, notification, and pop-up permissions per site.</p>
+      <div id="settings-site-permissions">${_renderSettingsSitePermissions()}</div>
+    </div>
   `;
+}
+
+let _expandedPermDomain = null;
+
+function _renderSettingsSitePermissions() {
+  if (typeof _getAllSitePermissions !== 'function') return '<div class="text-dimmer text-[0.75rem]">No site permissions set.</div>';
+  const all = _getAllSitePermissions();
+  const domains = Object.keys(all);
+  if (!domains.length) return '<div class="text-dimmer text-[0.75rem]">No site permissions set.</div>';
+
+  let html = '';
+  for (const domain of domains.sort()) {
+    const perms = all[domain];
+    const count = Object.keys(perms).length;
+    const isExpanded = _expandedPermDomain === domain;
+    const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
+    html += '<div style="border:1px solid var(--border-input);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPermDomain=(_expandedPermDomain===\'' + safeDomain + '\'?null:\'' + safeDomain + '\');document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();">';
+    html += '<svg style="width:12px;height:12px;color:var(--text-dimmer);transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') + '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+    html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
+    html += '<span style="font-size:0.68rem;color:var(--text-dimmer);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
+    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.7rem;cursor:pointer;">Clear</button>';
+    html += '</div>';
+    if (isExpanded) {
+      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--border-subtle);">';
+      for (const key of _SITE_PERM_KEYS) {
+        const current = perms[key] || 'ask';
+        const label = _SITE_PERM_LABELS[key];
+        const icon = _SITE_PERM_ICONS[key];
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
+        html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
+        html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + label + '</span>';
+        html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
+        for (const val of ['ask', 'allow', 'deny']) {
+          const active = current === val;
+          const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'deny' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
+          const fg = active ? (val === 'allow' ? '#22c55e' : val === 'deny' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
+          html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
+        }
+        html += '</div></div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  return html;
 }
 
 function renderSettingsView() {

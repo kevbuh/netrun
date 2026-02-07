@@ -1349,6 +1349,119 @@ function _browseUpdateAdBlockBadge(url) {
   badge.style.display = 'none';
 }
 
+// ── Site Permissions ──
+
+const _SITE_PERM_KEYS = ['camera', 'microphone', 'location', 'notifications', 'popups'];
+const _SITE_PERM_LABELS = { camera: 'Camera', microphone: 'Microphone', location: 'Location', notifications: 'Notifications', popups: 'Pop-ups' };
+const _SITE_PERM_ICONS = {
+  camera: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  microphone: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+  location: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  notifications: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  popups: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+};
+
+function _getSitePermissions(domain) {
+  try {
+    const all = JSON.parse(localStorage.getItem('sitePermissions') || '{}');
+    return all[domain] || {};
+  } catch { return {}; }
+}
+
+function _setSitePermission(domain, perm, value) {
+  try {
+    const all = JSON.parse(localStorage.getItem('sitePermissions') || '{}');
+    if (!all[domain]) all[domain] = {};
+    if (value === 'ask') {
+      delete all[domain][perm];
+      if (!Object.keys(all[domain]).length) delete all[domain];
+    } else {
+      all[domain][perm] = value;
+    }
+    localStorage.setItem('sitePermissions', JSON.stringify(all));
+  } catch {}
+}
+
+function _clearSitePermissions(domain) {
+  try {
+    const all = JSON.parse(localStorage.getItem('sitePermissions') || '{}');
+    delete all[domain];
+    localStorage.setItem('sitePermissions', JSON.stringify(all));
+  } catch {}
+}
+
+function _getAllSitePermissions() {
+  try { return JSON.parse(localStorage.getItem('sitePermissions') || '{}'); } catch { return {}; }
+}
+
+function _getCurrentBrowseDomain() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || !tab.url || tab.blank) return '';
+  try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; }
+}
+
+function toggleSitePermissions() {
+  const dd = document.getElementById('browse-permissions-dropdown');
+  if (!dd) return;
+  if (dd.style.display !== 'none') {
+    dd.style.display = 'none';
+    return;
+  }
+  _renderSitePermissionsDropdown();
+  dd.style.display = '';
+}
+
+function _renderSitePermissionsDropdown() {
+  const dd = document.getElementById('browse-permissions-dropdown');
+  if (!dd) return;
+  const domain = _getCurrentBrowseDomain();
+
+  if (!domain) {
+    dd.innerHTML = '<div style="padding:16px;text-align:center;font-size:0.8rem;color:var(--text-dim);">Navigate to a site first</div>';
+    return;
+  }
+
+  const perms = _getSitePermissions(domain);
+  let html = '';
+  html += '<div style="padding:10px 14px 6px;font-size:0.82rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</div>';
+  html += '<div style="padding:0 6px;">';
+
+  for (const key of _SITE_PERM_KEYS) {
+    const current = perms[key] || 'ask';
+    const label = _SITE_PERM_LABELS[key];
+    const icon = _SITE_PERM_ICONS[key];
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;">';
+    html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
+    html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + label + '</span>';
+    html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
+    for (const val of ['ask', 'allow', 'deny']) {
+      const active = current === val;
+      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'deny' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
+      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'deny' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
+      const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
+      html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
+    }
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  html += '<div style="padding:6px 14px 10px;border-top:1px solid var(--border-card);margin-top:4px;">';
+  const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
+  html += '<button onclick="_clearSitePermissions(\'' + safeDomain + '\'); _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:5px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.75rem;cursor:pointer;">Clear all for this site</button>';
+  html += '</div>';
+
+  dd.innerHTML = html;
+}
+
+// Close permissions dropdown when clicking outside
+document.addEventListener('mousedown', (e) => {
+  const dd = document.getElementById('browse-permissions-dropdown');
+  if (!dd || dd.style.display === 'none') return;
+  if (!e.target.closest('#browse-permissions-dropdown') && !e.target.closest('#browse-permissions-btn')) {
+    dd.style.display = 'none';
+  }
+});
+
 // Initialize button state on load
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', _browseUpdateAdBlockBtn);
