@@ -1530,6 +1530,27 @@ document.addEventListener('mousemove', function(e) {
   if (e.shiftKey) { _aetherTrackMode = false; return; } // Shift freezes panel in place
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) { _aetherTrackMode = false; return; }
+
+  // Snap to sidebar icon if hovering over one
+  const hovered = e.target.closest && e.target.closest('.sidebar-icon');
+  if (hovered) {
+    const rect = hovered.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.bottom + 6;
+    popup._aetherAnchorX = cx;
+    popup._aetherAnchorY = cy;
+    const pw = popup.offsetWidth;
+    popup.style.left = Math.max(4, cx - pw / 2) + 'px';
+    popup.style.top = cy + 'px';
+    // Activate this view
+    if (!popup._snappedIcon || popup._snappedIcon !== hovered) {
+      popup._snappedIcon = hovered;
+      hovered.click();
+    }
+    return;
+  }
+  popup._snappedIcon = null;
+
   popup._aetherAnchorX = e.clientX;
   popup._aetherAnchorY = e.clientY;
   const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';

@@ -218,8 +218,8 @@ function renderNeuralookView() {
 
       <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
         <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;">
-          <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;min-height:0;">
-            <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;">
+          <div class="bg-card border border-border-card rounded-xl p-3" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+            <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;max-height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
               <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
             </div>
             <div class="flex justify-center mt-2">
@@ -940,7 +940,7 @@ function _nlTrainOnServerSSE(onProgress, onLog, method) {
     _nlTrainAbort = new AbortController();
     fetch('/api/neuralook/train', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       signal: _nlTrainAbort.signal,
       body: JSON.stringify({
         method,
@@ -1117,7 +1117,7 @@ async function _nlPredictOnServer(eyeData, headPose) {
   if (_nlActiveMethod === 'cnn_headpose' && headPose) body.headPose = headPose;
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: _authHeaders(),
     body: JSON.stringify(body)
   });
   const result = await resp.json();
@@ -1255,7 +1255,7 @@ function _nlAttachCameraPreview() {
     clone.autoplay = true;
     clone.muted = true;
     clone.playsInline = true;
-    Object.assign(clone.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+    Object.assign(clone.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
     previewBox.appendChild(clone);
     return;
   }
@@ -1268,7 +1268,7 @@ function _nlAttachCameraPreview() {
       const video = document.createElement('video');
       video.srcObject = stream;
       video.autoplay = true; video.muted = true; video.playsInline = true;
-      Object.assign(video.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+      Object.assign(video.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
       box.appendChild(video);
     }).catch(() => {});
   }
@@ -1304,7 +1304,7 @@ function _nlToggleCamera() {
           const video = document.createElement('video');
           video.srcObject = stream;
           video.autoplay = true; video.muted = true; video.playsInline = true;
-          Object.assign(video.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+          Object.assign(video.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
           b.appendChild(video);
         }).catch(() => {});
       }
@@ -1534,7 +1534,7 @@ async function _nlOnCalibrationComplete() {
     };
     await fetch('/api/neuralook/save-calibration', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       body: JSON.stringify(calibPayload)
     });
     _nlCalibSaved = true;
