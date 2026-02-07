@@ -1,6 +1,39 @@
 // browse-urlbar.js — URL bar, instant answers, history, ad blocker
 // ── Browse URL Bar History Dropdown ──
 
+const _URL_BAR_SECTIONS = [
+  { key: 'definition', label: 'Definition' },
+  { key: 'instant',    label: 'Instant Answers' },
+  { key: 'recent',     label: 'Recent Sites' },
+  { key: 'suggestions',label: 'Suggestions' },
+  { key: 'projects',   label: 'Projects' },
+  { key: 'history',    label: 'Search History' },
+  { key: 'lucky',      label: 'Feeling Lucky' },
+];
+
+function _getUrlBarSections() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('urlBarSections')); } catch {}
+  if (!Array.isArray(saved)) return _URL_BAR_SECTIONS.map(s => ({ key: s.key, label: s.label, enabled: true }));
+  const result = [];
+  const seen = new Set();
+  for (const s of saved) {
+    const def = _URL_BAR_SECTIONS.find(d => d.key === s.key);
+    if (def && !seen.has(s.key)) {
+      seen.add(s.key);
+      result.push({ key: s.key, label: def.label, enabled: s.enabled !== false });
+    }
+  }
+  for (const d of _URL_BAR_SECTIONS) {
+    if (!seen.has(d.key)) result.push({ key: d.key, label: d.label, enabled: true });
+  }
+  return result;
+}
+
+function _saveUrlBarSections(sections) {
+  localStorage.setItem('urlBarSections', JSON.stringify(sections.map(s => ({ key: s.key, enabled: s.enabled }))));
+}
+
 let _browseUrlHistIdx = -1;
 let _browseUrlOriginalInput = '';
 let _suggestDebounce = null;

@@ -6,6 +6,7 @@ const _SETTINGS_SECTIONS = [
   { key: 'feed', label: 'Feed & Reading', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/></svg>' },
   { key: 'tools', label: 'Tools', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.1 5.1a2.121 2.121 0 01-3-3l5.1-5.1m0 0L4.16 7.91a2.13 2.13 0 010-3.01l.7-.7a2.13 2.13 0 013.01 0l4.26 4.26m-1.71 6.71l6.71-6.71m0 0l4.26 4.26a2.13 2.13 0 010 3.01l-.7.7a2.13 2.13 0 01-3.01 0l-4.26-4.26m1.71-6.71L16.42 3a2.121 2.121 0 013 3l-5.17 5.17"/></svg>' },
   { key: 'browser', label: 'Browser', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>' },
+  { key: 'help', label: 'Help', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>' },
 ];
 
 let _settingsFeedTab = 'insights';
@@ -539,6 +540,63 @@ function _renderSettingsSitePermissions() {
   return html;
 }
 
+function _renderHelpSettings() {
+  return `
+    <div class="mb-8">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Search</h3>
+      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
+        <code class="text-muted">"exact phrase"</code><span class="text-dim">Match exact phrase in feed + arXiv</span>
+        <code class="text-muted">title:word</code><span class="text-dim">Search in title only</span>
+        <code class="text-muted">by:author name</code><span class="text-dim">Search by author</span>
+        <code class="text-muted">source:arxiv</code><span class="text-dim">Filter by source</span>
+        <code class="text-muted">user:username</code><span class="text-dim">Search for a user</span>
+        <code class="text-muted">~neural networks</code><span class="text-dim">Semantic search over read/bookmarked posts</span>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Semantic Search</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Posts you read or bookmark are automatically embedded using a local AI model. You can then search by meaning instead of keywords.</p>
+      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
+        <span class="text-muted font-medium">Setup</span><span class="text-dim">Run <code class="text-muted">ollama pull nomic-embed-text</code> once (~274MB)</span>
+        <span class="text-muted font-medium">Search</span><span class="text-dim">Type <code class="text-muted">~query</code> in Research > Papers search</span>
+        <span class="text-muted font-medium">Find similar</span><span class="text-dim">Click the three-dot menu on any card > "Find similar"</span>
+        <span class="text-muted font-medium">Notes</span><span class="text-dim">Vault notes are embedded when saved, searchable via <code class="text-muted">~</code></span>
+        <span class="text-muted font-medium">Offline</span><span class="text-dim">Fully local — no data leaves your machine</span>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
+      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
+        <kbd class="kbd-key text-[0.7rem]">Cmd+T</kbd><span class="text-dim">Toggle tiling window manager</span>
+        <kbd class="kbd-key text-[0.7rem]">Right-click</kbd><span class="text-dim">Open aether panel (chat, search, actions)</span>
+        <kbd class="kbd-key text-[0.7rem]">Enter</kbd><span class="text-dim">Send chat message in aether panel</span>
+        <kbd class="kbd-key text-[0.7rem]">Shift+Enter</kbd><span class="text-dim">Web search in aether panel</span>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Aether Panel</h3>
+      <p class="text-dim text-[0.8rem] mb-2">Right-click anywhere to open an inline chat panel. Type <code class="text-muted">/help</code> in the panel for available commands.</p>
+      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
+        <span class="text-muted font-medium">Chat</span><span class="text-dim">Ask questions about the current page or anything</span>
+        <span class="text-muted font-medium">Screenshot</span><span class="text-dim">Drag to capture a region and chat about it (Electron only)</span>
+        <span class="text-muted font-medium">Web search</span><span class="text-dim">Shift+Enter to search the web inline</span>
+        <span class="text-muted font-medium">Context</span><span class="text-dim">Right-click on links/images for contextual actions</span>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-3">AI Models (Ollama)</h3>
+      <p class="text-dim text-[0.8rem] mb-3">The app uses local Ollama models. All are optional — features degrade gracefully without them.</p>
+      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
+        <code class="text-muted">qwen2.5:1.5b</code><span class="text-dim">Quality filter (KEEP/SKIP + scoring)</span>
+        <code class="text-muted">qwen2.5:3b</code><span class="text-dim">Document chat, paper insights</span>
+        <code class="text-muted">nomic-embed-text</code><span class="text-dim">Semantic search embeddings (768-dim)</span>
+        <code class="text-muted">qwen3:8b</code><span class="text-dim">Chat with tools (autonomous agent mode)</span>
+        <code class="text-muted">qwen3-vl:8b</code><span class="text-dim">Vision chat (screenshot analysis)</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderSettingsView() {
   // Render sidebar
   const sidebar = document.getElementById('settings-sidebar');
@@ -555,7 +613,7 @@ function renderSettingsView() {
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', help: 'Help' };
     let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
 
     if (_settingsSection === 'profile') {
@@ -569,6 +627,8 @@ function renderSettingsView() {
       content += _renderToolsSettings();
     } else if (_settingsSection === 'browser') {
       content += _renderBrowserSettings();
+    } else if (_settingsSection === 'help') {
+      content += _renderHelpSettings();
     }
 
     pane.innerHTML = content;

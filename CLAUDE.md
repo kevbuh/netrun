@@ -4,19 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the Application
 
-### 1. Start Ollama (for AI quality filter)
+### 1. Start Ollama (for AI quality filter + semantic search)
 
 ```bash
 brew services start ollama
 ```
 
-Runs on `http://localhost:11434`. Required model: `qwen2.5:1.5b`. Pull it once with:
+Runs on `http://localhost:11434`. Required models:
 
 ```bash
-ollama pull qwen2.5:1.5b
+ollama pull qwen2.5:1.5b        # quality filter
+ollama pull nomic-embed-text     # semantic search (~274MB)
 ```
 
-Ollama is optional — the app works without it, but the AI quality filter will have no effect.
+Ollama is optional — the app works without it, but the AI quality filter and semantic search will have no effect.
 
 ### 2. Start the app
 
@@ -64,6 +65,9 @@ Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`
 - `/api/doc-chat` — POST, SSE streaming chat with optional `vision: true` for screenshot chat
 - `/api/web-search?q=` — GET, DuckDuckGo HTML search, returns `{ results: [{title, url, snippet}] }`
 - `/api/images` — POST saves base64 PNG to `uploads/`, GET serves saved images
+- `/api/embed-content` — POST fire-and-forget embedding via `nomic-embed-text`; takes `{title, link, source, description, type}`, runs in daemon thread
+- `/api/semantic-search` — POST `{query, type?, limit?}`, embeds query and returns cosine-similar results from `embeddings` table
+- `/api/find-similar` — POST `{title, link, description, limit?}`, finds posts similar to the given one (excludes itself)
 
 Experiments are stored on disk as `experiments/{slug}/meta.json`.
 
@@ -133,7 +137,7 @@ src/
     panel.js            — unified popup panel system, context menus, slash commands
     browse-tabs.js      — browse tab/window management, downloads, navigation
     browse-urlbar.js    — URL bar, instant answers, history, ad blocker
-    search.js           — search view (feed search, arXiv search, OpenAlex, search history)
+    search.js           — search view (feed search, arXiv search, semantic search, search history)
     calendar.js         — calendar view (month grid, event CRUD)
     whiteboard.js       — whiteboard view (multi-board canvas drawing, stroke eraser)
     pdfviewer.js        — PDF viewer (highlights, pen, search)
@@ -297,19 +301,42 @@ Each feed card has two action buttons (top-right corner):
 
 Clicking a post marks it as read (`localStorage.readPosts`). Read posts render at 50% opacity with muted title text in both card and compact views.
 
+### Semantic Search
+
+Local semantic search using Ollama's `nomic-embed-text` model (768-dim, ~274MB). Posts are embedded automatically as users read or bookmark them, building a personal semantic index over time. Requires `ollama pull nomic-embed-text` (one-time). Degrades gracefully if Ollama or the model is unavailable.
+
+**How it works:**
+- `markPostAsRead()` and `toggleSavePost()` in `feed.js` call `_embedPost(link)`, which fire-and-forgets `POST /api/embed-content`
+- `saveCurrentNote()` in `vault.js` embeds vault notes with `type: 'note'`
+- The backend (`content.py`) runs embedding in a daemon thread so responses are instant
+- Embeddings are stored as packed float32 BLOBs in the `embeddings` SQLite table, deduped by SHA-256 content hash
+- Search uses brute-force cosine similarity over all stored embeddings (fast enough for thousands of posts)
+
+**User-facing features:**
+- **`~` prefix search** — typing `~transformers` in Research > Papers search triggers `doSemanticSearch()` in `search.js`, which calls `/api/semantic-search`
+- **Find similar** — card context menu (three-dot menu) has "Find similar" button, calls `/api/find-similar`, navigates to search and renders results
+- **Result rendering** — `_renderSemanticResults()` in `feed.js` shows results with source chip, title, and similarity percentage
+
+**Key functions:**
+- `_embedPost(link)` — fire-and-forget embedding of a post (feed.js)
+- `findSimilarPosts(index)` — find similar posts from card menu (feed.js)
+- `_renderSemanticResults(container, results, heading)` — render semantic results (feed.js)
+- `doSemanticSearch(query)` — semantic search from `~` prefix (search.js)
+- `store_embedding()` / `search_embeddings()` / `embed_text_ollama()` — backend helpers (persistence.py)
+
 ### External APIs
 
 - arXiv RSS: `https://rss.arxiv.org/rss/cs`
 - arXiv API: `https://export.arxiv.org/api/query`
 - Hacker News: `https://hacker-news.firebaseio.com/v0/`
 - Semantic Scholar: `https://api.semanticscholar.org/graph/v1/paper/batch`
-- Ollama (local): `http://localhost:11434/api/chat`
+- Ollama (local): `http://localhost:11434/api/chat`, `http://localhost:11434/api/embed`
 - DuckDuckGo (web search): `https://html.duckduckgo.com/html/`
 - Polymarket: `https://polymarket.com/breaking` (scraped for breaking markets)
 
 ### Database Schema (SQLite — `aether.db`)
 
-Auto-created on first run. 24 tables:
+Auto-created on first run. 25 tables:
 
 **Auth & Users:** `users` (google_id PK, email, name, username, picture, profile_private, last_seen, status), `sessions` (token PK, google_id, expires 30-day TTL), `user_data` (google_id + key composite PK, per-user settings sync)
 
@@ -324,6 +351,8 @@ Auto-created on first run. 24 tables:
 **Caching:** `reference_cache` (paper references), `author_cache` (author info), `quality_cache` (AI filter verdicts/scores)
 
 **Feeds:** `feed_items` (source, title, link, authors, categories, description, pub_date, display_date, arxiv_id, extra, fetched_at — indexed on source, unique on source+link)
+
+**Embeddings:** `embeddings` (content_hash PK, content_type, title, link, source, embedding BLOB, dim, created_at — indexed on content_type)
 
 **Analytics:** `usage_log` (event, timestamp)
 

@@ -2804,9 +2804,45 @@ function toggleBrowseTabOverview() {
   _browseTabOverviewVisible ? hideBrowseTabOverview() : showBrowseTabOverview();
 }
 
+// Lightweight restore: read browse windows from localStorage without creating DOM/iframes.
+// Used by the overview so browse tabs are visible even if Browse hasn't been opened yet.
+function _browseRestoreTabsLite() {
+  try {
+    var raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    if (!data.windows || !data.windows.length) return;
+    _browseNextWindowId = data.nextWindowId || 1;
+    _browseNextTabId = data.nextTabId || 1;
+    _browseNextGroupId = data.nextGroupId || 1;
+    _browseNextPaneId = data.nextPaneId || 1;
+    for (var i = 0; i < data.windows.length; i++) {
+      var sw = data.windows[i];
+      if (!sw.tabs.length) continue;
+      var win = { id: sw.id, name: sw.name, tabs: [], activeTab: sw.activeTab, groups: sw.groups || [], splitPanes: sw.splitPanes || [], focusedPane: sw.focusedPane || null };
+      for (var j = 0; j < sw.tabs.length; j++) {
+        var st = sw.tabs[j];
+        var tab = { id: st.id, url: st.url || '', title: st.title || 'New Tab', favicon: st.url ? _browseFaviconUrl(st.url) : '', el: null, blank: !!st.blank };
+        if (st.pinned) tab.pinned = true;
+        if (st.groupId != null) tab.groupId = st.groupId;
+        if (st.paper) { tab.paper = st.paper; tab.contentType = st.contentType; }
+        if (st._historyPage) { tab.url = 'aether://history'; tab.title = 'History'; tab._historyPage = true; }
+        if (st._helpPage) { tab.url = 'aether://help'; tab.title = 'Help'; tab._helpPage = true; }
+        win.tabs.push(tab);
+      }
+      _browseWindows.push(win);
+    }
+    if (_browseWindows.length) {
+      _browseActiveWindow = _browseWindows.find(function(w) { return w.id === data.activeWindow; }) ? data.activeWindow : _browseWindows[0].id;
+    }
+  } catch (e) { /* ignore */ }
+}
+
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
+  // Ensure browse windows are loaded even if Browse view hasn't been opened
+  if (!_browseWindows.length) _browseRestoreTabsLite();
   _browseTabOverviewVisible = true;
   _overviewBrowseExpanded = false;
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
