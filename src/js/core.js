@@ -1017,26 +1017,48 @@ function _wmToggleTiling() {
 
 /* ── Drag pill — horizontal drag to switch windows ── */
 (function() {
-  var DRAG_THRESHOLD = 40;
+  var STEP = 24; // px per window step (sensitive)
   var _dragStartX = 0;
   var _dragAccum = 0;
+  var _previewIndex = -1;
+  var _originIndex = -1;
+
+  function _clearPreview() {
+    document.querySelectorAll('.sidebar-icon.drag-preview').forEach(function(el) {
+      el.classList.remove('drag-preview');
+    });
+    _previewIndex = -1;
+  }
+  function _showPreview(idx) {
+    if (idx === _previewIndex) return;
+    _clearPreview();
+    _previewIndex = idx;
+    var w = _wmWindows[idx];
+    if (!w) return;
+    var el = document.getElementById(w.sidebarId);
+    if (el) el.classList.add('drag-preview');
+  }
 
   function onMove(e) {
     var x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
     _dragAccum += x - _dragStartX;
     _dragStartX = x;
-    if (Math.abs(_dragAccum) >= DRAG_THRESHOLD) {
-      var dir = _dragAccum > 0 ? 1 : -1;
-      _dragAccum = 0;
-      var next = (_wmFocusIndex + dir + _wmWindows.length) % _wmWindows.length;
-      _wmActivateWindow(next);
-    }
+    // Calculate how many steps from origin
+    var steps = Math.round(_dragAccum / STEP);
+    var target = _originIndex + steps;
+    // Clamp to valid range
+    target = Math.max(0, Math.min(_wmWindows.length - 1, target));
+    _showPreview(target);
   }
   function onUp() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onUp);
+    if (_previewIndex >= 0 && _previewIndex !== _originIndex) {
+      _wmActivateWindow(_previewIndex);
+    }
+    _clearPreview();
   }
 
   document.addEventListener('DOMContentLoaded', function() {
@@ -1046,12 +1068,16 @@ function _wmToggleTiling() {
       e.preventDefault();
       _dragStartX = e.clientX;
       _dragAccum = 0;
+      _originIndex = _wmFocusIndex;
+      _previewIndex = -1;
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
     pill.addEventListener('touchstart', function(e) {
       _dragStartX = e.touches[0].clientX;
       _dragAccum = 0;
+      _originIndex = _wmFocusIndex;
+      _previewIndex = -1;
       document.addEventListener('touchmove', onMove, { passive: true });
       document.addEventListener('touchend', onUp);
     }, { passive: true });

@@ -26,9 +26,21 @@ const ARXIV_CAT_NAMES = {
 
 // ── Reader View (saved content) ──
 function _insertIframeWithOverlay(container, url) {
-  container.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
-  const iframe = container.querySelector('iframe');
-  if (iframe) _injectIframeChatHandler(iframe);
+  const isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+  if (isElectron) {
+    // Use webview in Electron — raw iframes are blocked by most sites' X-Frame-Options / CSP
+    const wv = document.createElement('webview');
+    wv.src = url;
+    wv.style.cssText = 'width:100%;height:100%;border:none;';
+    container.innerHTML = '';
+    container.appendChild(wv);
+    if (typeof _injectIframeChatHandler === 'function') _injectIframeChatHandler(wv);
+  } else {
+    const proxied = typeof _browseProxyUrl === 'function' ? _browseProxyUrl(url) : url;
+    container.innerHTML = `<iframe src="${proxied}" style="width:100%;height:100%;border:none;background:#fff" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>`;
+    const iframe = container.querySelector('iframe');
+    if (iframe) _injectIframeChatHandler(iframe);
+  }
 }
 
 function _tryRenderSavedContent(container, paper) {
