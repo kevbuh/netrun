@@ -1,6 +1,7 @@
-// ── Vault (Obsidian-style notes) ──
+// ── Vault (Obsidian-style notes + projects) ──
 
 let _vaultNotes = [];
+let _vaultTree = []; // Full recursive file tree from /api/vault/tree
 let _vaultCurrentNote = null;
 let _vaultPreviewMode = true; // Preview on by default
 let _vaultGraphMode = false;
@@ -22,7 +23,7 @@ async function openVault() {
 
 // Initialize vault
 async function initVault() {
-  await loadVaultNotes();
+  await Promise.all([loadVaultNotes(), loadVaultTree()]);
 
   // Create welcome note for new vaults
   if (_vaultNotes.length === 0) {
@@ -234,7 +235,20 @@ async function loadVaultNotes() {
   }
 }
 
-// Render file tree
+// Load full vault file tree (includes project folders)
+async function loadVaultTree() {
+  try {
+    const res = await fetch('/api/vault/tree', { headers: _authHeaders() });
+    if (res.ok) {
+      _vaultTree = await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to load vault tree', e);
+    _vaultTree = [];
+  }
+}
+
+// Render file tree — combines vault notes with full file tree
 function renderVaultFileTree(filter = '') {
   const container = document.getElementById('vault-file-tree');
   if (!container) return;
@@ -244,7 +258,10 @@ function renderVaultFileTree(filter = '') {
     ? _vaultNotes.filter(n => n.title.toLowerCase().includes(filterLower) || n.content?.toLowerCase().includes(filterLower))
     : _vaultNotes;
 
-  // Group by folder
+  // Build a set of note filenames (so we can avoid duplicating .md files from tree)
+  const noteIds = new Set(_vaultNotes.map(n => n.id));
+
+  // Group notes by folder (vault's note-folder system, not filesystem dirs)
   const folders = {};
   const rootNotes = [];
 
@@ -257,9 +274,31 @@ function renderVaultFileTree(filter = '') {
     }
   });
 
+  // Build set of note-folder names and note titles so we don't double-render them from the tree
+  const noteFolders = new Set(Object.keys(folders));
+
+  // Identify project folders from the tree (dirs that are NOT note-folders)
+  const projectDirs = _vaultTree.filter(item =>
+    item.type === 'dir' && !noteFolders.has(item.name)
+  );
+
   let html = '';
 
-  // Render folders
+  // Render project folders first (from vault tree)
+  if (!filter || projectDirs.some(d => d.name.toLowerCase().includes(filterLower))) {
+    const filteredProjects = filter ? projectDirs.filter(d => d.name.toLowerCase().includes(filterLower)) : projectDirs;
+    filteredProjects.forEach(dir => {
+      html += `
+        <div class="vault-file-item vault-project-item" onclick="window.location.hash='experiment/${encodeURIComponent(dir.name)}'">
+          <svg class="w-4 h-4 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+          <span class="truncate">${escapeHtml(dir.name)}</span>
+          <span class="ml-auto text-[0.6rem] text-dimmer px-1.5 py-0.5 rounded bg-border-card">project</span>
+        </div>
+      `;
+    });
+  }
+
+  // Render note folders
   Object.keys(folders).sort().forEach(folder => {
     const notes = folders[folder].sort((a, b) => a.title.localeCompare(b.title));
     html += `
@@ -822,6 +861,31 @@ if __name__ == "__main__":
     }
   } catch (e) {
     console.error('Failed to create marimo note', e);
+  }
+}
+
+// Create a new project folder in the vault
+async function vaultNewProject() {
+  const adjectives = ['red','blue','green','swift','bold','calm','dark','bright','wild','cold','warm','sharp','soft','deep','fast'];
+  const nouns = ['fox','oak','river','stone','moon','sun','hawk','wolf','pine','star','wave','flame','cloud','peak','reef'];
+  const adj = adjectives[Math.floor(Math.random()*adjectives.length)];
+  const noun = nouns[Math.floor(Math.random()*nouns.length)];
+  const num = Math.floor(Math.random()*900)+100;
+  const title = `${adj}-${noun}-${num}`;
+  try {
+    const resp = await fetch('/api/experiments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+      body: JSON.stringify({ title, desc: '', created: Date.now() })
+    });
+    if (resp.ok) {
+      const exp = await resp.json();
+      await loadVaultTree();
+      renderVaultFileTree();
+      window.location.hash = 'experiment/' + exp.id;
+    }
+  } catch (e) {
+    console.error('Failed to create project', e);
   }
 }
 

@@ -11,7 +11,7 @@ from urllib.parse import unquote as url_unquote
 
 from helpers import require_auth, optional_auth, get_user_from_request
 from persistence import (
-    EXPERIMENTS_DIR, DIR, read_meta,
+    DIR,
     get_user_info, get_public_user_info, get_user_public_stats, get_user_recent_comments,
     create_repost, delete_repost, get_user_reposts, get_user_feed_sources,
     set_blog_vote, get_blog_votes,
@@ -20,7 +20,6 @@ from persistence import (
     create_team, get_user_teams, get_team, delete_team,
     invite_to_team, get_pending_invites, respond_to_invite,
     remove_team_member, rename_team,
-    get_user_experiment_ids, get_team_experiments,
     get_user_accent_color, set_profile_private, are_teammates,
     update_user_picture, update_user_profile_bg,
     touch_last_seen, update_user_status,
@@ -89,38 +88,11 @@ def get_inbox(google_id):
     return jsonify(get_pending_invites(google_id))
 
 
-# 4. GET /api/team-experiments — list experiments shared via teams
+# 4. GET /api/team-experiments — stub (experiments now in vault, not team-shared)
 @bp.route('/api/team-experiments')
 @require_auth
 def list_team_experiments(google_id):
-    teams = get_user_teams(google_id)
-    result = []
-    seen = set()
-    for team in teams:
-        exp_ids = get_team_experiments(team['id'])
-        for eid in exp_ids:
-            if eid in seen:
-                continue
-            seen.add(eid)
-            meta = read_meta(eid)
-            if meta:
-                meta['id'] = eid
-                meta['team_id'] = team['id']
-                meta['team_name'] = team['name']
-                runs = meta.get('runs', [])
-                meta['runCount'] = len(runs)
-                ts = [r.get('created', 0) for r in runs] + [meta.get('created', 0) or 0]
-                exp_dir = os.path.join(EXPERIMENTS_DIR, eid)
-                for root, dirs, files in os.walk(exp_dir):
-                    for fname in files:
-                        try:
-                            ts.append(os.path.getmtime(os.path.join(root, fname)))
-                        except OSError:
-                            pass
-                meta['lastUpdated'] = max(ts) if ts else 0
-                result.append(meta)
-    result.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
-    return jsonify(result)
+    return jsonify([])
 
 
 # 5. GET /api/messages — get direct messages
@@ -266,20 +238,8 @@ def get_user_teams_route(username, google_id):
 @bp.route('/api/users/<username>/experiments')
 @require_auth
 def get_user_experiments(username, google_id):
-    username = url_unquote(username)
-    info = get_public_user_info(username)
-    if not info:
-        return jsonify({'error': 'User not found'}), 404
-    if info['profile_private'] and info['google_id'] != google_id and not are_teammates(google_id, info['google_id']):
-        return jsonify([])
-    exp_ids = get_user_shared_experiments(google_id, info['google_id'])
-    result = []
-    for eid in exp_ids:
-        meta = read_meta(eid)
-        if meta:
-            meta['id'] = eid
-            result.append(meta)
-    return jsonify(result)
+    # Experiments are now in vault, not shared via DB
+    return jsonify([])
 
 
 # 18. GET /api/achievements — current user achievements

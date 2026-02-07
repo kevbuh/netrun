@@ -19,15 +19,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_sock import Sock
 
-from persistence import DIR, EXPERIMENTS_DIR
-
-# Auto-create _unstructured pseudo-experiment for loose files
-_unstructured_dir = os.path.join(EXPERIMENTS_DIR, '_unstructured')
-os.makedirs(_unstructured_dir, exist_ok=True)
-_unstructured_meta = os.path.join(_unstructured_dir, 'meta.json')
-if not os.path.isfile(_unstructured_meta):
-    with open(_unstructured_meta, 'w') as f:
-        json.dump({'title': 'Unstructured Files', 'desc': '', 'created': None, 'runs': []}, f)
+from persistence import DIR
 
 # Uploads directory for profile pictures and backgrounds
 UPLOADS_DIR = os.path.join(DIR, 'uploads')

@@ -20,15 +20,24 @@ _cache = {}
 FEED_CACHE_DIR = os.path.join(DIR, 'feed_cache')
 os.makedirs(FEED_CACHE_DIR, exist_ok=True)
 
-EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
+EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')  # legacy — only used for migration
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 
 SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
 VAULT_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'aether')
-os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 os.makedirs(SAVED_CONTENT_DIR, exist_ok=True)
 os.makedirs(VAULT_DIR, exist_ok=True)
+
+
+def get_vault_project_dir(google_id, project_id):
+    """Resolve a project directory inside the user's vault. Returns path or None if traversal."""
+    from vault_helpers import _get_user_vault_path
+    vault = _get_user_vault_path(google_id)
+    d = os.path.join(vault, project_id)
+    if not os.path.realpath(d).startswith(os.path.realpath(vault) + os.sep):
+        return None
+    return d
 
 
 def _content_path(url):
@@ -78,27 +87,14 @@ def slugify(text):
     return s or 'experiment'
 
 
-def unique_slug(base):
+def unique_vault_slug(vault_path, base):
+    """Generate a unique slug within a vault directory."""
     slug = base
     i = 2
-    while os.path.exists(os.path.join(EXPERIMENTS_DIR, slug)):
+    while os.path.exists(os.path.join(vault_path, slug)):
         slug = f'{base}-{i}'
         i += 1
     return slug
-
-
-def read_meta(exp_id):
-    path = os.path.join(EXPERIMENTS_DIR, exp_id, 'meta.json')
-    if not os.path.exists(path):
-        return None
-    with open(path, 'r') as f:
-        return json.load(f)
-
-
-def write_meta(exp_id, data):
-    path = os.path.join(EXPERIMENTS_DIR, exp_id, 'meta.json')
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=2)
 
 
 def read_prompt():
@@ -961,108 +957,17 @@ def remove_team_member(team_id, owner_google_id, target_google_id):
     return True
 
 
-def set_experiment_team(experiment_id, team_id, google_id):
-    conn = _get_db()
-    member = conn.execute(
-        "SELECT 1 FROM team_members WHERE team_id = ? AND google_id = ?",
-        (team_id, google_id)
-    ).fetchone()
-    if not member:
-        conn.close()
-        return False
-    # Remove existing team assignment for this experiment
-    conn.execute("DELETE FROM experiment_teams WHERE experiment_id = ?", (experiment_id,))
-    conn.execute(
-        "INSERT INTO experiment_teams (experiment_id, team_id) VALUES (?, ?)",
-        (experiment_id, team_id)
-    )
-    conn.commit()
-    conn.close()
-    return True
-
-
-def remove_experiment_team(experiment_id):
-    conn = _get_db()
-    conn.execute("DELETE FROM experiment_teams WHERE experiment_id = ?", (experiment_id,))
-    conn.commit()
-    conn.close()
-
-
-def get_experiment_team(experiment_id):
-    conn = _get_db()
-    row = conn.execute(
-        "SELECT team_id FROM experiment_teams WHERE experiment_id = ?",
-        (experiment_id,)
-    ).fetchone()
-    conn.close()
-    return row['team_id'] if row else None
-
-
-def get_team_experiments(team_id):
-    conn = _get_db()
-    rows = conn.execute(
-        "SELECT experiment_id FROM experiment_teams WHERE team_id = ?",
-        (team_id,)
-    ).fetchall()
-    conn.close()
-    return [r['experiment_id'] for r in rows]
-
-
-# ── Experiment Ownership ──
-
-def set_experiment_owner(experiment_id, google_id):
-    conn = _get_db()
-    conn.execute(
-        "INSERT OR REPLACE INTO experiment_owners (experiment_id, google_id) VALUES (?, ?)",
-        (experiment_id, google_id)
-    )
-    conn.commit()
-    conn.close()
-
-
-def get_experiment_owner(experiment_id):
-    conn = _get_db()
-    row = conn.execute(
-        "SELECT google_id FROM experiment_owners WHERE experiment_id = ?",
-        (experiment_id,)
-    ).fetchone()
-    conn.close()
-    return row['google_id'] if row else None
-
+# ── Legacy experiment ownership (kept for migration) ──
 
 def get_user_experiment_ids(google_id):
-    """Return set of experiment_ids the user owns or has access to via teams."""
+    """Return set of experiment_ids the user owns (legacy DB). Used only for migration."""
     conn = _get_db()
     owned = conn.execute(
         "SELECT experiment_id FROM experiment_owners WHERE google_id = ?",
         (google_id,)
     ).fetchall()
-    team_exps = conn.execute("""
-        SELECT et.experiment_id FROM experiment_teams et
-        JOIN team_members tm ON tm.team_id = et.team_id
-        WHERE tm.google_id = ?
-    """, (google_id,)).fetchall()
     conn.close()
-    return set(r['experiment_id'] for r in owned) | set(r['experiment_id'] for r in team_exps)
-
-
-def user_can_access_experiment(experiment_id, google_id):
-    """Check if user owns or has team access to an experiment."""
-    conn = _get_db()
-    owned = conn.execute(
-        "SELECT 1 FROM experiment_owners WHERE experiment_id = ? AND google_id = ?",
-        (experiment_id, google_id)
-    ).fetchone()
-    if owned:
-        conn.close()
-        return True
-    team_access = conn.execute("""
-        SELECT 1 FROM experiment_teams et
-        JOIN team_members tm ON tm.team_id = et.team_id
-        WHERE et.experiment_id = ? AND tm.google_id = ?
-    """, (experiment_id, google_id)).fetchone()
-    conn.close()
-    return bool(team_access)
+    return set(r['experiment_id'] for r in owned)
 
 
 # ── Calendar (per-user) ──
@@ -1547,18 +1452,8 @@ def has_achievement(google_id, achievement_id):
 
 
 def get_user_shared_experiments(viewer_google_id, target_google_id):
-    """Returns experiment_ids that target owns AND are shared via a team where viewer is also a member."""
-    conn = _get_db()
-    rows = conn.execute("""
-        SELECT DISTINCT eo.experiment_id
-        FROM experiment_owners eo
-        JOIN experiment_teams et ON et.experiment_id = eo.experiment_id
-        JOIN team_members tm_target ON tm_target.team_id = et.team_id AND tm_target.google_id = ?
-        JOIN team_members tm_viewer ON tm_viewer.team_id = et.team_id AND tm_viewer.google_id = ?
-        WHERE eo.google_id = ?
-    """, (target_google_id, viewer_google_id, target_google_id)).fetchall()
-    conn.close()
-    return [r['experiment_id'] for r in rows]
+    """Stub — experiments are now in vault, not DB-tracked."""
+    return []
 
 
 def search_users(query, limit=10):

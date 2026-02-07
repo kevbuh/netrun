@@ -115,6 +115,10 @@ def doc_chat():
     if not messages:
         return jsonify({'error': 'messages required'}), 400
 
+    # Extract google_id for tool calls (best effort)
+    from helpers import get_user_from_request
+    _chat_google_id = get_user_from_request()
+
     try:
         from persistence import log_usage
         log_usage('aether_chat')
@@ -209,7 +213,7 @@ def doc_chat():
                         def stream_cb(event, data):
                             actions.append((event, data))
 
-                        tool_result = execute_chat_tool(tool_name, tool_args, stream_callback=stream_cb)
+                        tool_result = execute_chat_tool(tool_name, tool_args, stream_callback=stream_cb, google_id=_chat_google_id)
                         for ev, d in actions:
                             yield sse_event(ev, d)
                         ollama_messages.append({"role": "tool", "content": json.dumps(tool_result)})

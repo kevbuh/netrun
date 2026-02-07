@@ -1,5 +1,6 @@
-"""Vault routes: notes CRUD, marimo start/stop, vault path."""
+"""Vault routes: notes CRUD, file tree, marimo start/stop, vault path, migration."""
 import os
+import shutil
 import subprocess
 import time
 import uuid
@@ -7,7 +8,7 @@ import uuid
 from flask import Blueprint, request, jsonify
 
 from helpers import require_auth
-from persistence import VAULT_DIR, get_user_data
+from persistence import VAULT_DIR, EXPERIMENTS_DIR, get_user_data, get_user_experiment_ids
 from vault_helpers import (
     _read_vault_md, _write_vault_md, _sanitize_vault_filename,
     _find_vault_note_by_id, _get_user_vault_path, _set_user_vault_path,
@@ -225,3 +226,73 @@ def marimo_stop(google_id):
         note['updated'] = int(time.time())
         _write_vault_md(note_path, note)
     return jsonify({'ok': True, 'content': updated_content})
+
+
+@bp.route('/api/vault/tree')
+@require_auth
+def vault_tree(google_id):
+    """Return full recursive file tree of the user's vault."""
+    user_vault = _get_user_vault_path(google_id)
+    # Auto-migrate legacy experiments on first tree request
+    _auto_migrate_experiments(google_id, user_vault)
+    skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
+    skip_files = {'.DS_Store', 'Thumbs.db', 'meta.json'}
+
+    def walk_dir(dirpath, rel=''):
+        items = []
+        try:
+            entries = sorted(os.listdir(dirpath))
+        except OSError:
+            return items
+        for name in entries:
+            if name.startswith('.'):
+                continue
+            full = os.path.join(dirpath, name)
+            rel_path = os.path.join(rel, name) if rel else name
+            if os.path.isdir(full):
+                if name in skip_dirs:
+                    continue
+                children = walk_dir(full, rel_path)
+                items.append({'name': name, 'path': rel_path, 'type': 'dir', 'children': children})
+            elif os.path.isfile(full):
+                if name in skip_files:
+                    continue
+                try:
+                    mtime = os.path.getmtime(full)
+                except OSError:
+                    mtime = 0
+                items.append({'name': name, 'path': rel_path, 'type': 'file', 'mtime': mtime})
+        return items
+
+    tree = walk_dir(user_vault)
+    return jsonify(tree)
+
+
+def _auto_migrate_experiments(google_id, vault_path):
+    """Migrate legacy experiments from EXPERIMENTS_DIR to vault (one-time)."""
+    migrated_key = get_user_data(google_id, 'experiments_migrated')
+    if migrated_key:
+        return
+    if not os.path.isdir(EXPERIMENTS_DIR):
+        # No legacy experiments dir — mark as migrated
+        from persistence import set_user_data
+        set_user_data(google_id, 'experiments_migrated', 'true')
+        return
+    exp_ids = get_user_experiment_ids(google_id)
+    if not exp_ids:
+        from persistence import set_user_data
+        set_user_data(google_id, 'experiments_migrated', 'true')
+        return
+    for exp_id in exp_ids:
+        src = os.path.join(EXPERIMENTS_DIR, exp_id)
+        if not os.path.isdir(src):
+            continue
+        dst = os.path.join(vault_path, exp_id)
+        if os.path.exists(dst):
+            continue  # already exists in vault
+        try:
+            shutil.copytree(src, dst, ignore=shutil.ignore_patterns('meta.json'))
+        except Exception:
+            pass
+    from persistence import set_user_data
+    set_user_data(google_id, 'experiments_migrated', 'true')

@@ -10,12 +10,11 @@ from flask import Blueprint, request, jsonify
 
 from helpers import require_auth, get_user_from_request
 from persistence import (
-    EXPERIMENTS_DIR,
     upsert_google_user, get_user_info, create_session,
     get_session_user, delete_session, set_username, delete_user,
-    get_all_user_data, set_user_data_bulk,
+    get_all_user_data, set_user_data_bulk, VAULT_DIR,
 )
-from kernels import _kill_kernel
+from vault_helpers import _get_user_vault_path
 
 bp = Blueprint('auth', __name__)
 
@@ -81,22 +80,11 @@ def set_username_route(google_id):
 @bp.route('/api/auth/delete-account', methods=['POST'])
 @require_auth
 def delete_account(google_id):
-    owned_exps = delete_user(google_id)
-    for exp_id in owned_exps:
-        exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
-        if os.path.isdir(exp_dir):
-            _kill_kernel(exp_id)
-            shutil.rmtree(exp_dir)
-    unstructured = os.path.join(EXPERIMENTS_DIR, '_unstructured')
-    if os.path.isdir(unstructured):
-        for f in os.listdir(unstructured):
-            if f == 'meta.json':
-                continue
-            fpath = os.path.join(unstructured, f)
-            if os.path.isfile(fpath):
-                os.remove(fpath)
-            elif os.path.isdir(fpath):
-                shutil.rmtree(fpath)
+    # Get vault path before deleting user data
+    vault_path = _get_user_vault_path(google_id)
+    delete_user(google_id)
+    # Optionally clean vault directory (user's files are in their vault)
+    # We keep the vault files — user may want them even after deleting account
     return jsonify({'ok': True})
 
 

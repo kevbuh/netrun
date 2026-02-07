@@ -1,4 +1,4 @@
-"""Experiment routes: CRUD for experiments, files, runs, venvs, packages, kernels, folders, uploads."""
+"""Experiment routes: CRUD for projects (in vault), files, venvs, packages, kernels, folders, uploads."""
 import os
 import json
 import re
@@ -13,12 +13,9 @@ from urllib.parse import unquote as url_unquote
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
-from helpers import require_auth, require_experiment_access, get_user_from_request, sse_event
-from persistence import (
-    EXPERIMENTS_DIR, read_meta, write_meta, slugify, unique_slug,
-    set_experiment_owner, get_user_experiment_ids, user_can_access_experiment,
-    get_user_teams, get_team_experiments, set_experiment_team, remove_experiment_team,
-)
+from helpers import require_auth, sse_event
+from persistence import get_vault_project_dir, slugify, unique_vault_slug
+from vault_helpers import _get_user_vault_path
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
     _validate_package_names, _create_venv,
@@ -29,6 +26,26 @@ from kernels import (
 bp = Blueprint('experiments', __name__)
 
 
+def _require_project_access(f):
+    """Decorator: require auth + resolve exp_dir from vault. Passes google_id=, exp_id=, exp_dir=."""
+    from functools import wraps
+    from persistence import get_session_user, touch_last_seen
+    @wraps(f)
+    def decorated(exp_id, *args, **kwargs):
+        auth = request.headers.get('Authorization', '')
+        if not auth.startswith('Bearer '):
+            return jsonify({'error': 'Not authenticated'}), 401
+        google_id = get_session_user(auth[7:])
+        if not google_id:
+            return jsonify({'error': 'Invalid session'}), 401
+        touch_last_seen(google_id)
+        exp_dir = get_vault_project_dir(google_id, exp_id)
+        if not exp_dir:
+            return jsonify({'error': 'Invalid project path'}), 400
+        return f(exp_id, *args, google_id=google_id, exp_dir=exp_dir, **kwargs)
+    return decorated
+
+
 # ---------------------------------------------------------------------------
 # GET routes
 # ---------------------------------------------------------------------------
@@ -36,62 +53,51 @@ bp = Blueprint('experiments', __name__)
 @bp.route('/api/experiments', methods=['GET'])
 @require_auth
 def list_experiments(google_id):
-    """List all experiments the user has access to."""
-    allowed_ids = get_user_experiment_ids(google_id)
-    # Build lookup of experiment -> team info
-    user_teams = get_user_teams(google_id)
-    exp_team_map = {}
-    for t in user_teams:
-        for eid in get_team_experiments(t['id']):
-            if eid not in exp_team_map:
-                exp_team_map[eid] = {'team_id': t['id'], 'team_name': t['name']}
+    """List all project folders in the user's vault."""
+    vault = _get_user_vault_path(google_id)
     experiments = []
-    if os.path.isdir(EXPERIMENTS_DIR):
-        for name in sorted(os.listdir(EXPERIMENTS_DIR)):
-            if name == '_unstructured':
+    if os.path.isdir(vault):
+        skip = {'venv', '.kernels', '__pycache__', 'node_modules', '.git', '.marimo_*'}
+        for name in sorted(os.listdir(vault)):
+            full = os.path.join(vault, name)
+            if not os.path.isdir(full):
                 continue
-            if name not in allowed_ids:
+            if name.startswith('.'):
                 continue
-            meta = read_meta(name)
-            if meta:
-                meta['id'] = name
-                runs = meta.get('runs', [])
-                meta['runCount'] = len(runs)
-                ts = [r.get('created', 0) for r in runs] + [meta.get('created', 0) or 0]
-                # Include file modification times for accurate lastUpdated
-                exp_dir = os.path.join(EXPERIMENTS_DIR, name)
-                for root, dirs, files in os.walk(exp_dir):
-                    for fname in files:
-                        try:
-                            ts.append(os.path.getmtime(os.path.join(root, fname)))
-                        except OSError:
-                            pass
-                meta['lastUpdated'] = max(ts) if ts else 0
-                if name in exp_team_map:
-                    meta['team_id'] = exp_team_map[name]['team_id']
-                    meta['team_name'] = exp_team_map[name]['team_name']
-                experiments.append(meta)
+            # Gather file modification times
+            ts = []
+            for root, dirs, files in os.walk(full):
+                dirs[:] = [d for d in dirs if d not in {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}]
+                for fname in files:
+                    try:
+                        ts.append(os.path.getmtime(os.path.join(root, fname)))
+                    except OSError:
+                        pass
+            experiments.append({
+                'id': name,
+                'title': name,
+                'desc': '',
+                'lastUpdated': max(ts) if ts else 0,
+                'runCount': 0,
+                'runs': [],
+            })
     experiments.sort(key=lambda e: e.get('lastUpdated', 0), reverse=True)
     return jsonify(experiments)
 
 
 @bp.route('/api/experiments/<exp_id>', methods=['GET'])
-@require_experiment_access
-def get_experiment(exp_id, google_id):
-    """Get a single experiment's metadata."""
-    meta = read_meta(exp_id)
-    if meta:
-        meta['id'] = exp_id
-        return jsonify(meta)
-    else:
+@_require_project_access
+def get_experiment(exp_id, google_id, exp_dir):
+    """Get a single project's info."""
+    if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
+    return jsonify({'id': exp_id, 'title': exp_id, 'desc': '', 'runs': []})
 
 
 @bp.route('/api/experiments/<exp_id>/files', methods=['GET'])
-@require_experiment_access
-def list_files(exp_id, google_id):
-    """List all files in an experiment directory."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def list_files(exp_id, google_id, exp_dir):
+    """List all files in a project directory."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
@@ -103,7 +109,6 @@ def list_files(exp_id, google_id):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         rel_dir = os.path.relpath(dirpath, exp_dir)
         if rel_dir != '.':
-            # Track top-level folder name
             top = rel_dir.split(os.sep)[0]
             all_dirs.add(top)
         for f in filenames:
@@ -112,7 +117,6 @@ def list_files(exp_id, google_id):
                 files.append(rel)
                 if '/' in rel or os.sep in rel:
                     dirs_with_files.add(rel.split('/')[0].split(os.sep)[0])
-    # Also check immediate subdirectories for empty folders
     for d in os.listdir(exp_dir):
         if d not in skip_dirs and os.path.isdir(os.path.join(exp_dir, d)):
             all_dirs.add(d)
@@ -122,13 +126,13 @@ def list_files(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/files/<path:fname>', methods=['GET'])
-@require_experiment_access
-def get_file(exp_id, google_id, fname):
+@_require_project_access
+def get_file(exp_id, google_id, exp_dir, fname):
     """Read a single file (text or binary base64)."""
     fname = url_unquote(fname)
     if '..' in fname:
         return jsonify({'error': 'Invalid path'}), 400
-    fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+    fpath = os.path.join(exp_dir, fname)
     if not os.path.isfile(fpath):
         return jsonify({'error': 'Not found'}), 404
     _binary_mime = {
@@ -159,13 +163,13 @@ def get_file(exp_id, google_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/raw/<path:fname>', methods=['GET'])
-@require_experiment_access
-def get_raw_file(exp_id, google_id, fname):
+@_require_project_access
+def get_raw_file(exp_id, google_id, exp_dir, fname):
     """Serve raw binary file (images, PDFs)."""
     fname = url_unquote(fname)
     if '..' in fname:
         return Response('Bad request', status=400)
-    fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+    fpath = os.path.join(exp_dir, fname)
     if not os.path.isfile(fpath):
         return Response('Not found', status=404)
     ext = os.path.splitext(fname)[1].lower()
@@ -185,41 +189,36 @@ def get_raw_file(exp_id, google_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/compile-tex/<path:fname>', methods=['GET'])
-@require_experiment_access
-def compile_tex(exp_id, google_id, fname):
+@_require_project_access
+def compile_tex(exp_id, google_id, exp_dir, fname):
     """Compile a LaTeX file and return the resulting PDF."""
     fname = url_unquote(fname)
-    fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+    fpath = os.path.join(exp_dir, fname)
     if not os.path.isfile(fpath) or not fname.endswith('.tex'):
         return jsonify({'error': 'Not found'}), 404
     tmp = tempfile.mkdtemp()
     try:
         tex_basename = os.path.basename(fname)
         shutil.copy(fpath, os.path.join(tmp, tex_basename))
-        # Copy all support files (.sty, .bst, .bib, helper .tex) from the same directory as the .tex file
         tex_dir = os.path.dirname(fpath)
         for sf in os.listdir(tex_dir):
             if sf != tex_basename and (sf.endswith('.sty') or sf.endswith('.bst') or sf.endswith('.bib') or (sf.endswith('.tex') and sf != tex_basename)):
                 src = os.path.join(tex_dir, sf)
                 if os.path.isfile(src):
                     shutil.copy(src, tmp)
-        # Fallback: copy legacy .sty if nothing was found
         if not any(f.endswith('.sty') for f in os.listdir(tmp)):
             sty_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'neurips_2023.sty')
             if not os.path.isfile(sty_path):
                 sty_path = os.path.join(os.path.dirname(__file__), '..', 'neurips_2023.sty')
             if os.path.isfile(sty_path):
                 shutil.copy(sty_path, tmp)
-        # First pdflatex pass
         result = subprocess.run(
             ['pdflatex', '-interaction=nonstopmode', '-halt-on-error', tex_basename],
             cwd=tmp, capture_output=True, text=True, timeout=30
         )
-        # Run bibtex if .bib files present
         aux_name = tex_basename.rsplit('.', 1)[0]
         if any(f.endswith('.bib') for f in os.listdir(tmp)):
             subprocess.run(['bibtex', aux_name], cwd=tmp, capture_output=True, text=True, timeout=15)
-            # Two more pdflatex passes to resolve references
             subprocess.run(['pdflatex', '-interaction=nonstopmode', '-halt-on-error', tex_basename],
                            cwd=tmp, capture_output=True, text=True, timeout=30)
             result = subprocess.run(
@@ -242,12 +241,10 @@ def compile_tex(exp_id, google_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/packages', methods=['GET'])
-@require_experiment_access
-def list_packages(exp_id, google_id):
-    """List pip packages for an experiment."""
-    if not read_meta(exp_id):
-        return jsonify({'error': 'Not found'}), 404
-    python_path = _get_python_path(exp_id)
+@_require_project_access
+def list_packages(exp_id, google_id, exp_dir):
+    """List pip packages for a project."""
+    python_path = _get_python_path(exp_dir)
     try:
         result = subprocess.run(
             [python_path, '-m', 'pip', 'list', '--format=json'],
@@ -260,14 +257,11 @@ def list_packages(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/venv-info', methods=['GET'])
-@require_experiment_access
-def venv_info(exp_id, google_id):
+@_require_project_access
+def venv_info(exp_id, google_id, exp_dir):
     """Get venv details: pythonVersion, diskSize, packageCount."""
-    meta = read_meta(exp_id)
-    if not meta:
-        return jsonify({'error': 'Not found'}), 404
-    python_path = _get_python_path(exp_id)
-    venv_dir = os.path.join(EXPERIMENTS_DIR, exp_id, 'venv')
+    python_path = _get_python_path(exp_dir)
+    venv_dir = os.path.join(exp_dir, 'venv')
     has_venv = os.path.isdir(venv_dir)
     info = {'hasVenv': has_venv, 'pythonPath': python_path}
     try:
@@ -311,15 +305,17 @@ def venv_info(exp_id, google_id):
 @bp.route('/api/venvs', methods=['GET'])
 @require_auth
 def list_venvs(google_id):
-    """List all experiments that have venvs."""
+    """List all projects that have venvs."""
+    vault = _get_user_vault_path(google_id)
     venvs = []
-    if os.path.isdir(EXPERIMENTS_DIR):
-        for name in sorted(os.listdir(EXPERIMENTS_DIR)):
-            venv_python = os.path.join(EXPERIMENTS_DIR, name, 'venv', 'bin', 'python')
+    if os.path.isdir(vault):
+        for name in sorted(os.listdir(vault)):
+            full = os.path.join(vault, name)
+            if not os.path.isdir(full):
+                continue
+            venv_python = os.path.join(full, 'venv', 'bin', 'python')
             if os.path.exists(venv_python):
-                meta = read_meta(name)
-                title = (meta or {}).get('title', name)
-                venvs.append({'id': name, 'title': title, 'pythonPath': venv_python})
+                venvs.append({'id': name, 'title': name, 'pythonPath': venv_python})
     return jsonify(venvs)
 
 
@@ -330,61 +326,22 @@ def list_venvs(google_id):
 @bp.route('/api/experiments', methods=['POST'])
 @require_auth
 def create_experiment(google_id):
-    """Create a new experiment."""
+    """Create a new project folder in the user's vault."""
     body = request.get_json(force=True, silent=True) or {}
     title = body.get('title', '').strip()
-    desc = body.get('desc', '').strip()
     if not title:
         return jsonify({'error': 'Title required'}), 400
-    slug = unique_slug(slugify(title))
-    exp_dir = os.path.join(EXPERIMENTS_DIR, slug)
+    vault = _get_user_vault_path(google_id)
+    slug = unique_vault_slug(vault, slugify(title))
+    exp_dir = os.path.join(vault, slug)
     os.makedirs(exp_dir, exist_ok=True)
-    meta = {
-        'title': title,
-        'desc': desc,
-        'created': body.get('created', None),
-        'runs': []
-    }
-    write_meta(slug, meta)
-    set_experiment_owner(slug, google_id)
-    meta['id'] = slug
-    return jsonify(meta), 201
-
-
-@bp.route('/api/experiments/<exp_id>/runs', methods=['POST'])
-@require_experiment_access
-def add_run(exp_id, google_id):
-    """Add a run to an experiment."""
-    meta = read_meta(exp_id)
-    if not meta:
-        return jsonify({'error': 'Not found'}), 404
-    body = request.get_json(force=True, silent=True) or {}
-    name = body.get('name', '').strip()
-    if not name:
-        return jsonify({'error': 'Name required'}), 400
-    run = {
-        'id': str(uuid.uuid4()),
-        'name': name,
-        'status': body.get('status', 'running'),
-        'notes': body.get('notes', ''),
-        'results': body.get('results', ''),
-        'created': body.get('created', int(time.time() * 1000)),
-        'algorithm': body.get('algorithm', ''),
-        'environment': body.get('environment', ''),
-        'hyperparameters': body.get('hyperparameters', {}),
-        'reward': body.get('reward', None),
-        'episodes': body.get('episodes', None)
-    }
-    meta.setdefault('runs', []).append(run)
-    write_meta(exp_id, meta)
-    return jsonify(run), 201
+    return jsonify({'id': slug, 'title': slug, 'desc': '', 'runs': []}), 201
 
 
 @bp.route('/api/experiments/<exp_id>/files', methods=['POST'])
-@require_experiment_access
-def create_file(exp_id, google_id):
-    """Create a new file in an experiment (various types: .md, .ipynb, .py, .tex, .draw, .slides, etc.)."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def create_file(exp_id, google_id, exp_dir):
+    """Create a new file in a project (various types: .md, .ipynb, .py, .tex, .draw, .slides, etc.)."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
@@ -393,7 +350,6 @@ def create_file(exp_id, google_id):
     if not name or not any(name.endswith(e) for e in allowed_ext):
         return jsonify({'error': f'Name must end with {", ".join(allowed_ext)}'}), 400
     fpath = os.path.join(exp_dir, name)
-    # For template-based .tex files, check the folder instead
     template_key = body.get('template') if name.endswith('.tex') else None
     if template_key:
         folder_dir = os.path.join(exp_dir, template_key)
@@ -403,7 +359,6 @@ def create_file(exp_id, google_id):
         return jsonify({'error': 'File already exists'}), 409
     initial = body.get('content', None)
     if name.endswith(('.png', '.svg')) and initial:
-        # Strip data URI prefix if present
         if ',' in initial:
             initial = initial.split(',', 1)[1]
         with open(fpath, 'wb') as f:
@@ -427,18 +382,16 @@ def create_file(exp_id, google_id):
     elif name.endswith('.tex'):
         template_key = body.get('template')
         if template_key:
-            # Create inside a folder named after the template
             templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', template_key)
             template_tex = os.path.join(templates_dir, 'template.tex')
             if os.path.isfile(template_tex):
                 folder_name = template_key
-                folder_dir = os.path.join(EXPERIMENTS_DIR, exp_id, folder_name)
+                folder_dir = os.path.join(exp_dir, folder_name)
                 os.makedirs(folder_dir, exist_ok=True)
                 tex_name = 'paper.tex'
                 fpath = os.path.join(folder_dir, tex_name)
                 name = folder_name + '/' + tex_name
                 shutil.copy(template_tex, fpath)
-                # Copy support files into the same folder
                 for sf in os.listdir(templates_dir):
                     if sf != 'template.tex':
                         dst = os.path.join(folder_dir, sf)
@@ -457,16 +410,14 @@ def create_file(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/upload', methods=['POST'])
-@require_experiment_access
-def upload_file(exp_id, google_id):
-    """Multipart file upload to an experiment."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def upload_file(exp_id, google_id, exp_dir):
+    """Multipart file upload to a project."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     content_type = request.headers.get('Content-Type', '')
     if 'multipart/form-data' not in content_type:
         return jsonify({'error': 'multipart/form-data required'}), 400
-    # Parse boundary from Content-Type
     boundary = None
     for part in content_type.split(';'):
         part = part.strip()
@@ -481,16 +432,13 @@ def upload_file(exp_id, google_id):
     for part in parts:
         if part in (b'', b'--', b'--\r\n', b'\r\n'):
             continue
-        # Split headers from content
         header_end = part.find(b'\r\n\r\n')
         if header_end == -1:
             continue
         headers_raw = part[:header_end].decode('utf-8', errors='replace')
         file_data = part[header_end + 4:]
-        # Strip trailing \r\n
         if file_data.endswith(b'\r\n'):
             file_data = file_data[:-2]
-        # Extract filename from Content-Disposition
         fname = None
         for line in headers_raw.split('\r\n'):
             if 'filename="' in line:
@@ -515,10 +463,10 @@ def upload_file(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/execute', methods=['POST'])
-@require_experiment_access
-def execute_code(exp_id, google_id):
-    """Execute code in an experiment's kernel (streaming SSE or synchronous)."""
-    if not read_meta(exp_id):
+@_require_project_access
+def execute_code(exp_id, google_id, exp_dir):
+    """Execute code in a project's kernel (streaming SSE or synchronous)."""
+    if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
     code = body.get('code', '')
@@ -541,7 +489,7 @@ def execute_code(exp_id, google_id):
 
             def run():
                 try:
-                    _execute_code_streaming(exp_id, code, fake, lambda: connected[0])
+                    _execute_code_streaming(exp_dir, code, fake, lambda: connected[0])
                 except Exception:
                     pass
                 q.put(None)  # sentinel
@@ -552,7 +500,6 @@ def execute_code(exp_id, google_id):
                 item = q.get()
                 if item is None:
                     break
-                # item is already bytes from _execute_code_streaming's wfile.write
                 if isinstance(item, bytes):
                     yield item
                 else:
@@ -568,25 +515,25 @@ def execute_code(exp_id, google_id):
             }
         )
     else:
-        outputs = _execute_code(exp_id, code)
+        outputs = _execute_code(exp_dir, code)
         return jsonify({'outputs': outputs})
 
 
 @bp.route('/api/experiments/<exp_id>/kernel/restart', methods=['POST'])
-@require_experiment_access
-def restart_kernel(exp_id, google_id):
-    """Restart an experiment's Jupyter kernel."""
-    _kill_kernel(exp_id)
-    _get_kernel(exp_id)
+@_require_project_access
+def restart_kernel(exp_id, google_id, exp_dir):
+    """Restart a project's Jupyter kernel."""
+    _kill_kernel(exp_dir)
+    _get_kernel(exp_dir)
     return jsonify({'ok': True})
 
 
 @bp.route('/api/experiments/<exp_id>/kernel/interrupt', methods=['POST'])
-@require_experiment_access
-def interrupt_kernel(exp_id, google_id):
-    """Interrupt an experiment's running kernel."""
+@_require_project_access
+def interrupt_kernel(exp_id, google_id, exp_dir):
+    """Interrupt a project's running kernel."""
     with _kernels_lock:
-        entry = _kernels.get(exp_id)
+        entry = _kernels.get(exp_dir)
     if entry and entry['km'].is_alive():
         try:
             entry['km'].interrupt_kernel()
@@ -598,31 +545,29 @@ def interrupt_kernel(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/venv', methods=['POST'])
-@require_experiment_access
-def create_venv(exp_id, google_id):
-    """Create a virtual environment for an experiment."""
-    if not read_meta(exp_id):
+@_require_project_access
+def create_venv(exp_id, google_id, exp_dir):
+    """Create a virtual environment for a project."""
+    if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     try:
-        python_path = _create_venv(exp_id)
+        python_path = _create_venv(exp_dir)
         return jsonify({'ok': True, 'pythonPath': python_path})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/api/experiments/<exp_id>/packages', methods=['POST'])
-@require_experiment_access
-def install_packages(exp_id, google_id):
-    """Install pip packages for an experiment."""
-    if not read_meta(exp_id):
-        return jsonify({'error': 'Not found'}), 404
+@_require_project_access
+def install_packages(exp_id, google_id, exp_dir):
+    """Install pip packages for a project."""
     body = request.get_json(force=True, silent=True) or {}
     packages_str = body.get('packages', '').strip()
     if not packages_str:
         return jsonify({'error': 'packages required'}), 400
     if not _validate_package_names(packages_str):
         return jsonify({'error': 'Invalid package name'}), 400
-    python_path = _get_python_path(exp_id)
+    python_path = _get_python_path(exp_dir)
     pkg_list = packages_str.split()
     try:
         result = subprocess.run(
@@ -631,17 +576,16 @@ def install_packages(exp_id, google_id):
         )
         if result.returncode != 0:
             return jsonify({'error': result.stderr or result.stdout}), 500
-        _kill_kernel(exp_id)
+        _kill_kernel(exp_dir)
         return jsonify({'ok': True, 'output': result.stdout})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/api/experiments/<exp_id>/create-folder', methods=['POST'])
-@require_experiment_access
-def create_folder(exp_id, google_id):
-    """Create a folder inside an experiment."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def create_folder(exp_id, google_id, exp_dir):
+    """Create a folder inside a project."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
@@ -656,10 +600,9 @@ def create_folder(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/delete-folder', methods=['POST'])
-@require_experiment_access
-def delete_folder(exp_id, google_id):
-    """Delete a folder inside an experiment."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def delete_folder(exp_id, google_id, exp_dir):
+    """Delete a folder inside a project."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
@@ -674,10 +617,9 @@ def delete_folder(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/rename-folder', methods=['POST'])
-@require_experiment_access
-def rename_folder(exp_id, google_id):
-    """Rename a folder inside an experiment."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def rename_folder(exp_id, google_id, exp_dir):
+    """Rename a folder inside a project."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
@@ -698,10 +640,9 @@ def rename_folder(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/move-file', methods=['POST'])
-@require_experiment_access
-def move_file(exp_id, google_id):
-    """Move a file within an experiment."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def move_file(exp_id, google_id, exp_dir):
+    """Move a file within a project."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
@@ -721,10 +662,9 @@ def move_file(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/clone-repo', methods=['POST'])
-@require_experiment_access
-def clone_repo(exp_id, google_id):
-    """Clone a GitHub repo into an experiment."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def clone_repo(exp_id, google_id, exp_dir):
+    """Clone a GitHub repo into a project."""
     if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
@@ -732,7 +672,6 @@ def clone_repo(exp_id, google_id):
     github_re = re.compile(r'^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$')
     if not github_re.match(url):
         return jsonify({'error': 'Invalid GitHub URL. Expected: https://github.com/user/repo'}), 400
-    # Derive folder name from URL
     folder = url.rstrip('/').split('/')[-1]
     if folder.endswith('.git'):
         folder = folder[:-4]
@@ -747,11 +686,9 @@ def clone_repo(exp_id, google_id):
             cwd=exp_dir, capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
-            # Clean up partial clone
             if os.path.exists(clone_dir):
                 shutil.rmtree(clone_dir, ignore_errors=True)
             return jsonify({'error': result.stderr.strip() or 'Clone failed'}), 500
-        # Remove .git directory -- we just want the files
         git_dir = os.path.join(clone_dir, '.git')
         if os.path.isdir(git_dir):
             shutil.rmtree(git_dir, ignore_errors=True)
@@ -766,89 +703,38 @@ def clone_repo(exp_id, google_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/experiments/move-unstructured-file', methods=['POST'])
-@require_auth
-def move_unstructured_file(google_id):
-    """Move a file from _unstructured to a target experiment."""
-    body = request.get_json(force=True, silent=True) or {}
-    filename = body.get('filename', '').strip()
-    target_exp = body.get('targetExp', '').strip()
-    if not filename or not target_exp or '..' in filename or '..' in target_exp:
-        return jsonify({'error': 'Invalid parameters'}), 400
-    src = os.path.join(EXPERIMENTS_DIR, '_unstructured', filename)
-    dst_dir = os.path.join(EXPERIMENTS_DIR, target_exp)
-    if not os.path.isfile(src):
-        return jsonify({'error': 'Source file not found'}), 404
-    if not os.path.isdir(dst_dir):
-        return jsonify({'error': 'Target experiment not found'}), 404
-    dst = os.path.join(dst_dir, filename)
-    if os.path.exists(dst):
-        return jsonify({'error': 'File already exists in target project'}), 409
-    shutil.move(src, dst)
-    return jsonify({'ok': True})
-
-
 # ---------------------------------------------------------------------------
 # PUT routes
 # ---------------------------------------------------------------------------
 
 @bp.route('/api/experiments/<exp_id>', methods=['PUT'])
-@require_experiment_access
-def update_experiment(exp_id, google_id):
-    """Update experiment metadata (title, desc, pythonPath, papers)."""
-    meta = read_meta(exp_id)
-    if not meta:
+@_require_project_access
+def update_experiment(exp_id, google_id, exp_dir):
+    """Update project — currently supports renaming via title."""
+    if not os.path.isdir(exp_dir):
         return jsonify({'error': 'Not found'}), 404
     body = request.get_json(force=True, silent=True) or {}
-    if 'title' in body:
-        meta['title'] = body['title']
-    if 'desc' in body:
-        meta['desc'] = body['desc']
     if 'pythonPath' in body:
-        meta['pythonPath'] = body['pythonPath']
-        _kill_kernel(exp_id)
-    if 'papers' in body:
-        meta['papers'] = body['papers']
-    write_meta(exp_id, meta)
-    meta['id'] = exp_id
-    return jsonify(meta)
-
-
-@bp.route('/api/experiments/<exp_id>/runs/<rid>', methods=['PUT'])
-@require_experiment_access
-def update_run(exp_id, google_id, rid):
-    """Update a run within an experiment."""
-    meta = read_meta(exp_id)
-    if not meta:
-        return jsonify({'error': 'Not found'}), 404
-    body = request.get_json(force=True, silent=True) or {}
-    for r in meta.get('runs', []):
-        if r['id'] == rid:
-            for key in ('name', 'status', 'notes', 'results', 'algorithm', 'environment', 'reward', 'episodes', 'hyperparameters'):
-                if key in body:
-                    r[key] = body[key]
-            write_meta(exp_id, meta)
-            return jsonify(r)
-    return jsonify({'error': 'Run not found'}), 404
+        _kill_kernel(exp_dir)
+    return jsonify({'id': exp_id, 'title': exp_id, 'desc': '', 'runs': []})
 
 
 @bp.route('/api/experiments/<exp_id>/files/<path:fname>', methods=['PUT'])
-@require_experiment_access
-def update_file(exp_id, google_id, fname):
+@_require_project_access
+def update_file(exp_id, google_id, exp_dir, fname):
     """Update file content or rename a file."""
     fname = url_unquote(fname)
     if '..' in fname:
         return jsonify({'error': 'Invalid path'}), 400
-    fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+    fpath = os.path.join(exp_dir, fname)
     body = request.get_json(force=True, silent=True) or {}
-    # Rename if 'rename' field is provided
     if 'rename' in body:
         if not os.path.isfile(fpath):
             return jsonify({'error': 'Not found'}), 404
         new_name = body['rename'].strip()
         if not new_name:
             return jsonify({'error': 'Name required'}), 400
-        new_path = os.path.join(EXPERIMENTS_DIR, exp_id, new_name)
+        new_path = os.path.join(exp_dir, new_name)
         if os.path.exists(new_path):
             return jsonify({'error': 'File already exists'}), 409
         os.rename(fpath, new_path)
@@ -860,57 +746,30 @@ def update_file(exp_id, google_id, fname):
         return jsonify({'ok': True})
 
 
-@bp.route('/api/experiments/<exp_id>/team', methods=['PUT'])
-@require_auth
-def set_team(exp_id, google_id):
-    """Assign an experiment to a team."""
-    body = request.get_json(force=True, silent=True) or {}
-    team_id = body.get('team_id')
-    if team_id is None:
-        return jsonify({'error': 'team_id required'}), 400
-    if set_experiment_team(exp_id, int(team_id), google_id):
-        return jsonify({'ok': True})
-    else:
-        return jsonify({'error': 'Not a team member'}), 403
-
-
 # ---------------------------------------------------------------------------
 # DELETE routes
 # ---------------------------------------------------------------------------
 
 @bp.route('/api/experiments/<exp_id>', methods=['DELETE'])
-@require_experiment_access
-def delete_experiment(exp_id, google_id):
-    """Delete an experiment and all its files."""
-    exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
+@_require_project_access
+def delete_experiment(exp_id, google_id, exp_dir):
+    """Delete a project and all its files."""
     if os.path.isdir(exp_dir):
-        _kill_kernel(exp_id)
+        _kill_kernel(exp_dir)
         shutil.rmtree(exp_dir)
         return jsonify({'ok': True})
     else:
         return jsonify({'error': 'Not found'}), 404
 
 
-@bp.route('/api/experiments/<exp_id>/runs/<rid>', methods=['DELETE'])
-@require_experiment_access
-def delete_run(exp_id, google_id, rid):
-    """Delete a run from an experiment."""
-    meta = read_meta(exp_id)
-    if not meta:
-        return jsonify({'error': 'Not found'}), 404
-    meta['runs'] = [r for r in meta.get('runs', []) if r['id'] != rid]
-    write_meta(exp_id, meta)
-    return jsonify({'ok': True})
-
-
 @bp.route('/api/experiments/<exp_id>/files/<path:fname>', methods=['DELETE'])
-@require_experiment_access
-def delete_file(exp_id, google_id, fname):
-    """Delete a file from an experiment."""
+@_require_project_access
+def delete_file(exp_id, google_id, exp_dir, fname):
+    """Delete a file from a project."""
     fname = url_unquote(fname)
     if '..' in fname:
         return jsonify({'error': 'Invalid path'}), 400
-    fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
+    fpath = os.path.join(exp_dir, fname)
     if os.path.isfile(fpath):
         os.remove(fpath)
         return jsonify({'ok': True})
@@ -919,52 +778,38 @@ def delete_file(exp_id, google_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/packages/<path:pkg>', methods=['DELETE'])
-@require_experiment_access
-def uninstall_package(exp_id, google_id, pkg):
-    """Uninstall a pip package from an experiment."""
-    if not read_meta(exp_id):
-        return jsonify({'error': 'Not found'}), 404
+@_require_project_access
+def uninstall_package(exp_id, google_id, exp_dir, pkg):
+    """Uninstall a pip package from a project."""
     if not _validate_package_names(pkg):
         return jsonify({'error': 'Invalid package name'}), 400
-    python_path = _get_python_path(exp_id)
+    python_path = _get_python_path(exp_dir)
     try:
         result = subprocess.run(
             [python_path, '-m', 'pip', 'uninstall', '-y', pkg],
             capture_output=True, text=True, timeout=60
         )
-        _kill_kernel(exp_id)
+        _kill_kernel(exp_dir)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/api/experiments/<exp_id>/venv', methods=['DELETE'])
-@require_experiment_access
-def delete_venv(exp_id, google_id):
-    """Delete an experiment's virtual environment."""
-    venv_dir = os.path.join(EXPERIMENTS_DIR, exp_id, 'venv')
+@_require_project_access
+def delete_venv(exp_id, google_id, exp_dir):
+    """Delete a project's virtual environment."""
+    venv_dir = os.path.join(exp_dir, 'venv')
     if not os.path.isdir(venv_dir):
         return jsonify({'error': 'No venv found'}), 404
-    _kill_kernel(exp_id)
+    _kill_kernel(exp_dir)
     shutil.rmtree(venv_dir)
-    meta = read_meta(exp_id)
-    if meta:
-        meta['pythonPath'] = 'python3'
-        write_meta(exp_id, meta)
     return jsonify({'ok': True})
 
 
 @bp.route('/api/experiments/<exp_id>/kernel', methods=['DELETE'])
-@require_experiment_access
-def kill_kernel(exp_id, google_id):
-    """Kill an experiment's Jupyter kernel."""
-    _kill_kernel(exp_id)
-    return jsonify({'ok': True})
-
-
-@bp.route('/api/experiments/<exp_id>/team', methods=['DELETE'])
-@require_auth
-def remove_team(exp_id, google_id):
-    """Remove an experiment from its team."""
-    remove_experiment_team(exp_id)
+@_require_project_access
+def kill_kernel(exp_id, google_id, exp_dir):
+    """Kill a project's Jupyter kernel."""
+    _kill_kernel(exp_dir)
     return jsonify({'ok': True})

@@ -11,8 +11,8 @@ from functools import wraps
 from flask import request, jsonify, Response
 
 from persistence import (
-    get_session_user, touch_last_seen, user_can_access_experiment,
-    EXPERIMENTS_DIR, slugify, unique_slug, write_meta, cached_fetch,
+    get_session_user, touch_last_seen,
+    get_vault_project_dir, slugify, unique_vault_slug, cached_fetch,
 )
 
 
@@ -48,16 +48,9 @@ def optional_auth(f):
 
 
 def require_experiment_access(f):
-    """Require auth + experiment ownership. Passes google_id= and exp_id= to handler."""
+    """Require auth + verify project is in user's vault. Passes google_id= and exp_id= to handler."""
     @wraps(f)
     def decorated(exp_id, *args, **kwargs):
-        if exp_id == '_unstructured':
-            # Always allow access to unstructured
-            auth = request.headers.get('Authorization', '')
-            google_id = None
-            if auth.startswith('Bearer '):
-                google_id = get_session_user(auth[7:])
-            return f(exp_id, *args, google_id=google_id, **kwargs)
         auth = request.headers.get('Authorization', '')
         if not auth.startswith('Bearer '):
             return jsonify({'error': 'Not authenticated'}), 401
@@ -65,8 +58,9 @@ def require_experiment_access(f):
         if not google_id:
             return jsonify({'error': 'Invalid session'}), 401
         touch_last_seen(google_id)
-        if not user_can_access_experiment(exp_id, google_id):
-            return jsonify({'error': 'Forbidden'}), 403
+        exp_dir = get_vault_project_dir(google_id, exp_id)
+        if not exp_dir:
+            return jsonify({'error': 'Invalid project path'}), 400
         return f(exp_id, *args, google_id=google_id, **kwargs)
     return decorated
 
@@ -333,19 +327,21 @@ def tool_fetch_page(url):
     return {"text": text[:8000], "truncated": len(text) > 8000}
 
 
-def tool_create_experiment(title, desc=''):
-    """Create a new experiment."""
+def tool_create_experiment(title, desc='', google_id=None):
+    """Create a new experiment in vault."""
     if not title:
         return {"error": "Title required"}
-    slug = unique_slug(slugify(title))
-    exp_dir = os.path.join(EXPERIMENTS_DIR, slug)
+    if not google_id:
+        return {"error": "Not authenticated"}
+    from vault_helpers import _get_user_vault_path
+    vault = _get_user_vault_path(google_id)
+    slug = unique_vault_slug(vault, slugify(title))
+    exp_dir = os.path.join(vault, slug)
     os.makedirs(exp_dir, exist_ok=True)
-    meta = {'title': title, 'desc': desc, 'created': None, 'runs': []}
-    write_meta(slug, meta)
-    return {"id": slug, "title": title, "message": f"Experiment '{title}' created"}
+    return {"id": slug, "title": title, "message": f"Project '{title}' created"}
 
 
-def execute_chat_tool(name, args, stream_callback=None):
+def execute_chat_tool(name, args, stream_callback=None, google_id=None):
     """Execute a chat tool and return the result dict.
     stream_callback(event, data) is called for action-type tools (bookmark, navigate)."""
     try:
@@ -364,7 +360,7 @@ def execute_chat_tool(name, args, stream_callback=None):
                 stream_callback('action', {"type": "navigate", "view": args.get("view", "home")})
             return {"status": "ok", "message": f"Navigated to {args.get('view', 'home')}"}
         elif name == 'create_experiment':
-            return tool_create_experiment(args.get('title', ''), args.get('description', ''))
+            return tool_create_experiment(args.get('title', ''), args.get('description', ''), google_id=google_id)
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:

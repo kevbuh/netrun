@@ -241,7 +241,7 @@ let _lastActiveView = 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
-let _researchActiveTab = 'projects';
+let _researchActiveTab = 'search';
 
 function setSidebarActive(id) {
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
@@ -1063,8 +1063,6 @@ function switchResearchTab(tab) {
   if (tab === 'search') {
     const input = document.getElementById('search-query');
     if (input) setTimeout(() => input.focus(), 50);
-  } else if (tab === 'projects') {
-    fetchExperiments();
   } else if (tab === 'users') {
     const input = document.getElementById('user-search-query');
     if (input) setTimeout(() => input.focus(), 50);
@@ -1124,7 +1122,7 @@ function openSearch() {
 }
 
 function openExperiments() {
-  openResearch('projects');
+  wmOpen('vault');
 }
 
 async function openDashboard() {
@@ -1152,7 +1150,7 @@ function expGoBack() {
   if (_expBackAction && _expBackAction.fn) {
     _expBackAction.fn();
   } else {
-    openResearch('projects');
+    wmOpen('vault');
   }
 }
 
@@ -1177,10 +1175,12 @@ async function openExperimentDetail(id, e) {
       _expBackAction = { fn: () => { window.location.hash = prevHash; routeFromHash(); }, label: 'Paper' };
     } else if (prevHash === '#inbox') {
       _expBackAction = { fn: () => openInbox(), label: 'Inbox' };
+    } else if (prevHash === '#vault') {
+      _expBackAction = { fn: () => wmOpen('vault'), label: 'Vault' };
     } else if (prevHash === '#experiments') {
-      _expBackAction = { fn: () => openResearch('projects'), label: 'Research' };
+      _expBackAction = { fn: () => wmOpen('vault'), label: 'Vault' };
     } else {
-      _expBackAction = { fn: () => openResearch('projects'), label: 'Research' };
+      _expBackAction = { fn: () => wmOpen('vault'), label: 'Vault' };
     }
   }
   hideAllViews();
@@ -1194,31 +1194,9 @@ async function openExperimentDetail(id, e) {
     if (lbl) lbl.textContent = (_expBackAction && _expBackAction.label) || 'Back';
   }
   window.location.hash = 'experiment/' + id;
-  setSidebarActive('sb-research');
+  setSidebarActive('sb-vault');
   currentExpId = id;
-  if (id === '_unstructured') {
-    // Stripped-down detail view for loose files
-    document.getElementById('exp-detail-title').innerHTML = 'Files';
-    const descEl = document.getElementById('exp-detail-desc');
-    descEl.textContent = 'Loose files not attached to any project. Drag files onto a project card to move them.';
-    descEl.classList.add('text-dimmest');
-    descEl.classList.remove('text-muted');
-    descEl.ondblclick = null;
-    const metaEl = document.getElementById('exp-metadata');
-    if (metaEl) metaEl.innerHTML = '';
-    const treeEl = document.getElementById('exp-file-tree');
-    if (treeEl) treeEl.innerHTML = '';
-    const papersSection = document.getElementById('exp-papers-section');
-    if (papersSection) papersSection.style.display = 'none';
-    document.getElementById('exp-file-editor').style.display = 'none';
-    document.getElementById('exp-file-editor').innerHTML = '';
-    document.getElementById('exp-default-content').style.display = '';
-    currentFile = null;
-    currentExp = { title: 'Files', desc: '', runs: [], papers: [] };
-    fetchExpFiles();
-  } else {
-    fetchExperimentDetail(id);
-  }
+  fetchExperimentDetail(id);
 }
 
 // ── Universal Side Panel ──
@@ -1367,7 +1345,7 @@ function routeFromHash() {
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
   if (hash === '#research') wmOpen('research');
-  else if (hash === '#experiments') openResearch('projects'); // Legacy redirect
+  else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
   else if (hash === '#settings') wmOpen('settings');
   else if (hash === '#quality') openQualityView();
   else if (hash === '#calendar') wmOpen('calendar');

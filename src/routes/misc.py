@@ -15,7 +15,7 @@ from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from helpers import require_auth, sse_event
 from persistence import (
-    DIR, EXPERIMENTS_DIR,
+    DIR,
     read_saved_content, write_saved_content,
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
     get_user_todos, create_todo, update_todo, delete_todo,
