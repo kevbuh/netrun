@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Screen capture
   captureScreen: (rect) => ipcRenderer.invoke('capture-screen', rect),
+  // Save temp PDF for print preview
+  saveTempPdf: (base64) => ipcRenderer.invoke('save-temp-pdf', base64),
   // File handling
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path)

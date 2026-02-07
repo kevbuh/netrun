@@ -264,6 +264,57 @@ function renderBlockedWordsList() {
   ).join('');
 }
 
+// ── Offline caching ──
+
+function getOfflineCachedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem('offlineCached') || '[]')); } catch { return new Set(); }
+}
+
+function isPostCached(link) {
+  return getOfflineCachedSet().has(link);
+}
+
+async function cachePostOffline(link, paper, btnEl) {
+  if (isPostCached(link)) return;
+  if (btnEl) {
+    btnEl.innerHTML = '<span class="text-dimmer text-[0.7rem]">Caching…</span>';
+    btnEl.disabled = true;
+  }
+  try {
+    const resp = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+      body: JSON.stringify({ url: link })
+    });
+    if (!resp.ok) throw new Error('extract failed');
+    const { text } = await resp.json();
+    if (!text || text.length < 50) throw new Error('no content');
+    await fetch('/api/saved-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+      body: JSON.stringify({ url: link, title: paper?.title || '', text, savedAt: Date.now() })
+    });
+    const cached = getOfflineCachedSet();
+    cached.add(link);
+    localStorage.setItem('offlineCached', JSON.stringify([...cached]));
+    if (btnEl) { btnEl.innerHTML = _offlineCachedIcon(); btnEl.classList.add('cached'); }
+  } catch (e) {
+    console.error('cachePostOffline error', e);
+    if (btnEl) {
+      btnEl.innerHTML = _offlineDownloadIcon();
+      btnEl.disabled = false;
+    }
+  }
+}
+
+function _offlineDownloadIcon() {
+  return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-dimmer"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+}
+
+function _offlineCachedIcon() {
+  return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+}
+
 function getSavedPosts() {
   try { return JSON.parse(localStorage.getItem('savedPosts') || '{}'); } catch { return {}; }
 }

@@ -15,7 +15,8 @@
     body.electron-app #browse-tab-row button,
     body.electron-app #browse-tab-row .browse-tab,
     body.electron-app #browse-tab-row .browse-tab-new,
-    body.electron-app #browse-tab-row .browse-window-switcher {
+    body.electron-app #browse-tab-row .browse-window-switcher,
+    body.electron-app #browse-tab-row .browse-split-pill {
       -webkit-app-region: no-drag;
     }
     body.electron-app #browse-bar {
@@ -184,8 +185,8 @@
       flex-shrink: 0;
     }
     .md-tb-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-    .dash-del { opacity: 0; transition: opacity 0.15s; }
-    .dash-row:hover > .dash-del { opacity: 1; }
+    .dash-del, .dash-offline:not(.cached) { opacity: 0; transition: opacity 0.15s; }
+    .dash-row:hover > .dash-del, .dash-row:hover > .dash-offline { opacity: 1; }
 
     :root {
       --bg-body: #0a0a0a;
@@ -3941,6 +3942,8 @@
       background: var(--bg-card);
       border-bottom: 1px solid var(--border-dim);
       flex-shrink: 0;
+      position: relative;
+      z-index: 3;
     }
     .pdf-tb-btn {
       width: 28px;
@@ -6348,5 +6351,20 @@
     .browse-pane-close { position: absolute; top: 6px; right: 6px; z-index: 10; opacity: 0; background: var(--bg-card); border: 1px solid var(--border-card); color: var(--text-dimmer); cursor: pointer; font-size: 1rem; line-height: 1; padding: 2px 6px; border-radius: 4px; transition: opacity 0.15s, color 0.15s; }
     .browse-split-pane:hover .browse-pane-close { opacity: 0.7; }
     .browse-pane-close:hover { opacity: 1 !important; color: var(--text-primary); }
-    .browse-tab-split-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-right: 2px; }
+    /* Split pill — combined tab in tab bar */
+    .browse-split-pill { display: flex; align-items: center; background: var(--bg-card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.15); overflow: hidden; flex: 2 1 0; min-width: 0; max-width: 480px; }
+    .browse-split-pill-tab { display: flex; align-items: center; gap: 4px; padding: 4px 8px; min-width: 0; flex: 1 1 0; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; white-space: nowrap; overflow: hidden; transition: background 0.15s, color 0.15s; }
+    .browse-split-pill-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .browse-split-pill-tab.focused { color: var(--text-primary); }
+    .browse-split-pill-tab .browse-tab-close { display: flex; flex-shrink: 0; width: 16px; height: 16px; border: none; background: transparent; color: var(--text-dimmest); font-size: 0.85rem; line-height: 1; border-radius: 4px; cursor: pointer; align-items: center; justify-content: center; padding: 0; transition: background 0.1s, color 0.1s; }
+    .browse-split-pill-tab .browse-tab-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .browse-split-pill-tab.dragging-out { opacity: 0.3; transition: opacity 0.2s; }
+    .browse-split-pill-sep { width: 1px; height: 16px; background: var(--border-card); flex-shrink: 0; cursor: grab; }
+    /* Split tab picker (inline in tooltip) */
+    .browse-split-picker-header { padding: 6px 10px 4px; font-size: 0.65rem; font-weight: 600; color: var(--text-dimmer); letter-spacing: 0.05em; text-transform: uppercase; }
+    .browse-split-picker-item { display: flex; align-items: center; gap: 8px; padding: 5px 10px; font-size: 0.78rem; color: var(--text-primary); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; margin: 0 4px; transition: background 0.08s; }
+    .browse-split-picker-item:hover, .browse-split-picker-item.selected { background: var(--bg-hover); }
+    .browse-split-picker-item .browse-tab-favicon { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
+    .browse-split-picker-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--text-dimmest); flex-shrink: 0; }
+    .browse-split-picker-new { color: var(--text-dimmer); border-top: 1px solid var(--border-card); margin-top: 2px; padding-top: 7px; border-radius: 0 0 4px 4px; }
 

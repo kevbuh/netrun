@@ -290,10 +290,10 @@ function _renderSettingsSitePermissions() {
         html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
         html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + label + '</span>';
         html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
-        for (const val of ['ask', 'allow', 'deny']) {
+        for (const val of ['ask', 'allow', 'block']) {
           const active = current === val;
-          const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'deny' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
-          const fg = active ? (val === 'allow' ? '#22c55e' : val === 'deny' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
+          const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
+          const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
           html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
         }
         html += '</div></div>';

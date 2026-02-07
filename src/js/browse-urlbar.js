@@ -1353,12 +1353,26 @@ function _browseUpdateAdBlockBadge(url) {
 
 const _SITE_PERM_KEYS = ['camera', 'microphone', 'location', 'notifications', 'popups'];
 const _SITE_PERM_LABELS = { camera: 'Camera', microphone: 'Microphone', location: 'Location', notifications: 'Notifications', popups: 'Pop-ups' };
+const _SITE_PERM_PROMPTS = {
+  camera: 'Use your camera',
+  microphone: 'Use your microphone',
+  location: 'Know your location',
+  notifications: 'Send you notifications',
+  popups: 'Open pop-up windows'
+};
 const _SITE_PERM_ICONS = {
   camera: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   microphone: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
   location: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
   notifications: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
   popups: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+};
+const _SITE_PERM_ICONS_LG = {
+  camera: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  microphone: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+  location: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  notifications: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  popups: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
 };
 
 function _getSitePermissions(domain) {
@@ -1400,6 +1414,101 @@ function _getCurrentBrowseDomain() {
   try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; }
 }
 
+// ── Permission Confirmation Prompt ──
+// Shows a browser-style dialog when user tries to allow a permission.
+// Nothing is granted until the user explicitly confirms in this dialog.
+
+function _showPermissionPrompt(domain, permKey) {
+  // Remove any existing prompt
+  const existing = document.getElementById('site-permission-prompt');
+  if (existing) existing.remove();
+
+  const label = _SITE_PERM_PROMPTS[permKey] || permKey;
+  const icon = _SITE_PERM_ICONS_LG[permKey] || '';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'site-permission-prompt';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;background:rgba(0,0,0,0.45);';
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-popup);border:1px solid var(--border-card);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;">
+      <div style="padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-size:0.92rem;font-weight:600;color:var(--text-primary);line-height:1.4;">
+            <strong>${escapeHtml(domain)}</strong> wants to
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg-hover);">
+            <span style="color:var(--text-dimmer);flex-shrink:0;">${icon}</span>
+            <span style="font-size:0.84rem;color:var(--text-primary);">${escapeHtml(label)}</span>
+          </div>
+        </div>
+        <button id="perm-prompt-close" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);padding:2px;flex-shrink:0;" title="Dismiss">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div style="padding:0 20px 16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <span style="font-size:0.75rem;color:var(--text-dim);">Remember my decision</span>
+          <select id="perm-prompt-remember" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.75rem;cursor:pointer;">
+            <option value="session">Until I close this site</option>
+            <option value="always" selected>Always</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button id="perm-prompt-block" style="padding:6px 20px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;">Block</button>
+          <button id="perm-prompt-allow" style="padding:6px 20px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;">Allow</button>
+        </div>
+      </div>
+      <div style="padding:8px 20px;border-top:1px solid var(--border-subtle);font-size:0.68rem;color:var(--text-dimmer);">
+        You can change your site permissions at any time from the lock icon in the toolbar.
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Close on overlay background click
+  overlay.addEventListener('mousedown', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  overlay.querySelector('#perm-prompt-close').addEventListener('click', () => overlay.remove());
+
+  overlay.querySelector('#perm-prompt-block').addEventListener('click', () => {
+    const remember = overlay.querySelector('#perm-prompt-remember').value;
+    if (remember === 'always') {
+      _setSitePermission(domain, permKey, 'block');
+    }
+    // Session-only block: just leave it as default (blocked), don't persist
+    overlay.remove();
+    _renderSitePermissionsDropdown();
+  });
+
+  overlay.querySelector('#perm-prompt-allow').addEventListener('click', () => {
+    const remember = overlay.querySelector('#perm-prompt-remember').value;
+    if (remember === 'always') {
+      _setSitePermission(domain, permKey, 'allow');
+    } else {
+      // Session-only: set on iframe but don't persist to localStorage
+      _sessionPermissions[domain] = _sessionPermissions[domain] || {};
+      _sessionPermissions[domain][permKey] = 'allow';
+    }
+    _browseApplyPermissions();
+    overlay.remove();
+    _renderSitePermissionsDropdown();
+  });
+}
+
+// Session-only permissions (not persisted to localStorage, cleared on tab close/navigate)
+let _sessionPermissions = {};
+
+// Get effective permissions: localStorage merged with session overrides
+function _getEffectivePermissions(domain) {
+  const stored = _getSitePermissions(domain);
+  const session = _sessionPermissions[domain] || {};
+  return { ...stored, ...session };
+}
+
 function toggleSitePermissions() {
   const dd = document.getElementById('browse-permissions-dropdown');
   if (!dd) return;
@@ -1409,6 +1518,13 @@ function toggleSitePermissions() {
   }
   _renderSitePermissionsDropdown();
   dd.style.display = '';
+  // Position fixed dropdown below the lock button, extending leftward
+  const btn = document.getElementById('browse-permissions-btn');
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    dd.style.top = (r.bottom + 4) + 'px';
+    dd.style.left = Math.max(0, r.right - dd.offsetWidth) + 'px';
+  }
 }
 
 function _renderSitePermissionsDropdown() {
@@ -1422,32 +1538,46 @@ function _renderSitePermissionsDropdown() {
   }
 
   const perms = _getSitePermissions(domain);
+  const effective = _getEffectivePermissions(domain);
+  const hasCustom = Object.keys(perms).length > 0 || Object.keys(_sessionPermissions[domain] || {}).length > 0;
   let html = '';
-  html += '<div style="padding:10px 14px 6px;font-size:0.82rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</div>';
+  html += '<div style="padding:10px 14px 4px;display:flex;align-items:center;gap:6px;">';
+  html += '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + (hasCustom ? 'var(--accent)' : 'var(--text-dimmer)') + '" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>';
+  html += '<span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</span>';
+  html += '</div>';
+  html += '<div style="padding:0 14px 6px;font-size:0.68rem;color:var(--text-dimmer);line-height:1.4;">All permissions are blocked by default. Click Allow to grant access — you will be asked to confirm first.</div>';
   html += '<div style="padding:0 6px;">';
 
   for (const key of _SITE_PERM_KEYS) {
-    const current = perms[key] || 'ask';
+    const current = effective[key] || 'ask';
     const label = _SITE_PERM_LABELS[key];
     const icon = _SITE_PERM_ICONS[key];
+    const isSession = !perms[key] && (_sessionPermissions[domain] || {})[key];
     html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;">';
     html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
     html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + label + '</span>';
+    if (isSession) {
+      html += '<span style="font-size:0.6rem;color:var(--text-dimmest);margin-right:2px;">session</span>';
+    }
     html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
-    for (const val of ['ask', 'allow', 'deny']) {
+    for (const val of ['ask', 'allow', 'block']) {
       const active = current === val;
-      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'deny' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
-      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'deny' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
+      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
+      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
       const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
-      html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
+      // "Allow" triggers the confirmation prompt; "ask" and "block" apply directly
+      const onclick = val === 'allow'
+        ? '_showPermissionPrompt(\'' + safeDomain + '\',\'' + key + '\');'
+        : '_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); delete (_sessionPermissions[\'' + safeDomain + '\'] || {})[' + JSON.stringify(key) + ']; _renderSitePermissionsDropdown(); _browseApplyPermissions();';
+      html += '<button onclick="' + onclick + '" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
     }
     html += '</div></div>';
   }
 
   html += '</div>';
   html += '<div style="padding:6px 14px 10px;border-top:1px solid var(--border-card);margin-top:4px;">';
-  const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
-  html += '<button onclick="_clearSitePermissions(\'' + safeDomain + '\'); _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:5px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.75rem;cursor:pointer;">Clear all for this site</button>';
+  const safeDomain2 = escapeHtml(domain).replace(/'/g, "\\'");
+  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:5px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.75rem;cursor:pointer;">Reset all to default</button>';
   html += '</div>';
 
   dd.innerHTML = html;

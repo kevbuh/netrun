@@ -536,6 +536,10 @@ function _browseProxyUrl(url) {
   return url;
 }
 
+// Baseline: every iframe blocks camera, mic, geolocation by default.
+// Only _browseSetFrameAllow can selectively open them per user choice.
+const _IFRAME_BLOCKED_POLICY = "camera 'none'; microphone 'none'; geolocation 'none'";
+
 function _browseCreateFrame(id, url) {
   const el = document.createElement(_browseIsElectron ? 'webview' : 'iframe');
   el.id = 'browse-frame-' + id;
@@ -546,7 +550,9 @@ function _browseCreateFrame(id, url) {
   if (!_browseIsElectron) {
     el.sandbox = 'allow-scripts allow-same-origin allow-popups allow-forms';
     el.referrerPolicy = 'no-referrer';
-    // Apply stored site permissions as iframe allow attribute
+    // Block all sensitive permissions by default — always set, no exceptions
+    el.allow = _IFRAME_BLOCKED_POLICY;
+    // Selectively open permissions the user has explicitly allowed
     _browseSetFrameAllow(el, url);
   }
   // Fetch blocked count after load
@@ -564,23 +570,27 @@ function _browseSetFrameAllow(el, url) {
   if (!url) return;
   let domain = '';
   try { domain = new URL(url).hostname.replace('www.', ''); } catch { return; }
-  if (typeof _getSitePermissions !== 'function') return;
-  const perms = _getSitePermissions(domain);
-  const allowParts = [];
+  // If permission helpers haven't loaded yet, the baseline blocks everything — safe
+  if (typeof _getEffectivePermissions !== 'function') return;
+  const perms = _getEffectivePermissions(domain);
+
+  // Build Permissions Policy: only explicitly user-confirmed permissions get opened.
+  // Everything else stays blocked via 'none'.
+  const policyParts = [];
   const permToAllow = { camera: 'camera', microphone: 'microphone', location: 'geolocation' };
   for (const [key, allowVal] of Object.entries(permToAllow)) {
-    // Use wildcard origin so cross-origin iframes can use the permission
-    if (perms[key] === 'allow') allowParts.push(allowVal + ' *');
+    if (perms[key] === 'allow') {
+      policyParts.push(allowVal);
+    } else {
+      policyParts.push(allowVal + " 'none'");
+    }
   }
-  // Rebuild sandbox: base flags + allow-popups unless explicitly denied
+  el.allow = policyParts.join('; ');
+
+  // Sandbox: popups allowed by default, blocked only if user chose "block"
   let sandboxFlags = 'allow-scripts allow-same-origin allow-forms';
-  if (perms.popups !== 'deny') sandboxFlags += ' allow-popups';
+  if (perms.popups !== 'block') sandboxFlags += ' allow-popups';
   el.sandbox = sandboxFlags;
-  if (allowParts.length) {
-    el.allow = allowParts.join('; ');
-  } else {
-    el.removeAttribute('allow');
-  }
 }
 
 function _browseApplyPermissions() {
@@ -1436,12 +1446,12 @@ function browseSelectTab(id) {
     else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
       _tryRenderSavedContent(tab.el, tab.paper);
     }
-    // Update sidebar with paper metadata
+    // Update sidebar with paper metadata (only auto-open for arxiv papers)
     const browseSb = document.getElementById('browse-sidebar');
     if (browseSb) {
       browseSb.innerHTML = _renderSidebarHTML(tab.contentType === 'pdf' ? tab.paper : null);
       _initSidebar(browseSb);
-      browseSb.style.display = '';
+      browseSb.style.display = tab.arxivId ? '' : 'none';
     }
     _initSidebarForUrl(tab.url);
     _startScrollTracker(tab.url);
@@ -2097,15 +2107,31 @@ function _browseRenderTabHtml(t, activeTab) {
   const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
     ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
   const isPinned = !!t.pinned;
-  const inSplit = _browseIsSplitMode() && !!_browsePaneForTab(t.id);
   const groupColor = t.groupId != null ? _browseGetGroupColor(t.groupId) : null;
   const groupStyle = groupColor ? ` style="--group-color:${groupColor}"` : '';
-  const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : '', inSplit ? 'browse-tab-in-split' : ''].filter(Boolean).join(' ');
-  const splitDot = inSplit ? '<span class="browse-tab-split-dot"></span>' : '';
+  const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : ''].filter(Boolean).join(' ');
   return `<div class="${classes}" data-tab-id="${t.id}"${groupStyle} onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
-    ${fav}${audioIcon}${splitDot}<span class="browse-tab-title">${title}</span>
+    ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
     <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
   </div>`;
+}
+
+function _browseRenderSplitPillHtml(panes, tabs, activeTab) {
+  const focusedPaneId = _browseGetFocusedPane();
+  let inner = '';
+  panes.forEach((pane, i) => {
+    const t = tabs.find(tab => tab.id === pane.tabId);
+    if (!t) return;
+    const focused = pane.id === focusedPaneId;
+    const title = escapeHtml(t.title);
+    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+    inner += `<div class="browse-split-pill-tab${focused ? ' focused' : ''}" data-tab-id="${t.id}" data-pane-id="${pane.id}" onclick="event.stopPropagation();_browseFocusPane(${pane.id})">
+      ${fav}<span class="browse-tab-title">${title}</span>
+      <button class="browse-tab-close" onclick="event.stopPropagation();browseUnsplitPane(${pane.id})" title="Close split pane">&times;</button>
+    </div>`;
+    if (i < panes.length - 1) inner += '<div class="browse-split-pill-sep"></div>';
+  });
+  return `<div class="browse-split-pill active" data-split-pill="1">${inner}</div>`;
 }
 
 function _browseGetGroupColor(groupId) {
@@ -2163,6 +2189,11 @@ function _browseRenderTabs() {
       ungrouped.push(t);
     }
   }
+  // In split mode, collect split tab IDs so we can render the combined pill
+  const splitPanes = _browseGetSplitPanes();
+  const splitTabIds = new Set(splitPanes.map(p => p.tabId));
+  let splitPillInserted = false;
+
   // Render groups in order, then ungrouped
   for (const gid of groupOrder) {
     const group = groups.find(g => g.id === gid);
@@ -2174,10 +2205,29 @@ function _browseRenderTabs() {
       <span class="browse-tab-group-count">${gTabs.length}</span>
     </div>`;
     if (!group.collapsed) {
-      html += gTabs.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+      for (const t of gTabs) {
+        if (splitTabIds.has(t.id)) {
+          if (!splitPillInserted) {
+            html += _browseRenderSplitPillHtml(splitPanes, tabs, activeTab);
+            splitPillInserted = true;
+          }
+        } else {
+          html += _browseRenderTabHtml(t, activeTab);
+        }
+      }
     }
   }
-  html += ungrouped.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+  for (const t of ungrouped) {
+    if (splitTabIds.has(t.id)) {
+      if (!splitPillInserted) {
+        html += _browseRenderSplitPillHtml(splitPanes, tabs, activeTab);
+        splitPillInserted = true;
+      }
+      // Skip individual render — it's in the pill
+    } else {
+      html += _browseRenderTabHtml(t, activeTab);
+    }
+  }
 
   bar.innerHTML = html;
 
@@ -2197,6 +2247,149 @@ function _browseRenderTabs() {
     tabEl.addEventListener('mouseenter', _browseTabHoverIn);
     tabEl.addEventListener('mouseleave', _browseTabHoverOut);
   });
+  // Attach hover tooltips to split pill inner tabs
+  bar.querySelectorAll('.browse-split-pill-tab').forEach(tabEl => {
+    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
+    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
+  });
+  // Attach drag handler on the split pill (handles reorder + unsplit + click-to-focus)
+  bar.querySelectorAll('.browse-split-pill').forEach(pillEl => {
+    pillEl.addEventListener('mousedown', _splitPillDragStart);
+  });
+}
+
+// ── Split pill drag (reorder + unsplit) ──
+
+function _splitPillDragStart(e) {
+  if (e.button !== 0) return;
+  if (e.target.closest('.browse-tab-close')) return;
+  const pillEl = e.currentTarget;
+  e.preventDefault();
+  e.stopPropagation();
+
+  // Check if mousedown started on an inner tab (for potential unsplit drag)
+  const innerTabEl = e.target.closest('.browse-split-pill-tab');
+  const innerPaneId = innerTabEl ? parseInt(innerTabEl.dataset.paneId) : null;
+
+  const startX = e.clientX;
+  const startY = e.clientY;
+  let mode = null; // null = undecided, 'reorder' = pill drag, 'unsplit' = tear tab out
+  let ghost = null;
+  let indicator = null;
+  let insertBeforeId = null;
+
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (!mode) {
+      if (dist < TAB_DRAG_THRESHOLD) return;
+      // If started on an inner tab and dragged vertically, unsplit that tab
+      if (innerTabEl && Math.abs(dy) > Math.abs(dx) && dist > 15) {
+        mode = 'unsplit';
+        innerTabEl.classList.add('dragging-out');
+        ghost = innerTabEl.cloneNode(true);
+        ghost.className = 'browse-split-pill-tab browse-split-drag-ghost';
+        ghost.style.cssText = 'position:fixed;z-index:10001;pointer-events:none;opacity:0.85;background:var(--bg-card);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);padding:4px 8px;white-space:nowrap;font-size:0.75rem;';
+        ghost.style.width = innerTabEl.offsetWidth + 'px';
+        document.body.appendChild(ghost);
+      } else {
+        // Horizontal drag = reorder pill
+        mode = 'reorder';
+        pillEl.style.opacity = '0.4';
+        ghost = pillEl.cloneNode(true);
+        ghost.style.cssText = 'position:fixed;z-index:10001;pointer-events:none;opacity:0.85;';
+        ghost.style.width = pillEl.offsetWidth + 'px';
+        ghost.classList.add('browse-tab-dragging');
+        document.body.appendChild(ghost);
+        indicator = document.createElement('div');
+        indicator.className = 'browse-tab-insert-indicator';
+        const bar = document.getElementById('browse-tabs');
+        if (bar) { bar.style.position = 'relative'; bar.appendChild(indicator); }
+      }
+    }
+
+    if (mode === 'unsplit' && ghost) {
+      ghost.style.left = (ev.clientX - innerTabEl.offsetWidth / 2) + 'px';
+      ghost.style.top = (ev.clientY - innerTabEl.offsetHeight / 2) + 'px';
+      return;
+    }
+
+    if (mode === 'reorder' && ghost) {
+      ghost.style.left = (ev.clientX - pillEl.offsetWidth / 2) + 'px';
+      ghost.style.top = (ev.clientY - pillEl.offsetHeight / 2) + 'px';
+
+      const bar = document.getElementById('browse-tabs');
+      if (!bar || !indicator) return;
+      const barRect = bar.getBoundingClientRect();
+      const nonSplitTabs = Array.from(bar.querySelectorAll('.browse-tab:not(.browse-tab-pinned)'));
+      insertBeforeId = null;
+      let indicatorLeft = null;
+
+      for (const t of nonSplitTabs) {
+        const rect = t.getBoundingClientRect();
+        const mid = rect.left + rect.width / 2;
+        if (ev.clientX < mid) {
+          const tid = parseInt(t.dataset.tabId);
+          if (!isNaN(tid)) insertBeforeId = tid;
+          indicatorLeft = rect.left - barRect.left - 1;
+          break;
+        }
+      }
+      if (indicatorLeft === null && nonSplitTabs.length > 0) {
+        const lastRect = nonSplitTabs[nonSplitTabs.length - 1].getBoundingClientRect();
+        indicatorLeft = lastRect.right - barRect.left + 1;
+      }
+      if (indicatorLeft !== null) {
+        indicator.style.display = '';
+        indicator.style.left = indicatorLeft + 'px';
+        indicator.style.top = '4px';
+        indicator.style.height = (bar.offsetHeight - 8) + 'px';
+      }
+    }
+  };
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+
+    if (ghost) {
+      if (mode === 'unsplit') {
+        ghost.style.transition = 'opacity 0.15s, transform 0.15s';
+        ghost.style.opacity = '0';
+        ghost.style.transform = 'scale(0.9)';
+        setTimeout(() => ghost.remove(), 150);
+      } else {
+        ghost.remove();
+      }
+    }
+    if (indicator) indicator.remove();
+    pillEl.style.opacity = '';
+    if (innerTabEl) innerTabEl.classList.remove('dragging-out');
+
+    if (mode === 'unsplit' && innerPaneId != null) {
+      browseUnsplitPane(innerPaneId);
+    } else if (mode === 'reorder' && insertBeforeId !== null) {
+      const win = _getCurrentWindow();
+      if (!win) return;
+      const panes = _browseGetSplitPanes();
+      const splitTabIds = panes.map(p => p.tabId);
+      const splitTabs = splitTabIds.map(id => win.tabs.find(t => t.id === id)).filter(Boolean);
+      win.tabs = win.tabs.filter(t => !splitTabIds.includes(t.id));
+      const toIdx = win.tabs.findIndex(t => t.id === insertBeforeId);
+      const insertAt = toIdx !== -1 ? toIdx : win.tabs.length;
+      win.tabs.splice(insertAt, 0, ...splitTabs);
+      _browseRenderTabs();
+      _browseSaveTabs();
+    } else if (!mode && innerTabEl) {
+      // No drag — just a click, focus the pane
+      if (innerPaneId != null) _browseFocusPane(innerPaneId);
+    }
+  };
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 // ── Tab pin / group helpers ──
@@ -2383,7 +2576,10 @@ function _isInsideTooltip(el) {
 function _dismissTooltip() {
   clearTimeout(_tabHoverTimeout);
   clearTimeout(_tabHoverDismissTimeout);
-  if (_tabHoverTooltip) { _tabHoverTooltip.remove(); _tabHoverTooltip = null; }
+  if (_tabHoverTooltip) {
+    _tabHoverTooltip.remove();
+    _tabHoverTooltip = null;
+  }
   document.querySelectorAll('.browse-tab-tooltip-open').forEach(el => el.classList.remove('browse-tab-tooltip-open'));
 }
 
@@ -2401,6 +2597,83 @@ function _browseTabHoverOut(e) {
   if (e && e.relatedTarget && _isInsideTooltip(e.relatedTarget)) return;
   clearTimeout(_tabHoverDismissTimeout);
   _tabHoverDismissTimeout = setTimeout(_dismissTooltip, 150);
+}
+
+function _showSplitTabPicker(tip, sourceTabId) {
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const menuEl = tip.querySelector('.browse-tab-tooltip-menu');
+  if (!menuEl) return;
+
+  // Build tab list HTML
+  let html = '<div class="browse-split-picker-header">SPLIT WITH TAB</div>';
+  const otherTabs = win.tabs.filter(t => t.id !== sourceTabId);
+  for (const t of otherTabs) {
+    const title = escapeHtml(t.title.length > 40 ? t.title.slice(0, 37) + '...' : t.title);
+    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '<span class="browse-split-picker-dot"></span>';
+    html += `<div class="browse-split-picker-item" data-split-tab-id="${t.id}">${fav} ${title}</div>`;
+  }
+  html += `<div class="browse-split-picker-item browse-split-picker-new">New Tab...</div>`;
+
+  menuEl.innerHTML = html;
+
+  // Keyboard navigation
+  const items = Array.from(menuEl.querySelectorAll('.browse-split-picker-item'));
+  let selectedIdx = 0;
+  if (items.length) items[0].classList.add('selected');
+
+  const select = (idx) => {
+    items.forEach(el => el.classList.remove('selected'));
+    selectedIdx = Math.max(0, Math.min(idx, items.length - 1));
+    if (items[selectedIdx]) {
+      items[selectedIdx].classList.add('selected');
+      items[selectedIdx].scrollIntoView({ block: 'nearest' });
+    }
+  };
+
+  const confirm = () => {
+    const item = items[selectedIdx];
+    if (!item) return;
+    const splitWithId = parseInt(item.dataset.splitTabId);
+    _dismissTooltip();
+    browseSelectTab(sourceTabId);
+    if (!isNaN(splitWithId)) {
+      browseSplitTab(splitWithId, 'right');
+    } else {
+      browseSplitTab(sourceTabId, 'right');
+    }
+  };
+
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); select(selectedIdx + 1); }
+    else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); select(selectedIdx - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); confirm(); document.removeEventListener('keydown', onKey, true); }
+    else if (e.key === 'Escape') { e.preventDefault(); _dismissTooltip(); document.removeEventListener('keydown', onKey, true); }
+  };
+  document.addEventListener('keydown', onKey, true);
+
+  // Store cleanup ref so dismiss removes the listener
+  const origRemove = tip.remove.bind(tip);
+  tip.remove = () => { document.removeEventListener('keydown', onKey, true); origRemove(); };
+
+  // Click handlers
+  items.forEach((item, i) => {
+    item.addEventListener('mouseenter', () => select(i));
+    item.addEventListener('click', (ev) => { ev.stopPropagation(); confirm(); });
+  });
+
+  // Resize and reposition tooltip to fit content
+  tip.style.width = 'auto';
+  tip.style.minWidth = '200px';
+  tip.style.maxHeight = (window.innerHeight - tip.getBoundingClientRect().top - 16) + 'px';
+  tip.style.overflowY = 'auto';
+  // Reposition if clipped on the right
+  requestAnimationFrame(() => {
+    const tipRect = tip.getBoundingClientRect();
+    if (tipRect.right > window.innerWidth - 8) {
+      tip.style.left = Math.max(8, window.innerWidth - tipRect.width - 8) + 'px';
+    }
+  });
 }
 
 function _showTabTooltip(tabEl) {
@@ -2430,6 +2703,7 @@ function _showTabTooltip(tabEl) {
       menuHtml += `<div class="browse-tab-tooltip-action" data-action="remove-group">Remove from group</div>`;
     }
   }
+  // Split tab submenu — list other tabs to split with
   menuHtml += `<div class="browse-tab-tooltip-action" data-action="split">Split tab</div>`;
   menuHtml += `<div class="browse-tab-tooltip-action" data-action="reload">Reload tab</div>`;
   menuHtml += `<div class="browse-tab-tooltip-sep"></div>`;
@@ -2473,12 +2747,15 @@ function _showTabTooltip(tabEl) {
     item.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const action = item.dataset.action;
+      if (action === 'split') {
+        _showSplitTabPicker(tip, tabId);
+        return;
+      }
       _dismissTooltip();
       if (action === 'pin') browseTogglePin(tabId);
       else if (action === 'new-group') browseAddTabToNewGroup(tabId);
       else if (action === 'add-group') browseAddTabToGroup(tabId, parseInt(item.dataset.groupId));
       else if (action === 'remove-group') browseRemoveTabFromGroup(tabId);
-      else if (action === 'split') browseSplitTab(tabId, 'right');
       else if (action === 'reload') { browseSelectTab(tabId); browseReload(); }
       else if (action === 'close') browseCloseTab(tabId);
       else if (action === 'close-others') _browseCloseOtherTabs(tabId);
@@ -3789,13 +4066,17 @@ function _browseInstallPinchOverlay() {
     e.preventDefault();
   }, { passive: false });
 
-  // Forward clicks/mousedown to iframe underneath
+  // Forward clicks/mousedown to elements underneath
   function _pinchPassthrough(e) {
     overlay.style.pointerEvents = 'none';
     const el = document.elementFromPoint(e.clientX, e.clientY);
     overlay.style.pointerEvents = 'auto';
     if (el && el !== overlay) {
-      el.dispatchEvent(new MouseEvent(e.type, e));
+      if (e.type === 'click') {
+        el.click();
+      } else {
+        el.dispatchEvent(new MouseEvent(e.type, e));
+      }
     }
   }
   overlay.addEventListener('mousedown', _pinchPassthrough);
@@ -4407,8 +4688,15 @@ function browsePrintPage() {
   const el = _browseActiveEl();
   if (!el) return;
 
-  if (_browseIsElectron && el.print) {
-    el.print();
+  if (_browseIsElectron && el.printToPDF) {
+    const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+    const title = 'Print — ' + ((tab && tab.title) || 'Page');
+    el.printToPDF({ printBackground: true }).then(buf => {
+      const blob = new Blob([buf], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      const paper = { title, link: blobUrl, source: 'upload', pdfUrl: blobUrl };
+      browseNewPaperTab(blobUrl, paper);
+    }).catch(() => { el.print(); });
   } else {
     try { el.contentWindow.print(); } catch (e) {
       // Cross-origin iframe — open in new tab so user can print from there

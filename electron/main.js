@@ -438,6 +438,14 @@ app.whenReady().then(() => {
   }
   createMenu();
 
+  ipcMain.handle('save-temp-pdf', async (event, base64) => {
+    const os = require('os');
+    const fs = require('fs');
+    const filePath = path.join(os.tmpdir(), `lookup-print-${Date.now()}.pdf`);
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+    return filePath;
+  });
+
   ipcMain.handle('capture-screen', async (event, rect) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return null;

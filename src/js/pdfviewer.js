@@ -141,6 +141,10 @@ function initPdfViewer(container, url, arxivId) {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1.04 6.83 2.73L22 7v10H12l3.72-3.72A8.97 8.97 0 0011.5 11c-3.31 0-6.13 2.13-7.16 5.09l-2.09-.72A11.003 11.003 0 0111.5 8z"/></svg>
       </button>
     </div>
+    <span class="pdf-tb-sep"></span>
+    <button class="pdf-tb-btn" onclick="pdfPrintCurrent()" title="Print (⌘P)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V4.875c0-.621.504-1.125 1.125-1.125h8.25c.621 0 1.125.504 1.125 1.125v3.034"/></svg>
+    </button>
     <span style="flex:1"></span>
     <div class="pdf-search-bar" id="pdf-search-bar" style="display:flex;align-items:center;gap:4px;">
       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="opacity:0.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -363,6 +367,31 @@ function renderPdfPage(pageNum, wrapper) {
 }
 
 // ── Zoom ──
+
+function pdfPrintCurrent() {
+  if (!_pdfDoc || !_pdfPagesContainer) return;
+  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+  const images = [];
+  wrappers.forEach(w => {
+    const c = w.querySelector('canvas');
+    if (c) images.push(c.toDataURL('image/png'));
+  });
+  if (!images.length) return;
+  // Use a hidden iframe to avoid window.open being intercepted by browse tabs
+  let frame = document.getElementById('pdf-print-frame');
+  if (frame) frame.remove();
+  frame = document.createElement('iframe');
+  frame.id = 'pdf-print-frame';
+  frame.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:0;height:0;border:none;';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write('<!DOCTYPE html><html><head><style>@page{margin:0.5cm}body{margin:0;background:#fff}img{width:100%;display:block;page-break-after:always}</style></head><body>');
+  images.forEach(src => { doc.write('<img src="' + src + '">'); });
+  doc.write('</body></html>');
+  doc.close();
+  setTimeout(function() { frame.contentWindow.print(); }, 300);
+}
 
 function pdfZoom(delta) {
   const newScale = Math.max(0.5, Math.min(3, _pdfScale + delta));
