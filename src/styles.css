@@ -1553,43 +1553,122 @@
       max-width: 64px;
       text-align: center;
     }
-    .wov-browse-group {
+    .wov-card-app.wov-expanded {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    /* Browse expanded — horizontal row of window cards */
+    .wov-browse-row {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      top: calc(50% + 52px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 12px;
+      padding: 0 24px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .wov-browse-row::-webkit-scrollbar { display: none; }
+    .wov-win-card {
+      width: 240px;
+      max-height: calc(50vh - 60px);
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
+      background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .wov-win-card.wov-win-focus {
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+    .wov-win-card.wov-win-active {
+      border-color: color-mix(in srgb, var(--accent) 25%, var(--border-card));
+    }
+    .wov-win-header {
+      display: flex;
       align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-card);
+      border: 2px solid transparent;
+      border-radius: 13px 13px 0 0;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .wov-win-header:hover { background: var(--bg-hover); }
+    .wov-win-header.wov-selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+    .wov-win-name {
+      flex: 1;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .wov-win-count {
+      font-size: 0.6rem;
+      color: var(--text-dimmer);
+      background: var(--bg-hover);
+      padding: 1px 6px;
+      border-radius: 5px;
       flex-shrink: 0;
     }
-    .wov-browse-subs {
+    .wov-win-close {
+      width: 18px; height: 18px; border: none; background: transparent;
+      color: var(--text-dimmest); font-size: 0.85rem; border-radius: 4px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.1s;
+      flex-shrink: 0;
+    }
+    .wov-win-header:hover .wov-win-close,
+    .wov-win-header.wov-selected .wov-win-close { opacity: 1; }
+    .wov-win-close:hover { background: rgba(220,50,50,0.15); color: #dc3232; }
+    /* Tabs inside window card */
+    .wov-bt {
       display: flex;
-      flex-direction: column;
-      gap: 3px;
-      margin-top: 4px;
-      width: 100%;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: background 0.12s, border-color 0.12s;
     }
-    .wov-card-browse {
-      min-width: unset;
-      max-width: unset;
-      width: 100%;
-      flex-direction: row;
-      padding: 6px 8px;
-      gap: 6px;
-      border-radius: 8px;
-      min-height: unset;
+    .wov-bt:hover { background: var(--bg-hover); }
+    .wov-bt.wov-bt-active .wov-bt-title { color: var(--text-primary); }
+    .wov-bt.wov-selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
     }
-    .wov-card-browse .wov-card-name {
-      text-align: left;
-      max-width: 56px;
-      font-size: 0.56rem;
+    .wov-bt-fav { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    .wov-bt-dot {
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--text-dimmest); flex-shrink: 0;
+      margin: 0 5px;
     }
-    .wov-card-browse .wov-card-close {
-      position: static;
-      opacity: 0;
-      width: 14px;
-      height: 14px;
-      font-size: 0.7rem;
-      margin-left: auto;
+    .wov-bt-title {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .wov-card-browse .wov-card-subtitle { display: none; }
+    .wov-bt.wov-selected .wov-bt-title { color: var(--text-primary); }
 
     /* Window switcher arrows in tab bar */
     .browse-window-switcher {

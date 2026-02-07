@@ -266,24 +266,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     </div>`;
   }
 
-  // Browsing history section (visited sites)
-  if (showBrowse.length) {
-    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
-    html += showBrowse.map(h => {
-      const favicon = _browseFaviconUrl(h.url);
-      let domain = '';
-      try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
-      const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
-      const displayTitle = escapeHtml(h.title || domain);
-      return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
-        <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
-        <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
-      </div>`;
-    }).join('');
-  }
-
-  // Definition section for single-word searches
+  // Definition section for single-word searches (always at top)
   if (hasDef) {
     const entry = _currentDef;
     html += '<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);">';
@@ -304,9 +287,26 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     html += '</div>';
   }
 
-  // Instant answer section (math, color, conversion, weather, timezone, sports, stocks)
+  // Instant answer section (math, color, conversion, weather, timezone, sports, stocks — always at top)
   if (hasInstant) {
     html += _instantAnswer.html;
+  }
+
+  // Browsing history section (visited sites)
+  if (showBrowse.length) {
+    html += '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+    html += showBrowse.map(h => {
+      const favicon = _browseFaviconUrl(h.url);
+      let domain = '';
+      try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
+      const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
+      const displayTitle = escapeHtml(h.title || domain);
+      return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
+        <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
+        <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+      </div>`;
+    }).join('');
   }
 
   // Suggestions section (AI autocomplete)

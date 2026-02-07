@@ -502,6 +502,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_fi_source ON feed_items(source);
         CREATE INDEX IF NOT EXISTS idx_fi_pubdate ON feed_items(pub_date DESC);
     """)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS embeddings (
+            content_hash TEXT PRIMARY KEY,
+            content_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            link TEXT NOT NULL,
+            source TEXT DEFAULT '',
+            embedding BLOB NOT NULL,
+            dim INTEGER NOT NULL,
+            created_at REAL NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_emb_type ON embeddings(content_type);
+    """)
     conn.commit()
     conn.close()
 
@@ -563,6 +576,86 @@ def quality_cache_set(entries, prompt_hash):
         )
     conn.commit()
     conn.close()
+
+
+# ── Semantic embeddings ──
+
+import struct
+import math
+
+def _embedding_hash(text):
+    return hashlib.sha256(text.encode()).hexdigest()[:20]
+
+def _pack_embedding(vec):
+    return struct.pack(f'{len(vec)}f', *vec)
+
+def _unpack_embedding(blob, dim):
+    return struct.unpack(f'{dim}f', blob)
+
+def _cosine_similarity(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(x * x for x in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+def embed_text_ollama(text):
+    """Call Ollama embed API with nomic-embed-text. Returns list of floats or None."""
+    try:
+        payload = json.dumps({"model": "nomic-embed-text", "input": text[:2000]}).encode()
+        req = urllib.request.Request(
+            "http://localhost:11434/api/embed",
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+        embeddings = data.get("embeddings")
+        if embeddings and len(embeddings) > 0:
+            return embeddings[0]
+        return None
+    except Exception:
+        return None
+
+def store_embedding(text, title, link, source='', content_type='post'):
+    """Embed text and store in DB. Skips if already exists."""
+    ch = _embedding_hash(text)
+    conn = _get_db()
+    exists = conn.execute("SELECT 1 FROM embeddings WHERE content_hash = ?", (ch,)).fetchone()
+    if exists:
+        conn.close()
+        return True
+    vec = embed_text_ollama(text)
+    if not vec:
+        conn.close()
+        return False
+    blob = _pack_embedding(vec)
+    conn.execute(
+        "INSERT OR IGNORE INTO embeddings (content_hash, content_type, title, link, source, embedding, dim, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (ch, content_type, title, link, source, blob, len(vec), time.time())
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+def search_embeddings(query_vec, content_type=None, limit=20, exclude_link=None):
+    """Brute-force cosine search over all embeddings. Returns top N {title, link, source, score}."""
+    conn = _get_db()
+    if content_type:
+        rows = conn.execute("SELECT title, link, source, embedding, dim FROM embeddings WHERE content_type = ?", (content_type,)).fetchall()
+    else:
+        rows = conn.execute("SELECT title, link, source, embedding, dim FROM embeddings").fetchall()
+    conn.close()
+    results = []
+    for row in rows:
+        if exclude_link and row['link'] == exclude_link:
+            continue
+        vec = _unpack_embedding(row['embedding'], row['dim'])
+        score = _cosine_similarity(query_vec, vec)
+        results.append({'title': row['title'], 'link': row['link'], 'source': row['source'], 'score': round(score, 4)})
+    results.sort(key=lambda x: x['score'], reverse=True)
+    return results[:limit]
 
 
 def get_usage_history(days=30):

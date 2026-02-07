@@ -42,6 +42,13 @@ function submitSearch() {
   hideSearchHistoryView();
   const hints = document.getElementById('search-hints');
   if (hints) hints.style.display = 'none';
+
+  // Semantic search mode: ~query
+  if (query.startsWith('~')) {
+    const semQuery = query.slice(1).trim();
+    if (semQuery) { doSemanticSearch(semQuery); return; }
+  }
+
   // Filter feed results
   renderSearchFeedResults(query);
   // Count feed matches for history
@@ -364,5 +371,25 @@ function _searchHistoryKeydown(e) {
   }
 }
 
+
+// ── Semantic Search ──
+async function doSemanticSearch(query) {
+  const feedContainer = document.getElementById('search-feed-results');
+  const arxivContainer = document.getElementById('search-arxiv-results');
+  if (feedContainer) feedContainer.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Semantic search...</div></div>';
+  if (arxivContainer) arxivContainer.innerHTML = '';
+  try {
+    const resp = await fetch('/api/semantic-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit: 20 })
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    _renderSemanticResults(feedContainer, data.results || [], `Semantic results for "${query}"`);
+  } catch (err) {
+    if (feedContainer) feedContainer.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">${err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)}</div>`;
+  }
+}
 
 // ── Browse URL bar moved to browse-urlbar.js ──

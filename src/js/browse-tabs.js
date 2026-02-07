@@ -2780,21 +2780,9 @@ function _tabDragEnd(e) {
 let _browseTabOverviewVisible = false;
 let _overviewSelectedIdx = 0;
 let _overviewKeyHandler = null;
-
-// Build flat ordered list: app windows in order, browse sub-windows inserted after the browse entry
-function _overviewItems() {
-  var items = [];
-  for (var i = 0; i < _wmWindows.length; i++) {
-    var w = _wmWindows[i];
-    items.push({ type: 'app', key: w.key, label: w.label, wmIndex: i });
-    if (w.key === 'browse') {
-      _browseWindows.forEach(function(win) {
-        items.push({ type: 'browse', windowId: win.id, win: win });
-      });
-    }
-  }
-  return items;
-}
+let _overviewBrowseExpanded = false;
+let _overviewBrowseWinIdx = 0;  // selected window in expanded view
+let _overviewBrowseTabIdx = -1; // -1 = window row selected, >=0 = tab within window
 
 // SVG icons for app window cards
 const _wovAppIcons = {
@@ -2820,7 +2808,7 @@ function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = true;
-  // Start with the currently focused app window selected
+  _overviewBrowseExpanded = false;
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
   _renderWindowOverview();
   overlay.style.display = 'flex';
@@ -2834,6 +2822,7 @@ function hideBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = false;
+  _overviewBrowseExpanded = false;
   _removeOverviewKeyHandler();
   overlay.classList.remove('visible');
   setTimeout(() => { overlay.style.display = 'none'; }, 180);
@@ -2843,8 +2832,65 @@ function _installOverviewKeyHandler() {
   if (_overviewKeyHandler) return;
   _overviewKeyHandler = (e) => {
     if (!_browseTabOverviewVisible) return;
-    const items = _overviewItems();
-    const total = items.length;
+
+    if (_overviewBrowseExpanded) {
+      // ── Browse detail mode ──
+      var winCount = _browseWindows.length;
+      var curWin = _browseWindows[_overviewBrowseWinIdx];
+      var tabCount = curWin ? curWin.tabs.length : 0;
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (_overviewBrowseTabIdx >= 0) {
+          _overviewBrowseTabIdx--;
+        }
+        _renderWindowOverview();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (_overviewBrowseTabIdx < tabCount - 1) {
+          _overviewBrowseTabIdx++;
+        }
+        _renderWindowOverview();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (_overviewBrowseWinIdx > 0) {
+          _overviewBrowseWinIdx--;
+          _overviewBrowseTabIdx = -1;
+          _renderWindowOverview();
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (_overviewBrowseWinIdx < winCount - 1) {
+          _overviewBrowseWinIdx++;
+          _overviewBrowseTabIdx = -1;
+          _renderWindowOverview();
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (curWin) {
+          if (_overviewBrowseTabIdx >= 0) {
+            var tab = curWin.tabs[_overviewBrowseTabIdx];
+            if (tab) { browseSelectWindow(curWin.id); browseSelectTab(tab.id); }
+          } else {
+            browseSelectWindow(curWin.id);
+          }
+          hideBrowseTabOverview();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        _overviewBrowseExpanded = false;
+        _renderWindowOverview();
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx === -1 && winCount > 1) {
+        e.preventDefault();
+        if (curWin) browseCloseWindow(curWin.id);
+        if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
+        _renderWindowOverview();
+      }
+      return;
+    }
+
+    // ── Top-level app strip mode ──
+    var total = _wmWindows.length;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
@@ -2855,23 +2901,30 @@ function _installOverviewKeyHandler() {
       _updateOverviewHighlight();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      var item = items[_overviewSelectedIdx];
-      if (!item) return;
-      if (item.type === 'app') wmOpen(item.key);
-      else browseSelectWindow(item.windowId);
-      hideBrowseTabOverview();
+      var w = _wmWindows[_overviewSelectedIdx];
+      if (!w) return;
+      if (w.key === 'browse') {
+        _overviewBrowseExpanded = true;
+        _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+        _overviewBrowseTabIdx = -1;
+        _renderWindowOverview();
+      } else {
+        wmOpen(w.key);
+        hideBrowseTabOverview();
+      }
+    } else if (e.key === 'ArrowDown') {
+      // If on browse, expand
+      var wDown = _wmWindows[_overviewSelectedIdx];
+      if (wDown && wDown.key === 'browse') {
+        e.preventDefault();
+        _overviewBrowseExpanded = true;
+        _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+        _overviewBrowseTabIdx = -1;
+        _renderWindowOverview();
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       hideBrowseTabOverview();
-    } else if (e.key === 'Backspace' || e.key === 'Delete') {
-      var delItem = items[_overviewSelectedIdx];
-      if (delItem && delItem.type === 'browse' && _browseWindows.length > 1) {
-        e.preventDefault();
-        browseCloseWindow(delItem.windowId);
-        var newItems = _overviewItems();
-        if (_overviewSelectedIdx >= newItems.length) _overviewSelectedIdx = newItems.length - 1;
-        _renderWindowOverview();
-      }
     }
   };
   document.addEventListener('keydown', _overviewKeyHandler);
@@ -2898,75 +2951,107 @@ function _renderWindowOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
 
-  const items = _overviewItems();
-  var html = '';
-  var inBrowseGroup = false;
-
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i];
-    var isSelected = i === _overviewSelectedIdx;
-
-    if (item.type === 'app') {
-      // Close browse group if we were in one
-      if (inBrowseGroup) { html += '</div></div>'; inBrowseGroup = false; }
-
-      var isActive = item.wmIndex === _wmFocusIndex;
-      var icon = _wovAppIcons[item.key] || '';
-
-      if (item.key === 'browse' && _browseWindows.length > 0) {
-        // Open a browse group wrapper — the app card + sub-windows below
-        html += '<div class="wov-browse-group">';
-        inBrowseGroup = true;
-      }
-
-      html += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active' : '') + ' ' + (isSelected ? 'wov-selected' : '') + '"'
-        + ' onclick="_overviewClickApp(\'' + item.key + '\')">'
-        + '<div class="wov-card-icon">' + icon + '</div>'
-        + '<span class="wov-card-name">' + escapeHtml(item.label) + '</span>'
-        + '</div>';
-
-      if (item.key === 'browse' && _browseWindows.length > 0) {
-        html += '<div class="wov-browse-subs">';
-      }
-    } else {
-      // Browse sub-window
-      var win = item.win;
-      var winActive = win.id === _browseActiveWindow;
-      var activeTab = win.tabs.find(function(t) { return t.id === win.activeTab; });
-      var tabCount = win.tabs.length;
-      var subtitle = '';
-      if (activeTab && activeTab.url) {
-        try { subtitle = new URL(activeTab.url).hostname.replace(/^www\./, ''); } catch(e) {}
-      }
-      html += '<div class="wov-card wov-card-browse ' + (winActive ? 'wov-active' : '') + ' ' + (isSelected ? 'wov-selected' : '') + '"'
-        + ' onclick="_overviewClickWindow(' + win.id + ')">'
-        + '<span class="wov-card-name">' + escapeHtml(win.name) + '</span>'
-        + '<span class="wov-card-count">' + tabCount + '</span>'
-        + (subtitle ? '<div class="wov-card-subtitle">' + escapeHtml(subtitle) + '</div>' : '')
-        + (_browseWindows.length > 1 ? '<button class="wov-card-close" onclick="event.stopPropagation();_overviewCloseWindow(' + win.id + ')" title="Close">&times;</button>' : '')
-        + '</div>';
-    }
+  // App strip cards
+  var appHtml = '';
+  for (var i = 0; i < _wmWindows.length; i++) {
+    var w = _wmWindows[i];
+    var isActive = i === _wmFocusIndex;
+    var isSelected = !_overviewBrowseExpanded && i === _overviewSelectedIdx;
+    var isBrowseOpen = _overviewBrowseExpanded && w.key === 'browse';
+    var icon = _wovAppIcons[w.key] || '';
+    appHtml += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active ' : '') + (isSelected ? 'wov-selected ' : '') + (isBrowseOpen ? 'wov-expanded ' : '') + '"'
+      + ' onclick="_overviewClickApp(\'' + w.key + '\')">'
+      + '<div class="wov-card-icon">' + icon + '</div>'
+      + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'
+      + '</div>';
   }
-  if (inBrowseGroup) html += '</div></div>';
 
-  overlay.innerHTML = html;
+  // Browse window cards (when expanded) — each window is its own card
+  var detailHtml = '';
+  if (_overviewBrowseExpanded) {
+    detailHtml = '<div class="wov-browse-row">';
+    for (var wi = 0; wi < _browseWindows.length; wi++) {
+      var bw = _browseWindows[wi];
+      var bwActive = bw.id === _browseActiveWindow;
+      var isCurWin = wi === _overviewBrowseWinIdx;
+
+      detailHtml += '<div class="wov-win-card ' + (bwActive ? 'wov-win-active ' : '') + (isCurWin ? 'wov-win-focus ' : '') + '">';
+
+      // Window header
+      detailHtml += '<div class="wov-win-header ' + (isCurWin && _overviewBrowseTabIdx === -1 ? 'wov-selected ' : '') + '"'
+        + ' onclick="_overviewClickBrowseWin(' + bw.id + ')">'
+        + '<span class="wov-win-name">' + escapeHtml(bw.name) + '</span>'
+        + '<span class="wov-win-count">' + bw.tabs.length + '</span>'
+        + (_browseWindows.length > 1 ? '<button class="wov-win-close" onclick="event.stopPropagation();_overviewCloseBrowseWin(' + bw.id + ')">&times;</button>' : '')
+        + '</div>';
+
+      // Tabs
+      for (var ti = 0; ti < bw.tabs.length; ti++) {
+        var tab = bw.tabs[ti];
+        var tabSelected = isCurWin && ti === _overviewBrowseTabIdx;
+        var tabIsActive = bwActive && tab.id === bw.activeTab;
+        var fav = tab.favicon
+          ? '<img src="' + escapeHtml(tab.favicon) + '" class="wov-bt-fav" onerror="this.style.display=\'none\'">'
+          : '<span class="wov-bt-dot"></span>';
+        detailHtml += '<div class="wov-bt ' + (tabSelected ? 'wov-selected ' : '') + (tabIsActive ? 'wov-bt-active ' : '') + '"'
+          + ' onclick="_overviewClickBrowseTab(' + bw.id + ',' + tab.id + ')">'
+          + fav
+          + '<span class="wov-bt-title">' + escapeHtml(tab.title || 'New Tab') + '</span>'
+          + '</div>';
+      }
+
+      detailHtml += '</div>';
+    }
+    detailHtml += '</div>';
+  }
+
+  overlay.innerHTML = appHtml + detailHtml;
+
+  // Scroll selected item into view in expanded mode
+  if (_overviewBrowseExpanded) {
+    var sel = overlay.querySelector('.wov-selected');
+    if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
 }
 
 function _overviewClickApp(key) {
+  if (key === 'browse') {
+    _overviewBrowseExpanded = !_overviewBrowseExpanded;
+    if (_overviewBrowseExpanded) {
+      _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+      _overviewBrowseTabIdx = -1;
+    }
+    // Update selected index to browse
+    for (var i = 0; i < _wmWindows.length; i++) {
+      if (_wmWindows[i].key === 'browse') { _overviewSelectedIdx = i; break; }
+    }
+    _renderWindowOverview();
+    return;
+  }
   wmOpen(key);
   hideBrowseTabOverview();
 }
 
-function _overviewClickWindow(windowId) {
+function _overviewClickBrowseWin(windowId) {
   browseSelectWindow(windowId);
   hideBrowseTabOverview();
 }
 
-function _overviewCloseWindow(windowId) {
+function _overviewClickBrowseTab(windowId, tabId) {
+  browseSelectWindow(windowId);
+  browseSelectTab(tabId);
+  hideBrowseTabOverview();
+}
+
+function _overviewCloseBrowseWin(windowId) {
   browseCloseWindow(windowId);
-  var items = _overviewItems();
-  if (items.length === 0) { hideBrowseTabOverview(); return; }
-  if (_overviewSelectedIdx >= items.length) _overviewSelectedIdx = items.length - 1;
+  if (_browseWindows.length === 0) {
+    _overviewBrowseExpanded = false;
+    _renderWindowOverview();
+    return;
+  }
+  if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
+  _overviewBrowseTabIdx = -1;
   _renderWindowOverview();
 }
 

@@ -792,6 +792,12 @@ async function saveCurrentNote() {
       body: JSON.stringify({ title, content })
     });
     renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+    // Embed note for semantic search (fire-and-forget)
+    fetch('/api/embed-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
+    }).catch(() => {});
   } catch (e) {
     console.error('Failed to save note', e);
   }

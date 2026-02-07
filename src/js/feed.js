@@ -131,6 +131,17 @@ function getReadPosts() {
 function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); localStorage.setItem('readPosts', JSON.stringify(read)); }
+  _embedPost(link);
+}
+
+function _embedPost(link) {
+  const paper = allPapers.find(p => p.link === link) || (getSavedPosts()[link] || {}).paper;
+  if (!paper) return;
+  fetch('/api/embed-content', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: paper.title, link: paper.link, source: paper.source || '', description: paper.description || '', type: 'post' })
+  }).catch(() => {});
 }
 function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
@@ -148,6 +159,7 @@ function openCardMenu(btn, ev, index) {
   menu.innerHTML = isQuote ? `
     <button onmousedown="event.stopPropagation(); deleteUserQuote('${escapeAttr(p._quoteId)}'); closeCardMenu()">Delete quote</button>
   ` : `
+    <button onmousedown="event.stopPropagation(); findSimilarPosts(${index}); closeCardMenu()">Find similar</button>
     <button onmousedown="event.stopPropagation(); hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}'); closeCardMenu()">Block post</button>
     <button onmousedown="event.stopPropagation(); unsubscribeSource('${escapeAttr(sourceKey)}'); closeCardMenu()">Unsubscribe from ${escapeHtml(sourceName)}</button>
   `;
@@ -219,6 +231,52 @@ function deleteUserQuote(id) {
   localStorage.setItem('userQuotes', JSON.stringify(quotes));
   allPapers = allPapers.filter(p => p._quoteId !== id);
   renderPapers();
+}
+
+// ── Semantic Search / Find Similar ──
+async function findSimilarPosts(index) {
+  const p = lastFilteredPapers[index];
+  if (!p) return;
+  openResearch('search');
+  const container = document.getElementById('search-feed-results');
+  if (container) container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Finding similar posts...</div></div>';
+  const hints = document.getElementById('search-hints');
+  if (hints) hints.style.display = 'none';
+  const arxiv = document.getElementById('search-arxiv-results');
+  if (arxiv) arxiv.innerHTML = '';
+  const input = document.getElementById('search-query');
+  if (input) input.value = '';
+  try {
+    const resp = await fetch('/api/find-similar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: p.title, link: p.link, description: p.description || '', limit: 20 })
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    _renderSemanticResults(container, data.results || [], `Similar to "${p.title}"`);
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">${err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)}</div>`;
+  }
+}
+
+function _renderSemanticResults(container, results, heading) {
+  if (!container) return;
+  if (!results.length) {
+    container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No similar posts found. Read more posts to build the semantic index.</div>';
+    return;
+  }
+  container.innerHTML = `<div class="mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">${escapeHtml(heading)} (${results.length})</div>` +
+    results.map(r => {
+      const sourceChip = getSourceChip(r.source);
+      const scorePct = Math.round(r.score * 100);
+      const scoreColor = scorePct >= 80 ? 'text-green-400' : scorePct >= 60 ? 'text-yellow-400' : 'text-dimmer';
+      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaperByUrl('${escapeAttr(r.link)}', event)">
+        ${sourceChip}
+        <span class="text-[0.82rem] text-primary truncate">${escapeHtml(r.title)}</span>
+        <span class="text-[0.68rem] ${scoreColor} shrink-0 ml-auto">${scorePct}%</span>
+      </div>`;
+    }).join('');
 }
 
 // ── Blocked Words ──
@@ -336,7 +394,10 @@ function toggleSavePost(paper, event) {
   savePosts(saved);
   updateSavedBadge();
   renderPapers();
-  if (wasAdding && event) _showBookmarkToast(event);
+  if (wasAdding) {
+    _embedPost(paper.link);
+    if (event) _showBookmarkToast(event);
+  }
 }
 
 function _showBookmarkToast(event) {

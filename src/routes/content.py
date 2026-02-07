@@ -20,7 +20,9 @@ from helpers import (
 from persistence import (
     cached_fetch, get_cached_references, set_cached_references,
     get_cached_author, set_cached_author,
+    store_embedding, embed_text_ollama, search_embeddings,
 )
+import threading
 
 bp = Blueprint('content', __name__)
 
@@ -876,3 +878,83 @@ def search_suggest():
         return jsonify({'suggestions': suggestions})
     except Exception:
         return jsonify({'suggestions': []})
+
+
+# ── Semantic embeddings ──
+
+_embed_model_cache = {'available': None, 'ts': 0}
+
+def _check_embed_model():
+    now = time.time()
+    if now - _embed_model_cache['ts'] < 300 and _embed_model_cache['available'] is not None:
+        return _embed_model_cache['available']
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        models = data.get('models', [])
+        found = any('nomic-embed-text' in m.get('name', '') for m in models)
+        _embed_model_cache['available'] = found
+        _embed_model_cache['ts'] = now
+        return found
+    except Exception:
+        _embed_model_cache['available'] = False
+        _embed_model_cache['ts'] = now
+        return False
+
+
+@bp.route('/api/embed-content', methods=['POST'])
+def embed_content():
+    body = request.get_json(force=True, silent=True) or {}
+    title = body.get('title', '').strip()
+    link = body.get('link', '').strip()
+    if not title or not link:
+        return jsonify({'ok': True})
+    source = body.get('source', '')
+    description = body.get('description', '')
+    content_type = body.get('type', 'post')
+    text = f"{title}. {description[:500]}" if description else title
+    def _do_embed():
+        try:
+            store_embedding(text, title, link, source, content_type)
+        except Exception:
+            pass
+    t = threading.Thread(target=_do_embed, daemon=True)
+    t.start()
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/semantic-search', methods=['POST'])
+def semantic_search():
+    body = request.get_json(force=True, silent=True) or {}
+    query = body.get('query', '').strip()
+    if not query:
+        return jsonify({'error': 'query required'}), 400
+    if not _check_embed_model():
+        return jsonify({'error': 'nomic-embed-text model not available'}), 503
+    query_vec = embed_text_ollama(query)
+    if not query_vec:
+        return jsonify({'error': 'embedding failed'}), 502
+    content_type = body.get('type')
+    limit = min(body.get('limit', 20), 50)
+    results = search_embeddings(query_vec, content_type=content_type, limit=limit)
+    return jsonify({'results': results})
+
+
+@bp.route('/api/find-similar', methods=['POST'])
+def find_similar():
+    body = request.get_json(force=True, silent=True) or {}
+    title = body.get('title', '').strip()
+    link = body.get('link', '').strip()
+    description = body.get('description', '')
+    if not title:
+        return jsonify({'error': 'title required'}), 400
+    if not _check_embed_model():
+        return jsonify({'error': 'nomic-embed-text model not available'}), 503
+    text = f"{title}. {description[:500]}" if description else title
+    query_vec = embed_text_ollama(text)
+    if not query_vec:
+        return jsonify({'error': 'embedding failed'}), 502
+    limit = min(body.get('limit', 20), 50)
+    results = search_embeddings(query_vec, limit=limit, exclude_link=link)
+    return jsonify({'results': results})
