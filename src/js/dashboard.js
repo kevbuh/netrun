@@ -817,7 +817,7 @@ let _devFpsRaf = null;
 
 function _devLineChart(hist, yKey, label, color, tooltipFn) {
   if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
-  const W = 800, H = 220, PAD = { t: 20, r: 20, b: 40, l: 55 };
+  const W = 400, H = 130, PAD = { t: 16, r: 12, b: 24, l: 42 };
   const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
   const vals = hist.map(h => typeof yKey === 'function' ? yKey(h) : h[yKey]);
   const minV = Math.min(...vals), maxV = Math.max(...vals);
@@ -827,29 +827,29 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
   const gridColor = 'rgba(255,255,255,0.06)';
   const textColor = 'var(--text-dimmer)';
   // Title
-  let svg = `<text x="${PAD.l}" y="14" fill="${textColor}" font-size="11" font-weight="600">${label}</text>`;
+  let svg = `<text x="${PAD.l}" y="11" fill="${textColor}" font-size="9" font-weight="600">${label}</text>`;
   // Grid
-  const yTicks = 4;
+  const yTicks = 3;
   for (let i = 0; i <= yTicks; i++) {
     const val = minV + (range / yTicks) * i;
     const yy = yp(val);
     svg += `<line x1="${PAD.l}" y1="${yy}" x2="${W - PAD.r}" y2="${yy}" stroke="${gridColor}"/>`;
-    svg += `<text x="${PAD.l - 6}" y="${yy + 4}" text-anchor="end" fill="${textColor}" font-size="9">${Math.round(val).toLocaleString()}</text>`;
+    svg += `<text x="${PAD.l - 4}" y="${yy + 3}" text-anchor="end" fill="${textColor}" font-size="8">${Math.round(val).toLocaleString()}</text>`;
   }
   // Line
   const pts = hist.map((h, i) => `${xp(i)},${yp(vals[i])}`);
-  svg += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
+  svg += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>`;
   // Dots with hover targets
   hist.forEach((h, i) => {
     const cx = xp(i), cy = yp(vals[i]);
     const tip = tooltipFn ? tooltipFn(h) : `${vals[i].toLocaleString()}`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="10" fill="transparent" class="dev-chart-hover"><title>${h.date}\n${tip}</title></circle>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="2" fill="${color}"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="8" fill="transparent" class="dev-chart-hover"><title>${h.date}\n${tip}</title></circle>`;
   });
   // X labels
-  const step = Math.max(1, Math.floor(hist.length / 7));
+  const step = Math.max(1, Math.floor(hist.length / 5));
   for (let i = 0; i < hist.length; i += step) {
-    svg += `<text x="${xp(i)}" y="${H - 5}" text-anchor="middle" fill="${textColor}" font-size="9">${hist[i].date.slice(5)}</text>`;
+    svg += `<text x="${xp(i)}" y="${H - 3}" text-anchor="middle" fill="${textColor}" font-size="7">${hist[i].date.slice(5)}</text>`;
   }
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px">${svg}</svg>`;
 }
@@ -941,33 +941,29 @@ async function renderDevStats() {
   const aetherChart = _devLineChart(aetherSeries, 'count', 'Aether Chats', '#93c47d', h => `${h.count} aether chats`);
   const searchChart = _devLineChart(searchSeries, 'count', 'Search Chats', '#e06666', h => `${h.count} search chats`);
 
-  chart.innerHTML = `
+  const cpd = data.commits_per_day || [];
+  const commitsChart = cpd.length >= 2 ? _devLineChart(cpd, 'count', 'Commits / Day', '#f6b26b', h => `${h.count} commits`) : '';
+
+  chart.innerHTML = `<div class="dev-charts-grid">
     <div class="dev-loc-chart">${locChart}</div>
+    <div class="dev-loc-chart">${commitsChart}</div>
     <div class="dev-loc-chart">${toolChart}</div>
     <div class="dev-loc-chart">${aetherChart}</div>
-    <div class="dev-loc-chart">${searchChart}</div>`;
-
-  // Commits over time chart
-  const commitsChartEl = document.getElementById('dev-commits-chart');
-  const cpd = data.commits_per_day || [];
-  if (commitsChartEl && cpd.length) {
-    const commitsChart = _devLineChart(cpd, 'count', 'Commits per Day', '#f6b26b', h => `${h.count} commits`);
-    commitsChartEl.innerHTML = `<div class="dev-loc-chart">${commitsChart}</div>`;
-  }
+  </div>`;
 
   // Git log
   const gitLogEl = document.getElementById('dev-git-log');
   const log = data.git_log || [];
   if (gitLogEl && log.length) {
     gitLogEl.innerHTML = `
-      <h3 style="color:var(--text-primary);font-size:0.85rem;font-weight:600;margin-bottom:8px">Recent Commits</h3>
+      <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:4px">Recent Commits</div>
       <div class="dev-git-log-list">${log.map(c => {
         const d = new Date(c.date);
         const relative = _devRelativeTime(d);
         return `<div class="dev-git-log-item">
           <span class="dev-git-log-sha">${c.sha}</span>
           <span class="dev-git-log-msg">${escapeHtml(c.message)}</span>
-          <span class="dev-git-log-meta">${escapeHtml(c.author)} &middot; ${relative}</span>
+          <span class="dev-git-log-meta">${relative}</span>
         </div>`;
       }).join('')}</div>`;
   }

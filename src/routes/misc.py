@@ -153,14 +153,15 @@ def dev_stats():
             pass
         git_log = []
         try:
+            sep = '\x1f'
             r = subprocess.run(
-                ['git', 'log', '--format=%H|%an|%ad|%s', '--date=iso'],
+                ['git', 'log', '-20', f'--format=%H{sep}%an{sep}%ad{sep}%s', '--date=iso'],
                 capture_output=True, text=True, cwd=git_root, timeout=10)
             if r.returncode == 0:
                 for line in r.stdout.strip().split('\n'):
                     if not line.strip():
                         continue
-                    parts = line.split('|', 3)
+                    parts = line.split(sep, 3)
                     if len(parts) == 4:
                         git_log.append({'sha': parts[0][:8], 'author': parts[1], 'date': parts[2], 'message': parts[3]})
         except Exception:
@@ -589,11 +590,6 @@ def neuralook_train(google_id):
                     body.setdefault('eyeW', calib.get('eyeW', 64))
                     body.setdefault('eyeH', calib.get('eyeH', 32))
 
-            # Filter samples by phase if requested (e.g. 'fixed' for grid-only)
-            sample_filter = body.get('sample_filter')
-            if sample_filter and samples:
-                samples = [s for s in samples if s.get('phase') == sample_filter]
-
             screen_w = body.get('screenW', 1920)
             screen_h = body.get('screenH', 1080)
             eye_w = body.get('eyeW', 64)
@@ -603,7 +599,7 @@ def neuralook_train(google_id):
                 return
 
             eye_size = eye_w * eye_h
-            X_list, Y_list, H_list = [], [], []
+            X_list, Y_list = [], []
             for s in samples:
                 raw = s['eyeData']
                 if len(raw) != eye_size * 2:
@@ -612,8 +608,6 @@ def neuralook_train(google_id):
                 right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
                 X_list.append(torch.cat([left, right], dim=0))
                 Y_list.append([s['screenX'] / screen_w, s['screenY'] / screen_h])
-                hp = s.get('headPose', [0, 0, 0])
-                H_list.append(hp if len(hp) == 3 else [0, 0, 0])
 
             if len(X_list) < 10:
                 yield sse_event('error', {'error': f'Only {len(X_list)} valid samples'})
@@ -621,7 +615,6 @@ def neuralook_train(google_id):
 
             X = torch.stack(X_list)
             Y = torch.tensor(Y_list, dtype=torch.float32)
-            H = torch.tensor(H_list, dtype=torch.float32)
 
             targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples if len(s['eyeData']) == eye_size * 2]
             unique_targets = list(set(targets_rounded))
@@ -633,7 +626,6 @@ def neuralook_train(google_id):
 
             X_train, Y_train = X[train_mask], Y[train_mask]
             X_val, Y_val = X[val_mask], Y[val_mask]
-            H_train, H_val = H[train_mask], H[val_mask]
 
             class GazeCNN(nn.Module):
                 def __init__(self):

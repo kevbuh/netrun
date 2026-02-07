@@ -2782,7 +2782,8 @@ const SYNC_KEYS = [
   'feedNotifications', 'seenPostLinks',
   'adBlockEnabled', 'feedNotifSources', 'browseBarOrder',
   'browseHistory', 'webSearchHistory', 'chatThreads',
-  'aetherColor'
+  'aetherColor',
+  'interestProfile'
 ];
 
 // Default ad blocker to enabled

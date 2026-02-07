@@ -7,7 +7,6 @@ let _nlReady = false;
 let _nlGazeX = 0;
 let _nlGazeY = 0;
 let _nlCurrentPoint = 0;
-let _nlAccuracy = null;
 let _nlCameraOn = false;
 
 // MediaPipe state (used to locate eyes in video frames)
@@ -31,12 +30,6 @@ let _nlTrainError = null;
 let _nlValError = null;
 let _nlInferPending = false; // prevent overlapping inference requests
 
-// ── A/B Testing: Calibration Strategy Comparison (CNN only) ──
-let _nlActiveMethod = 'cnn_tracking';
-let _nlAvailableMethods = [
-  { key: 'cnn_fixed', name: 'Fixed Grid', trained: false, trainError: null, valError: null },
-  { key: 'cnn_tracking', name: 'Tracking', trained: false, trainError: null, valError: null },
-];
 let _nlCalibSaved = false;
 
 // Eye crop canvas (offscreen, reused)
@@ -50,8 +43,6 @@ let _nlTrainResult = null; // final result from done event
 let _nlTrainLossHistory = []; // [{epoch, val_loss}]
 let _nlTrainLogs = []; // raw log lines from server
 let _nlTrainStartTime = 0;
-let _nlWandbUrl = null;
-let _nlWandbPanelOpen = false;
 let _nlShowTrainView = true; // toggle between training detail and normal view
 let _nlTrainAbort = null; // AbortController for in-flight training request
 
@@ -81,20 +72,8 @@ const _NL_CAL_POSITIONS = [
   [8, 92],  [29, 92], [50, 92], [71, 92], [92, 92]
 ];
 
-// 4 off-grid accuracy test positions
-const _NL_TEST_POSITIONS = [
-  [20, 20], [80, 20], [20, 80], [80, 80]
-];
-
 const _NL_STARE_MS = 1200;
 const _NL_SETTLE_MS = 400;
-
-// Moving-dot tracking calibration (phase 2)
-const _NL_TRACK_ROWS = 7;
-const _NL_TRACK_ROW_MS = 2500;
-const _NL_TRACK_X_MIN = 5;
-const _NL_TRACK_X_MAX = 95;
-const _NL_TRACK_Y_STOPS = [10, 25, 40, 50, 60, 75, 90];
 
 // Eye crop dimensions
 const _NL_EYE_W = 64;
@@ -177,26 +156,6 @@ function renderNeuralookView() {
           </div>
         </div>
 
-        <div class="bg-card border border-border-card rounded-xl p-4">
-          <h3 class="text-[0.85rem] font-semibold text-primary mb-2">Methods</h3>
-          <div class="flex flex-col gap-1.5">
-            ${_nlAvailableMethods.map(m => {
-              const isActive = m.key === _nlActiveMethod;
-              const hasCalib = _nlCalibSaved || _nlCalibData.length > 0;
-              const statusText = m.trained ? `${m.valError || '—'}px` : '—';
-              const statusColor = m.trained ? (m.valError < 80 ? '#4ade80' : m.valError < 150 ? '#fbbf24' : '#f87171') : '#6b7280';
-              return `<div class="flex items-center gap-2 py-1" style="font-size:0.78rem;">
-                <input type="radio" name="nl-method" value="${m.key}" ${isActive ? 'checked' : ''} ${!m.trained ? 'disabled' : ''}
-                  onchange="_nlSwitchMethod('${m.key}')" class="accent-[var(--accent)]" style="margin:0;">
-                <span class="text-primary flex-1 ${!m.trained ? 'opacity-50' : ''}">${m.name}</span>
-                <span class="tabular-nums text-[0.72rem]" style="color:${statusColor};min-width:40px;text-align:right;">${statusText}</span>
-                ${!m.trained && hasCalib ? `<button onclick="_nlTrainMethod('${m.key}')" class="px-2 py-0.5 rounded border border-border-input text-[0.68rem] text-muted hover:text-accent hover:border-accent cursor-pointer transition-colors" ${_nlTraining ? 'disabled style="opacity:0.4"' : ''}>Train</button>` : ''}
-                ${m.trained ? '<span style="color:#4ade80;font-size:0.72rem;">✓</span>' : ''}
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-
         ${_nlTrainLogs.length > 0 ? `
         <button onclick="_nlShowTrainView=true;if(!_nlTrainPhase)_nlTrainPhase='done';renderNeuralookView();" class="w-full px-4 py-2.5 rounded-xl border border-border-card bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors flex items-center gap-2.5">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="flex-shrink-0"><rect x="1" y="3" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 6.5h8M4 9h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -273,54 +232,9 @@ function _nlRenderTrainDetailView(container) {
   else if (_nlTrainPhase === 'evaluating') { phaseLabel = 'Evaluating'; phaseColor = '#60a5fa'; }
   else { phaseLabel = 'Training'; phaseColor = 'var(--accent, #b4451a)'; }
 
-  // Result rows for done state
-  let resultHTML = '';
-  if (isDone && _nlTrainResult) {
-    const r = _nlTrainResult;
-    const valLabel = r.val_error_px < 80 ? 'Good' : r.val_error_px < 150 ? 'Fair' : 'Poor';
-    const valColor = r.val_error_px < 80 ? '#4ade80' : r.val_error_px < 150 ? '#fbbf24' : '#f87171';
-    resultHTML = `
-      <div class="bg-card border border-border-card rounded-xl p-5 mt-4">
-        <h3 class="text-[0.85rem] font-semibold text-primary mb-4">Results</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
-          <div>
-            <div class="text-[2rem] font-bold" style="color:${valColor}">${r.val_error_px}px</div>
-            <div class="text-[0.75rem] text-muted">Validation Error</div>
-            <div class="text-[0.7rem] font-medium" style="color:${valColor}">${valLabel}</div>
-          </div>
-          <div>
-            <div class="text-[2rem] font-bold text-primary">${r.train_error_px}px</div>
-            <div class="text-[0.75rem] text-muted">Training Error</div>
-          </div>
-          <div>
-            <div class="text-[2rem] font-bold text-primary">${r.stopped_epoch}</div>
-            <div class="text-[0.75rem] text-muted">Stopped Epoch</div>
-          </div>
-        </div>
-        <div class="flex justify-center mt-5">
-          <button onclick="_nlShowTrainView=false;renderNeuralookView();" class="px-6 py-2 rounded-lg bg-accent text-white text-[0.82rem] font-medium cursor-pointer hover:opacity-90 transition-opacity">
-            Continue to Tracking
-          </button>
-        </div>
-      </div>`;
-  } else if (isError && _nlTrainResult) {
-    resultHTML = `
-      <div class="bg-card border border-red-500/30 rounded-xl p-5 mt-4">
-        <div class="text-[0.85rem] font-semibold text-red-400 mb-2">Training Failed</div>
-        <div class="text-[0.78rem] text-muted">${_nlTrainResult.error}</div>
-        <div class="flex justify-center mt-4">
-          <button onclick="_nlShowTrainView=false;renderNeuralookView();" class="px-6 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
-            Back
-          </button>
-        </div>
-      </div>`;
-  }
-
-  const wandbOpen = _nlWandbPanelOpen && _nlWandbUrl;
-
   container.innerHTML = `
     <div style="display:flex;height:calc(100% - 60px);box-sizing:border-box;gap:0;">
-      <!-- Left: training details -->
+      <!-- Training details -->
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:12px 16px;gap:10px;overflow:hidden;">
         <!-- Header -->
         <div class="flex items-center gap-2" style="flex-shrink:0;">
@@ -329,16 +243,12 @@ function _nlRenderTrainDetailView(container) {
           </button>
           <div style="width:8px;height:8px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
           <h2 class="text-[0.95rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training CNN' : 'Training Complete'}</h2>
-          <!-- Progress inline -->
           <span class="text-[0.72rem] text-muted tabular-nums">${isDone ? epoch : epoch} / ${maxEpochs}</span>
           <div style="flex:1;height:4px;border-radius:2px;background:var(--bg-secondary,#1a1a1f);overflow:hidden;max-width:120px;">
             <div id="nl-train-progbar" style="height:100%;border-radius:2px;background:${phaseColor};width:${isDone ? 100 : pct}%;transition:width 0.3s;"></div>
           </div>
           <span class="text-[0.72rem] text-dimmer tabular-nums" id="nl-train-loss-label">${latestLoss != null ? `loss ${latestLoss.toFixed(5)}` : ''}</span>
           <span class="ml-auto"></span>
-          ${_nlWandbUrl ? `<button onclick="_nlWandbPanelOpen=!_nlWandbPanelOpen;renderNeuralookView();" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[0.72rem] font-medium cursor-pointer transition-colors ${wandbOpen ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted hover:text-accent hover:border-accent'}" title="Toggle W&B panel">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>W&B
-          </button>` : ''}
           <span class="text-[0.72rem] text-muted">${elapsedStr}</span>
           ${_nlTraining ? `<button onclick="_nlStopTraining()" class="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-border-input text-[0.72rem] text-red-400 font-medium cursor-pointer hover:border-red-400 transition-colors" title="Stop training">
             <svg width="8" height="8" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/></svg>Stop
@@ -391,20 +301,6 @@ function _nlRenderTrainDetailView(container) {
         </div>
       </div>
 
-      <!-- Right: W&B panel -->
-      ${wandbOpen ? `
-      <div style="width:50%;min-width:400px;max-width:60%;border-left:1px solid var(--border,#333);display:flex;flex-direction:column;">
-        <div class="flex items-center gap-2 px-3 py-2" style="flex-shrink:0;border-bottom:1px solid var(--border,#333);">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent,#b4451a)"><path d="M4.5 7.5L2 15l3.5-1.5L8 15l2-7.5L8 9l-2-1.5zm7 0L9 15l3.5-1.5L15 15l2-7.5L15 9l-2-1.5zm7 0L16 15l3.5-1.5L22 15l2-7.5L22 9l-2-1.5z"/></svg>
-          <span class="text-[0.78rem] font-medium text-primary">Weights & Biases</span>
-          <a href="${_nlWandbUrl}" target="_blank" class="text-[0.68rem] text-dimmer hover:text-accent transition-colors no-underline" title="Open in new tab">↗</a>
-          <span class="ml-auto"></span>
-          <button onclick="_nlWandbPanelOpen=false;renderNeuralookView();" class="p-1 rounded hover:bg-white/5 transition-colors cursor-pointer text-muted hover:text-primary" title="Close">
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-        </div>
-        <iframe id="nl-wandb-iframe" src="${_nlWandbUrl}" style="flex:1;border:none;width:100%;background:var(--bg-primary,#111);" allow="clipboard-read; clipboard-write"></iframe>
-      </div>` : ''}
     </div>
   `;
 
@@ -417,14 +313,6 @@ function _nlRenderTrainDetailView(container) {
 
   _nlRefreshTrainDetails();
   _nlDrawTrainLossGraph();
-}
-
-function _nlRefreshWandbLink() {
-  // Re-render the training view to show the W&B button when URL arrives
-  if (_nlWandbUrl && document.getElementById('nl-train-progbar')) {
-    const container = document.getElementById('neuralook-content');
-    if (container) _nlRenderTrainDetailView(container);
-  }
 }
 
 function _nlAppendTrainLog(line) {
@@ -480,7 +368,7 @@ function _nlRefreshTrainDetails() {
     row('Architecture', 'CNN (2ch 32x64 → 128 feat → 256 → 64 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
-    row('Calibration', `${_NL_CAL_POSITIONS.length} fixed + tracking`) +
+    row('Calibration', `${_NL_CAL_POSITIONS.length} fixed grid points`) +
     row('Elapsed', elapsedStr) +
     row('Epoch', `${epoch} / ${maxEpochs}`) +
     row('Speed', `${rate} epochs/s`) +
@@ -737,50 +625,25 @@ function _nlCaptureEyeCrops() {
   return combined;
 }
 
-// ── Head Pose Extraction ──
-
-function _nlExtractHeadPose(landmarks) {
-  if (!landmarks || landmarks.length < 400) return [0, 0, 0];
-  // Key landmarks: nose tip #1, chin #152, left eye corner #33, right eye corner #263, forehead #10
-  const nose = landmarks[1];
-  const chin = landmarks[152];
-  const leftEye = landmarks[33];
-  const rightEye = landmarks[263];
-  const forehead = landmarks[10];
-  // Yaw: horizontal angle between eyes relative to nose
-  const eyeMidX = (leftEye.x + rightEye.x) / 2;
-  const yaw = Math.atan2(nose.x - eyeMidX, Math.abs(rightEye.x - leftEye.x)) * (180 / Math.PI);
-  // Pitch: vertical angle from forehead to chin
-  const pitch = Math.atan2(chin.y - forehead.y, 1.0) * (180 / Math.PI) - 70;
-  // Roll: tilt of eye line
-  const roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * (180 / Math.PI);
-  return [yaw, pitch, roll];
-}
-
 // ── Server Communication ──
 
-function _nlTrainOnServerSSE(onProgress, onLog, method, sampleFilter) {
-  method = method || _nlActiveMethod;
+function _nlTrainOnServerSSE(onProgress, onLog) {
   return new Promise((resolve, reject) => {
-    // If calibration is saved on disk, let the server load it (send minimal body)
     const useSaved = _nlCalibSaved && _nlCalibData.length > 0;
     const samples = useSaved ? [] : _nlCalibData.map(s => ({
       eyeData: Array.from(s.eyeData),
       screenX: s.screenX,
-      screenY: s.screenY,
-      headPose: s.headPose || [0, 0, 0],
-      phase: s.phase || 'fixed'
+      screenY: s.screenY
     }));
 
     const reqBody = {
-      method,
+      method: 'cnn',
       samples,
       screenW: window.innerWidth,
       screenH: window.innerHeight,
       eyeW: _NL_EYE_W,
       eyeH: _NL_EYE_H
     };
-    if (sampleFilter) reqBody.sample_filter = sampleFilter;
 
     _nlTrainAbort = new AbortController();
     fetch('/api/neuralook/train', {
@@ -805,16 +668,11 @@ function _nlTrainOnServerSSE(onProgress, onLog, method, sampleFilter) {
               try {
                 const data = JSON.parse(line.slice(6));
                 if (currentEvent === 'log' && onLog) onLog(data.text);
-                else if (currentEvent === 'wandb' && data.url) { _nlWandbUrl = data.url; _nlRefreshWandbLink(); }
                 else if (currentEvent === 'progress' && onProgress) onProgress(data);
                 else if (currentEvent === 'done') {
                   _nlTrainError = data.train_error_px;
                   _nlValError = data.val_error_px || null;
                   _nlModelTrained = true;
-                  // Update method-specific state
-                  const m = data.method || method;
-                  const mObj = _nlAvailableMethods.find(x => x.key === m);
-                  if (mObj) { mObj.trained = true; mObj.trainError = data.train_error_px; mObj.valError = data.val_error_px; }
                   resolve(data);
                   return;
                 } else if (currentEvent === 'error') {
@@ -945,7 +803,7 @@ function _nlDismissTrainPill() {
 }
 
 async function _nlPredictOnServer(eyeData) {
-  const body = { eyeData: Array.from(eyeData), method: _nlActiveMethod };
+  const body = { eyeData: Array.from(eyeData), method: 'cnn' };
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: _authHeaders(),
@@ -1067,7 +925,6 @@ async function _nlStartCalibration() {
   _nlModelTrained = false;
   _nlReady = false;
   _nlCurrentPoint = 0;
-  _nlAccuracy = null;
   _nlPredictionCount = 0;
   _nlTrainError = null;
   _nlValError = null;
@@ -1143,6 +1000,24 @@ function _nlShowCalibrationOverlay() {
   instr.style.cssText = 'position:absolute;top:30px;left:50%;transform:translateX(-50%);font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:8px;';
   overlay.appendChild(instr);
 
+  // Camera preview in bottom-right corner
+  if (_nlVideoEl && _nlVideoEl.srcObject) {
+    const camBox = document.createElement('div');
+    Object.assign(camBox.style, {
+      position: 'absolute', bottom: '50px', right: '24px', width: '180px', height: '135px',
+      borderRadius: '10px', overflow: 'hidden', zIndex: '100000',
+      border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+    });
+    const camVid = document.createElement('video');
+    camVid.srcObject = _nlVideoEl.srcObject;
+    camVid.autoplay = true;
+    camVid.muted = true;
+    camVid.playsInline = true;
+    Object.assign(camVid.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+    camBox.appendChild(camVid);
+    overlay.appendChild(camBox);
+  }
+
   // Progress bar
   const progBar = document.createElement('div');
   progBar.id = 'nl-cal-progbar';
@@ -1174,7 +1049,7 @@ function _nlShowNextCalibrationDot() {
   if (prevRing) prevRing.remove();
 
   if (_nlCurrentPoint >= _NL_CAL_POSITIONS.length) {
-    _nlStartTrackingCalibration();
+    _nlOnCalibrationComplete();
     return;
   }
 
@@ -1186,7 +1061,7 @@ function _nlShowNextCalibrationDot() {
   }
 
   const progFill = document.getElementById('nl-cal-progfill');
-  if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 60) + '%';
+  if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 100) + '%';
 
   // Dot with outline for visibility on any background
   const dot = document.createElement('div');
@@ -1237,15 +1112,7 @@ function _nlShowNextCalibrationDot() {
 
       const eyeData = _nlCaptureEyeCrops();
       if (eyeData) {
-        // Also capture head pose and iris ratios for each sample
-        let headPose = [0, 0, 0];
-        if (_nlFaceLandmarker && _nlVideoEl) {
-          const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
-          if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
-            headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
-          }
-        }
-        _nlCalibData.push({ eyeData, screenX, screenY, headPose, phase: 'fixed' });
+        _nlCalibData.push({ eyeData, screenX, screenY });
       }
       requestAnimationFrame(collect);
     }
@@ -1253,129 +1120,15 @@ function _nlShowNextCalibrationDot() {
   }, _NL_SETTLE_MS);
 }
 
-function _nlStartTrackingCalibration() {
-  const overlay = document.getElementById('nl-calibration-overlay');
-  if (!overlay) return;
-
-  // Remove fixed-grid dot/ring
-  const prev = document.getElementById('nl-cal-dot');
-  if (prev) prev.remove();
-  const prevRing = document.getElementById('nl-cal-ring');
-  if (prevRing) prevRing.remove();
-
-  // Update instruction
-  const instr = document.getElementById('nl-cal-instr');
-  if (instr) instr.innerHTML = '<strong>Calibration</strong> &mdash; Follow the dot with your eyes';
-
-  // Create moving dot (slightly larger than fixed calibration dot)
-  const dot = document.createElement('div');
-  dot.id = 'nl-cal-dot';
-  Object.assign(dot.style, {
-    position: 'absolute', width: '24px', height: '24px', borderRadius: '50%',
-    background: 'var(--accent, #b4451a)', border: '2px solid #fff',
-    boxShadow: '0 0 12px rgba(0,0,0,0.5)', transform: 'translate(-50%, -50%)',
-    zIndex: '100001', opacity: '1'
-  });
-  overlay.appendChild(dot);
-
-  // Build serpentine waypoints: alternating left-right across rows
-  const waypoints = [];
-  for (let i = 0; i < _NL_TRACK_ROWS; i++) {
-    const y = _NL_TRACK_Y_STOPS[i];
-    if (i % 2 === 0) {
-      waypoints.push({ x: _NL_TRACK_X_MIN, y }, { x: _NL_TRACK_X_MAX, y });
-    } else {
-      waypoints.push({ x: _NL_TRACK_X_MAX, y }, { x: _NL_TRACK_X_MIN, y });
-    }
-  }
-
-  const totalMs = _NL_TRACK_ROWS * _NL_TRACK_ROW_MS;
-  // Each segment (waypoint pair) takes one row duration
-  const segCount = waypoints.length - 1; // 13 segments for 7 rows (2 waypoints per row, minus 1 for transitions)
-  // Actually: 7 rows × 2 waypoints = 14 waypoints, 13 segments
-  // Row traversals (even indices: 0-1, 2-3, 4-5, ...) should be slower
-  // Vertical transitions (odd indices: 1-2, 3-4, ...) should be fast
-  // For simplicity, distribute time proportionally to distance
-  const segDists = [];
-  let totalDist = 0;
-  for (let i = 0; i < segCount; i++) {
-    const dx = waypoints[i + 1].x - waypoints[i].x;
-    const dy = waypoints[i + 1].y - waypoints[i].y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    segDists.push(d);
-    totalDist += d;
-  }
-  // Cumulative time at each waypoint
-  const segTimes = [0];
-  for (let i = 0; i < segCount; i++) {
-    segTimes.push(segTimes[i] + (segDists[i] / totalDist) * totalMs);
-  }
-
-  const startTime = performance.now();
-
-  function animate() {
-    if (!document.getElementById('nl-calibration-overlay')) return; // exited early
-    const elapsed = performance.now() - startTime;
-    if (elapsed >= totalMs) {
-      dot.style.opacity = '0';
-      setTimeout(() => { dot.remove(); _nlOnCalibrationComplete(); }, 200);
-      return;
-    }
-
-    // Find current segment
-    let seg = 0;
-    for (let i = 0; i < segCount; i++) {
-      if (elapsed >= segTimes[i] && elapsed < segTimes[i + 1]) { seg = i; break; }
-      if (i === segCount - 1) seg = i;
-    }
-    const segElapsed = elapsed - segTimes[seg];
-    const segDuration = segTimes[seg + 1] - segTimes[seg];
-    const t = Math.min(segElapsed / segDuration, 1);
-
-    const xPct = waypoints[seg].x + (waypoints[seg + 1].x - waypoints[seg].x) * t;
-    const yPct = waypoints[seg].y + (waypoints[seg + 1].y - waypoints[seg].y) * t;
-
-    dot.style.left = xPct + '%';
-    dot.style.top = yPct + '%';
-
-    // Update progress bar: phase 2 fills 60% → 100%
-    const progFill = document.getElementById('nl-cal-progfill');
-    if (progFill) progFill.style.width = (60 + (elapsed / totalMs) * 40) + '%';
-
-    // Capture eye data at current dot position
-    const screenX = window.innerWidth * xPct / 100;
-    const screenY = window.innerHeight * yPct / 100;
-    const eyeData = _nlCaptureEyeCrops();
-    if (eyeData) {
-      let headPose = [0, 0, 0];
-      if (_nlFaceLandmarker && _nlVideoEl) {
-        const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
-        if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
-          headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
-        }
-      }
-      _nlCalibData.push({ eyeData, screenX, screenY, headPose, phase: 'tracking' });
-    }
-
-    requestAnimationFrame(animate);
-  }
-
-  // Start animation on next frame
-  requestAnimationFrame(animate);
-}
-
 async function _nlOnCalibrationComplete() {
-  // Close fullscreen overlay immediately, train in background via pill
   _nlFinishCalibration();
 
-  // Save calibration data to server for reuse by other methods
+  // Save calibration data to server
   try {
     const calibPayload = {
       samples: _nlCalibData.map(s => ({
         eyeData: Array.from(s.eyeData),
-        screenX: s.screenX, screenY: s.screenY,
-        headPose: s.headPose || [0, 0, 0],
-        phase: s.phase || 'fixed'
+        screenX: s.screenX, screenY: s.screenY
       })),
       screenW: window.innerWidth, screenH: window.innerHeight,
       eyeW: _NL_EYE_W, eyeH: _NL_EYE_H
@@ -1388,108 +1141,12 @@ async function _nlOnCalibrationComplete() {
     _nlCalibSaved = true;
   } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
 
-  // Reset all method trained states
-  for (const m of _nlAvailableMethods) { m.trained = false; m.trainError = null; m.valError = null; }
-
   _nlTraining = true;
   _nlTrainPhase = 'training';
   _nlTrainProgress = null;
   _nlTrainResult = null;
   _nlTrainLossHistory = [];
   _nlTrainLogs = [];
-  _nlWandbUrl = null;
-  _nlTrainStartTime = Date.now();
-  _nlShowTrainView = true;
-  _nlShowTrainPill();
-  renderNeuralookView();
-
-  try {
-    // Train cnn_fixed first (fixed grid samples only)
-    _nlTrainLogs.push('── Training Fixed Grid (fixed samples only) ──');
-    _nlAppendTrainLog('── Training Fixed Grid (fixed samples only) ──');
-    _nlUpdateTrainPill('Training Fixed Grid', 'Starting...');
-
-    const fixedResult = await _nlTrainOnServerSSE((prog) => {
-      _nlTrainProgress = prog;
-      _nlTrainPhase = prog.phase || 'training';
-      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
-      if (prog.phase === 'evaluating') {
-        _nlUpdateTrainPill('Training Fixed Grid', 'Evaluating...');
-      } else {
-        const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
-        const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
-        const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-        _nlUpdateTrainPill('Training Fixed Grid', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
-      }
-      _nlRefreshTrainView();
-    }, (logLine) => {
-      _nlTrainLogs.push(logLine);
-      _nlAppendTrainLog(logLine);
-    }, 'cnn_fixed', 'fixed');
-
-    // Now train cnn_tracking (tracking samples only)
-    _nlTrainLogs.push('── Training Tracking (tracking samples only) ──');
-    _nlAppendTrainLog('── Training Tracking (tracking samples only) ──');
-    _nlUpdateTrainPill('Training Tracking', 'Starting...');
-    _nlTrainStartTime = Date.now();
-    _nlTrainLossHistory = [];
-
-    const fullResult = await _nlTrainOnServerSSE((prog) => {
-      _nlTrainProgress = prog;
-      _nlTrainPhase = prog.phase || 'training';
-      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
-      if (prog.phase === 'evaluating') {
-        _nlUpdateTrainPill('Training Tracking', 'Evaluating...');
-      } else {
-        const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
-        const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
-        const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-        _nlUpdateTrainPill('Training Tracking', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
-      }
-      _nlRefreshTrainView();
-    }, (logLine) => {
-      _nlTrainLogs.push(logLine);
-      _nlAppendTrainLog(logLine);
-    }, 'cnn_tracking', 'tracking');
-
-    _nlTrainResult = fullResult;
-    _nlTrainPhase = 'done';
-    _nlTraining = false;
-    _nlActiveMethod = 'cnn_tracking';
-    const trainPx = fullResult.train_error_px;
-    const valPx = fullResult.val_error_px;
-    const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
-    const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
-    _nlReady = true;
-
-    const fixedPx = fixedResult.val_error_px;
-    _nlFinishTrainPill('Calibration Done', `Fixed ${fixedPx}px · Tracking ${valPx}px — ${label}`, color);
-    _nlRefreshTrainView();
-    renderNeuralookView();
-  } catch (e) {
-    _nlTrainPhase = 'error';
-    _nlTraining = false;
-    _nlTrainResult = { error: e.message || String(e) };
-    _nlErrorTrainPill(e.message || String(e));
-    _nlRefreshTrainView();
-    renderNeuralookView();
-  }
-}
-
-// ── Method Selector: Train & Switch ──
-
-async function _nlTrainMethod(methodKey) {
-  // CNN-only: cnn_fixed uses fixed-grid samples, cnn_tracking uses tracking samples
-  if (!_nlCalibSaved && _nlCalibData.length === 0) { alert('No calibration data. Please calibrate first.'); return; }
-  const sampleFilter = methodKey === 'cnn_fixed' ? 'fixed' : 'tracking';
-
-  _nlTraining = true;
-  _nlTrainPhase = 'training';
-  _nlTrainProgress = null;
-  _nlTrainResult = null;
-  _nlTrainLossHistory = [];
-  _nlTrainLogs = [];
-  _nlWandbUrl = null;
   _nlTrainStartTime = Date.now();
   _nlShowTrainView = true;
   _nlShowTrainPill();
@@ -1500,16 +1157,19 @@ async function _nlTrainMethod(methodKey) {
       _nlTrainProgress = prog;
       _nlTrainPhase = prog.phase || 'training';
       if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
-      const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
-      const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
-      const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-      const mName = (_nlAvailableMethods.find(m => m.key === methodKey) || {}).name || methodKey;
-      _nlUpdateTrainPill(`Training ${mName}`, `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      if (prog.phase === 'evaluating') {
+        _nlUpdateTrainPill('Training CNN', 'Evaluating...');
+      } else {
+        const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
+        const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+        const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
+        _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      }
       _nlRefreshTrainView();
     }, (logLine) => {
       _nlTrainLogs.push(logLine);
       _nlAppendTrainLog(logLine);
-    }, methodKey, sampleFilter);
+    });
 
     _nlTrainResult = result;
     _nlTrainPhase = 'done';
@@ -1517,8 +1177,9 @@ async function _nlTrainMethod(methodKey) {
     _nlReady = true;
 
     const valPx = result.val_error_px;
+    const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
-    _nlFinishTrainPill('Training Done', `Val ${valPx}px`, color);
+    _nlFinishTrainPill('Training Done', `Val ${valPx}px — ${label}`, color);
     _nlRefreshTrainView();
     renderNeuralookView();
   } catch (e) {
@@ -1529,12 +1190,6 @@ async function _nlTrainMethod(methodKey) {
     _nlRefreshTrainView();
     renderNeuralookView();
   }
-}
-
-function _nlSwitchMethod(key) {
-  _nlActiveMethod = key;
-  _nlGazeBuffer = [];
-  renderNeuralookView();
 }
 
 function _nlFinishCalibration() {
@@ -1590,10 +1245,7 @@ function _nlToggleTracking() {
 }
 
 async function _nlStartTracking() {
-  if (!_nlReady) return;
-  // Check the active method is trained
-  const mObj = _nlAvailableMethods.find(x => x.key === _nlActiveMethod);
-  if (!mObj || !mObj.trained) return;
+  if (!_nlReady || !_nlModelTrained) return;
   try { await _nlEnsureVideo(); } catch (e) {
     _nlShowError('Camera error: ' + (e.message || e));
     return;
@@ -1683,9 +1335,6 @@ function _nlRefreshStats() {
   const el = document.getElementById('nl-model-stats');
   if (!el) return;
 
-  const accPx = _nlAccuracy !== null ? Math.round(_nlAccuracy) : null;
-  const accLabel = accPx !== null ? (accPx < 80 ? 'Good' : accPx < 150 ? 'Fair' : 'Poor') : null;
-  const accColor = accPx !== null ? (accPx < 80 ? '#4ade80' : accPx < 150 ? '#fbbf24' : '#f87171') : '#6b7280';
   const jitter = _nlTracking ? Math.round(_nlComputeJitter()) : null;
   const jitterColor = jitter !== null ? (jitter < 30 ? '#4ade80' : jitter < 70 ? '#fbbf24' : '#f87171') : '#6b7280';
 
@@ -1693,13 +1342,12 @@ function _nlRefreshStats() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
   el.innerHTML =
-    row('Method', (_nlAvailableMethods.find(m => m.key === _nlActiveMethod) || {}).name || _nlActiveMethod) +
+    row('Model', 'CNN (2ch 32x64)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
-    row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} fixed + tracking)`) +
+    row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
     (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +
-    row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
     row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
     row('Gaze', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +

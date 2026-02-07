@@ -1,3 +1,24 @@
+    /* Draggable pill for window movement */
+    body.electron-app #drag-pill {
+      -webkit-app-region: drag;
+      width: 48px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: grab;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    body.electron-app #drag-pill:active { cursor: grabbing; }
+    body.electron-app #drag-pill::after {
+      content: '';
+      width: 16px;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.2);
+    }
     /* Electron: pill bar is not draggable */
     body.electron-app #sidebar-nav {
       -webkit-app-region: no-drag;
@@ -403,7 +424,7 @@
     /* ── Top Pill Bar ── */
     .pill-bar {
       position: fixed;
-      top: 6px;
+      top: 0;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
@@ -6552,25 +6573,25 @@
     }
 
     /* Dev Stats */
-    .dev-stats-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-    .dev-stat-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 8px; padding: 16px; text-align: center; }
-    .dev-stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
-    .dev-stat-label { font-size: 0.72rem; color: var(--text-dimmer); margin-top: 4px; }
-    .dev-loc-chart { margin-top: 16px; }
+    .dev-stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+    .dev-stat-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 6px; padding: 6px 8px; text-align: center; min-width: 0; }
+    .dev-stat-value { font-size: 1rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+    .dev-stat-label { font-size: 0.65rem; color: var(--text-dimmer); margin-top: 1px; }
+    .dev-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .dev-loc-chart { margin-top: 0; }
     .dev-git-log-list { display: flex; flex-direction: column; gap: 0; }
     .dev-git-log-item {
-      display: grid;
-      grid-template-columns: 60px 1fr auto;
-      gap: 10px;
+      display: flex;
+      gap: 6px;
       align-items: baseline;
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border-card);
-      font-size: 0.78rem;
+      padding: 2px 4px;
+      font-size: 0.72rem;
+      line-height: 1.4;
     }
-    .dev-git-log-item:last-child { border-bottom: none; }
-    .dev-git-log-sha { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.72rem; color: var(--accent); }
-    .dev-git-log-msg { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dev-git-log-meta { color: var(--text-dimmer); font-size: 0.7rem; white-space: nowrap; }
+    .dev-git-log-item:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .dev-git-log-sha { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.68rem; color: var(--accent); flex-shrink: 0; }
+    .dev-git-log-msg { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .dev-git-log-meta { color: var(--text-dimmer); font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
 
     /* Vibe Panel (lazygit-style + split terminals) */
     .vibe-container { display: grid; grid-template-columns: 1fr 1fr; height: 100%; overflow: hidden; }

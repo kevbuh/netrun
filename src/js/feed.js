@@ -517,6 +517,8 @@ function setSortMode(mode) {
   currentSort = mode;
   const citBtn = document.getElementById('sort-citations');
   if (citBtn) citBtn.classList.toggle('active', mode === 'citations');
+  const fyBtn = document.getElementById('sort-foryou');
+  if (fyBtn) fyBtn.classList.toggle('active', mode === 'foryou');
   visibleCount = PAGE_SIZE;
   renderPapers();
 }
@@ -1169,6 +1171,8 @@ function renderQualityView() {
       <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>
     </div>
 
+    <div id="personalization-panel-container" class="mb-6 pt-5 border-t border-border-subtle"></div>
+
     <div class="flex items-center justify-between pt-5 border-t border-border-subtle">
       <div class="text-dim text-[0.78rem]">
         Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
@@ -1178,6 +1182,7 @@ function renderQualityView() {
   `;
 
   renderBlockedWordsList();
+  _renderPersonalizationPanel();
   fetch('/api/quality-prompt').then(r => r.json()).then(data => {
     if (data.prompt) {
       localStorage.setItem('qualityPrompt', data.prompt);
@@ -1187,6 +1192,95 @@ function renderQualityView() {
     const scoringEl = document.getElementById('scoring-prompt-display');
     if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
   }).catch(() => {});
+}
+
+function _renderPersonalizationPanel() {
+  const container = document.getElementById('personalization-panel-container');
+  if (!container) return;
+  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  const readCount = getReadPosts().length;
+
+  if (readCount < 10 || !profile) {
+    container.innerHTML = `
+      <h3 class="text-muted text-[0.8rem] font-medium mb-2">Personalization</h3>
+      <p class="text-dimmer text-[0.75rem]">Read more posts to build your profile (${readCount}/10).</p>`;
+    return;
+  }
+
+  // Topic chips
+  const topicChips = (profile.topTopics || []).map(t =>
+    `<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">${escapeHtml(t)}</span>`
+  ).join('');
+
+  // Category chips
+  const catChips = (profile.topCategories || []).map(c =>
+    `<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">${escapeHtml(c)}</span>`
+  ).join('');
+
+  // Source engagement table
+  const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
+  const sourceRows = Object.entries(profile.sourceCounts || {})
+    .filter(([, c]) => c.total > 0)
+    .sort((a, b) => (affinity[b[0]] || 0) - (affinity[a[0]] || 0))
+    .map(([src, c]) => {
+      const name = SOURCE_NAMES[src] || (src.startsWith('custom:') ? src.slice(7) : src);
+      const readPct = c.total > 0 ? Math.round(c.read / c.total * 100) : 0;
+      const savedPct = c.total > 0 ? Math.round(c.saved / c.total * 100) : 0;
+      const aff = affinity[src] ?? 0.5;
+      const barW = Math.round(aff * 100);
+      return `<tr class="border-b border-border-subtle last:border-0">
+        <td class="py-1 pr-2 text-[0.72rem] text-primary truncate max-w-[120px]">${escapeHtml(name)}</td>
+        <td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">${readPct}%</td>
+        <td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">${savedPct}%</td>
+        <td class="py-1 pl-2 w-20"><div class="h-1.5 rounded-full bg-hover overflow-hidden"><div class="h-full rounded-full bg-accent" style="width:${barW}%"></div></div></td>
+      </tr>`;
+    }).join('');
+
+  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
+
+  container.innerHTML = `
+    <h3 class="text-muted text-[0.8rem] font-medium mb-3">Personalization</h3>
+
+    <div class="mb-3">
+      <span class="text-dimmer text-[0.68rem]">Top Topics</span>
+      <div class="flex flex-wrap gap-1 mt-1">${topicChips || '<span class="text-dimmer text-[0.68rem]">None yet</span>'}</div>
+    </div>
+
+    <div class="mb-4">
+      <span class="text-dimmer text-[0.68rem]">Top Categories</span>
+      <div class="flex flex-wrap gap-1 mt-1">${catChips || '<span class="text-dimmer text-[0.68rem]">None yet</span>'}</div>
+    </div>
+
+    ${sourceRows ? `
+    <div class="mb-4">
+      <span class="text-dimmer text-[0.68rem]">Source Engagement</span>
+      <div class="max-h-[240px] overflow-y-auto mt-1">
+        <table class="w-full text-left">
+          <thead><tr class="text-dimmer text-[0.62rem]">
+            <th class="pb-1 font-normal">Source</th>
+            <th class="pb-1 font-normal text-right pr-2">Read</th>
+            <th class="pb-1 font-normal text-right pr-2">Saved</th>
+            <th class="pb-1 font-normal pl-2">Affinity</th>
+          </tr></thead>
+          <tbody>${sourceRows}</tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
+    <div class="mb-4">
+      <div class="flex items-center gap-3">
+        <span class="text-dimmer text-[0.68rem]">Category diversity</span>
+        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('diversity-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <span id="diversity-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
+      </div>
+      <p class="text-dimmer text-[0.62rem] mt-0.5">Max posts from same category in a row before mixing in others.</p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <p class="text-dimmer text-[0.62rem] flex-1">Composite score = LLM score × (0.7 + affinity × 0.3) + recency boost. Use "For You" sort to rank by this.</p>
+      <button onclick="resetPersonalization()" class="text-red-400/80 text-[0.72rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-2.5 py-0.5 cursor-pointer transition-colors shrink-0">Reset personalization</button>
+    </div>
+  `;
 }
 
 function toggleFeedSource(key, value) {
@@ -1329,6 +1423,7 @@ async function loadAllFeeds() {
     }
 
     renderTrends();
+    if (typeof computeInterestProfile === 'function') computeInterestProfile();
     renderPapers();
     if (isQualityFilterOn()) qualityFilterPapers();
     _detectNewPosts();
@@ -1634,7 +1729,23 @@ function getFilteredPapers() {
   });
 
   const effectiveSort = sortOverride === 'cited' || sortOverride === 'popular' ? 'citations' : sortOverride === 'latest' ? 'latest' : currentSort;
-  if (effectiveSort === 'citations') {
+  if (effectiveSort === 'foryou') {
+    const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
+    const now = Date.now();
+    filtered = [...filtered].sort((a, b) => {
+      const aLlm = qfOn && qCache[a.title]?.s != null ? qCache[a.title].s : 50;
+      const bLlm = qfOn && qCache[b.title]?.s != null ? qCache[b.title].s : 50;
+      const aAff = affinity[a.source] ?? 0.5;
+      const bAff = affinity[b.source] ?? 0.5;
+      const aAge = a.pubDate ? Math.max(0, (now - new Date(a.pubDate).getTime()) / 3600000) : 24;
+      const bAge = b.pubDate ? Math.max(0, (now - new Date(b.pubDate).getTime()) / 3600000) : 24;
+      const aRecency = Math.max(0, 10 - aAge * 0.5);
+      const bRecency = Math.max(0, 10 - bAge * 0.5);
+      a._compositeScore = aLlm * (0.7 + aAff * 0.3) + aRecency;
+      b._compositeScore = bLlm * (0.7 + bAff * 0.3) + bRecency;
+      return b._compositeScore - a._compositeScore;
+    });
+  } else if (effectiveSort === 'citations') {
     filtered = [...filtered].sort((a, b) => {
       const aScore = a.source === 'hn' ? (a.hnScore || 0) : (a.citations || 0);
       const bScore = b.source === 'hn' ? (b.hnScore || 0) : (b.citations || 0);
@@ -1647,26 +1758,28 @@ function getFilteredPapers() {
       return db - da;
     });
   }
-  // Interleave sources so no single source dominates a run
-  const bySource = {};
-  for (const p of filtered) {
-    (bySource[p.source] || (bySource[p.source] = [])).push(p);
-  }
-  const sources = Object.keys(bySource);
-  if (sources.length > 1) {
-    const interleaved = [];
-    const indices = {};
-    sources.forEach(s => indices[s] = 0);
-    let si = 0;
-    while (interleaved.length < filtered.length) {
-      const s = sources[si % sources.length];
-      if (indices[s] < bySource[s].length) {
-        interleaved.push(bySource[s][indices[s]++]);
+  // Category-aware interleaving: limit same-category runs
+  const catMap = {};
+  for (const f of FEED_CATALOG) catMap[f.key] = f.cat;
+  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
+  if (filtered.length > 1) {
+    const result = [];
+    const remaining = filtered.slice();
+    let lastCat = null;
+    let catRun = 0;
+    while (remaining.length) {
+      let picked = -1;
+      for (let i = 0; i < remaining.length; i++) {
+        const pCat = catMap[remaining[i].source] || remaining[i].source;
+        if (pCat !== lastCat || catRun < maxRun) { picked = i; break; }
       }
-      si++;
-      if (sources.every(s => indices[s] >= bySource[s].length)) break;
+      if (picked === -1) picked = 0; // all same category, just take next
+      const p = remaining.splice(picked, 1)[0];
+      const pCat = catMap[p.source] || p.source;
+      if (pCat === lastCat) { catRun++; } else { lastCat = pCat; catRun = 1; }
+      result.push(p);
     }
-    filtered = interleaved;
+    filtered = result;
   }
   return filtered;
 }
