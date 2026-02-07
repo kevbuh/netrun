@@ -2843,6 +2843,9 @@ function showBrowseTabOverview() {
   if (!overlay) return;
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
+  // Capture a fresh snapshot of the current view before showing the overview
+  var curKey = _wmWindows[_wmFocusIndex] && _wmWindows[_wmFocusIndex].key;
+  if (curKey) _wmCaptureSnapshot(curKey);
   _browseTabOverviewVisible = true;
   _overviewBrowseExpanded = false;
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
@@ -2991,11 +2994,18 @@ function _renderWindowOverview() {
     var isSelected = !_overviewBrowseExpanded && i === _overviewSelectedIdx;
     var isBrowseOpen = _overviewBrowseExpanded && w.key === 'browse';
     var icon = _wovAppIcons[w.key] || '';
+    var snap = _wmSnapshots[w.key];
     appHtml += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active ' : '') + (isSelected ? 'wov-selected ' : '') + (isBrowseOpen ? 'wov-expanded ' : '') + '"'
-      + ' onclick="_overviewClickApp(\'' + w.key + '\')">'
+      + ' onclick="_overviewClickApp(\'' + w.key + '\')">';
+    if (snap) {
+      appHtml += '<div class="wov-card-preview" style="background-image:url(' + snap + ')"></div>';
+    } else {
+      appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
+    }
+    appHtml += '<div class="wov-card-info">'
       + '<div class="wov-card-icon">' + icon + '</div>'
       + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'
-      + '</div>';
+      + '</div></div>';
   }
 
   // Browse window cards (when expanded) — each window is its own card
