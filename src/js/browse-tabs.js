@@ -972,8 +972,11 @@ function _browseHandleNavigation(tab, frame) {
 
 function _browseInjectContentScripts(tab, frame) {
   // Context menu — always show aether panel (with context items for links/images)
+  // Debounce: the injected script also fires __AETHER_CONTEXT__ for the same right-click
+  let _ctxMenuHandledAt = 0;
   frame.addEventListener('context-menu', (ev) => {
     ev.preventDefault();
+    _ctxMenuHandledAt = Date.now();
     if (typeof _showPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) { popup.remove(); _aetherTrackMode = false; }
@@ -1115,6 +1118,8 @@ function _browseInjectContentScripts(tab, frame) {
     } else if (e.message === '__AETHER_CLOSE_MENU__') {
       _hideBrowseContextMenu();
     } else if (e.message && e.message.startsWith('__AETHER_CONTEXT__')) {
+      // Skip if the Electron context-menu event already handled this right-click
+      if (Date.now() - _ctxMenuHandledAt < 300) return;
       try {
         const data = JSON.parse(e.message.slice('__AETHER_CONTEXT__'.length));
         const x = data.x - window.screenX;
@@ -3085,9 +3090,29 @@ function _browseActiveEl() {
 }
 
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
+// Captures a screenshot of the webview first so the page content remains visible behind the panel.
 function _browseHideActiveWebview() {
   const el = _browseActiveEl();
-  if (el && el.tagName === 'WEBVIEW') {
+  if (!el || el.tagName !== 'WEBVIEW') return;
+  // Try to capture a screenshot before hiding so the user still sees the page
+  if (typeof el.capturePage === 'function') {
+    el.capturePage().then(img => {
+      if (img && !img.isEmpty()) {
+        let ph = document.getElementById('webview-screenshot-ph');
+        if (!ph) {
+          ph = document.createElement('img');
+          ph.id = 'webview-screenshot-ph';
+          ph.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0;';
+          const container = document.getElementById('browse-content');
+          if (container) container.appendChild(ph);
+        }
+        ph.src = img.toDataURL();
+      }
+      el.style.visibility = 'hidden';
+    }).catch(() => {
+      el.style.visibility = 'hidden';
+    });
+  } else {
     el.style.visibility = 'hidden';
   }
 }
@@ -3096,6 +3121,8 @@ function _browseRestoreActiveWebview() {
   if (el && el.tagName === 'WEBVIEW') {
     el.style.visibility = '';
   }
+  const ph = document.getElementById('webview-screenshot-ph');
+  if (ph) ph.remove();
 }
 
 function browseBack() {
