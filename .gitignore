@@ -6,4 +6,5 @@ src/vault/
 src/alpha.db
 src/lookup.db
 src/__pycache__/
+src/feed_cache/
 wandb/

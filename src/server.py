@@ -11,6 +11,7 @@ import time
 import uuid
 import subprocess
 import sys
+import hashlib
 import concurrent.futures
 import threading
 import tempfile
@@ -30,7 +31,9 @@ if _args.data_dir:
 
 from persistence import (
     DIR, CACHE_TTL, EXPERIMENTS_DIR, BLOCKED_TITLES_FILE, PROMPT_FILE, VAULT_DIR,
-    _cache,
+    _cache, _disk_cache_get, _disk_cache_set,
+    quality_cache_get, quality_cache_set,
+    _DEFAULT_PROMPT_HASH, _DEFAULT_SCORING_HASH,
     read_blocked_titles, write_blocked_titles,
     read_saved_content, write_saved_content,
     slugify, unique_slug,
@@ -742,11 +745,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/hn-feed':
             try:
-                # Cache the full HN response as JSON bytes
-                cache_key = 'hn-feed'
+                # Use shared cached_fetch for disk + memory caching
+                cache_key = 'hn-feed-v1'
                 now = time.time()
+                # Check memory then disk cache
+                cached = None
                 if cache_key in _cache and now - _cache[cache_key][1] < CACHE_TTL:
-                    stories = json.loads(_cache[cache_key][0])
+                    cached = _cache[cache_key][0]
+                else:
+                    disk = _disk_cache_get(cache_key)
+                    if disk:
+                        cached = disk[0]
+                        _cache[cache_key] = disk
+
+                if cached:
+                    stories = json.loads(cached)
                 else:
                     ctx = ssl._create_unverified_context()
                     req = urllib.request.Request(
@@ -766,7 +779,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         items = list(pool.map(fetch_hn_item, ids))
 
                     stories = [it for it in items if it and it.get('type') == 'story']
-                    _cache[cache_key] = (json.dumps(stories).encode(), now)
+                    data = json.dumps(stories).encode()
+                    _cache[cache_key] = (data, now)
+                    _disk_cache_set(cache_key, data)
                 self._send_json(stories)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)
@@ -3554,53 +3569,90 @@ ch.postMessage({type:'preview-ready'});
 
                 if mode == 'score':
                     # Phase 2: score only (called for kept titles)
-                    score_system = DEFAULT_SCORING_PROMPT
-                    def score_title(title):
-                        payload = json.dumps({
-                            "model": "qwen2.5:7b",
-                            "messages": [
-                                {"role": "system", "content": score_system},
-                                {"role": "user", "content": title}
-                            ],
-                            "stream": False,
-                            "options": {"temperature": 0, "num_predict": 8}
-                        }).encode()
-                        req = urllib.request.Request(
-                            "http://localhost:11434/api/chat",
-                            data=payload,
-                            headers={"Content-Type": "application/json"}
-                        )
-                        with urllib.request.urlopen(req, timeout=30) as resp:
-                            resp_data = json.loads(resp.read())
-                        raw = resp_data.get("message", {}).get("content", "").strip()
-                        score_match = re.search(r'\d+', raw)
-                        score = int(score_match.group()) if score_match else 5
-                        return max(0, min(100, score))
+                    prompt_hash = _DEFAULT_SCORING_HASH
 
+                    # Check shared DB cache for existing scores
+                    cached = quality_cache_get(titles, prompt_hash)
                     results = {}
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                        futures = {pool.submit(score_title, t): t for t in titles}
-                        for fut in concurrent.futures.as_completed(futures):
-                            t = futures[fut]
-                            try:
-                                results[t] = fut.result()
-                            except Exception:
-                                results[t] = 50
+                    uncached = []
+                    for t in titles:
+                        if t in cached and cached[t].get('s') is not None:
+                            results[t] = cached[t]['s']
+                        else:
+                            uncached.append(t)
+
+                    if uncached:
+                        score_system = DEFAULT_SCORING_PROMPT
+                        def score_title(title):
+                            payload = json.dumps({
+                                "model": "qwen2.5:7b",
+                                "messages": [
+                                    {"role": "system", "content": score_system},
+                                    {"role": "user", "content": title}
+                                ],
+                                "stream": False,
+                                "options": {"temperature": 0, "num_predict": 8}
+                            }).encode()
+                            req = urllib.request.Request(
+                                "http://localhost:11434/api/chat",
+                                data=payload,
+                                headers={"Content-Type": "application/json"}
+                            )
+                            with urllib.request.urlopen(req, timeout=30) as resp:
+                                resp_data = json.loads(resp.read())
+                            raw = resp_data.get("message", {}).get("content", "").strip()
+                            score_match = re.search(r'\d+', raw)
+                            score = int(score_match.group()) if score_match else 5
+                            return max(0, min(100, score))
+
+                        new_entries = {}
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                            futures = {pool.submit(score_title, t): t for t in uncached}
+                            for fut in concurrent.futures.as_completed(futures):
+                                t = futures[fut]
+                                try:
+                                    s = fut.result()
+                                except Exception:
+                                    s = 50
+                                results[t] = s
+                                new_entries[t] = {'s': s}
+                        # Persist new scores to shared cache
+                        quality_cache_set(new_entries, prompt_hash)
+
                     self._send_json(results)
                 else:
                     # Phase 1: verdict only (KEEP or SKIP)
                     custom_prompt = body.get('prompt', '')
                     system_msg = custom_prompt.strip() if custom_prompt.strip() else None
+                    prompt_hash = hashlib.sha256(
+                        (system_msg or DEFAULT_VERDICT_PROMPT).encode()
+                    ).hexdigest()[:16]
 
+                    # Check shared DB cache
+                    cached = quality_cache_get(titles, prompt_hash)
                     results = {}
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                        futures = {pool.submit(classify_title, t, system_msg): t for t in titles}
-                        for fut in concurrent.futures.as_completed(futures):
-                            t = futures[fut]
-                            try:
-                                results[t] = fut.result()
-                            except Exception:
-                                results[t] = "keep"
+                    uncached = []
+                    for t in titles:
+                        if t in cached and cached[t].get('v') is not None:
+                            results[t] = cached[t]['v']
+                        else:
+                            uncached.append(t)
+
+                    if uncached:
+                        new_entries = {}
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                            futures = {pool.submit(classify_title, t, system_msg): t for t in uncached}
+                            for fut in concurrent.futures.as_completed(futures):
+                                t = futures[fut]
+                                try:
+                                    v = fut.result()
+                                except Exception:
+                                    v = "keep"
+                                results[t] = v
+                                new_entries[t] = {'v': v}
+                        # Persist new verdicts to shared cache
+                        quality_cache_set(new_entries, prompt_hash)
+
                     self._send_json(results)
             except Exception as e:
                 self._send_json({'error': str(e)}, 502)

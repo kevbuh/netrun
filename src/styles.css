@@ -656,6 +656,29 @@
       to { opacity: 1; }
     }
 
+    @keyframes feedEnter {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .feed-enter { animation: feedEnter 0.3s ease-out both; }
+
+    @keyframes feedNewDot {
+      0%   { opacity: 1; }
+      80%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .feed-new-dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      pointer-events: none;
+      animation: feedNewDot 10s ease-out forwards;
+    }
+
     /* ── Toggle switch ── */
     .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -6339,6 +6362,10 @@
       background: color-mix(in srgb, var(--accent) 10%, transparent);
     }
 
+    .onboard-source.onboard-selected {
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+
     /* Dev Stats */
     .dev-stats-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
     .dev-stat-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 8px; padding: 16px; text-align: center; }
@@ -6537,5 +6564,232 @@
       body.printing-pdf .pdf-page-wrapper .pdf-search-highlight { visibility: hidden; }
       body.printing-pdf .pdf-toolbar { display: none !important; }
       @page { margin: 0.5cm; }
+    }
+
+    /* ── Tiling Window Manager Overlay (Niri-style) ── */
+    #wm-tiling-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: rgba(8, 8, 10, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .wm-tiles-strip {
+      display: flex;
+      align-items: stretch;
+      gap: 14px;
+      padding: 24px 40px;
+      overflow-x: auto;
+      max-width: 100%;
+      scroll-behavior: smooth;
+    }
+
+    .wm-tiles-strip::-webkit-scrollbar { height: 0; }
+
+    .wm-tile {
+      position: relative;
+      width: 280px;
+      min-width: 280px;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.2s;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .wm-tile:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .wm-tile.focused {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 8px 32px rgba(0, 0, 0, 0.4);
+      transform: scale(1.03);
+    }
+
+    /* Title bar */
+    .wm-tile-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      flex-shrink: 0;
+    }
+
+    .wm-tile-titlebar-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.45);
+      flex-shrink: 0;
+    }
+
+    .wm-tile-titlebar-icon svg { width: 14px; height: 14px; }
+    .wm-tile-titlebar-icon .wm-tile-alpha { font-size: 12px; }
+
+    .wm-tile.focused .wm-tile-titlebar-icon { color: var(--accent); }
+    .wm-tile.focused .wm-tile-titlebar-icon .wm-tile-alpha { color: var(--accent); }
+
+    .wm-tile-titlebar-label {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.45);
+      font-weight: 500;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .wm-tile.focused .wm-tile-titlebar-label {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .wm-tile-close {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.12s, background 0.12s, color 0.12s;
+      flex-shrink: 0;
+      padding: 0;
+    }
+
+    .wm-tile:hover .wm-tile-close { opacity: 1; }
+    .wm-tile-close:hover { background: rgba(255, 80, 80, 0.25); color: rgba(255, 120, 120, 0.9); }
+
+    /* Preview area */
+    .wm-tile-preview {
+      flex: 1;
+      min-height: 160px;
+      background-size: cover;
+      background-position: top left;
+      background-repeat: no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wm-tile-placeholder {
+      color: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wm-tile-placeholder svg { width: 48px; height: 48px; }
+    .wm-tile-placeholder .wm-tile-alpha {
+      font-family: Georgia, serif;
+      font-weight: bold;
+      font-size: 48px;
+      color: rgba(255, 255, 255, 0.08);
+    }
+
+    .wm-tiling-hint {
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.2);
+      letter-spacing: 0.02em;
+    }
+
+    /* Light theme overrides */
+    [data-theme="light"] #wm-tiling-overlay,
+    [data-theme="daylight"] #wm-tiling-overlay,
+    [data-theme="sepia"] #wm-tiling-overlay {
+      background: rgba(235, 235, 238, 0.96);
+    }
+    [data-theme="light"] .wm-tile,
+    [data-theme="daylight"] .wm-tile,
+    [data-theme="sepia"] .wm-tile {
+      border-color: rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.8);
+    }
+    [data-theme="light"] .wm-tile:hover,
+    [data-theme="daylight"] .wm-tile:hover,
+    [data-theme="sepia"] .wm-tile:hover {
+      border-color: rgba(0, 0, 0, 0.16);
+    }
+    [data-theme="light"] .wm-tile.focused,
+    [data-theme="daylight"] .wm-tile.focused,
+    [data-theme="sepia"] .wm-tile.focused {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+    [data-theme="light"] .wm-tile-titlebar,
+    [data-theme="daylight"] .wm-tile-titlebar,
+    [data-theme="sepia"] .wm-tile-titlebar {
+      background: rgba(0, 0, 0, 0.03);
+      border-bottom-color: rgba(0, 0, 0, 0.06);
+    }
+    [data-theme="light"] .wm-tile-titlebar-icon,
+    [data-theme="daylight"] .wm-tile-titlebar-icon,
+    [data-theme="sepia"] .wm-tile-titlebar-icon {
+      color: rgba(0, 0, 0, 0.4);
+    }
+    [data-theme="light"] .wm-tile.focused .wm-tile-titlebar-icon,
+    [data-theme="daylight"] .wm-tile.focused .wm-tile-titlebar-icon,
+    [data-theme="sepia"] .wm-tile.focused .wm-tile-titlebar-icon {
+      color: var(--accent);
+    }
+    [data-theme="light"] .wm-tile-titlebar-label,
+    [data-theme="daylight"] .wm-tile-titlebar-label,
+    [data-theme="sepia"] .wm-tile-titlebar-label {
+      color: rgba(0, 0, 0, 0.45);
+    }
+    [data-theme="light"] .wm-tile.focused .wm-tile-titlebar-label,
+    [data-theme="daylight"] .wm-tile.focused .wm-tile-titlebar-label,
+    [data-theme="sepia"] .wm-tile.focused .wm-tile-titlebar-label {
+      color: rgba(0, 0, 0, 0.8);
+    }
+    [data-theme="light"] .wm-tile-close,
+    [data-theme="daylight"] .wm-tile-close,
+    [data-theme="sepia"] .wm-tile-close {
+      color: rgba(0, 0, 0, 0.25);
+    }
+    [data-theme="light"] .wm-tile-close:hover,
+    [data-theme="daylight"] .wm-tile-close:hover,
+    [data-theme="sepia"] .wm-tile-close:hover {
+      background: rgba(255, 60, 60, 0.15);
+      color: rgba(220, 50, 50, 0.9);
+    }
+    [data-theme="light"] .wm-tile-placeholder,
+    [data-theme="daylight"] .wm-tile-placeholder,
+    [data-theme="sepia"] .wm-tile-placeholder {
+      color: rgba(0, 0, 0, 0.06);
+    }
+    [data-theme="light"] .wm-tile-placeholder svg,
+    [data-theme="daylight"] .wm-tile-placeholder svg,
+    [data-theme="sepia"] .wm-tile-placeholder svg {
+      color: rgba(0, 0, 0, 0.06);
+    }
+    [data-theme="light"] .wm-tile-placeholder .wm-tile-alpha,
+    [data-theme="daylight"] .wm-tile-placeholder .wm-tile-alpha,
+    [data-theme="sepia"] .wm-tile-placeholder .wm-tile-alpha {
+      color: rgba(0, 0, 0, 0.06);
+    }
+    [data-theme="light"] .wm-tiling-hint,
+    [data-theme="daylight"] .wm-tiling-hint,
+    [data-theme="sepia"] .wm-tiling-hint {
+      color: rgba(0, 0, 0, 0.2);
     }
 

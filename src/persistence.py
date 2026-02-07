@@ -8,11 +8,17 @@ import sqlite3
 import secrets
 import uuid
 
+import hashlib
+
 DIR = os.environ.get('ARXIV_DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
 CACHE_TTL = 600  # 10 minutes
 
 # In-memory cache: url -> (data_bytes, timestamp)
 _cache = {}
+
+# Disk-backed feed cache shared across all users / server restarts
+FEED_CACHE_DIR = os.path.join(DIR, 'feed_cache')
+os.makedirs(FEED_CACHE_DIR, exist_ok=True)
 
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
@@ -171,18 +177,61 @@ def classify_title(title, system_msg=None):
     return "keep" if raw.upper().startswith("KEEP") else "skip"
 
 
+def _feed_cache_path(key):
+    """Return path for a disk-cached feed entry."""
+    h = hashlib.sha256(key.encode()).hexdigest()[:16]
+    return os.path.join(FEED_CACHE_DIR, h + '.bin')
+
+
+def _disk_cache_get(key):
+    """Read from disk cache. Returns (data_bytes, timestamp) or None."""
+    path = _feed_cache_path(key)
+    try:
+        if not os.path.exists(path):
+            return None
+        mtime = os.path.getmtime(path)
+        if time.time() - mtime >= CACHE_TTL:
+            return None
+        with open(path, 'rb') as f:
+            return f.read(), mtime
+    except Exception:
+        return None
+
+
+def _disk_cache_set(key, data):
+    """Write data bytes to disk cache."""
+    try:
+        with open(_feed_cache_path(key), 'wb') as f:
+            f.write(data)
+    except Exception:
+        pass
+
+
 def cached_fetch(url, timeout=15):
-    """Fetch a URL, returning cached bytes if fresh enough."""
+    """Fetch a URL, returning cached bytes if fresh enough.
+
+    Checks in-memory cache first, then disk cache (shared across users
+    and server restarts), then fetches from the network.
+    """
     now = time.time()
+    # 1) In-memory cache
     if url in _cache:
         data, ts = _cache[url]
         if now - ts < CACHE_TTL:
             return data
+    # 2) Disk cache
+    disk = _disk_cache_get(url)
+    if disk:
+        data, ts = disk
+        _cache[url] = (data, ts)
+        return data
+    # 3) Network fetch
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     ctx = ssl._create_unverified_context()
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         data = resp.read()
     _cache[url] = (data, now)
+    _disk_cache_set(url, data)
     return data
 
 
@@ -420,6 +469,16 @@ def init_db():
             ts REAL NOT NULL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS quality_cache (
+            title_hash TEXT NOT NULL,
+            prompt_hash TEXT NOT NULL,
+            verdict TEXT,
+            score INTEGER,
+            cached_at REAL NOT NULL,
+            PRIMARY KEY (title_hash, prompt_hash)
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -427,6 +486,58 @@ def init_db():
 def log_usage(event):
     conn = _get_db()
     conn.execute("INSERT INTO usage_log (event, ts) VALUES (?, ?)", (event, time.time()))
+    conn.commit()
+    conn.close()
+
+
+# ── Shared quality filter cache ──
+
+_DEFAULT_PROMPT_HASH = hashlib.sha256(
+    (DEFAULT_VERDICT_PROMPT).encode()
+).hexdigest()[:16]
+
+_DEFAULT_SCORING_HASH = hashlib.sha256(
+    (DEFAULT_SCORING_PROMPT).encode()
+).hexdigest()[:16]
+
+
+def _title_hash(title):
+    return hashlib.sha256(title.encode()).hexdigest()[:20]
+
+
+def quality_cache_get(titles, prompt_hash):
+    """Look up cached quality results for a list of titles.
+    Returns dict of {title: {verdict, score}} for hits."""
+    if not titles:
+        return {}
+    conn = _get_db()
+    results = {}
+    for title in titles:
+        th = _title_hash(title)
+        row = conn.execute(
+            "SELECT verdict, score FROM quality_cache WHERE title_hash = ? AND prompt_hash = ?",
+            (th, prompt_hash)
+        ).fetchone()
+        if row:
+            results[title] = {'v': row['verdict'], 's': row['score']}
+    conn.close()
+    return results
+
+
+def quality_cache_set(entries, prompt_hash):
+    """Store quality results. entries = {title: {'v': verdict, 's': score|None}}"""
+    if not entries:
+        return
+    conn = _get_db()
+    now = time.time()
+    for title, data in entries.items():
+        th = _title_hash(title)
+        verdict = data.get('v')
+        score = data.get('s')
+        conn.execute(
+            "INSERT OR REPLACE INTO quality_cache (title_hash, prompt_hash, verdict, score, cached_at) VALUES (?, ?, ?, ?, ?)",
+            (th, prompt_hash, verdict, score, now)
+        )
     conn.commit()
     conn.close()
 

@@ -810,6 +810,199 @@ function hideAllViews() {
   _panelActiveView = null;
 }
 
+// ── Niri-style Tiling Window Manager ──
+let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
+let _wmFocusIndex = 0;
+let _wmTilingHandler = null;   // keydown handler installed when tiling
+let _wmSnapshots = {};         // { viewKey: dataUrl } — captured preview images
+
+const _wmViewMeta = {
+  dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openDashboard(); } },
+  feed:       { sidebarId: 'sb-home',      label: 'Feed',       openFn() { goHome(); } },
+  research:   { sidebarId: 'sb-research',  label: 'Research',   openFn() { openResearch(); } },
+  vault:      { sidebarId: 'sb-vault',     label: 'Vault',      openFn() { openVault(); } },
+  browse:     { sidebarId: 'sb-browse',    label: 'Browse',     openFn() { openBrowse(); } },
+  inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox',      openFn() { openInbox(); } },
+  terminal:   { sidebarId: 'sb-terminal',  label: 'Terminal',   openFn() { openTerminal(); } },
+  neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook',  openFn() { openNeuralook(); } },
+  dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
+  vibe:       { sidebarId: 'sb-vibe',      label: 'Vibe',       openFn() { openVibe(); } },
+  settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
+  calendar:   { sidebarId: 'sb-calendar',  label: 'Calendar',   openFn() { openCalendar(); } },
+};
+
+// Pre-populate all views (pill bar order)
+const _wmDefaultOrder = ['dashboard','feed','research','vault','browse','inbox','terminal','neuralook','dev','vibe','settings'];
+let _wmWindows = _wmDefaultOrder.map(key => ({
+  key,
+  label: _wmViewMeta[key].label,
+  sidebarId: _wmViewMeta[key].sidebarId,
+}));
+
+function wmOpen(key) {
+  const meta = _wmViewMeta[key];
+  if (!meta) return;
+  const existIdx = _wmWindows.findIndex(w => w.key === key);
+  if (existIdx >= 0) {
+    _wmFocusIndex = existIdx;
+  } else {
+    _wmWindows.push({ key, label: meta.label, sidebarId: meta.sidebarId });
+    _wmFocusIndex = _wmWindows.length - 1;
+  }
+  if (_wmMode === 'tiling') _wmExitTiling(_wmFocusIndex);
+  else _wmActivateWindow(_wmFocusIndex);
+}
+
+function _wmActivateWindow(index) {
+  if (index < 0 || index >= _wmWindows.length) return;
+  _wmFocusIndex = index;
+  _wmMode = 'fullscreen';
+  const w = _wmWindows[index];
+  const meta = _wmViewMeta[w.key];
+  if (meta) meta.openFn();
+  // Capture a preview in the background after the view renders
+  setTimeout(() => _wmCaptureSnapshot(w.key), 600);
+}
+
+function _wmCaptureSnapshot(key) {
+  if (typeof html2canvas === 'undefined') return;
+  if (_wmMode === 'tiling') return; // don't capture the overlay
+  const bezel = document.getElementById('app-bezel');
+  if (!bezel) return;
+  html2canvas(bezel, {
+    scale: 0.3,
+    logging: false,
+    useCORS: true,
+    allowTaint: true,
+    ignoreElements: function(el) { return el.id === 'wm-tiling-overlay'; },
+  }).then(function(canvas) {
+    _wmSnapshots[key] = canvas.toDataURL('image/jpeg', 0.65);
+  }).catch(function() {});
+}
+
+function _wmEnterTiling() {
+  _wmMode = 'tiling';
+  if (!_wmWindows.length) return;
+  const overlay = document.getElementById('wm-tiling-overlay');
+  if (!overlay) return;
+
+  // Capture current view before showing overlay (sync-ish: show tiles immediately with cached snapshot)
+  const currentKey = _wmWindows[_wmFocusIndex]?.key;
+  if (currentKey && typeof html2canvas !== 'undefined') {
+    const bezel = document.getElementById('app-bezel');
+    if (bezel) {
+      html2canvas(bezel, { scale: 0.3, logging: false, useCORS: true, allowTaint: true,
+        ignoreElements: function(el) { return el.id === 'wm-tiling-overlay'; },
+      }).then(function(canvas) {
+        _wmSnapshots[currentKey] = canvas.toDataURL('image/jpeg', 0.65);
+        // Update the tile preview if overlay is still showing
+        const tile = overlay.querySelector(`.wm-tile[data-wm-index="${_wmWindows.findIndex(w => w.key === currentKey)}"] .wm-tile-preview`);
+        if (tile) tile.style.backgroundImage = `url(${_wmSnapshots[currentKey]})`;
+      }).catch(function() {});
+    }
+  }
+
+  // Build tile cards
+  let html = '<div class="wm-tiles-strip">';
+  _wmWindows.forEach((w, i) => {
+    const focused = i === _wmFocusIndex ? ' focused' : '';
+    const snap = _wmSnapshots[w.key];
+    // Icon from sidebar
+    const sbBtn = document.getElementById(w.sidebarId);
+    let iconHtml = '';
+    if (sbBtn) {
+      const svg = sbBtn.querySelector('svg');
+      const pillLabel = sbBtn.querySelector('.pill-label');
+      if (svg) iconHtml = svg.outerHTML;
+      else if (pillLabel) iconHtml = `<span class="wm-tile-alpha">${pillLabel.textContent}</span>`;
+    }
+    html += `<div class="wm-tile${focused}" data-wm-index="${i}" ondblclick="_wmTileActivate(${i})" onclick="_wmTileClick(${i})">`;
+    // Title bar
+    html += `<div class="wm-tile-titlebar">`;
+    html += `<span class="wm-tile-titlebar-icon">${iconHtml}</span>`;
+    html += `<span class="wm-tile-titlebar-label">${escapeHtml(w.label)}</span>`;
+    html += `<button class="wm-tile-close" onclick="event.stopPropagation();_wmCloseWindow(${i})" title="Close">&times;</button>`;
+    html += `</div>`;
+    // Preview area
+    const bgStyle = snap ? `background-image:url(${snap})` : '';
+    html += `<div class="wm-tile-preview" style="${bgStyle}">`;
+    if (!snap) html += `<div class="wm-tile-placeholder">${iconHtml}</div>`;
+    html += `</div>`;
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div class="wm-tiling-hint">&larr; &rarr; navigate &middot; Enter to open &middot; &x232b; close</div>';
+  overlay.innerHTML = html;
+  overlay.style.display = '';
+
+  // Install keyboard handler
+  _wmTilingHandler = function(e) {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); _wmNavigate(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); _wmNavigate(1); }
+    else if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); _wmExitTiling(_wmFocusIndex); }
+    else if ((e.key === 'Backspace' || e.key === 'w') && _wmWindows.length > 1) { e.preventDefault(); _wmCloseWindow(_wmFocusIndex); }
+  };
+  document.addEventListener('keydown', _wmTilingHandler, true);
+  _wmScrollToFocused();
+}
+
+function _wmExitTiling(index) {
+  if (_wmTilingHandler) {
+    document.removeEventListener('keydown', _wmTilingHandler, true);
+    _wmTilingHandler = null;
+  }
+  const overlay = document.getElementById('wm-tiling-overlay');
+  if (overlay) overlay.style.display = 'none';
+  _wmActivateWindow(index);
+}
+
+function _wmNavigate(dir) {
+  if (!_wmWindows.length) return;
+  _wmFocusIndex = (_wmFocusIndex + dir + _wmWindows.length) % _wmWindows.length;
+  _wmUpdateFocus();
+  _wmScrollToFocused();
+}
+
+function _wmUpdateFocus() {
+  const overlay = document.getElementById('wm-tiling-overlay');
+  if (!overlay) return;
+  overlay.querySelectorAll('.wm-tile').forEach((tile, i) => {
+    tile.classList.toggle('focused', i === _wmFocusIndex);
+  });
+}
+
+function _wmScrollToFocused() {
+  const overlay = document.getElementById('wm-tiling-overlay');
+  if (!overlay) return;
+  const tile = overlay.querySelector('.wm-tile.focused');
+  if (tile) tile.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+}
+
+function _wmCloseWindow(index) {
+  if (_wmWindows.length <= 1) return;
+  const removed = _wmWindows.splice(index, 1);
+  if (_wmFocusIndex >= _wmWindows.length) _wmFocusIndex = _wmWindows.length - 1;
+  if (_wmMode === 'tiling') _wmEnterTiling();
+}
+
+function _wmTileClick(i) {
+  _wmFocusIndex = i;
+  _wmUpdateFocus();
+}
+
+function _wmTileActivate(i) {
+  _wmExitTiling(i);
+}
+
+function _wmToggleTiling() {
+  if (_wmMode === 'tiling') {
+    _wmExitTiling(_wmFocusIndex);
+  } else {
+    if (!_wmWindows.length) return;
+    _wmEnterTiling();
+  }
+}
+
 function goHome() {
   setSidebarLoading('sb-home');
   const alreadyOnFeed = window.location.hash === '#feed';
@@ -1168,14 +1361,14 @@ function routeFromHash() {
   const _oldHash = _currentRouteHash || '';
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
-  if (hash === '#research') openResearch();
+  if (hash === '#research') wmOpen('research');
   else if (hash === '#experiments') openResearch('projects'); // Legacy redirect
-  else if (hash === '#settings') openSettings();
+  else if (hash === '#settings') wmOpen('settings');
   else if (hash === '#quality') openQualityView();
-  else if (hash === '#calendar') openCalendar();
-  else if (hash === '#inbox') openInbox();
+  else if (hash === '#calendar') wmOpen('calendar');
+  else if (hash === '#inbox') wmOpen('inbox');
   else if (hash === '#teams') openTeams();
-  else if (hash === '#vault') openVault();
+  else if (hash === '#vault') wmOpen('vault');
   else if (hash.startsWith('#blog/')) {
     const parts = hash.slice('#blog/'.length).split('/');
     if (parts.length >= 2) {
@@ -1191,18 +1384,18 @@ function routeFromHash() {
   else if (hash === '#profile') openUserProfile('');
   else if (hash.startsWith('#profile/')) {
     const profileUser = decodeURIComponent(hash.slice('#profile/'.length));
-    if (_authUserInfo && profileUser === _authUserInfo.username) { openDashboard(); }
+    if (_authUserInfo && profileUser === _authUserInfo.username) { wmOpen('dashboard'); }
     else openUserProfile(profileUser);
   }
-else if (hash === '#saved-all') openAllSaved();
-  else if (hash === '#saved') openDashboard();
-  else if (hash === '#browse') openBrowse();
+  else if (hash === '#saved-all') openAllSaved();
+  else if (hash === '#saved') wmOpen('dashboard');
+  else if (hash === '#browse') wmOpen('browse');
   else if (hash === '#search') openResearch('search'); // Legacy redirect
-  else if (hash === '#terminal') openTerminal();
-  else if (hash === '#neuralook') openNeuralook();
-  else if (hash === '#dev') openDevStats();
-  else if (hash === '#vibe') openVibe();
-  else if (hash === '#feed') goHome();
+  else if (hash === '#terminal') wmOpen('terminal');
+  else if (hash === '#neuralook') wmOpen('neuralook');
+  else if (hash === '#dev') wmOpen('dev');
+  else if (hash === '#vibe') wmOpen('vibe');
+  else if (hash === '#feed') wmOpen('feed');
   else if (hash.startsWith('#experiment/')) {
     const expPart = hash.slice('#experiment/'.length);
     const qIdx = expPart.indexOf('?');
@@ -1215,7 +1408,7 @@ else if (hash === '#saved-all') openAllSaved();
   else if (hash.startsWith('#paper/')) openPaperByUrl(decodeURIComponent(hash.slice('#paper/'.length)));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
   else if (hash.startsWith('#author/')) openAuthorProfile(hash.slice('#author/'.length));
-  else openDashboard();
+  else wmOpen('dashboard');
 }
 
 // Save hash to localStorage for "remember where we left off"
@@ -1902,8 +2095,14 @@ function formatFirstAuthor(authors) {
   return parts[0] + ' et al.';
 }
 
-// Close settings on Escape
+// Close settings on Escape + WM tiling toggle
 window.addEventListener('keydown', e => {
+  // Cmd+Esc → toggle tiling WM
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Escape') {
+    e.preventDefault();
+    _wmToggleTiling();
+    return;
+  }
   if (e.key === 'Escape') {
     const sv = document.getElementById('settings-view');
     if (sv && sv.style.display === 'block') goHome();

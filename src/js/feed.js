@@ -2,6 +2,7 @@
 let _refreshTimer = null;
 let _refreshSecondsLeft = 300;
 let _previousPostLinks = new Set();
+let _renderedLinks = new Set();
 
 function startRefreshTimer() {
   if (_refreshTimer) clearInterval(_refreshTimer);
@@ -648,55 +649,45 @@ function renderOnboardGrid() {
   const entries = _hcActiveCategory
     ? FEED_CATALOG.filter(f => f.cat === _hcActiveCategory)
     : FEED_CATALOG;
-  const N = entries.length;
-  const circleSize = 42;
-  const gap = 8;
-  const cell = circleSize + gap;
-  const rowH = cell * 0.866;
-  const cols = Math.max(3, Math.ceil(Math.sqrt(N * 1.2)));
-  const pad = 40; // padding so edge circles + tooltips aren't clipped
 
-  _hcPositions = [];
-  _hcCircleEls = [];
-  _hcHoveredIdx = -1;
+  // Group by category
+  const byCategory = {};
+  entries.forEach(f => {
+    if (!byCategory[f.cat]) byCategory[f.cat] = [];
+    byCategory[f.cat].push(f);
+  });
 
   let html = '';
-  entries.forEach((f, i) => {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
-    const offsetX = (row % 2 === 1) ? cell / 2 : 0;
-    const x = pad + col * cell + offsetX;
-    const y = pad + row * rowH;
-    _hcPositions.push({ x: x + circleSize / 2, y: y + circleSize / 2, key: f.key });
-    const sel = onboardSelected.has(f.key) ? ' selected' : '';
-    html += `<div class="hc-circle${sel}" data-source="${f.key}" style="left:${x}px;top:${y}px;background:${f.bg || '#333'};" data-idx="${i}">
-      <div class="hc-icon">${_honeycombCircleContent(f)}</div>
-      <div class="hc-tooltip">${f.name}</div>
-    </div>`;
-  });
-  grid.innerHTML = html;
-
-  const totalRows = Math.ceil(N / cols);
-  const gridW = cols * cell + cell / 2 + circleSize + pad * 2;
-  const gridH = totalRows * rowH + circleSize + pad * 2;
-  grid.style.width = gridW + 'px';
-  grid.style.height = gridH + 'px';
-
-  _hcCircleEls = Array.from(grid.querySelectorAll('.hc-circle'));
-
-  _hcCircleEls.forEach(el => {
-    el.addEventListener('click', () => {
-      if (_hcDidDrag) return;
-      toggleOnboardSource(el.dataset.source);
-    });
-  });
-
-  requestAnimationFrame(() => _centerHoneycomb());
-
-  if (!_hcListenersAttached) {
-    _attachHoneycombListeners();
-    _hcListenersAttached = true;
+  for (const cat of Object.keys(byCategory)) {
+    const items = byCategory[cat];
+    const allOn = items.every(f => onboardSelected.has(f.key));
+    html += `<div class="mb-4">
+      <div class="flex items-center gap-2 mb-1.5 px-1">
+        <span class="text-[0.72rem] text-dim uppercase tracking-wider font-medium">${escapeHtml(cat)}</span>
+        <span class="flex-1 h-px bg-border-subtle"></span>
+        <button class="text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors" onclick="_toggleOnboardCategory('${cat.replace(/'/g, "\\'")}')">
+          ${allOn ? 'Deselect all' : 'Select all'}
+        </button>
+      </div>`;
+    for (const f of items) {
+      const sel = onboardSelected.has(f.key);
+      const icon = f.favicon
+        ? `<img src="https://www.google.com/s2/favicons?domain=${f.favicon}&sz=32" class="w-5 h-5 rounded" onerror="this.outerHTML='<span class=\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\' style=\\'background:${f.bg || '#333'};color:${f.fg || '#fff'}\\'>${f.letter || f.name[0]}</span>'">`
+        : `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold" style="background:${f.bg || '#333'};color:${f.fg || '#fff'}">${f.letter || f.name[0]}</span>`;
+      html += `<div class="onboard-source flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors hover:bg-hover${sel ? ' onboard-selected' : ''}" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
+        ${icon}
+        <div class="flex-1 min-w-0">
+          <div class="text-[0.82rem] font-medium ${sel ? 'text-primary' : 'text-muted'} truncate">${escapeHtml(f.name)}</div>
+          <div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(f.desc)}</div>
+        </div>
+        <div class="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${sel ? 'border-accent bg-accent' : 'border-border-input bg-transparent'}">
+          ${sel ? '<svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
   }
+  grid.innerHTML = html;
 }
 
 function _hcApplyTransform() {
@@ -855,23 +846,29 @@ function toggleOnboardSource(key) {
     onboardNotifSelected.delete(key);
   } else {
     onboardSelected.add(key);
-    // Notifications default to OFF — user must explicitly enable via bell
   }
-  _updateOnboardCardStates();
+  renderOnboardGrid();
+  document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
+}
+
+function _toggleOnboardCategory(cat) {
+  const items = FEED_CATALOG.filter(f => f.cat === cat);
+  const allOn = items.every(f => onboardSelected.has(f.key));
+  items.forEach(f => {
+    if (allOn) { onboardSelected.delete(f.key); onboardNotifSelected.delete(f.key); }
+    else onboardSelected.add(f.key);
+  });
+  renderOnboardGrid();
+  document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
 
 function toggleOnboardNotif(key) {
   if (!onboardSelected.has(key)) return;
   if (onboardNotifSelected.has(key)) onboardNotifSelected.delete(key);
   else onboardNotifSelected.add(key);
-  _updateOnboardCardStates();
 }
 
 function _updateOnboardCardStates() {
-  _hcCircleEls.forEach(el => {
-    const k = el.dataset.source;
-    el.classList.toggle('selected', onboardSelected.has(k));
-  });
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
 
@@ -903,7 +900,6 @@ function showOnboarding() {
 }
 
 function completeOnboarding() {
-  if (_hcRafId) { cancelAnimationFrame(_hcRafId); _hcRafId = 0; }
   const sources = {};
   const notifSources = {};
   FEED_CATALOG.forEach(f => {
@@ -1250,6 +1246,7 @@ async function loadAllFeeds() {
     _previousPostLinks = new Set(allPapers.map(p => p.link));
   }
   allPapers = [];
+  _renderedLinks = new Set();
   const promises = [];
   const labels = [];
 
@@ -1286,7 +1283,7 @@ async function loadAllFeeds() {
     });
   }
 
-  // Show a small inline loading indicator (not a full-screen blocker)
+  // Show spinner only if we have nothing to show yet
   const container = document.getElementById('papers');
   if (allPapers.length === 0) {
     container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>`;
@@ -1309,7 +1306,9 @@ async function loadAllFeeds() {
       if (abort.signal.aborted) return;
       settled++;
       if (settled === total) {
-        // All feeds done — run post-load tasks
+        // All feeds done — do a final render + post-load tasks
+        renderTrends();
+        renderPapers();
         if (isQualityFilterOn()) qualityFilterPapers();
         _detectNewPosts();
         startRefreshTimer();
@@ -1663,7 +1662,7 @@ function _renderPaperCompactRow(p, i, ctx) {
   const isRead = readSet.has(p.link);
   const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
   const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
-  return `<div class="group${isRead ? ' opacity-50' : ''}">
+  return `<div class="group${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}">
     <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i}, event)">
       ${newDot}${sourceChip}
       <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
@@ -1707,7 +1706,7 @@ function _renderPaperCard(p, i, ctx) {
     ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
     : pixelFallback;
   return `
-  <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
+  <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
     <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
     ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
     <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
@@ -1784,7 +1783,7 @@ function renderPapers() {
         ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
         : pixelFallback;
       return `
-      <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
+      <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
         <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[1rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
         ${authors}
         ${fullDesc ? `<div class="text-[0.82rem] text-muted leading-relaxed mt-2">${escapeHtml(fullDesc)}</div>` : ''}
@@ -1820,7 +1819,7 @@ function renderPapers() {
       const statsNum = isPoly ? `${p.polyYesPct}%` : isHN ? `${hnPts}` : (citations !== null ? `${citations}` : '');
       const statsLabel = isPoly ? (p.polyYesPct >= 50 ? 'Yes' : 'No') : isHN ? (hnPts === 1 ? 'point' : 'points') : (citations !== null ? (citations === 1 ? 'citation' : 'citations') : '');
       return `
-      <div class="py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover${isRead ? ' opacity-50' : ''}" onclick="openPaper(${i}, event)">
+      <div class="py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
         <div class="flex gap-3">
           ${avatar}
           <div class="min-w-0 flex-1">
@@ -1858,6 +1857,21 @@ function renderPapers() {
     }).join('') + `</div>`;
   } else {
     container.innerHTML = visible.map((p, i) => _renderPaperCard(p, i, _ctx)).join('');
+  }
+  // Animate cards that are new since the last render
+  const prevLinks = _renderedLinks;
+  _renderedLinks = new Set(visible.map(p => p.link));
+  if (prevLinks.size > 0) {
+    container.querySelectorAll('[data-link]').forEach(el => {
+      if (!prevLinks.has(el.dataset.link)) {
+        el.classList.add('feed-enter');
+        // Add a notification dot that fades after 10s
+        const dot = document.createElement('span');
+        dot.className = 'feed-new-dot';
+        el.style.position = 'relative';
+        el.appendChild(dot);
+      }
+    });
   }
   fetchCitationsFor(visible);
   // Fetch comment counts & re-expand open comment sections
