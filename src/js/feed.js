@@ -478,7 +478,7 @@ function openSavedPaper(link, e) {
 let allPapers = [];
 let allCategories = new Set();
 let citationMap = {};
-let currentSort = 'latest';
+let currentSort = 'foryou';
 const PAGE_SIZE = 20;
 let visibleCount = PAGE_SIZE;
 let hiddenSourceFilters = new Set();

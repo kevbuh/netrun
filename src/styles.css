@@ -1309,9 +1309,14 @@
       flex-direction: column;
       z-index: 2;
       align-items: center;
-      justify-content: center;
       background: var(--bg-body);
-      overflow: hidden;
+      overflow-y: auto;
+      padding-top: 24px;
+    }
+    .browse-ntp-inner {
+      width: 100%;
+      max-width: 960px;
+      padding: 0 32px 64px;
     }
 
     /* ── Download Indicator ── */
@@ -1582,23 +1587,18 @@
     }
     /* Browse expanded — horizontal row of window cards */
     .wov-browse-row {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      top: calc(50% + 52px);
+      width: 100%;
       display: flex;
-      align-items: flex-start;
       justify-content: center;
-      gap: 12px;
-      padding: 0 24px;
+      gap: 10px;
+      padding: 4px 0 0;
       overflow-x: auto;
       scrollbar-width: none;
     }
     .wov-browse-row::-webkit-scrollbar { display: none; }
     .wov-win-card {
-      width: 240px;
-      max-height: calc(50vh - 60px);
+      width: 200px;
+      max-height: 280px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -3227,6 +3227,45 @@
       line-height: 1.3;
       padding-left: 6px;
       border-left: 2px solid var(--accent);
+    }
+    .doc-semantic-results {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .doc-semantic-heading {
+      font-size: 0.65rem;
+      color: var(--text-dimmer);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+    }
+    .doc-semantic-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .doc-semantic-row:hover {
+      background: var(--bg-hover);
+    }
+    .doc-semantic-title {
+      font-size: 0.7rem;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    .doc-semantic-score {
+      font-size: 0.62rem;
+      color: var(--text-dimmer);
+      flex-shrink: 0;
     }
     .doc-popup-chat-area {
       display: none;

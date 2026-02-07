@@ -232,7 +232,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-research': 'research', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
 let _researchActiveTab = 'search';
@@ -774,7 +774,6 @@ let _wmSnapshots = {};         // { viewKey: dataUrl } — captured preview imag
 const _wmViewMeta = {
   dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openDashboard(); } },
   feed:       { sidebarId: 'sb-home',      label: 'Feed',       openFn() { goHome(); } },
-  research:   { sidebarId: 'sb-research',  label: 'Research',   openFn() { openResearch(); } },
   vault:      { sidebarId: 'sb-vault',     label: 'Vault',      openFn() { openVault(); } },
   browse:     { sidebarId: 'sb-browse',    label: 'Browse',     openFn() { openBrowse(); } },
   inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox',      openFn() { openInbox(); } },
@@ -787,7 +786,7 @@ const _wmViewMeta = {
 };
 
 // Pre-populate all views (pill bar order)
-const _wmDefaultOrder = ['dashboard','feed','research','vault','browse','inbox','terminal','neuralook','dev','vibe','settings'];
+const _wmDefaultOrder = ['dashboard','feed','vault','browse','inbox','terminal','neuralook','dev','vibe','settings'];
 let _wmWindows = _wmDefaultOrder.map(key => ({
   key,
   label: _wmViewMeta[key].label,
@@ -1076,26 +1075,24 @@ function goHome() {
     // Reset source filter pills
     if (typeof hiddenSourceFilters !== 'undefined') hiddenSourceFilters.clear();
     if (typeof renderSourceBubbles === 'function') renderSourceBubbles();
-    if (allPapers.length) loadAllFeeds();
-  } else if (!allPapers.length) loadAllFeeds();
+  }
+  loadAllFeeds();
 }
 
 async function openResearch(tab) {
-  setSidebarLoading('sb-research');
-  hideAllViews();
-  const view = await ensureView('research-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'research';
-  setSidebarActive('sb-research');
-
-  // Switch to requested tab or keep current
-  if (tab) {
-    switchResearchTab(tab);
-  } else {
-    // Ensure correct tab is shown
-    switchResearchTab(_researchActiveTab);
+  if (tab) _researchActiveTab = tab;
+  // Open browse and ensure a blank tab is active
+  openBrowse();
+  const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+  if (win) {
+    const blank = win.tabs.find(t => t.blank);
+    if (blank) {
+      browseSelectTab(blank.id);
+    } else {
+      browseNewTab();
+    }
   }
+  switchResearchTab(_researchActiveTab);
 }
 
 function switchResearchTab(tab) {
@@ -1365,7 +1362,7 @@ function routeFromHash() {
   const _oldHash = _currentRouteHash || '';
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
-  if (hash === '#research') wmOpen('research');
+  if (hash === '#research') { openResearch(); return; }
   else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
   else if (hash === '#settings') wmOpen('settings');
   else if (hash === '#quality') { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
@@ -1395,7 +1392,7 @@ function routeFromHash() {
   else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') wmOpen('dashboard');
   else if (hash === '#browse') wmOpen('browse');
-  else if (hash === '#search') openResearch('search'); // Legacy redirect
+  else if (hash === '#search') { openResearch('search'); return; } // Legacy redirect
   else if (hash === '#terminal') wmOpen('terminal');
   else if (hash === '#neuralook') wmOpen('neuralook');
   else if (hash === '#dev') wmOpen('dev');
@@ -1425,7 +1422,7 @@ function routeFromHash() {
 // Save hash to localStorage for "remember where we left off"
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash;
-  if (hash && hash !== '#' && hash !== '#feed') {
+  if (hash && hash !== '#') {
     localStorage.setItem('lastHash', hash);
   }
   routeFromHash();

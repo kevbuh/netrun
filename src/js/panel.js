@@ -178,6 +178,48 @@ async function _fetchAuthorPreview(text, containerDiv) {
   }
 }
 
+// ── Semantic preview in selection popup ──
+async function _fetchSemanticPreview(text, containerDiv) {
+  if (!text || text.trim().length < 3) { containerDiv.style.display = 'none'; return; }
+  try {
+    const resp = await fetch('/api/semantic-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: text.trim().slice(0, 200), limit: 5 })
+    });
+    if (!resp.ok) { containerDiv.style.display = 'none'; return; }
+    const data = await resp.json();
+    const results = (data.results || []).filter(r => r.score >= 0.3);
+    if (!results.length) { containerDiv.style.display = 'none'; return; }
+    let html = '<div class="doc-semantic-results">';
+    html += '<div class="doc-semantic-heading">Related</div>';
+    for (const r of results) {
+      const pct = Math.round(r.score * 100);
+      const chip = typeof getSourceChip === 'function' ? getSourceChip(r.source) : '';
+      html += `<a class="doc-semantic-row" href="${escapeAttr(r.link)}" data-semantic-link>`;
+      html += chip;
+      html += `<span class="doc-semantic-title">${escapeHtml(r.title)}</span>`;
+      html += `<span class="doc-semantic-score">${pct}%</span>`;
+      html += `</a>`;
+    }
+    html += '</div>';
+    containerDiv.innerHTML = html;
+    containerDiv.style.display = '';
+    containerDiv.querySelectorAll('[data-semantic-link]').forEach(a => {
+      a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const link = a.getAttribute('href');
+        if (link && typeof openPaperByUrl === 'function') openPaperByUrl(link, ev);
+        document.getElementById('doc-chat-ask-float')?.remove();
+      });
+    });
+    _repositionSelectionPopup();
+  } catch (e) {
+    containerDiv.style.display = 'none';
+  }
+}
+
 // ── Panel suggestion (tiny model generates a question from context) ──
 let _panelSuggestAbort = null;
 
@@ -3833,6 +3875,15 @@ function _panelBuildSelectionUI(popup, config) {
     wikiDiv.style.display = 'none';
     popup.appendChild(wikiDiv);
     _fetchWikipediaPreview(capturedText, wikiDiv);
+  }
+
+  // Semantic search preview (async, always shown if text is long enough)
+  if (capturedText.length >= 3) {
+    const semDiv = document.createElement('div');
+    semDiv.className = 'doc-wiki-preview';
+    semDiv.style.display = 'none';
+    popup.appendChild(semDiv);
+    _fetchSemanticPreview(capturedText, semDiv);
   }
 }
 

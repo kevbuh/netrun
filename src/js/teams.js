@@ -625,7 +625,7 @@ async function showTeamDetailView(teamId, e) {
     view.style.display = 'block';
   }
   window.location.hash = 'team/' + teamId;
-  setSidebarActive('sb-research');
+  setSidebarActive('sb-browse');
 
   const listEl = document.getElementById('teams-view-list');
   const detailEl = document.getElementById('teams-view-detail');
