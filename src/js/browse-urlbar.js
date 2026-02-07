@@ -1020,6 +1020,25 @@ function _renderHelpPage(el) {
   });
   html += '</table></div>';
 
+  // Search Syntax
+  html += `<div ${section}><div ${h2}>Search Syntax</div>`;
+  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
+  html += `<table ${table}>`;
+  html += `<tr><th ${th}>Syntax</th><th ${th}>Effect</th></tr>`;
+  const searchSyntax = [
+    ['"exact phrase"', 'Match exact phrase'],
+    ['title:word', 'Search in title only'],
+    ['title:"exact phrase"', 'Exact phrase in title only'],
+    ['by:author name', 'Search by author'],
+    ['source:arxiv', 'Filter by source'],
+    ['user:username', 'Search for a user'],
+    ['~neural networks', 'Semantic search over read posts'],
+  ];
+  searchSyntax.forEach(([k, v]) => {
+    html += `<tr><td ${tdk}><code style="font-size:0.8rem;">${k}</code></td><td ${tdv}>${v}</td></tr>`;
+  });
+  html += '</table></div>';
+
   // Slash Commands
   html += `<div ${section}><div ${h2}>Slash Commands</div>`;
   html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';

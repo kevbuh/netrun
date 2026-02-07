@@ -1539,58 +1539,50 @@ function _browseUpdateNewTabPage(tab) {
       ntp.className = 'browse-ntp';
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
         <div class="browse-ntp-inner">
-          <div class="flex items-center gap-1 mb-5">
-            <button id="research-tab-search" class="research-tab active" onclick="switchResearchTab('search')">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-              Papers
-            </button>
-            <button id="research-tab-users" class="research-tab" onclick="switchResearchTab('users')">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
-              Users
-            </button>
-            <button id="research-tab-teams" class="research-tab" onclick="switchResearchTab('teams')">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
-              Teams
-            </button>
-          </div>
-          <div id="research-panel-search" class="research-panel">
-            <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
-              <div class="relative max-w-[680px] mx-auto mb-4">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-                <input type="text" id="search-query" placeholder="Search papers..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="onSearchInput()" onfocus="showSearchHistoryView()" onblur="setTimeout(hideSearchHistoryView,150)" onkeydown="_searchHistoryKeydown(event)" />
-                <div id="search-history-dropdown-view" class="hidden absolute left-0 right-0 top-full mt-1 rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden"></div>
-              </div>
-            </form>
-            <div id="search-hints" class="max-w-[480px] mx-auto mt-16 text-[0.8rem] text-dimmer leading-relaxed">
-              <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                <code class="text-muted">"exact phrase"</code><span>Match exact phrase</span>
-                <code class="text-muted">title:word</code><span>Search in title only</span>
-                <code class="text-muted">title:"exact phrase"</code><span>Exact phrase in title only</span>
-                <code class="text-muted">by:author name</code><span>Search by author</span>
-                <code class="text-muted">source:arxiv</code><span>Filter by source</span>
-                <code class="text-muted">user:username</code><span>Search for a user</span>
-                <code class="text-muted">~neural networks</code><span>Semantic search over read posts</span>
-              </div>
+          <div class="browse-ntp-center">
+            <div class="flex items-center justify-center gap-1 mb-5">
+              <button id="research-tab-search" class="research-tab active" onclick="switchResearchTab('search')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+                Papers
+              </button>
+              <button id="research-tab-users" class="research-tab" onclick="switchResearchTab('users')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                Users
+              </button>
+              <button id="research-tab-teams" class="research-tab" onclick="switchResearchTab('teams')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+                Teams
+              </button>
             </div>
-            <div id="search-feed-results"></div>
-            <div id="search-arxiv-results"></div>
-          </div>
-          <div id="research-panel-users" class="research-panel" style="display:none;">
-            <form id="user-search-form" onsubmit="event.preventDefault(); submitUserSearch()">
-              <div class="relative max-w-[680px] mx-auto mb-4">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
-                <input type="text" id="user-search-query" placeholder="Search users..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="clearTimeout(_userSearchDebounce); _userSearchDebounce = setTimeout(submitUserSearch, 300)" />
-              </div>
-            </form>
-            <div id="user-search-results" class="max-w-[680px] mx-auto"></div>
-          </div>
-          <div id="research-panel-teams" class="research-panel" style="display:none;">
-            <div class="flex items-center justify-between mb-5">
-              <h2 class="text-[1.1rem] font-semibold text-white_">Teams</h2>
-              <button onclick="showCreateTeamPopup('research')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-xl leading-none p-0" title="Create team">+</button>
+            <div id="research-panel-search" class="research-panel">
+              <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
+                <div class="relative max-w-[680px] mx-auto">
+                  <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+                  <input type="text" id="search-query" placeholder="Search papers..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="onSearchInput()" onfocus="showSearchHistoryView()" onblur="setTimeout(hideSearchHistoryView,150)" onkeydown="_searchHistoryKeydown(event)" />
+                  <div id="search-history-dropdown-view" class="hidden absolute left-0 right-0 top-full mt-1 rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden"></div>
+                </div>
+              </form>
+              <div id="search-hints" style="display:none"></div>
             </div>
-            <div id="research-teams-content"></div>
+            <div id="research-panel-users" class="research-panel" style="display:none;">
+              <form id="user-search-form" onsubmit="event.preventDefault(); submitUserSearch()">
+                <div class="relative max-w-[680px] mx-auto">
+                  <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                  <input type="text" id="user-search-query" placeholder="Search users..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="clearTimeout(_userSearchDebounce); _userSearchDebounce = setTimeout(submitUserSearch, 300)" />
+                </div>
+              </form>
+              <div id="user-search-results" class="max-w-[680px] mx-auto"></div>
+            </div>
+            <div id="research-panel-teams" class="research-panel" style="display:none;">
+              <div class="flex items-center justify-between mb-5">
+                <h2 class="text-[1.1rem] font-semibold text-white_">Teams</h2>
+                <button onclick="showCreateTeamPopup('research')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-xl leading-none p-0" title="Create team">+</button>
+              </div>
+              <div id="research-teams-content"></div>
+            </div>
           </div>
+          <div id="search-feed-results"></div>
+          <div id="search-arxiv-results"></div>
         </div>
         <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">aether</div>`;
       container.appendChild(ntp);
