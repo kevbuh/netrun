@@ -1123,9 +1123,8 @@
       color: var(--text-primary);
     }
     .browse-tab.active {
-      background: var(--bg-card);
+      background: var(--bg-body);
       color: var(--text-primary);
-      box-shadow: 0 1px 4px rgba(0,0,0,.15);
     }
     .browse-tab.browse-tab-tooltip-open {
       background: var(--bg-card);
@@ -3476,8 +3475,8 @@
     .doc-aether-ctx-item {
       padding: 6px 12px;
       cursor: pointer;
-      font-size: 0.8rem;
-      color: var(--text-primary);
+      font-size: 0.75rem;
+      color: var(--text-dim);
       white-space: nowrap;
     }
     .doc-aether-ctx-item:not(.doc-aether-ctx-info):hover {
