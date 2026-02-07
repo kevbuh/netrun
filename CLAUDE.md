@@ -43,7 +43,7 @@ Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`
 - `/api/rss-proxy?url=` — generic RSS proxy for any feed URL (used by all non-special sources)
 - `/api/arxiv-search` — proxies arXiv search API
 - `/api/citations` — fetches citation counts from Semantic Scholar batch API
-- `/api/quality-filter` — POST batch of titles to local Ollama for AI classification; supports two modes: `verdict` (KEEP/SKIP) and `score` (0-10 relevance rating)
+- `/api/quality-filter` — POST batch of titles to local Ollama for AI classification; supports two modes: `verdict` (KEEP/SKIP) and `score` (0-100 relevance rating). Score mode accepts optional `interest_context` string to personalize scoring
 - `/api/quality-prompt` — GET returns current verdict prompt, default prompt, and scoring prompt; PUT saves a custom verdict prompt to `quality_prompt.txt`
 - `/api/blocked-titles` — GET/POST/DELETE for the prompt test suite titles, stored in `blocked_titles.json`
 - `/api/experiments` — CRUD for experiments and their versions, stored as JSON files in `src/experiments/`
@@ -149,7 +149,7 @@ The quality filter has its own sidebar tab (`#quality`). It uses a two-phase pip
 
 **Phase 1 — Verdict (KEEP/SKIP):** Each post title is classified as KEEP or SKIP using a configurable system prompt (`DEFAULT_VERDICT_PROMPT`). Posts classified as SKIP are hidden from the feed. The verdict prompt is editable in the Quality Filter tab and can be saved (synced to server as `quality_prompt.txt`).
 
-**Phase 2 — Scoring (0-10):** Posts that pass the verdict are scored 0-10 for relevance using `DEFAULT_SCORING_PROMPT` (read-only, displayed in the tab). Posts below the threshold (default: 8) are hidden. The threshold is adjustable via a slider in the Quality Filter tab.
+**Phase 2 — Scoring (0-100):** Posts that pass the verdict are scored 0-100 for relevance using `DEFAULT_SCORING_PROMPT` (read-only, displayed in the tab). Posts below the threshold (default: 30) are hidden. The threshold is adjustable via a slider in the Quality Filter tab. When personalization is active, the user's interest profile (`interest_context`) is appended to the scoring prompt to boost scores for content matching the user's interests.
 
 **Evaluation flow:** `qualityFilterPapers()` runs after feeds load. It has a concurrency guard (`_qfRunning` / `_qfQueued`) to prevent overlapping requests. While evaluation is in progress, an inline indicator (`● Evaluating N…`) appears next to the Latest/Most Cited sort buttons. Posts awaiting evaluation are hidden from the feed until classified.
 
@@ -157,7 +157,49 @@ The quality filter has its own sidebar tab (`#quality`). It uses a two-phase pip
 
 **Prompt test suite:** Titles hidden via ✕ are collected in `localStorage.qualityTestTitles` (also synced to `blocked_titles.json` on server). Users can run these titles against the current prompt in the Quality Filter tab to verify all are classified as SKIP. The "Save prompt" button runs the test first — if any title is classified as KEEP, the save is blocked and failures are shown.
 
-**Reset all & clear cache:** A single button in the Quality Filter tab resets the verdict prompt to default, resets the threshold to 8, clears the quality cache, and re-triggers evaluation.
+**Reset all & clear cache:** A single button in the Quality Filter tab resets the verdict prompt to default, resets the threshold to 30, clears the quality cache, and re-triggers evaluation.
+
+### Personalized Feed Ranking
+
+Inspired by X's recommendation algorithm: personal interest profiling, source affinity tracking, composite scoring, and category-aware diversity. Exposed in a "Personalization" panel at the bottom of the Quality Filter view.
+
+**Interest profile (`quality.js`):** `computeInterestProfile()` analyzes `allPapers` against user engagement signals (`readPosts`, `savedPosts`, `hiddenPosts`, `paperRatings`) to produce:
+- `sourceCounts` — `{ sourceKey: { read, saved, rated, hidden, total } }` per source
+- `catCounts` — `{ category: { read, saved, hidden } }` per FEED_CATALOG category
+- `topTopics` — top 15 weighted words from read/saved/rated titles (stop words filtered)
+- `topCategories` — top 5 categories by engagement score (`read + saved*3 - hidden`)
+- Stored in `localStorage.interestProfile`, recomputed if >5 minutes stale. Computed on each `loadAllFeeds()`.
+
+**Source affinity (`quality.js`):** `getSourceAffinity()` derives `{ sourceKey: 0.1–1.0 }` from `sourceCounts`: `engagement = (read + saved*2 + rated*3) / total`, `penalty = hidden / total * 0.5`, `affinity = clamp(engagement - penalty, 0.1, 1.0)`. Sources with <3 total posts default to 0.5.
+
+**Interest context (`quality.js` → `routes/feed.py`):** `buildInterestContext()` returns a string like `"topics=[neural networks, rust, ...], categories=[Research & Science, Programming]"`. Sent as `interest_context` in Phase 2 scoring requests. Server appends it to the scoring prompt and uses a separate `prompt_hash` for caching so personalized scores don't collide with generic ones.
+
+**Composite scoring & "For You" sort (`feed.js`):** A `foryou` sort mode in `getFilteredPapers()`:
+```
+compositeScore = llmScore * (base + sourceAffinity * affinityWeight) + recencyBoost * recencyWeight
+```
+- `llmScore` = quality cache score (0-100), default 50 if missing
+- `sourceAffinity` = from `getSourceAffinity()`, default 0.5
+- `recencyBoost` = `max(0, 10 - ageHours * 0.5)` — decays over 20h, max +10
+- All three weights are configurable via sliders in the personalization panel: `fyWeightBase` (default 0.7), `fyWeightAffinity` (default 0.3), `fyWeightRecency` (default 1.0)
+- Stored as `p._compositeScore` on each paper. Activated via the sparkles "For You" button in the feed toolbar.
+
+**Category-aware diversity (`feed.js`):** Replaces simple round-robin interleaving. Walks the sorted list and limits same-category runs to `maxPerCategoryRun` (default 3, configurable via slider in the personalization panel, stored in `localStorage.maxPerCategoryRun`). Falls back to taking posts in order if all remaining are the same category.
+
+**Personalization panel (`feed.js`):** `_renderPersonalizationPanel()` renders inside `renderQualityView()` after "Blocked Posts". Shows:
+- Top topics and categories as chips
+- Source engagement table (name, read%, saved%, affinity bar), sorted by affinity descending
+- Category diversity slider (1–10)
+- Composite score weight sliders (base, affinity, recency)
+- "Reset personalization" button (resets profile, weights, and diversity setting)
+- "Read more posts to build your profile" if <10 read posts
+
+**Key functions:**
+- `computeInterestProfile()` / `getInterestProfile()` — compute and retrieve the profile
+- `buildInterestContext()` — format profile as string for server
+- `getSourceAffinity()` — derive per-source affinity scores
+- `resetPersonalization()` — clear and recompute profile
+- `_renderPersonalizationPanel()` — render the personalization UI in quality view
 
 ### Aether Panel
 
@@ -233,6 +275,11 @@ Clicking a post marks it as read (`localStorage.readPosts`). Read posts render a
 | `savedPosts` | `{ url: { paper, savedAt, read } }` — reading list |
 | `readPosts` | Array of post URLs that have been clicked/opened |
 | `qualityTestTitles` | Array of strings — titles that must be classified as SKIP (prompt test suite) |
+| `interestProfile` | `{ sourceCounts, catCounts, topTopics, topCategories, updatedAt }` — personalized interest profile |
+| `maxPerCategoryRun` | `1-10` integer — max same-category posts in a row before diversity mixing (default 3) |
+| `fyWeightBase` | `0.0-1.0` float — base weight in composite score formula (default 0.7) |
+| `fyWeightAffinity` | `0.0-1.0` float — affinity multiplier in composite score formula (default 0.3) |
+| `fyWeightRecency` | `0.0-2.0` float — recency boost multiplier in composite score formula (default 1.0) |
 
 ### Authentication & User Accounts
 

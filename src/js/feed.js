@@ -1276,8 +1276,27 @@ function _renderPersonalizationPanel() {
       <p class="text-dimmer text-[0.62rem] mt-0.5">Max posts from same category in a row before mixing in others.</p>
     </div>
 
+    <div class="mb-4">
+      <span class="text-dimmer text-[0.68rem]">Composite Score Weights</span>
+      <p class="text-dimmer text-[0.62rem] mt-0.5 mb-2">score = LLM × (base + affinity × aff_weight) + recency_boost × recency_weight</p>
+      <div class="flex items-center gap-3 mb-1.5">
+        <span class="text-dim text-[0.68rem] w-16 shrink-0">Base</span>
+        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightBase') || '0.7') * 100)}" oninput="document.getElementById('fy-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <span id="fy-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightBase') || '0.7').toFixed(2)}</span>
+      </div>
+      <div class="flex items-center gap-3 mb-1.5">
+        <span class="text-dim text-[0.68rem] w-16 shrink-0">Affinity</span>
+        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3') * 100)}" oninput="document.getElementById('fy-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <span id="fy-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3').toFixed(2)}</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-dim text-[0.68rem] w-16 shrink-0">Recency</span>
+        <input type="range" min="0" max="200" value="${Math.round(parseFloat(localStorage.getItem('fyWeightRecency') || '1.0') * 100)}" oninput="document.getElementById('fy-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <span id="fy-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightRecency') || '1.0').toFixed(2)}</span>
+      </div>
+    </div>
+
     <div class="flex items-center gap-3">
-      <p class="text-dimmer text-[0.62rem] flex-1">Composite score = LLM score × (0.7 + affinity × 0.3) + recency boost. Use "For You" sort to rank by this.</p>
       <button onclick="resetPersonalization()" class="text-red-400/80 text-[0.72rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-2.5 py-0.5 cursor-pointer transition-colors shrink-0">Reset personalization</button>
     </div>
   `;
@@ -1732,6 +1751,9 @@ function getFilteredPapers() {
   if (effectiveSort === 'foryou') {
     const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
     const now = Date.now();
+    const wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
+    const wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
+    const wRecency = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
     filtered = [...filtered].sort((a, b) => {
       const aLlm = qfOn && qCache[a.title]?.s != null ? qCache[a.title].s : 50;
       const bLlm = qfOn && qCache[b.title]?.s != null ? qCache[b.title].s : 50;
@@ -1739,10 +1761,10 @@ function getFilteredPapers() {
       const bAff = affinity[b.source] ?? 0.5;
       const aAge = a.pubDate ? Math.max(0, (now - new Date(a.pubDate).getTime()) / 3600000) : 24;
       const bAge = b.pubDate ? Math.max(0, (now - new Date(b.pubDate).getTime()) / 3600000) : 24;
-      const aRecency = Math.max(0, 10 - aAge * 0.5);
-      const bRecency = Math.max(0, 10 - bAge * 0.5);
-      a._compositeScore = aLlm * (0.7 + aAff * 0.3) + aRecency;
-      b._compositeScore = bLlm * (0.7 + bAff * 0.3) + bRecency;
+      const aRecency = Math.max(0, 10 - aAge * 0.5) * wRecency;
+      const bRecency = Math.max(0, 10 - bAge * 0.5) * wRecency;
+      a._compositeScore = aLlm * (wBase + aAff * wAff) + aRecency;
+      b._compositeScore = bLlm * (wBase + bAff * wAff) + bRecency;
       return b._compositeScore - a._compositeScore;
     });
   } else if (effectiveSort === 'citations') {

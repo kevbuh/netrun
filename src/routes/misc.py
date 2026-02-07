@@ -647,33 +647,7 @@ def neuralook_train(google_id):
                 def forward(self, x):
                     return self.head(self.features(x))
 
-            class GazeCNNHeadPose(nn.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.features = nn.Sequential(
-                        nn.Conv2d(2, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
-                        nn.MaxPool2d(2),
-                        nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
-                        nn.MaxPool2d(2),
-                        nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
-                        nn.AdaptiveAvgPool2d((4, 4)),
-                    )
-                    self.flatten = nn.Flatten()
-                    self.head = nn.Sequential(
-                        nn.Linear(2048 + 3, 256), nn.ReLU(), nn.Dropout(0.3),
-                        nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
-                        nn.Linear(64, 2)
-                    )
-                def forward(self, x, head_pose=None):
-                    feat = self.flatten(self.features(x))
-                    if head_pose is not None:
-                        feat = torch.cat([feat, head_pose], dim=1)
-                    else:
-                        feat = torch.cat([feat, torch.zeros(x.shape[0], 3)], dim=1)
-                    return self.head(feat)
-
-            is_headpose = method == 'cnn_headpose'
-            model = GazeCNNHeadPose() if is_headpose else GazeCNN()
+            model = GazeCNN()
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
             max_epochs = 50
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
@@ -685,39 +659,15 @@ def neuralook_train(google_id):
             no_improve = 0
             stopped_epoch = 0
 
-            wb = None
-            wb_url = None
-            try:
-                import wandb
-                wandb.init(project='neuralook', mode='online', config={
-                    'architecture': 'GazeCNNHeadPose' if is_headpose else 'GazeCNN',
-                    'method': method, 'eye_w': eye_w, 'eye_h': eye_h,
-                    'n_samples': len(X_list), 'n_train': int(train_mask.sum()),
-                    'n_val': int(val_mask.sum()), 'n_cal_points': len(unique_targets),
-                    'n_val_points': n_val_points, 'lr': 1e-3, 'weight_decay': 1e-4,
-                    'batch_size': batch_size, 'max_epochs': max_epochs, 'patience': patience,
-                    'dropout': 0.3, 'screen_w': screen_w, 'screen_h': screen_h,
-                })
-                wandb.watch(model, log='all', log_freq=50)
-                wb = wandb
-                wb_url = wandb.run.get_url() if wandb.run else None
-            except (ImportError, Exception):
-                pass
-
             yield sse_event('progress', {'epoch': 0, 'max_epochs': max_epochs, 'phase': 'training', 'val_loss': None})
 
             n_params = sum(p.numel() for p in model.parameters())
-            arch_name = 'GazeCNNHeadPose' if is_headpose else 'GazeCNN'
-            yield sse_event('log', {'text': f'{arch_name} | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]{" + [B, 3] head pose" if is_headpose else ""}'})
+            yield sse_event('log', {'text': f'GazeCNN | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]'})
             yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
-            fc_in = '2048+3' if is_headpose else '2048'
-            yield sse_event('log', {'text': f'  head: Flatten → Linear({fc_in},256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+            yield sse_event('log', {'text': f'  head: Flatten → Linear(2048,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
             yield sse_event('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
             yield sse_event('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
-            if wb_url:
-                yield sse_event('log', {'text': f'wandb: {wb_url}'})
-                yield sse_event('wandb', {'url': wb_url})
             yield sse_event('log', {'text': ''})
             yield sse_event('log', {'text': f'{"epoch":>6}  {"train_loss":>11}  {"val_loss":>11}  {"lr":>10}  {"best":>5}  {"patience":>8}'})
             yield sse_event('log', {'text': '─' * 65})
@@ -730,7 +680,7 @@ def neuralook_train(google_id):
                 n_batches = 0
                 for start in range(0, n_train, batch_size):
                     idx = perm[start:start + batch_size]
-                    pred = model(X_train[idx], H_train[idx]) if is_headpose else model(X_train[idx])
+                    pred = model(X_train[idx])
                     loss = nn.functional.mse_loss(pred, Y_train[idx])
                     optimizer.zero_grad()
                     loss.backward()
@@ -743,7 +693,7 @@ def neuralook_train(google_id):
                 if epoch % 10 == 0:
                     model.eval()
                     with torch.no_grad():
-                        val_pred = model(X_val, H_val) if is_headpose else model(X_val)
+                        val_pred = model(X_val)
                         val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
                     improved = val_loss < best_val_loss
                     if improved:
@@ -755,8 +705,6 @@ def neuralook_train(google_id):
                     cur_lr = optimizer.param_groups[0]['lr']
                     yield sse_event('log', {'text': f'{epoch:>6}  {last_train_loss:>11.6f}  {val_loss:>11.6f}  {cur_lr:>10.2e}  {"✓" if improved else " ":>5}  {no_improve:>4}/{patience}'})
                     yield sse_event('progress', {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'train_loss': round(last_train_loss, 6), 'phase': 'training'})
-                    if wb:
-                        wb.log({'epoch': epoch, 'train_loss': last_train_loss, 'val_loss': val_loss, 'lr': cur_lr, 'best_val_loss': best_val_loss, 'no_improve': no_improve})
                     if no_improve >= patience:
                         yield sse_event('log', {'text': f'\nEarly stopping at epoch {epoch} (no improvement for {patience} epochs)'})
                         stopped_epoch = epoch
@@ -772,11 +720,11 @@ def neuralook_train(google_id):
             yield sse_event('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
 
             with torch.no_grad():
-                train_pred = model(X_train, H_train) if is_headpose else model(X_train)
+                train_pred = model(X_train)
                 tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
                 yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
                 train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
-                vp = model(X_val, H_val) if is_headpose else model(X_val)
+                vp = model(X_val)
                 vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
                 yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
                 val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
@@ -791,44 +739,7 @@ def neuralook_train(google_id):
             yield sse_event('log', {'text': ''})
             yield sse_event('log', {'text': f'Done. Model ready for inference ({n_params:,} params, screen {screen_w}x{screen_h}).'})
 
-            # Export model to ONNX for client-side inference
-            onnx_url = None
-            try:
-                import io
-                onnx_buf = io.BytesIO()
-                dummy_eye = torch.randn(1, 2, eye_h, eye_w)
-                if is_headpose:
-                    dummy_hp = torch.zeros(1, 3)
-                    torch.onnx.export(model, (dummy_eye, dummy_hp), onnx_buf,
-                                      input_names=['eye_input', 'head_pose'],
-                                      output_names=['gaze_output'],
-                                      dynamic_axes={'eye_input': {0: 'batch'}, 'head_pose': {0: 'batch'}, 'gaze_output': {0: 'batch'}},
-                                      opset_version=13)
-                else:
-                    torch.onnx.export(model, dummy_eye, onnx_buf,
-                                      input_names=['eye_input'],
-                                      output_names=['gaze_output'],
-                                      dynamic_axes={'eye_input': {0: 'batch'}, 'gaze_output': {0: 'batch'}},
-                                      opset_version=13)
-                onnx_filename = f'neuralook_{method}.onnx'
-                onnx_path = os.path.join(UPLOADS_DIR, onnx_filename)
-                with open(onnx_path, 'wb') as f:
-                    f.write(onnx_buf.getvalue())
-                onnx_url = f'/uploads/{onnx_filename}'
-                yield sse_event('log', {'text': f'ONNX model exported → {onnx_filename} ({len(onnx_buf.getvalue()) / 1024:.0f} KB)'})
-            except Exception as onnx_err:
-                yield sse_event('log', {'text': f'ONNX export skipped: {onnx_err}'})
-
-            if wb:
-                wb.summary['train_error_px'] = round(train_err, 1)
-                wb.summary['val_error_px'] = round(val_err, 1)
-                wb.summary['stopped_epoch'] = stopped_epoch
-                wb.summary['best_val_loss'] = round(best_val_loss, 6)
-                wb.summary['quality'] = qual
-                wb.finish()
-                yield sse_event('log', {'text': f'wandb: Run logged offline → wandb/latest-run'})
-
-            done_data = {
+            yield sse_event('done', {
                 'method': method,
                 'train_error_px': round(train_err, 1),
                 'val_error_px': round(val_err, 1),
@@ -838,11 +749,7 @@ def neuralook_train(google_id):
                 'train_samples': int(train_mask.sum()),
                 'val_samples': int(val_mask.sum()),
                 'val_points': n_val_points
-            }
-            if onnx_url:
-                done_data['onnx_url'] = onnx_url
-                done_data['model_type'] = 'headpose' if is_headpose else 'cnn'
-            yield sse_event('done', done_data)
+            })
         except ImportError:
             yield sse_event('error', {'error': 'PyTorch not installed on server'})
         except Exception as e:
@@ -874,12 +781,7 @@ def neuralook_predict(google_id):
         right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
         inp = torch.cat([left, right], dim=0).unsqueeze(0)
         with torch.no_grad():
-            if method == 'cnn_headpose':
-                hp = body.get('headPose', [0, 0, 0])
-                hp_tensor = torch.tensor([hp], dtype=torch.float32)
-                pred = model(inp, hp_tensor)[0]
-            else:
-                pred = model(inp)[0]
+            pred = model(inp)[0]
         return jsonify({
             'x': round(pred[0].item() * screen_w, 1),
             'y': round(pred[1].item() * screen_h, 1)

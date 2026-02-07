@@ -458,6 +458,10 @@ function getSourceAffinity() {
 
 function resetPersonalization() {
   localStorage.removeItem('interestProfile');
+  localStorage.removeItem('fyWeightBase');
+  localStorage.removeItem('fyWeightAffinity');
+  localStorage.removeItem('fyWeightRecency');
+  localStorage.removeItem('maxPerCategoryRun');
   computeInterestProfile();
   const qView = document.getElementById('quality-view');
   if (qView && !qView.classList.contains('hidden')) renderQualityView();

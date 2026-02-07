@@ -1,18 +1,19 @@
-    /* Draggable pill for window movement */
-    body.electron-app #drag-pill {
-      -webkit-app-region: drag;
+    /* Drag pill — horizontal drag to slide icons */
+    #drag-pill {
       width: 48px;
       height: 28px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.15);
       cursor: grab;
-      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      user-select: none;
+      flex-shrink: 0;
+      margin-left: 2px;
     }
-    body.electron-app #drag-pill:active { cursor: grabbing; }
-    body.electron-app #drag-pill::after {
+    #drag-pill:active { cursor: grabbing; }
+    #drag-pill::after {
       content: '';
       width: 16px;
       height: 3px;

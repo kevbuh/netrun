@@ -435,7 +435,6 @@
 
   <!-- Top Pill Bar (outside bezel so it's not trapped by transform) -->
   <nav id="sidebar-nav" class="pill-bar">
-    <div id="drag-pill" title="Drag to move window"></div>
     <button class="sidebar-icon active" id="sb-dashboard" onclick="wmOpen('dashboard')" title="Home">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
     </button>
@@ -481,6 +480,7 @@
       <button class="sidebar-icon" id="sb-user-avatar" onclick="_openProfilePanel()"></button>
       <div id="user-menu-popover" style="display:none;position:absolute;top:48px;left:50%;transform:translateX(-50%);min-width:200px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:10px;padding:6px 0;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.25);"></div>
     </div>
+    <div id="drag-pill" title="Drag to slide icons"></div>
   </nav>
 
 </body>

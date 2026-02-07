@@ -1014,6 +1014,48 @@ function _wmToggleTiling() {
   }
 }
 
+/* ── Drag pill — horizontal drag to slide pill bar icons ── */
+let _pillBarOffset = 0;
+(function() {
+  let _dragStartX = 0;
+
+  function onMove(e) {
+    const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+    const delta = x - _dragStartX;
+    _dragStartX = x;
+    _pillBarOffset += delta;
+    _applyPillBarOffset();
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+  function _applyPillBarOffset() {
+    const nav = document.getElementById('sidebar-nav');
+    if (!nav) return;
+    // Apply offset: default center is translateX(-50%), add user offset
+    nav.style.transform = 'translateX(calc(-50% + ' + _pillBarOffset + 'px))';
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const pill = document.getElementById('drag-pill');
+    if (!pill) return;
+    pill.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      _dragStartX = e.clientX;
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    pill.addEventListener('touchstart', function(e) {
+      _dragStartX = e.touches[0].clientX;
+      document.addEventListener('touchmove', onMove, { passive: true });
+      document.addEventListener('touchend', onUp);
+    }, { passive: true });
+  });
+})();
+
 function goHome() {
   setSidebarLoading('sb-home');
   const alreadyOnFeed = window.location.hash === '#feed';
