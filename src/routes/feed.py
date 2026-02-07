@@ -165,7 +165,14 @@ def quality_filter():
             return jsonify({'error': 'titles required'}), 400
 
         if mode == 'score':
-            prompt_hash = _DEFAULT_SCORING_HASH
+            interest_context = body.get('interest_context', '').strip()[:500]
+            score_system = DEFAULT_SCORING_PROMPT
+            if interest_context:
+                score_system += (
+                    "\n\nThe reader's interests: " + interest_context +
+                    "\nBoost scores for content matching these interests, but still score objectively."
+                )
+            prompt_hash = hashlib.sha256(score_system.encode()).hexdigest()[:16]
             cached = quality_cache_get(titles, prompt_hash)
             results = {}
             uncached = []
@@ -176,7 +183,6 @@ def quality_filter():
                     uncached.append(t)
 
             if uncached:
-                score_system = DEFAULT_SCORING_PROMPT
 
                 def score_title(title):
                     payload = json.dumps({

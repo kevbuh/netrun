@@ -55,14 +55,6 @@ let _nlWandbPanelOpen = false;
 let _nlShowTrainView = true; // toggle between training detail and normal view
 let _nlTrainAbort = null; // AbortController for in-flight training request
 
-// ONNX Runtime Web state (client-side inference)
-let _nlOrtLoaded = false;
-let _nlOrtLoadPromise = null;
-let _nlOrtSession = null;
-let _nlOrtSessionMethod = null;
-let _nlOrtModelType = null; // always 'cnn'
-let _nlOrtAvailable = false;
-
 // Smoothing
 let _nlGazeBuffer = [];
 const _NL_BUFFER_SIZE = 6;
@@ -114,8 +106,6 @@ async function openNeuralook() {
   if (view) { view.classList.remove('hidden'); view.style.display = ''; }
   window.location.hash = '#neuralook';
   setSidebarActive('sb-neuralook');
-  // Try to restore ONNX session if none active
-  if (!_nlOrtAvailable) _nlTryRestoreOnnxSession();
   renderNeuralookView();
 }
 
@@ -825,12 +815,6 @@ function _nlTrainOnServerSSE(onProgress, onLog, method, sampleFilter) {
                   const m = data.method || method;
                   const mObj = _nlAvailableMethods.find(x => x.key === m);
                   if (mObj) { mObj.trained = true; mObj.trainError = data.train_error_px; mObj.valError = data.val_error_px; }
-                  // Persist method state to localStorage
-                  _nlPersistMethodState();
-                  // Load ONNX session for client-side inference
-                  if (data.onnx_url && data.model_type) {
-                    _nlLoadOnnxSession(data.onnx_url, m, data.model_type);
-                  }
                   resolve(data);
                   return;
                 } else if (currentEvent === 'error') {
@@ -970,155 +954,6 @@ async function _nlPredictOnServer(eyeData) {
   const result = await resp.json();
   if (result.error) return null;
   return { x: result.x, y: result.y };
-}
-
-// ── ONNX Runtime Web (client-side inference) ──
-
-function _nlEnsureORT() {
-  if (_nlOrtLoaded) return Promise.resolve();
-  if (_nlOrtLoadPromise) return _nlOrtLoadPromise;
-  _nlOrtLoadPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js';
-    script.onload = () => {
-      _nlOrtLoaded = true;
-      if (window.ort) {
-        window.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
-      }
-      resolve();
-    };
-    script.onerror = () => {
-      _nlOrtLoadPromise = null;
-      reject(new Error('Failed to load ONNX Runtime Web'));
-    };
-    document.head.appendChild(script);
-  });
-  return _nlOrtLoadPromise;
-}
-
-async function _nlLoadOnnxSession(url, method, modelType) {
-  try {
-    await _nlEnsureORT();
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('ONNX fetch failed: ' + resp.status);
-    const buf = await resp.arrayBuffer();
-    const session = await window.ort.InferenceSession.create(buf, {
-      executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all'
-    });
-    _nlOrtSession = session;
-    _nlOrtSessionMethod = method;
-    _nlOrtModelType = modelType;
-    _nlOrtAvailable = true;
-    // Persist metadata for session restoration
-    try {
-      localStorage.setItem('nlOnnxMeta', JSON.stringify({ url, method, modelType }));
-    } catch (_) {}
-    console.log('Neuralook: ONNX session loaded for', method, '(' + modelType + ')');
-    return true;
-  } catch (e) {
-    console.warn('Neuralook: ONNX session load failed', e);
-    _nlOrtAvailable = false;
-    return false;
-  }
-}
-
-async function _nlTryRestoreOnnxSession() {
-  try {
-    // Restore method states from localStorage
-    const stateRaw = localStorage.getItem('nlMethodState');
-    if (stateRaw) {
-      const states = JSON.parse(stateRaw);
-      for (const s of states) {
-        const mObj = _nlAvailableMethods.find(m => m.key === s.key);
-        if (mObj) { mObj.trained = s.trained; mObj.trainError = s.trainError; mObj.valError = s.valError; }
-      }
-    }
-    const savedActive = localStorage.getItem('nlActiveMethod');
-    if (savedActive) _nlActiveMethod = savedActive;
-
-    // HEAD-check both ONNX files to verify which models actually exist on disk
-    const checks = await Promise.all(_nlAvailableMethods.map(async m => {
-      const url = '/uploads/neuralook_' + m.key + '.onnx';
-      try {
-        const r = await fetch(url, { method: 'HEAD' });
-        return { key: m.key, exists: r.ok, url };
-      } catch (_) { return { key: m.key, exists: false, url }; }
-    }));
-    for (const c of checks) {
-      const mObj = _nlAvailableMethods.find(m => m.key === c.key);
-      if (mObj && !c.exists) { mObj.trained = false; mObj.trainError = null; mObj.valError = null; }
-    }
-
-    // If active method has no model, fall back to any trained method
-    const activeObj = _nlAvailableMethods.find(m => m.key === _nlActiveMethod);
-    if (!activeObj || !activeObj.trained) {
-      const fallback = _nlAvailableMethods.find(m => m.trained);
-      if (fallback) _nlActiveMethod = fallback.key;
-    }
-
-    // Load ONNX session for active method
-    const activeCheck = checks.find(c => c.key === _nlActiveMethod);
-    if (activeCheck && activeCheck.exists) {
-      await _nlLoadOnnxSession(activeCheck.url, _nlActiveMethod, 'cnn');
-      _nlModelTrained = true;
-      _nlReady = true;
-      _nlCalibSaved = true;
-    } else {
-      // Try loading from nlOnnxMeta as fallback
-      const raw = localStorage.getItem('nlOnnxMeta');
-      if (raw) {
-        const meta = JSON.parse(raw);
-        if (meta.url && meta.method) {
-          const check = await fetch(meta.url, { method: 'HEAD' });
-          if (check.ok) {
-            await _nlLoadOnnxSession(meta.url, meta.method, meta.modelType);
-            _nlModelTrained = true;
-            _nlReady = true;
-            _nlCalibSaved = true;
-          } else {
-            localStorage.removeItem('nlOnnxMeta');
-          }
-        }
-      }
-    }
-
-    _nlPersistMethodState();
-  } catch (_) {}
-}
-
-function _nlClearOnnxSession() {
-  _nlOrtSession = null;
-  _nlOrtSessionMethod = null;
-  _nlOrtModelType = null;
-  _nlOrtAvailable = false;
-  try { localStorage.removeItem('nlOnnxMeta'); } catch (_) {}
-}
-
-function _nlPersistMethodState() {
-  try {
-    localStorage.setItem('nlMethodState', JSON.stringify(
-      _nlAvailableMethods.map(m => ({ key: m.key, trained: m.trained, trainError: m.trainError, valError: m.valError }))
-    ));
-    localStorage.setItem('nlActiveMethod', _nlActiveMethod);
-  } catch (_) {}
-}
-
-function _nlPredictLocal(eyeData) {
-  if (!_nlOrtSession || !window.ort) return null;
-  // eyeData is Uint8Array(4096) — 2 channels of 32x64
-  const floats = new Float32Array(eyeData.length);
-  for (let i = 0; i < eyeData.length; i++) floats[i] = eyeData[i] / 255.0;
-  const eyeTensor = new window.ort.Tensor('float32', floats, [1, 2, _NL_EYE_H, _NL_EYE_W]);
-  const feeds = { eye_input: eyeTensor };
-  return _nlOrtSession.run(feeds).then(results => {
-    const out = results.gaze_output.data;
-    return { x: out[0] * window.innerWidth, y: out[1] * window.innerHeight };
-  }).catch(e => {
-    console.warn('Neuralook: local predict failed', e);
-    _nlOrtAvailable = false;
-    return null;
-  });
 }
 
 // ── Camera / Video ──
@@ -1553,9 +1388,8 @@ async function _nlOnCalibrationComplete() {
     _nlCalibSaved = true;
   } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
 
-  // Reset all method trained states and clear ONNX session
+  // Reset all method trained states
   for (const m of _nlAvailableMethods) { m.trained = false; m.trainError = null; m.valError = null; }
-  _nlClearOnnxSession();
 
   _nlTraining = true;
   _nlTrainPhase = 'training';
@@ -1627,7 +1461,7 @@ async function _nlOnCalibrationComplete() {
     const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
     _nlReady = true;
-    _nlPersistMethodState();
+
     const fixedPx = fixedResult.val_error_px;
     _nlFinishTrainPill('Calibration Done', `Fixed ${fixedPx}px · Tracking ${valPx}px — ${label}`, color);
     _nlRefreshTrainView();
@@ -1681,7 +1515,7 @@ async function _nlTrainMethod(methodKey) {
     _nlTrainPhase = 'done';
     _nlTraining = false;
     _nlReady = true;
-    _nlPersistMethodState();
+
     const valPx = result.val_error_px;
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
     _nlFinishTrainPill('Training Done', `Val ${valPx}px`, color);
@@ -1700,15 +1534,6 @@ async function _nlTrainMethod(methodKey) {
 function _nlSwitchMethod(key) {
   _nlActiveMethod = key;
   _nlGazeBuffer = [];
-  _nlPersistMethodState();
-  // Check if ONNX session matches the new method; if not, try loading the correct one
-  if (_nlOrtSessionMethod !== key) {
-    _nlOrtAvailable = false;
-    const url = '/uploads/neuralook_' + key + '.onnx';
-    fetch(url, { method: 'HEAD' }).then(r => {
-      if (r.ok) _nlLoadOnnxSession(url, key, 'cnn');
-    }).catch(() => {});
-  }
   renderNeuralookView();
 }
 
@@ -1742,20 +1567,7 @@ function _nlTrackingLoop() {
     return;
   }
 
-  // CNN-only: use local ONNX inference if available, otherwise fall back to server
-  const useLocal = _nlOrtAvailable && _nlOrtSession && _nlOrtSessionMethod === _nlActiveMethod;
-
-  if (useLocal) {
-    const eyeData = _nlCaptureEyeCrops();
-    if (eyeData) {
-      _nlPredictLocal(eyeData).then(pred => {
-        if (!pred || !_nlTracking) return;
-        _nlPredictionCount++;
-        _nlPredictionsThisSec++;
-        _nlApplyGazePrediction(pred);
-      });
-    }
-  } else if (!_nlInferPending) {
+  if (!_nlInferPending) {
     const eyeData = _nlCaptureEyeCrops();
     if (eyeData) {
       _nlInferPending = true;
@@ -1888,7 +1700,6 @@ function _nlRefreshStats() {
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
     (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +
     row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +
-    row('Inference', _nlOrtAvailable ? '<span style="color:#4ade80">Local (ONNX)</span>' : '<span style="color:#fbbf24">Server</span>') +
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
     row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
     row('Gaze', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +

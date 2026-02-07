@@ -316,10 +316,13 @@ async function _qualityFilterPapersInner() {
       if (_qfAborted) return;
       const batch = needScore.slice(i, i + 10);
       try {
+        const scoreBody = { titles: batch, mode: 'score' };
+        const ctx = buildInterestContext();
+        if (ctx) scoreBody.interest_context = ctx;
         const resp = await fetch('/api/quality-filter', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ titles: batch, mode: 'score' })
+          body: JSON.stringify(scoreBody)
         });
         if (_qfAborted) return;
         if (!resp.ok) continue;
@@ -350,4 +353,112 @@ function _updateQfProgress() {
   } else {
     el.innerHTML = '';
   }
+}
+
+// ── Personalized Feed Ranking ──
+
+const _STOP_WORDS = new Set([
+  'a','an','the','and','or','but','in','on','at','to','for','of','with','by',
+  'from','is','it','as','be','was','are','this','that','which','what','how',
+  'has','had','have','not','no','do','does','did','will','would','can','could',
+  'should','may','might','its','they','their','them','we','our','you','your',
+  'he','she','his','her','i','my','me','new','than','more','most','also','just',
+  'about','into','over','after','before','between','under','using','via','all',
+  'been','being','each','few','some','such','only','other','so','if','then',
+  'when','where','why','up','out','who'
+]);
+
+function _extractTitleWords(title, wordMap, weight) {
+  const words = title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/);
+  for (const w of words) {
+    if (w.length < 3 || _STOP_WORDS.has(w)) continue;
+    wordMap[w] = (wordMap[w] || 0) + weight;
+  }
+}
+
+function computeInterestProfile() {
+  const existing = getInterestProfile();
+  if (existing && existing.updatedAt && Date.now() - existing.updatedAt < 5 * 60 * 1000) return existing;
+
+  const readSet = new Set(getReadPosts());
+  const saved = getSavedPosts();
+  const savedSet = new Set(Object.keys(saved));
+  const hiddenSet = new Set(getHiddenPosts());
+  const ratings = getPaperRatings();
+
+  // Build source → category map from FEED_CATALOG
+  const sourceCatMap = {};
+  for (const f of FEED_CATALOG) sourceCatMap[f.key] = f.cat;
+
+  const sourceCounts = {};
+  const catCounts = {};
+  const wordMap = {};
+
+  for (const p of allPapers) {
+    if (p.source === 'quote') continue;
+    const src = p.source;
+    if (!sourceCounts[src]) sourceCounts[src] = { read: 0, saved: 0, rated: 0, hidden: 0, total: 0 };
+    sourceCounts[src].total++;
+
+    const cat = sourceCatMap[src] || (src.startsWith('custom:') ? 'Custom' : 'Other');
+    if (!catCounts[cat]) catCounts[cat] = { read: 0, saved: 0, hidden: 0 };
+
+    const isRead = readSet.has(p.link);
+    const isSaved = savedSet.has(p.link);
+    const isHidden = hiddenSet.has(p.link);
+    const rating = ratings[p.link] || 0;
+
+    if (isRead) { sourceCounts[src].read++; catCounts[cat].read++; _extractTitleWords(p.title, wordMap, 1); }
+    if (isSaved) { sourceCounts[src].saved++; catCounts[cat].saved++; _extractTitleWords(p.title, wordMap, 3); }
+    if (rating > 0) { sourceCounts[src].rated++; _extractTitleWords(p.title, wordMap, rating); }
+    if (isHidden) { sourceCounts[src].hidden++; catCounts[cat].hidden++; }
+  }
+
+  const topTopics = Object.entries(wordMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([w]) => w);
+
+  const topCategories = Object.entries(catCounts)
+    .map(([cat, c]) => ({ cat, score: c.read + c.saved * 3 - c.hidden }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(e => e.cat);
+
+  const profile = { sourceCounts, catCounts, topTopics, topCategories, updatedAt: Date.now() };
+  localStorage.setItem('interestProfile', JSON.stringify(profile));
+  return profile;
+}
+
+function getInterestProfile() {
+  try { return JSON.parse(localStorage.getItem('interestProfile') || 'null'); } catch { return null; }
+}
+
+function buildInterestContext() {
+  const profile = getInterestProfile();
+  if (!profile || !profile.topTopics || !profile.topTopics.length) return '';
+  const parts = [];
+  if (profile.topTopics.length) parts.push('topics=[' + profile.topTopics.join(', ') + ']');
+  if (profile.topCategories && profile.topCategories.length) parts.push('categories=[' + profile.topCategories.join(', ') + ']');
+  return parts.join(', ');
+}
+
+function getSourceAffinity() {
+  const profile = getInterestProfile();
+  if (!profile || !profile.sourceCounts) return {};
+  const affinity = {};
+  for (const [src, c] of Object.entries(profile.sourceCounts)) {
+    if (c.total < 3) { affinity[src] = 0.5; continue; }
+    const engagement = (c.read + c.saved * 2 + c.rated * 3) / c.total;
+    const penalty = (c.hidden / c.total) * 0.5;
+    affinity[src] = Math.max(0.1, Math.min(1.0, engagement - penalty));
+  }
+  return affinity;
+}
+
+function resetPersonalization() {
+  localStorage.removeItem('interestProfile');
+  computeInterestProfile();
+  const qView = document.getElementById('quality-view');
+  if (qView && !qView.classList.contains('hidden')) renderQualityView();
 }

@@ -3638,6 +3638,46 @@
       background: var(--border-input);
       margin: 2px 0;
     }
+    /* Profile items — compact to match top bar */
+    .aether-profile-items {
+      padding: 2px 0;
+      margin-bottom: 0;
+    }
+    .aether-profile-items .doc-aether-ctx-item {
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      color: var(--text-dim);
+    }
+    .aether-profile-items .doc-aether-ctx-item:not(.doc-aether-ctx-info):hover {
+      background: rgba(255,255,255,0.06);
+      color: var(--text-primary);
+    }
+    .aether-profile-items .doc-aether-ctx-info {
+      font-size: 0.65rem;
+      padding: 3px 10px;
+      gap: 8px;
+    }
+    .aether-profile-items .doc-aether-ctx-label {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .aether-profile-items .doc-aether-ctx-sub {
+      font-size: 0.58rem;
+    }
+    .aether-profile-items .doc-aether-ctx-danger {
+      color: var(--accent);
+    }
+    .aether-profile-items .doc-aether-ctx-danger:hover {
+      background: rgba(255,255,255,0.06);
+      color: var(--accent);
+    }
+    .aether-profile-items svg {
+      opacity: 0.5;
+    }
+    .aether-profile-items .doc-aether-ctx-sep {
+      margin: 1px 10px;
+      background: rgba(255,255,255,0.06);
+    }
     /* AI suggestion chip */
     .aether-suggestion {
       display: flex;
