@@ -498,6 +498,12 @@ function openBrowseWithPaper(url, paper) {
 
   if (!isAlreadyOpen) openBrowse();
 
+  // Exit split mode when opening a paper from feed — want full-screen view
+  if (_browseIsSplitMode()) {
+    const win = _getCurrentWindow();
+    if (win) { win.splitPanes = []; win.focusedPane = null; }
+  }
+
   // Check for existing tab with this URL across all windows
   for (const w of _browseWindows) {
     const t = w.tabs.find(t => t.url === url);
@@ -1368,21 +1374,25 @@ function browseSelectTab(id) {
   if (_browseIsSplitMode()) {
     const panes = _browseGetSplitPanes();
     const paneWithTab = panes.find(p => p.tabId === id);
+    win.activeTab = id;
     if (paneWithTab) {
       _browseFocusPane(paneWithTab.id);
-      _browseSaveTabs();
-      return;
+    } else {
+      // Replace focused pane's tab with this one
+      const focusedId = _browseGetFocusedPane();
+      const focusedPane = panes.find(p => p.id === focusedId) || panes[0];
+      focusedPane.tabId = id;
+      _browseSetSplitPanes(panes);
+      const tab = win.tabs.find(t => t.id === id);
+      if (tab) _browseEnsureTabFrame(tab);
+      _browseRebuildSplitLayout();
+      _browseFocusPane(focusedPane.id);
     }
-    // Replace focused pane's tab with this one
-    const focusedId = _browseGetFocusedPane();
-    const focusedPane = panes.find(p => p.id === focusedId) || panes[0];
-    focusedPane.tabId = id;
-    _browseSetSplitPanes(panes);
     const tab = win.tabs.find(t => t.id === id);
-    if (tab) _browseEnsureTabFrame(tab);
-    _browseRebuildSplitLayout();
-    _browseFocusPane(focusedPane.id);
     _browseRenderTabs();
+    _browseUpdateNewTabPage(tab);
+    const urlInput = document.getElementById('browse-url-input');
+    if (urlInput) urlInput.value = tab ? (tab.url || '') : '';
     _browseSaveTabs();
 
     // Handle paper tab in split mode
@@ -1395,6 +1405,7 @@ function browseSelectTab(id) {
       } else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
         _tryRenderSavedContent(tab.el, tab.paper);
       }
+      _browseUpdateBarForTab(tab);
     }
     return;
   }
@@ -1459,7 +1470,6 @@ function browseSelectTab(id) {
   _browseSaveTabs();
   _browseUpdateNewTabPage(tab);
   _updateAudioIndicator();
-  _browseApplyThemeColor(tab ? tab.themeColor || null : null);
 
   // Paper tab handling
   if (tab && tab.paper) {
@@ -1947,7 +1957,6 @@ function _browseFocusPane(paneId) {
     urlInput.value = tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : (tab.url || '');
   }
   _browseUpdateSaveBtn();
-  _browseApplyThemeColor(tab ? tab.themeColor || null : null);
   _browseRenderTabs();
 }
 

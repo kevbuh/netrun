@@ -7,7 +7,6 @@
       width: 144px;
       height: 28px;
       border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
       cursor: grab;
       display: flex;
       align-items: center;
@@ -473,17 +472,16 @@
     .sidebar-icon:hover {
       background: transparent;
       color: #fff;
-      transform: scale(1.15);
+      transform: scale(1.4);
     }
 
     .sidebar-icon.active {
       background: transparent;
       color: #fff;
-      box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5);
     }
-
     .sidebar-icon.active:hover {
       background: transparent;
+      box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5);
     }
     .sidebar-icon.drag-preview {
       box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3);

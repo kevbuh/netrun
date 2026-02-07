@@ -1424,8 +1424,7 @@ function routeFromHash() {
   if (hash === '#research') wmOpen('research');
   else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
   else if (hash === '#settings') wmOpen('settings');
-  else if (hash === '#quality') openQualityView();
-  else if (hash === '#algorithm') openAlgorithmView();
+  else if (hash === '#quality' || hash === '#algorithm') { _settingsSection = 'feed'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
   else if (hash === '#calendar') wmOpen('calendar');
   else if (hash === '#inbox') wmOpen('inbox');
   else if (hash === '#teams') openTeams();
