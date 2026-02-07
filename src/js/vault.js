@@ -7,6 +7,8 @@ let _vaultPreviewMode = true; // Preview on by default
 let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
 let _vaultMarimoActive = false; // Whether a marimo server is running for current note
+let _vaultEditorMode = 'note'; // 'note' | 'file'
+let _vaultExpandedProjects = new Set(); // project IDs currently expanded in tree
 
 // Open vault view
 async function openVault() {
@@ -284,15 +286,26 @@ function renderVaultFileTree(filter = '') {
 
   let html = '';
 
-  // Render project folders first (from vault tree)
+  // Render project folders first (from vault tree) — expandable
   if (!filter || projectDirs.some(d => d.name.toLowerCase().includes(filterLower))) {
     const filteredProjects = filter ? projectDirs.filter(d => d.name.toLowerCase().includes(filterLower)) : projectDirs;
     filteredProjects.forEach(dir => {
+      const expanded = _vaultExpandedProjects.has(dir.name);
+      const chevronCls = expanded ? '' : ' collapsed';
+      const escapedName = escapeHtml(dir.name).replace(/'/g, "\\'");
       html += `
-        <div class="vault-file-item vault-project-item" onclick="window.location.hash='experiment/${encodeURIComponent(dir.name)}'">
-          <svg class="w-4 h-4 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
-          <span class="truncate">${escapeHtml(dir.name)}</span>
-          <span class="ml-auto text-[0.6rem] text-dimmer px-1.5 py-0.5 rounded bg-border-card">project</span>
+        <div class="vault-project-folder${chevronCls}" data-project-id="${escapeAttr(dir.name)}">
+          <div class="vault-file-item vault-project-item" onclick="vaultToggleProject('${escapedName}')" oncontextmenu="showVaultProjectMenu(event, '${escapedName}')">
+            <svg class="vault-folder-chevron w-3 h-3 flex-shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+            <span class="truncate">${escapeHtml(dir.name)}</span>
+            <button class="vault-project-add-btn" onclick="event.stopPropagation(); vaultShowProjectNewMenu(event, '${escapedName}')" title="New file">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            </button>
+          </div>
+          <div class="vault-project-children">
+            ${expanded ? _renderProjectChildren(dir.children || [], dir.name) : ''}
+          </div>
         </div>
       `;
     });
@@ -648,6 +661,19 @@ async function openVaultNote(noteId) {
     return;
   }
 
+  // If in file editor mode, close it first
+  if (_vaultEditorMode === 'file') {
+    if (typeof _cleanupDrawEditor === 'function') try { _cleanupDrawEditor(); } catch (e) {}
+    if (typeof _cleanupSlidesEditor === 'function') try { _cleanupSlidesEditor(); } catch (e) {}
+    if (typeof closeFileEditor === 'function') closeFileEditor();
+    _vaultEditorMode = 'note';
+    const pane = document.getElementById('vault-file-editor-pane');
+    if (pane) { pane.style.display = 'none'; pane.style.position = ''; pane.style.inset = ''; pane.style.zIndex = ''; }
+    const header = document.querySelector('.vault-editor-header');
+    if (header) header.style.display = '';
+    document.querySelectorAll('.vault-project-file-item.active').forEach(el => el.classList.remove('active'));
+  }
+
   // Save current note first and stop marimo if active
   if (_vaultCurrentNote) {
     await _stopCurrentMarimo();
@@ -901,31 +927,41 @@ async function vaultNewProject() {
     if (resp.ok) {
       const exp = await resp.json();
       await loadVaultTree();
+      _vaultExpandedProjects.add(exp.id);
       renderVaultFileTree();
-      window.location.hash = 'experiment/' + exp.id;
     }
   } catch (e) {
     console.error('Failed to create project', e);
   }
 }
 
-// Open a loose file from the vault root in the experiment detail view
+// Open a loose file from the vault root in-place
 function vaultOpenLooseFile(fname) {
-  openExperimentDetail('_root');
-  setTimeout(() => { if (typeof openFile === 'function') openFile(fname); }, 400);
+  vaultOpenProjectFile('_root', fname);
 }
 
-// Create a loose file in the vault root (opens in experiment detail view)
+// Create a loose file in the vault root (opens in-place)
 async function vaultCreateFile(ext) {
+  vaultCreateProjectFile('_root', ext);
+}
+
+// Create a file in a project folder (or vault root for _root)
+async function vaultCreateProjectFile(projectId, ext) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'file';
   let name = `${base}${ext}`;
-  // Check existing files in tree to find unique name
-  const existing = new Set((_vaultTree || []).filter(f => f.type === 'file').map(f => f.name));
+  // Check existing files to find unique name
+  let existingNames = new Set();
+  if (projectId === '_root') {
+    existingNames = new Set((_vaultTree || []).filter(f => f.type === 'file').map(f => f.name));
+  } else {
+    const dir = (_vaultTree || []).find(d => d.type === 'dir' && d.name === projectId);
+    if (dir && dir.children) existingNames = new Set(dir.children.filter(f => f.type === 'file').map(f => f.name));
+  }
   let i = 2;
   const sep = ext === '.py' ? '_' : '-';
-  while (existing.has(name)) { name = `${base}${sep}${i}${ext}`; i++; }
+  while (existingNames.has(name)) { name = `${base}${sep}${i}${ext}`; i++; }
   try {
-    const resp = await fetch('/api/experiments/_root/files', {
+    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files`, {
       method: 'POST',
       headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
@@ -933,14 +969,376 @@ async function vaultCreateFile(ext) {
     if (resp.ok) {
       await loadVaultTree();
       renderVaultFileTree();
-      // Open the file in experiment detail view
-      openExperimentDetail('_root');
-      setTimeout(() => { if (typeof openFile === 'function') openFile(name); }, 400);
+      vaultOpenProjectFile(projectId, name);
     }
   } catch (e) {
     console.error('Failed to create file', e);
   }
 }
+
+// ── Project file-editor mode (opens experiment editors in-place within vault) ──
+
+// Open a project file in-place in the vault view
+async function vaultOpenProjectFile(projectId, filePath) {
+  // If currently editing a note, save it first
+  if (_vaultEditorMode === 'note' && _vaultCurrentNote) {
+    await _stopCurrentMarimo();
+    await saveCurrentNote();
+  }
+
+  _vaultEditorMode = 'file';
+
+  // Hide vault-specific containers
+  const containers = ['vault-editor-container', 'vault-preview-container', 'vault-graph-container', 'vault-marimo-container'];
+  containers.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Hide vault editor header (note-specific buttons don't apply to files)
+  const header = document.querySelector('.vault-editor-header');
+  if (header) header.style.display = 'none';
+
+  // Show the file editor pane — use absolute positioning for definite dimensions
+  const pane = document.getElementById('vault-file-editor-pane');
+  if (pane) {
+    pane.style.display = 'flex';
+    pane.style.flexDirection = 'column';
+    pane.style.position = 'absolute';
+    pane.style.inset = '0';
+    pane.style.overflow = 'hidden';
+    pane.style.zIndex = '1';
+  }
+
+  // Set experiment context and open file
+  currentExpId = projectId;
+  if (typeof openFile === 'function') openFile(filePath);
+
+  // Highlight active file in tree
+  document.querySelectorAll('.vault-project-file-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.projectId === projectId && el.dataset.filePath === filePath);
+  });
+}
+
+// Close file editor, return to vault note mode
+function vaultCloseFile() {
+  if (_vaultEditorMode !== 'file') return;
+
+  // Cleanup draw/slides editors if active
+  if (typeof _cleanupDrawEditor === 'function') try { _cleanupDrawEditor(); } catch (e) {}
+  if (typeof _cleanupSlidesEditor === 'function') try { _cleanupSlidesEditor(); } catch (e) {}
+
+  // Close the experiment file editor
+  if (typeof closeFileEditor === 'function') closeFileEditor();
+
+  _vaultEditorMode = 'note';
+
+  // Hide file editor pane and reset positioning
+  const pane = document.getElementById('vault-file-editor-pane');
+  if (pane) {
+    pane.style.display = 'none';
+    pane.style.position = '';
+    pane.style.inset = '';
+    pane.style.zIndex = '';
+  }
+
+  // Restore vault editor header
+  const header = document.querySelector('.vault-editor-header');
+  if (header) header.style.display = '';
+
+  // Remove active highlight from project files
+  document.querySelectorAll('.vault-project-file-item.active').forEach(el => el.classList.remove('active'));
+
+  // Re-open current vault note or show empty
+  if (_vaultCurrentNote) {
+    openVaultNote(_vaultCurrentNote.id);
+  } else if (_vaultNotes.length > 0) {
+    openVaultNote(_vaultNotes[0].id);
+  } else {
+    clearVaultEditor();
+    const editorContainer = document.getElementById('vault-editor-container');
+    if (editorContainer) editorContainer.style.display = '';
+  }
+}
+
+// Toggle project folder expand/collapse in tree
+function vaultToggleProject(projectId) {
+  if (_vaultExpandedProjects.has(projectId)) {
+    _vaultExpandedProjects.delete(projectId);
+  } else {
+    _vaultExpandedProjects.add(projectId);
+  }
+  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+}
+
+// Expand a specific project in the tree (e.g. from route)
+function vaultExpandProject(projectId) {
+  _vaultExpandedProjects.add(projectId);
+  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+}
+
+// Render children of a project folder
+function _renderProjectChildren(children, projectId) {
+  if (!children || !children.length) {
+    return '<div class="text-dimmer text-[0.6rem] px-6 py-1">Empty project</div>';
+  }
+  let html = '';
+  // Directories first, then files
+  const dirs = children.filter(c => c.type === 'dir').sort((a, b) => a.name.localeCompare(b.name));
+  const files = children.filter(c => c.type === 'file').sort((a, b) => a.name.localeCompare(b.name));
+
+  dirs.forEach(dir => {
+    html += `
+      <div class="vault-project-subfolder">
+        <div class="vault-file-item vault-project-subdir-item" style="padding-left:28px;">
+          <svg class="w-3.5 h-3.5 flex-shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+          <span class="truncate text-muted">${escapeHtml(dir.name)}</span>
+        </div>
+        ${_renderProjectChildrenDeep(dir.children || [], projectId, dir.name, 2)}
+      </div>
+    `;
+  });
+
+  files.forEach(file => {
+    const [badge, badgeCls] = typeof _fileExtBadge === 'function' ? _fileExtBadge(file.name) : ['?', 'text-dimmer'];
+    const escapedProject = escapeHtml(projectId).replace(/'/g, "\\'");
+    const escapedFile = escapeHtml(file.name).replace(/'/g, "\\'");
+    const isActive = _vaultEditorMode === 'file' && currentExpId === projectId && currentFile === file.name;
+    html += `
+      <div class="vault-file-item vault-project-file-item${isActive ? ' active' : ''}" style="padding-left:28px;"
+           data-project-id="${escapeAttr(projectId)}" data-file-path="${escapeAttr(file.name)}"
+           onclick="vaultOpenProjectFile('${escapedProject}', '${escapedFile}')"
+           oncontextmenu="showVaultProjectFileMenu(event, '${escapedProject}', '${escapedFile}')">
+        <span class="text-[0.55rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
+        <span class="truncate">${escapeHtml(file.name)}</span>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+// Recursive helper for subdirectories within a project
+function _renderProjectChildrenDeep(children, projectId, parentPath, depth) {
+  if (!children || !children.length) return '';
+  let html = '';
+  const pad = 16 + depth * 12;
+  const dirs = children.filter(c => c.type === 'dir').sort((a, b) => a.name.localeCompare(b.name));
+  const files = children.filter(c => c.type === 'file').sort((a, b) => a.name.localeCompare(b.name));
+
+  dirs.forEach(dir => {
+    const fullPath = parentPath + '/' + dir.name;
+    html += `
+      <div class="vault-file-item vault-project-subdir-item" style="padding-left:${pad}px;">
+        <svg class="w-3.5 h-3.5 flex-shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.06-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+        <span class="truncate text-muted">${escapeHtml(dir.name)}</span>
+      </div>
+      ${_renderProjectChildrenDeep(dir.children || [], projectId, fullPath, depth + 1)}
+    `;
+  });
+
+  files.forEach(file => {
+    const fullPath = parentPath + '/' + file.name;
+    const [badge, badgeCls] = typeof _fileExtBadge === 'function' ? _fileExtBadge(file.name) : ['?', 'text-dimmer'];
+    const escapedProject = escapeHtml(projectId).replace(/'/g, "\\'");
+    const escapedFile = escapeHtml(fullPath).replace(/'/g, "\\'");
+    const isActive = _vaultEditorMode === 'file' && currentExpId === projectId && currentFile === fullPath;
+    html += `
+      <div class="vault-file-item vault-project-file-item${isActive ? ' active' : ''}" style="padding-left:${pad}px;"
+           data-project-id="${escapeAttr(projectId)}" data-file-path="${escapeAttr(fullPath)}"
+           onclick="vaultOpenProjectFile('${escapedProject}', '${escapedFile}')"
+           oncontextmenu="showVaultProjectFileMenu(event, '${escapedProject}', '${escapedFile}')">
+        <span class="text-[0.55rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
+        <span class="truncate">${escapeHtml(file.name)}</span>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+// Context menu for project folder header
+function showVaultProjectMenu(e, projectId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) { existing.remove(); _aetherTrackMode = false; }
+
+  const penIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/></svg>';
+  const trashIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>';
+
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, contextMenu: {
+    items: [
+      { label: 'Rename', icon: penIcon, fn: () => vaultRenameProject(projectId) },
+      { sep: true },
+      { label: 'Delete project', icon: trashIcon, fn: () => vaultDeleteProject(projectId), danger: true },
+    ]
+  } });
+}
+
+// Context menu for a file inside a project
+function showVaultProjectFileMenu(e, projectId, filePath) {
+  e.preventDefault();
+  e.stopPropagation();
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) { existing.remove(); _aetherTrackMode = false; }
+
+  const penIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/></svg>';
+  const copyIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/></svg>';
+  const trashIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>';
+
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, contextMenu: {
+    items: [
+      { label: 'Rename', icon: penIcon, fn: () => vaultRenameProjectFile(projectId, filePath) },
+      { label: 'Duplicate', icon: copyIcon, fn: () => vaultDuplicateProjectFile(projectId, filePath) },
+      { sep: true },
+      { label: 'Delete', icon: trashIcon, fn: () => vaultDeleteProjectFile(projectId, filePath), danger: true },
+    ]
+  } });
+}
+
+// Show "new file" sub-menu on project folder +
+function vaultShowProjectNewMenu(e, projectId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) { existing.remove(); _aetherTrackMode = false; }
+
+  const codeIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>';
+  const docIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>';
+
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, contextMenu: {
+    items: [
+      { label: 'Python', icon: codeIcon, fn: () => vaultCreateProjectFile(projectId, '.py') },
+      { label: 'Notebook', icon: codeIcon, fn: () => vaultCreateProjectFile(projectId, '.ipynb') },
+      { label: 'LaTeX', icon: docIcon, fn: () => vaultCreateProjectFile(projectId, '.tex') },
+      { label: 'Drawing', icon: docIcon, fn: () => vaultCreateProjectFile(projectId, '.draw') },
+      { label: 'Slides', icon: docIcon, fn: () => vaultCreateProjectFile(projectId, '.slides') },
+      { label: 'Diagram', icon: docIcon, fn: () => vaultCreateProjectFile(projectId, '.mermaid') },
+      { label: 'Markdown', icon: docIcon, fn: () => vaultCreateProjectFile(projectId, '.md') },
+    ]
+  } });
+}
+
+// File operations on project files
+async function vaultDeleteProjectFile(projectId, filePath) {
+  if (!confirm(`Delete ${filePath}?`)) return;
+  try {
+    await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, {
+      method: 'DELETE', headers: _authHeaders()
+    });
+    // If this file is currently open, close editor
+    if (_vaultEditorMode === 'file' && currentExpId === projectId && currentFile === filePath) {
+      vaultCloseFile();
+    }
+    await loadVaultTree();
+    renderVaultFileTree();
+  } catch (e) {
+    console.error('Failed to delete project file', e);
+  }
+}
+
+async function vaultRenameProjectFile(projectId, filePath) {
+  const fileName = filePath.includes('/') ? filePath.split('/').pop() : filePath;
+  const newName = prompt('Rename file:', fileName);
+  if (!newName || newName.trim() === fileName) return;
+
+  const dir = filePath.includes('/') ? filePath.slice(0, filePath.lastIndexOf('/') + 1) : '';
+  const newPath = dir + newName.trim();
+
+  try {
+    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rename: newPath })
+    });
+    if (resp.ok) {
+      if (_vaultEditorMode === 'file' && currentExpId === projectId && currentFile === filePath) {
+        currentFile = newPath;
+      }
+      await loadVaultTree();
+      renderVaultFileTree();
+    }
+  } catch (e) {
+    console.error('Failed to rename project file', e);
+  }
+}
+
+async function vaultDuplicateProjectFile(projectId, filePath) {
+  try {
+    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, { headers: _authHeaders() });
+    const data = await resp.json();
+    if (data.error) return;
+
+    const ext = filePath.includes('.') ? '.' + filePath.split('.').pop() : '';
+    const base = filePath.includes('.') ? filePath.slice(0, filePath.lastIndexOf('.')) : filePath;
+    const newName = base + '_copy' + ext;
+
+    await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(newName)}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: data.content })
+    });
+    await loadVaultTree();
+    renderVaultFileTree();
+  } catch (e) {
+    console.error('Failed to duplicate project file', e);
+  }
+}
+
+async function vaultRenameProject(projectId) {
+  const newName = prompt('Rename project:', projectId);
+  if (!newName || newName.trim() === projectId) return;
+  try {
+    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}`, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newName.trim() })
+    });
+    if (resp.ok) {
+      // Update expanded set
+      if (_vaultExpandedProjects.has(projectId)) {
+        _vaultExpandedProjects.delete(projectId);
+        _vaultExpandedProjects.add(newName.trim());
+      }
+      await loadVaultTree();
+      renderVaultFileTree();
+    }
+  } catch (e) {
+    console.error('Failed to rename project', e);
+  }
+}
+
+async function vaultDeleteProject(projectId) {
+  if (!confirm(`Delete project "${projectId}" and all its files?`)) return;
+  try {
+    await fetch(`/api/experiments/${encodeURIComponent(projectId)}`, {
+      method: 'DELETE', headers: _authHeaders()
+    });
+    _vaultExpandedProjects.delete(projectId);
+    if (_vaultEditorMode === 'file' && currentExpId === projectId) {
+      vaultCloseFile();
+    }
+    await loadVaultTree();
+    renderVaultFileTree();
+  } catch (e) {
+    console.error('Failed to delete project', e);
+  }
+}
+
+// Escape key handler for vault file editor
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && _vaultEditorMode === 'file') {
+    // Don't close if an input, textarea, or CodeMirror is focused
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.closest('.CodeMirror'))) return;
+    // Only if vault view is visible
+    const vaultView = document.getElementById('vault-view');
+    if (vaultView && vaultView.style.display !== 'none') {
+      vaultCloseFile();
+    }
+  }
+});
 
 // Stop current marimo server if active
 async function _stopCurrentMarimo() {

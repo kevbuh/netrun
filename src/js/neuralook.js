@@ -63,6 +63,14 @@ let _nlWandbPanelOpen = false;
 let _nlShowTrainView = true; // toggle between training detail and normal view
 let _nlTrainAbort = null; // AbortController for in-flight training request
 
+// ONNX Runtime Web state (client-side inference)
+let _nlOrtLoaded = false;
+let _nlOrtLoadPromise = null;
+let _nlOrtSession = null;
+let _nlOrtSessionMethod = null;
+let _nlOrtModelType = null; // 'cnn' or 'headpose'
+let _nlOrtAvailable = false;
+
 // Smoothing
 let _nlGazeBuffer = [];
 const _NL_BUFFER_SIZE = 6;
@@ -107,6 +115,8 @@ async function openNeuralook() {
   if (view) { view.classList.remove('hidden'); view.style.display = ''; }
   window.location.hash = '#neuralook';
   setSidebarActive('sb-neuralook');
+  // Try to restore ONNX session if none active
+  if (!_nlOrtAvailable) _nlTryRestoreOnnxSession();
   renderNeuralookView();
 }
 
@@ -967,6 +977,10 @@ function _nlTrainOnServerSSE(onProgress, onLog, method) {
                   const m = data.method || method;
                   const mObj = _nlAvailableMethods.find(x => x.key === m);
                   if (mObj) { mObj.trained = true; mObj.trainError = data.train_error_px; mObj.valError = data.val_error_px; }
+                  // Load ONNX session for client-side inference
+                  if (data.onnx_url && data.model_type) {
+                    _nlLoadOnnxSession(data.onnx_url, m, data.model_type);
+                  }
                   resolve(data);
                   return;
                 } else if (currentEvent === 'error') {
@@ -1109,6 +1123,99 @@ async function _nlPredictOnServer(eyeData, headPose) {
   const result = await resp.json();
   if (result.error) return null;
   return { x: result.x, y: result.y };
+}
+
+// ── ONNX Runtime Web (client-side inference) ──
+
+function _nlEnsureORT() {
+  if (_nlOrtLoaded) return Promise.resolve();
+  if (_nlOrtLoadPromise) return _nlOrtLoadPromise;
+  _nlOrtLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js';
+    script.onload = () => {
+      _nlOrtLoaded = true;
+      if (window.ort) {
+        window.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
+      }
+      resolve();
+    };
+    script.onerror = () => {
+      _nlOrtLoadPromise = null;
+      reject(new Error('Failed to load ONNX Runtime Web'));
+    };
+    document.head.appendChild(script);
+  });
+  return _nlOrtLoadPromise;
+}
+
+async function _nlLoadOnnxSession(url, method, modelType) {
+  try {
+    await _nlEnsureORT();
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('ONNX fetch failed: ' + resp.status);
+    const buf = await resp.arrayBuffer();
+    const session = await window.ort.InferenceSession.create(buf, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all'
+    });
+    _nlOrtSession = session;
+    _nlOrtSessionMethod = method;
+    _nlOrtModelType = modelType;
+    _nlOrtAvailable = true;
+    // Persist metadata for session restoration
+    try {
+      localStorage.setItem('nlOnnxMeta', JSON.stringify({ url, method, modelType }));
+    } catch (_) {}
+    console.log('Neuralook: ONNX session loaded for', method, '(' + modelType + ')');
+    return true;
+  } catch (e) {
+    console.warn('Neuralook: ONNX session load failed', e);
+    _nlOrtAvailable = false;
+    return false;
+  }
+}
+
+async function _nlTryRestoreOnnxSession() {
+  try {
+    const raw = localStorage.getItem('nlOnnxMeta');
+    if (!raw) return;
+    const meta = JSON.parse(raw);
+    if (!meta.url || !meta.method) return;
+    // HEAD check to verify the file still exists
+    const check = await fetch(meta.url, { method: 'HEAD' });
+    if (!check.ok) { localStorage.removeItem('nlOnnxMeta'); return; }
+    await _nlLoadOnnxSession(meta.url, meta.method, meta.modelType);
+  } catch (_) {}
+}
+
+function _nlClearOnnxSession() {
+  _nlOrtSession = null;
+  _nlOrtSessionMethod = null;
+  _nlOrtModelType = null;
+  _nlOrtAvailable = false;
+  try { localStorage.removeItem('nlOnnxMeta'); } catch (_) {}
+}
+
+function _nlPredictLocal(eyeData, headPose) {
+  if (!_nlOrtSession || !window.ort) return null;
+  // eyeData is Uint8Array(4096) — 2 channels of 32x64
+  const floats = new Float32Array(eyeData.length);
+  for (let i = 0; i < eyeData.length; i++) floats[i] = eyeData[i] / 255.0;
+  const eyeTensor = new window.ort.Tensor('float32', floats, [1, 2, _NL_EYE_H, _NL_EYE_W]);
+  const feeds = { eye_input: eyeTensor };
+  if (_nlOrtModelType === 'headpose') {
+    const hp = headPose || [0, 0, 0];
+    feeds.head_pose = new window.ort.Tensor('float32', new Float32Array(hp), [1, 3]);
+  }
+  return _nlOrtSession.run(feeds).then(results => {
+    const out = results.gaze_output.data;
+    return { x: out[0] * window.innerWidth, y: out[1] * window.innerHeight };
+  }).catch(e => {
+    console.warn('Neuralook: local predict failed', e);
+    _nlOrtAvailable = false;
+    return null;
+  });
 }
 
 // ── Camera / Video ──
@@ -1433,8 +1540,9 @@ async function _nlOnCalibrationComplete() {
     _nlCalibSaved = true;
   } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
 
-  // Reset all method trained states
+  // Reset all method trained states and clear ONNX session
   for (const m of _nlAvailableMethods) { m.trained = false; m.trainError = null; m.valError = null; }
+  _nlClearOnnxSession();
 
   _nlTraining = true;
   _nlTrainPhase = 'training';
@@ -1587,8 +1695,21 @@ function _nlSwitchMethod(key) {
   _nlActiveMethod = key;
   _nlGazeBuffer = [];
   if (key === 'cnn_kalman') _nlKalmanInit();
-  // For server-based methods that use 'cnn' model under a different key (kalman),
-  // the predict endpoint uses the method key; kalman uses 'cnn' model on server
+  // Check if ONNX session matches the new method; if not, try loading the correct one
+  const sessionMethod = _nlOrtSessionMethod;
+  const matches = sessionMethod === key || (key === 'cnn_kalman' && sessionMethod === 'cnn');
+  if (!matches) {
+    _nlOrtAvailable = false;
+    // Try to load the right ONNX model if it exists
+    const targetMethod = key === 'cnn_kalman' ? 'cnn' : key;
+    const url = '/uploads/neuralook_' + targetMethod + '.onnx';
+    fetch(url, { method: 'HEAD' }).then(r => {
+      if (r.ok) {
+        const modelType = targetMethod === 'cnn_headpose' ? 'headpose' : 'cnn';
+        _nlLoadOnnxSession(url, targetMethod, modelType);
+      }
+    }).catch(() => {});
+  }
   renderNeuralookView();
 }
 
@@ -1602,7 +1723,27 @@ function _nlFinishCalibration() {
   renderNeuralookView();
 }
 
-// ── Tracking Loop (server-side inference) ──
+// ── Shared prediction → gaze smoothing ──
+
+function _nlApplyGazePrediction(pred) {
+  if (_nlActiveMethod === 'cnn_kalman') {
+    const filtered = _nlKalmanUpdate(pred.x, pred.y);
+    _nlGazeX = filtered.x;
+    _nlGazeY = filtered.y;
+    _nlGazeBuffer.push(pred);
+    if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+  } else {
+    _nlGazeBuffer.push(pred);
+    if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+    let sx = 0, sy = 0;
+    for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+    _nlGazeX = sx / _nlGazeBuffer.length;
+    _nlGazeY = sy / _nlGazeBuffer.length;
+  }
+  _nlMoveDot(_nlGazeX, _nlGazeY);
+}
+
+// ── Tracking Loop ──
 
 function _nlTrackingLoop() {
   if (!_nlTracking || !_nlFaceLandmarker || !_nlVideoEl) {
@@ -1634,11 +1775,15 @@ function _nlTrackingLoop() {
     return;
   }
 
-  // Server-based methods: cnn, cnn_kalman, cnn_headpose
-  if (!_nlInferPending) {
+  // CNN-based methods: cnn, cnn_kalman, cnn_headpose
+  // Use local ONNX inference if available, otherwise fall back to server
+  const useLocal = _nlOrtAvailable && _nlOrtSession &&
+    (_nlOrtSessionMethod === _nlActiveMethod ||
+     (_nlActiveMethod === 'cnn_kalman' && _nlOrtSessionMethod === 'cnn'));
+
+  if (useLocal) {
     const eyeData = _nlCaptureEyeCrops();
     if (eyeData) {
-      // Extract head pose for cnn_headpose method
       let headPose = null;
       if (_nlActiveMethod === 'cnn_headpose') {
         const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
@@ -1646,33 +1791,30 @@ function _nlTrackingLoop() {
           headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
         }
       }
-
+      _nlPredictLocal(eyeData, headPose).then(pred => {
+        if (!pred || !_nlTracking) return;
+        _nlPredictionCount++;
+        _nlPredictionsThisSec++;
+        _nlApplyGazePrediction(pred);
+      });
+    }
+  } else if (!_nlInferPending) {
+    const eyeData = _nlCaptureEyeCrops();
+    if (eyeData) {
+      let headPose = null;
+      if (_nlActiveMethod === 'cnn_headpose') {
+        const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
+        if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
+          headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
+        }
+      }
       _nlInferPending = true;
       _nlPredictOnServer(eyeData, headPose).then(pred => {
         _nlInferPending = false;
         if (!pred || !_nlTracking) return;
-
         _nlPredictionCount++;
         _nlPredictionsThisSec++;
-
-        if (_nlActiveMethod === 'cnn_kalman') {
-          // Kalman filter smoothing instead of ring buffer
-          const filtered = _nlKalmanUpdate(pred.x, pred.y);
-          _nlGazeX = filtered.x;
-          _nlGazeY = filtered.y;
-          // Still push to buffer for jitter stats
-          _nlGazeBuffer.push(pred);
-          if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-        } else {
-          // Ring buffer smoothing (cnn, cnn_headpose)
-          _nlGazeBuffer.push(pred);
-          if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-          let sx = 0, sy = 0;
-          for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
-          _nlGazeX = sx / _nlGazeBuffer.length;
-          _nlGazeY = sy / _nlGazeBuffer.length;
-        }
-        _nlMoveDot(_nlGazeX, _nlGazeY);
+        _nlApplyGazePrediction(pred);
       }).catch(() => { _nlInferPending = false; });
     }
   }
@@ -1797,6 +1939,7 @@ function _nlRefreshStats() {
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
     (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +
     row('Accuracy', accPx !== null ? `${accPx}px — ${accLabel}` : 'Not tested', accColor) +
+    row('Inference', _nlOrtAvailable ? '<span style="color:#4ade80">Local (ONNX)</span>' : '<span style="color:#fbbf24">Server</span>') +
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
     row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
     row('Gaze', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +

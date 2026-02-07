@@ -302,15 +302,14 @@ function _blurSidebar() {
 
 function _renderSidebarSelection() {
   const items = _getSidebarItems();
-  items.forEach((el, i) => {
-    el.classList.toggle('sidebar-kbd-selected', i === _sidebarSelectedIndex);
-  });
+  items.forEach(el => el.classList.remove('sidebar-kbd-selected'));
   // Scroll into view if needed
   if (_sidebarSelectedIndex >= 0 && items[_sidebarSelectedIndex]) {
     items[_sidebarSelectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 }
 
+var _sidebarNavClicking = false;
 function _sidebarNavigate(direction) {
   const items = _getSidebarItems();
   if (!items.length) return;
@@ -319,6 +318,12 @@ function _sidebarNavigate(direction) {
   if (_sidebarSelectedIndex < 0) _sidebarSelectedIndex = items.length - 1;
   if (_sidebarSelectedIndex >= items.length) _sidebarSelectedIndex = 0;
   _renderSidebarSelection();
+  // Immediately open the selected view
+  if (items[_sidebarSelectedIndex]) {
+    _sidebarNavClicking = true;
+    items[_sidebarSelectedIndex].click();
+    _sidebarNavClicking = false;
+  }
 }
 
 function _sidebarActivateSelected() {
@@ -373,6 +378,7 @@ function _sidebarActivateSelected() {
 function _installSidebarClickFocus() {
   document.querySelectorAll('.sidebar-icon').forEach(el => {
     el.addEventListener('click', () => {
+      if (_sidebarNavClicking) return;
       const items = _getSidebarItems();
       const idx = items.indexOf(el);
       if (idx >= 0) {
@@ -1159,44 +1165,13 @@ let _prevRouteHash = ''; // the hash before the current route
 let _currentRouteHash = ''; // the current route hash
 
 async function openExperimentDetail(id, e) {
-  // _prevRouteHash is set by routeFromHash for link-based navigation.
-  // For direct calls (onclick), the hash hasn't changed yet, so window.location.hash is the "previous".
-  const currentHash = window.location.hash;
-  const prevHash = currentHash.startsWith('#experiment/') ? (_prevRouteHash || '') : currentHash;
-  if (!prevHash.startsWith('#experiment/')) {
-    if (prevHash.startsWith('#teams') || prevHash.startsWith('#team/')) {
-      const teamId = typeof _lastTeamDetailId !== 'undefined' ? _lastTeamDetailId : null;
-      _expBackAction = { fn: () => { openTeams(); if (teamId) showTeamDetailView(teamId); }, label: 'Team' };
-    } else if (prevHash === '#saved' || prevHash === '#' || prevHash === '' || prevHash === '#dashboard') {
-      _expBackAction = { fn: () => openDashboard(), label: 'Home' };
-    } else if (prevHash === '#search' || prevHash === '#research') {
-      _expBackAction = { fn: () => openResearch(), label: 'Research' };
-    } else if (prevHash.startsWith('#view/') || prevHash.startsWith('#paper/')) {
-      _expBackAction = { fn: () => { window.location.hash = prevHash; routeFromHash(); }, label: 'Paper' };
-    } else if (prevHash === '#inbox') {
-      _expBackAction = { fn: () => openInbox(), label: 'Inbox' };
-    } else if (prevHash === '#vault') {
-      _expBackAction = { fn: () => wmOpen('vault'), label: 'Vault' };
-    } else if (prevHash === '#experiments') {
-      _expBackAction = { fn: () => wmOpen('vault'), label: 'Vault' };
-    } else {
-      _expBackAction = { fn: () => wmOpen('vault'), label: 'Vault' };
-    }
-  }
-  hideAllViews();
-  const view = await ensureView('exp-detail-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  // Update back button label (after ensureView so DOM exists)
-  const backBtn = document.querySelector('#exp-sidebar .exp-back-btn');
-  if (backBtn) {
-    const lbl = backBtn.querySelector('.exp-sidebar-label');
-    if (lbl) lbl.textContent = (_expBackAction && _expBackAction.label) || 'Back';
-  }
-  window.location.hash = 'experiment/' + id;
+  // Redirect through vault — open vault and expand the project folder
+  wmOpen('vault');
+  window.location.hash = 'experiment/' + encodeURIComponent(id);
   setSidebarActive('sb-vault');
-  currentExpId = id;
-  fetchExperimentDetail(id);
+  setTimeout(() => {
+    if (typeof vaultExpandProject === 'function') vaultExpandProject(id);
+  }, 300);
 }
 
 // ── Universal Side Panel ──
@@ -1382,11 +1357,17 @@ function routeFromHash() {
   else if (hash.startsWith('#experiment/')) {
     const expPart = hash.slice('#experiment/'.length);
     const qIdx = expPart.indexOf('?');
-    const expId = qIdx >= 0 ? expPart.slice(0, qIdx) : expPart;
+    const expId = qIdx >= 0 ? decodeURIComponent(expPart.slice(0, qIdx)) : decodeURIComponent(expPart);
     const params = qIdx >= 0 ? new URLSearchParams(expPart.slice(qIdx)) : null;
     const autoFile = params && params.get('file');
-    openExperimentDetail(expId);
-    if (autoFile) setTimeout(() => { if (typeof openFile === 'function') openFile(decodeURIComponent(autoFile)); }, 600);
+    // Open vault and expand the project folder in-place
+    wmOpen('vault');
+    setTimeout(() => {
+      if (typeof vaultExpandProject === 'function') vaultExpandProject(expId);
+      if (autoFile && typeof vaultOpenProjectFile === 'function') {
+        vaultOpenProjectFile(expId, decodeURIComponent(autoFile));
+      }
+    }, 300);
   }
   else if (hash.startsWith('#paper/')) openPaperByUrl(decodeURIComponent(hash.slice('#paper/'.length)));
   else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));

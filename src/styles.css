@@ -408,8 +408,8 @@
       z-index: 9999;
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 5px 6px;
+      gap: 2px;
+      padding: 3px 4px;
       background: transparent;
       border: none;
       box-shadow: none;
@@ -429,14 +429,15 @@
 
     .sidebar-icon {
       position: relative;
-      width: 34px;
-      height: 34px;
+      width: 28px;
+      height: 28px;
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       border: none;
+      outline: none;
       background: transparent;
       color: #fff;
       transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -447,6 +448,7 @@
     .sidebar-icon:hover {
       background: transparent;
       color: #fff;
+      transform: scale(1.15);
     }
 
     .sidebar-icon.active {
@@ -479,10 +481,7 @@
 
     /* ── Sidebar keyboard navigation ── */
     .sidebar-icon.sidebar-kbd-selected {
-      box-shadow: 0 0 0 2px var(--accent);
-    }
-    .sidebar-icon.active.sidebar-kbd-selected {
-      box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5), 0 0 0 2px rgba(255,255,255,0.5);
+      box-shadow: none;
     }
 
     /* ── Sidebar user avatar (force circle) ── */
@@ -4879,7 +4878,7 @@
     .vault-layout {
       display: grid;
       grid-template-columns: 220px 1fr;
-      height: 100%;
+      height: calc(100vh - 40px);
       background: var(--bg-body);
     }
     .vault-sidebar {
@@ -5065,6 +5064,50 @@
       display: none;
     }
 
+    /* Expandable project folders */
+    .vault-project-folder .vault-project-children {
+      padding-left: 4px;
+    }
+    .vault-project-folder.collapsed .vault-project-children {
+      display: none;
+    }
+    .vault-project-folder .vault-folder-chevron {
+      transition: transform 0.15s;
+    }
+    .vault-project-folder.collapsed .vault-folder-chevron {
+      transform: rotate(-90deg);
+    }
+    .vault-project-add-btn {
+      margin-left: auto;
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      transition: opacity 0.1s, color 0.1s;
+    }
+    .vault-project-item:hover .vault-project-add-btn {
+      opacity: 1;
+    }
+    .vault-project-add-btn:hover {
+      color: var(--accent);
+    }
+    .vault-project-file-item.active {
+      background: var(--accent-bg, rgba(180, 69, 26, 0.15));
+      color: var(--accent);
+    }
+    #vault-file-editor-pane {
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
     /* Context Menu */
     .vault-context-menu {
       position: fixed;
@@ -5108,6 +5151,10 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
       background: var(--bg-body);
     }
     .vault-editor-header {

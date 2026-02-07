@@ -913,7 +913,8 @@ async function openFile(fname) {
   const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
   const data = await resp.json();
 
-  document.getElementById('exp-default-content').style.display = 'none';
+  const _dc = document.getElementById('exp-default-content');
+  if (_dc) _dc.style.display = 'none';
   const editor = document.getElementById('exp-file-editor');
   editor.style.display = 'flex';
   editor.style.flexDirection = 'column';
@@ -921,9 +922,13 @@ async function openFile(fname) {
   editor.style.minHeight = '0';
   editor.style.overflow = 'hidden';
   var cp = document.getElementById('exp-content-pane');
-  cp.style.overflow = 'hidden';
-  cp.style.display = 'flex';
-  cp.style.flexDirection = 'column';
+  if (cp) {
+    cp.style.overflow = 'hidden';
+    cp.style.display = 'flex';
+    cp.style.flexDirection = 'column';
+    cp.style.flex = '1 1 0%';
+    cp.style.minHeight = '0';
+  }
 
   if (/\.(png|svg|gif|jpg|jpeg|webp|bmp|ico)$/i.test(fname)) {
     renderImageViewer(fname, data.content);
@@ -948,7 +953,7 @@ async function openFile(fname) {
   } else {
     renderMarkdownEditor(fname, data.content);
   }
-  fetchExpFiles();
+  if (document.getElementById('exp-sidebar-files')) fetchExpFiles();
 }
 
 function renderImageViewer(fname, dataUrl) {
@@ -1065,18 +1070,25 @@ function closeFileEditor() {
   if (typeof _texPreviewEl !== 'undefined' && _texPreviewEl) { _texPreviewEl.remove(); _texPreviewEl = null; }
   if (typeof _mermaidCm !== 'undefined') _mermaidCm = null;
   const el = document.getElementById('exp-file-editor');
-  el.style.display = 'none';
-  el.style.flexDirection = '';
-  el.style.flex = '';
-  el.style.minHeight = '';
-  el.style.overflow = '';
+  if (el) {
+    el.style.display = 'none';
+    el.style.flexDirection = '';
+    el.style.flex = '';
+    el.style.minHeight = '';
+    el.style.overflow = '';
+    el.innerHTML = '';
+  }
   var cp = document.getElementById('exp-content-pane');
-  cp.style.overflow = '';
-  cp.style.display = '';
-  cp.style.flexDirection = '';
-  el.innerHTML = '';
-  document.getElementById('exp-default-content').style.display = '';
-  fetchExpFiles();
+  if (cp) {
+    cp.style.overflow = '';
+    cp.style.display = '';
+    cp.style.flexDirection = '';
+    cp.style.flex = '';
+    cp.style.minHeight = '';
+  }
+  const _dc2 = document.getElementById('exp-default-content');
+  if (_dc2) _dc2.style.display = '';
+  if (document.getElementById('exp-sidebar-files')) fetchExpFiles();
 }
 
 // ── New File menu toggle ──

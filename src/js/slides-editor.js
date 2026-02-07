@@ -180,9 +180,15 @@ function renderSlidesEditor(fname, content) {
   requestAnimationFrame(() => _initSlidesCanvas());
 }
 
-function _initSlidesCanvas() {
+function _initSlidesCanvas(_retries) {
   const wrap = document.getElementById('slides-canvas-wrap');
   if (!wrap) return;
+
+  // Retry if layout hasn't computed yet (height is 0)
+  if (wrap.clientHeight < 10 && (_retries || 0) < 10) {
+    setTimeout(() => _initSlidesCanvas((_retries || 0) + 1), 50);
+    return;
+  }
 
   // Calculate 16:9 dimensions that fit the container
   const containerW = wrap.clientWidth - 32;

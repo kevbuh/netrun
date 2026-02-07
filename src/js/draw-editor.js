@@ -131,11 +131,17 @@ function renderDrawEditor(fname, content) {
   requestAnimationFrame(() => _initDrawCanvas(data));
 }
 
-function _initDrawCanvas(data) {
+function _initDrawCanvas(data, _retries) {
   const wrap = document.getElementById('draw-canvas-wrap');
   if (!wrap) return;
   const w = wrap.clientWidth;
   const h = wrap.clientHeight;
+
+  // Retry if layout hasn't computed yet (height is 0)
+  if (h < 10 && (_retries || 0) < 10) {
+    setTimeout(() => _initDrawCanvas(data, (_retries || 0) + 1), 50);
+    return;
+  }
 
   _drawCanvas = new fabric.Canvas('draw-canvas', {
     width: w,

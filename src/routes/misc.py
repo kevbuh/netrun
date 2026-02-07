@@ -794,6 +794,34 @@ def neuralook_train(google_id):
             yield sse_event('log', {'text': ''})
             yield sse_event('log', {'text': f'Done. Model ready for inference ({n_params:,} params, screen {screen_w}x{screen_h}).'})
 
+            # Export model to ONNX for client-side inference
+            onnx_url = None
+            try:
+                import io
+                onnx_buf = io.BytesIO()
+                dummy_eye = torch.randn(1, 2, eye_h, eye_w)
+                if is_headpose:
+                    dummy_hp = torch.zeros(1, 3)
+                    torch.onnx.export(model, (dummy_eye, dummy_hp), onnx_buf,
+                                      input_names=['eye_input', 'head_pose'],
+                                      output_names=['gaze_output'],
+                                      dynamic_axes={'eye_input': {0: 'batch'}, 'head_pose': {0: 'batch'}, 'gaze_output': {0: 'batch'}},
+                                      opset_version=13)
+                else:
+                    torch.onnx.export(model, dummy_eye, onnx_buf,
+                                      input_names=['eye_input'],
+                                      output_names=['gaze_output'],
+                                      dynamic_axes={'eye_input': {0: 'batch'}, 'gaze_output': {0: 'batch'}},
+                                      opset_version=13)
+                onnx_filename = f'neuralook_{method}.onnx'
+                onnx_path = os.path.join(UPLOADS_DIR, onnx_filename)
+                with open(onnx_path, 'wb') as f:
+                    f.write(onnx_buf.getvalue())
+                onnx_url = f'/uploads/{onnx_filename}'
+                yield sse_event('log', {'text': f'ONNX model exported → {onnx_filename} ({len(onnx_buf.getvalue()) / 1024:.0f} KB)'})
+            except Exception as onnx_err:
+                yield sse_event('log', {'text': f'ONNX export skipped: {onnx_err}'})
+
             if wb:
                 wb.summary['train_error_px'] = round(train_err, 1)
                 wb.summary['val_error_px'] = round(val_err, 1)
@@ -803,7 +831,7 @@ def neuralook_train(google_id):
                 wb.finish()
                 yield sse_event('log', {'text': f'wandb: Run logged offline → wandb/latest-run'})
 
-            yield sse_event('done', {
+            done_data = {
                 'method': method,
                 'train_error_px': round(train_err, 1),
                 'val_error_px': round(val_err, 1),
@@ -813,7 +841,11 @@ def neuralook_train(google_id):
                 'train_samples': int(train_mask.sum()),
                 'val_samples': int(val_mask.sum()),
                 'val_points': n_val_points
-            })
+            }
+            if onnx_url:
+                done_data['onnx_url'] = onnx_url
+                done_data['model_type'] = 'headpose' if is_headpose else 'cnn'
+            yield sse_event('done', done_data)
         except ImportError:
             yield sse_event('error', {'error': 'PyTorch not installed on server'})
         except Exception as e:
