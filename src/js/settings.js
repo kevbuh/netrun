@@ -736,7 +736,6 @@ function _applyResolvedTheme(resolved) {
     document.documentElement.setAttribute('data-theme', resolved);
   }
   if (resolved === 'daylight') startDaylightTheme();
-  if (typeof _browseRefreshScheme === 'function') _browseRefreshScheme();
 }
 
 

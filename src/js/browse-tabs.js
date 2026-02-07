@@ -195,6 +195,7 @@ function _browseRestoreTabs() {
 
 // Window management
 function browseCreateWindow(name) {
+  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   const id = _browseNextWindowId++;
   if (!name) {
     const used = new Set(_browseWindows.map(w => w.name).filter(n => /^Window \d+$/.test(n)).map(n => parseInt(n.split(' ')[1])));
@@ -304,6 +305,7 @@ function _destroyTab(tab) {
 }
 
 function switchWindowUp() {
+  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
   if (idx > 0) {
     _animateWindowSwitch('up', () => {
@@ -313,6 +315,7 @@ function switchWindowUp() {
 }
 
 function switchWindowDown() {
+  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
   if (idx < _browseWindows.length - 1) {
     _animateWindowSwitch('down', () => {
@@ -417,6 +420,7 @@ function openBrowse(url) {
 }
 
 function browseNewTab(url) {
+  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   // Intercept aether:// URLs
   const trimUrl = (url || '').trim().toLowerCase();
   if (trimUrl === 'aether://history' || trimUrl === 'aether://history/') {
@@ -537,18 +541,6 @@ function openBrowseWithPaper(url, paper) {
   }
 }
 
-function _browseRefreshScheme() {
-  // Reload all proxied browse tabs with the updated color scheme
-  if (!_browseWindows.length) return;
-  for (const win of _browseWindows) {
-    for (const tab of win.tabs) {
-      if (!tab.el || tab.blank || !tab.url || tab.contentType) continue;
-      _browseSetFrameAllow(tab.el, tab.url);
-      const newSrc = _browseProxyUrl(tab.url);
-      if (tab.el.src !== newSrc) tab.el.src = newSrc;
-    }
-  }
-}
 
 function _browseProxyUrl(url) {
   // Never proxy blob: or data: URLs
@@ -557,8 +549,7 @@ function _browseProxyUrl(url) {
   if (url && url.startsWith('file://')) return '/api/local-file?path=' + encodeURIComponent(url.replace(/^file:\/\//, ''));
   // Always proxy in browser mode (not Electron) to enable link context menu and ad blocking
   if (!_browseIsElectron && url) {
-    const scheme = typeof getThemeColorScheme === 'function' ? getThemeColorScheme() : 'light';
-    return '/api/browse-proxy?url=' + encodeURIComponent(url) + '&scheme=' + scheme;
+    return '/api/browse-proxy?url=' + encodeURIComponent(url);
   }
   return url;
 }

@@ -125,11 +125,10 @@ def browse_proxy():
     url = request.args.get('url', '')
     if not url:
         return jsonify({'error': 'Missing url parameter'}), 400
-    color_scheme = request.args.get('scheme', '')
     try:
         data = cached_fetch(url, timeout=20)
         html_str = data.decode('utf-8', errors='replace')
-        cleaned, count = clean_html(html_str, url, color_scheme=color_scheme)
+        cleaned, count = clean_html(html_str, url)
         body = cleaned.encode('utf-8')
         resp = Response(body, content_type='text/html; charset=utf-8')
         resp.headers['Access-Control-Allow-Origin'] = '*'
