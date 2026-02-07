@@ -487,12 +487,9 @@
       align-items: center;
       gap: 4px;
       padding: 5px 6px;
-      background: rgba(20, 20, 22, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-radius: 100px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      background: transparent;
+      border: none;
+      box-shadow: none;
     }
     /* Electron: shift right to avoid macOS traffic lights */
     body.electron-app .pill-bar {
@@ -502,7 +499,7 @@
     .pill-separator {
       width: 1px;
       height: 20px;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.25);
       margin: 0 2px;
       flex-shrink: 0;
     }
@@ -518,7 +515,7 @@
       cursor: pointer;
       border: none;
       background: transparent;
-      color: rgba(255, 255, 255, 0.5);
+      color: #fff;
       transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
       flex-shrink: 0;
       padding: 0;
@@ -526,7 +523,7 @@
 
     .sidebar-icon:hover {
       background: rgba(255, 255, 255, 0.12);
-      color: rgba(255, 255, 255, 0.9);
+      color: #fff;
       border-radius: 100px;
       padding: 0 6px;
       width: auto;
@@ -582,13 +579,6 @@
     }
 
     /* ── Pill bar light theme overrides ── */
-    [data-theme="light"] .pill-bar,
-    [data-theme="daylight"] .pill-bar,
-    [data-theme="sepia"] .pill-bar {
-      background: rgba(255, 255, 255, 0.85);
-      border-color: rgba(0, 0, 0, 0.1);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
-    }
     [data-theme="light"] .pill-separator,
     [data-theme="daylight"] .pill-separator,
     [data-theme="sepia"] .pill-separator {
@@ -597,13 +587,13 @@
     [data-theme="light"] .sidebar-icon,
     [data-theme="daylight"] .sidebar-icon,
     [data-theme="sepia"] .sidebar-icon {
-      color: rgba(0, 0, 0, 0.4);
+      color: #fff;
     }
     [data-theme="light"] .sidebar-icon:hover,
     [data-theme="daylight"] .sidebar-icon:hover,
     [data-theme="sepia"] .sidebar-icon:hover {
-      background: rgba(0, 0, 0, 0.08);
-      color: rgba(0, 0, 0, 0.75);
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
     }
     [data-theme="light"] .sidebar-icon.active,
     [data-theme="daylight"] .sidebar-icon.active,

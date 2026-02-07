@@ -4,6 +4,7 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
+    "postinstall": "node scripts/rename-electron.js",
     "start": "electron .",
     "server": "python3 src/app.py"
   },
