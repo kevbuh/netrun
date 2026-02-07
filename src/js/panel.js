@@ -2077,6 +2077,7 @@ const _lookupCommands = [
   { name: 'search', desc: 'Web search in new tab', hasArgs: true },
   { name: 'links', desc: 'List all links on page', _special: true },
   { name: 'tab', desc: 'Add a tab to context', _special: true },
+  { name: 'tabs', desc: 'Switch to an open tab', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
@@ -2090,6 +2091,7 @@ let _lookupNoteResults = []; // current note search results
 let _lookupNoteQuery = ''; // current note search query (for create-on-enter)
 let _lookupTabIdx = 0; // selected index in tab dropdown
 let _lookupTabList = []; // current tab list for /tab command
+let _lookupTabSwitchMode = false; // true when /tabs (switch mode) vs /tab (context mode)
 
 function _lookupFilterCommands(query) {
   const q = query.toLowerCase();
@@ -2136,6 +2138,7 @@ function _lookupRenderCmdDropdown(popup, query) {
         else if (cmd.name === 'model') _doLookupModel(popup);
         else if (cmd.name === 'links') _doLookupLinks(popup);
         else if (cmd.name === 'tab') _doLookupTab(popup);
+        else if (cmd.name === 'tabs') _doLookupTabs(popup);
         else if (cmd.name === 'notes') _doLookupNotesBrowse(popup);
         else if (cmd.name === 'history') _doLookupHistory(popup);
         else if (cmd.name === 'help') _doLookupHelp(popup);
@@ -2167,6 +2170,7 @@ function _lookupHideTabDropdown(popup) {
   if (dropdown) dropdown.remove();
   _lookupTabList = [];
   _lookupTabIdx = 0;
+  _lookupTabSwitchMode = false;
 }
 
 let _lookupHistoryIdx = 0;
@@ -2784,22 +2788,25 @@ function _renderTabDropdown(popup) {
     else popup.appendChild(dropdown);
   }
   _lookupTabIdx = Math.min(_lookupTabIdx, _lookupTabList.length - 1);
+  const activeTabId = _lookupTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
   dropdown.innerHTML = _lookupTabList.map((tab, i) => {
     const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
     const favUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
+    const activeMarker = activeTabId != null && tab.id === activeTabId ? '<span style="opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0">current</span>' : '';
     return `<div class="lookup-tab-item ${i === _lookupTabIdx ? 'selected' : ''}" data-idx="${i}">` +
       `<img src="${favUrl}" class="lookup-tab-item-favicon" onerror="this.style.display='none'">` +
       `<div class="lookup-tab-item-info">` +
       `<div class="lookup-tab-item-title">${escapeHtml(tab.title || 'Untitled')}</div>` +
       `<div class="lookup-tab-item-url">${escapeHtml(domain)}</div>` +
-      `</div></div>`;
+      `</div>${activeMarker}</div>`;
   }).join('');
 
   dropdown.querySelectorAll('.lookup-tab-item').forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       _lookupTabIdx = parseInt(el.dataset.idx);
-      _lookupSelectTab(popup);
+      if (_lookupTabSwitchMode) _lookupSwitchToTab(popup);
+      else _lookupSelectTab(popup);
     });
   });
   _repositionSelectionPopup();
@@ -2838,6 +2845,68 @@ async function _lookupSelectTab(popup) {
   _lookupHideTabDropdown(popup);
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
+}
+
+// ── /tabs command — switch to an open tab ──
+function _doLookupTabs(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _lookupHideCmdDropdown(popup);
+  _lookupTrackMode = false;
+
+  const allTabs = [];
+  if (typeof _browseWindows !== 'undefined') {
+    for (const win of _browseWindows) {
+      for (const tab of (win.tabs || [])) {
+        if (!tab.blank && tab.url) allTabs.push(tab);
+      }
+    }
+  }
+
+  if (!allTabs.length) {
+    if (input) input.focus();
+    return;
+  }
+
+  _lookupTabSwitchMode = true;
+  _lookupTabList = allTabs;
+  _lookupTabIdx = 0;
+
+  // Pre-select the currently active tab
+  const activeTabId = typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
+  if (activeTabId != null) {
+    const idx = allTabs.findIndex(t => t.id === activeTabId);
+    if (idx >= 0) _lookupTabIdx = idx;
+  }
+
+  _renderTabDropdown(popup);
+  if (input) input.focus();
+}
+
+function _lookupSwitchToTab(popup) {
+  const tab = _lookupTabList[_lookupTabIdx];
+  if (!tab) return;
+  _lookupHideTabDropdown(popup);
+  _lookupTrackMode = false;
+  popup.remove();
+
+  // Find which window owns this tab and switch if needed
+  if (typeof _browseWindows !== 'undefined') {
+    for (const win of _browseWindows) {
+      if (win.tabs.some(t => t.id === tab.id)) {
+        if (win.id !== _browseActiveWindow && typeof browseSelectWindow === 'function') {
+          browseSelectWindow(win.id);
+        }
+        break;
+      }
+    }
+  }
+
+  // Ensure browse view is visible, then select the tab
+  if (window.location.hash !== '#browse' && typeof openBrowse === 'function') {
+    openBrowse();
+  }
+  if (typeof browseSelectTab === 'function') browseSelectTab(tab.id);
 }
 
 // ── /help command — show all commands & features ──
@@ -3053,6 +3122,7 @@ function _lookupExecCommand(popup, text) {
       else if (cmd.name === 'model') _doLookupModel(popup);
       else if (cmd.name === 'links') _doLookupLinks(popup);
       else if (cmd.name === 'tab') _doLookupTab(popup);
+      else if (cmd.name === 'tabs') _doLookupTabs(popup);
       else if (cmd.name === 'history') _doLookupHistory(popup);
       else if (cmd.name === 'help') _doLookupHelp(popup);
       return true;
@@ -3517,7 +3587,7 @@ function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
     };
     const wvExec = (js) => { popup.remove(); wv.focus(); setTimeout(() => wv.executeJavaScript(js).catch(() => {}), 50); };
     if (flags.canCut) addWvItem('Cut', () => {
-      wvExec(`(function(){ var el=window.__alphaLastEditable; if(!el) return; el.focus();
+      wvExec(`(function(){ var el=window.__lookupLastEditable; if(!el) return; el.focus();
         var text=document.getSelection().toString();
         if(text) navigator.clipboard.writeText(text).catch(function(){});
         if(el.isContentEditable) document.execCommand('delete');
@@ -3526,7 +3596,7 @@ function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
           el.dispatchEvent(new Event('input',{bubbles:true})); } })()`);
     });
     if (flags.canCopy) addWvItem('Copy', () => {
-      wvExec(`(function(){ var el=window.__alphaLastEditable; if(el) el.focus();
+      wvExec(`(function(){ var el=window.__lookupLastEditable; if(el) el.focus();
         navigator.clipboard.writeText(document.getSelection().toString()).catch(function(){}); })()`);
     });
     if (flags.canPaste) addWvItem('Paste', () => {
@@ -3536,14 +3606,14 @@ function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
         popup.remove();
         wv.focus();
         setTimeout(() => {
-          wv.executeJavaScript(`(function(){ var el=window.__alphaLastEditable; if(el) el.focus(); })()`)
+          wv.executeJavaScript(`(function(){ var el=window.__lookupLastEditable; if(el) el.focus(); })()`)
             .then(() => wv.insertText(text))
             .catch(() => {});
         }, 50);
       }).catch(() => {});
     });
     if (flags.canSelectAll) addWvItem('Select All', () => {
-      wvExec(`(function(){ var el=window.__alphaLastEditable; if(el){el.focus();el.select();}else document.execCommand('selectAll'); })()`);
+      wvExec(`(function(){ var el=window.__lookupLastEditable; if(el){el.focus();el.select();}else document.execCommand('selectAll'); })()`);
     });
     if (wvCtx.children.length) popup.appendChild(wvCtx);
   }
@@ -3944,7 +4014,8 @@ function _panelBuildChatInput(popup, config) {
     }
     if (tabDropdown && _lookupTabList.length && ev.key === 'Enter') {
       ev.preventDefault();
-      _lookupSelectTab(popup);
+      if (_lookupTabSwitchMode) _lookupSwitchToTab(popup);
+      else _lookupSelectTab(popup);
       return;
     }
     if (tabDropdown && ev.key === 'Escape') {
@@ -4036,6 +4107,7 @@ function _panelBuildChatInput(popup, config) {
             else if (cmd.name === 'model') _doLookupModel(popup);
             else if (cmd.name === 'links') _doLookupLinks(popup);
             else if (cmd.name === 'tab') _doLookupTab(popup);
+            else if (cmd.name === 'tabs') _doLookupTabs(popup);
             else if (cmd.name === 'notes') _doLookupNotesBrowse(popup);
             else if (cmd.name === 'history') _doLookupHistory(popup);
             else if (cmd.name === 'help') _doLookupHelp(popup);
@@ -4205,6 +4277,7 @@ function _panelPositionAndFocus(popup, config) {
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
     popup.style.left = left + 'px';
     popup.style.top = tabRect.bottom + 'px';
+    popup.style.visibility = '';
     popup._lookupAnchorX = left;
     popup._lookupAnchorY = tabRect.bottom + rect.height;
   } else if (isSelectionAnchor) {
@@ -4235,6 +4308,7 @@ function _panelPositionAndFocus(popup, config) {
     const pos = _positionAtCursor(x, y, rect.width, rect.height, _initLeft);
     popup.style.left = pos.left + 'px';
     popup.style.top = pos.top + 'px';
+    popup.style.visibility = '';
   }
 
   // Auto-focus input
@@ -4352,11 +4426,26 @@ function _showPanel(config) {
     ev.stopPropagation();
   });
 
+  // Hide active webview so popup renders on top (Electron GPU compositing)
+  if (typeof _browseHideActiveWebview === 'function') _browseHideActiveWebview();
+
   document.body.appendChild(popup);
 
   // ── Cmd+C handler + positioning ──
   _panelBuildCopyKeyHandler(popup);
   _panelPositionAndFocus(popup, config);
+
+  // Restore webview when panel is removed from DOM (covers all dismiss paths)
+  if (typeof _browseRestoreActiveWebview === 'function') {
+    const _panelObs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.removedNodes) {
+          if (node === popup) { _browseRestoreActiveWebview(); _panelObs.disconnect(); return; }
+        }
+      }
+    });
+    _panelObs.observe(document.body, { childList: true });
+  }
 
   return popup;
 }

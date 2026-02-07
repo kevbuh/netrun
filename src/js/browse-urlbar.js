@@ -1460,7 +1460,7 @@ function _showPermissionPrompt(domain, permKey) {
         </div>
       </div>
       <div style="padding:8px 20px;border-top:1px solid var(--border-subtle);font-size:0.68rem;color:var(--text-dimmer);">
-        You can change your site permissions at any time from the lock icon in the toolbar.
+        You can change your site permissions at any time from the more menu in the toolbar.
       </div>
     </div>
   `;
@@ -1480,6 +1480,7 @@ function _showPermissionPrompt(domain, permKey) {
       _setSitePermission(domain, permKey, 'block');
     }
     // Session-only block: just leave it as default (blocked), don't persist
+    _browseApplyPermissions();
     overlay.remove();
     _renderSitePermissionsDropdown();
   });
@@ -1509,55 +1510,32 @@ function _getEffectivePermissions(domain) {
   return { ...stored, ...session };
 }
 
-function toggleSitePermissions() {
-  const dd = document.getElementById('browse-permissions-dropdown');
-  if (!dd) return;
-  if (dd.style.display !== 'none') {
-    dd.style.display = 'none';
-    return;
-  }
-  _renderSitePermissionsDropdown();
-  dd.style.display = '';
-  // Position fixed dropdown below the lock button, extending leftward
-  const btn = document.getElementById('browse-permissions-btn');
-  if (btn) {
-    const r = btn.getBoundingClientRect();
-    dd.style.top = (r.bottom + 4) + 'px';
-    dd.style.left = Math.max(0, r.right - dd.offsetWidth) + 'px';
-  }
-}
-
-function _renderSitePermissionsDropdown() {
-  const dd = document.getElementById('browse-permissions-dropdown');
+function _renderSitePermissionsDropdown(container) {
+  const dd = container || document.getElementById('browse-menu-perms-panel');
   if (!dd) return;
   const domain = _getCurrentBrowseDomain();
 
   if (!domain) {
-    dd.innerHTML = '<div style="padding:16px;text-align:center;font-size:0.8rem;color:var(--text-dim);">Navigate to a site first</div>';
+    dd.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.78rem;color:var(--text-dim);">Navigate to a site first</div>';
     return;
   }
 
   const perms = _getSitePermissions(domain);
   const effective = _getEffectivePermissions(domain);
-  const hasCustom = Object.keys(perms).length > 0 || Object.keys(_sessionPermissions[domain] || {}).length > 0;
   let html = '';
-  html += '<div style="padding:10px 14px 4px;display:flex;align-items:center;gap:6px;">';
-  html += '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + (hasCustom ? 'var(--accent)' : 'var(--text-dimmer)') + '" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>';
-  html += '<span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</span>';
-  html += '</div>';
-  html += '<div style="padding:0 14px 6px;font-size:0.68rem;color:var(--text-dimmer);line-height:1.4;">All permissions are blocked by default. Click Allow to grant access — you will be asked to confirm first.</div>';
-  html += '<div style="padding:0 6px;">';
+  html += '<div style="padding:6px 8px 4px;font-size:0.72rem;color:var(--text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</div>';
+  html += '<div style="padding:0 8px 4px;font-size:0.65rem;color:var(--text-dimmest);line-height:1.3;">Blocked by default. Click Allow to grant access.</div>';
 
   for (const key of _SITE_PERM_KEYS) {
     const current = effective[key] || 'ask';
     const label = _SITE_PERM_LABELS[key];
     const icon = _SITE_PERM_ICONS[key];
     const isSession = !perms[key] && (_sessionPermissions[domain] || {})[key];
-    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;">';
+    html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;">';
     html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
-    html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + label + '</span>';
+    html += '<span style="flex:1;font-size:0.75rem;color:var(--text-primary);">' + label + '</span>';
     if (isSession) {
-      html += '<span style="font-size:0.6rem;color:var(--text-dimmest);margin-right:2px;">session</span>';
+      html += '<span style="font-size:0.58rem;color:var(--text-dimmest);margin-right:2px;">session</span>';
     }
     html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
     for (const val of ['ask', 'allow', 'block']) {
@@ -1565,32 +1543,21 @@ function _renderSitePermissionsDropdown() {
       const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
       const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
       const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
-      // "Allow" triggers the confirmation prompt; "ask" and "block" apply directly
       const onclick = val === 'allow'
         ? '_showPermissionPrompt(\'' + safeDomain + '\',\'' + key + '\');'
-        : '_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); delete (_sessionPermissions[\'' + safeDomain + '\'] || {})[' + JSON.stringify(key) + ']; _renderSitePermissionsDropdown(); _browseApplyPermissions();';
-      html += '<button onclick="' + onclick + '" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
+        : '_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); delete (_sessionPermissions[\'' + safeDomain + '\'] || {})[\'' + key + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();';
+      html += '<button onclick="' + onclick + '" style="padding:2px 7px;font-size:0.65rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
     }
     html += '</div></div>';
   }
 
-  html += '</div>';
-  html += '<div style="padding:6px 14px 10px;border-top:1px solid var(--border-card);margin-top:4px;">';
   const safeDomain2 = escapeHtml(domain).replace(/'/g, "\\'");
-  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:5px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.75rem;cursor:pointer;">Reset all to default</button>';
+  html += '<div style="padding:4px 8px 6px;border-top:1px solid var(--border-card);margin-top:2px;">';
+  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.72rem;cursor:pointer;">Reset all to default</button>';
   html += '</div>';
 
   dd.innerHTML = html;
 }
-
-// Close permissions dropdown when clicking outside
-document.addEventListener('mousedown', (e) => {
-  const dd = document.getElementById('browse-permissions-dropdown');
-  if (!dd || dd.style.display === 'none') return;
-  if (!e.target.closest('#browse-permissions-dropdown') && !e.target.closest('#browse-permissions-btn')) {
-    dd.style.display = 'none';
-  }
-});
 
 // Initialize button state on load
 if (typeof document !== 'undefined') {
@@ -1612,6 +1579,13 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
       }
     } else if (command === 'reopen-tab') {
       browseReopenTab();
+    } else if (command === 'print') {
+      const tab = typeof _browseTabs !== 'undefined' && _browseTabs.find(t => t.id === _browseActiveTab);
+      if (tab && tab.contentType === 'pdf' && typeof showPrintPreview === 'function') {
+        showPrintPreview();
+      } else if (typeof browsePrintPage === 'function') {
+        browsePrintPage();
+      }
     }
   });
 }

@@ -239,6 +239,9 @@ async function createWindow() {
       } else if (input.key.toLowerCase() === 'w') {
         event.preventDefault();
         mainWindow.webContents.send('browse-command', 'close-tab');
+      } else if (input.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'print');
       }
     }
   });
@@ -284,6 +287,12 @@ app.on('web-contents-created', (event, contents) => {
           const parent = contents.getOwnerBrowserWindow();
           if (parent) {
             parent.webContents.send('browse-command', 'close-tab');
+          }
+        } else if (key === 'p') {
+          event.preventDefault();
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'print');
           }
         }
       }
@@ -438,12 +447,14 @@ app.whenReady().then(() => {
   }
   createMenu();
 
-  ipcMain.handle('save-temp-pdf', async (event, base64) => {
-    const os = require('os');
-    const fs = require('fs');
-    const filePath = path.join(os.tmpdir(), `lookup-print-${Date.now()}.pdf`);
-    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
-    return filePath;
+  ipcMain.handle('print', async (event, options) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    return new Promise((resolve) => {
+      win.webContents.print({ printBackground: true, ...options }, (success) => {
+        resolve(success);
+      });
+    });
   });
 
   ipcMain.handle('capture-screen', async (event, rect) => {

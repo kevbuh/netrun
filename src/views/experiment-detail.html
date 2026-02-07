@@ -1,0 +1,75 @@
+    <div class="grid grid-cols-[260px_1px_1fr] h-screen overflow-hidden">
+      <!-- Left Sidebar -->
+      <div id="exp-sidebar" class="border-r border-border-card py-3 overflow-y-auto flex flex-col scrollbar-hide">
+        <div class="flex items-center justify-between mb-3 px-2">
+          <button class="exp-back-btn bg-transparent border-none text-muted text-[0.8rem] cursor-pointer p-0 inline-flex items-center gap-1.5 hover:text-primary" onclick="expGoBack()">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            <span class="exp-sidebar-label">Back</span>
+          </button>
+          <button id="exp-sidebar-collapse-btn" class="w-6 h-6 rounded-md flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors p-0" onclick="toggleExpSidebar()" title="Collapse sidebar">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 3v18" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="exp-detail-title" class="text-[1.1rem] font-semibold text-white_ cursor-pointer hover:text-accent transition-colors nb-rendered-md mb-3 px-2" onclick="startRenameExperiment()" title="Click to rename"></div>
+        <div class="flex items-center justify-between mb-2 px-2">
+          <span class="text-[0.75rem] text-dim uppercase tracking-wide exp-sidebar-label">Files</span>
+          <div class="flex items-center gap-0.5">
+            <div class="relative">
+              <button class="w-6 h-6 rounded-md flex items-center justify-center bg-transparent border-none text-dimmer cursor-pointer hover:text-primary transition-colors text-[0.85rem] leading-none p-0" onclick="toggleExpFileMenu()" title="New file">+</button>
+            <div id="exp-file-menu" class="hidden absolute right-0 top-7 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[120px]">
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.py'); hideExpFileMenu()">Python (.py)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.md'); hideExpFileMenu()">Markdown (.md)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.ipynb'); hideExpFileMenu()">Notebook (.ipynb)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">LaTeX (.tex) <span class="text-dimmest text-[0.7rem]">...</span></button>
+              <div class="hidden">
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex',undefined,'iclr2025'); hideExpFileMenu()">ICLR 2025</button>
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex',undefined,'neurips2023'); hideExpFileMenu()">NeurIPS 2023</button>
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.tex',undefined,'blank'); hideExpFileMenu()">Blank</button>
+              </div>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.mermaid'); hideExpFileMenu()">Diagram (.mermaid)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.draw'); hideExpFileMenu()">Drawing (.draw)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.slides'); hideExpFileMenu()">Slides (.slides)</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">RL <span class="text-dimmest text-[0.7rem]">...</span></button>
+              <div class="hidden">
+                <button class="w-full text-left pl-6 pr-3 py-1 bg-transparent border-none text-[0.75rem] text-dimmer cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="createExpFile('.py', _RL_ENV_TEMPLATE); hideExpFileMenu()">Gym Environment</button>
+              </div>
+              <div class="h-px bg-border-subtle mx-2 my-1"></div>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="promptCreateFolder(); hideExpFileMenu()">New Folder</button>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="promptCloneRepo(); hideExpFileMenu()">Clone from GitHub</button>
+              <div class="h-px bg-border-subtle mx-2 my-1"></div>
+              <button class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors" onclick="triggerExpFileUpload(); hideExpFileMenu()">Upload files</button>
+            </div>
+          </div>
+          </div>
+        </div>
+        <div id="exp-sidebar-files"></div>
+
+        <div id="exp-papers-section" class="mt-4 px-2" style="display:none">
+          <div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Papers</div>
+          <div id="exp-papers-list"></div>
+        </div>
+      </div>
+      <!-- Resize Handle -->
+      <div id="exp-sidebar-resize" class="exp-sidebar-resize-handle"></div>
+      <!-- Right Content Pane -->
+      <div id="exp-content-pane" class="overflow-y-auto">
+        <div id="exp-default-content" class="flex flex-col h-full">
+          <!-- Metadata + tabs -->
+          <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0 flex-wrap">
+            <div id="exp-metadata" class="flex-1"></div>
+            <div id="exp-team-picker" class="shrink-0"></div>
+            <div class="flex items-center gap-0.5 text-[0.75rem] text-dimmer" id="exp-content-tabs">
+              <button class="bg-transparent border-none cursor-pointer text-[0.75rem] px-1.5 py-0.5 rounded transition-colors text-accent" id="exp-tab-readme" onclick="switchExpContentTab('readme')">Readme</button>
+              <span class="text-dimmest">·</span>
+              <button class="bg-transparent border-none cursor-pointer text-[0.75rem] px-1.5 py-0.5 rounded transition-colors text-dimmer hover:text-primary" id="exp-tab-tree" onclick="switchExpContentTab('tree')">File Tree</button>
+            </div>
+          </div>
+          <!-- Description / README -->
+          <div id="exp-detail-desc" class="text-[0.85rem] text-muted cursor-pointer hover:text-primary transition-colors nb-rendered-md flex-1 overflow-y-auto px-4 py-3" ondblclick="startEditDesc()" title="Double-click to edit description"></div>
+          <!-- File tree -->
+          <div id="exp-file-tree" class="px-4 py-3 flex-1 overflow-y-auto" style="display:none"></div>
+        </div>
+        <div id="exp-file-editor" style="display:none"></div>
+      </div>
+    </div>
+    <input type="file" id="exp-file-upload-input" multiple style="display:none" onchange="uploadExpFiles(this.files)" />

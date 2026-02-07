@@ -368,29 +368,249 @@ function renderPdfPage(pageNum, wrapper) {
 
 // ── Zoom ──
 
-function pdfPrintCurrent() {
+async function pdfPrintCurrent() {
   if (!_pdfDoc || !_pdfPagesContainer) return;
-  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
-  const images = [];
-  wrappers.forEach(w => {
-    const c = w.querySelector('canvas');
-    if (c) images.push(c.toDataURL('image/png'));
+  showPrintPreview();
+}
+
+let _printPreviewPage = 1;
+
+function showPrintPreview() {
+  if (!_pdfDoc) return;
+  // Hide active webview so overlay renders on top (Electron GPU compositing)
+  if (typeof _browseHideActiveWebview === 'function') _browseHideActiveWebview();
+  // Remove existing preview if any
+  const existing = document.getElementById('print-preview-overlay');
+  if (existing) existing.remove();
+
+  _printPreviewPage = getCurrentPdfPage();
+  const totalPages = _pdfTotalPages;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'print-preview-overlay';
+  overlay.className = 'print-preview-overlay';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePrintPreview(); });
+
+  const dialog = document.createElement('div');
+  dialog.className = 'print-preview-dialog';
+
+  // Left panel — page preview
+  const left = document.createElement('div');
+  left.className = 'print-preview-page';
+
+  const canvasWrap = document.createElement('div');
+  canvasWrap.className = 'print-preview-canvas-wrap';
+  const canvas = document.createElement('canvas');
+  canvas.className = 'print-preview-canvas';
+  canvas.id = 'print-preview-canvas';
+  canvasWrap.appendChild(canvas);
+  left.appendChild(canvasWrap);
+
+  // Page navigation
+  const nav = document.createElement('div');
+  nav.className = 'print-preview-nav';
+  nav.innerHTML = `
+    <button class="print-preview-nav-btn" id="pp-prev" title="Previous page">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <span class="print-preview-page-indicator" id="pp-page-indicator">${_printPreviewPage} / ${totalPages}</span>
+    <button class="print-preview-nav-btn" id="pp-next" title="Next page">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </button>
+  `;
+  left.appendChild(nav);
+
+  // Right panel — settings
+  const right = document.createElement('div');
+  right.className = 'print-preview-settings';
+  right.innerHTML = `
+    <div class="print-preview-settings-title">Print</div>
+    <div class="print-preview-field">
+      <label class="print-preview-label">Pages</label>
+      <div class="print-preview-radio-group">
+        <label class="print-preview-radio"><input type="radio" name="pp-range" value="all" checked> All</label>
+        <label class="print-preview-radio"><input type="radio" name="pp-range" value="current"> Current page</label>
+        <label class="print-preview-radio"><input type="radio" name="pp-range" value="custom"> Custom
+          <input type="text" id="pp-custom-range" class="print-preview-custom-input" placeholder="e.g. 1-5, 8" disabled>
+        </label>
+      </div>
+    </div>
+    <div class="print-preview-field">
+      <label class="print-preview-label">Orientation</label>
+      <div class="print-preview-toggle-row">
+        <button class="print-preview-toggle active" id="pp-orient-portrait" title="Portrait">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="3" width="14" height="18" rx="1"/></svg>
+          Portrait
+        </button>
+        <button class="print-preview-toggle" id="pp-orient-landscape" title="Landscape">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
+          Landscape
+        </button>
+      </div>
+    </div>
+    <div class="print-preview-field">
+      <label class="print-preview-label">Scale</label>
+      <select id="pp-scale" class="print-preview-select">
+        <option value="fit" selected>Fit to page</option>
+        <option value="100">100%</option>
+        <option value="75">75%</option>
+        <option value="50">50%</option>
+      </select>
+    </div>
+    <div style="flex:1"></div>
+    <div class="print-preview-actions">
+      <button class="print-preview-cancel" id="pp-cancel">Cancel</button>
+      <button class="print-preview-print" id="pp-print">Print</button>
+    </div>
+  `;
+
+  dialog.appendChild(left);
+  dialog.appendChild(right);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  // Render initial preview page
+  _renderPrintPreviewPage(_printPreviewPage);
+
+  // Wire up nav buttons
+  document.getElementById('pp-prev').addEventListener('click', () => {
+    if (_printPreviewPage > 1) { _printPreviewPage--; _renderPrintPreviewPage(_printPreviewPage); }
   });
-  if (!images.length) return;
-  // Use a hidden iframe to avoid window.open being intercepted by browse tabs
-  let frame = document.getElementById('pdf-print-frame');
-  if (frame) frame.remove();
-  frame = document.createElement('iframe');
-  frame.id = 'pdf-print-frame';
-  frame.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:0;height:0;border:none;';
-  document.body.appendChild(frame);
-  const doc = frame.contentDocument || frame.contentWindow.document;
-  doc.open();
-  doc.write('<!DOCTYPE html><html><head><style>@page{margin:0.5cm}body{margin:0;background:#fff}img{width:100%;display:block;page-break-after:always}</style></head><body>');
-  images.forEach(src => { doc.write('<img src="' + src + '">'); });
-  doc.write('</body></html>');
-  doc.close();
-  setTimeout(function() { frame.contentWindow.print(); }, 300);
+  document.getElementById('pp-next').addEventListener('click', () => {
+    if (_printPreviewPage < totalPages) { _printPreviewPage++; _renderPrintPreviewPage(_printPreviewPage); }
+  });
+
+  // Wire up radio buttons — enable/disable custom range input
+  right.querySelectorAll('input[name="pp-range"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const customInput = document.getElementById('pp-custom-range');
+      customInput.disabled = r.value !== 'custom';
+      if (r.value === 'custom') customInput.focus();
+    });
+  });
+
+  // Orientation toggles
+  document.getElementById('pp-orient-portrait').addEventListener('click', function() {
+    this.classList.add('active');
+    document.getElementById('pp-orient-landscape').classList.remove('active');
+  });
+  document.getElementById('pp-orient-landscape').addEventListener('click', function() {
+    this.classList.add('active');
+    document.getElementById('pp-orient-portrait').classList.remove('active');
+  });
+
+  // Cancel and print
+  document.getElementById('pp-cancel').addEventListener('click', closePrintPreview);
+  document.getElementById('pp-print').addEventListener('click', _executePrint);
+
+  // Keyboard
+  const onKey = (e) => {
+    if (e.key === 'Escape') { closePrintPreview(); e.preventDefault(); }
+    if (e.key === 'Enter' && !e.target.matches('input[type="text"]')) { _executePrint(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { document.getElementById('pp-prev')?.click(); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { document.getElementById('pp-next')?.click(); e.preventDefault(); }
+  };
+  document.addEventListener('keydown', onKey);
+  overlay._ppKeyHandler = onKey;
+}
+
+function _renderPrintPreviewPage(pageNum) {
+  if (!_pdfDoc) return;
+  const canvas = document.getElementById('print-preview-canvas');
+  if (!canvas) return;
+  const indicator = document.getElementById('pp-page-indicator');
+  if (indicator) indicator.textContent = `${pageNum} / ${_pdfTotalPages}`;
+
+  _pdfDoc.getPage(pageNum).then(page => {
+    // Fit page into the preview area (~440px wide, ~380px tall)
+    const vp = page.getViewport({ scale: 1 });
+    const maxW = 440, maxH = 380;
+    const scale = Math.min(maxW / vp.width, maxH / vp.height);
+    const viewport = page.getViewport({ scale });
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = viewport.width * dpr;
+    canvas.height = viewport.height * dpr;
+    canvas.style.width = viewport.width + 'px';
+    canvas.style.height = viewport.height + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    page.render({ canvasContext: ctx, viewport });
+  });
+}
+
+function closePrintPreview() {
+  const overlay = document.getElementById('print-preview-overlay');
+  if (!overlay) return;
+  if (overlay._ppKeyHandler) document.removeEventListener('keydown', overlay._ppKeyHandler);
+  overlay.remove();
+  // Restore webview after overlay is gone
+  if (typeof _browseRestoreActiveWebview === 'function') _browseRestoreActiveWebview();
+}
+
+async function _executePrint() {
+  if (!_pdfDoc || !_pdfPagesContainer) { closePrintPreview(); return; }
+
+  // Parse page range from settings
+  const rangeRadio = document.querySelector('input[name="pp-range"]:checked');
+  const rangeValue = rangeRadio ? rangeRadio.value : 'all';
+  let pagesToPrint = null; // null = all
+
+  if (rangeValue === 'current') {
+    pagesToPrint = new Set([_printPreviewPage]);
+  } else if (rangeValue === 'custom') {
+    const input = document.getElementById('pp-custom-range');
+    pagesToPrint = _parsePageRange(input ? input.value : '', _pdfTotalPages);
+    if (!pagesToPrint || pagesToPrint.size === 0) { pagesToPrint = null; }
+  }
+
+  closePrintPreview();
+
+  // Hide pages not in range (if subset selected)
+  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+  const hiddenWrappers = [];
+  if (pagesToPrint) {
+    for (const w of wrappers) {
+      const pn = parseInt(w.dataset.page);
+      if (!pagesToPrint.has(pn)) {
+        w.style.display = 'none';
+        hiddenWrappers.push(w);
+      }
+    }
+  }
+
+  await _ensureAllPagesRendered();
+  document.body.classList.add('printing-pdf');
+
+  if (window.electronAPI && window.electronAPI.print) {
+    await window.electronAPI.print({ printBackground: true });
+  } else {
+    window.print();
+  }
+
+  document.body.classList.remove('printing-pdf');
+  // Restore hidden pages
+  for (const w of hiddenWrappers) w.style.display = '';
+}
+
+function _parsePageRange(str, total) {
+  const pages = new Set();
+  if (!str || !str.trim()) return pages;
+  const parts = str.split(',');
+  for (const part of parts) {
+    const trimmed = part.trim();
+    const rangeMatch = trimmed.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const from = Math.max(1, parseInt(rangeMatch[1]));
+      const to = Math.min(total, parseInt(rangeMatch[2]));
+      for (let i = from; i <= to; i++) pages.add(i);
+    } else {
+      const n = parseInt(trimmed);
+      if (n >= 1 && n <= total) pages.add(n);
+    }
+  }
+  return pages;
 }
 
 function pdfZoom(delta) {

@@ -155,6 +155,8 @@ The lookup panel is the unified right-click interaction surface across the app. 
 
 **Web search:** Pressing Shift+Enter in the input performs a web search via `/api/web-search`, displaying results inline in the panel.
 
+**Keyboard navigation:** All dropdowns and option lists in the lookup panel (command autocomplete, `/tabs`, `/tab`, `/notes`, `/model`, `/history`, `/links`) must be fully keyboard-navigable: Arrow Up/Down to move selection, Enter to confirm, Escape to dismiss. Any new dropdown or option list added to the panel should follow this same pattern.
+
 **Text selection popup:** Selecting text replaces the lookup panel with a selection popup showing Quote, Lookup (single words), and highlight color dots (in PDF). The selection popup also has an inline chat input.
 
 **Drag-to-screenshot (Electron only):** While the lookup panel is open and tracking the cursor, left-click-dragging captures a screenshot of the dragged region. The panel pins in place, a dashed selection rectangle with dimmed overlay appears, and on mouseup the region is captured via `electronAPI.captureScreen()` (IPC to `BrowserWindow.capturePage()`). Screenshots appear as thumbnails in an attachment strip above the chat input. When sent, messages with screenshots go to `/api/doc-chat` with `vision: true`, using the `deepseek-ocr` vision model instead of `qwen2.5:3b`.

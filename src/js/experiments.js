@@ -1536,10 +1536,10 @@ function _initExpSidebarDrop() {
 
 // Initialize sidebars when experiment detail loads
 const _origOpenExperimentDetail = openExperimentDetail;
-openExperimentDetail = function(id) {
+openExperimentDetail = async function(id) {
   _selectedFiles.clear();
   _lastClickedFile = null;
-  _origOpenExperimentDetail(id);
+  await _origOpenExperimentDetail(id);
   _restoreExpSidebarState();
   _restoreExpSidebarWidth();
   _initExpSidebarResize();

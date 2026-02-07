@@ -741,6 +741,7 @@ const _viewTemplateCache = {};   // { viewId: htmlString }
 const _mountedViews = new Set(); // currently injected view IDs
 
 const VIEW_REGISTRY = {
+  'exp-detail-view':     { template: '/views/experiment-detail.html', tier: 2 },
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
   'vault-view':          { template: '/views/vault.html',     tier: 3 },
@@ -963,7 +964,7 @@ let _expBackAction = null; // stores {fn, label} for context-aware back button
 let _prevRouteHash = ''; // the hash before the current route
 let _currentRouteHash = ''; // the current route hash
 
-function openExperimentDetail(id, e) {
+async function openExperimentDetail(id, e) {
   // _prevRouteHash is set by routeFromHash for link-based navigation.
   // For direct calls (onclick), the hash hasn't changed yet, so window.location.hash is the "previous".
   const currentHash = window.location.hash;
@@ -986,16 +987,16 @@ function openExperimentDetail(id, e) {
       _expBackAction = { fn: () => openResearch('projects'), label: 'Research' };
     }
   }
-  // Update back button label
+  hideAllViews();
+  const view = await ensureView('exp-detail-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  // Update back button label (after ensureView so DOM exists)
   const backBtn = document.querySelector('#exp-sidebar .exp-back-btn');
   if (backBtn) {
     const lbl = backBtn.querySelector('.exp-sidebar-label');
     if (lbl) lbl.textContent = (_expBackAction && _expBackAction.label) || 'Back';
   }
-  hideAllViews();
-  const view = document.getElementById('exp-detail-view');
-  view.classList.add('active');
-  view.style.display = 'block';
   window.location.hash = 'experiment/' + id;
   setSidebarActive('sb-research');
   currentExpId = id;
@@ -1917,6 +1918,21 @@ window.addEventListener('keydown', e => {
     if (typeof browseNewTab === 'function') {
       if (!isOpen) setTimeout(browseNewTab, 50);
       else browseNewTab();
+    }
+  }
+  // Cmd+P: In Electron, handled via IPC (before-input-event → browse-command 'print').
+  // In browser, handle here.
+  if (!window.electronAPI && (e.metaKey || e.ctrlKey) && e.key === 'p') {
+    e.preventDefault();
+    const browseView = document.getElementById('browse-view');
+    const browseOpen = browseView && browseView.style.display !== 'none' && browseView.style.display !== '';
+    if (browseOpen && typeof _browseActiveTab !== 'undefined' && _browseActiveTab !== null) {
+      const tab = typeof _browseTabs !== 'undefined' && _browseTabs.find(t => t.id === _browseActiveTab);
+      if (tab && tab.contentType === 'pdf' && typeof showPrintPreview === 'function') {
+        showPrintPreview();
+      } else if (typeof browsePrintPage === 'function') {
+        browsePrintPage();
+      }
     }
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
