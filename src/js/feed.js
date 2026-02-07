@@ -245,7 +245,7 @@ async function findSimilarPosts(index) {
   const arxiv = document.getElementById('search-arxiv-results');
   if (arxiv) arxiv.innerHTML = '';
   const input = document.getElementById('search-query');
-  if (input) input.value = '';
+  if (input) { input.value = '~' + p.title; input.blur(); }
   try {
     const resp = await fetch('/api/find-similar', {
       method: 'POST',

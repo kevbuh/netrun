@@ -2898,7 +2898,7 @@ function showBrowseTabOverview() {
   _overviewBrowseExpanded = false;
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
   _renderWindowOverview();
-  overlay.style.display = 'flex';
+  overlay.style.display = 'grid';
   _installOverviewKeyHandler();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => overlay.classList.add('visible'));
