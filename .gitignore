@@ -9,3 +9,4 @@ src/aether.db
 src/__pycache__/
 src/feed_cache/
 wandb/
+src/neuralook_calibration.json
