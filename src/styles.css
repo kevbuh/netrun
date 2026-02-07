@@ -550,8 +550,8 @@
                   padding 0.3s ease;
     }
     .pill-bar.browse-mode {
-      width: calc(100vw - 160px);
-      max-width: 1400px;
+      width: calc(100vw - 16px);
+      max-width: none;
       background: rgba(0, 0, 0, 0.15);
       border-radius: 0 0 12px 12px;
       padding: 3px 8px;
@@ -559,6 +559,7 @@
       -webkit-backdrop-filter: blur(12px);
     }
     body.electron-app .pill-bar.browse-mode {
+      width: calc(100vw - 84px);
       left: calc(50% + 36px);
       -webkit-app-region: drag;
     }
