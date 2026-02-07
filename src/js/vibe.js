@@ -13,7 +13,7 @@ async function openVibe() {
   const view = await ensureView('vibe-view');
   view.classList.add('active');
   view.style.display = 'block';
-  view.style.height = '100vh';
+  view.style.height = '100%';
   if (window.location.hash !== '#vibe') window.location.hash = '#vibe';
   setSidebarActive('sb-vibe');
   _vibeActivePane = 0;

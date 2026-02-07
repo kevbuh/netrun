@@ -137,7 +137,7 @@ function renderNeuralookView() {
 
   container.innerHTML = `
     ${bannerHTML}
-    <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;height:${showTrainBanner ? 'calc(100vh - 60px - 52px)' : 'calc(100vh - 60px)'};box-sizing:border-box;">
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;height:${showTrainBanner ? 'calc(100% - 60px - 52px)' : 'calc(100% - 60px)'};box-sizing:border-box;">
       <div class="flex flex-col gap-3">
         <div class="bg-card border border-border-card rounded-xl p-4">
           <div class="flex items-center gap-2 mb-3">
@@ -320,7 +320,7 @@ function _nlRenderTrainDetailView(container) {
   const wandbOpen = _nlWandbPanelOpen && _nlWandbUrl;
 
   container.innerHTML = `
-    <div style="display:flex;height:calc(100vh - 60px);box-sizing:border-box;gap:0;">
+    <div style="display:flex;height:calc(100% - 60px);box-sizing:border-box;gap:0;">
       <!-- Left: training details -->
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:12px 16px;gap:10px;overflow:hidden;">
         <!-- Header -->

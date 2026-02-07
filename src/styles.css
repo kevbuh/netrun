@@ -780,13 +780,13 @@
     /* ── Research view ── */
     #research-view {
       position: relative;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
     }
 
     /* ── Browse view ── */
     #browse-view {
-      height: 100vh;
+      height: 100%;
       position: relative;
     }
     #browse-content {
@@ -5378,7 +5378,7 @@
       position: fixed;
       right: 0;
       top: 0;
-      height: 100vh;
+      height: 100%;
       display: flex;
       flex-direction: column;
       background: var(--bg-sidebar);
@@ -6361,7 +6361,7 @@
     .dev-git-log-meta { color: var(--text-dimmer); font-size: 0.7rem; white-space: nowrap; }
 
     /* Vibe Panel (lazygit-style + split terminals) */
-    .vibe-container { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; overflow: hidden; }
+    .vibe-container { display: grid; grid-template-columns: 1fr 1fr; height: 100%; overflow: hidden; }
     .vibe-terminals { display: flex; flex-direction: column; overflow: hidden; background: #0d0d0d; border-right: 1px solid var(--border-card); position: relative; }
     .vibe-terminals.vibe-terms-hidden { display: none; }
     .vibe-container.vibe-no-terms { grid-template-columns: 1fr; }

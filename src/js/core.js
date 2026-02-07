@@ -769,7 +769,7 @@ async function ensureView(viewId) {
   div.id = viewId;
   div.className = 'hidden view';
   // Preserve extra styles for specific views
-  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100vh';
+  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);

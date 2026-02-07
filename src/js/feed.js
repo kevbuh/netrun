@@ -1268,20 +1268,7 @@ async function loadAllFeeds() {
     labels.push('custom');
   }
 
-  // Show centered loading animation
-  const container = document.getElementById('papers');
-  container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>`;
-
-  const results = await Promise.all(promises);
-  if (abort.signal.aborted) return;
-  const MAX_PER_SOURCE = 100;
-  for (let i = 0; i < results.length; i++) {
-    const items = results[i];
-    if (Array.isArray(items) && items.length) {
-      allPapers = allPapers.concat(items.slice(0, MAX_PER_SOURCE));
-    }
-  }
-  // Inject user quotes as paper-like objects
+  // Inject user quotes immediately so they show while feeds load
   const userQuotes = _getUserQuotes();
   for (const q of userQuotes) {
     allPapers.push({
@@ -1298,11 +1285,45 @@ async function loadAllFeeds() {
       _quoteText: q.quote,
     });
   }
-  renderTrends();
-  renderPapers();
-  if (isQualityFilterOn()) qualityFilterPapers();
-  _detectNewPosts();
-  startRefreshTimer();
+
+  // Show a small inline loading indicator (not a full-screen blocker)
+  const container = document.getElementById('papers');
+  if (allPapers.length === 0) {
+    container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>`;
+  }
+
+  // Stream results: render as each feed completes
+  const MAX_PER_SOURCE = 100;
+  let settled = 0;
+  const total = promises.length;
+
+  for (let i = 0; i < promises.length; i++) {
+    promises[i].then(items => {
+      if (abort.signal.aborted) return;
+      if (Array.isArray(items) && items.length) {
+        allPapers = allPapers.concat(items.slice(0, MAX_PER_SOURCE));
+        renderTrends();
+        renderPapers();
+      }
+    }).catch(() => {}).finally(() => {
+      if (abort.signal.aborted) return;
+      settled++;
+      if (settled === total) {
+        // All feeds done — run post-load tasks
+        if (isQualityFilterOn()) qualityFilterPapers();
+        _detectNewPosts();
+        startRefreshTimer();
+      }
+    });
+  }
+
+  // If there are no feeds at all, finalize immediately
+  if (total === 0) {
+    renderTrends();
+    renderPapers();
+    _detectNewPosts();
+    startRefreshTimer();
+  }
 }
 
 function extractArxivId(link) {
