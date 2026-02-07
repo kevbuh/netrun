@@ -456,31 +456,6 @@ async function vaultMoveNoteToFolder(noteId, folderName) {
   }
 }
 
-// Delete folder with confirmation (called from hover button)
-async function vaultDeleteFolderWithConfirm(folderName) {
-  const notesInFolder = _vaultNotes.filter(n => n.folder === folderName);
-  const msg = notesInFolder.length > 0
-    ? `Delete folder "${folderName}"?\n\nThis will move ${notesInFolder.length} note(s) to the root level.`
-    : `Delete empty folder "${folderName}"?`;
-
-  if (!confirm(msg)) return;
-
-  // Move notes to root (remove folder)
-  for (const note of notesInFolder) {
-    try {
-      await fetch(`/api/vault/notes/${note.id}`, {
-        method: 'PUT',
-        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder: null })
-      });
-      note.folder = null;
-    } catch (e) {
-      console.error('Failed to move note', e);
-    }
-  }
-  renderVaultFileTree();
-}
-
 // Context menu for folders
 function showVaultFolderMenu(e, folderName) {
   e.preventDefault();
@@ -565,12 +540,6 @@ async function vaultRenameNotePrompt(noteId) {
   } catch (e) {
     console.error('Failed to rename note', e);
   }
-}
-
-// Create note in specific folder
-function vaultNewNoteInFolder(folderName) {
-  hideVaultContextMenu();
-  vaultNewNote(folderName);
 }
 
 // Rename folder
@@ -2300,7 +2269,7 @@ async function loadBlogComments() {
   if (!blogLink) return;
 
   try {
-    const res = await fetch(`/api/comments?paperLink=${encodeURIComponent(blogLink)}`);
+    const res = await fetch(`/api/comments?paperLink=${encodeURIComponent(blogLink)}`, { headers: _authHeaders() });
     if (res.ok) {
       _blogComments = await res.json();
       renderBlogComments();

@@ -455,8 +455,6 @@ function cycleTexMode() {
     if (_texCm) _texCm.refresh();
   }
 }
-function toggleTexMode() { cycleTexMode(); }
-
 function _initTexSplitDrag() {
   var handle = document.getElementById('tex-split-handle');
   if (!handle) return;
@@ -1465,12 +1463,6 @@ function toggleVenvMenu() {
   } else {
     document.removeEventListener('mousedown', _closeVenvMenuOutside);
   }
-}
-
-function hideVenvMenu() {
-  const menu = document.getElementById('py-venv-menu');
-  if (menu) menu.classList.add('hidden');
-  document.removeEventListener('mousedown', _closeVenvMenuOutside);
 }
 
 function _closeVenvMenuOutside(e) {

@@ -193,11 +193,6 @@ async function deleteVenv(expId, title) {
   } catch(e) { /* best effort */ }
 }
 
-function togglePackagesPanel() {
-  // Packages are now inside the Env menu — open it
-  toggleVenvMenu();
-}
-
 async function loadPackagesList() {
   const listEl = document.getElementById('pkg-list');
   if (!listEl) return;
@@ -495,12 +490,6 @@ function renderNbCells() {
   });
 }
 
-function updateNbCellSource(i, val) {
-  if (!nbData || !nbData.cells[i]) return;
-  nbData.cells[i].source = val;
-  scheduleNbSave();
-}
-
 function scheduleNbSave() {
   clearTimeout(fileSaveTimer);
   fileSaveTimer = setTimeout(() => saveNotebook(), 600);
@@ -738,14 +727,6 @@ function toggleOutputExpand(i) {
   } else {
     if (toggle) toggle.textContent = 'Show all output';
   }
-}
-
-function togglePyOutputExpand() {
-  const wrap = document.getElementById('py-output-scroll');
-  if (!wrap) return;
-  const expanded = wrap.classList.toggle('expanded');
-  const toggle = wrap.querySelector('.cell-output-toggle');
-  if (toggle) toggle.textContent = expanded ? 'Collapse output' : 'Show all output';
 }
 
 function renderMdCell(i) {

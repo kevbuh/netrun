@@ -559,13 +559,6 @@ function splitTerminal(direction) {
   _saveTerminalState();
 }
 
-function closeSplit() {
-  // Close active terminal (will merge panes automatically)
-  if (_activeTerminalId) {
-    destroyTerminal(_activeTerminalId);
-  }
-}
-
 function _connectTerminalWs(t, cwd) {
   if (t.ws) {
     try { t.ws.close(); } catch (_) {}

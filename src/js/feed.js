@@ -2174,7 +2174,7 @@ function renderPapers() {
       const container = document.getElementById('tweet-comments-' + i);
       if (container) {
         container.style.display = 'block';
-        fetch('/api/comments?paperLink=' + encodeURIComponent(p.link))
+        fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() })
           .then(r => r.json())
           .then(comments => _renderTweetComments(container, comments, p.link, i))
           .catch(() => {});
@@ -2192,7 +2192,7 @@ async function _fetchTweetCommentCounts(papers) {
   for (const p of papers) {
     if (_tweetCommentCounts[p.link] !== undefined) continue;
     try {
-      const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(p.link));
+      const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() });
       const comments = await resp.json();
       _tweetCommentCounts[p.link] = comments.length;
     } catch { _tweetCommentCounts[p.link] = 0; }
@@ -2219,7 +2219,7 @@ async function _toggleTweetComments(link, idx) {
   container.style.display = 'block';
   container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Loading...</div>';
   try {
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
     const comments = await resp.json();
     _tweetCommentCounts[link] = comments.length;
     // Update badge
@@ -2289,7 +2289,7 @@ async function _postTweetComment(link, idx) {
     await fetch('/api/comments', { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ paperLink: link, author, content, parentId: null }) });
     ta.value = '';
     // Re-fetch and re-render
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
     const comments = await resp.json();
     _tweetCommentCounts[link] = comments.length;
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
@@ -2307,7 +2307,7 @@ async function _postTweetReply(parentId, link, idx) {
   const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
   try {
     await fetch('/api/comments', { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ paperLink: link, author, content, parentId }) });
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
     const comments = await resp.json();
     _tweetCommentCounts[link] = comments.length;
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
@@ -2320,7 +2320,7 @@ async function _postTweetReply(parentId, link, idx) {
 async function _deleteTweetComment(commentId, link, idx) {
   try {
     await fetch('/api/comments/' + commentId, { method: 'DELETE', headers: _authHeaders() });
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link));
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
     const comments = await resp.json();
     _tweetCommentCounts[link] = comments.length;
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);

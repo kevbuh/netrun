@@ -24,34 +24,6 @@ function _saveWbBoards() {
 
 function _wbStrokesKey(id) { return 'wb_strokes_' + id; }
 
-function openWhiteboard() {
-  hideAllViews();
-  const view = document.getElementById('whiteboard-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'whiteboard';
-  setSidebarActive('sb-whiteboard');
-  _loadWbBoards();
-  // Migrate old single-board data
-  const oldStrokes = localStorage.getItem('whiteboardStrokes');
-  if (oldStrokes && !_wbBoards.length) {
-    const id = Date.now().toString(36) + 'migrated';
-    _wbBoards.push({ id, name: 'Untitled', createdAt: Date.now() });
-    _saveWbBoards();
-    localStorage.setItem(_wbStrokesKey(id), oldStrokes);
-    localStorage.removeItem('whiteboardStrokes');
-  }
-  // Open last board, or create one
-  if (!_wbBoards.length) wbNew(true);
-  else {
-    const lastId = localStorage.getItem('whiteboardLastId');
-    const board = _wbBoards.find(b => b.id === lastId) || _wbBoards[0];
-    wbOpen(board.id);
-  }
-  _renderWbList();
-  initWhiteboard();
-}
-
 function wbNew(silent) {
   _loadWbBoards();
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -103,19 +75,6 @@ function wbRename(id) {
     _saveWbBoards();
     const titleEl = document.getElementById('wb-title-display');
     if (titleEl && _wbCurrentId === id) titleEl.textContent = newName;
-    _renderWbList();
-  });
-}
-
-function wbRenameActive() {
-  if (!_wbCurrentId) return;
-  const titleEl = document.getElementById('wb-title-display');
-  if (!titleEl) return;
-  const board = _wbBoards.find(b => b.id === _wbCurrentId);
-  if (!board) return;
-  _wbStartEditable(titleEl, (newName) => {
-    board.name = newName;
-    _saveWbBoards();
     _renderWbList();
   });
 }

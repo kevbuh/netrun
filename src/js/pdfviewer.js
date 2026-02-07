@@ -186,7 +186,6 @@ function initPdfViewer(container, url, arxivId) {
   // Pages container
   const pages = document.createElement('div');
   pages.className = 'pdf-pages-container';
-  pages.addEventListener('mouseup', onPdfTextSelected);
   container.appendChild(pages);
   _pdfPagesContainer = pages;
   pages.classList.add('pdf-hl-mode');
@@ -679,52 +678,6 @@ function updatePdfPageIndicator() {
   if (el) el.textContent = `${getCurrentPdfPage()} / ${_pdfTotalPages}`;
 }
 
-// ── Text selection → highlight popup ──
-
-function onPdfTextSelected(e) {
-  // Highlight colors are now in the unified selection popup (views.js)
-  // This function is kept as a no-op since it's referenced as an event handler
-}
-
-function showHighlightPopup(x, y) {
-  dismissHighlightPopup();
-  const popup = document.createElement('div');
-  popup.className = 'pdf-highlight-popup';
-  popup.style.position = 'fixed';
-  popup.style.left = x + 'px';
-  popup.style.top = y + 'px';
-  popup.style.zIndex = '10000';
-
-  // Prevent mousedown from collapsing selection, and stop mouseup
-  // from bubbling to pages container (which would dismiss the popup
-  // via onPdfTextSelected before the click handler fires)
-  popup.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-  popup.addEventListener('mouseup', (e) => e.stopPropagation());
-
-  HIGHLIGHT_COLORS.forEach(c => {
-    const btn = document.createElement('button');
-    btn.className = 'pdf-hl-color-btn';
-    btn.style.background = c.solid;
-    btn.title = c.name;
-    btn.addEventListener('click', (e) => { e.stopPropagation(); createHighlight(c); });
-    popup.appendChild(btn);
-  });
-
-  document.body.appendChild(popup);
-  _pdfPopup = popup;
-
-  // Dismiss on mousedown elsewhere
-  setTimeout(() => {
-    document.addEventListener('mousedown', _dismissPopupHandler);
-  }, 0);
-}
-
-function _dismissPopupHandler(e) {
-  if (_pdfPopup && !_pdfPopup.contains(e.target)) {
-    dismissHighlightPopup();
-  }
-}
-
 function dismissHighlightPopup() {
   if (_pdfPopup) {
     _pdfPopup.remove();
@@ -911,16 +864,6 @@ function deleteHighlight(id) {
   savePdfHighlights();
   document.querySelectorAll(`.pdf-highlight-rect[data-highlight-id="${id}"]`).forEach(el => el.remove());
   renderHighlightsPanel();
-}
-
-function scrollToHighlightNote(id) {
-  const card = document.querySelector(`.pdf-hl-card[data-highlight-id="${id}"]`);
-  if (!card) return;
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  card.style.outline = '1px solid var(--accent)';
-  setTimeout(() => { card.style.outline = ''; }, 1200);
-  const textarea = card.querySelector('textarea');
-  if (textarea) textarea.focus();
 }
 
 // ── Highlights sidebar panel ──
@@ -1543,24 +1486,6 @@ function _pdfLinkIcon(url) {
   return '<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 
-function _highlightPdfAnnotLinks(url) {
-  if (!_pdfPagesContainer) return;
-  const links = _pdfPagesContainer.querySelectorAll('.pdf-annot-link[data-url]');
-  let scrolled = false;
-  for (const link of links) {
-    if (link.dataset.url === url) {
-      link.classList.add('pdf-annot-link-highlight');
-      if (!scrolled) { link.scrollIntoView({ behavior: 'smooth', block: 'center' }); scrolled = true; }
-    }
-  }
-}
-
-function _clearPdfAnnotLinkHighlights() {
-  if (!_pdfPagesContainer) return;
-  const links = _pdfPagesContainer.querySelectorAll('.pdf-annot-link-highlight');
-  for (const link of links) link.classList.remove('pdf-annot-link-highlight');
-}
-
 function _renderPdfLinks() {
   const el = document.getElementById('pdf-links-section');
   if (!el) return;
@@ -1582,21 +1507,6 @@ function _renderPdfLinks() {
       if (typeof openInBrowser === 'function') openInBrowser(btn.dataset.url);
     });
   });
-}
-
-function _onPdfAnnotClick(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  _navigateToPdfDest(e.currentTarget.dataset.dest);
-}
-
-// ── Mobile Touch Gestures ──
-
-function updatePdfZoomLabel() {
-  const label = document.getElementById('pdf-zoom-label');
-  if (label) {
-    label.textContent = Math.round(_pdfScale * 100) + '%';
-  }
 }
 
 // ── Citation Hover Popup ──

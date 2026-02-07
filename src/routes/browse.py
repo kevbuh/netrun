@@ -1,10 +1,8 @@
-"""Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote, adblock, url-to-pdf."""
-import hashlib
+"""Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote, adblock."""
 import json
 import os
 import re
 import ssl
-import subprocess
 import urllib.request
 
 from flask import Blueprint, request, jsonify, Response
@@ -12,10 +10,6 @@ from flask import Blueprint, request, jsonify, Response
 from persistence import DIR, cached_fetch, get_adblock_stats, update_adblock_lists, clean_html
 
 bp = Blueprint('browse', __name__)
-
-_pdf_cache_dir = os.path.join(DIR, '.pdf-cache')
-os.makedirs(_pdf_cache_dir, exist_ok=True)
-_pdf_cache = {}  # url -> pdf_path
 
 
 @bp.route('/api/web-search')
@@ -197,53 +191,3 @@ def adblock_reset():
     return jsonify(get_adblock_stats())
 
 
-@bp.route('/api/url-to-pdf')
-def url_to_pdf():
-    url = request.args.get('url', '').strip()
-    if not url:
-        return Response(b'url parameter required', status=400, content_type='text/plain')
-    url_hash = hashlib.md5(url.encode()).hexdigest()
-    cached_path = os.path.join(_pdf_cache_dir, url_hash + '.pdf')
-    if url in _pdf_cache and os.path.isfile(_pdf_cache[url]):
-        cached_path = _pdf_cache[url]
-    elif os.path.isfile(cached_path):
-        _pdf_cache[url] = cached_path
-    else:
-        chrome_paths = [
-            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            '/usr/bin/google-chrome',
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-        ]
-        chrome = None
-        for p in chrome_paths:
-            if os.path.isfile(p):
-                chrome = p
-                break
-        if not chrome:
-            return Response(b'Chrome not found', status=500, content_type='text/plain')
-        try:
-            subprocess.run(
-                [chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                 '--print-to-pdf=' + cached_path,
-                 '--run-all-compositor-stages-before-draw',
-                 '--virtual-time-budget=10000',
-                 url],
-                capture_output=True, timeout=30
-            )
-            if not os.path.isfile(cached_path):
-                return Response(b'PDF conversion failed', status=502, content_type='text/plain')
-            _pdf_cache[url] = cached_path
-        except subprocess.TimeoutExpired:
-            return Response(b'Conversion timed out', status=504, content_type='text/plain')
-        except Exception as e:
-            return Response(str(e).encode(), status=500, content_type='text/plain')
-    try:
-        with open(cached_path, 'rb') as f:
-            data = f.read()
-        resp = Response(data, content_type='application/pdf')
-        resp.headers['Content-Length'] = str(len(data))
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        return resp
-    except Exception as e:
-        return Response(str(e).encode(), status=500, content_type='text/plain')

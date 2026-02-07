@@ -61,16 +61,6 @@ def _extract_arxiv_id(link):
     return m.group(1) if m else None
 
 
-def _ns_find(el, tag, namespaces=None):
-    """Find element with namespace-aware lookup."""
-    if namespaces:
-        for prefix, uri in namespaces.items():
-            result = el.find(f'{{{uri}}}{tag}')
-            if result is not None:
-                return result
-    return el.find(tag)
-
-
 # Common XML namespaces
 NS = {
     'dc': 'http://purl.org/dc/elements/1.1/',

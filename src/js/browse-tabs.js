@@ -15,6 +15,7 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 
 // Audio tracking: { tabId: { windowId, muted } }
 let _browseAudioTabs = new Map();
+let _pillBrowseMode = false;
 const _BROWSE_CLOSED_TABS_MAX = 50;
 let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
 
@@ -362,6 +363,7 @@ function openBrowse(url) {
     view.style.display = 'flex';
     view.style.flexDirection = 'column';
     setSidebarActive('sb-browse');
+    _setPillBrowseMode(true);
 
     // Initialize browse sidebar (hidden by default)
     const browseSb = document.getElementById('browse-sidebar');
@@ -667,18 +669,6 @@ setTimeout(() => {
   _browseUpdateDownloadBadge();
   _browseRenderDownloads();
 }, 100);
-
-// Check if URL looks like a downloadable file
-function _isDownloadableUrl(url) {
-  if (!url) return false;
-  const ext = url.split('?')[0].split('.').pop().toLowerCase();
-  const downloadExts = ['pdf', 'zip', 'tar', 'gz', 'rar', '7z', 'exe', 'dmg', 'pkg', 'deb', 'rpm',
-    'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt',
-    'mp3', 'mp4', 'mov', 'avi', 'mkv', 'wav', 'flac',
-    'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico',
-    'iso', 'img', 'bin', 'apk', 'ipa'];
-  return downloadExts.includes(ext);
-}
 
 function _browseUpdateDownloadBadge() {
   const btn = document.getElementById('browse-downloads-btn');
@@ -1208,9 +1198,6 @@ function _hideBrowseContextMenu() {
   }
   _browseContextData = null;
 }
-
-// Legacy alias
-function _hideBrowseLinkMenu() { _hideBrowseContextMenu(); }
 
 function _showBrowseContextMenu(x, y, data) {
   _hideBrowseContextMenu();
@@ -2279,6 +2266,9 @@ function _browseRenderTabs() {
   bar.querySelectorAll('.browse-split-pill').forEach(pillEl => {
     pillEl.addEventListener('mousedown', _splitPillDragStart);
   });
+
+  // Mirror tabs into the pill bar if in browse mode
+  if (_pillBrowseMode) _pillSyncTabs();
 }
 
 // ── Split pill drag (reorder + unsplit) ──
@@ -2328,7 +2318,7 @@ function _splitPillDragStart(e) {
         document.body.appendChild(ghost);
         indicator = document.createElement('div');
         indicator.className = 'browse-tab-insert-indicator';
-        const bar = document.getElementById('browse-tabs');
+        const bar = _getActiveTabBar();
         if (bar) { bar.style.position = 'relative'; bar.appendChild(indicator); }
       }
     }
@@ -2343,7 +2333,7 @@ function _splitPillDragStart(e) {
       ghost.style.left = (ev.clientX - pillEl.offsetWidth / 2) + 'px';
       ghost.style.top = (ev.clientY - pillEl.offsetHeight / 2) + 'px';
 
-      const bar = document.getElementById('browse-tabs');
+      const bar = _getActiveTabBar();
       if (!bar || !indicator) return;
       const barRect = bar.getBoundingClientRect();
       const nonSplitTabs = Array.from(bar.querySelectorAll('.browse-tab:not(.browse-tab-pinned)'));
@@ -2877,7 +2867,7 @@ function _tabDragMove(e) {
     // Create insertion indicator
     const indicator = document.createElement('div');
     indicator.className = 'browse-tab-insert-indicator';
-    const bar = document.getElementById('browse-tabs');
+    const bar = _getActiveTabBar();
     if (bar) {
       bar.style.position = 'relative';
       bar.appendChild(indicator);
@@ -2895,7 +2885,7 @@ function _tabDragMove(e) {
 
 function _tabDragUpdatePosition(clientX) {
   if (!_tabDragState || !_tabDragState.indicator) return;
-  const bar = document.getElementById('browse-tabs');
+  const bar = _getActiveTabBar();
   if (!bar) return;
   const win = _getCurrentWindow();
   const dragTab = win ? win.tabs.find(t => t.id === _tabDragState.tabId) : null;
@@ -2995,22 +2985,7 @@ function toggleBrowseTabOverview() {
   _browseTabOverviewVisible ? hideBrowseTabOverview() : showBrowseTabOverview();
 }
 
-// Tab overview keyboard navigation state
-let _overviewSelectedIndex = 0; // Flat index across all tabs
 let _overviewKeyHandler = null;
-
-// Get flat list of all selectable items (tabs + new tab cards)
-function _getOverviewItems() {
-  const items = [];
-  _browseWindows.forEach((win, winIdx) => {
-    win.tabs.forEach((tab, tabIdx) => {
-      items.push({ type: 'tab', windowId: win.id, tabId: tab.id, winIdx, tabIdx });
-    });
-    // Add new tab card for this window
-    items.push({ type: 'newTab', windowId: win.id, winIdx, tabIdx: win.tabs.length });
-  });
-  return items;
-}
 
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
@@ -3325,20 +3300,6 @@ function _renderBrowseTabOverview() {
   });
 }
 
-function _selectWindowFromOverview(windowId, event) {
-  // Don't trigger if clicking on a tab card or button
-  if (event.target.closest('.browse-tab-card') || event.target.closest('button')) return;
-
-  const win = _browseWindows.find(w => w.id === windowId);
-  if (!win || !win.tabs.length) return;
-
-  browseSelectWindow(windowId);
-  // Select the last active tab or the first tab
-  const tabId = win.activeTab || win.tabs[0].id;
-  browseSelectTab(tabId);
-  hideBrowseTabOverview();
-}
-
 function _selectTabFromOverview(windowId, tabId) {
   if (_browseActiveWindow !== windowId) {
     browseSelectWindow(windowId);
@@ -3389,13 +3350,6 @@ function _newWindowFromOverview() {
 function _closeWindowFromOverview(windowId) {
   browseCloseWindow(windowId);
   _renderBrowseTabOverview();
-}
-
-// Click handler for selecting a cell in the 2D grid
-function _selectGridCell(winIdx, tabIdx) {
-  _overviewSelectedWinIdx = winIdx;
-  _overviewSelectedTabIdx = tabIdx;
-  _updateOverviewSelection();
 }
 
 function _startRenameWindow(windowId, el) {
@@ -3974,7 +3928,7 @@ function _browseInstallKeyGuard() {
   // Click on content area blurs tab bar
   document.addEventListener('mousedown', (e) => {
     if (!_browseTabBarFocused) return;
-    const tabBar = document.getElementById('browse-tabs');
+    const tabBar = _getActiveTabBar();
     const switcher = e.target.closest('.browse-window-switcher');
     if (tabBar && !tabBar.contains(e.target) && !switcher) {
       _blurBrowseTabBar();
@@ -3984,13 +3938,13 @@ function _browseInstallKeyGuard() {
 
 function _focusBrowseTabBar() {
   _browseTabBarFocused = true;
-  const tabBar = document.getElementById('browse-tabs');
+  const tabBar = _getActiveTabBar();
   if (tabBar) tabBar.classList.add('tab-bar-focused');
 }
 
 function _blurBrowseTabBar() {
   _browseTabBarFocused = false;
-  const tabBar = document.getElementById('browse-tabs');
+  const tabBar = _getActiveTabBar();
   if (tabBar) tabBar.classList.remove('tab-bar-focused');
 }
 
@@ -4814,5 +4768,191 @@ function browseEnableNoteMode() {
   // Re-select to trigger paper rendering
   browseSelectTab(tab.id);
   _browseSaveTabs();
+}
+
+// ── Dynamic Island pill bar — browse mode ──
+
+function _getActiveTabBar() {
+  return _pillBrowseMode
+    ? document.getElementById('pill-browse-tabs')
+    : document.getElementById('browse-tabs');
+}
+
+function _setPillBrowseMode(enabled) {
+  _pillBrowseMode = enabled;
+  const pill = document.getElementById('sidebar-nav');
+  const tabRow = document.getElementById('browse-tab-row');
+  const dragPill = document.getElementById('drag-pill');
+  if (enabled) {
+    if (pill) pill.classList.add('browse-mode');
+    if (tabRow) tabRow.style.display = 'none';
+    if (dragPill) dragPill.style.display = 'none';
+    _pillSyncTabs();
+  } else {
+    if (pill) pill.classList.remove('browse-mode');
+    if (tabRow) tabRow.style.display = '';
+    if (dragPill) dragPill.style.display = '';
+    const pillTabs = document.getElementById('pill-browse-tabs');
+    if (pillTabs) pillTabs.innerHTML = '';
+    _closePillMenu();
+  }
+}
+
+function _pillSyncTabs() {
+  const pillTabs = document.getElementById('pill-browse-tabs');
+  if (!pillTabs) return;
+  const win = _getCurrentWindow();
+  if (!win) { pillTabs.innerHTML = ''; return; }
+
+  const tabs = win.tabs;
+  const activeTab = win.activeTab;
+  const groups = win.groups || [];
+
+  // Window switcher (if multiple windows)
+  let html = '';
+  if (_browseWindows.length > 1) {
+    const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+    html += '<div class="browse-window-switcher" data-window-idx="' + winIdx + '" onclick="toggleBrowseTabOverview()">' +
+      '<button class="browse-window-arrow up ' + (winIdx === 0 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">' +
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>' +
+      '</button>' +
+      '<button class="browse-window-arrow down ' + (winIdx === _browseWindows.length - 1 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowDown()" title="Next window">' +
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>' +
+      '</button>' +
+    '</div>';
+  }
+
+  // Split into pinned and unpinned
+  const pinned = tabs.filter(t => t.pinned);
+  const unpinned = tabs.filter(t => !t.pinned);
+
+  html += pinned.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+  if (pinned.length > 0 && unpinned.length > 0) {
+    html += '<div class="browse-tab-pin-separator"></div>';
+  }
+
+  // Sort unpinned: grouped then ungrouped
+  const groupedIds = new Set(groups.map(g => g.id));
+  const groupOrder = groups.map(g => g.id);
+  const byGroup = new Map();
+  const ungrouped = [];
+  for (const t of unpinned) {
+    if (t.groupId != null && groupedIds.has(t.groupId)) {
+      if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, []);
+      byGroup.get(t.groupId).push(t);
+    } else {
+      ungrouped.push(t);
+    }
+  }
+
+  const splitPanes = _browseGetSplitPanes();
+  const splitTabIds = new Set(splitPanes.map(p => p.tabId));
+  let splitPillInserted = false;
+
+  for (const gid of groupOrder) {
+    const group = groups.find(g => g.id === gid);
+    const gTabs = byGroup.get(gid);
+    if (!gTabs || !gTabs.length) continue;
+    const gc = _BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
+    html += '<div class="browse-tab-group-chip" style="--group-color:' + gc + '" data-group-id="' + gid + '" onclick="_browseToggleGroupCollapse(' + gid + ')" oncontextmenu="event.preventDefault();_browseShowGroupContextMenu(event,' + gid + ')">' +
+      '<span class="browse-tab-group-name">' + escapeHtml(group.name) + '</span>' +
+      '<span class="browse-tab-group-count">' + gTabs.length + '</span>' +
+    '</div>';
+    if (!group.collapsed) {
+      for (const t of gTabs) {
+        if (splitTabIds.has(t.id)) {
+          if (!splitPillInserted) { html += _browseRenderSplitPillHtml(splitPanes, tabs, activeTab); splitPillInserted = true; }
+        } else {
+          html += _browseRenderTabHtml(t, activeTab);
+        }
+      }
+    }
+  }
+  for (const t of ungrouped) {
+    if (splitTabIds.has(t.id)) {
+      if (!splitPillInserted) { html += _browseRenderSplitPillHtml(splitPanes, tabs, activeTab); splitPillInserted = true; }
+    } else {
+      html += _browseRenderTabHtml(t, activeTab);
+    }
+  }
+
+  pillTabs.innerHTML = html;
+
+  // Attach event listeners
+  pillTabs.querySelectorAll('.browse-tab').forEach(tabEl => {
+    tabEl.addEventListener('mousedown', _tabDragStart);
+    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
+    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
+  });
+  pillTabs.querySelectorAll('.browse-split-pill-tab').forEach(tabEl => {
+    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
+    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
+  });
+  pillTabs.querySelectorAll('.browse-split-pill').forEach(pillEl => {
+    pillEl.addEventListener('mousedown', _splitPillDragStart);
+  });
+}
+
+function _togglePillMenu() {
+  const existing = document.getElementById('pill-menu-dropdown');
+  if (existing) { _closePillMenu(); return; }
+
+  const btn = document.getElementById('pill-menu-btn');
+  if (!btn) return;
+  const rect = btn.getBoundingClientRect();
+
+  const dropdown = document.createElement('div');
+  dropdown.id = 'pill-menu-dropdown';
+  dropdown.style.top = (rect.bottom + 4) + 'px';
+  dropdown.style.left = rect.left + 'px';
+
+  // Clone icons from pill-nav-icons
+  const icons = document.getElementById('pill-nav-icons');
+  if (icons) {
+    icons.querySelectorAll('.sidebar-icon, .pill-separator').forEach(el => {
+      if (el.classList.contains('pill-separator')) return; // skip separators
+      const clone = el.cloneNode(true);
+      clone.classList.remove('active', 'sb-loading');
+      clone.style.maxWidth = '';
+      clone.style.opacity = '';
+      // For buttons with onclick, keep the original onclick
+      const origOnclick = el.getAttribute('onclick');
+      if (origOnclick) {
+        clone.setAttribute('onclick', origOnclick + ';_closePillMenu()');
+      }
+      // For elements without onclick (rain, pet, user), attach click handler
+      if (!origOnclick && el.id === 'sb-rain') {
+        clone.addEventListener('click', () => { el.click(); _closePillMenu(); });
+      }
+      dropdown.appendChild(clone);
+    });
+  }
+
+  document.body.appendChild(dropdown);
+
+  // Close on click outside or Escape
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        _closePillMenu();
+        document.removeEventListener('mousedown', closeHandler);
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        _closePillMenu();
+        document.removeEventListener('mousedown', closeHandler);
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('mousedown', closeHandler);
+    document.addEventListener('keydown', escHandler);
+  }, 0);
+}
+
+function _closePillMenu() {
+  const dropdown = document.getElementById('pill-menu-dropdown');
+  if (dropdown) dropdown.remove();
 }
 

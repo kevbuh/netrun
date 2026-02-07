@@ -1130,7 +1130,7 @@ async function fetchPaperComments() {
   const list = document.getElementById('comments-list');
   if (!list) return;
   try {
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(_paperNoteLink));
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(_paperNoteLink), { headers: _authHeaders() });
     _commentsCache = await resp.json();
   } catch (e) {
     _commentsCache = [];

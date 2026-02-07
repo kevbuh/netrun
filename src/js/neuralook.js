@@ -63,21 +63,23 @@ let _nlHistGazeY = [];
 let _nlHistJitter = [];
 let _nlHistRate = [];
 
-// 5x5 calibration grid (25 points)
+// 7x7 calibration grid (49 points)
 const _NL_CAL_POSITIONS = [
-  [8, 8],   [29, 8],  [50, 8],  [71, 8],  [92, 8],
-  [8, 29],  [29, 29], [50, 29], [71, 29], [92, 29],
-  [8, 50],  [29, 50], [50, 50], [71, 50], [92, 50],
-  [8, 71],  [29, 71], [50, 71], [71, 71], [92, 71],
-  [8, 92],  [29, 92], [50, 92], [71, 92], [92, 92]
+  [8,8],[22,8],[36,8],[50,8],[64,8],[78,8],[92,8],
+  [8,22],[22,22],[36,22],[50,22],[64,22],[78,22],[92,22],
+  [8,36],[22,36],[36,36],[50,36],[64,36],[78,36],[92,36],
+  [8,50],[22,50],[36,50],[50,50],[64,50],[78,50],[92,50],
+  [8,64],[22,64],[36,64],[50,64],[64,64],[78,64],[92,64],
+  [8,78],[22,78],[36,78],[50,78],[64,78],[78,78],[92,78],
+  [8,92],[22,92],[36,92],[50,92],[64,92],[78,92],[92,92]
 ];
 
 const _NL_STARE_MS = 1200;
 const _NL_SETTLE_MS = 400;
 
 // Eye crop dimensions
-const _NL_EYE_W = 64;
-const _NL_EYE_H = 32;
+const _NL_EYE_W = 128;
+const _NL_EYE_H = 64;
 
 async function openNeuralook() {
   hideAllViews();
@@ -365,7 +367,7 @@ function _nlRefreshTrainDetails() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
 
   el.innerHTML =
-    row('Architecture', 'CNN (2ch 32x64 → 128 feat → 256 → 64 → 2)') +
+    row('Architecture', 'CNN (2ch 64x128 → 128 feat → 256 → 64 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
     row('Calibration', `${_NL_CAL_POSITIONS.length} fixed grid points`) +
@@ -598,14 +600,23 @@ function _nlCaptureEyeCrops() {
     const ew = Math.abs(lm[inner].x - lm[outer].x) * 1.8; // 80% padding
     const eh = ew * 0.5; // 2:1 aspect ratio
 
-    const sx = Math.max(0, (cx - ew / 2) * vw);
-    const sy = Math.max(0, (cy - eh / 2) * vh);
-    const sw = Math.min(ew * vw, vw - sx);
-    const sh = Math.min(eh * vh, vh - sy);
+    // Eye roll angle from outer→inner corner
+    const angle = Math.atan2(
+      (lm[inner].y - lm[outer].y) * vh,
+      (lm[inner].x - lm[outer].x) * vw
+    );
 
     canvas.width = _NL_EYE_W;
     canvas.height = _NL_EYE_H;
-    ctx.drawImage(_nlVideoEl, sx, sy, sw, sh, 0, 0, _NL_EYE_W, _NL_EYE_H);
+
+    // Counter-rotate to align eye horizontally
+    ctx.save();
+    ctx.translate(_NL_EYE_W / 2, _NL_EYE_H / 2);
+    ctx.rotate(-angle);
+    ctx.scale(_NL_EYE_W / (ew * vw), _NL_EYE_H / (eh * vh));
+    ctx.drawImage(_nlVideoEl, -cx * vw, -cy * vh);
+    ctx.restore();
+
     const imgData = ctx.getImageData(0, 0, _NL_EYE_W, _NL_EYE_H);
     const gray = new Uint8Array(_NL_EYE_W * _NL_EYE_H);
     for (let i = 0; i < gray.length; i++) {
@@ -618,10 +629,11 @@ function _nlCaptureEyeCrops() {
   const rightGray = cropEye(263, 362, 386, 374);
   if (!leftGray || !rightGray) return null;
 
-  // Concatenate: [left 2048 + right 2048] = 4096 bytes
-  const combined = new Uint8Array(4096);
+  // Concatenate: [left eyeSize + right eyeSize]
+  const eyeSize = _NL_EYE_W * _NL_EYE_H;
+  const combined = new Uint8Array(eyeSize * 2);
   combined.set(leftGray, 0);
-  combined.set(rightGray, 2048);
+  combined.set(rightGray, eyeSize);
   return combined;
 }
 
@@ -818,7 +830,7 @@ async function _nlPredictOnServer(eyeData) {
 
 async function _nlEnsureVideo() {
   if (_nlVideoEl && _nlVideoEl.srcObject) return _nlVideoEl;
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 } });
   _nlVideoEl = document.createElement('video');
   _nlVideoEl.srcObject = stream;
   _nlVideoEl.autoplay = true;
@@ -1342,7 +1354,7 @@ function _nlRefreshStats() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
   el.innerHTML =
-    row('Model', 'CNN (2ch 32x64)') +
+    row('Model', 'CNN (2ch 64x128)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +

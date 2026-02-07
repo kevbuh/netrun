@@ -1091,24 +1091,6 @@ function closeFileEditor() {
   if (document.getElementById('exp-sidebar-files')) fetchExpFiles();
 }
 
-// ── New File menu toggle ──
-function toggleNewFileMenu() {
-  const menu = document.getElementById('new-file-menu');
-  if (!menu) return;
-  menu.classList.toggle('hidden');
-  if (!menu.classList.contains('hidden')) {
-    setTimeout(() => document.addEventListener('click', _hideNewFileMenuOnClick, { once: true }), 0);
-  }
-}
-function hideNewFileMenu() {
-  const menu = document.getElementById('new-file-menu');
-  if (menu) menu.classList.add('hidden');
-}
-function _hideNewFileMenuOnClick(e) {
-  const menu = document.getElementById('new-file-menu');
-  if (menu && !menu.contains(e.target)) menu.classList.add('hidden');
-}
-
 // ── Resizable Experiment Sidebar ──
 
 function _initExpSidebarResize() {

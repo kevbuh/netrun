@@ -84,12 +84,6 @@ function _popupSafeBounds() {
   return { top, left, right: window.innerWidth, bottom: window.innerHeight };
 }
 
-// Legacy alias
-function _trafficLightSafeZone() {
-  const b = _popupSafeBounds();
-  return { top: b.top, left: b.left };
-}
-
 // ── Cmd/Ctrl+click → open in new browse tab ──
 function _isNewTabClick(e) { return e && (e.metaKey || e.ctrlKey); }
 function _openInNewTab(url) {
@@ -442,58 +436,6 @@ if (document.readyState === 'loading') {
   observeLazyImages();
 }
 
-// Passive event listeners for better scroll performance
-function addPassiveEventListener(element, event, handler) {
-  if (element && typeof element.addEventListener === 'function') {
-    element.addEventListener(event, handler, { passive: true });
-  }
-}
-
-// Batch DOM updates with requestAnimationFrame
-let _rafPending = false;
-let _rafCallbacks = [];
-
-function batchDOMUpdate(callback) {
-  _rafCallbacks.push(callback);
-  if (!_rafPending) {
-    _rafPending = true;
-    requestAnimationFrame(() => {
-      const callbacks = _rafCallbacks.slice();
-      _rafCallbacks = [];
-      _rafPending = false;
-      callbacks.forEach(cb => cb());
-    });
-  }
-}
-
-// Optimized scroll handler
-let _lastScrollY = 0;
-let _scrollDirection = 'down';
-
-function handleOptimizedScroll() {
-  const currentScrollY = window.scrollY || window.pageYOffset;
-  _scrollDirection = currentScrollY > _lastScrollY ? 'down' : 'up';
-  _lastScrollY = currentScrollY;
-
-  // Update UI elements that depend on scroll
-  batchDOMUpdate(() => {
-    // Example: hide/show elements based on scroll direction
-    // Can be used for auto-hiding headers, etc.
-  });
-}
-
-// Use throttled scroll handler
-if (typeof window !== 'undefined') {
-  addPassiveEventListener(window, 'scroll', throttle(handleOptimizedScroll, 100));
-}
-
-// Debounced window resize handler
-window.addEventListener('resize', debounce(() => {
-  batchDOMUpdate(() => {
-    // Resize-dependent updates
-  });
-}, 300));
-
 // ── View management ──
 const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
 const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
@@ -812,6 +754,7 @@ function hideAllViews() {
   if (typeof stopFeedLoading === 'function') stopFeedLoading();
   if (typeof _stopScrollTracker === 'function') _stopScrollTracker();
   if (typeof _spinnerPreviewInterval !== 'undefined' && _spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; }
+  if (typeof _setPillBrowseMode === 'function') _setPillBrowseMode(false);
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
   if (typeof _vibeCleanup === 'function') _vibeCleanup();
@@ -1425,7 +1368,8 @@ function routeFromHash() {
   if (hash === '#research') wmOpen('research');
   else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
   else if (hash === '#settings') wmOpen('settings');
-  else if (hash === '#quality' || hash === '#algorithm') { _settingsSection = 'feed'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
+  else if (hash === '#quality') { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
+  else if (hash === '#algorithm') { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
   else if (hash === '#calendar') wmOpen('calendar');
   else if (hash === '#inbox') wmOpen('inbox');
   else if (hash === '#teams') openTeams();

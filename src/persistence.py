@@ -116,11 +116,6 @@ def write_prompt(prompt):
             f.write(prompt.strip())
 
 
-def get_active_prompt():
-    """Return the custom prompt if set, otherwise the default."""
-    return read_prompt() or DEFAULT_VERDICT_PROMPT
-
-
 DEFAULT_VERDICT_PROMPT = (
     "You are a topic filter. Your job is to remove obvious junk from a feed reader.\n\n"
     "SKIP only if the title is clearly about: product reviews, buyer's guides, 'best X' roundups, "

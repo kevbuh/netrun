@@ -540,17 +540,6 @@ def transcribe(google_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/neuralook/calibration')
-@require_auth
-def get_calibration(google_id):
-    calib_path = os.path.join(DIR, 'neuralook_calibration.json')
-    if os.path.exists(calib_path):
-        with open(calib_path, 'r') as f:
-            return jsonify(json.loads(f.read()))
-    else:
-        return jsonify({'error': 'No calibration data saved'}), 404
-
-
 @bp.route('/api/neuralook/save-calibration', methods=['POST'])
 @require_auth
 def save_calibration(google_id):
@@ -587,13 +576,13 @@ def neuralook_train(google_id):
                     samples = calib.get('samples', [])
                     body.setdefault('screenW', calib.get('screenW', 1920))
                     body.setdefault('screenH', calib.get('screenH', 1080))
-                    body.setdefault('eyeW', calib.get('eyeW', 64))
-                    body.setdefault('eyeH', calib.get('eyeH', 32))
+                    body.setdefault('eyeW', calib.get('eyeW', 128))
+                    body.setdefault('eyeH', calib.get('eyeH', 64))
 
             screen_w = body.get('screenW', 1920)
             screen_h = body.get('screenH', 1080)
-            eye_w = body.get('eyeW', 64)
-            eye_h = body.get('eyeH', 32)
+            eye_w = body.get('eyeW', 128)
+            eye_h = body.get('eyeH', 64)
             if len(samples) < 10:
                 yield sse_event('error', {'error': f'Need at least 10 samples, got {len(samples)}'})
                 return
@@ -647,6 +636,26 @@ def neuralook_train(google_id):
                 def forward(self, x):
                     return self.head(self.features(x))
 
+            def augment_batch(x_batch):
+                B = x_batch.shape[0]
+                aug = x_batch.clone()
+                # Brightness ±20%
+                aug = aug * (1.0 + (torch.rand(B, 1, 1, 1) * 0.4 - 0.2))
+                # Contrast ±15%
+                mean = aug.mean(dim=(-2, -1), keepdim=True)
+                aug = (aug - mean) * (1.0 + (torch.rand(B, 1, 1, 1) * 0.3 - 0.15)) + mean
+                # Gaussian noise σ=0.02
+                aug = aug + torch.randn_like(aug) * 0.02
+                # Horizontal shift ±2px
+                shift = torch.randint(-2, 3, (B,))
+                for i in range(B):
+                    s = shift[i].item()
+                    if s != 0:
+                        aug[i] = torch.roll(aug[i], shifts=s, dims=-1)
+                        if s > 0: aug[i, :, :, :s] = 0.0
+                        else: aug[i, :, :, s:] = 0.0
+                return aug.clamp(0.0, 1.0)
+
             model = GazeCNN()
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
             max_epochs = 50
@@ -668,6 +677,7 @@ def neuralook_train(google_id):
             yield sse_event('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
             yield sse_event('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
+            yield sse_event('log', {'text': 'augmentation: brightness(±20%), contrast(±15%), noise(σ=0.02), h-shift(±2px)'})
             yield sse_event('log', {'text': ''})
             yield sse_event('log', {'text': f'{"epoch":>6}  {"train_loss":>11}  {"val_loss":>11}  {"lr":>10}  {"best":>5}  {"patience":>8}'})
             yield sse_event('log', {'text': '─' * 65})
@@ -680,7 +690,8 @@ def neuralook_train(google_id):
                 n_batches = 0
                 for start in range(0, n_train, batch_size):
                     idx = perm[start:start + batch_size]
-                    pred = model(X_train[idx])
+                    x_batch = augment_batch(X_train[idx])
+                    pred = model(x_batch)
                     loss = nn.functional.mse_loss(pred, Y_train[idx])
                     optimizer.zero_grad()
                     loss.backward()

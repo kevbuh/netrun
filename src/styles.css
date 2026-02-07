@@ -541,6 +541,202 @@
       color: #fff;
     }
 
+    /* ── Dynamic Island — pill bar browse mode ── */
+    .pill-bar {
+      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.3s ease,
+                  border-radius 0.3s ease,
+                  padding 0.3s ease;
+    }
+    .pill-bar.browse-mode {
+      width: calc(100vw - 160px);
+      max-width: 1400px;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 0 0 12px 12px;
+      padding: 3px 8px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    body.electron-app .pill-bar.browse-mode {
+      left: calc(50% + 36px);
+      -webkit-app-region: drag;
+    }
+    body.electron-app .pill-bar.browse-mode button,
+    body.electron-app .pill-bar.browse-mode .browse-tab,
+    body.electron-app .pill-bar.browse-mode .browse-split-pill,
+    body.electron-app .pill-bar.browse-mode .browse-window-switcher {
+      -webkit-app-region: no-drag;
+    }
+
+    /* Nav icons container — collapses to zero in browse mode */
+    #pill-nav-icons {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      overflow: hidden;
+      max-width: 800px;
+      opacity: 1;
+      transition: max-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.2s ease;
+    }
+    .browse-mode #pill-nav-icons {
+      max-width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Menu button — hidden by default, appears in browse mode, pinned far left */
+    #pill-menu-btn {
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      margin-right: 0;
+      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease,
+                  padding 0.3s ease,
+                  margin 0.3s ease;
+    }
+    .browse-mode #pill-menu-btn {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
+      margin-right: 6px;
+    }
+
+    /* Pill browse tabs — expands to fill in browse mode */
+    #pill-browse-tabs {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      gap: 2px;
+      transition: max-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease 0.1s;
+    }
+    .browse-mode #pill-browse-tabs {
+      max-width: 100%;
+      opacity: 1;
+      overflow-x: auto;
+    }
+    #pill-browse-tabs::-webkit-scrollbar { display: none; }
+
+    /* Pill tabs — slightly smaller than regular browse tabs */
+    #pill-browse-tabs .browse-tab {
+      height: 26px;
+      font-size: 0.72rem;
+      max-width: 200px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      flex: 0 1 auto;
+    }
+    #pill-browse-tabs .browse-tab.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    #pill-browse-tabs .browse-tab:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+    #pill-browse-tabs .browse-tab-close {
+      width: 14px;
+      height: 14px;
+      font-size: 0.75rem;
+    }
+    #pill-browse-tabs .browse-tab-favicon {
+      width: 12px;
+      height: 12px;
+    }
+    #pill-browse-tabs .browse-tab-pinned {
+      max-width: 28px;
+      min-width: 28px;
+    }
+    #pill-browse-tabs .browse-tab-pin-separator {
+      height: 16px;
+    }
+    #pill-browse-tabs .browse-tab-group-chip {
+      height: 22px;
+      font-size: 0.65rem;
+      padding: 0 5px;
+    }
+    #pill-browse-tabs .browse-window-switcher {
+      flex-shrink: 0;
+    }
+    #pill-browse-tabs .browse-split-pill {
+      height: 26px;
+    }
+
+    /* Pill toolbar buttons — hidden by default, visible in browse mode */
+    #pill-newtab-btn,
+    #pill-newwin-btn,
+    #pill-overview-btn {
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease,
+                  padding 0.3s ease;
+    }
+    .browse-mode #pill-newtab-btn,
+    .browse-mode #pill-newwin-btn,
+    .browse-mode #pill-overview-btn {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
+    }
+    /* Push overview button to far right */
+    .browse-mode #pill-overview-btn {
+      margin-left: auto;
+    }
+
+    /* Menu dropdown — floating grid of nav icons */
+    #pill-menu-dropdown {
+      position: fixed;
+      z-index: 10002;
+      background: var(--bg-popup, rgba(30, 30, 30, 0.95));
+      border: 1px solid var(--border-card, rgba(255, 255, 255, 0.08));
+      border-radius: 12px;
+      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 36px);
+      gap: 4px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      animation: pill-menu-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #pill-menu-dropdown .sidebar-icon {
+      width: 32px;
+      height: 32px;
+    }
+    @keyframes pill-menu-pop {
+      0% { opacity: 0; transform: scale(0.8) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Light theme overrides for browse mode */
+    [data-theme="light"] .pill-bar.browse-mode,
+    [data-theme="daylight"] .pill-bar.browse-mode,
+    [data-theme="sepia"] .pill-bar.browse-mode {
+      background: rgba(0, 0, 0, 0.08);
+    }
+    [data-theme="light"] #pill-browse-tabs .browse-tab.active,
+    [data-theme="daylight"] #pill-browse-tabs .browse-tab.active,
+    [data-theme="sepia"] #pill-browse-tabs .browse-tab.active {
+      background: rgba(255, 255, 255, 0.5);
+      color: var(--text-primary);
+    }
+    [data-theme="light"] #pill-browse-tabs .browse-tab:hover,
+    [data-theme="daylight"] #pill-browse-tabs .browse-tab:hover,
+    [data-theme="sepia"] #pill-browse-tabs .browse-tab:hover {
+      background: rgba(255, 255, 255, 0.3);
+      color: var(--text-primary);
+    }
+
     /* ── Browse bar drag ghost ── */
     .browse-bar-drag-ghost {
       position: fixed;
