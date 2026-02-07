@@ -105,7 +105,7 @@ function _browseRestoreTabs() {
           }
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
-            const tab = { id: saved.id, url: 'lookup://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
+            const tab = { id: saved.id, url: 'aether://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -113,7 +113,7 @@ function _browseRestoreTabs() {
           }
           // Help page tab
           if (saved._helpPage) {
-            const tab = { id: saved.id, url: 'lookup://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true };
+            const tab = { id: saved.id, url: 'aether://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -403,13 +403,13 @@ function openBrowse(url) {
 }
 
 function browseNewTab(url) {
-  // Intercept lookup:// URLs
+  // Intercept aether:// URLs
   const trimUrl = (url || '').trim().toLowerCase();
-  if (trimUrl === 'lookup://history' || trimUrl === 'lookup://history/') {
+  if (trimUrl === 'aether://history' || trimUrl === 'aether://history/') {
     openSearchHistoryPage();
     return;
   }
-  if (trimUrl === 'lookup://help' || trimUrl === 'lookup://help/') {
+  if (trimUrl === 'aether://help' || trimUrl === 'aether://help/') {
     openHelpPage();
     return;
   }
@@ -962,12 +962,12 @@ function _browseHandleNavigation(tab, frame) {
 }
 
 function _browseInjectContentScripts(tab, frame) {
-  // Context menu — always show lookup panel (with context items for links/images)
+  // Context menu — always show aether panel (with context items for links/images)
   frame.addEventListener('context-menu', (ev) => {
     ev.preventDefault();
     if (typeof _showPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) { popup.remove(); _lookupTrackMode = false; }
+    if (popup) { popup.remove(); _aetherTrackMode = false; }
     const ctxData = (ev.linkURL || ev.srcURL) ? {
       linkUrl: ev.linkURL || '', linkText: ev.linkText || '',
       imgUrl: ev.srcURL || '', mediaType: ev.mediaType || ''
@@ -979,14 +979,14 @@ function _browseInjectContentScripts(tab, frame) {
   frame.addEventListener('dom-ready', () => {
     frame.executeJavaScript(`
       (function(){
-        if(window.__lookupContextMenuInjected)return;
-        window.__lookupContextMenuInjected=true;
+        if(window.__aetherContextMenuInjected)return;
+        window.__aetherContextMenuInjected=true;
         document.addEventListener('contextmenu',function(e){
           var tag = e.target.tagName;
           if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable){
             e.preventDefault();e.stopPropagation();
-            window.__lookupLastEditable=e.target;
-            console.log('__LOOKUP_EDITABLE__'+JSON.stringify({x:e.screenX,y:e.screenY}));
+            window.__aetherLastEditable=e.target;
+            console.log('__AETHER_EDITABLE__'+JSON.stringify({x:e.screenX,y:e.screenY}));
             return false;
           }
           var data = {x:e.screenX,y:e.screenY};
@@ -1006,9 +1006,9 @@ function _browseInjectContentScripts(tab, frame) {
           e.preventDefault();
           e.stopPropagation();
           if(data.linkUrl||data.imgUrl){
-            console.log('__LOOKUP_CONTEXT__'+JSON.stringify(data));
+            console.log('__AETHER_CONTEXT__'+JSON.stringify(data));
           } else {
-            console.log('__LOOKUP_CHAT__'+JSON.stringify(data));
+            console.log('__AETHER_CHAT__'+JSON.stringify(data));
           }
           return false;
         },true);
@@ -1016,7 +1016,7 @@ function _browseInjectContentScripts(tab, frame) {
         var _wvSelDragging=false;
         document.addEventListener('mousedown',function(e){
           if(e.button!==0) return;
-          console.log('__LOOKUP_CLOSE_MENU__'); console.log('__LOOKUP_DISMISS_CHAT__');
+          console.log('__AETHER_CLOSE_MENU__'); console.log('__AETHER_DISMISS_CHAT__');
           var tag=e.target.tagName;
           if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON') return;
           if(e.target.isContentEditable) return;
@@ -1028,7 +1028,7 @@ function _browseInjectContentScripts(tab, frame) {
           var text=sel?sel.toString().trim():'';
           if(!text||text.length<3||sel.rangeCount===0) return;
           var r=sel.getRangeAt(0).getBoundingClientRect();
-          console.log('__LOOKUP_SEL_PREVIEW__'+JSON.stringify({text:text,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}));
+          console.log('__AETHER_SEL_PREVIEW__'+JSON.stringify({text:text,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}));
         });
         document.addEventListener('mouseup',function(e){
           if(!_wvSelDragging) return;
@@ -1037,15 +1037,15 @@ function _browseInjectContentScripts(tab, frame) {
           var text=sel?sel.toString().trim():'';
           if(text&&text.length>=3&&sel.rangeCount>0){
             var r=sel.getRangeAt(0).getBoundingClientRect();
-            console.log('__LOOKUP_SEL_FINAL__'+JSON.stringify({text:text,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}));
+            console.log('__AETHER_SEL_FINAL__'+JSON.stringify({text:text,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}));
           } else {
-            console.log('__LOOKUP_SEL_CLEAR__');
+            console.log('__AETHER_SEL_CLEAR__');
           }
         },true);
         document.addEventListener('keydown',function(e){
-          if(e.key==='Escape') console.log('__LOOKUP_DISMISS_CHAT__');
-          if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();console.log('__LOOKUP_FIND__');}
-          if(e.altKey&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey){if(e.key==='ArrowLeft'){e.preventDefault();console.log('__LOOKUP_TAB_LEFT__');}if(e.key==='ArrowRight'){e.preventDefault();console.log('__LOOKUP_TAB_RIGHT__');}}
+          if(e.key==='Escape') console.log('__AETHER_DISMISS_CHAT__');
+          if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();console.log('__AETHER_FIND__');}
+          if(e.altKey&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey){if(e.key==='ArrowLeft'){e.preventDefault();console.log('__AETHER_TAB_LEFT__');}if(e.key==='ArrowRight'){e.preventDefault();console.log('__AETHER_TAB_RIGHT__');}}
         },true);
         // Link hover preview — relay to parent
         var _lastHoveredHref='';
@@ -1055,20 +1055,20 @@ function _browseInjectContentScripts(tab, frame) {
             var h=a.href;
             if(h&&h!=='#'&&h.indexOf('javascript:')!==0&&h!==_lastHoveredHref){
               _lastHoveredHref=h;
-              console.log('__LOOKUP_LINK_HOVER__'+h);
+              console.log('__AETHER_LINK_HOVER__'+h);
             }
           } else if(_lastHoveredHref){
             _lastHoveredHref='';
-            console.log('__LOOKUP_LINK_LEAVE__');
+            console.log('__AETHER_LINK_LEAVE__');
           }
         },true);
-        // Throttled mousemove for lookup panel
+        // Throttled mousemove for aether panel
         var _lastMove=0;
         document.addEventListener('mousemove',function(e){
           var now=Date.now();
           if(now-_lastMove<16) return;
           _lastMove=now;
-          console.log('__LOOKUP_MOUSE__'+e.screenX+','+e.screenY);
+          console.log('__AETHER_MOUSE__'+e.screenX+','+e.screenY);
         });
       })();
     `).catch(()=>{});
@@ -1077,93 +1077,93 @@ function _browseInjectContentScripts(tab, frame) {
 
   // Listen for context menu via console message
   frame.addEventListener('console-message', (e) => {
-    if (e.message && e.message.startsWith('__LOOKUP_LINK_HOVER__')) {
-      _showLinkPreview(e.message.slice('__LOOKUP_LINK_HOVER__'.length));
+    if (e.message && e.message.startsWith('__AETHER_LINK_HOVER__')) {
+      _showLinkPreview(e.message.slice('__AETHER_LINK_HOVER__'.length));
       return;
-    } else if (e.message === '__LOOKUP_LINK_LEAVE__') {
+    } else if (e.message === '__AETHER_LINK_LEAVE__') {
       _hideLinkPreview();
       return;
-    } else if (e.message === '__LOOKUP_DISMISS_CHAT__') {
+    } else if (e.message === '__AETHER_DISMISS_CHAT__') {
       const popup = document.getElementById('doc-chat-ask-float');
       if (popup) {
         if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        _lookupTrackMode = false;
+        _aetherTrackMode = false;
         popup.remove();
       }
-    } else if (e.message && e.message.startsWith('__LOOKUP_MOUSE__')) {
-      if (!_lookupTrackMode) return;
-      const parts = e.message.slice('__LOOKUP_MOUSE__'.length).split(',');
+    } else if (e.message && e.message.startsWith('__AETHER_MOUSE__')) {
+      if (!_aetherTrackMode) return;
+      const parts = e.message.slice('__AETHER_MOUSE__'.length).split(',');
       const x = parseInt(parts[0]) - window.screenX;
       const y = parseInt(parts[1]) - window.screenY;
       _lastMouseX = x;
       _lastMouseY = y;
       const popup = document.getElementById('doc-chat-ask-float');
-      if (!popup) { _lookupTrackMode = false; return; }
-      const preferLeft = (localStorage.getItem('lookupPanelSide') || 'left') === 'left';
+      if (!popup) { _aetherTrackMode = false; return; }
+      const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
       const pos = _positionAtCursor(x, y, popup.offsetWidth, popup.offsetHeight, preferLeft);
       popup.style.left = pos.left + 'px';
       popup.style.top = pos.top + 'px';
-    } else if (e.message === '__LOOKUP_CLOSE_MENU__') {
+    } else if (e.message === '__AETHER_CLOSE_MENU__') {
       _hideBrowseContextMenu();
-    } else if (e.message && e.message.startsWith('__LOOKUP_CONTEXT__')) {
+    } else if (e.message && e.message.startsWith('__AETHER_CONTEXT__')) {
       try {
-        const data = JSON.parse(e.message.slice('__LOOKUP_CONTEXT__'.length));
+        const data = JSON.parse(e.message.slice('__AETHER_CONTEXT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          if (popup) { popup.remove(); _aetherTrackMode = false; }
           _showPanel({ anchor: { x, y }, contextMenu: data });
         }
       } catch (err) {}
-    } else if (e.message && e.message.startsWith('__LOOKUP_CHAT__')) {
+    } else if (e.message && e.message.startsWith('__AETHER_CHAT__')) {
       try {
-        const data = JSON.parse(e.message.slice('__LOOKUP_CHAT__'.length));
+        const data = JSON.parse(e.message.slice('__AETHER_CHAT__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          if (popup) { popup.remove(); _aetherTrackMode = false; }
           _showPanel({ anchor: { x, y } });
         }
       } catch (err) {}
-    } else if (e.message && e.message.startsWith('__LOOKUP_EDITABLE__')) {
+    } else if (e.message && e.message.startsWith('__AETHER_EDITABLE__')) {
       try {
-        const data = JSON.parse(e.message.slice('__LOOKUP_EDITABLE__'.length));
+        const data = JSON.parse(e.message.slice('__AETHER_EDITABLE__'.length));
         const x = data.x - window.screenX;
         const y = data.y - window.screenY;
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _lookupTrackMode = false; }
+          if (popup) { popup.remove(); _aetherTrackMode = false; }
           _showPanel({ anchor: { x, y }, trackCursor: false, webviewEditable: { webview: frame, editFlags: { canCut: true, canCopy: true, canPaste: true, canSelectAll: true } } });
         }
       } catch (err) {}
-    } else if (e.message === '__LOOKUP_FIND__') {
+    } else if (e.message === '__AETHER_FIND__') {
       _browseToggleFindBar();
-    } else if (e.message === '__LOOKUP_TAB_LEFT__') {
+    } else if (e.message === '__AETHER_TAB_LEFT__') {
       _switchTabLeft();
-    } else if (e.message === '__LOOKUP_TAB_RIGHT__') {
+    } else if (e.message === '__AETHER_TAB_RIGHT__') {
       _switchTabRight();
-    } else if (e.message && (e.message.startsWith('__LOOKUP_SEL_PREVIEW__') || e.message.startsWith('__LOOKUP_SEL_FINAL__'))) {
+    } else if (e.message && (e.message.startsWith('__AETHER_SEL_PREVIEW__') || e.message.startsWith('__AETHER_SEL_FINAL__'))) {
       try {
-        const isFinal = e.message.startsWith('__LOOKUP_SEL_FINAL__');
-        const prefix = isFinal ? '__LOOKUP_SEL_FINAL__' : '__LOOKUP_SEL_PREVIEW__';
+        const isFinal = e.message.startsWith('__AETHER_SEL_FINAL__');
+        const prefix = isFinal ? '__AETHER_SEL_FINAL__' : '__AETHER_SEL_PREVIEW__';
         const data = JSON.parse(e.message.slice(prefix.length));
         const selectionRect = _iframeRectToParent(data, frame);
-        _lookupTrackMode = false;
+        _aetherTrackMode = false;
         if (!isFinal) {
           const existing = document.getElementById('doc-chat-ask-float');
-          if (existing && existing._isLookupPanel) existing.remove();
+          if (existing && existing._isAetherPanel) existing.remove();
         }
         _showPanel({ anchor: { selectionRect }, selectionText: data.text, finalized: isFinal });
       } catch (err) {}
-    } else if (e.message === '__LOOKUP_SEL_CLEAR__') {
+    } else if (e.message === '__AETHER_SEL_CLEAR__') {
       const existing = document.getElementById('doc-chat-ask-float');
-      if (existing) { existing.remove(); _lookupTrackMode = false; }
-    } else if (e.message && e.message.startsWith('__LOOKUP_LINK__')) {
+      if (existing) { existing.remove(); _aetherTrackMode = false; }
+    } else if (e.message && e.message.startsWith('__AETHER_LINK__')) {
       // Legacy support
       try {
-        const data = JSON.parse(e.message.slice('__LOOKUP_LINK__'.length));
+        const data = JSON.parse(e.message.slice('__AETHER_LINK__'.length));
         if (data.href) {
           const x = data.x - window.screenX;
           const y = data.y - window.screenY;
@@ -1436,7 +1436,7 @@ function browseSelectTab(id) {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = tab ? (tab._historyPage ? 'lookup://history' : tab._helpPage ? 'lookup://help' : tab.url) : '';
+  if (urlInput) urlInput.value = tab ? (tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : tab.url) : '';
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -1523,11 +1523,11 @@ function _browseUpdateNewTabPage(tab) {
       ntp = document.createElement('div');
       ntp.className = 'browse-ntp';
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
-        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">lookup</div>`;
+        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">aether</div>`;
       container.appendChild(ntp);
       fetch('/api/version').then(r => r.json()).then(v => {
         const el = ntp.querySelector('.browse-ntp-version');
-        if (el && v.version) el.textContent = 'lookup v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
+        if (el && v.version) el.textContent = 'aether v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
       }).catch(() => {});
       ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--accent)'; });
       ntp.addEventListener('dragleave', function() { ntp.style.outline = ''; });
@@ -1927,7 +1927,7 @@ function _browseFocusPane(paneId) {
   const tab = win?.tabs.find(t => t.id === pane.tabId);
   const urlInput = document.getElementById('browse-url-input');
   if (urlInput && tab) {
-    urlInput.value = tab._historyPage ? 'lookup://history' : tab._helpPage ? 'lookup://help' : (tab.url || '');
+    urlInput.value = tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : (tab.url || '');
   }
   _browseUpdateSaveBtn();
   _browseApplyThemeColor(tab ? tab.themeColor || null : null);
@@ -3429,11 +3429,11 @@ function _browseFaviconUrl(url) {
 function browseNavigate(input) {
   // Handle slash commands
   const cmd = (input || '').trim().toLowerCase();
-  if (cmd === '/history' || cmd === 'lookup://history' || cmd === 'lookup://history/') {
+  if (cmd === '/history' || cmd === 'aether://history' || cmd === 'aether://history/') {
     openSearchHistoryPage();
     return;
   }
-  if (cmd === '/help' || cmd === 'lookup://help' || cmd === 'lookup://help/') {
+  if (cmd === '/help' || cmd === 'aether://help' || cmd === 'aether://help/') {
     openHelpPage();
     return;
   }
@@ -3517,7 +3517,7 @@ function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
   // Collapse internal whitespace/newlines from multi-line pastes (e.g. URLs copied across line breaks)
-  if (/^(https?|file|blob|data|lookup):\/\//i.test(input)) return input.replace(/\s+/g, '');
+  if (/^(https?|file|blob|data|aether):\/\//i.test(input)) return input.replace(/\s+/g, '');
   if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input.replace(/\s+/g, ''))) return 'https://' + input.replace(/\s+/g, '');
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }

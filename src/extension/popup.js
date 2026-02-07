@@ -20,7 +20,7 @@ async function findServer() {
       const resp = await fetch(host + '/api/settings', { signal: AbortSignal.timeout(2000) });
       if (resp.ok) {
         apiBase = host;
-        // Try to get auth token from an open Alpha tab
+        // Try to get auth token from an open Aether tab
         try {
           const tabs = await chrome.tabs.query({ url: host + '/*' });
           if (tabs.length) {

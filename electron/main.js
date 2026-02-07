@@ -4,7 +4,7 @@ const path = require('path');
 const net = require('net');
 const http = require('http');
 
-app.setName('Lookup');
+app.setName('Aether');
 
 let pythonProcess = null;
 let mainWindow = null;

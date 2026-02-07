@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lookup",
+  "name": "Aether",
   "version": "1.0",
-  "description": "Save any webpage to your Lookup reading list.",
+  "description": "Save any webpage to your Aether reading list.",
   "permissions": ["activeTab", "scripting", "cookies"],
   "host_permissions": [
     "http://localhost:8000/*",

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>lookup</title>
+  <title>aether</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -124,7 +124,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/>
         </svg>
         <span class="text-sm font-medium">Get a better experience with the desktop app</span>
-        <a href="https://github.com/yourusername/lookup/releases" target="_blank" class="text-sm font-bold underline hover:no-underline ml-2">Download</a>
+        <a href="https://github.com/yourusername/aether/releases" target="_blank" class="text-sm font-bold underline hover:no-underline ml-2">Download</a>
       </div>
       <button onclick="dismissDownloadBanner()" class="text-white/80 hover:text-white text-xl font-light leading-none px-2 transition-colors" title="Dismiss">×</button>
     </div>
@@ -391,10 +391,24 @@
 
   <!-- Login Gate (shown when not authenticated) -->
   <div id="login-gate" class="login-gate">
+    <!-- Solar system background -->
+    <div class="solar-system">
+      <div class="solar-sun"></div>
+      <div class="orbit orbit-1"><div class="planet planet-mercury"></div></div>
+      <div class="orbit orbit-2"><div class="planet planet-venus"></div></div>
+      <div class="orbit orbit-3"><div class="planet planet-earth"></div></div>
+      <div class="orbit orbit-4"><div class="planet planet-mars"></div></div>
+      <div class="orbit orbit-5"><div class="planet planet-jupiter"></div></div>
+      <div class="orbit orbit-6"><div class="planet planet-saturn"><div class="saturn-ring"></div></div></div>
+      <div class="orbit orbit-7"><div class="planet planet-uranus"></div></div>
+      <div class="orbit orbit-8"><div class="planet planet-neptune"></div></div>
+      <div class="stars"></div>
+      <div class="stars stars-2"></div>
+    </div>
     <div class="auth-modal" style="position:relative;z-index:1;">
       <div class="text-center mb-3">
-        <span class="text-[2rem] font-bold" style="font-family:Georgia,serif;color:#e0e0e0">α</span>
-        <p class="text-[0.82rem] mt-1 mb-1" style="color:#999">The Bloomberg terminal for AI research</p>
+        <span class="text-[2rem] font-bold" style="font-family:Georgia,serif;color:#e0e0e0">æ</span>
+        <p class="text-[0.82rem] mt-1 mb-1" style="color:#999">the medium to think at the speed of light</p>
       </div>
       <div class="auth-error" id="auth-error" style="min-height:0"></div>
       <div id="google-signin-btn" class="flex justify-center"></div>
@@ -429,7 +443,7 @@
   <!-- Bottom Pill Bar (outside bezel so it's not trapped by transform) -->
   <nav id="sidebar-nav" class="pill-bar">
     <button class="sidebar-icon active" id="sb-dashboard" onclick="wmOpen('dashboard')" title="Home">
-      <span class="pill-label" style="font-family:Georgia,serif;font-weight:bold">α</span>
+      <span class="pill-label" style="font-family:Georgia,serif;font-weight:bold">æ</span>
     </button>
     <button class="sidebar-icon" id="sb-home" onclick="wmOpen('feed')" title="Feed">
       <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>

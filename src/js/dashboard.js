@@ -931,17 +931,17 @@ async function renderDevStats() {
     return allDates.map(d => ({ date: d, count: (usage[d] && usage[d][eventName]) || 0 }));
   }
   const toolSeries = usageSeries('tool_call');
-  const lookupSeries = usageSeries('lookup_chat');
+  const aetherSeries = usageSeries('aether_chat');
   const searchSeries = usageSeries('search_chat');
 
   const toolChart = _devLineChart(toolSeries, 'count', 'Tool Calls', '#6d9eeb', h => `${h.count} tool calls`);
-  const lookupChart = _devLineChart(lookupSeries, 'count', 'Lookup Chats', '#93c47d', h => `${h.count} lookup chats`);
+  const aetherChart = _devLineChart(aetherSeries, 'count', 'Aether Chats', '#93c47d', h => `${h.count} aether chats`);
   const searchChart = _devLineChart(searchSeries, 'count', 'Search Chats', '#e06666', h => `${h.count} search chats`);
 
   chart.innerHTML = `
     <div class="dev-loc-chart">${locChart}</div>
     <div class="dev-loc-chart">${toolChart}</div>
-    <div class="dev-loc-chart">${lookupChart}</div>
+    <div class="dev-loc-chart">${aetherChart}</div>
     <div class="dev-loc-chart">${searchChart}</div>`;
 
   // Commits over time chart

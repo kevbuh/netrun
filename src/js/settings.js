@@ -198,16 +198,16 @@ function _renderFeedSourceSettings() {
       </div>
     </div>
 
-    <!-- CLICK LOOKUP -->
+    <!-- CLICK AETHER -->
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between">
         <div>
-          <span class="text-primary text-sm">Click Lookup</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Right-click anywhere to open a lookup panel with chat and web search</p>
+          <span class="text-primary text-sm">Click Aether</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Right-click anywhere to open an aether panel with chat and web search</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">
-            <input type="checkbox" ${localStorage.getItem('clickLookup') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('clickLookup', this.checked ? 'on' : 'off')">
+            <input type="checkbox" ${localStorage.getItem('clickAether') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('clickAether', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
         </label>
@@ -215,8 +215,8 @@ function _renderFeedSourceSettings() {
       <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Panel Side</span>
         <div class="flex gap-1">
-          <button onclick="localStorage.setItem('lookupPanelSide','left'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${(localStorage.getItem('lookupPanelSide') || 'left') === 'left' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Left</button>
-          <button onclick="localStorage.setItem('lookupPanelSide','right'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${(localStorage.getItem('lookupPanelSide') || 'left') === 'right' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Right</button>
+          <button onclick="localStorage.setItem('aetherPanelSide','left'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${(localStorage.getItem('aetherPanelSide') || 'left') === 'left' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Left</button>
+          <button onclick="localStorage.setItem('aetherPanelSide','right'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${(localStorage.getItem('aetherPanelSide') || 'left') === 'right' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Right</button>
         </div>
       </div>
     </div>

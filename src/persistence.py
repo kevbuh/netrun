@@ -25,7 +25,7 @@ BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 
 SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
-VAULT_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'alpha')
+VAULT_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'aether')
 os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
 os.makedirs(SAVED_CONTENT_DIR, exist_ok=True)
 os.makedirs(VAULT_DIR, exist_ok=True)
@@ -237,7 +237,7 @@ def cached_fetch(url, timeout=15):
 
 # ── User accounts (SQLite) ──
 
-DB_PATH = os.path.join(DIR, 'lookup.db')
+DB_PATH = os.path.join(DIR, 'aether.db')
 SESSION_TTL = 30 * 24 * 3600  # 30 days
 
 
@@ -2365,9 +2365,9 @@ def clean_html(html_str, base_url, color_scheme=''):
         )
 
     # Inject link context menu script - shows options on link click
-    link_popup_script = """<script>console.log('[alpha] link menu script loaded');</script>
+    link_popup_script = """<script>console.log('[aether] link menu script loaded');</script>
 <style>
-.alpha-link-menu{position:fixed;z-index:999999;background:rgba(40,40,40,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 0;box-shadow:0 8px 32px rgba(0,0,0,.5);font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;min-width:220px}
+.aether-link-menu{position:fixed;z-index:999999;background:rgba(40,40,40,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 0;box-shadow:0 8px 32px rgba(0,0,0,.5);font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;min-width:220px}
 .alm-item{padding:6px 12px;color:rgba(255,255,255,.9);cursor:default;white-space:nowrap;border-radius:4px;margin:0 4px}
 .alm-item:hover{background:rgba(255,255,255,.1)}
 .alm-sep{height:1px;background:rgba(255,255,255,.1);margin:4px 8px}
@@ -2379,7 +2379,7 @@ function hide(){if(m){m.remove();m=null}}
 function show(e,href,txt){
   hide();u=href;t=txt||'';
   m=document.createElement('div');
-  m.className='alpha-link-menu';
+  m.className='aether-link-menu';
   var s=t.length>25?t.slice(0,22)+'...':t;
   m.innerHTML='<div class="alm-item" data-a="newtab">Open Link in New Tab</div>'+
     '<div class="alm-item" data-a="here">Open Link Here</div>'+

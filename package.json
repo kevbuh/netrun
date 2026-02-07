@@ -1,7 +1,7 @@
 {
-  "name": "lookup",
+  "name": "aether",
   "version": "1.0.0",
-  "description": "Lookup — feed reader, paper browser, and experiment tracker",
+  "description": "Aether — feed reader, paper browser, and experiment tracker",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -13,12 +13,12 @@
     "electron-builder": "^25.0.0"
   },
   "build": {
-    "appId": "com.lookup.app",
-    "productName": "Lookup",
+    "appId": "com.aether.app",
+    "productName": "Aether",
     "mac": {
       "category": "public.app-category.productivity",
       "target": "dmg",
-      "icon": "build-resources/lookup.icns",
+      "icon": "build-resources/aether.icns",
       "entitlements": "build-resources/entitlements.mac.plist",
       "entitlementsInherit": "build-resources/entitlements.mac.plist"
     },

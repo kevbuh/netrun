@@ -877,7 +877,7 @@ function openSearchHistoryPage() {
 
   // Mark it as a history tab
   tab.blank = false;
-  tab.url = 'lookup://history';
+  tab.url = 'aether://history';
   tab.title = 'History';
   tab.favicon = '';
   tab._historyPage = true;
@@ -898,7 +898,7 @@ function openSearchHistoryPage() {
 
   // Update URL bar
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = 'lookup://history';
+  if (urlInput) urlInput.value = 'aether://history';
 
   _renderWebSearchHistoryPage(el);
 }
@@ -920,7 +920,7 @@ function openHelpPage() {
   if (!tab) return;
 
   tab.blank = false;
-  tab.url = 'lookup://help';
+  tab.url = 'aether://help';
   tab.title = 'Help';
   tab.favicon = '';
   tab._helpPage = true;
@@ -938,7 +938,7 @@ function openHelpPage() {
   _browseRenderTabs();
 
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = 'lookup://help';
+  if (urlInput) urlInput.value = 'aether://help';
 
   _renderHelpPage(el);
 }
@@ -956,7 +956,7 @@ function _renderHelpPage(el) {
 
   let html = '<div style="max-width:640px;margin:0 auto;padding:40px 24px;">';
   html += '<h1 style="font-size:1.4rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Help</h1>';
-  html += '<p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:32px;">Everything you can do from the URL bar and lookup panel.</p>';
+  html += '<p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:32px;">Everything you can do from the URL bar and aether panel.</p>';
 
   // Instant Answers
   html += `<div ${section}><div ${h2}>Instant Answers</div>`;
@@ -980,7 +980,7 @@ function _renderHelpPage(el) {
 
   // Slash Commands
   html += `<div ${section}><div ${h2}>Slash Commands</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Right-click → type / in the lookup panel.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Command</th><th ${th}>Action</th></tr>`;
   const cmds = [
@@ -1056,8 +1056,8 @@ function _renderHelpPage(el) {
   });
   html += '</table></div>';
 
-  // Lookup Panel
-  html += `<div ${section}><div ${h2}>Lookup Panel</div>`;
+  // Aether Panel
+  html += `<div ${section}><div ${h2}>Aether Panel</div>`;
   html += '<div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;">';
   html += '<strong style="color:var(--text-primary);">Right-click</strong> anywhere to open the panel.<br>';
   html += 'Type to <strong style="color:var(--text-primary);">chat with AI</strong> about the current page.<br>';
@@ -1087,8 +1087,8 @@ function _renderHelpPage(el) {
   html += `<div ${section}><div ${h2}>Internal Pages</div>`;
   html += `<table ${table}>`;
   html += `<tr><th ${th}>URL</th><th ${th}>Page</th></tr>`;
-  html += `<tr><td ${tdk}>lookup://help</td><td ${tdv}>This page</td></tr>`;
-  html += `<tr><td ${tdk}>lookup://history</td><td ${tdv}>Browsing & search history</td></tr>`;
+  html += `<tr><td ${tdk}>aether://help</td><td ${tdv}>This page</td></tr>`;
+  html += `<tr><td ${tdk}>aether://history</td><td ${tdv}>Browsing & search history</td></tr>`;
   html += '</table></div>';
 
   html += '</div>';

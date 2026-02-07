@@ -143,35 +143,35 @@ The quality filter has its own sidebar tab (`#quality`). It uses a two-phase pip
 
 **Reset all & clear cache:** A single button in the Quality Filter tab resets the verdict prompt to default, resets the threshold to 8, clears the quality cache, and re-triggers evaluation.
 
-### Lookup Panel
+### Aether Panel
 
-The lookup panel is the unified right-click interaction surface across the app. It opens on right-click (`contextmenu`) anywhere and provides an inline chat input, context-aware actions, and drag-to-screenshot capture.
+The aether panel is the unified right-click interaction surface across the app. It opens on right-click (`contextmenu`) anywhere and provides an inline chat input, context-aware actions, and drag-to-screenshot capture.
 
-**Opening:** Right-click anywhere opens the panel at the cursor position. It starts in track mode (`_lookupTrackMode = true`), following the cursor until the user interacts. Left-click dismisses it.
+**Opening:** Right-click anywhere opens the panel at the cursor position. It starts in track mode (`_aetherTrackMode = true`), following the cursor until the user interacts. Left-click dismisses it.
 
-**Context-aware content:** When right-clicking on links or images, the panel shows relevant actions (Open Link, Copy Address, etc.) via `contextData` passed to `_showLookupPanel()`. Otherwise it shows a blank chat input.
+**Context-aware content:** When right-clicking on links or images, the panel shows relevant actions (Open Link, Copy Address, etc.) via `contextData` passed to `_showAetherPanel()`. Otherwise it shows a blank chat input.
 
 **Inline chat:** The panel includes a chat input (`Ask anything…`) that sends messages to `/api/doc-chat` via SSE streaming (Enter). Chat history is maintained in `_popupChatMessages`. Messages can be moved to the sidebar chat via "Open in sidebar". In the paper viewer, the first message includes document context (`_docText`).
 
 **Web search:** Pressing Shift+Enter in the input performs a web search via `/api/web-search`, displaying results inline in the panel.
 
-**Keyboard navigation:** All dropdowns and option lists in the lookup panel (command autocomplete, `/tabs`, `/tab`, `/notes`, `/model`, `/history`, `/links`) must be fully keyboard-navigable: Arrow Up/Down to move selection, Enter to confirm, Escape to dismiss. Any new dropdown or option list added to the panel should follow this same pattern.
+**Keyboard navigation:** All dropdowns and option lists in the aether panel (command autocomplete, `/tabs`, `/tab`, `/notes`, `/model`, `/history`, `/links`) must be fully keyboard-navigable: Arrow Up/Down to move selection, Enter to confirm, Escape to dismiss. Any new dropdown or option list added to the panel should follow this same pattern.
 
-**Text selection popup:** Selecting text replaces the lookup panel with a selection popup showing Quote, Lookup (single words), and highlight color dots (in PDF). The selection popup also has an inline chat input.
+**Text selection popup:** Selecting text replaces the aether panel with a selection popup showing Quote, Aether (single words), and highlight color dots (in PDF). The selection popup also has an inline chat input.
 
-**Drag-to-screenshot (Electron only):** While the lookup panel is open and tracking the cursor, left-click-dragging captures a screenshot of the dragged region. The panel pins in place, a dashed selection rectangle with dimmed overlay appears, and on mouseup the region is captured via `electronAPI.captureScreen()` (IPC to `BrowserWindow.capturePage()`). Screenshots appear as thumbnails in an attachment strip above the chat input. When sent, messages with screenshots go to `/api/doc-chat` with `vision: true`, using the `deepseek-ocr` vision model instead of `qwen2.5:3b`.
+**Drag-to-screenshot (Electron only):** While the aether panel is open and tracking the cursor, left-click-dragging captures a screenshot of the dragged region. The panel pins in place, a dashed selection rectangle with dimmed overlay appears, and on mouseup the region is captured via `electronAPI.captureScreen()` (IPC to `BrowserWindow.capturePage()`). Screenshots appear as thumbnails in an attachment strip above the chat input. When sent, messages with screenshots go to `/api/doc-chat` with `vision: true`, using the `deepseek-ocr` vision model instead of `qwen2.5:3b`.
 
 **Key state variables (in `js/views.js`):**
-- `_lookupTrackMode` — whether the panel tracks the cursor
+- `_aetherTrackMode` — whether the panel tracks the cursor
 - `_popupChatMessages` — chat message history for the current panel
 - `_pendingScreenshots` — base64 PNG strings awaiting send
 - `_screenshotDragStart` — tracks active screenshot drag
 - `_popupChatAbort` — AbortController for in-flight chat requests
 
 **Key functions:**
-- `_showLookupPanel(x, y, contextData)` — creates the panel
+- `_showAetherPanel(x, y, contextData)` — creates the panel
 - `_sendPopupChatMessage(popup, capturedText)` — sends chat with optional vision support (Enter)
-- `_doLookupWebSearch(popup)` — performs web search via `/api/web-search` (Shift+Enter)
+- `_doAetherWebSearch(popup)` — performs web search via `/api/web-search` (Shift+Enter)
 - `_renderPopupChat(popup, final)` — renders chat messages, search results, and inline image thumbnails
 - `_addScreenshotToPanel(popup, base64)` — adds screenshot thumbnail to attachment strip
 - `_handleContextMenuChat(e)` — right-click handler that opens the panel
@@ -222,7 +222,7 @@ Clicking a post marks it as read (`localStorage.readPosts`). Read posts render a
 
 Users must sign in before accessing the app. A full-screen login gate blocks all content until authenticated.
 
-**Backend (SQLite):** User data lives in `lookup.db` (auto-created on first run) with three tables:
+**Backend (SQLite):** User data lives in `aether.db` (auto-created on first run) with three tables:
 - `users` — username (primary key), salted SHA-256 password hash, created timestamp
 - `sessions` — token (primary key), username, expires (30-day TTL)
 - `user_data` — per-user key-value store for synced settings (username + key composite PK)

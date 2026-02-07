@@ -20,7 +20,7 @@ import socket
 from urllib.parse import unquote as url_unquote
 
 # Parse args before importing persistence so ARXIV_DATA_DIR is set
-_parser = argparse.ArgumentParser(description='Alpha server')
+_parser = argparse.ArgumentParser(description='Aether server')
 _parser.add_argument('--port', type=int, default=8000, help='Port to listen on')
 _parser.add_argument('--data-dir', default=None, help='Directory for user data (DB, experiments, etc.)')
 _parser.add_argument('--static-dir', default=None, help='Directory for static files to serve')
@@ -3414,7 +3414,7 @@ ch.postMessage({type:'preview-ready'});
                     return
                 try:
                     from persistence import log_usage
-                    log_usage('lookup_chat')
+                    log_usage('aether_chat')
                 except: pass
 
                 if is_vision:
