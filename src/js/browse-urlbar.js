@@ -171,6 +171,13 @@ function _browseUrlShowHistory() {
   if (!input || !dd) return;
   const filter = (input.value || '').trim().toLowerCase();
 
+  // Don't show dropdown on blank new-tab pages with no input
+  if (!filter) {
+    const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+    const tab = win?.tabs?.find(t => t.id === win.activeTab);
+    if (tab && tab.blank) { dd.style.display = 'none'; return; }
+  }
+
   // /history command — show browsing history in the dropdown
   if (filter === '/history') {
     _browseUrlRenderHistoryCommand(dd, input);

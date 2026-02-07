@@ -6,6 +6,7 @@ const _SETTINGS_SECTIONS = [
   { key: 'feed', label: 'Feed & Reading', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/></svg>' },
   { key: 'tools', label: 'Tools', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.1 5.1a2.121 2.121 0 01-3-3l5.1-5.1m0 0L4.16 7.91a2.13 2.13 0 010-3.01l.7-.7a2.13 2.13 0 013.01 0l4.26 4.26m-1.71 6.71l6.71-6.71m0 0l4.26 4.26a2.13 2.13 0 010 3.01l-.7.7a2.13 2.13 0 01-3.01 0l-4.26-4.26m1.71-6.71L16.42 3a2.121 2.121 0 013 3l-5.17 5.17"/></svg>' },
   { key: 'browser', label: 'Browser', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>' },
+  { key: 'panel', label: 'Lookup Panel', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>' },
   { key: 'help', label: 'Help', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>' },
 ];
 
@@ -642,6 +643,61 @@ function _urlBarSectionDragSetup() {
   list.addEventListener('pointercancel', endDrag);
 }
 
+function _renderPanelSettings() {
+  const chatModel = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  const visionModel = localStorage.getItem('visionModel') || 'qwen3-vl:8b';
+  const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
+  const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
+  const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '30', 10);
+  return `
+    <div class="mb-8">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Default Chat Model</h3>
+      <p class="text-dim text-[0.8rem] mb-3">The model used for aether panel chat and document Q&A.</p>
+      <input type="text" value="${escapeAttr(chatModel)}" onchange="localStorage.setItem('chatModel', this.value.trim() || 'qwen2.5:3b'); renderSettingsView()" class="w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent" placeholder="qwen2.5:3b" />
+      <p class="text-dimmer text-[0.68rem] mt-1">You can also change this inline via <code class="text-muted">/model</code> in the panel.</p>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Default Vision Model</h3>
+      <p class="text-dim text-[0.8rem] mb-3">The model used when chatting with screenshots (drag-to-capture).</p>
+      <input type="text" value="${escapeAttr(visionModel)}" onchange="localStorage.setItem('visionModel', this.value.trim() || 'qwen3-vl:8b'); renderSettingsView()" class="w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent" placeholder="qwen3-vl:8b" />
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Tab Completion</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Suggest a question when you open the panel or select text. Press Tab to accept. Uses qwen3:0.6b.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${tabComplete ? 'checked' : ''} onchange="localStorage.setItem('panelTabComplete', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Semantic Search in Lookup</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Show related posts when you highlight text. Uses nomic-embed-text.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${semSearch ? 'checked' : ''} onchange="localStorage.setItem('panelSemanticSearch', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <div class="flex items-center gap-3 ${semSearch ? '' : 'opacity-40 pointer-events-none'}">
+        <span class="text-primary text-[0.8rem] shrink-0">Min similarity</span>
+        <input type="range" min="10" max="80" value="${semMin}" oninput="document.getElementById('sem-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('panelSemanticMin', this.value)" class="flex-1 accent-[var(--accent)]" />
+        <span id="sem-min-val" class="text-muted text-[0.78rem] w-10 text-right">${semMin}%</span>
+      </div>
+      <p class="text-dimmer text-[0.68rem] mt-1">Only results above this score appear in the highlight popup. Lower = more results, higher = stricter.</p>
+    </div>
+  `;
+}
+
 function _renderHelpSettings() {
   return `
     <div class="mb-8">
@@ -715,7 +771,7 @@ function renderSettingsView() {
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', help: 'Help' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', help: 'Help' };
     let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
 
     if (_settingsSection === 'profile') {
@@ -729,6 +785,8 @@ function renderSettingsView() {
       content += _renderToolsSettings();
     } else if (_settingsSection === 'browser') {
       content += _renderBrowserSettings();
+    } else if (_settingsSection === 'panel') {
+      content += _renderPanelSettings();
     } else if (_settingsSection === 'help') {
       content += _renderHelpSettings();
     }

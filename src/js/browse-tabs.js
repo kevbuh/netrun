@@ -2979,8 +2979,9 @@ function _installOverviewKeyHandler() {
       return;
     }
 
-    // ── Top-level app strip mode ──
+    // ── Top-level app strip mode (2D grid, 4 columns) ──
     var total = _wmWindows.length;
+    var cols = 4;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
@@ -2989,22 +2990,35 @@ function _installOverviewKeyHandler() {
       e.preventDefault();
       if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      var nextIdx = _overviewSelectedIdx + cols;
+      // If moving down would go past items, check if on browse to expand
+      if (nextIdx < total) {
+        _overviewSelectedIdx = nextIdx;
+        _updateOverviewHighlight();
+      } else {
+        var wDown = _wmWindows[_overviewSelectedIdx];
+        if (wDown && wDown.key === 'browse') {
+          _overviewBrowseExpanded = true;
+          _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+          _overviewBrowseTabIdx = -1;
+          _renderWindowOverview();
+        }
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      var prevIdx = _overviewSelectedIdx - cols;
+      if (prevIdx >= 0) {
+        _overviewSelectedIdx = prevIdx;
+        _updateOverviewHighlight();
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       var w = _wmWindows[_overviewSelectedIdx];
       if (!w) return;
       wmOpen(w.key);
       hideBrowseTabOverview();
-    } else if (e.key === 'ArrowDown') {
-      // If on browse, expand
-      var wDown = _wmWindows[_overviewSelectedIdx];
-      if (wDown && wDown.key === 'browse') {
-        e.preventDefault();
-        _overviewBrowseExpanded = true;
-        _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
-        _overviewBrowseTabIdx = -1;
-        _renderWindowOverview();
-      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       hideBrowseTabOverview();

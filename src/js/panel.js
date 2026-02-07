@@ -181,6 +181,8 @@ async function _fetchAuthorPreview(text, containerDiv) {
 // ── Semantic preview in selection popup ──
 async function _fetchSemanticPreview(text, containerDiv) {
   if (!text || text.trim().length < 3) { containerDiv.style.display = 'none'; return; }
+  if (localStorage.getItem('panelSemanticSearch') === 'off') { containerDiv.style.display = 'none'; return; }
+  const minScore = (parseInt(localStorage.getItem('panelSemanticMin') || '30', 10)) / 100;
   try {
     const resp = await fetch('/api/semantic-search', {
       method: 'POST',
@@ -189,7 +191,7 @@ async function _fetchSemanticPreview(text, containerDiv) {
     });
     if (!resp.ok) { containerDiv.style.display = 'none'; return; }
     const data = await resp.json();
-    const results = (data.results || []).filter(r => r.score >= 0.3);
+    const results = (data.results || []).filter(r => r.score >= minScore);
     if (!results.length) { containerDiv.style.display = 'none'; return; }
     let html = '<div class="doc-semantic-results">';
     html += '<div class="doc-semantic-heading">Related</div>';
@@ -225,6 +227,7 @@ let _panelSuggestAbort = null;
 
 function _fetchPanelSuggestion(popup, text) {
   if (_panelSuggestAbort) { _panelSuggestAbort.abort(); _panelSuggestAbort = null; }
+  if (localStorage.getItem('panelTabComplete') === 'off') return;
   if (!text || text.length < 3) return;
   const ctrl = _panelSuggestAbort = new AbortController();
   fetch('/api/panel-suggest', {
@@ -347,6 +350,8 @@ function _sendPopupChatMessage(popup, capturedText) {
       }
       if (hasVision) {
         body.vision = true;
+        const vm = localStorage.getItem('visionModel');
+        if (vm) body.model = vm;
       } else {
         if (toolsOn) body.tools = true;
         // Build context from doc text + any attached note/tab contents

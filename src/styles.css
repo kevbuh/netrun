@@ -1462,18 +1462,16 @@
     .browse-tab-overview {
       position: fixed;
       inset: 0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      align-content: center;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 1fr;
       gap: 10px;
-      padding: 24px;
+      padding: 32px;
       background: var(--aether-bg);
       z-index: 9998;
       opacity: 0;
       transition: opacity 0.18s ease;
-      overflow: auto;
+      overflow: hidden;
       scrollbar-width: none;
     }
     .browse-tab-overview::-webkit-scrollbar { display: none; }
@@ -1483,13 +1481,10 @@
       flex-direction: column;
       align-items: center;
       gap: 0;
-      width: 160px;
-      min-width: 160px;
       border-radius: 12px;
       border: 2px solid transparent;
       cursor: pointer;
       transition: background 0.12s, border-color 0.12s, transform 0.12s;
-      flex-shrink: 0;
       color: var(--text-muted);
       position: relative;
       overflow: hidden;
@@ -1507,7 +1502,8 @@
     }
     .wov-card-preview {
       width: 100%;
-      height: 100px;
+      flex: 1;
+      min-height: 0;
       background-size: cover;
       background-position: top center;
       background-repeat: no-repeat;
@@ -1520,7 +1516,7 @@
       background: color-mix(in srgb, var(--bg-hover) 60%, transparent);
       color: var(--text-dimmest);
     }
-    .wov-card-preview-empty svg { width: 28px; height: 28px; opacity: 0.4; }
+    .wov-card-preview-empty svg { width: 36px; height: 36px; opacity: 0.4; }
     .wov-card-info {
       display: flex;
       align-items: center;
@@ -1583,7 +1579,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 64px;
       text-align: center;
     }
     .wov-card-app.wov-expanded {
@@ -1592,7 +1587,7 @@
     }
     /* Browse expanded — horizontal row of window cards */
     .wov-browse-row {
-      width: 100%;
+      grid-column: 1 / -1;
       display: flex;
       justify-content: center;
       gap: 10px;
