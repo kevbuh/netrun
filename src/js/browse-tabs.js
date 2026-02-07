@@ -2781,14 +2781,18 @@ let _browseTabOverviewVisible = false;
 let _overviewSelectedIdx = 0;
 let _overviewKeyHandler = null;
 
-// Build flat ordered list: app windows first (in _wmWindows order), then browse windows
+// Build flat ordered list: app windows in order, browse sub-windows inserted after the browse entry
 function _overviewItems() {
-  var items = _wmWindows.map(function(w, i) {
-    return { type: 'app', key: w.key, label: w.label, wmIndex: i };
-  });
-  _browseWindows.forEach(function(win) {
-    items.push({ type: 'browse', windowId: win.id, win: win });
-  });
+  var items = [];
+  for (var i = 0; i < _wmWindows.length; i++) {
+    var w = _wmWindows[i];
+    items.push({ type: 'app', key: w.key, label: w.label, wmIndex: i });
+    if (w.key === 'browse') {
+      _browseWindows.forEach(function(win) {
+        items.push({ type: 'browse', windowId: win.id, win: win });
+      });
+    }
+  }
   return items;
 }
 
@@ -2895,47 +2899,57 @@ function _renderWindowOverview() {
   if (!overlay) return;
 
   const items = _overviewItems();
-  const cards = items.map((item, i) => {
-    const isSelected = i === _overviewSelectedIdx;
+  var html = '';
+  var inBrowseGroup = false;
+
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var isSelected = i === _overviewSelectedIdx;
 
     if (item.type === 'app') {
-      const isActive = item.wmIndex === _wmFocusIndex;
-      const icon = _wovAppIcons[item.key] || '';
-      return `<div class="wov-card wov-card-app ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
-                   onclick="_overviewClickApp('${item.key}')">
-        <div class="wov-card-icon">${icon}</div>
-        <span class="wov-card-name">${escapeHtml(item.label)}</span>
-      </div>`;
-    }
+      // Close browse group if we were in one
+      if (inBrowseGroup) { html += '</div></div>'; inBrowseGroup = false; }
 
-    // Browse window card
-    const win = item.win;
-    const isActive = win.id === _browseActiveWindow;
-    const activeTab = win.tabs.find(t => t.id === win.activeTab);
-    const tabCount = win.tabs.length;
-    let subtitle = '';
-    if (activeTab && activeTab.url) {
-      try { subtitle = new URL(activeTab.url).hostname.replace(/^www\./, ''); } catch {}
-    }
-    return `<div class="wov-card wov-card-browse ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
-                 onclick="_overviewClickWindow(${win.id})">
-      <div class="wov-card-icon">${_wovAppIcons.browse || ''}</div>
-      <span class="wov-card-name">${escapeHtml(win.name)}</span>
-      <span class="wov-card-count">${tabCount}</span>
-      ${subtitle ? `<div class="wov-card-subtitle">${escapeHtml(subtitle)}</div>` : ''}
-      ${_browseWindows.length > 1 ? `<button class="wov-card-close" onclick="event.stopPropagation();_overviewCloseWindow(${win.id})" title="Close">&times;</button>` : ''}
-    </div>`;
-  }).join('');
+      var isActive = item.wmIndex === _wmFocusIndex;
+      var icon = _wovAppIcons[item.key] || '';
 
-  overlay.innerHTML = `
-    <div class="wov-container">
-      <div class="wov-header">
-        <span class="wov-title">Overview</span>
-        <span class="wov-hint"><kbd>←→</kbd> navigate <kbd>Enter</kbd> select <kbd>Esc</kbd> close</span>
-      </div>
-      <div class="wov-strip">${cards}</div>
-    </div>
-  `;
+      if (item.key === 'browse' && _browseWindows.length > 0) {
+        // Open a browse group wrapper — the app card + sub-windows below
+        html += '<div class="wov-browse-group">';
+        inBrowseGroup = true;
+      }
+
+      html += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active' : '') + ' ' + (isSelected ? 'wov-selected' : '') + '"'
+        + ' onclick="_overviewClickApp(\'' + item.key + '\')">'
+        + '<div class="wov-card-icon">' + icon + '</div>'
+        + '<span class="wov-card-name">' + escapeHtml(item.label) + '</span>'
+        + '</div>';
+
+      if (item.key === 'browse' && _browseWindows.length > 0) {
+        html += '<div class="wov-browse-subs">';
+      }
+    } else {
+      // Browse sub-window
+      var win = item.win;
+      var winActive = win.id === _browseActiveWindow;
+      var activeTab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+      var tabCount = win.tabs.length;
+      var subtitle = '';
+      if (activeTab && activeTab.url) {
+        try { subtitle = new URL(activeTab.url).hostname.replace(/^www\./, ''); } catch(e) {}
+      }
+      html += '<div class="wov-card wov-card-browse ' + (winActive ? 'wov-active' : '') + ' ' + (isSelected ? 'wov-selected' : '') + '"'
+        + ' onclick="_overviewClickWindow(' + win.id + ')">'
+        + '<span class="wov-card-name">' + escapeHtml(win.name) + '</span>'
+        + '<span class="wov-card-count">' + tabCount + '</span>'
+        + (subtitle ? '<div class="wov-card-subtitle">' + escapeHtml(subtitle) + '</div>' : '')
+        + (_browseWindows.length > 1 ? '<button class="wov-card-close" onclick="event.stopPropagation();_overviewCloseWindow(' + win.id + ')" title="Close">&times;</button>' : '')
+        + '</div>';
+    }
+  }
+  if (inBrowseGroup) html += '</div></div>';
+
+  overlay.innerHTML = html;
 }
 
 function _overviewClickApp(key) {
@@ -3090,39 +3104,13 @@ function _browseActiveEl() {
 }
 
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
-// Captures a screenshot of the webview first so the page content remains visible behind the panel.
 function _browseHideActiveWebview() {
   const el = _browseActiveEl();
-  if (!el || el.tagName !== 'WEBVIEW') return;
-  // Try to capture a screenshot before hiding so the user still sees the page
-  if (typeof el.capturePage === 'function') {
-    el.capturePage().then(img => {
-      if (img && !img.isEmpty()) {
-        let ph = document.getElementById('webview-screenshot-ph');
-        if (!ph) {
-          ph = document.createElement('img');
-          ph.id = 'webview-screenshot-ph';
-          ph.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0;';
-          const container = document.getElementById('browse-content');
-          if (container) container.appendChild(ph);
-        }
-        ph.src = img.toDataURL();
-      }
-      el.style.visibility = 'hidden';
-    }).catch(() => {
-      el.style.visibility = 'hidden';
-    });
-  } else {
-    el.style.visibility = 'hidden';
-  }
+  if (el && el.tagName === 'WEBVIEW') el.style.visibility = 'hidden';
 }
 function _browseRestoreActiveWebview() {
   const el = _browseActiveEl();
-  if (el && el.tagName === 'WEBVIEW') {
-    el.style.visibility = '';
-  }
-  const ph = document.getElementById('webview-screenshot-ph');
-  if (ph) ph.remove();
+  if (el && el.tagName === 'WEBVIEW') el.style.visibility = '';
 }
 
 function browseBack() {

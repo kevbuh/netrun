@@ -4554,28 +4554,11 @@ function _showPanel(config) {
     ev.stopPropagation();
   });
 
-  // Hide active webview so popup renders on top (Electron GPU compositing)
-  // Skip for tab-anchored panels — they sit above the webview, no overlap
-  const _panelNeedsWebviewHide = !isTabAnchor && typeof _browseHideActiveWebview === 'function';
-  if (_panelNeedsWebviewHide) _browseHideActiveWebview();
-
   document.body.appendChild(popup);
 
   // ── Cmd+C handler + positioning ──
   _panelBuildCopyKeyHandler(popup);
   _panelPositionAndFocus(popup, config);
-
-  // Restore webview when panel is removed from DOM (covers all dismiss paths)
-  if (_panelNeedsWebviewHide) {
-    const _panelObs = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of m.removedNodes) {
-          if (node === popup) { _browseRestoreActiveWebview(); _panelObs.disconnect(); return; }
-        }
-      }
-    });
-    _panelObs.observe(document.body, { childList: true });
-  }
 
   return popup;
 }
