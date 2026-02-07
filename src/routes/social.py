@@ -363,7 +363,8 @@ def get_blog_post(username, slug, google_id):
 
 # 22. GET /api/comments?paperLink= — get comments for a paper
 @bp.route('/api/comments')
-def get_comments():
+@require_auth
+def get_comments(google_id):
     paper_link = request.args.get('paperLink', '').strip()
     return jsonify(db_get_comments(paper_link if paper_link else None))
 

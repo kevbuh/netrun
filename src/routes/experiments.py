@@ -159,7 +159,8 @@ def get_file(exp_id, google_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/raw/<path:fname>', methods=['GET'])
-def get_raw_file(exp_id, fname):
+@require_experiment_access
+def get_raw_file(exp_id, google_id, fname):
     """Serve raw binary file (images, PDFs)."""
     fname = url_unquote(fname)
     if '..' in fname:
@@ -184,7 +185,8 @@ def get_raw_file(exp_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/compile-tex/<path:fname>', methods=['GET'])
-def compile_tex(exp_id, fname):
+@require_experiment_access
+def compile_tex(exp_id, google_id, fname):
     """Compile a LaTeX file and return the resulting PDF."""
     fname = url_unquote(fname)
     fpath = os.path.join(EXPERIMENTS_DIR, exp_id, fname)
@@ -240,7 +242,8 @@ def compile_tex(exp_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/packages', methods=['GET'])
-def list_packages(exp_id):
+@require_experiment_access
+def list_packages(exp_id, google_id):
     """List pip packages for an experiment."""
     if not read_meta(exp_id):
         return jsonify({'error': 'Not found'}), 404
@@ -257,7 +260,8 @@ def list_packages(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/venv-info', methods=['GET'])
-def venv_info(exp_id):
+@require_experiment_access
+def venv_info(exp_id, google_id):
     """Get venv details: pythonVersion, diskSize, packageCount."""
     meta = read_meta(exp_id)
     if not meta:
@@ -305,7 +309,8 @@ def venv_info(exp_id):
 
 
 @bp.route('/api/venvs', methods=['GET'])
-def list_venvs():
+@require_auth
+def list_venvs(google_id):
     """List all experiments that have venvs."""
     venvs = []
     if os.path.isdir(EXPERIMENTS_DIR):
@@ -347,7 +352,8 @@ def create_experiment(google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/runs', methods=['POST'])
-def add_run(exp_id):
+@require_experiment_access
+def add_run(exp_id, google_id):
     """Add a run to an experiment."""
     meta = read_meta(exp_id)
     if not meta:
@@ -375,7 +381,8 @@ def add_run(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/files', methods=['POST'])
-def create_file(exp_id):
+@require_experiment_access
+def create_file(exp_id, google_id):
     """Create a new file in an experiment (various types: .md, .ipynb, .py, .tex, .draw, .slides, etc.)."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -450,7 +457,8 @@ def create_file(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/upload', methods=['POST'])
-def upload_file(exp_id):
+@require_experiment_access
+def upload_file(exp_id, google_id):
     """Multipart file upload to an experiment."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -507,7 +515,8 @@ def upload_file(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/execute', methods=['POST'])
-def execute_code(exp_id):
+@require_experiment_access
+def execute_code(exp_id, google_id):
     """Execute code in an experiment's kernel (streaming SSE or synchronous)."""
     if not read_meta(exp_id):
         return jsonify({'error': 'Not found'}), 404
@@ -564,7 +573,8 @@ def execute_code(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/kernel/restart', methods=['POST'])
-def restart_kernel(exp_id):
+@require_experiment_access
+def restart_kernel(exp_id, google_id):
     """Restart an experiment's Jupyter kernel."""
     _kill_kernel(exp_id)
     _get_kernel(exp_id)
@@ -572,7 +582,8 @@ def restart_kernel(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/kernel/interrupt', methods=['POST'])
-def interrupt_kernel(exp_id):
+@require_experiment_access
+def interrupt_kernel(exp_id, google_id):
     """Interrupt an experiment's running kernel."""
     with _kernels_lock:
         entry = _kernels.get(exp_id)
@@ -587,7 +598,8 @@ def interrupt_kernel(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/venv', methods=['POST'])
-def create_venv(exp_id):
+@require_experiment_access
+def create_venv(exp_id, google_id):
     """Create a virtual environment for an experiment."""
     if not read_meta(exp_id):
         return jsonify({'error': 'Not found'}), 404
@@ -599,7 +611,8 @@ def create_venv(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/packages', methods=['POST'])
-def install_packages(exp_id):
+@require_experiment_access
+def install_packages(exp_id, google_id):
     """Install pip packages for an experiment."""
     if not read_meta(exp_id):
         return jsonify({'error': 'Not found'}), 404
@@ -625,7 +638,8 @@ def install_packages(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/create-folder', methods=['POST'])
-def create_folder(exp_id):
+@require_experiment_access
+def create_folder(exp_id, google_id):
     """Create a folder inside an experiment."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -642,7 +656,8 @@ def create_folder(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/delete-folder', methods=['POST'])
-def delete_folder(exp_id):
+@require_experiment_access
+def delete_folder(exp_id, google_id):
     """Delete a folder inside an experiment."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -659,7 +674,8 @@ def delete_folder(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/rename-folder', methods=['POST'])
-def rename_folder(exp_id):
+@require_experiment_access
+def rename_folder(exp_id, google_id):
     """Rename a folder inside an experiment."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -682,7 +698,8 @@ def rename_folder(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/move-file', methods=['POST'])
-def move_file(exp_id):
+@require_experiment_access
+def move_file(exp_id, google_id):
     """Move a file within an experiment."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -704,7 +721,8 @@ def move_file(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/clone-repo', methods=['POST'])
-def clone_repo(exp_id):
+@require_experiment_access
+def clone_repo(exp_id, google_id):
     """Clone a GitHub repo into an experiment."""
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if not os.path.isdir(exp_dir):
@@ -749,7 +767,8 @@ def clone_repo(exp_id):
 
 
 @bp.route('/api/experiments/move-unstructured-file', methods=['POST'])
-def move_unstructured_file():
+@require_auth
+def move_unstructured_file(google_id):
     """Move a file from _unstructured to a target experiment."""
     body = request.get_json(force=True, silent=True) or {}
     filename = body.get('filename', '').strip()
@@ -774,7 +793,8 @@ def move_unstructured_file():
 # ---------------------------------------------------------------------------
 
 @bp.route('/api/experiments/<exp_id>', methods=['PUT'])
-def update_experiment(exp_id):
+@require_experiment_access
+def update_experiment(exp_id, google_id):
     """Update experiment metadata (title, desc, pythonPath, papers)."""
     meta = read_meta(exp_id)
     if not meta:
@@ -795,7 +815,8 @@ def update_experiment(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/runs/<rid>', methods=['PUT'])
-def update_run(exp_id, rid):
+@require_experiment_access
+def update_run(exp_id, google_id, rid):
     """Update a run within an experiment."""
     meta = read_meta(exp_id)
     if not meta:
@@ -812,7 +833,8 @@ def update_run(exp_id, rid):
 
 
 @bp.route('/api/experiments/<exp_id>/files/<path:fname>', methods=['PUT'])
-def update_file(exp_id, fname):
+@require_experiment_access
+def update_file(exp_id, google_id, fname):
     """Update file content or rename a file."""
     fname = url_unquote(fname)
     if '..' in fname:
@@ -857,11 +879,9 @@ def set_team(exp_id, google_id):
 # ---------------------------------------------------------------------------
 
 @bp.route('/api/experiments/<exp_id>', methods=['DELETE'])
-@require_auth
+@require_experiment_access
 def delete_experiment(exp_id, google_id):
     """Delete an experiment and all its files."""
-    if not user_can_access_experiment(exp_id, google_id):
-        return jsonify({'error': 'Forbidden'}), 403
     exp_dir = os.path.join(EXPERIMENTS_DIR, exp_id)
     if os.path.isdir(exp_dir):
         _kill_kernel(exp_id)
@@ -872,7 +892,8 @@ def delete_experiment(exp_id, google_id):
 
 
 @bp.route('/api/experiments/<exp_id>/runs/<rid>', methods=['DELETE'])
-def delete_run(exp_id, rid):
+@require_experiment_access
+def delete_run(exp_id, google_id, rid):
     """Delete a run from an experiment."""
     meta = read_meta(exp_id)
     if not meta:
@@ -883,7 +904,8 @@ def delete_run(exp_id, rid):
 
 
 @bp.route('/api/experiments/<exp_id>/files/<path:fname>', methods=['DELETE'])
-def delete_file(exp_id, fname):
+@require_experiment_access
+def delete_file(exp_id, google_id, fname):
     """Delete a file from an experiment."""
     fname = url_unquote(fname)
     if '..' in fname:
@@ -897,7 +919,8 @@ def delete_file(exp_id, fname):
 
 
 @bp.route('/api/experiments/<exp_id>/packages/<path:pkg>', methods=['DELETE'])
-def uninstall_package(exp_id, pkg):
+@require_experiment_access
+def uninstall_package(exp_id, google_id, pkg):
     """Uninstall a pip package from an experiment."""
     if not read_meta(exp_id):
         return jsonify({'error': 'Not found'}), 404
@@ -916,7 +939,8 @@ def uninstall_package(exp_id, pkg):
 
 
 @bp.route('/api/experiments/<exp_id>/venv', methods=['DELETE'])
-def delete_venv(exp_id):
+@require_experiment_access
+def delete_venv(exp_id, google_id):
     """Delete an experiment's virtual environment."""
     venv_dir = os.path.join(EXPERIMENTS_DIR, exp_id, 'venv')
     if not os.path.isdir(venv_dir):
@@ -931,7 +955,8 @@ def delete_venv(exp_id):
 
 
 @bp.route('/api/experiments/<exp_id>/kernel', methods=['DELETE'])
-def kill_kernel(exp_id):
+@require_experiment_access
+def kill_kernel(exp_id, google_id):
     """Kill an experiment's Jupyter kernel."""
     _kill_kernel(exp_id)
     return jsonify({'ok': True})

@@ -1247,23 +1247,6 @@ async function loadAllFeeds() {
   }
   allPapers = [];
   _renderedLinks = new Set();
-  const promises = [];
-  const labels = [];
-
-  FEED_CATALOG.forEach(f => {
-    if (!sources[f.key]) return;
-    if (f.special === 'arxiv') { promises.push(fetchFeed()); }
-    else if (f.special === 'hn') { promises.push(fetchHNFeed()); }
-    else if (f.special === 'polymarket') { promises.push(fetchPolymarketFeed()); }
-    else { promises.push(fetchGenericRSS(f.url, f.key)); }
-    labels.push(f.key);
-  });
-
-  const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
-  for (const cf of customFeeds) {
-    promises.push(fetchGenericRSS(cf.url, 'custom:' + cf.name));
-    labels.push('custom');
-  }
 
   // Inject user quotes immediately so they show while feeds load
   const userQuotes = _getUserQuotes();
@@ -1289,39 +1272,67 @@ async function loadAllFeeds() {
     container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>`;
   }
 
-  // Stream results: render as each feed completes
-  const MAX_PER_SOURCE = 100;
-  let settled = 0;
-  const total = promises.length;
+  // Build list of enabled catalog source keys
+  const enabledKeys = FEED_CATALOG.filter(f => sources[f.key]).map(f => f.key);
+  const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
+  const promises = [];
 
-  for (let i = 0; i < promises.length; i++) {
-    promises[i].then(items => {
-      if (abort.signal.aborted) return;
-      if (Array.isArray(items) && items.length) {
-        allPapers = allPapers.concat(items.slice(0, MAX_PER_SOURCE));
-        renderTrends();
-        renderPapers();
-      }
-    }).catch(() => {}).finally(() => {
-      if (abort.signal.aborted) return;
-      settled++;
-      if (settled === total) {
-        // All feeds done — do a final render + post-load tasks
-        renderTrends();
-        renderPapers();
-        if (isQualityFilterOn()) qualityFilterPapers();
-        _detectNewPosts();
-        startRefreshTimer();
-      }
-    });
+  // 1) Fetch catalog sources from the central poller DB
+  if (enabledKeys.length > 0) {
+    promises.push(
+      fetch(`/api/feed-items?sources=${enabledKeys.join(',')}&limit=500`, { signal: abort.signal })
+        .then(r => r.ok ? r.json() : [])
+        .catch(() => [])
+    );
+  } else {
+    promises.push(Promise.resolve([]));
   }
 
-  // If there are no feeds at all, finalize immediately
-  if (total === 0) {
+  // 2) Fetch custom user feeds
+  if (customFeeds.length > 0) {
+    promises.push(
+      fetch('/api/feed-items/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }),
+        signal: abort.signal,
+      }).then(r => r.ok ? r.json() : []).catch(() => [])
+    );
+  } else {
+    promises.push(Promise.resolve([]));
+  }
+
+  try {
+    const [catalogItems, customItems] = await Promise.all(promises);
+    if (abort.signal.aborted) return;
+
+    const MAX_PER_SOURCE = 100;
+    // Group catalog items by source and cap per source
+    const bySource = {};
+    for (const item of catalogItems) {
+      const src = item.source;
+      if (!bySource[src]) bySource[src] = [];
+      if (bySource[src].length < MAX_PER_SOURCE) bySource[src].push(item);
+    }
+    for (const items of Object.values(bySource)) {
+      allPapers = allPapers.concat(items);
+    }
+
+    // Add custom feed items (already capped server-side at 100 per source)
+    if (customItems.length) {
+      allPapers = allPapers.concat(customItems);
+    }
+
     renderTrends();
     renderPapers();
+    if (isQualityFilterOn()) qualityFilterPapers();
     _detectNewPosts();
     startRefreshTimer();
+  } catch (e) {
+    if (abort.signal.aborted) return;
+    // Fallback: show error
+    container.innerHTML = `<div class="text-center py-20 text-red-400"><p>Failed to load feed: ${e.message}</p>
+       <p class="mt-2 text-[0.85rem] text-muted">Try refreshing or check your connection.</p></div>`;
   }
 }
 

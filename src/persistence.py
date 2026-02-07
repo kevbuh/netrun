@@ -491,6 +491,25 @@ def init_db():
             PRIMARY KEY (title_hash, prompt_hash)
         )
     """)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS feed_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            title TEXT NOT NULL,
+            link TEXT NOT NULL,
+            authors TEXT DEFAULT '',
+            categories TEXT DEFAULT '[]',
+            description TEXT DEFAULT '',
+            pub_date TEXT,
+            display_date TEXT DEFAULT '',
+            arxiv_id TEXT,
+            extra TEXT DEFAULT '{}',
+            fetched_at REAL NOT NULL,
+            UNIQUE(source, link)
+        );
+        CREATE INDEX IF NOT EXISTS idx_fi_source ON feed_items(source);
+        CREATE INDEX IF NOT EXISTS idx_fi_pubdate ON feed_items(pub_date DESC);
+    """)
     conn.commit()
     conn.close()
 

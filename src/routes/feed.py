@@ -17,8 +17,9 @@ from persistence import (
     read_blocked_titles, write_blocked_titles,
     read_prompt, write_prompt,
     DEFAULT_VERDICT_PROMPT, DEFAULT_SCORING_PROMPT,
-    classify_title, cached_fetch,
+    classify_title, cached_fetch, _get_db,
 )
+from feed_poller import poll_custom_feeds
 
 bp = Blueprint('feed', __name__)
 
@@ -299,3 +300,110 @@ def list_models():
         return jsonify({'models': models})
     except Exception as e:
         return jsonify({'error': str(e)}), 502
+
+
+@bp.route('/api/feed-items')
+def get_feed_items():
+    """Return feed items from the DB for the requested sources."""
+    sources_param = request.args.get('sources', '').strip()
+    limit = min(int(request.args.get('limit', '500')), 1000)
+    if not sources_param:
+        return jsonify([])
+    source_keys = [s.strip() for s in sources_param.split(',') if s.strip()]
+    if not source_keys:
+        return jsonify([])
+
+    conn = _get_db()
+    placeholders = ','.join('?' for _ in source_keys)
+    rows = conn.execute(
+        f'SELECT * FROM feed_items WHERE source IN ({placeholders}) ORDER BY pub_date DESC LIMIT ?',
+        source_keys + [limit]
+    ).fetchall()
+    conn.close()
+
+    items = []
+    for row in rows:
+        item = {
+            'source': row['source'],
+            'title': row['title'],
+            'link': row['link'],
+            'authors': row['authors'],
+            'categories': json.loads(row['categories']) if row['categories'] else [],
+            'description': row['description'] or '',
+            'date': row['display_date'] or '',
+            'pubDate': row['pub_date'] or '',
+            'arxivId': row['arxiv_id'],
+        }
+        # Merge extra fields (hnScore, polyYesPct, etc.) into top level
+        extra = json.loads(row['extra']) if row['extra'] else {}
+        item.update(extra)
+        items.append(item)
+    return jsonify(items)
+
+
+@bp.route('/api/feed-items/custom', methods=['POST'])
+def get_custom_feed_items():
+    """Fetch/store custom user RSS feeds on demand, return items."""
+    body = request.get_json(force=True, silent=True) or {}
+    feeds = body.get('feeds', [])
+    if not feeds:
+        return jsonify([])
+
+    # Check what we already have in DB with recent fetched_at
+    conn = _get_db()
+    cutoff = time.time() - CACHE_TTL
+    results = []
+    to_fetch = []
+
+    for f in feeds:
+        name = f.get('name', f.get('url', ''))
+        source_key = f'custom:{name}'
+        rows = conn.execute(
+            'SELECT COUNT(*) as cnt FROM feed_items WHERE source = ? AND fetched_at > ?',
+            (source_key, cutoff)
+        ).fetchone()
+        if rows['cnt'] > 0:
+            # Already have fresh data
+            items = conn.execute(
+                'SELECT * FROM feed_items WHERE source = ? ORDER BY pub_date DESC LIMIT 100',
+                (source_key,)
+            ).fetchall()
+            for row in items:
+                item = {
+                    'source': row['source'],
+                    'title': row['title'],
+                    'link': row['link'],
+                    'authors': row['authors'],
+                    'categories': json.loads(row['categories']) if row['categories'] else [],
+                    'description': row['description'] or '',
+                    'date': row['display_date'] or '',
+                    'pubDate': row['pub_date'] or '',
+                    'arxivId': row['arxiv_id'],
+                }
+                extra = json.loads(row['extra']) if row['extra'] else {}
+                item.update(extra)
+                results.append(item)
+        else:
+            to_fetch.append(f)
+    conn.close()
+
+    # Fetch any missing custom feeds
+    if to_fetch:
+        new_items = poll_custom_feeds(to_fetch)
+        for item in new_items:
+            result = {
+                'source': item['source'],
+                'title': item['title'],
+                'link': item['link'],
+                'authors': item.get('authors', ''),
+                'categories': item.get('categories', []),
+                'description': item.get('description', ''),
+                'date': item.get('display_date', ''),
+                'pubDate': item.get('pub_date', ''),
+                'arxivId': item.get('arxiv_id'),
+            }
+            extra = item.get('extra', {})
+            result.update(extra)
+            results.append(result)
+
+    return jsonify(results)

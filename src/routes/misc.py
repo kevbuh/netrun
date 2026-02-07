@@ -12,7 +12,7 @@ import uuid
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
-from helpers import require_auth, get_user_from_request, sse_event
+from helpers import require_auth, sse_event
 from persistence import (
     DIR, EXPERIMENTS_DIR,
     read_saved_content, write_saved_content,
@@ -266,7 +266,8 @@ def delete_calendar_event_route(google_id, eid):
 
 
 @bp.route('/api/images', methods=['POST'])
-def upload_image():
+@require_auth
+def upload_image(google_id):
     try:
         body = request.get_json(force=True, silent=True) or {}
         image_b64 = body.get('image', '')
@@ -295,7 +296,8 @@ def serve_image(filename):
 
 
 @bp.route('/api/saved-content')
-def get_saved_content():
+@require_auth
+def get_saved_content(google_id):
     url = request.args.get('url', '').strip()
     if not url:
         return jsonify({'error': 'url required'}), 400
@@ -307,7 +309,8 @@ def get_saved_content():
 
 
 @bp.route('/api/saved-content', methods=['POST'])
-def post_saved_content():
+@require_auth
+def post_saved_content(google_id):
     body = request.get_json(force=True, silent=True) or {}
     url = body.get('url', '').strip()
     if not url:
@@ -322,7 +325,8 @@ def post_saved_content():
 
 
 @bp.route('/api/saved-posts', methods=['POST'])
-def save_post():
+@require_auth
+def save_post(google_id):
     body = request.get_json(force=True, silent=True) or {}
     url = body.get('url', '').strip()
     if not url:
@@ -330,26 +334,22 @@ def save_post():
     title = body.get('title', url)
     favicon = body.get('favicon', '')
     hostname = body.get('hostname', '')
-    google_id = get_user_from_request()
-    if google_id:
-        data = get_all_user_data(google_id)
-        saved = data.get('savedPosts', {}).get('value', {})
-        if isinstance(saved, str):
-            try:
-                saved = json.loads(saved)
-            except Exception:
-                saved = {}
-        if url in saved:
-            return jsonify({'exists': True})
-        saved[url] = {
-            'paper': {'title': title, 'link': url, 'favicon': favicon, 'hostname': hostname},
-            'savedAt': int(time.time() * 1000),
-            'read': False
-        }
-        set_user_data(google_id, 'savedPosts', saved)
-        return jsonify({'ok': True})
-    else:
-        return jsonify({'ok': True})
+    data = get_all_user_data(google_id)
+    saved = data.get('savedPosts', {}).get('value', {})
+    if isinstance(saved, str):
+        try:
+            saved = json.loads(saved)
+        except Exception:
+            saved = {}
+    if url in saved:
+        return jsonify({'exists': True})
+    saved[url] = {
+        'paper': {'title': title, 'link': url, 'favicon': favicon, 'hostname': hostname},
+        'savedAt': int(time.time() * 1000),
+        'read': False
+    }
+    set_user_data(google_id, 'savedPosts', saved)
+    return jsonify({'ok': True})
 
 
 @bp.route('/api/custom-feeds', methods=['POST'])
@@ -377,7 +377,8 @@ def add_custom_feed(google_id):
 
 
 @bp.route('/api/reveal-in-finder', methods=['POST'])
-def reveal_in_finder():
+@require_auth
+def reveal_in_finder(google_id):
     body = request.get_json(force=True, silent=True) or {}
     filename = body.get('filename', '').strip()
     if not filename:
@@ -409,7 +410,8 @@ def vibe_git(google_id):
 
 
 @bp.route('/api/local-file')
-def local_file():
+@require_auth
+def local_file(google_id):
     from urllib.parse import unquote
     import mimetypes
     file_path = unquote(request.args.get('path', '')).strip()
@@ -485,7 +487,8 @@ ch.postMessage({type:'preview-ready'});
 
 
 @bp.route('/api/transcribe', methods=['POST'])
-def transcribe():
+@require_auth
+def transcribe(google_id):
     length = int(request.headers.get('Content-Length', 0))
     if length == 0:
         return jsonify({'error': 'No audio data'}), 400
@@ -512,7 +515,8 @@ def transcribe():
 
 
 @bp.route('/api/neuralook/calibration')
-def get_calibration():
+@require_auth
+def get_calibration(google_id):
     calib_path = os.path.join(DIR, 'neuralook_calibration.json')
     if os.path.exists(calib_path):
         with open(calib_path, 'r') as f:
@@ -522,7 +526,8 @@ def get_calibration():
 
 
 @bp.route('/api/neuralook/save-calibration', methods=['POST'])
-def save_calibration():
+@require_auth
+def save_calibration(google_id):
     body = request.get_json(force=True, silent=True) or {}
     calib_path = os.path.join(DIR, 'neuralook_calibration.json')
     try:
@@ -534,7 +539,8 @@ def save_calibration():
 
 
 @bp.route('/api/neuralook/train', methods=['POST'])
-def neuralook_train():
+@require_auth
+def neuralook_train(google_id):
     global _neuralook_models, _neuralook_screen
     body = request.get_json(force=True, silent=True) or {}
 
@@ -796,7 +802,8 @@ def neuralook_train():
 
 
 @bp.route('/api/neuralook/predict', methods=['POST'])
-def neuralook_predict():
+@require_auth
+def neuralook_predict(google_id):
     body = request.get_json(force=True, silent=True) or {}
     try:
         import torch

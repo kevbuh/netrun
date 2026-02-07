@@ -59,6 +59,10 @@ app.register_blueprint(browse_bp)
 app.register_blueprint(vault_bp)
 app.register_blueprint(misc_bp)
 
+# ── Start background feed poller ──
+from feed_poller import start_poller
+start_poller()
+
 
 # ── WebSocket terminal ──
 
