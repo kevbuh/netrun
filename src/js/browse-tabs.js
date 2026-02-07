@@ -352,23 +352,26 @@ function _browseGoBack() {
 }
 
 function openBrowse(url) {
-  setSidebarLoading('sb-browse');
-  hideAllViews();
-
   const view = document.getElementById('browse-view');
-  view.classList.add('active');
-  view.style.display = 'flex';
-  view.style.flexDirection = 'column';
-  window.location.hash = 'browse';
-  setSidebarActive('sb-browse');
+  const alreadyVisible = view && view.style.display === 'flex';
 
-  // Initialize browse sidebar (hidden by default)
-  const browseSb = document.getElementById('browse-sidebar');
-  if (browseSb) {
-    browseSb.innerHTML = _renderSidebarHTML();
-    _initSidebar(browseSb);
-    browseSb.style.display = 'none';
+  if (!alreadyVisible) {
+    setSidebarLoading('sb-browse');
+    hideAllViews();
+    view.classList.add('active');
+    view.style.display = 'flex';
+    view.style.flexDirection = 'column';
+    setSidebarActive('sb-browse');
+
+    // Initialize browse sidebar (hidden by default)
+    const browseSb = document.getElementById('browse-sidebar');
+    if (browseSb) {
+      browseSb.innerHTML = _renderSidebarHTML();
+      _initSidebar(browseSb);
+      browseSb.style.display = 'none';
+    }
   }
+  window.location.hash = 'browse';
 
   if (!_browseWindows.length) {
     if (!_browseRestoreTabs()) {

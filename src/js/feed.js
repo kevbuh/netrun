@@ -1060,6 +1060,9 @@ function renderQualityPanel() {
       Manage filters
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
     </a>
+    <a href="#algorithm" onclick="toggleQualityPanel()" class="flex items-center justify-center gap-1.5 text-[0.65rem] text-dimmer hover:text-dim cursor-pointer w-full py-1 transition-colors mt-1" style="text-decoration:none">
+      How the algorithm works
+    </a>
   `;
 }
 
@@ -1073,6 +1076,145 @@ async function openQualityView() {
   window.location.hash = 'quality';
   setSidebarActive('sb-home');
   renderQualityView();
+}
+
+async function openAlgorithmView() {
+  hideAllViews();
+  const view = await ensureView('algorithm-view');
+  view.classList.add('active');
+  view.style.display = 'block';
+  window.location.hash = 'algorithm';
+  setSidebarActive('sb-home');
+  renderAlgorithmView();
+}
+
+function renderAlgorithmView() {
+  const container = document.getElementById('algorithm-view-content');
+  if (!container) return;
+
+  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
+  const readCount = getReadPosts().length;
+  const savedCount = Object.keys(getSavedPosts()).length;
+  const hiddenCount = getHiddenPosts().length;
+  const topTopics = profile?.topTopics || [];
+  const topCats = profile?.topCategories || [];
+
+  const wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
+  const wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
+  const wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
+  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10);
+
+  // Example scores for illustration
+  const exampleLlm = 72;
+  const exampleAff = 0.8;
+  const exampleAge = 3;
+  const exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
+  const exampleScore = (exampleLlm * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
+
+  container.innerHTML = `
+    <a href="#quality" class="text-dim text-[0.72rem] hover:text-primary transition-colors inline-flex items-center gap-1 mb-4" style="text-decoration:none">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+      Back to Quality Filter
+    </a>
+    <h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>
+    <p class="text-dim text-[0.8rem] mb-6">Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.</p>
+
+    <div class="mb-6">
+      <h3 class="text-muted text-[0.85rem] font-medium mb-2">1. LLM Relevance Score</h3>
+      <p class="text-dim text-[0.78rem] leading-relaxed mb-2">Every post that passes the verdict filter (KEEP/SKIP) is scored 0\u2013100 by a local LLM (qwen3:8b). The scoring prompt asks the model to rate how interesting and relevant the post title is.</p>
+      <p class="text-dim text-[0.78rem] leading-relaxed">When you have an interest profile, your top topics and categories are appended to the scoring prompt, so the LLM boosts scores for content matching your interests while still scoring objectively.</p>
+    </div>
+
+    <div class="mb-6 pt-5 border-t border-border-subtle">
+      <h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Interest Profile</h3>
+      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p>
+      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3">
+        <div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">${readCount}</span></div>
+        <div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">${savedCount}</span></div>
+        <div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">${hiddenCount}</span></div>
+      </div>
+      <div class="space-y-2 text-[0.75rem]">
+        <div>
+          <span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span>
+          <div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div>
+        </div>
+        <div>
+          <span class="text-dimmer text-[0.68rem]">Your top topics:</span>
+          <div class="flex flex-wrap gap-1 mt-1">${topTopics.length ? topTopics.map(t => `<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">${escapeHtml(t)}</span>`).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>'}</div>
+        </div>
+        <div>
+          <span class="text-dimmer text-[0.68rem]">Your top categories:</span>
+          <div class="flex flex-wrap gap-1 mt-1">${topCats.length ? topCats.map(c => `<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">${escapeHtml(c)}</span>`).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>'}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-6 pt-5 border-t border-border-subtle">
+      <h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Source Affinity</h3>
+      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p>
+      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3">
+        <div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div>
+        <div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div>
+        <div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div>
+        <div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div>
+      </div>
+    </div>
+
+    <div class="mb-6 pt-5 border-t border-border-subtle">
+      <h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Composite Score</h3>
+      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the "For You" sort, each post is ranked by a composite score combining all signals:</p>
+      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3">
+        <div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div>
+      </div>
+      <div class="space-y-1.5 text-[0.75rem] text-dim mb-4">
+        <div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div>
+        <div><span class="text-dimmer">base:</span> Baseline multiplier \u2014 how much the LLM score matters on its own</div>
+        <div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with often</div>
+        <div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u2014 decays over 20h, max +10</div>
+        <div><span class="text-dimmer">rec_weight:</span> How much recency matters relative to quality</div>
+      </div>
+
+      <div class="bg-input border border-border-input rounded-lg p-3 mb-4">
+        <div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=${exampleLlm}, affinity=${exampleAff}, age=${exampleAge}h</div>
+        <div class="text-[0.75rem] font-mono text-dim">${exampleLlm} \u00d7 (${wBase.toFixed(2)} + ${exampleAff} \u00d7 ${wAff.toFixed(2)}) + ${exampleRecency.toFixed(1)} = <span class="text-accent font-semibold">${exampleScore}</span></div>
+      </div>
+
+      <div class="text-dimmer text-[0.68rem] mb-2">Current weights</div>
+      <div class="space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="text-dim text-[0.72rem] w-16 shrink-0">Base</span>
+          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+          <span id="algo-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wBase.toFixed(2)}</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-dim text-[0.72rem] w-16 shrink-0">Affinity</span>
+          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+          <span id="algo-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wAff.toFixed(2)}</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-dim text-[0.72rem] w-16 shrink-0">Recency</span>
+          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+          <span id="algo-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wRec.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-6 pt-5 border-t border-border-subtle">
+      <h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>
+      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">${maxRun}</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>
+      <div class="flex items-center gap-3">
+        <span class="text-dim text-[0.72rem] shrink-0">Max same-category run</span>
+        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+        <span id="algo-div-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
+      </div>
+    </div>
+
+    <div class="pt-5 border-t border-border-subtle flex items-center gap-3">
+      <button onclick="resetPersonalization();renderAlgorithmView()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all personalization</button>
+      <span class="text-dimmer text-[0.68rem]">Clears your interest profile, resets all weights to defaults</span>
+    </div>
+  `;
 }
 
 function _toggleBlockedPostsList() {

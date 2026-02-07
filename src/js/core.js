@@ -757,6 +757,7 @@ const VIEW_REGISTRY = {
   'blog-view':           { template: '/views/blog.html',      tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'quality-view':        { template: '/views/quality.html',   tier: 2 },
+  'algorithm-view':      { template: '/views/algorithm.html', tier: 2 },
   'calendar-view':       { template: '/views/calendar.html',  tier: 2 },
   'inbox-view':          { template: '/views/inbox.html',     tier: 2 },
   'profile-view':        { template: '/views/profile.html',   tier: 2 },
@@ -1014,17 +1015,22 @@ function _wmToggleTiling() {
   }
 }
 
-/* ── Drag pill — horizontal drag to slide pill bar icons ── */
-let _pillBarOffset = 0;
+/* ── Drag pill — horizontal drag to switch windows ── */
 (function() {
-  let _dragStartX = 0;
+  var DRAG_THRESHOLD = 40;
+  var _dragStartX = 0;
+  var _dragAccum = 0;
 
   function onMove(e) {
-    const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    const delta = x - _dragStartX;
+    var x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+    _dragAccum += x - _dragStartX;
     _dragStartX = x;
-    _pillBarOffset += delta;
-    _applyPillBarOffset();
+    if (Math.abs(_dragAccum) >= DRAG_THRESHOLD) {
+      var dir = _dragAccum > 0 ? 1 : -1;
+      _dragAccum = 0;
+      var next = (_wmFocusIndex + dir + _wmWindows.length) % _wmWindows.length;
+      _wmActivateWindow(next);
+    }
   }
   function onUp() {
     document.removeEventListener('mousemove', onMove);
@@ -1032,24 +1038,20 @@ let _pillBarOffset = 0;
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onUp);
   }
-  function _applyPillBarOffset() {
-    const nav = document.getElementById('sidebar-nav');
-    if (!nav) return;
-    // Apply offset: default center is translateX(-50%), add user offset
-    nav.style.transform = 'translateX(calc(-50% + ' + _pillBarOffset + 'px))';
-  }
 
   document.addEventListener('DOMContentLoaded', function() {
-    const pill = document.getElementById('drag-pill');
+    var pill = document.getElementById('drag-pill');
     if (!pill) return;
     pill.addEventListener('mousedown', function(e) {
       e.preventDefault();
       _dragStartX = e.clientX;
+      _dragAccum = 0;
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
     pill.addEventListener('touchstart', function(e) {
       _dragStartX = e.touches[0].clientX;
+      _dragAccum = 0;
       document.addEventListener('touchmove', onMove, { passive: true });
       document.addEventListener('touchend', onUp);
     }, { passive: true });
@@ -1365,6 +1367,7 @@ function routeFromHash() {
   else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
   else if (hash === '#settings') wmOpen('settings');
   else if (hash === '#quality') openQualityView();
+  else if (hash === '#algorithm') openAlgorithmView();
   else if (hash === '#calendar') wmOpen('calendar');
   else if (hash === '#inbox') wmOpen('inbox');
   else if (hash === '#teams') openTeams();
