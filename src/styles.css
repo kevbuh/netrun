@@ -766,13 +766,48 @@
       top: 50%; left: -150px;
       transform: translateY(-50%);
       border-radius: 50%;
-      background: radial-gradient(circle at 60% 50%, #fff5c0 0%, #ffd54f 15%, #ff9800 35%, #e65100 55%, #bf360c 70%, #4a1400 90%);
-      box-shadow: 0 0 80px 30px rgba(255,152,0,0.4), 0 0 200px 60px rgba(255,87,34,0.15);
-      animation: sun-pulse 8s ease-in-out infinite;
+      background: radial-gradient(circle at 60% 50%, var(--sun-core) 0%, var(--sun-mid) 15%, var(--sun-outer) 35%, var(--sun-edge) 55%, var(--sun-rim) 70%, var(--sun-dark) 90%);
+      box-shadow: 0 0 80px 30px var(--sun-glow1), 0 0 200px 60px var(--sun-glow2);
+      animation: sun-color 20s ease-in-out infinite, sun-pulse 8s ease-in-out infinite;
+    }
+    @property --sun-core { syntax: '<color>'; inherits: false; initial-value: #fff5c0; }
+    @property --sun-mid { syntax: '<color>'; inherits: false; initial-value: #ffd54f; }
+    @property --sun-outer { syntax: '<color>'; inherits: false; initial-value: #ff9800; }
+    @property --sun-edge { syntax: '<color>'; inherits: false; initial-value: #e65100; }
+    @property --sun-rim { syntax: '<color>'; inherits: false; initial-value: #bf360c; }
+    @property --sun-dark { syntax: '<color>'; inherits: false; initial-value: #4a1400; }
+    @property --sun-glow1 { syntax: '<color>'; inherits: false; initial-value: rgba(255,152,0,0.4); }
+    @property --sun-glow2 { syntax: '<color>'; inherits: false; initial-value: rgba(255,87,34,0.15); }
+    @keyframes sun-color {
+      0%, 100% {
+        --sun-core: #fff5c0; --sun-mid: #ffd54f; --sun-outer: #ff9800;
+        --sun-edge: #e65100; --sun-rim: #bf360c; --sun-dark: #4a1400;
+        --sun-glow1: rgba(255,152,0,0.4); --sun-glow2: rgba(255,87,34,0.15);
+      }
+      20% {
+        --sun-core: #ffe0f0; --sun-mid: #ff6eb4; --sun-outer: #e040a0;
+        --sun-edge: #a02070; --sun-rim: #701050; --sun-dark: #300828;
+        --sun-glow1: rgba(224,64,160,0.4); --sun-glow2: rgba(160,32,112,0.15);
+      }
+      40% {
+        --sun-core: #e0f0ff; --sun-mid: #60b0ff; --sun-outer: #2070e0;
+        --sun-edge: #1040a0; --sun-rim: #082060; --sun-dark: #040e30;
+        --sun-glow1: rgba(32,112,224,0.4); --sun-glow2: rgba(16,64,160,0.15);
+      }
+      60% {
+        --sun-core: #f0ffe0; --sun-mid: #a0ff60; --sun-outer: #40c020;
+        --sun-edge: #208010; --sun-rim: #105008; --sun-dark: #082804;
+        --sun-glow1: rgba(64,192,32,0.4); --sun-glow2: rgba(32,128,16,0.15);
+      }
+      80% {
+        --sun-core: #fff0e0; --sun-mid: #ffb060; --sun-outer: #e07020;
+        --sun-edge: #a04010; --sun-rim: #602008; --sun-dark: #301004;
+        --sun-glow1: rgba(224,112,32,0.4); --sun-glow2: rgba(160,64,16,0.15);
+      }
     }
     @keyframes sun-pulse {
-      0%, 100% { box-shadow: 0 0 80px 30px rgba(255,152,0,0.4), 0 0 200px 60px rgba(255,87,34,0.15); }
-      50% { box-shadow: 0 0 100px 40px rgba(255,152,0,0.5), 0 0 240px 80px rgba(255,87,34,0.2); }
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.15); }
     }
     .orbit {
       position: absolute;
