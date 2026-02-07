@@ -767,161 +767,6 @@ function _nlExtractHeadPose(landmarks) {
   return [yaw, pitch, roll];
 }
 
-// ── Kalman Filter (client-side smoothing) ──
-
-function _nlKalmanInit() {
-  const dt = 1 / 30;
-  _nlKalman = {
-    x: [0, 0, 0, 0], // [x, y, vx, vy]
-    P: [[1000,0,0,0],[0,1000,0,0],[0,0,1000,0],[0,0,0,1000]],
-    dt: dt,
-    Q: [[1,0,0,0],[0,1,0,0],[0,0,10,0],[0,0,0,10]], // process noise
-    R: [[2500,0],[0,2500]], // measurement noise (~50px std)
-    initialized: false
-  };
-}
-
-function _nlKalmanPredict() {
-  if (!_nlKalman) return;
-  const dt = _nlKalman.dt;
-  const x = _nlKalman.x;
-  // State transition: pos += vel * dt
-  _nlKalman.x = [x[0] + x[2] * dt, x[1] + x[3] * dt, x[2], x[3]];
-  // P = F*P*F' + Q
-  const P = _nlKalman.P;
-  const F = [[1,0,dt,0],[0,1,0,dt],[0,0,1,0],[0,0,0,1]];
-  const FP = _nlMat4Mul(F, P);
-  const FT = _nlMat4Transpose(F);
-  const FPFT = _nlMat4Mul(FP, FT);
-  for (let i = 0; i < 4; i++)
-    for (let j = 0; j < 4; j++)
-      _nlKalman.P[i][j] = FPFT[i][j] + _nlKalman.Q[i][j];
-}
-
-function _nlKalmanUpdate(mx, my) {
-  if (!_nlKalman) _nlKalmanInit();
-  if (!_nlKalman.initialized) {
-    _nlKalman.x = [mx, my, 0, 0];
-    _nlKalman.initialized = true;
-    return { x: mx, y: my };
-  }
-  _nlKalmanPredict();
-  const x = _nlKalman.x;
-  const P = _nlKalman.P;
-  // Innovation: z - H*x (H = [[1,0,0,0],[0,1,0,0]])
-  const y0 = mx - x[0], y1 = my - x[1];
-  // S = H*P*H' + R
-  const S = [[P[0][0] + _nlKalman.R[0][0], P[0][1]], [P[1][0], P[1][1] + _nlKalman.R[1][1]]];
-  // K = P*H' * inv(S)
-  const detS = S[0][0] * S[1][1] - S[0][1] * S[1][0];
-  if (Math.abs(detS) < 1e-10) return { x: x[0], y: x[1] };
-  const Si = [[S[1][1]/detS, -S[0][1]/detS], [-S[1][0]/detS, S[0][0]/detS]];
-  // K is 4x2: P * H' * Si  (H' is 4x2: first two cols of identity)
-  const PH = [[P[0][0],P[0][1]],[P[1][0],P[1][1]],[P[2][0],P[2][1]],[P[3][0],P[3][1]]];
-  const K = [];
-  for (let i = 0; i < 4; i++) K.push([PH[i][0]*Si[0][0]+PH[i][1]*Si[1][0], PH[i][0]*Si[0][1]+PH[i][1]*Si[1][1]]);
-  // Update state
-  for (let i = 0; i < 4; i++) _nlKalman.x[i] = x[i] + K[i][0]*y0 + K[i][1]*y1;
-  // Update P: (I - K*H) * P
-  const KH = [[K[0][0],K[0][1],0,0],[K[1][0],K[1][1],0,0],[K[2][0],K[2][1],0,0],[K[3][0],K[3][1],0,0]];
-  const IKH = [[1-KH[0][0],-KH[0][1],0,0],[-KH[1][0],1-KH[1][1],0,0],[-KH[2][0],-KH[2][1],1,0],[-KH[3][0],-KH[3][1],0,1]];
-  _nlKalman.P = _nlMat4Mul(IKH, P);
-  return { x: _nlKalman.x[0], y: _nlKalman.x[1] };
-}
-
-function _nlMat4Mul(A, B) {
-  const R = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
-  for (let i = 0; i < 4; i++)
-    for (let j = 0; j < 4; j++)
-      for (let k = 0; k < 4; k++)
-        R[i][j] += A[i][k] * B[k][j];
-  return R;
-}
-
-function _nlMat4Transpose(M) {
-  return [[M[0][0],M[1][0],M[2][0],M[3][0]],[M[0][1],M[1][1],M[2][1],M[3][1]],[M[0][2],M[1][2],M[2][2],M[3][2]],[M[0][3],M[1][3],M[2][3],M[3][3]]];
-}
-
-// ── Linear Regression (client-side, no neural net) ──
-
-function _nlExtractIrisRatios(landmarks) {
-  if (!landmarks || landmarks.length < 400) return null;
-  // Left eye: outer=33, inner=133; iris center ~468
-  // Right eye: outer=263, inner=362; iris center ~473
-  const le_outer = landmarks[33], le_inner = landmarks[133];
-  const re_outer = landmarks[263], re_inner = landmarks[362];
-  const le_top = landmarks[159], le_bot = landmarks[145];
-  const re_top = landmarks[386], re_bot = landmarks[374];
-  const li = landmarks[468] || le_outer; // iris center (if available)
-  const ri = landmarks[473] || re_outer;
-  // X ratio: iris position within eye width
-  const leW = Math.abs(le_inner.x - le_outer.x) || 0.01;
-  const reW = Math.abs(re_inner.x - re_outer.x) || 0.01;
-  const lxr = (li.x - le_outer.x) / leW;
-  const rxr = (ri.x - re_outer.x) / reW;
-  // Y ratio: iris position within eye height
-  const leH = Math.abs(le_bot.y - le_top.y) || 0.01;
-  const reH = Math.abs(re_bot.y - re_top.y) || 0.01;
-  const lyr = (li.y - le_top.y) / leH;
-  const ryr = (ri.y - re_top.y) / reH;
-  return { ratioX: (lxr + rxr) / 2, ratioY: (lyr + ryr) / 2 };
-}
-
-function _nlSolveLinearRegression(calibData) {
-  // Normal equations: Y = X * A^T, solve A = (X^T X)^-1 X^T Y
-  // X is [N, 3] (ratioX, ratioY, 1), Y is [N, 2] (screenX, screenY)
-  const N = calibData.length;
-  if (N < 3) return null;
-  const X = [], Ys = [];
-  for (const s of calibData) {
-    if (!s.irisRatios) continue;
-    X.push([s.irisRatios.ratioX, s.irisRatios.ratioY, 1]);
-    Ys.push([s.screenX, s.screenY]);
-  }
-  if (X.length < 3) return null;
-  const n = X.length;
-  // X^T X (3x3)
-  const XtX = [[0,0,0],[0,0,0],[0,0,0]];
-  const XtY = [[0,0],[0,0],[0,0]];
-  for (let i = 0; i < n; i++) {
-    for (let a = 0; a < 3; a++) {
-      for (let b = 0; b < 3; b++) XtX[a][b] += X[i][a] * X[i][b];
-      for (let b = 0; b < 2; b++) XtY[a][b] += X[i][a] * Ys[i][b];
-    }
-  }
-  // Invert 3x3 XtX
-  const inv = _nlInvert3x3(XtX);
-  if (!inv) return null;
-  // A = inv * XtY  (3x2)
-  const A = [[0,0],[0,0],[0,0]];
-  for (let i = 0; i < 3; i++)
-    for (let j = 0; j < 2; j++)
-      for (let k = 0; k < 3; k++)
-        A[i][j] += inv[i][k] * XtY[k][j];
-  return A;
-}
-
-function _nlInvert3x3(m) {
-  const a=m[0][0],b=m[0][1],c=m[0][2],d=m[1][0],e=m[1][1],f=m[1][2],g=m[2][0],h=m[2][1],k=m[2][2];
-  const det = a*(e*k-f*h) - b*(d*k-f*g) + c*(d*h-e*g);
-  if (Math.abs(det) < 1e-12) return null;
-  const id = 1/det;
-  return [
-    [(e*k-f*h)*id, (c*h-b*k)*id, (b*f-c*e)*id],
-    [(f*g-d*k)*id, (a*k-c*g)*id, (c*d-a*f)*id],
-    [(d*h-e*g)*id, (b*g-a*h)*id, (a*e-b*d)*id]
-  ];
-}
-
-function _nlLinRegPredict(ratioX, ratioY) {
-  if (!_nlLinRegCoeffs) return null;
-  const A = _nlLinRegCoeffs;
-  return {
-    x: A[0][0] * ratioX + A[1][0] * ratioY + A[2][0],
-    y: A[0][1] * ratioX + A[1][1] * ratioY + A[2][1]
-  };
-}
-
 // ── Server Communication ──
 
 function _nlTrainOnServerSSE(onProgress, onLog, method, sampleFilter) {
@@ -1115,11 +960,8 @@ function _nlDismissTrainPill() {
   setTimeout(() => p.remove(), 300);
 }
 
-async function _nlPredictOnServer(eyeData, headPose) {
-  // cnn_kalman uses the cnn model on server (kalman is client-side smoothing only)
-  const serverMethod = _nlActiveMethod === 'cnn_kalman' ? 'cnn' : _nlActiveMethod;
-  const body = { eyeData: Array.from(eyeData), method: serverMethod };
-  if (_nlActiveMethod === 'cnn_headpose' && headPose) body.headPose = headPose;
+async function _nlPredictOnServer(eyeData) {
+  const body = { eyeData: Array.from(eyeData), method: _nlActiveMethod };
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: _authHeaders(),
@@ -1183,14 +1025,65 @@ async function _nlLoadOnnxSession(url, method, modelType) {
 
 async function _nlTryRestoreOnnxSession() {
   try {
-    const raw = localStorage.getItem('nlOnnxMeta');
-    if (!raw) return;
-    const meta = JSON.parse(raw);
-    if (!meta.url || !meta.method) return;
-    // HEAD check to verify the file still exists
-    const check = await fetch(meta.url, { method: 'HEAD' });
-    if (!check.ok) { localStorage.removeItem('nlOnnxMeta'); return; }
-    await _nlLoadOnnxSession(meta.url, meta.method, meta.modelType);
+    // Restore method states from localStorage
+    const stateRaw = localStorage.getItem('nlMethodState');
+    if (stateRaw) {
+      const states = JSON.parse(stateRaw);
+      for (const s of states) {
+        const mObj = _nlAvailableMethods.find(m => m.key === s.key);
+        if (mObj) { mObj.trained = s.trained; mObj.trainError = s.trainError; mObj.valError = s.valError; }
+      }
+    }
+    const savedActive = localStorage.getItem('nlActiveMethod');
+    if (savedActive) _nlActiveMethod = savedActive;
+
+    // HEAD-check both ONNX files to verify which models actually exist on disk
+    const checks = await Promise.all(_nlAvailableMethods.map(async m => {
+      const url = '/uploads/neuralook_' + m.key + '.onnx';
+      try {
+        const r = await fetch(url, { method: 'HEAD' });
+        return { key: m.key, exists: r.ok, url };
+      } catch (_) { return { key: m.key, exists: false, url }; }
+    }));
+    for (const c of checks) {
+      const mObj = _nlAvailableMethods.find(m => m.key === c.key);
+      if (mObj && !c.exists) { mObj.trained = false; mObj.trainError = null; mObj.valError = null; }
+    }
+
+    // If active method has no model, fall back to any trained method
+    const activeObj = _nlAvailableMethods.find(m => m.key === _nlActiveMethod);
+    if (!activeObj || !activeObj.trained) {
+      const fallback = _nlAvailableMethods.find(m => m.trained);
+      if (fallback) _nlActiveMethod = fallback.key;
+    }
+
+    // Load ONNX session for active method
+    const activeCheck = checks.find(c => c.key === _nlActiveMethod);
+    if (activeCheck && activeCheck.exists) {
+      await _nlLoadOnnxSession(activeCheck.url, _nlActiveMethod, 'cnn');
+      _nlModelTrained = true;
+      _nlReady = true;
+      _nlCalibSaved = true;
+    } else {
+      // Try loading from nlOnnxMeta as fallback
+      const raw = localStorage.getItem('nlOnnxMeta');
+      if (raw) {
+        const meta = JSON.parse(raw);
+        if (meta.url && meta.method) {
+          const check = await fetch(meta.url, { method: 'HEAD' });
+          if (check.ok) {
+            await _nlLoadOnnxSession(meta.url, meta.method, meta.modelType);
+            _nlModelTrained = true;
+            _nlReady = true;
+            _nlCalibSaved = true;
+          } else {
+            localStorage.removeItem('nlOnnxMeta');
+          }
+        }
+      }
+    }
+
+    _nlPersistMethodState();
   } catch (_) {}
 }
 
@@ -1202,17 +1095,22 @@ function _nlClearOnnxSession() {
   try { localStorage.removeItem('nlOnnxMeta'); } catch (_) {}
 }
 
-function _nlPredictLocal(eyeData, headPose) {
+function _nlPersistMethodState() {
+  try {
+    localStorage.setItem('nlMethodState', JSON.stringify(
+      _nlAvailableMethods.map(m => ({ key: m.key, trained: m.trained, trainError: m.trainError, valError: m.valError }))
+    ));
+    localStorage.setItem('nlActiveMethod', _nlActiveMethod);
+  } catch (_) {}
+}
+
+function _nlPredictLocal(eyeData) {
   if (!_nlOrtSession || !window.ort) return null;
   // eyeData is Uint8Array(4096) — 2 channels of 32x64
   const floats = new Float32Array(eyeData.length);
   for (let i = 0; i < eyeData.length; i++) floats[i] = eyeData[i] / 255.0;
   const eyeTensor = new window.ort.Tensor('float32', floats, [1, 2, _NL_EYE_H, _NL_EYE_W]);
   const feeds = { eye_input: eyeTensor };
-  if (_nlOrtModelType === 'headpose') {
-    const hp = headPose || [0, 0, 0];
-    feeds.head_pose = new window.ort.Tensor('float32', new Float32Array(hp), [1, 3]);
-  }
   return _nlOrtSession.run(feeds).then(results => {
     const out = results.gaze_output.data;
     return { x: out[0] * window.innerWidth, y: out[1] * window.innerHeight };
@@ -1506,15 +1404,13 @@ function _nlShowNextCalibrationDot() {
       if (eyeData) {
         // Also capture head pose and iris ratios for each sample
         let headPose = [0, 0, 0];
-        let irisRatios = null;
         if (_nlFaceLandmarker && _nlVideoEl) {
           const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
           if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
             headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
-            irisRatios = _nlExtractIrisRatios(r.faceLandmarks[0]);
           }
         }
-        _nlCalibData.push({ eyeData, screenX, screenY, headPose, irisRatios, phase: 'fixed' });
+        _nlCalibData.push({ eyeData, screenX, screenY, headPose, phase: 'fixed' });
       }
       requestAnimationFrame(collect);
     }
@@ -1617,15 +1513,13 @@ function _nlStartTrackingCalibration() {
     const eyeData = _nlCaptureEyeCrops();
     if (eyeData) {
       let headPose = [0, 0, 0];
-      let irisRatios = null;
       if (_nlFaceLandmarker && _nlVideoEl) {
         const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
         if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
           headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
-          irisRatios = _nlExtractIrisRatios(r.faceLandmarks[0]);
         }
       }
-      _nlCalibData.push({ eyeData, screenX, screenY, headPose, irisRatios, phase: 'tracking' });
+      _nlCalibData.push({ eyeData, screenX, screenY, headPose, phase: 'tracking' });
     }
 
     requestAnimationFrame(animate);
@@ -1676,34 +1570,66 @@ async function _nlOnCalibrationComplete() {
   renderNeuralookView();
 
   try {
-    const result = await _nlTrainOnServerSSE((prog) => {
+    // Train cnn_fixed first (fixed grid samples only)
+    _nlTrainLogs.push('── Training Fixed Grid (fixed samples only) ──');
+    _nlAppendTrainLog('── Training Fixed Grid (fixed samples only) ──');
+    _nlUpdateTrainPill('Training Fixed Grid', 'Starting...');
+
+    const fixedResult = await _nlTrainOnServerSSE((prog) => {
       _nlTrainProgress = prog;
       _nlTrainPhase = prog.phase || 'training';
       if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
-
       if (prog.phase === 'evaluating') {
-        _nlUpdateTrainPill('Training CNN', 'Evaluating...');
+        _nlUpdateTrainPill('Training Fixed Grid', 'Evaluating...');
       } else {
         const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
         const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
         const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-        _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+        _nlUpdateTrainPill('Training Fixed Grid', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       }
       _nlRefreshTrainView();
     }, (logLine) => {
       _nlTrainLogs.push(logLine);
       _nlAppendTrainLog(logLine);
-    });
+    }, 'cnn_fixed', 'fixed');
 
-    _nlTrainResult = result;
+    // Now train cnn_full (all samples)
+    _nlTrainLogs.push('── Training Fixed + Tracking (all samples) ──');
+    _nlAppendTrainLog('── Training Fixed + Tracking (all samples) ──');
+    _nlUpdateTrainPill('Training Fixed + Tracking', 'Starting...');
+    _nlTrainStartTime = Date.now();
+    _nlTrainLossHistory = [];
+
+    const fullResult = await _nlTrainOnServerSSE((prog) => {
+      _nlTrainProgress = prog;
+      _nlTrainPhase = prog.phase || 'training';
+      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
+      if (prog.phase === 'evaluating') {
+        _nlUpdateTrainPill('Training Fixed + Tracking', 'Evaluating...');
+      } else {
+        const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
+        const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+        const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
+        _nlUpdateTrainPill('Training Fixed + Tracking', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      }
+      _nlRefreshTrainView();
+    }, (logLine) => {
+      _nlTrainLogs.push(logLine);
+      _nlAppendTrainLog(logLine);
+    }, 'cnn_full');
+
+    _nlTrainResult = fullResult;
     _nlTrainPhase = 'done';
     _nlTraining = false;
-    const trainPx = result.train_error_px;
-    const valPx = result.val_error_px;
+    _nlActiveMethod = 'cnn_full';
+    const trainPx = fullResult.train_error_px;
+    const valPx = fullResult.val_error_px;
     const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
     _nlReady = true;
-    _nlFinishTrainPill('Calibration Done', `Train ${trainPx}px · Val ${valPx}px — ${label}`, color);
+    _nlPersistMethodState();
+    const fixedPx = fixedResult.val_error_px;
+    _nlFinishTrainPill('Calibration Done', `Fixed ${fixedPx}px · Full ${valPx}px — ${label}`, color);
     _nlRefreshTrainView();
     renderNeuralookView();
   } catch (e) {
@@ -1719,50 +1645,9 @@ async function _nlOnCalibrationComplete() {
 // ── Method Selector: Train & Switch ──
 
 async function _nlTrainMethod(methodKey) {
-  if (methodKey === 'linear') {
-    // Client-side: solve linear regression from calibration iris ratios
-    const A = _nlSolveLinearRegression(_nlCalibData);
-    if (!A) { alert('Linear regression failed — not enough iris ratio data.'); return; }
-    _nlLinRegCoeffs = A;
-    const mObj = _nlAvailableMethods.find(x => x.key === 'linear');
-    if (mObj) { mObj.trained = true; }
-    // Compute validation error estimate
-    let totalErr = 0, count = 0;
-    for (const s of _nlCalibData) {
-      if (!s.irisRatios) continue;
-      const pred = _nlLinRegPredict(s.irisRatios.ratioX, s.irisRatios.ratioY);
-      if (pred) {
-        totalErr += Math.sqrt((pred.x - s.screenX) ** 2 + (pred.y - s.screenY) ** 2);
-        count++;
-      }
-    }
-    if (mObj && count > 0) { mObj.valError = Math.round(totalErr / count); mObj.trainError = mObj.valError; }
-    _nlReady = true;
-    renderNeuralookView();
-    return;
-  }
-
-  if (methodKey === 'cnn_kalman') {
-    // CNN+Kalman shares the CNN model, just needs CNN to be trained
-    const cnnObj = _nlAvailableMethods.find(x => x.key === 'cnn');
-    if (!cnnObj || !cnnObj.trained) {
-      // Train CNN first, then mark kalman as trained
-      await _nlTrainMethod('cnn');
-    }
-    const mObj = _nlAvailableMethods.find(x => x.key === 'cnn_kalman');
-    if (mObj) {
-      mObj.trained = true;
-      mObj.trainError = cnnObj ? cnnObj.trainError : null;
-      mObj.valError = cnnObj ? cnnObj.valError : null;
-    }
-    _nlKalmanInit();
-    _nlReady = true;
-    renderNeuralookView();
-    return;
-  }
-
-  // Server-side training (cnn or cnn_headpose)
+  // CNN-only: cnn_fixed uses fixed-grid samples, cnn_full uses all samples
   if (!_nlCalibSaved && _nlCalibData.length === 0) { alert('No calibration data. Please calibrate first.'); return; }
+  const sampleFilter = methodKey === 'cnn_fixed' ? 'fixed' : undefined;
 
   _nlTraining = true;
   _nlTrainPhase = 'training';
@@ -1784,17 +1669,19 @@ async function _nlTrainMethod(methodKey) {
       const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
       const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
       const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-      _nlUpdateTrainPill(`Training ${methodKey}`, `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      const mName = (_nlAvailableMethods.find(m => m.key === methodKey) || {}).name || methodKey;
+      _nlUpdateTrainPill(`Training ${mName}`, `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       _nlRefreshTrainView();
     }, (logLine) => {
       _nlTrainLogs.push(logLine);
       _nlAppendTrainLog(logLine);
-    }, methodKey);
+    }, methodKey, sampleFilter);
 
     _nlTrainResult = result;
     _nlTrainPhase = 'done';
     _nlTraining = false;
     _nlReady = true;
+    _nlPersistMethodState();
     const valPx = result.val_error_px;
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
     _nlFinishTrainPill('Training Done', `Val ${valPx}px`, color);
@@ -1813,20 +1700,13 @@ async function _nlTrainMethod(methodKey) {
 function _nlSwitchMethod(key) {
   _nlActiveMethod = key;
   _nlGazeBuffer = [];
-  if (key === 'cnn_kalman') _nlKalmanInit();
+  _nlPersistMethodState();
   // Check if ONNX session matches the new method; if not, try loading the correct one
-  const sessionMethod = _nlOrtSessionMethod;
-  const matches = sessionMethod === key || (key === 'cnn_kalman' && sessionMethod === 'cnn');
-  if (!matches) {
+  if (_nlOrtSessionMethod !== key) {
     _nlOrtAvailable = false;
-    // Try to load the right ONNX model if it exists
-    const targetMethod = key === 'cnn_kalman' ? 'cnn' : key;
-    const url = '/uploads/neuralook_' + targetMethod + '.onnx';
+    const url = '/uploads/neuralook_' + key + '.onnx';
     fetch(url, { method: 'HEAD' }).then(r => {
-      if (r.ok) {
-        const modelType = targetMethod === 'cnn_headpose' ? 'headpose' : 'cnn';
-        _nlLoadOnnxSession(url, targetMethod, modelType);
-      }
+      if (r.ok) _nlLoadOnnxSession(url, key, 'cnn');
     }).catch(() => {});
   }
   renderNeuralookView();
@@ -1845,20 +1725,12 @@ function _nlFinishCalibration() {
 // ── Shared prediction → gaze smoothing ──
 
 function _nlApplyGazePrediction(pred) {
-  if (_nlActiveMethod === 'cnn_kalman') {
-    const filtered = _nlKalmanUpdate(pred.x, pred.y);
-    _nlGazeX = filtered.x;
-    _nlGazeY = filtered.y;
-    _nlGazeBuffer.push(pred);
-    if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-  } else {
-    _nlGazeBuffer.push(pred);
-    if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-    let sx = 0, sy = 0;
-    for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
-    _nlGazeX = sx / _nlGazeBuffer.length;
-    _nlGazeY = sy / _nlGazeBuffer.length;
-  }
+  _nlGazeBuffer.push(pred);
+  if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
+  let sx = 0, sy = 0;
+  for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
+  _nlGazeX = sx / _nlGazeBuffer.length;
+  _nlGazeY = sy / _nlGazeBuffer.length;
   _nlMoveDot(_nlGazeX, _nlGazeY);
 }
 
@@ -1870,47 +1742,13 @@ function _nlTrackingLoop() {
     return;
   }
 
-  // Linear regression: client-side only, no server call
-  if (_nlActiveMethod === 'linear') {
-    const result = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
-    if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
-      const ratios = _nlExtractIrisRatios(result.faceLandmarks[0]);
-      if (ratios) {
-        const pred = _nlLinRegPredict(ratios.ratioX, ratios.ratioY);
-        if (pred) {
-          _nlPredictionCount++;
-          _nlPredictionsThisSec++;
-          _nlGazeBuffer.push(pred);
-          if (_nlGazeBuffer.length > _NL_BUFFER_SIZE) _nlGazeBuffer.shift();
-          let sx = 0, sy = 0;
-          for (const p of _nlGazeBuffer) { sx += p.x; sy += p.y; }
-          _nlGazeX = sx / _nlGazeBuffer.length;
-          _nlGazeY = sy / _nlGazeBuffer.length;
-          _nlMoveDot(_nlGazeX, _nlGazeY);
-        }
-      }
-    }
-    _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
-    return;
-  }
-
-  // CNN-based methods: cnn, cnn_kalman, cnn_headpose
-  // Use local ONNX inference if available, otherwise fall back to server
-  const useLocal = _nlOrtAvailable && _nlOrtSession &&
-    (_nlOrtSessionMethod === _nlActiveMethod ||
-     (_nlActiveMethod === 'cnn_kalman' && _nlOrtSessionMethod === 'cnn'));
+  // CNN-only: use local ONNX inference if available, otherwise fall back to server
+  const useLocal = _nlOrtAvailable && _nlOrtSession && _nlOrtSessionMethod === _nlActiveMethod;
 
   if (useLocal) {
     const eyeData = _nlCaptureEyeCrops();
     if (eyeData) {
-      let headPose = null;
-      if (_nlActiveMethod === 'cnn_headpose') {
-        const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
-        if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
-          headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
-        }
-      }
-      _nlPredictLocal(eyeData, headPose).then(pred => {
+      _nlPredictLocal(eyeData).then(pred => {
         if (!pred || !_nlTracking) return;
         _nlPredictionCount++;
         _nlPredictionsThisSec++;
@@ -1920,15 +1758,8 @@ function _nlTrackingLoop() {
   } else if (!_nlInferPending) {
     const eyeData = _nlCaptureEyeCrops();
     if (eyeData) {
-      let headPose = null;
-      if (_nlActiveMethod === 'cnn_headpose') {
-        const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
-        if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
-          headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
-        }
-      }
       _nlInferPending = true;
-      _nlPredictOnServer(eyeData, headPose).then(pred => {
+      _nlPredictOnServer(eyeData).then(pred => {
         _nlInferPending = false;
         if (!pred || !_nlTracking) return;
         _nlPredictionCount++;
@@ -1957,7 +1788,6 @@ async function _nlStartTracking() {
   }
   _nlTracking = true;
   _nlGazeBuffer = [];
-  if (_nlActiveMethod === 'cnn_kalman') _nlKalmanInit();
   _nlCreateDot();
   _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
   renderNeuralookView();

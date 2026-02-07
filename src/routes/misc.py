@@ -589,6 +589,11 @@ def neuralook_train(google_id):
                     body.setdefault('eyeW', calib.get('eyeW', 64))
                     body.setdefault('eyeH', calib.get('eyeH', 32))
 
+            # Filter samples by phase if requested (e.g. 'fixed' for grid-only)
+            sample_filter = body.get('sample_filter')
+            if sample_filter and samples:
+                samples = [s for s in samples if s.get('phase') == sample_filter]
+
             screen_w = body.get('screenW', 1920)
             screen_h = body.get('screenH', 1080)
             eye_w = body.get('eyeW', 64)
