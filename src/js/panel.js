@@ -182,7 +182,7 @@ async function _fetchAuthorPreview(text, containerDiv) {
 async function _fetchSemanticPreview(text, containerDiv) {
   if (!text || text.trim().length < 3) { containerDiv.style.display = 'none'; return; }
   if (localStorage.getItem('panelSemanticSearch') === 'off') { containerDiv.style.display = 'none'; return; }
-  const minScore = (parseInt(localStorage.getItem('panelSemanticMin') || '30', 10)) / 100;
+  const minScore = (parseInt(localStorage.getItem('panelSemanticMin') || '80', 10)) / 100;
   try {
     const resp = await fetch('/api/semantic-search', {
       method: 'POST',

@@ -2484,15 +2484,16 @@ function _cardCommentContainer(p, i) {
 
 // Infinite scroll
 let scrollTicking = false;
-window.addEventListener('scroll', () => {
+(document.getElementById('app-bezel') || window).addEventListener('scroll', () => {
   if (scrollTicking) return;
   scrollTicking = true;
   requestAnimationFrame(() => {
     scrollTicking = false;
     if (document.getElementById('home-main').style.display === 'none') return;
     if (visibleCount >= lastFilteredPapers.length) return;
-    const scrollBottom = window.innerHeight + window.scrollY;
-    const docHeight = document.documentElement.scrollHeight;
+    const bezel = document.getElementById('app-bezel');
+    const scrollBottom = bezel ? (bezel.scrollTop + bezel.clientHeight) : (window.innerHeight + window.scrollY);
+    const docHeight = bezel ? bezel.scrollHeight : document.documentElement.scrollHeight;
     if (scrollBottom >= docHeight - 400) {
       visibleCount += PAGE_SIZE;
       renderPapers();

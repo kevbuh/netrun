@@ -648,7 +648,7 @@ function _renderPanelSettings() {
   const visionModel = localStorage.getItem('visionModel') || 'qwen3-vl:8b';
   const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
   const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
-  const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '30', 10);
+  const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
   return `
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-1">Default Chat Model</h3>
