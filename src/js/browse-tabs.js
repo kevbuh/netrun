@@ -196,7 +196,12 @@ function _browseRestoreTabs() {
 // Window management
 function browseCreateWindow(name) {
   const id = _browseNextWindowId++;
-  const win = { id, name: name || `Window ${id}`, tabs: [], activeTab: null, groups: [] };
+  if (!name) {
+    const used = new Set(_browseWindows.map(w => w.name).filter(n => /^Window \d+$/.test(n)).map(n => parseInt(n.split(' ')[1])));
+    let n = 1; while (used.has(n)) n++;
+    name = `Window ${n}`;
+  }
+  const win = { id, name, tabs: [], activeTab: null, groups: [] };
   _browseWindows.push(win);
   browseSelectWindow(id);
   browseNewTab(); // Create initial tab
@@ -233,6 +238,10 @@ function browseCloseWindow(id) {
   // Remove all tab elements
   win.tabs.forEach(t => { if (t.el) t.el.remove(); });
   _browseWindows.splice(idx, 1);
+  _browseNextWindowId = _browseWindows.length ? Math.max(..._browseWindows.map(w => w.id)) + 1 : 1;
+  // Renumber auto-named windows (Window 1, Window 2, ...) to close gaps
+  let n = 1;
+  _browseWindows.forEach(w => { if (/^Window \d+$/.test(w.name)) w.name = `Window ${n++}`; });
 
   if (_browseWindows.length === 0) {
     browseCreateWindow();
@@ -2578,163 +2587,31 @@ function _browseShowGroupContextMenu(e, groupId) {
 
 // ── Tab hover tooltip ──
 
-let _tabHoverTooltip = null;
 let _tabHoverTimeout = null;
 let _tabHoverDismissTimeout = null;
-
-function _isInsideTooltip(el) {
-  return _tabHoverTooltip && (el === _tabHoverTooltip || _tabHoverTooltip.contains(el));
-}
-
-function _dismissTooltip() {
-  clearTimeout(_tabHoverTimeout);
-  clearTimeout(_tabHoverDismissTimeout);
-  if (_tabHoverTooltip) {
-    _tabHoverTooltip.remove();
-    _tabHoverTooltip = null;
-  }
-  document.querySelectorAll('.browse-tab-tooltip-open').forEach(el => el.classList.remove('browse-tab-tooltip-open'));
-}
 
 function _browseTabHoverIn(e) {
   const tabEl = e.currentTarget;
   clearTimeout(_tabHoverTimeout);
   clearTimeout(_tabHoverDismissTimeout);
-  // Don't re-trigger if the aether panel or old tooltip is already open
-  if (_tabHoverTooltip || document.getElementById('doc-chat-ask-float')) return;
+  if (document.getElementById('doc-chat-ask-float')) return;
   _tabHoverTimeout = setTimeout(() => _showTabTooltip(tabEl), 400);
 }
 
 function _browseTabHoverOut(e) {
   clearTimeout(_tabHoverTimeout);
-  // If mouse moved into the aether panel, don't dismiss
   const panel = document.getElementById('doc-chat-ask-float');
-  if (e && e.relatedTarget && (panel && panel.contains(e.relatedTarget) || _isInsideTooltip(e.relatedTarget))) return;
+  if (e && e.relatedTarget && panel && panel.contains(e.relatedTarget)) return;
   clearTimeout(_tabHoverDismissTimeout);
   _tabHoverDismissTimeout = setTimeout(() => {
-    _dismissTooltip();
-    // Also dismiss the aether panel if it's a tab-anchored panel
     const p = document.getElementById('doc-chat-ask-float');
     if (p && p.classList.contains('tab-context-panel')) p.remove();
   }, 150);
 }
 
-function _showSplitTabPicker(tip, sourceTabId) {
-  const win = _getCurrentWindow();
-  if (!win) return;
-  const menuEl = tip.querySelector('.browse-tab-tooltip-menu');
-  if (!menuEl) return;
-
-  // Build tab list HTML
-  let html = '<div class="browse-split-picker-header">SPLIT WITH TAB</div>';
-  const otherTabs = win.tabs.filter(t => t.id !== sourceTabId);
-  for (const t of otherTabs) {
-    const title = escapeHtml(t.title.length > 40 ? t.title.slice(0, 37) + '...' : t.title);
-    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '<span class="browse-split-picker-dot"></span>';
-    html += `<div class="browse-split-picker-item" data-split-tab-id="${t.id}">${fav} ${title}</div>`;
-  }
-  html += `<div class="browse-split-picker-item browse-split-picker-new">New Tab...</div>`;
-
-  menuEl.innerHTML = html;
-
-  // Keyboard navigation
-  const items = Array.from(menuEl.querySelectorAll('.browse-split-picker-item'));
-  let selectedIdx = 0;
-  if (items.length) items[0].classList.add('selected');
-
-  const select = (idx) => {
-    items.forEach(el => el.classList.remove('selected'));
-    selectedIdx = Math.max(0, Math.min(idx, items.length - 1));
-    if (items[selectedIdx]) {
-      items[selectedIdx].classList.add('selected');
-      items[selectedIdx].scrollIntoView({ block: 'nearest' });
-    }
-  };
-
-  const confirm = () => {
-    const item = items[selectedIdx];
-    if (!item) return;
-    const splitWithId = parseInt(item.dataset.splitTabId);
-    _dismissTooltip();
-    browseSelectTab(sourceTabId);
-    if (!isNaN(splitWithId)) {
-      browseSplitTab(splitWithId, 'right');
-    } else {
-      browseSplitTab(sourceTabId, 'right');
-    }
-  };
-
-  const onKey = (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); select(selectedIdx + 1); }
-    else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); select(selectedIdx - 1); }
-    else if (e.key === 'Enter') { e.preventDefault(); confirm(); document.removeEventListener('keydown', onKey, true); }
-    else if (e.key === 'Escape') { e.preventDefault(); _dismissTooltip(); document.removeEventListener('keydown', onKey, true); }
-  };
-  document.addEventListener('keydown', onKey, true);
-
-  // Store cleanup ref so dismiss removes the listener
-  const origRemove = tip.remove.bind(tip);
-  tip.remove = () => { document.removeEventListener('keydown', onKey, true); origRemove(); };
-
-  // Click handlers
-  items.forEach((item, i) => {
-    item.addEventListener('mouseenter', () => select(i));
-    item.addEventListener('click', (ev) => { ev.stopPropagation(); confirm(); });
-  });
-
-  // Resize and reposition tooltip to fit content (never shrink — prevents mouseleave dismiss)
-  const prevWidth = tip.offsetWidth;
-  tip.style.width = 'auto';
-  tip.style.minWidth = Math.max(200, prevWidth) + 'px';
-  clearTimeout(_tabHoverDismissTimeout);
-  tip.style.maxHeight = (window.innerHeight - tip.getBoundingClientRect().top - 16) + 'px';
-  tip.style.overflowY = 'auto';
-  // Reposition if clipped on the right
-  requestAnimationFrame(() => {
-    const tipRect = tip.getBoundingClientRect();
-    if (tipRect.right > window.innerWidth - 8) {
-      tip.style.left = Math.max(8, window.innerWidth - tipRect.width - 8) + 'px';
-    }
-  });
-}
-
 function _showTabTooltip(tabEl) {
-  _dismissTooltip();
-  // Delegate to the unified aether panel (panel.js)
   if (typeof _showTabContextMenu === 'function') {
     _showTabContextMenu(null, tabEl);
-  }
-}
-
-async function _browseTabAddToAssistant(tabId) {
-  const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
-  const tab = tabs.find(t => t.id === tabId);
-  if (!tab || !tab.url) return;
-
-  // Find or create the popup panel
-  const popup = document.getElementById('doc-chat-ask-float');
-  if (!popup && typeof _showPanel === 'function') {
-    _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
-    await new Promise(r => setTimeout(r, 100));
-  }
-  const panel = document.getElementById('doc-chat-ask-float');
-  if (!panel) return;
-
-  // Fetch page content and add as context
-  try {
-    const resp = await fetch('/api/extract-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tab.url })
-    });
-    const data = await resp.json();
-    if (typeof _addTabContextToPanel === 'function') {
-      _addTabContextToPanel(panel, { tabId: tab.id, title: tab.title, url: tab.url, content: data.text || '' });
-    }
-  } catch (e) {
-    if (typeof _addTabContextToPanel === 'function') {
-      _addTabContextToPanel(panel, { tabId: tab.id, title: tab.title, url: tab.url, content: '' });
-    }
   }
 }
 
@@ -2937,7 +2814,7 @@ function hideBrowseTabOverview() {
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const content = document.getElementById('browse-content');
-  if (tabRow) tabRow.style.display = '';
+  if (tabRow) tabRow.style.display = _pillBrowseMode ? 'none' : '';
   if (bar) bar.style.display = '';
   if (content) content.style.display = '';
   setTimeout(() => { overlay.style.display = 'none'; }, 180);
