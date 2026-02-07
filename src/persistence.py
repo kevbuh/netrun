@@ -245,6 +245,7 @@ def _get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
@@ -378,8 +379,19 @@ def init_db():
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     if 'username' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE)")
         conn.commit()
+    else:
+        # Migration: recreate username index with COLLATE NOCASE for case-insensitive uniqueness
+        idx = conn.execute("PRAGMA index_info(idx_users_username)").fetchone()
+        if idx:
+            idx_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_users_username'"
+            ).fetchone()
+            if idx_sql and 'NOCASE' not in (idx_sql[0] or ''):
+                conn.execute("DROP INDEX idx_users_username")
+                conn.execute("CREATE UNIQUE INDEX idx_users_username ON users(username COLLATE NOCASE)")
+                conn.commit()
     if 'picture' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN picture TEXT")
         conn.commit()
@@ -588,14 +600,6 @@ def set_username(google_id, username):
     """Set username for a user. Returns True on success, False if taken (case-insensitive)."""
     conn = _get_db()
     try:
-        # Check case-insensitive uniqueness (excluding self)
-        row = conn.execute(
-            "SELECT google_id FROM users WHERE lower(username) = ? AND google_id != ?",
-            (username.lower(), google_id)
-        ).fetchone()
-        if row:
-            conn.close()
-            return False
         conn.execute("UPDATE users SET username = ? WHERE google_id = ?", (username, google_id))
         conn.commit()
         return True
