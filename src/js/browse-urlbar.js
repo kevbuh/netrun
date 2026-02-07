@@ -194,7 +194,7 @@ function _browseUrlRenderHistoryCommand(dd, input) {
 
   const rect = input.getBoundingClientRect();
   dd.style.left = rect.left + 'px';
-  dd.style.top = (rect.bottom + 1) + 'px';
+  dd.style.top = (rect.bottom + 2) + 'px';
   dd.style.width = rect.width + 'px';
 
   if (!hist.length) {
@@ -237,10 +237,8 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
 
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
-  const bar = document.getElementById('browse-bar');
-  const barBottom = bar ? bar.getBoundingClientRect().bottom : rect.bottom;
   dd.style.left = rect.left + 'px';
-  dd.style.top = barBottom + 'px';
+  dd.style.top = (rect.bottom + 2) + 'px';
   dd.style.width = rect.width + 'px';
 
   const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';

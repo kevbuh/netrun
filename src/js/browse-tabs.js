@@ -2600,16 +2600,23 @@ function _browseTabHoverIn(e) {
   const tabEl = e.currentTarget;
   clearTimeout(_tabHoverTimeout);
   clearTimeout(_tabHoverDismissTimeout);
-  if (_tabHoverTooltip) return;
+  // Don't re-trigger if the aether panel or old tooltip is already open
+  if (_tabHoverTooltip || document.getElementById('doc-chat-ask-float')) return;
   _tabHoverTimeout = setTimeout(() => _showTabTooltip(tabEl), 400);
 }
 
 function _browseTabHoverOut(e) {
   clearTimeout(_tabHoverTimeout);
-  // If mouse moved into the tooltip, don't dismiss
-  if (e && e.relatedTarget && _isInsideTooltip(e.relatedTarget)) return;
+  // If mouse moved into the aether panel, don't dismiss
+  const panel = document.getElementById('doc-chat-ask-float');
+  if (e && e.relatedTarget && (panel && panel.contains(e.relatedTarget) || _isInsideTooltip(e.relatedTarget))) return;
   clearTimeout(_tabHoverDismissTimeout);
-  _tabHoverDismissTimeout = setTimeout(_dismissTooltip, 150);
+  _tabHoverDismissTimeout = setTimeout(() => {
+    _dismissTooltip();
+    // Also dismiss the aether panel if it's a tab-anchored panel
+    const p = document.getElementById('doc-chat-ask-float');
+    if (p && p.classList.contains('tab-context-panel')) p.remove();
+  }, 150);
 }
 
 function _showSplitTabPicker(tip, sourceTabId) {
@@ -2692,98 +2699,11 @@ function _showSplitTabPicker(tip, sourceTabId) {
 }
 
 function _showTabTooltip(tabEl) {
-  const tabId = parseInt(tabEl.dataset.tabId);
-  if (isNaN(tabId)) return;
-  const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
-  const tab = tabs.find(t => t.id === tabId);
-  if (!tab) return;
-
   _dismissTooltip();
-  const win = _getCurrentWindow();
-  const groups = win ? (win.groups || []) : [];
-  const isPinned = !!tab.pinned;
-  const inGroup = tab.groupId != null;
-
-  // Build menu items
-  let menuHtml = '';
-  menuHtml += `<div class="browse-tab-tooltip-action" data-action="pin">${isPinned ? 'Unpin tab' : 'Pin tab'}</div>`;
-  if (!isPinned) {
-    menuHtml += `<div class="browse-tab-tooltip-action" data-action="new-group">Add to new group</div>`;
-    for (const g of groups) {
-      if (g.id === tab.groupId) continue;
-      const gc = _BROWSE_GROUP_COLOR_MAP[g.color] || g.color;
-      menuHtml += `<div class="browse-tab-tooltip-action" data-action="add-group" data-group-id="${g.id}"><span class="browse-ctx-color-dot" style="background:${gc}"></span>${escapeHtml(g.name)}</div>`;
-    }
-    if (inGroup) {
-      menuHtml += `<div class="browse-tab-tooltip-action" data-action="remove-group">Remove from group</div>`;
-    }
+  // Delegate to the unified aether panel (panel.js)
+  if (typeof _showTabContextMenu === 'function') {
+    _showTabContextMenu(null, tabEl);
   }
-  // Split tab submenu — list other tabs to split with
-  menuHtml += `<div class="browse-tab-tooltip-action" data-action="split">Split tab</div>`;
-  menuHtml += `<div class="browse-tab-tooltip-action" data-action="reload">Reload tab</div>`;
-  menuHtml += `<div class="browse-tab-tooltip-sep"></div>`;
-  menuHtml += `<div class="browse-tab-tooltip-action" data-action="close">Close tab</div>`;
-  menuHtml += `<div class="browse-tab-tooltip-action" data-action="close-others">Close other tabs</div>`;
-
-  const urlLine = tab.url ? `<div class="browse-tab-tooltip-url">${escapeHtml(tab.url.length > 80 ? tab.url.slice(0, 77) + '...' : tab.url)}</div>` : '';
-
-  const tip = document.createElement('div');
-  tip.className = 'browse-tab-tooltip';
-  tip.innerHTML = `
-    ${urlLine}
-    <button class="browse-tab-tooltip-add" data-tab-id="${tabId}">
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-      Add to assistant
-    </button>
-    <div class="browse-tab-tooltip-menu">${menuHtml}</div>`;
-  document.body.appendChild(tip);
-
-  tabEl.classList.add('browse-tab-tooltip-open');
-  const rect = tabEl.getBoundingClientRect();
-  const minW = 200;
-  const tipW = Math.max(rect.width, minW);
-  tip.style.top = (rect.bottom - 1) + 'px';
-  tip.style.width = tipW + 'px';
-  const leftAligned = rect.left;
-  if (leftAligned + tipW <= window.innerWidth) {
-    tip.style.left = leftAligned + 'px';
-  } else {
-    tip.style.left = Math.max(0, rect.right - tipW) + 'px';
-  }
-
-  tip.querySelector('.browse-tab-tooltip-add').addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    _browseTabAddToAssistant(tabId);
-    _dismissTooltip();
-  });
-
-  // Handle menu actions
-  tip.querySelectorAll('.browse-tab-tooltip-action').forEach(item => {
-    item.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const action = item.dataset.action;
-      if (action === 'split') {
-        _showSplitTabPicker(tip, tabId);
-        return;
-      }
-      _dismissTooltip();
-      if (action === 'pin') browseTogglePin(tabId);
-      else if (action === 'new-group') browseAddTabToNewGroup(tabId);
-      else if (action === 'add-group') browseAddTabToGroup(tabId, parseInt(item.dataset.groupId));
-      else if (action === 'remove-group') browseRemoveTabFromGroup(tabId);
-      else if (action === 'reload') { browseSelectTab(tabId); browseReload(); }
-      else if (action === 'close') browseCloseTab(tabId);
-      else if (action === 'close-others') _browseCloseOtherTabs(tabId);
-    });
-  });
-
-  tip.addEventListener('mouseenter', () => { clearTimeout(_tabHoverDismissTimeout); });
-  tip.addEventListener('mouseleave', (ev) => {
-    clearTimeout(_tabHoverDismissTimeout);
-    _tabHoverDismissTimeout = setTimeout(_dismissTooltip, 150);
-  });
-
-  _tabHoverTooltip = tip;
 }
 
 async function _browseTabAddToAssistant(tabId) {
@@ -2992,6 +2912,13 @@ function showBrowseTabOverview() {
   if (!overlay) return;
   _browseTabOverviewVisible = true;
   _overviewSelectedIdx = Math.max(0, _browseWindows.findIndex(w => w.id === _browseActiveWindow));
+  // Hide browser chrome and content
+  const tabRow = document.getElementById('browse-tab-row');
+  const bar = document.getElementById('browse-bar');
+  const content = document.getElementById('browse-content');
+  if (tabRow) tabRow.style.display = 'none';
+  if (bar) bar.style.display = 'none';
+  if (content) content.style.display = 'none';
   _renderWindowOverview();
   overlay.style.display = 'flex';
   _installOverviewKeyHandler();
@@ -3006,6 +2933,13 @@ function hideBrowseTabOverview() {
   _browseTabOverviewVisible = false;
   _removeOverviewKeyHandler();
   overlay.classList.remove('visible');
+  // Restore browser chrome and content
+  const tabRow = document.getElementById('browse-tab-row');
+  const bar = document.getElementById('browse-bar');
+  const content = document.getElementById('browse-content');
+  if (tabRow) tabRow.style.display = '';
+  if (bar) bar.style.display = '';
+  if (content) content.style.display = '';
   setTimeout(() => { overlay.style.display = 'none'; }, 180);
 }
 
@@ -3103,7 +3037,6 @@ function _renderWindowOverview() {
   }).join('');
 
   overlay.innerHTML = `
-    <div class="wov-backdrop" onclick="hideBrowseTabOverview()"></div>
     <div class="wov-container">
       <div class="wov-header">
         <span class="wov-title">Windows</span>

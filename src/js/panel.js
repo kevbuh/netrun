@@ -1927,10 +1927,9 @@ function _addTabContextToPanel(popup, tabInfo) {
 }
 
 function _showTabContextMenu(e, tabEl) {
-  const onclickAttr = tabEl.getAttribute('onclick') || '';
-  const idMatch = onclickAttr.match(/browseSelectTab\((\d+)\)/);
-  if (!idMatch) return;
-  const tabId = parseInt(idMatch[1]);
+  const tid = tabEl.dataset.tabId || (() => { const m = (tabEl.getAttribute('onclick') || '').match(/browseSelectTab\((\d+)\)/); return m ? m[1] : null; })();
+  if (!tid) return;
+  const tabId = parseInt(tid);
   const win = _getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
@@ -1939,6 +1938,9 @@ function _showTabContextMenu(e, tabEl) {
   const isActive = win.activeTab === tabId;
   const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
   const items = [];
+  const isPinned = !!tab.pinned;
+  const inGroup = tab.groupId != null;
+  const groups = win.groups || [];
 
   // Header: title (+ domain for background tabs)
   const headerLabel = (tab.title || 'Tab') + (!isActive && domain ? ' · ' + domain : '');
@@ -1978,32 +1980,45 @@ function _showTabContextMenu(e, tabEl) {
 
   items.push({ sep: true });
 
-  // Close Tab
-  items.push({
-    label: 'Close Tab',
-    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>',
-    fn() { browseCloseTab(tabId); }
-  });
+  // Pin / Unpin
+  items.push({ label: isPinned ? 'Unpin tab' : 'Pin tab', fn() { browseTogglePin(tabId); } });
+
+  // Group management
+  if (!isPinned) {
+    items.push({ label: 'Add to new group', fn() { browseAddTabToNewGroup(tabId); } });
+    for (const g of groups) {
+      if (g.id === tab.groupId) continue;
+      const gc = typeof _BROWSE_GROUP_COLOR_MAP !== 'undefined' ? (_BROWSE_GROUP_COLOR_MAP[g.color] || g.color) : g.color;
+      items.push({ label: g.name, colorDot: gc, fn() { browseAddTabToGroup(tabId, g.id); } });
+    }
+    if (inGroup) {
+      items.push({ label: 'Remove from group', fn() { browseRemoveTabFromGroup(tabId); } });
+    }
+  }
+
+  // Split tab
+  items.push({ label: 'Split tab', fn() { browseSplitTab(tabId, 'right'); } });
+
+  // Reload
+  items.push({ label: 'Reload tab', fn() { browseSelectTab(tabId); browseReload(); } });
 
   // Duplicate Tab
-  items.push({
-    label: 'Duplicate Tab',
-    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>',
-    fn() { browseNewTab(tab.url); }
-  });
+  items.push({ label: 'Duplicate tab', fn() { browseNewTab(tab.url); } });
 
   // Mute/Unmute (only if tab has audio)
   if (_browseAudioTabs.has(tabId)) {
     const audioInfo = _browseAudioTabs.get(tabId);
     const isMuted = audioInfo && audioInfo.muted;
-    items.push({
-      label: isMuted ? 'Unmute Tab' : 'Mute Tab',
-      icon: isMuted
-        ? '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>'
-        : '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>',
-      fn() { toggleTabMute(tabId); }
-    });
+    items.push({ label: isMuted ? 'Unmute tab' : 'Mute tab', fn() { toggleTabMute(tabId); } });
   }
+
+  items.push({ sep: true });
+
+  // Close Tab
+  items.push({ label: 'Close tab', fn() { browseCloseTab(tabId); } });
+
+  // Close other tabs
+  items.push({ label: 'Close other tabs', fn() { _browseCloseOtherTabs(tabId); } });
 
   // Position below the tab, merging seamlessly
   _showPanel({ anchor: { tab: tabEl }, contextMenu: { items } });
@@ -3463,6 +3478,8 @@ function _panelBuildContextItems(popup, config) {
       item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
     } else if (entry.subtext) {
       item.innerHTML = '<span class="doc-aether-ctx-label">' + escapeHtml(entry.label) + '</span><span class="doc-aether-ctx-sub">' + escapeHtml(entry.subtext) + '</span>';
+    } else if (entry.colorDot) {
+      item.innerHTML = '<span class="browse-ctx-color-dot" style="background:' + escapeAttr(entry.colorDot) + '"></span>' + escapeHtml(entry.label);
     } else {
       item.textContent = entry.label;
     }
@@ -4378,7 +4395,7 @@ function _panelPositionAndFocus(popup, config) {
     const tabEl = anchor.tab;
     const tabRect = tabEl.getBoundingClientRect();
     popup.classList.add('tab-context-panel');
-    popup.style.maxWidth = tabRect.width + 'px';
+    popup.style.maxWidth = '';
     popup._tabContextAnchor = { left: tabRect.left, top: tabRect.bottom, tabWidth: tabRect.width };
     let left = tabRect.left;
     const rect = popup.getBoundingClientRect();
@@ -4388,6 +4405,9 @@ function _panelPositionAndFocus(popup, config) {
     popup.style.visibility = '';
     popup._aetherAnchorX = left;
     popup._aetherAnchorY = tabRect.bottom + rect.height;
+    // Keep panel open while mouse is inside (matches hover tooltip behavior)
+    popup.addEventListener('mouseenter', () => { if (typeof _tabHoverDismissTimeout !== 'undefined') clearTimeout(_tabHoverDismissTimeout); });
+    popup.addEventListener('mouseleave', () => { if (typeof _tabHoverDismissTimeout !== 'undefined') { clearTimeout(_tabHoverDismissTimeout); _tabHoverDismissTimeout = setTimeout(() => { if (popup.isConnected) popup.remove(); }, 150); } });
   } else if (isSelectionAnchor) {
     // Selection: above or below selection rect
     const selRect = anchor.selectionRect;
