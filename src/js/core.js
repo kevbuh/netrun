@@ -1072,7 +1072,8 @@ function _wmToggleTiling() {
     _dragStartX = x;
     var steps = Math.round(_dragAccum / STEP);
     var target = _originIdx + steps;
-    target = Math.max(0, Math.min(_icons.length - 1, target));
+    var n = _icons.length;
+    if (n > 0) target = ((target % n) + n) % n;
     _showPreview(target);
   }
   function onUp() {
