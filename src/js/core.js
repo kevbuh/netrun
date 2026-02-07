@@ -64,7 +64,12 @@ document.addEventListener('mouseout', function(e) {
 function _popupSafeBounds() {
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
+  const pillBar = document.getElementById('sidebar-nav');
   let left = 0, top = 0;
+  // Top pill bar
+  if (pillBar && pillBar.offsetParent !== null) {
+    top = Math.max(top, pillBar.getBoundingClientRect().bottom + 4);
+  }
   if (tabRow && tabRow.offsetParent !== null) {
     top = Math.max(top, tabRow.getBoundingClientRect().bottom);
   }
@@ -2187,40 +2192,40 @@ window.addEventListener('keydown', e => {
 
   let dragEl = null;
   let dragGhost = null;
-  let startY = 0;
+  let startX = 0;
   let dragStarted = false;
 
   nav.addEventListener('pointerdown', e => {
     const btn = e.target.closest('.sidebar-draggable');
     if (!btn) return;
     dragEl = btn;
-    startY = e.clientY;
+    startX = e.clientX;
     dragStarted = false;
     dragEl.setPointerCapture(e.pointerId);
   });
 
   nav.addEventListener('pointermove', e => {
     if (!dragEl) return;
-    if (!dragStarted && Math.abs(e.clientY - startY) < 5) return;
+    if (!dragStarted && Math.abs(e.clientX - startX) < 5) return;
     if (!dragStarted) {
       dragStarted = true;
       dragEl.style.opacity = '0.3';
       dragGhost = dragEl.cloneNode(true);
       dragGhost.classList.add('sidebar-drag-ghost');
-      dragGhost.style.cssText = `position:fixed;left:${nav.getBoundingClientRect().left}px;pointer-events:none;z-index:999;opacity:0.9;`;
+      dragGhost.style.cssText = `position:fixed;top:${nav.getBoundingClientRect().top}px;pointer-events:none;z-index:999;opacity:0.9;`;
       document.body.appendChild(dragGhost);
     }
     const rect = nav.getBoundingClientRect();
-    dragGhost.style.top = (e.clientY - 22) + 'px';
-    dragGhost.style.left = rect.left + 'px';
+    dragGhost.style.left = (e.clientX - 17) + 'px';
+    dragGhost.style.top = rect.top + 'px';
 
     // Find drop target
     const btns = getDraggables();
     for (const b of btns) {
       if (b === dragEl) continue;
       const r = b.getBoundingClientRect();
-      const mid = r.top + r.height / 2;
-      if (e.clientY < mid) {
+      const mid = r.left + r.width / 2;
+      if (e.clientX < mid) {
         nav.insertBefore(dragEl, b);
         return;
       }

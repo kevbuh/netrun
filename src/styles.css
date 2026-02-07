@@ -476,10 +476,10 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* ── Bottom Pill Bar ── */
+    /* ── Top Pill Bar ── */
     .pill-bar {
       position: fixed;
-      bottom: 16px;
+      top: 6px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
@@ -493,6 +493,10 @@
       border-radius: 100px;
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+    /* Electron: shift right to avoid macOS traffic lights */
+    body.electron-app .pill-bar {
+      left: calc(50% + 36px);
     }
 
     .pill-separator {
@@ -6387,9 +6391,10 @@
     .bottom-terminal-panel {
       position: fixed;
       bottom: 0;
-      left: 76px;
-      right: 0;
+      left: 6px;
+      right: 6px;
       height: 280px;
+      border-radius: 0 0 12px 12px;
       background: #0d0d0d;
       border-top: 1px solid var(--border-sidebar);
       z-index: 1000;

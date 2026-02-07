@@ -114,7 +114,7 @@
 <body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] text-primary min-h-screen" style="background:#000;">
 
   <!-- App Bezel — rounded container for all app content -->
-  <div id="app-bezel" class="bg-body" style="position:fixed;inset:6px;border-radius:12px;overflow-x:hidden;overflow-y:auto;transform:translateZ(0);">
+  <div id="app-bezel" class="bg-body" style="position:fixed;inset:54px 6px 6px 6px;border-radius:12px;overflow-x:hidden;overflow-y:auto;transform:translateZ(0);">
 
   <!-- Download App Banner (Web Only) -->
   <div id="download-app-banner" class="hidden fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-accent/90 to-accent text-white shadow-lg backdrop-blur-sm">
@@ -440,7 +440,7 @@
     <div id="wm-tiling-overlay" style="display:none"></div>
   </div><!-- /app-bezel -->
 
-  <!-- Bottom Pill Bar (outside bezel so it's not trapped by transform) -->
+  <!-- Top Pill Bar (outside bezel so it's not trapped by transform) -->
   <nav id="sidebar-nav" class="pill-bar">
     <button class="sidebar-icon active" id="sb-dashboard" onclick="wmOpen('dashboard')" title="Home">
       <span class="pill-label" style="font-family:Georgia,serif;font-weight:bold">æ</span>
@@ -485,7 +485,7 @@
     </div>
     <div class="relative" id="sb-user-wrap" style="display:none;">
       <button class="sidebar-icon" id="sb-user-avatar" onclick="_toggleUserMenu()"></button>
-      <div id="user-menu-popover" style="display:none;position:absolute;bottom:48px;left:50%;transform:translateX(-50%);min-width:200px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:10px;padding:6px 0;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.25);"></div>
+      <div id="user-menu-popover" style="display:none;position:absolute;top:48px;left:50%;transform:translateX(-50%);min-width:200px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:10px;padding:6px 0;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.25);"></div>
     </div>
   </nav>
 

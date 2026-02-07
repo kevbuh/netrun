@@ -32,7 +32,7 @@ npm run server
 
 ## Architecture
 
-Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Flask backend, Electron shell. **Optimized for running in the browser** (not Electron) — always prioritize the web browser experience when making decisions about navigation, tabs, popups, and link handling.
+Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Flask backend, Electron shell with a built-in custom browser. This is a **desktop app**, not a web app — Electron is the primary runtime. Memory efficiency matters because the user runs multiple local LLMs (via Ollama) alongside the app. Minimize RAM usage in both the Python server and the renderer process.
 
 ### Backend — Flask app in `src/`
 

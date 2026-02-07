@@ -707,9 +707,11 @@
     document.addEventListener('mouseup', onDragEnd);
   }
 
-  function _isOverSidebar(x) {
+  function _isOverSidebar(x, y) {
     const nav = document.getElementById('sidebar-nav');
-    return nav && x < nav.offsetWidth + 5;
+    if (!nav) return false;
+    const r = nav.getBoundingClientRect();
+    return x >= r.left - 5 && x <= r.right + 5 && y >= r.top - 5 && y <= r.bottom + 5;
   }
 
   function _showSidebarDropHint(show) {
@@ -726,7 +728,7 @@
     // Allow dragging into sidebar zone
     petX = Math.max(0, Math.min(window.innerWidth - 60, petX));
     petY = Math.max(20, Math.min(window.innerHeight - 60, petY));
-    _showSidebarDropHint(_isOverSidebar(e.clientX));
+    _showSidebarDropHint(_isOverSidebar(e.clientX, e.clientY));
   }
 
   function onDragEnd(e) {
@@ -739,7 +741,7 @@
     document.removeEventListener('mouseup', onDragEnd);
 
     // Dropped on sidebar → switch to sidebar mode
-    if (_isOverSidebar(e.clientX)) {
+    if (_isOverSidebar(e.clientX, e.clientY)) {
       window.setPixelPetMode('sidebar');
       return;
     }
@@ -791,7 +793,7 @@
     const dy = e.clientY - _sbDragStartY;
 
     // If dragged horizontally outside sidebar → switch to pull-out (free float) mode
-    if (!_sbDragFloating && !_sbDragReordering && Math.abs(dx) > 30 && !_isOverSidebar(e.clientX)) {
+    if (!_sbDragFloating && !_sbDragReordering && Math.abs(dy) > 30 && !_isOverSidebar(e.clientX, e.clientY)) {
       _sbDragFloating = true;
       _dragging = true;
       if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
@@ -824,7 +826,7 @@
       _dragging = false;
       _sbDragFloating = false;
       // Dropped outside sidebar → switch to free mode
-      if (!_isOverSidebar(e.clientX)) {
+      if (!_isOverSidebar(e.clientX, e.clientY)) {
         if (sbEl) sbEl.style.visibility = '';
         petX = Math.max(70, Math.min(window.innerWidth - 60, petX));
         petY = Math.max(20, Math.min(window.innerHeight - 60, petY));
