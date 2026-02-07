@@ -30,15 +30,15 @@
       height: 28px;
       border: none;
       background: transparent;
-      color: rgba(255,255,255,0.35);
+      color: #fff;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: 6px;
-      transition: color 0.15s;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    #global-overview-btn:hover { color: rgba(255,255,255,0.7); }
+    #global-overview-btn:hover { color: #fff; transform: scale(1.4); }
     /* Electron: pill bar is not draggable */
     body.electron-app #sidebar-nav {
       -webkit-app-region: no-drag;
@@ -562,7 +562,7 @@
       max-width: none;
       background: rgba(0, 0, 0, 0.15);
       border-radius: 0 0 12px 12px;
-      padding: 3px 8px;
+      padding: 3px 40px 3px 8px;
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }
@@ -645,7 +645,7 @@
       max-width: 200px;
       padding: 2px 6px;
       border-radius: 6px;
-      flex: 0 1 auto;
+      flex: 1 1 0;
     }
     #pill-browse-tabs .browse-tab.active {
       background: var(--bg-body);
@@ -688,8 +688,7 @@
 
     /* Pill toolbar buttons — hidden by default, visible in browse mode */
     #pill-newtab-btn,
-    #pill-newwin-btn,
-    #pill-overview-btn {
+    #pill-newwin-btn {
       max-width: 0;
       opacity: 0;
       overflow: hidden;
@@ -699,15 +698,10 @@
                   padding 0.3s ease;
     }
     .browse-mode #pill-newtab-btn,
-    .browse-mode #pill-newwin-btn,
-    .browse-mode #pill-overview-btn {
+    .browse-mode #pill-newwin-btn {
       max-width: 28px;
       opacity: 1;
       padding: 0;
-    }
-    /* Push overview button to far right */
-    .browse-mode #pill-overview-btn {
-      margin-left: auto;
     }
 
     /* Light theme overrides for browse mode */
@@ -6331,6 +6325,7 @@
     .dev-git-log-item:nth-child(odd) { background: rgba(255,255,255,0.02); }
     .dev-git-log-sha { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.68rem; color: var(--accent); flex-shrink: 0; }
     .dev-git-log-msg { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .dev-git-log-diff { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
     .dev-git-log-meta { color: var(--text-dimmer); font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
 
     /* Vibe Panel (lazygit-style + split terminals) */

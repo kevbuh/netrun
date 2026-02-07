@@ -960,9 +960,11 @@ async function renderDevStats() {
       <div class="dev-git-log-list">${log.map(c => {
         const d = new Date(c.date);
         const relative = _devRelativeTime(d);
+        const diffStr = (c.ins || c.del) ? `<span class="dev-git-log-diff"><span style="color:#3fb950">+${c.ins}</span> <span style="color:#f85149">-${c.del}</span></span>` : '';
         return `<div class="dev-git-log-item">
           <span class="dev-git-log-sha">${c.sha}</span>
           <span class="dev-git-log-msg">${escapeHtml(c.message)}</span>
+          ${diffStr}
           <span class="dev-git-log-meta">${relative}</span>
         </div>`;
       }).join('')}</div>`;

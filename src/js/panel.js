@@ -1727,7 +1727,7 @@ function _injectIframeChatHandler(iframe) {
           linkText: linkEl ? (linkEl.textContent || '').trim() : '',
           imgUrl: imgEl ? imgEl.src : ''
         } : null;
-        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu, trackCursor: true });
+        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu, trackCursor: !contextMenu });
       });
 
       // Text selection → selection popup

@@ -827,6 +827,14 @@ function _browseUrlHideHistory() {
   _browseUrlHistIdx = -1;
 }
 
+document.addEventListener('mousedown', (e) => {
+  const dd = document.getElementById('browse-url-history-dd');
+  if (!dd || dd.style.display === 'none') return;
+  const input = document.getElementById('browse-url-input');
+  if ((input && input.contains(e.target)) || dd.contains(e.target)) return;
+  _browseUrlHideHistory();
+});
+
 // ── Web Search History ──
 
 function _getWebSearchHistory() {

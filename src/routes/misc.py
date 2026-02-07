@@ -77,7 +77,7 @@ def dev_stats():
         commits_today = 0
         git_root = os.path.dirname(DIR)
         try:
-            today = time.strftime('%Y-%m-%d')
+            today = time.strftime('%Y-%m-%dT00:00:00')
             result = subprocess.run(['git', 'rev-list', '--count', '--since=' + today, 'HEAD'],
                                     capture_output=True, text=True, cwd=git_root)
             commits_today = int(result.stdout.strip()) if result.returncode == 0 else 0
@@ -155,15 +155,25 @@ def dev_stats():
         try:
             sep = '\x1f'
             r = subprocess.run(
-                ['git', 'log', '-20', f'--format=%H{sep}%an{sep}%ad{sep}%s', '--date=iso'],
+                ['git', 'log', '-20', f'--format=COMMIT{sep}%H{sep}%an{sep}%ad{sep}%s', '--date=iso', '--shortstat'],
                 capture_output=True, text=True, cwd=git_root, timeout=10)
             if r.returncode == 0:
-                for line in r.stdout.strip().split('\n'):
-                    if not line.strip():
+                current = None
+                for line in r.stdout.split('\n'):
+                    line = line.strip()
+                    if not line:
                         continue
-                    parts = line.split(sep, 3)
-                    if len(parts) == 4:
-                        git_log.append({'sha': parts[0][:8], 'author': parts[1], 'date': parts[2], 'message': parts[3]})
+                    if line.startswith('COMMIT' + sep):
+                        parts = line.split(sep, 4)
+                        if len(parts) == 5:
+                            current = {'sha': parts[1][:8], 'author': parts[2], 'date': parts[3], 'message': parts[4], 'ins': 0, 'del': 0}
+                            git_log.append(current)
+                    elif current and 'changed' in line:
+                        m_ins = re.search(r'(\d+) insertion', line)
+                        m_del = re.search(r'(\d+) deletion', line)
+                        current['ins'] = int(m_ins.group(1)) if m_ins else 0
+                        current['del'] = int(m_del.group(1)) if m_del else 0
+                        current = None
         except Exception:
             pass
         commits_per_day = []
