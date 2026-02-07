@@ -1662,6 +1662,28 @@
       border-radius: 6px;
       flex-shrink: 0;
     }
+    .wov-card-close {
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      color: var(--text-dimmest);
+      font-size: 1.1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.1s, background 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .wov-card:hover .wov-card-close,
+    .wov-card.wov-selected .wov-card-close { opacity: 1; }
+    .wov-card-close:hover {
+      background: rgba(220,50,50,0.15);
+      color: #dc3232;
+    }
     .wov-card-subtitle {
       font-size: 0.68rem;
       color: var(--text-dimmer);

@@ -3094,6 +3094,7 @@ function _renderWindowOverview() {
         <div class="wov-card-header">
           <span class="wov-card-name">${escapeHtml(win.name)}</span>
           <span class="wov-card-count">${win.tabs.length} tab${win.tabs.length !== 1 ? 's' : ''}</span>
+          ${_browseWindows.length > 1 ? `<button class="wov-card-close" onclick="event.stopPropagation();_overviewCloseWindow(${win.id})" title="Close window">&times;</button>` : ''}
         </div>
         ${subtitle ? `<div class="wov-card-subtitle">${escapeHtml(subtitle)}</div>` : ''}
         <div class="wov-tab-list">${previews}${moreLabel}</div>
@@ -3116,6 +3117,13 @@ function _renderWindowOverview() {
 function _overviewClickWindow(windowId) {
   browseSelectWindow(windowId);
   hideBrowseTabOverview();
+}
+
+function _overviewCloseWindow(windowId) {
+  browseCloseWindow(windowId);
+  _overviewSelectedIdx = Math.min(_overviewSelectedIdx, _browseWindows.length - 1);
+  if (_browseWindows.length === 0) { hideBrowseTabOverview(); return; }
+  _renderWindowOverview();
 }
 
 // Keyboard shortcut for window overview (Cmd+Shift+\)
