@@ -1,50 +1,14 @@
 {
-  "name": "aether",
+  "name": "alpha",
   "version": "1.0.0",
-  "description": "Aether — feed reader, paper browser, and experiment tracker",
+  "private": true,
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "build-python": "pyinstaller --noconfirm --distpath dist --name arxiv-server src/server.py",
-    "dist": "electron-builder --mac"
+    "server": "python3 src/app.py"
   },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
-  },
-  "build": {
-    "appId": "com.aether.app",
-    "productName": "Aether",
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": "dmg",
-      "icon": "build-resources/aether.icns",
-      "entitlements": "build-resources/entitlements.mac.plist",
-      "entitlementsInherit": "build-resources/entitlements.mac.plist"
-    },
-    "extraResources": [
-      {
-        "from": "dist/arxiv-server",
-        "to": "arxiv-server",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "src",
-        "to": "src",
-        "filter": [
-          "**/*",
-          "!experiments/**",
-          "!*.db",
-          "!.pdf-cache/**",
-          "!saved_content/**",
-          "!quality_prompt.txt",
-          "!blocked_titles.json"
-        ]
-      }
-    ],
-    "files": [
-      "electron/**/*",
-      "!node_modules/**/*"
-    ]
   }
 }

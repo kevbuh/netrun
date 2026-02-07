@@ -330,3 +330,101 @@ def _run_terminal(conn, addr, initial_data=b"", cwd=None):
         except OSError:
             pass
         print(f"[terminal] {addr} cleaned up", file=sys.stderr, flush=True)
+
+
+def handle_websocket_flask(ws, cwd=None):
+    """Bridge a flask-sock WebSocket to a pty shell.
+
+    flask-sock handles all WebSocket framing — we just use ws.send/ws.receive.
+    """
+    print(f"[terminal] flask session started cwd={cwd}", file=sys.stderr, flush=True)
+
+    shell = os.environ.get("SHELL", "/bin/zsh")
+    master_fd, slave_fd = pty.openpty()
+
+    try:
+        proc = subprocess.Popen(
+            [shell, "-l"],
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            preexec_fn=os.setsid,
+            env={**os.environ, "TERM": "xterm-256color"},
+            cwd=cwd,
+        )
+    except Exception as e:
+        print(f"[terminal] flask Popen failed: {e}", file=sys.stderr, flush=True)
+        os.close(master_fd)
+        os.close(slave_fd)
+        return
+    os.close(slave_fd)
+    print(f"[terminal] flask shell pid={proc.pid}", file=sys.stderr, flush=True)
+
+    running = True
+
+    def pty_reader():
+        """Read from pty master and send to WebSocket."""
+        nonlocal running
+        try:
+            while running:
+                try:
+                    r, _, _ = select.select([master_fd], [], [], 0.5)
+                except (ValueError, OSError):
+                    break
+                if not r:
+                    continue
+                try:
+                    data = os.read(master_fd, 16384)
+                except OSError:
+                    break
+                if not data:
+                    break
+                try:
+                    ws.send(data)
+                except Exception:
+                    break
+        except Exception as e:
+            print(f"[terminal] flask pty_reader ended: {e}", file=sys.stderr, flush=True)
+        finally:
+            running = False
+
+    reader_thread = threading.Thread(target=pty_reader, daemon=True)
+    reader_thread.start()
+
+    try:
+        while running:
+            try:
+                msg = ws.receive(timeout=1)
+            except Exception:
+                break
+            if msg is None:
+                break
+            if isinstance(msg, str):
+                if msg.startswith('{"type":"resize"'):
+                    try:
+                        parsed = json.loads(msg)
+                        cols = int(parsed.get("cols", 80))
+                        rows = int(parsed.get("rows", 24))
+                        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                        fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
+                    except Exception:
+                        pass
+                else:
+                    os.write(master_fd, msg.encode())
+            elif isinstance(msg, bytes):
+                os.write(master_fd, msg)
+    except Exception as e:
+        print(f"[terminal] flask session ended: {e}", file=sys.stderr, flush=True)
+    finally:
+        running = False
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+        try:
+            os.kill(proc.pid, signal.SIGHUP)
+        except Exception:
+            pass
+        proc.wait()
+        reader_thread.join(timeout=2)
+        print(f"[terminal] flask session cleaned up", file=sys.stderr, flush=True)

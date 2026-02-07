@@ -81,7 +81,7 @@ function tryStartPythonServer(port) {
   if (isDev) {
     cmd = 'python3';
     args = [
-      path.join(__dirname, '..', 'src', 'server.py'),
+      path.join(__dirname, '..', 'src', 'app.py'),
       '--port', String(port),
       '--data-dir', dataDir,
       '--static-dir', staticDir,
