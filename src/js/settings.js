@@ -87,6 +87,26 @@ function _renderAppearanceSettings() {
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Aether</span>
+        <div class="flex gap-2">
+          ${[
+            { color: '#000000', name: 'Black' },
+            { color: '#0a0a0a', name: 'Charcoal' },
+            { color: '#111111', name: 'Dark Gray' },
+            { color: '#1a1a2e', name: 'Midnight' },
+            { color: '#0d1117', name: 'GitHub Dark' },
+            { color: '#1e1e2e', name: 'Catppuccin' },
+            { color: '#2d1b00', name: 'Espresso' },
+            { color: '#0b1215', name: 'Deep Ocean' },
+            { color: '#1a0a2e', name: 'Grape' },
+          ].map(a => {
+            const cur = localStorage.getItem('aetherColor') || '#000';
+            const sel = cur === a.color || (a.color === '#000000' && (cur === '#000' || !localStorage.getItem('aetherColor')));
+            return '<button onclick="setAetherColor(\'' + a.color + '\')" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ' + (sel ? 'scale-110 ring-2 ring-offset-2' : '') + '" style="background:' + a.color + '; border: 1px solid rgba(255,255,255,0.15);' + (sel ? '--tw-ring-color:var(--accent); --tw-ring-offset-color: var(--bg-body)' : '') + '" title="' + a.name + '"></button>';
+          }).join('')}
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Editor Theme</span>
         <div class="flex gap-1.5" id="editor-theme-btns">
           ${['auto','monokai','dracula','solarized','github','nord'].map(t => {
@@ -967,6 +987,12 @@ function applyAccentColor(color) {
   document.documentElement.style.setProperty('--accent-hover', hover);
 }
 
+function setAetherColor(color) {
+  localStorage.setItem('aetherColor', color);
+  document.documentElement.style.setProperty('--aether-bg', color);
+  renderSettingsView();
+}
+
 function applyStoredAppearance() {
   const theme = localStorage.getItem('theme') || 'light';
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
@@ -977,6 +1003,8 @@ function applyStoredAppearance() {
   if (accent) applyAccentColor(accent);
   const edTheme = localStorage.getItem('editorTheme');
   if (edTheme && edTheme !== 'auto') document.documentElement.setAttribute('data-editor-theme', edTheme);
+  const aether = localStorage.getItem('aetherColor');
+  if (aether) document.documentElement.style.setProperty('--aether-bg', aether);
 }
 
 applyStoredAppearance();

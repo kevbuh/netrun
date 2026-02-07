@@ -251,6 +251,8 @@ function getPapersNeedingVerdict() {
 let _qfRunning = false;
 let _qfQueued = false;
 let _qfAborted = false;
+let _qfRemaining = 0;
+let _qfPhase = ''; // 'verdict' or 'score'
 
 function stopFeedLoading() {
   // Abort in-flight feed fetches
@@ -274,6 +276,9 @@ async function _qualityFilterPapersInner() {
   // Phase 1: verdict (KEEP/SKIP) for papers needing it
   const needVerdict = getPapersNeedingVerdict().map(p => p.title);
   if (needVerdict.length) {
+    _qfPhase = 'verdict';
+    _qfRemaining = needVerdict.length;
+    _updateQfProgress();
     for (let i = 0; i < needVerdict.length; i += 10) {
       if (_qfAborted) return;
       const batch = needVerdict.slice(i, i + 10);
@@ -291,6 +296,8 @@ async function _qualityFilterPapersInner() {
           updated[title] = { v };
         }
         saveQualityCacheData(updated);
+        _qfRemaining = Math.max(0, needVerdict.length - i - batch.length);
+        _updateQfProgress();
         renderPapers();
       } catch { /* Ollama may be offline */ }
     }
@@ -302,6 +309,9 @@ async function _qualityFilterPapersInner() {
     .filter(p => cache[p.title]?.v === 'keep' && cache[p.title]?.s == null)
     .map(p => p.title);
   if (needScore.length) {
+    _qfPhase = 'score';
+    _qfRemaining = needScore.length;
+    _updateQfProgress();
     for (let i = 0; i < needScore.length; i += 10) {
       if (_qfAborted) return;
       const batch = needScore.slice(i, i + 10);
@@ -319,8 +329,25 @@ async function _qualityFilterPapersInner() {
           if (updated[title]) updated[title].s = s;
         }
         saveQualityCacheData(updated);
+        _qfRemaining = Math.max(0, needScore.length - i - batch.length);
+        _updateQfProgress();
         renderPapers();
       } catch { /* Ollama may be offline */ }
     }
+  }
+  _qfPhase = '';
+  _qfRemaining = 0;
+  _updateQfProgress();
+}
+
+function _updateQfProgress() {
+  // Update the inline progress indicator in the quality panel popup
+  const el = document.getElementById('qf-progress');
+  if (!el) return;
+  if (_qfRunning && _qfRemaining > 0) {
+    const label = _qfPhase === 'verdict' ? 'Filtering' : 'Scoring';
+    el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-accent text-[0.65rem]"><span class="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>${label} ${_qfRemaining}</span>`;
+  } else {
+    el.innerHTML = '';
   }
 }

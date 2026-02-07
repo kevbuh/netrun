@@ -1007,6 +1007,7 @@ function toggleQualityPanel() {
     panel.style.display = '';
     btn?.classList.add('border-accent', 'text-accent');
     renderQualityPanel();
+    _updateQfProgress();
     setTimeout(() => document.addEventListener('click', _qualityPanelOutsideClick), 0);
   }
 }
@@ -1034,7 +1035,11 @@ function renderQualityPanel() {
 
   panel.innerHTML = `
     <div class="flex items-center justify-between mb-2.5">
-      <span class="text-primary text-[0.78rem] font-medium">Quality Filter</span>
+      <div class="flex items-center gap-2">
+        <span class="text-primary text-[0.78rem] font-medium">Quality Filter</span>
+        <span class="text-dimmer text-[0.62rem]">qwen3:8b</span>
+        <span id="qf-progress"></span>
+      </div>
       <label class="flex items-center gap-1.5 cursor-pointer">
         <span class="text-dim text-[0.7rem]">${isQualityFilterOn() ? 'On' : 'Off'}</span>
         <span class="toggle-switch" style="transform:scale(0.8)">

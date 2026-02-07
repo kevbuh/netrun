@@ -32,10 +32,10 @@ let _nlValError = null;
 let _nlInferPending = false; // prevent overlapping inference requests
 
 // ── A/B Testing: Calibration Strategy Comparison (CNN only) ──
-let _nlActiveMethod = 'cnn_full';
+let _nlActiveMethod = 'cnn_tracking';
 let _nlAvailableMethods = [
   { key: 'cnn_fixed', name: 'Fixed Grid', trained: false, trainError: null, valError: null },
-  { key: 'cnn_full', name: 'Fixed + Tracking', trained: false, trainError: null, valError: null },
+  { key: 'cnn_tracking', name: 'Tracking', trained: false, trainError: null, valError: null },
 ];
 let _nlCalibSaved = false;
 
@@ -1593,10 +1593,10 @@ async function _nlOnCalibrationComplete() {
       _nlAppendTrainLog(logLine);
     }, 'cnn_fixed', 'fixed');
 
-    // Now train cnn_full (all samples)
-    _nlTrainLogs.push('── Training Fixed + Tracking (all samples) ──');
-    _nlAppendTrainLog('── Training Fixed + Tracking (all samples) ──');
-    _nlUpdateTrainPill('Training Fixed + Tracking', 'Starting...');
+    // Now train cnn_tracking (tracking samples only)
+    _nlTrainLogs.push('── Training Tracking (tracking samples only) ──');
+    _nlAppendTrainLog('── Training Tracking (tracking samples only) ──');
+    _nlUpdateTrainPill('Training Tracking', 'Starting...');
     _nlTrainStartTime = Date.now();
     _nlTrainLossHistory = [];
 
@@ -1605,23 +1605,23 @@ async function _nlOnCalibrationComplete() {
       _nlTrainPhase = prog.phase || 'training';
       if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
       if (prog.phase === 'evaluating') {
-        _nlUpdateTrainPill('Training Fixed + Tracking', 'Evaluating...');
+        _nlUpdateTrainPill('Training Tracking', 'Evaluating...');
       } else {
         const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
         const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
         const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-        _nlUpdateTrainPill('Training Fixed + Tracking', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+        _nlUpdateTrainPill('Training Tracking', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       }
       _nlRefreshTrainView();
     }, (logLine) => {
       _nlTrainLogs.push(logLine);
       _nlAppendTrainLog(logLine);
-    }, 'cnn_full');
+    }, 'cnn_tracking', 'tracking');
 
     _nlTrainResult = fullResult;
     _nlTrainPhase = 'done';
     _nlTraining = false;
-    _nlActiveMethod = 'cnn_full';
+    _nlActiveMethod = 'cnn_tracking';
     const trainPx = fullResult.train_error_px;
     const valPx = fullResult.val_error_px;
     const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
@@ -1629,7 +1629,7 @@ async function _nlOnCalibrationComplete() {
     _nlReady = true;
     _nlPersistMethodState();
     const fixedPx = fixedResult.val_error_px;
-    _nlFinishTrainPill('Calibration Done', `Fixed ${fixedPx}px · Full ${valPx}px — ${label}`, color);
+    _nlFinishTrainPill('Calibration Done', `Fixed ${fixedPx}px · Tracking ${valPx}px — ${label}`, color);
     _nlRefreshTrainView();
     renderNeuralookView();
   } catch (e) {
@@ -1645,9 +1645,9 @@ async function _nlOnCalibrationComplete() {
 // ── Method Selector: Train & Switch ──
 
 async function _nlTrainMethod(methodKey) {
-  // CNN-only: cnn_fixed uses fixed-grid samples, cnn_full uses all samples
+  // CNN-only: cnn_fixed uses fixed-grid samples, cnn_tracking uses tracking samples
   if (!_nlCalibSaved && _nlCalibData.length === 0) { alert('No calibration data. Please calibrate first.'); return; }
-  const sampleFilter = methodKey === 'cnn_fixed' ? 'fixed' : undefined;
+  const sampleFilter = methodKey === 'cnn_fixed' ? 'fixed' : 'tracking';
 
   _nlTraining = true;
   _nlTrainPhase = 'training';
