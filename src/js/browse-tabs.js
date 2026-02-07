@@ -2774,10 +2774,20 @@ function _tabDragEnd(e) {
 
 let _browseTabOverviewVisible = false;
 let _overviewSelectedIdx = 0;
-let _overviewSection = 'app'; // 'app' or 'browse'
 let _overviewKeyHandler = null;
 
-// SVG icons for app window cards (keyed by _wmViewMeta keys)
+// Build flat ordered list: app windows first (in _wmWindows order), then browse windows
+function _overviewItems() {
+  var items = _wmWindows.map(function(w, i) {
+    return { type: 'app', key: w.key, label: w.label, wmIndex: i };
+  });
+  _browseWindows.forEach(function(win) {
+    items.push({ type: 'browse', windowId: win.id, win: win });
+  });
+  return items;
+}
+
+// SVG icons for app window cards
 const _wovAppIcons = {
   dashboard: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>',
   feed: '<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>',
@@ -2802,8 +2812,7 @@ function showBrowseTabOverview() {
   if (!overlay) return;
   _browseTabOverviewVisible = true;
   // Start with the currently focused app window selected
-  _overviewSection = 'app';
-  _overviewSelectedIdx = Math.max(0, _wmFocusIndex);
+  _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
   _renderWindowOverview();
   overlay.style.display = 'flex';
   _installOverviewKeyHandler();
@@ -2825,60 +2834,33 @@ function _installOverviewKeyHandler() {
   if (_overviewKeyHandler) return;
   _overviewKeyHandler = (e) => {
     if (!_browseTabOverviewVisible) return;
-    const appCount = _wmWindows.length;
-    const browseCount = _browseWindows.length;
+    const items = _overviewItems();
+    const total = items.length;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      if (_overviewSection === 'app' && _overviewSelectedIdx > 0) {
-        _overviewSelectedIdx--;
-      } else if (_overviewSection === 'browse') {
-        // jump to app strip
-        _overviewSection = 'app';
-        _overviewSelectedIdx = Math.min(_wmFocusIndex, appCount - 1);
-      }
+      if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
       _updateOverviewHighlight();
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      if (_overviewSection === 'app' && _overviewSelectedIdx < appCount - 1) {
-        _overviewSelectedIdx++;
-      }
-      _updateOverviewHighlight();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (_overviewSection === 'app' && browseCount > 0) {
-        _overviewSection = 'browse';
-        _overviewSelectedIdx = Math.max(0, _browseWindows.findIndex(w => w.id === _browseActiveWindow));
-      } else if (_overviewSection === 'browse' && _overviewSelectedIdx < browseCount - 1) {
-        _overviewSelectedIdx++;
-      }
-      _updateOverviewHighlight();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (_overviewSection === 'browse' && _overviewSelectedIdx > 0) {
-        _overviewSelectedIdx--;
-      } else if (_overviewSection === 'browse' && _overviewSelectedIdx === 0 && appCount > 0) {
-        _overviewSection = 'app';
-        _overviewSelectedIdx = Math.min(_wmFocusIndex, appCount - 1);
-      }
+      if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (_overviewSection === 'app') {
-        const w = _wmWindows[_overviewSelectedIdx];
-        if (w) { wmOpen(w.key); hideBrowseTabOverview(); }
-      } else {
-        const win = _browseWindows[_overviewSelectedIdx];
-        if (win) { browseSelectWindow(win.id); hideBrowseTabOverview(); }
-      }
+      var item = items[_overviewSelectedIdx];
+      if (!item) return;
+      if (item.type === 'app') wmOpen(item.key);
+      else browseSelectWindow(item.windowId);
+      hideBrowseTabOverview();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       hideBrowseTabOverview();
-    } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewSection === 'browse') {
-      e.preventDefault();
-      const win = _browseWindows[_overviewSelectedIdx];
-      if (win && _browseWindows.length > 1) {
-        browseCloseWindow(win.id);
-        _overviewSelectedIdx = Math.min(_overviewSelectedIdx, _browseWindows.length - 1);
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      var delItem = items[_overviewSelectedIdx];
+      if (delItem && delItem.type === 'browse' && _browseWindows.length > 1) {
+        e.preventDefault();
+        browseCloseWindow(delItem.windowId);
+        var newItems = _overviewItems();
+        if (_overviewSelectedIdx >= newItems.length) _overviewSelectedIdx = newItems.length - 1;
         _renderWindowOverview();
       }
     }
@@ -2896,80 +2878,57 @@ function _removeOverviewKeyHandler() {
 function _updateOverviewHighlight() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
-  // App cards
-  overlay.querySelectorAll('.wov-app-card').forEach((card, i) => {
-    card.classList.toggle('wov-selected', _overviewSection === 'app' && i === _overviewSelectedIdx);
+  overlay.querySelectorAll('.wov-card').forEach((card, i) => {
+    card.classList.toggle('wov-selected', i === _overviewSelectedIdx);
   });
-  // Browse cards
-  overlay.querySelectorAll('.wov-browse-card').forEach((card, i) => {
-    card.classList.toggle('wov-selected', _overviewSection === 'browse' && i === _overviewSelectedIdx);
-  });
-  const sel = overlay.querySelector('.wov-selected');
-  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const sel = overlay.querySelector('.wov-card.wov-selected');
+  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 }
 
 function _renderWindowOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
 
-  // App windows strip
-  const appCards = _wmWindows.map((w, i) => {
-    const isActive = i === _wmFocusIndex;
-    const isSelected = _overviewSection === 'app' && i === _overviewSelectedIdx;
-    const icon = _wovAppIcons[w.key] || '';
-    return `<div class="wov-app-card ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
-                 onclick="_overviewClickApp('${w.key}')">${icon}<span class="wov-app-label">${escapeHtml(w.label)}</span></div>`;
-  }).join('');
+  const items = _overviewItems();
+  const cards = items.map((item, i) => {
+    const isSelected = i === _overviewSelectedIdx;
 
-  // Browse window cards
-  const browseCards = _browseWindows.map((win, i) => {
+    if (item.type === 'app') {
+      const isActive = item.wmIndex === _wmFocusIndex;
+      const icon = _wovAppIcons[item.key] || '';
+      return `<div class="wov-card wov-card-app ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
+                   onclick="_overviewClickApp('${item.key}')">
+        <div class="wov-card-icon">${icon}</div>
+        <span class="wov-card-name">${escapeHtml(item.label)}</span>
+      </div>`;
+    }
+
+    // Browse window card
+    const win = item.win;
     const isActive = win.id === _browseActiveWindow;
-    const isSelected = _overviewSection === 'browse' && i === _overviewSelectedIdx;
     const activeTab = win.tabs.find(t => t.id === win.activeTab);
-
-    const previews = win.tabs.slice(0, 4).map(t => {
-      const fav = t.favicon
-        ? `<img src="${escapeHtml(t.favicon)}" class="wov-tab-fav" onerror="this.style.display='none'">`
-        : '';
-      const title = escapeHtml(t.title || 'New Tab');
-      return `<div class="wov-tab-row">${fav}<span class="wov-tab-title">${title}</span></div>`;
-    }).join('');
-    const moreCount = win.tabs.length - 4;
-    const moreLabel = moreCount > 0 ? `<div class="wov-tab-more">+${moreCount} more</div>` : '';
-
+    const tabCount = win.tabs.length;
     let subtitle = '';
     if (activeTab && activeTab.url) {
       try { subtitle = new URL(activeTab.url).hostname.replace(/^www\./, ''); } catch {}
     }
-
-    return `
-      <div class="wov-card wov-browse-card ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
-           data-idx="${i}" onclick="_overviewClickWindow(${win.id})">
-        <div class="wov-card-header">
-          <span class="wov-card-name">${escapeHtml(win.name)}</span>
-          <span class="wov-card-count">${win.tabs.length} tab${win.tabs.length !== 1 ? 's' : ''}</span>
-          ${_browseWindows.length > 1 ? `<button class="wov-card-close" onclick="event.stopPropagation();_overviewCloseWindow(${win.id})" title="Close window">&times;</button>` : ''}
-        </div>
-        ${subtitle ? `<div class="wov-card-subtitle">${escapeHtml(subtitle)}</div>` : ''}
-        <div class="wov-tab-list">${previews}${moreLabel}</div>
-      </div>
-    `;
+    return `<div class="wov-card wov-card-browse ${isActive ? 'wov-active' : ''} ${isSelected ? 'wov-selected' : ''}"
+                 onclick="_overviewClickWindow(${win.id})">
+      <div class="wov-card-icon">${_wovAppIcons.browse || ''}</div>
+      <span class="wov-card-name">${escapeHtml(win.name)}</span>
+      <span class="wov-card-count">${tabCount}</span>
+      ${subtitle ? `<div class="wov-card-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+      ${_browseWindows.length > 1 ? `<button class="wov-card-close" onclick="event.stopPropagation();_overviewCloseWindow(${win.id})" title="Close">&times;</button>` : ''}
+    </div>`;
   }).join('');
-
-  const browseSection = _browseWindows.length > 0 ? `
-    <div class="wov-section-label">Browse Tabs</div>
-    <div class="wov-list">${browseCards}</div>
-  ` : '';
 
   overlay.innerHTML = `
     <div class="wov-container">
       <div class="wov-header">
         <span class="wov-title">Overview</span>
-        <span class="wov-hint"><kbd>←→↑↓</kbd> navigate <kbd>Enter</kbd> select <kbd>Esc</kbd> close</span>
+        <span class="wov-hint"><kbd>←→</kbd> navigate <kbd>Enter</kbd> select <kbd>Esc</kbd> close</span>
       </div>
-      <div class="wov-section-label">App Windows</div>
-      <div class="wov-app-strip">${appCards}</div>
-      ${browseSection}
+      <div class="wov-strip">${cards}</div>
     </div>
   `;
 }
@@ -2986,11 +2945,9 @@ function _overviewClickWindow(windowId) {
 
 function _overviewCloseWindow(windowId) {
   browseCloseWindow(windowId);
-  _overviewSelectedIdx = Math.min(_overviewSelectedIdx, _browseWindows.length - 1);
-  if (_browseWindows.length === 0) {
-    _overviewSection = 'app';
-    _overviewSelectedIdx = Math.min(_wmFocusIndex, _wmWindows.length - 1);
-  }
+  var items = _overviewItems();
+  if (items.length === 0) { hideBrowseTabOverview(); return; }
+  if (_overviewSelectedIdx >= items.length) _overviewSelectedIdx = items.length - 1;
   _renderWindowOverview();
 }
 
@@ -4529,29 +4486,10 @@ function _togglePillMenu() {
   const opening = !pill.classList.contains('menu-expanded');
   pill.classList.toggle('menu-expanded');
   if (opening) {
-    _pillMenuInsertSeparator();
-    setTimeout(() => {
-      document.addEventListener('mousedown', _pillMenuOutsideClick);
-    }, 0);
+    setTimeout(() => document.addEventListener('mousedown', _pillMenuOutsideClick), 0);
   } else {
-    _pillMenuRemoveSeparator();
     document.removeEventListener('mousedown', _pillMenuOutsideClick);
   }
-}
-
-function _pillMenuInsertSeparator() {
-  if (document.getElementById('pill-menu-separator')) return;
-  const icons = document.getElementById('pill-nav-icons');
-  if (!icons) return;
-  const sep = document.createElement('div');
-  sep.id = 'pill-menu-separator';
-  sep.className = 'pill-separator';
-  icons.parentNode.insertBefore(sep, icons.nextSibling);
-}
-
-function _pillMenuRemoveSeparator() {
-  const sep = document.getElementById('pill-menu-separator');
-  if (sep) sep.remove();
 }
 
 function _pillMenuOutsideClick(e) {
@@ -4568,7 +4506,6 @@ function _pillMenuOutsideClick(e) {
 function _closePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.remove('menu-expanded');
-  _pillMenuRemoveSeparator();
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 

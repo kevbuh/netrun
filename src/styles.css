@@ -600,6 +600,14 @@
       pointer-events: auto;
     }
 
+    /* Separator between nav icons and browse tabs — only visible when menu is expanded */
+    #pill-menu-separator {
+      display: none;
+    }
+    .browse-mode.menu-expanded #pill-menu-separator {
+      display: block;
+    }
+
     /* Menu button — hidden by default, appears in browse mode, pinned far left */
     #pill-menu-btn {
       max-width: 0;
@@ -1456,7 +1464,8 @@
     }
     .browse-tab-overview.visible { opacity: 1; }
     .wov-container {
-      width: 480px;
+      width: 90vw;
+      max-width: 1100px;
       max-height: 80vh;
       display: flex;
       flex-direction: column;
@@ -1492,67 +1501,84 @@
       font-family: inherit;
       font-size: 0.6rem;
     }
-    .wov-list {
+    .wov-strip {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px 14px;
+      overflow-x: auto;
+      scrollbar-width: none;
       flex: 1;
-      overflow-y: auto;
-      padding: 6px;
     }
+    .wov-strip::-webkit-scrollbar { display: none; }
     .wov-card {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      padding: 10px 12px;
-      margin-bottom: 4px;
-      border-radius: 10px;
+      align-items: center;
+      gap: 5px;
+      padding: 12px 10px;
+      min-width: 72px;
+      max-width: 72px;
+      border-radius: 12px;
       border: 2px solid transparent;
       cursor: pointer;
-      transition: background 0.12s, border-color 0.12s;
+      transition: background 0.12s, border-color 0.12s, transform 0.12s;
+      flex-shrink: 0;
+      color: var(--text-muted);
+      position: relative;
     }
     .wov-card:hover { background: var(--bg-hover); }
     .wov-card.wov-active {
       background: color-mix(in srgb, var(--accent) 6%, transparent);
+      color: var(--text-primary);
     }
     .wov-card.wov-selected {
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+      color: var(--text-primary);
+      transform: translateY(-2px);
     }
-    .wov-card-header {
+    .wov-card-icon {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
     }
+    .wov-card-icon svg { width: 20px; height: 20px; }
     .wov-card-name {
-      font-size: 0.82rem;
+      font-size: 0.62rem;
       font-weight: 600;
-      color: var(--text-primary);
-      flex: 1;
+      color: inherit;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      max-width: 64px;
+      text-align: center;
     }
     .wov-card-count {
-      font-size: 0.65rem;
-      color: var(--text-muted);
+      font-size: 0.55rem;
+      color: var(--text-dimmer);
       background: var(--bg-hover);
-      padding: 2px 7px;
-      border-radius: 6px;
-      flex-shrink: 0;
+      padding: 1px 5px;
+      border-radius: 5px;
     }
     .wov-card-close {
-      width: 22px;
-      height: 22px;
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 16px;
+      height: 16px;
       border: none;
       background: transparent;
       color: var(--text-dimmest);
-      font-size: 1.1rem;
-      border-radius: 5px;
+      font-size: 0.8rem;
+      border-radius: 4px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
       transition: opacity 0.1s, background 0.12s, color 0.12s;
-      flex-shrink: 0;
     }
     .wov-card:hover .wov-card-close,
     .wov-card.wov-selected .wov-card-close { opacity: 1; }
@@ -1561,89 +1587,13 @@
       color: #dc3232;
     }
     .wov-card-subtitle {
-      font-size: 0.68rem;
+      font-size: 0.55rem;
       color: var(--text-dimmer);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-    .wov-tab-list {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .wov-tab-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 2px 0;
-    }
-    .wov-tab-fav {
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-    .wov-tab-title {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .wov-tab-more {
-      font-size: 0.65rem;
-      color: var(--text-dimmer);
-      padding: 2px 0;
-    }
-    .wov-section-label {
-      font-size: 0.62rem;
-      font-weight: 600;
-      color: var(--text-dimmer);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 8px 16px 4px;
-    }
-    .wov-app-strip {
-      display: flex;
-      gap: 6px;
-      padding: 4px 12px 8px;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .wov-app-strip::-webkit-scrollbar { display: none; }
-    .wov-app-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 10px;
-      min-width: 62px;
-      border-radius: 10px;
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: background 0.12s, border-color 0.12s;
-      flex-shrink: 0;
-      color: var(--text-muted);
-    }
-    .wov-app-card svg { width: 18px; height: 18px; }
-    .wov-app-card:hover { background: var(--bg-hover); }
-    .wov-app-card.wov-active {
-      background: color-mix(in srgb, var(--accent) 6%, transparent);
-      color: var(--text-primary);
-    }
-    .wov-app-card.wov-selected {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-      color: var(--text-primary);
-    }
-    .wov-app-label {
-      font-size: 0.6rem;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 60px;
+      max-width: 64px;
+      text-align: center;
     }
 
     /* Window switcher arrows in tab bar */
