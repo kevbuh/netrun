@@ -1542,14 +1542,8 @@ document.addEventListener('mousemove', function(e) {
     const pw = popup.offsetWidth;
     popup.style.left = Math.max(4, cx - pw / 2) + 'px';
     popup.style.top = cy + 'px';
-    // Activate this view
-    if (!popup._snappedIcon || popup._snappedIcon !== hovered) {
-      popup._snappedIcon = hovered;
-      hovered.click();
-    }
     return;
   }
-  popup._snappedIcon = null;
 
   popup._aetherAnchorX = e.clientX;
   popup._aetherAnchorY = e.clientY;
@@ -1663,7 +1657,7 @@ function _handleContextMenuChat(e) {
   const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
   // _showPanel handles retiring pinned panels
   if (popup) { popup.remove(); _aetherTrackMode = false; }
-  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable });
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: true });
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
@@ -1716,7 +1710,7 @@ function _injectIframeChatHandler(iframe) {
           linkText: linkEl ? (linkEl.textContent || '').trim() : '',
           imgUrl: imgEl ? imgEl.src : ''
         } : null;
-        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu });
+        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu, trackCursor: true });
       });
 
       // Text selection → selection popup
@@ -3851,11 +3845,14 @@ function _panelBuildTopBar(popup) {
   topBar.appendChild(copyChatBtn);
   popup._copyChatBtn = copyChatBtn;
 
+  // Right-side icon group (aligns with mic + send below)
+  const topRightGroup = document.createElement('span');
+  topRightGroup.className = 'aether-topbar-right';
+
   const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.className = 'aether-topbar-icon';
   openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
   openSidebarBtn.title = 'Open in sidebar';
-  openSidebarBtn.style.display = 'flex';
-  openSidebarBtn.style.alignItems = 'center';
   openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   openSidebarBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
@@ -3864,15 +3861,13 @@ function _panelBuildTopBar(popup) {
     if (sidebar) sidebar.style.display = '';
     _sendPopupChatToSidebar();
   });
-  topBar.appendChild(openSidebarBtn);
+  topRightGroup.appendChild(openSidebarBtn);
 
   // Pin button
   const pinBtn = document.createElement('button');
-  pinBtn.className = 'aether-pin-btn';
-  pinBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+  pinBtn.className = 'aether-pin-btn aether-topbar-icon';
+  pinBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
   pinBtn.title = 'Pin panel';
-  pinBtn.style.display = 'flex';
-  pinBtn.style.alignItems = 'center';
   pinBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   pinBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
@@ -3890,7 +3885,8 @@ function _panelBuildTopBar(popup) {
     pinBtn.title = 'Unpin (close)';
   });
   pinBtn.style.opacity = '0.5';
-  topBar.appendChild(pinBtn);
+  topRightGroup.appendChild(pinBtn);
+  topBar.appendChild(topRightGroup);
 
   // Drag to move
   topBar.addEventListener('mousedown', (ev) => {
@@ -4236,9 +4232,12 @@ function _panelBuildChatInput(popup, config) {
     }).catch(() => {});
   });
 
+  const inputRightGroup = document.createElement('span');
+  inputRightGroup.className = 'aether-topbar-right';
+  inputRightGroup.appendChild(micBtn);
+  inputRightGroup.appendChild(sendBtn);
   askWrap.appendChild(askInput);
-  askWrap.appendChild(micBtn);
-  askWrap.appendChild(sendBtn);
+  askWrap.appendChild(inputRightGroup);
   popup.appendChild(askWrap);
 
   // Fetch AI suggestion when there's any text context
@@ -4403,7 +4402,7 @@ function _showPanel(config) {
 
   const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
   if (isCursorAnchor) {
-    _aetherTrackMode = config.trackCursor !== undefined ? config.trackCursor : !hasContext && !editableTarget && !config.priorEditable && !config.webviewEditable;
+    _aetherTrackMode = config.trackCursor !== undefined ? config.trackCursor : false;
   } else {
     _aetherTrackMode = false;
   }

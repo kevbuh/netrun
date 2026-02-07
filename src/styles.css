@@ -223,6 +223,7 @@
       --spinner-border: #333;
       --tooltip-bg: #222;
       --tooltip-border: #333;
+      --aether-bg: #000;
     }
 
     [data-theme="light"] {
@@ -2887,13 +2888,13 @@
       gap: 0;
       padding: 3px;
       border-radius: 8px;
-      border: 1px solid var(--border-input);
-      background: var(--bg-popup);
-      color: var(--text-primary);
+      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--aether-bg);
+      color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 0.75rem;
       z-index: 10002;
-      box-shadow: 0 4px 12px var(--shadow-popup);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
       max-width: 340px;
     }
     .doc-selection-popup-btns {
@@ -2964,7 +2965,7 @@
       align-items: center;
       border-top: 1px solid var(--border-input);
       margin-top: 2px;
-      padding-top: 2px;
+      padding: 2px 8px 2px 0;
     }
     .doc-ask-inline-input {
       background: transparent;
@@ -2980,11 +2981,15 @@
       color: var(--text-dimmer);
     }
     .doc-ask-inline-send {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 22px;
       background: none;
       border: none;
       color: var(--text-dim);
       cursor: pointer;
-      padding: 4px 6px;
       font-size: 0.85rem;
       line-height: 1;
       flex-shrink: 0;
@@ -2994,8 +2999,10 @@
     .doc-ask-inline-send:hover, .doc-ask-mic-btn:hover { color: var(--accent); background: rgba(255,255,255,0.06); }
     .doc-ask-inline-send:disabled { opacity: 0.3; cursor: not-allowed; }
     .doc-ask-mic-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 22px;
       background: none; border: none; color: var(--text-dim); cursor: pointer;
-      padding: 4px 6px; line-height: 1; flex-shrink: 0; border-radius: 4px;
+      line-height: 1; flex-shrink: 0; border-radius: 4px;
       transition: color 0.15s, background 0.15s;
     }
     .doc-ask-mic-active { color: #ef4444 !important; animation: mic-pulse 1s ease-in-out infinite; }
@@ -3471,11 +3478,35 @@
       opacity: 0.6;
     }
     .aether-topbar-btn:hover { opacity: 1; }
+    .aether-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .aether-topbar-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 22px;
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      color: var(--text-dim);
+      line-height: 1;
+    }
+    .aether-topbar-icon:hover {
+      color: var(--accent);
+      background: rgba(255,255,255,0.06);
+    }
     .aether-pin-btn {
       background: none !important;
       border: none !important;
       cursor: pointer;
-      padding: 1px 4px !important;
       line-height: 1;
     }
     .doc-popup-chat-actions button {

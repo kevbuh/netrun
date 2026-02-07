@@ -180,12 +180,13 @@ def quality_filter():
 
                 def score_title(title):
                     payload = json.dumps({
-                        "model": "qwen2.5:7b",
+                        "model": "qwen3:8b",
                         "messages": [
                             {"role": "system", "content": score_system},
                             {"role": "user", "content": title}
                         ],
                         "stream": False,
+                        "think": False,
                         "options": {"temperature": 0, "num_predict": 8}
                     }).encode()
                     req = urllib.request.Request(

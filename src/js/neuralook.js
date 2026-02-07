@@ -31,21 +31,13 @@ let _nlTrainError = null;
 let _nlValError = null;
 let _nlInferPending = false; // prevent overlapping inference requests
 
-// ── A/B Testing: Multi-Method Support ──
-let _nlActiveMethod = 'cnn';
+// ── A/B Testing: Calibration Strategy Comparison (CNN only) ──
+let _nlActiveMethod = 'cnn_full';
 let _nlAvailableMethods = [
-  { key: 'cnn', name: 'CNN', trained: false, trainError: null, valError: null },
-  { key: 'cnn_kalman', name: 'CNN+Kalman', trained: false, trainError: null, valError: null },
-  { key: 'cnn_headpose', name: 'CNN+Head', trained: false, trainError: null, valError: null },
-  { key: 'linear', name: 'Linear', trained: false, trainError: null, valError: null },
+  { key: 'cnn_fixed', name: 'Fixed Grid', trained: false, trainError: null, valError: null },
+  { key: 'cnn_full', name: 'Fixed + Tracking', trained: false, trainError: null, valError: null },
 ];
 let _nlCalibSaved = false;
-
-// Kalman filter state: [x, y, vx, vy]
-let _nlKalman = null;
-
-// Linear regression coefficients: { A: [[a,b,c],[d,e,f]] } where screen = A * [ratioX, ratioY, 1]
-let _nlLinRegCoeffs = null;
 
 // Eye crop canvas (offscreen, reused)
 let _nlEyeCropCanvas = null;
@@ -68,7 +60,7 @@ let _nlOrtLoaded = false;
 let _nlOrtLoadPromise = null;
 let _nlOrtSession = null;
 let _nlOrtSessionMethod = null;
-let _nlOrtModelType = null; // 'cnn' or 'headpose'
+let _nlOrtModelType = null; // always 'cnn'
 let _nlOrtAvailable = false;
 
 // Smoothing
@@ -104,6 +96,13 @@ const _NL_TEST_POSITIONS = [
 
 const _NL_STARE_MS = 1200;
 const _NL_SETTLE_MS = 400;
+
+// Moving-dot tracking calibration (phase 2)
+const _NL_TRACK_ROWS = 7;
+const _NL_TRACK_ROW_MS = 2500;
+const _NL_TRACK_X_MIN = 5;
+const _NL_TRACK_X_MAX = 95;
+const _NL_TRACK_Y_STOPS = [10, 25, 40, 50, 60, 75, 90];
 
 // Eye crop dimensions
 const _NL_EYE_W = 64;
@@ -491,7 +490,7 @@ function _nlRefreshTrainDetails() {
     row('Architecture', 'CNN (2ch 32x64 → 128 feat → 256 → 64 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
-    row('Calibration Points', `${_NL_CAL_POSITIONS.length}`) +
+    row('Calibration', `${_NL_CAL_POSITIONS.length} fixed + tracking`) +
     row('Elapsed', elapsedStr) +
     row('Epoch', `${epoch} / ${maxEpochs}`) +
     row('Speed', `${rate} epochs/s`) +
@@ -925,7 +924,7 @@ function _nlLinRegPredict(ratioX, ratioY) {
 
 // ── Server Communication ──
 
-function _nlTrainOnServerSSE(onProgress, onLog, method) {
+function _nlTrainOnServerSSE(onProgress, onLog, method, sampleFilter) {
   method = method || _nlActiveMethod;
   return new Promise((resolve, reject) => {
     // If calibration is saved on disk, let the server load it (send minimal body)
@@ -934,22 +933,26 @@ function _nlTrainOnServerSSE(onProgress, onLog, method) {
       eyeData: Array.from(s.eyeData),
       screenX: s.screenX,
       screenY: s.screenY,
-      headPose: s.headPose || [0, 0, 0]
+      headPose: s.headPose || [0, 0, 0],
+      phase: s.phase || 'fixed'
     }));
+
+    const reqBody = {
+      method,
+      samples,
+      screenW: window.innerWidth,
+      screenH: window.innerHeight,
+      eyeW: _NL_EYE_W,
+      eyeH: _NL_EYE_H
+    };
+    if (sampleFilter) reqBody.sample_filter = sampleFilter;
 
     _nlTrainAbort = new AbortController();
     fetch('/api/neuralook/train', {
       method: 'POST',
       headers: _authHeaders(),
       signal: _nlTrainAbort.signal,
-      body: JSON.stringify({
-        method,
-        samples,
-        screenW: window.innerWidth,
-        screenH: window.innerHeight,
-        eyeW: _NL_EYE_W,
-        eyeH: _NL_EYE_H
-      })
+      body: JSON.stringify(reqBody)
     }).then(resp => {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -977,6 +980,8 @@ function _nlTrainOnServerSSE(onProgress, onLog, method) {
                   const m = data.method || method;
                   const mObj = _nlAvailableMethods.find(x => x.key === m);
                   if (mObj) { mObj.trained = true; mObj.trainError = data.train_error_px; mObj.valError = data.val_error_px; }
+                  // Persist method state to localStorage
+                  _nlPersistMethodState();
                   // Load ONNX session for client-side inference
                   if (data.onnx_url && data.model_type) {
                     _nlLoadOnnxSession(data.onnx_url, m, data.model_type);
@@ -1436,7 +1441,7 @@ function _nlShowNextCalibrationDot() {
   if (prevRing) prevRing.remove();
 
   if (_nlCurrentPoint >= _NL_CAL_POSITIONS.length) {
-    _nlOnCalibrationComplete();
+    _nlStartTrackingCalibration();
     return;
   }
 
@@ -1448,7 +1453,7 @@ function _nlShowNextCalibrationDot() {
   }
 
   const progFill = document.getElementById('nl-cal-progfill');
-  if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 100) + '%';
+  if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 60) + '%';
 
   // Dot with outline for visibility on any background
   const dot = document.createElement('div');
@@ -1509,12 +1514,125 @@ function _nlShowNextCalibrationDot() {
             irisRatios = _nlExtractIrisRatios(r.faceLandmarks[0]);
           }
         }
-        _nlCalibData.push({ eyeData, screenX, screenY, headPose, irisRatios });
+        _nlCalibData.push({ eyeData, screenX, screenY, headPose, irisRatios, phase: 'fixed' });
       }
       requestAnimationFrame(collect);
     }
     requestAnimationFrame(collect);
   }, _NL_SETTLE_MS);
+}
+
+function _nlStartTrackingCalibration() {
+  const overlay = document.getElementById('nl-calibration-overlay');
+  if (!overlay) return;
+
+  // Remove fixed-grid dot/ring
+  const prev = document.getElementById('nl-cal-dot');
+  if (prev) prev.remove();
+  const prevRing = document.getElementById('nl-cal-ring');
+  if (prevRing) prevRing.remove();
+
+  // Update instruction
+  const instr = document.getElementById('nl-cal-instr');
+  if (instr) instr.innerHTML = '<strong>Calibration</strong> &mdash; Follow the dot with your eyes';
+
+  // Create moving dot (slightly larger than fixed calibration dot)
+  const dot = document.createElement('div');
+  dot.id = 'nl-cal-dot';
+  Object.assign(dot.style, {
+    position: 'absolute', width: '24px', height: '24px', borderRadius: '50%',
+    background: 'var(--accent, #b4451a)', border: '2px solid #fff',
+    boxShadow: '0 0 12px rgba(0,0,0,0.5)', transform: 'translate(-50%, -50%)',
+    zIndex: '100001', opacity: '1'
+  });
+  overlay.appendChild(dot);
+
+  // Build serpentine waypoints: alternating left-right across rows
+  const waypoints = [];
+  for (let i = 0; i < _NL_TRACK_ROWS; i++) {
+    const y = _NL_TRACK_Y_STOPS[i];
+    if (i % 2 === 0) {
+      waypoints.push({ x: _NL_TRACK_X_MIN, y }, { x: _NL_TRACK_X_MAX, y });
+    } else {
+      waypoints.push({ x: _NL_TRACK_X_MAX, y }, { x: _NL_TRACK_X_MIN, y });
+    }
+  }
+
+  const totalMs = _NL_TRACK_ROWS * _NL_TRACK_ROW_MS;
+  // Each segment (waypoint pair) takes one row duration
+  const segCount = waypoints.length - 1; // 13 segments for 7 rows (2 waypoints per row, minus 1 for transitions)
+  // Actually: 7 rows × 2 waypoints = 14 waypoints, 13 segments
+  // Row traversals (even indices: 0-1, 2-3, 4-5, ...) should be slower
+  // Vertical transitions (odd indices: 1-2, 3-4, ...) should be fast
+  // For simplicity, distribute time proportionally to distance
+  const segDists = [];
+  let totalDist = 0;
+  for (let i = 0; i < segCount; i++) {
+    const dx = waypoints[i + 1].x - waypoints[i].x;
+    const dy = waypoints[i + 1].y - waypoints[i].y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    segDists.push(d);
+    totalDist += d;
+  }
+  // Cumulative time at each waypoint
+  const segTimes = [0];
+  for (let i = 0; i < segCount; i++) {
+    segTimes.push(segTimes[i] + (segDists[i] / totalDist) * totalMs);
+  }
+
+  const startTime = performance.now();
+
+  function animate() {
+    if (!document.getElementById('nl-calibration-overlay')) return; // exited early
+    const elapsed = performance.now() - startTime;
+    if (elapsed >= totalMs) {
+      dot.style.opacity = '0';
+      setTimeout(() => { dot.remove(); _nlOnCalibrationComplete(); }, 200);
+      return;
+    }
+
+    // Find current segment
+    let seg = 0;
+    for (let i = 0; i < segCount; i++) {
+      if (elapsed >= segTimes[i] && elapsed < segTimes[i + 1]) { seg = i; break; }
+      if (i === segCount - 1) seg = i;
+    }
+    const segElapsed = elapsed - segTimes[seg];
+    const segDuration = segTimes[seg + 1] - segTimes[seg];
+    const t = Math.min(segElapsed / segDuration, 1);
+
+    const xPct = waypoints[seg].x + (waypoints[seg + 1].x - waypoints[seg].x) * t;
+    const yPct = waypoints[seg].y + (waypoints[seg + 1].y - waypoints[seg].y) * t;
+
+    dot.style.left = xPct + '%';
+    dot.style.top = yPct + '%';
+
+    // Update progress bar: phase 2 fills 60% → 100%
+    const progFill = document.getElementById('nl-cal-progfill');
+    if (progFill) progFill.style.width = (60 + (elapsed / totalMs) * 40) + '%';
+
+    // Capture eye data at current dot position
+    const screenX = window.innerWidth * xPct / 100;
+    const screenY = window.innerHeight * yPct / 100;
+    const eyeData = _nlCaptureEyeCrops();
+    if (eyeData) {
+      let headPose = [0, 0, 0];
+      let irisRatios = null;
+      if (_nlFaceLandmarker && _nlVideoEl) {
+        const r = _nlFaceLandmarker.detectForVideo(_nlVideoEl, performance.now());
+        if (r && r.faceLandmarks && r.faceLandmarks.length > 0) {
+          headPose = _nlExtractHeadPose(r.faceLandmarks[0]);
+          irisRatios = _nlExtractIrisRatios(r.faceLandmarks[0]);
+        }
+      }
+      _nlCalibData.push({ eyeData, screenX, screenY, headPose, irisRatios, phase: 'tracking' });
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  // Start animation on next frame
+  requestAnimationFrame(animate);
 }
 
 async function _nlOnCalibrationComplete() {
@@ -1527,7 +1645,8 @@ async function _nlOnCalibrationComplete() {
       samples: _nlCalibData.map(s => ({
         eyeData: Array.from(s.eyeData),
         screenX: s.screenX, screenY: s.screenY,
-        headPose: s.headPose || [0, 0, 0]
+        headPose: s.headPose || [0, 0, 0],
+        phase: s.phase || 'fixed'
       })),
       screenW: window.innerWidth, screenH: window.innerHeight,
       eyeW: _NL_EYE_W, eyeH: _NL_EYE_H
@@ -1934,7 +2053,7 @@ function _nlRefreshStats() {
   el.innerHTML =
     row('Method', (_nlAvailableMethods.find(m => m.key === _nlActiveMethod) || {}).name || _nlActiveMethod) +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
-    row('Calibration', `${_nlCalibData.length} frames / ${_NL_CAL_POSITIONS.length} pts`) +
+    row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} fixed + tracking)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
     (_nlValError !== null ? row('Val error', `${_nlValError}px`) : '') +

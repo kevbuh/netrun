@@ -154,12 +154,13 @@ def classify_title(title, system_msg=None):
     if system_msg is None:
         system_msg = DEFAULT_VERDICT_PROMPT
     payload = json.dumps({
-        "model": "qwen2.5:7b",
+        "model": "qwen3:8b",
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": title}
         ],
         "stream": False,
+        "think": False,
         "options": {"temperature": 0, "num_predict": 3}
     }).encode()
     req = urllib.request.Request(
