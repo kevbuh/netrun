@@ -1565,11 +1565,12 @@
       border: 1px solid var(--border-input);
       border-radius: 20px;
       padding: 16px 20px 12px;
+      box-shadow: 0 0 20px rgba(180,69,26,0.12), 0 0 40px rgba(180,69,26,0.06);
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .ntp-search-box:focus-within {
       border-color: var(--text-dimmer);
-      box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+      box-shadow: 0 0 24px rgba(180,69,26,0.2), 0 0 48px rgba(180,69,26,0.1);
     }
     .ntp-search-row {
       display: flex;
