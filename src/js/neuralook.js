@@ -66,6 +66,38 @@ let _nlAdaptiveRadius = 500;
 let _nlTimedFlushInterval = null;
 let _nlModelVersion = 0; // increments on each successful train/refine
 
+// Model type selection
+let _nlModelType = 'cnn'; // 'cnn' | 'mobilenet'
+let _nlModelState = {
+  cnn: { version: 0, trainError: null, valError: null, trained: false, baselineValError: null },
+  mobilenet: { version: 0, trainError: null, valError: null, trained: false, baselineValError: null }
+};
+
+function _nlModelLabel() {
+  return _nlModelType === 'mobilenet' ? 'MobileNet' : 'CNN';
+}
+
+function _nlSetModelType(type) {
+  if (type === _nlModelType) return;
+  // Save current state
+  _nlModelState[_nlModelType] = {
+    version: _nlModelVersion,
+    trainError: _nlTrainError,
+    valError: _nlValError,
+    trained: _nlModelTrained,
+    baselineValError: _nlBaselineValError
+  };
+  // Restore target state
+  const s = _nlModelState[type];
+  _nlModelVersion = s.version;
+  _nlTrainError = s.trainError;
+  _nlValError = s.valError;
+  _nlModelTrained = s.trained;
+  _nlBaselineValError = s.baselineValError;
+  _nlModelType = type;
+  renderNeuralookView();
+}
+
 // Smoothing
 let _nlGazeBuffer = [];
 const _NL_BUFFER_SIZE = 6;
@@ -194,6 +226,10 @@ function renderNeuralookView() {
             }
           </div>
           <div id="nl-error-msg" class="text-[0.75rem] text-red-400 mb-2" style="display:none"></div>
+          <div class="flex rounded-lg border border-border-input overflow-hidden mb-2" style="height:30px;">
+            <button onclick="_nlSetModelType('cnn')" class="flex-1 text-[0.72rem] font-medium cursor-pointer transition-colors ${_nlModelType === 'cnn' ? 'bg-accent text-white' : 'bg-card text-muted hover:text-primary'}">CNN</button>
+            <button onclick="_nlSetModelType('mobilenet')" class="flex-1 text-[0.72rem] font-medium cursor-pointer transition-colors ${_nlModelType === 'mobilenet' ? 'bg-accent text-white' : 'bg-card text-muted hover:text-primary'}" style="border-left:1px solid var(--border-input)">MobileNet</button>
+          </div>
           <div class="flex flex-col gap-2">
             <button onclick="_nlStartCalibration()" class="px-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full" ${_nlCalibrating ? 'disabled style="opacity:0.5"' : ''}>
               ${_nlCalibrating ? 'Calibrating...' : _nlReady ? 'Recalibrate' : 'Start Calibration'}
@@ -269,7 +305,7 @@ function _nlRenderTrainDetailView(container) {
             <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div style="width:8px;height:8px;border-radius:50%;background:${phaseColor};${_nlTraining ? 'animation:nl-pill-spin 1s linear infinite;' : ''}"></div>
-          <h2 class="text-[0.95rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training CNN' : 'Training Complete'}</h2>
+          <h2 class="text-[0.95rem] font-semibold text-primary">${isDone && !_nlTraining ? 'Training Log' : isError ? 'Training Error' : _nlTraining ? 'Training ' + _nlModelLabel() : 'Training Complete'}</h2>
           <span class="text-[0.72rem] text-muted tabular-nums">${isDone ? epoch : epoch} / ${maxEpochs}</span>
           <div style="flex:1;height:4px;border-radius:2px;background:var(--bg-secondary,#1a1a1f);overflow:hidden;max-width:120px;">
             <div id="nl-train-progbar" style="height:100%;border-radius:2px;background:${phaseColor};width:${isDone ? 100 : pct}%;transition:width 0.3s;"></div>
@@ -392,7 +428,7 @@ function _nlRefreshTrainDetails() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
 
   el.innerHTML =
-    row('Architecture', 'CNN (2ch 64x128 + hp+iris → 256 → 64 → 2)') +
+    row('Architecture', _nlModelType === 'mobilenet' ? 'MobileNet (2ch 64x128 + hp+iris → 128 → 32 → 2)' : 'CNN (2ch 64x128 + hp+iris → 256 → 64 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
     row('Calibration', `${_NL_CAL_POSITIONS.length} fixed grid points`) +
@@ -721,7 +757,7 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
     }));
 
     const reqBody = {
-      method: 'cnn',
+      method: _nlModelType,
       samples,
       screenW: window.innerWidth,
       screenH: window.innerHeight,
@@ -785,13 +821,13 @@ function _nlShowTrainPill() {
   const pill = document.createElement('div');
   pill.id = 'nl-train-pill';
   Object.assign(pill.style, {
-    position: 'fixed', bottom: '20px', right: '20px', zIndex: '99999',
+    position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--bg-card, #23232a)', border: '1px solid var(--border-card, #2a2a2f)',
     borderRadius: '14px', padding: '10px 16px', minWidth: '220px', maxWidth: '360px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
     fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
     transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
-    cursor: 'default', display: 'flex', alignItems: 'center', gap: '10px',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'
   });
   pill.innerHTML = `
@@ -801,7 +837,7 @@ function _nlShowTrainPill() {
       </svg>
     </div>
     <div id="nl-pill-text" style="flex:1;line-height:1.4;">
-      <div id="nl-pill-title" style="font-weight:600;font-size:0.8rem;">Training CNN</div>
+      <div id="nl-pill-title" style="font-weight:600;font-size:0.8rem;">Training ${_nlModelLabel()}</div>
       <div id="nl-pill-detail" style="font-size:0.7rem;color:var(--text-secondary,#888);">Starting... · v${_nlModelVersion + 1}</div>
     </div>
     <div id="nl-pill-stop" onclick="event.stopPropagation();_nlStopTraining();" style="width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:1px solid var(--border,#333);transition:border-color 0.2s;" onmouseover="this.style.borderColor='#f87171'" onmouseout="this.style.borderColor='var(--border,#333)'">
@@ -810,6 +846,7 @@ function _nlShowTrainPill() {
   `;
   pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); };
   document.body.appendChild(pill);
+  pillStackAdd('nl-train-pill');
   _nlTrainPill = pill;
   requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
 
@@ -892,6 +929,7 @@ function _nlErrorTrainPill(msg) {
 
 function _nlDismissTrainPill() {
   if (!_nlTrainPill) return;
+  pillStackRemove('nl-train-pill');
   _nlTrainPill.style.opacity = '0';
   _nlTrainPill.style.transform = 'translateY(10px)';
   const p = _nlTrainPill;
@@ -900,7 +938,7 @@ function _nlDismissTrainPill() {
 }
 
 async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
-  const body = { eyeData: Array.from(eyeData), headPose, irisFeatures: irisFeatures || [0.5, 0.5, 0.5, 0.5, 0.3, 0.3], method: 'cnn' };
+  const body = { eyeData: Array.from(eyeData), headPose, irisFeatures: irisFeatures || [0.5, 0.5, 0.5, 0.5, 0.3, 0.3], method: _nlModelType };
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: _authHeaders(),
@@ -1273,12 +1311,12 @@ async function _nlOnCalibrationComplete() {
         _nlAppendTrainLog('✓ Model ready — tracking available');
       }
       if (prog.phase === 'evaluating') {
-        _nlUpdateTrainPill('Training CNN v' + (_nlModelVersion + 1), 'Evaluating...');
+        _nlUpdateTrainPill('Training ' + _nlModelLabel() + ' v' + (_nlModelVersion + 1), 'Evaluating...');
       } else {
         const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
         const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
         const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-        _nlUpdateTrainPill('Training CNN v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+        _nlUpdateTrainPill('Training ' + _nlModelLabel() + ' v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       }
       _nlRefreshTrainView();
       _nlRefreshBanner();
@@ -1445,6 +1483,28 @@ function _nlHandleImplicitClick(e) {
   if (_nlImplicitBuffer.length >= 50) _nlFlushImplicitSamples();
 }
 
+// Handle clicks relayed from webview iframes (screenX/Y already translated to parent coords)
+function _nlHandleIframeClick(clientX, clientY) {
+  if (!_nlTracking || !_nlLastCapture || !_nlLastPrediction) return;
+  const now = performance.now();
+  const age = Math.round(now - _nlLastPrediction.ts);
+  if (age > 500) return;
+  const dx = _nlLastPrediction.x - clientX;
+  const dy = _nlLastPrediction.y - clientY;
+  const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
+  if (dist > _nlAdaptiveRadius) return;
+  console.log(`[neuralook] iframe click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
+  _nlShowClickFeedback(clientX, clientY, true, `${dist}px`);
+  _nlImplicitBuffer.push({
+    eyeData: Array.from(_nlLastCapture.eyeData),
+    headPose: _nlLastCapture.headPose,
+    irisFeatures: _nlLastCapture.irisFeatures,
+    screenX: clientX,
+    screenY: clientY
+  });
+  if (_nlImplicitBuffer.length >= 50) _nlFlushImplicitSamples();
+}
+
 function _nlFlushImplicitSamples() {
   if (_nlImplicitBuffer.length === 0) return;
   const samples = _nlImplicitBuffer.splice(0);
@@ -1485,14 +1545,11 @@ function _nlShowClickFeedback(x, y, accepted, detail) {
 
 function _nlShowModelUpdatedPill(version, valErrorPx) {
   const existing = document.getElementById('nl-model-updated-pill');
-  if (existing) existing.remove();
-  // Stack above auto-refine pill if present
-  const hasAutoRefine = document.getElementById('nl-autorefine-pill');
-  const bottomPos = hasAutoRefine ? '72px' : '20px';
+  if (existing) { pillStackRemove('nl-model-updated-pill'); existing.remove(); }
   const pill = document.createElement('div');
   pill.id = 'nl-model-updated-pill';
   Object.assign(pill.style, {
-    position: 'fixed', bottom: bottomPos, right: '20px', zIndex: '99999',
+    position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--bg-card, #23232a)', border: '1px solid #60a5fa',
     borderRadius: '14px', padding: '10px 16px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(96,165,250,0.15)',
@@ -1508,8 +1565,9 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
       <div style="font-size:0.7rem;color:var(--text-secondary,#888);">Val error: ${valErrorPx}px</div>
     </div>
   `;
-  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pill.remove(); };
+  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-model-updated-pill'); pill.remove(); };
   document.body.appendChild(pill);
+  pillStackAdd('nl-model-updated-pill');
   requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
   pill.animate([
     { boxShadow: '0 0 0 0 rgba(96,165,250,0.4)', transform: 'translateY(0) scale(1)' },
@@ -1518,7 +1576,7 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
   ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
   setTimeout(() => {
     pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
-    setTimeout(() => pill.remove(), 300);
+    setTimeout(() => { pillStackRemove('nl-model-updated-pill'); pill.remove(); }, 300);
   }, 5000);
 }
 
@@ -1553,7 +1611,8 @@ async function _nlStartAutoRefine() {
       body: JSON.stringify({
         screenW: window.innerWidth, screenH: window.innerHeight,
         eyeW: _NL_EYE_W, eyeH: _NL_EYE_H,
-        baseline_val_error: _nlBaselineValError
+        baseline_val_error: _nlBaselineValError,
+        method: _nlModelType
       })
     });
     const result = await resp.json();
@@ -1601,11 +1660,11 @@ function _nlShowAutoRefinePill(valErrorPx) {
   }
   // Reuse pill infrastructure but lighter
   const existing = document.getElementById('nl-autorefine-pill');
-  if (existing) existing.remove();
+  if (existing) { pillStackRemove('nl-autorefine-pill'); existing.remove(); }
   const pill = document.createElement('div');
   pill.id = 'nl-autorefine-pill';
   Object.assign(pill.style, {
-    position: 'fixed', bottom: '20px', right: '20px', zIndex: '99999',
+    position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--bg-card, #23232a)', border: '1px solid #4ade80',
     borderRadius: '14px', padding: '10px 16px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(74,222,128,0.15)',
@@ -1621,8 +1680,9 @@ function _nlShowAutoRefinePill(valErrorPx) {
       <div style="font-size:0.7rem;color:var(--text-secondary,#888);">Val error: ${valErrorPx}px</div>
     </div>
   `;
-  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pill.remove(); };
+  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-autorefine-pill'); pill.remove(); };
   document.body.appendChild(pill);
+  pillStackAdd('nl-autorefine-pill');
   requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
   pill.animate([
     { boxShadow: '0 0 0 0 rgba(74,222,128,0.4)', transform: 'translateY(0) scale(1)' },
@@ -1631,7 +1691,7 @@ function _nlShowAutoRefinePill(valErrorPx) {
   ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
   setTimeout(() => {
     pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
-    setTimeout(() => pill.remove(), 300);
+    setTimeout(() => { pillStackRemove('nl-autorefine-pill'); pill.remove(); }, 300);
   }, 4000);
 }
 
@@ -1678,12 +1738,12 @@ function _nlRefineModel() {
     _nlTrainPhase = prog.phase || 'training';
     if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
     if (prog.phase === 'evaluating') {
-      _nlUpdateTrainPill('Refining CNN → v' + (_nlModelVersion + 1), 'Evaluating...');
+      _nlUpdateTrainPill('Refining ' + _nlModelLabel() + ' → v' + (_nlModelVersion + 1), 'Evaluating...');
     } else {
       const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
       const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
       const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-      _nlUpdateTrainPill('Refining CNN → v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      _nlUpdateTrainPill('Refining ' + _nlModelLabel() + ' → v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
     }
     _nlRefreshTrainView();
     _nlRefreshBanner();
@@ -1821,7 +1881,7 @@ function _nlRefreshStats() {
     : '<span class="text-dimmer">Off</span>';
 
   el.innerHTML =
-    row('Model', `CNN v${_nlModelVersion} (2ch 64x128 + hp+iris)`) +
+    row('Model', `${_nlModelLabel()} v${_nlModelVersion} (2ch 64x128 + hp+iris)`) +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 + aux(9)`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
@@ -2090,7 +2150,7 @@ function _nlRefreshDashboard() {
     const valStr = _nlValError !== null ? `${_nlValError}px val` : 'no val';
     const calStr = `${_nlCalibData.length} cal`;
     const autoStr = _nlAutoRefineEnabled ? 'Auto \u2713' : 'Auto off';
-    miEl.innerHTML = `<span class="text-primary">CNN v${_nlModelVersion} \u00b7 ${valStr}</span><span class="text-dimmer">${calStr} \u00b7 ${autoStr}</span>`;
+    miEl.innerHTML = `<span class="text-primary">${_nlModelLabel()} v${_nlModelVersion} \u00b7 ${valStr}</span><span class="text-dimmer">${calStr} \u00b7 ${autoStr}</span>`;
   }
 
   _nlRefreshBanner();

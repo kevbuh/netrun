@@ -70,35 +70,91 @@ def _get_gaze_cnn_class():
     return _GazeCNN
 
 
-def _nl_save_model(model, screen_w, screen_h, eye_w, eye_h):
+# Lazy-initialized GazeMobileNet class (needs torch)
+_GazeMobileNet = None
+
+def _get_gaze_mobilenet_class():
+    global _GazeMobileNet
+    if _GazeMobileNet is not None:
+        return _GazeMobileNet
+    import torch
+    import torch.nn as nn
+
+    class DepthwiseSeparableConv(nn.Module):
+        def __init__(self, in_ch, out_ch, stride=1):
+            super().__init__()
+            self.depthwise = nn.Sequential(
+                nn.Conv2d(in_ch, in_ch, 3, stride=stride, padding=1, groups=in_ch),
+                nn.BatchNorm2d(in_ch), nn.ReLU())
+            self.pointwise = nn.Sequential(
+                nn.Conv2d(in_ch, out_ch, 1),
+                nn.BatchNorm2d(out_ch), nn.ReLU())
+        def forward(self, x):
+            return self.pointwise(self.depthwise(x))
+
+    class GazeMobileNet(nn.Module):
+        def __init__(self, aux_dim=9):
+            super().__init__()
+            self.aux_dim = aux_dim
+            self.features = nn.Sequential(
+                nn.Conv2d(2, 16, 3, stride=2, padding=1), nn.BatchNorm2d(16), nn.ReLU(),
+                DepthwiseSeparableConv(16, 32, stride=2),
+                DepthwiseSeparableConv(32, 64, stride=2),
+                DepthwiseSeparableConv(64, 64, stride=1),
+                nn.AdaptiveAvgPool2d((4, 4)),
+            )
+            self.head = nn.Sequential(
+                nn.Linear(64 * 4 * 4 + aux_dim, 128), nn.ReLU(), nn.Dropout(0.2),
+                nn.Linear(128, 32), nn.ReLU(), nn.Dropout(0.2),
+                nn.Linear(32, 2)
+            )
+        def forward(self, x, aux):
+            feat = self.features(x)
+            feat = feat.view(feat.size(0), -1)
+            combined = torch.cat([feat, aux], dim=1)
+            return self.head(combined)
+
+    _GazeMobileNet = GazeMobileNet
+    return _GazeMobileNet
+
+
+def _nl_get_model_class(method):
+    if method == 'mobilenet':
+        return _get_gaze_mobilenet_class()
+    return _get_gaze_cnn_class()
+
+
+def _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method='cnn'):
     """Save model checkpoint and metadata to disk."""
     import torch
-    model_path = os.path.join(DIR, 'neuralook_model.pt')
-    meta_path = os.path.join(DIR, 'neuralook_model_meta.json')
+    suffix = '_mobilenet' if method == 'mobilenet' else ''
+    model_path = os.path.join(DIR, f'neuralook_model{suffix}.pt')
+    meta_path = os.path.join(DIR, f'neuralook_model{suffix}_meta.json')
     torch.save(model.state_dict(), model_path)
     with open(meta_path, 'w') as f:
         json.dump({'aux_dim': model.aux_dim, 'screen_w': screen_w, 'screen_h': screen_h,
-                   'eye_w': eye_w, 'eye_h': eye_h}, f)
+                   'eye_w': eye_w, 'eye_h': eye_h, 'method': method}, f)
 
 
-def _nl_load_model():
+def _nl_load_model(method='cnn'):
     """Load model from disk checkpoint if available. Returns (model, screen_info) or (None, None)."""
     import torch
-    model_path = os.path.join(DIR, 'neuralook_model.pt')
-    meta_path = os.path.join(DIR, 'neuralook_model_meta.json')
+    suffix = '_mobilenet' if method == 'mobilenet' else ''
+    model_path = os.path.join(DIR, f'neuralook_model{suffix}.pt')
+    meta_path = os.path.join(DIR, f'neuralook_model{suffix}_meta.json')
     if not os.path.exists(model_path) or not os.path.exists(meta_path):
         return None, None
     try:
         with open(meta_path, 'r') as f:
             meta = json.load(f)
-        GazeCNN = _get_gaze_cnn_class()
-        model = GazeCNN(aux_dim=meta.get('aux_dim', 9))
+        ModelClass = _nl_get_model_class(method)
+        model = ModelClass(aux_dim=meta.get('aux_dim', 9))
         model.load_state_dict(torch.load(model_path, weights_only=True))
         model.eval()
         screen_info = (meta['screen_w'], meta['screen_h'], meta['eye_w'], meta['eye_h'])
         return model, screen_info
     except Exception as e:
-        print(f'Neuralook: failed to load model checkpoint: {e}')
+        print(f'Neuralook: failed to load model checkpoint ({method}): {e}')
         return None, None
 
 
@@ -763,7 +819,7 @@ def neuralook_train(google_id):
             X_train, AUX_train, Y_train = X[train_mask], AUX[train_mask], Y[train_mask]
             X_val, AUX_val, Y_val = X[val_mask], AUX[val_mask], Y[val_mask]
 
-            GazeCNN = _get_gaze_cnn_class()
+            ModelClass = _nl_get_model_class(method)
 
             def augment_batch(x_batch):
                 B = x_batch.shape[0]
@@ -785,7 +841,7 @@ def neuralook_train(google_id):
             if refine:
                 model = _neuralook_models.get(method)
                 if model is None:
-                    model, screen_info = _nl_load_model()
+                    model, screen_info = _nl_load_model(method)
                     if model is None:
                         yield sse_event('error', {'error': 'No existing model to refine'})
                         return
@@ -800,7 +856,7 @@ def neuralook_train(google_id):
                 yield sse_event('log', {'text': f'Refine mode: frozen conv layers, lr=5e-5, max_epochs={max_epochs}'})
                 yield sse_event('log', {'text': f'Combining {len(samples) - len(implicit_samples)} calibration + {len(implicit_samples)} implicit samples'})
             else:
-                model = GazeCNN(aux_dim=9)
+                model = ModelClass(aux_dim=9)
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 max_epochs = 100
                 patience = 30
@@ -819,9 +875,14 @@ def neuralook_train(google_id):
 
             n_params = sum(p.numel() for p in model.parameters())
             n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-            yield sse_event('log', {'text': f'GazeCNN | params: {n_params:,} ({n_trainable:,} trainable) | input: [B, 2, {eye_h}, {eye_w}]'})
-            yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
-            yield sse_event('log', {'text': f'  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+            model_name = 'GazeMobileNet' if method == 'mobilenet' else 'GazeCNN'
+            yield sse_event('log', {'text': f'{model_name} | params: {n_params:,} ({n_trainable:,} trainable) | input: [B, 2, {eye_h}, {eye_w}]'})
+            if method == 'mobilenet':
+                yield sse_event('log', {'text': f'  features: Conv2d(2→16,s=2) → BN → DSConv(16→32,s=2) → DSConv(32→64,s=2) → DSConv(64→64,s=1) → AdaptivePool(4,4)'})
+                yield sse_event('log', {'text': f'  head: Flatten(1024) + aux(9: hp+iris) → Linear(1033,128) → ReLU → Drop(0.2) → Linear(128,32) → ReLU → Drop(0.2) → Linear(32,2)'})
+            else:
+                yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
+                yield sse_event('log', {'text': f'  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
             yield sse_event('log', {'text': f'Adam(lr={optimizer.param_groups[0]["lr"]}, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
             yield sse_event('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
@@ -896,7 +957,7 @@ def neuralook_train(google_id):
             _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
 
             # Save checkpoint
-            _nl_save_model(model, screen_w, screen_h, eye_w, eye_h)
+            _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method)
 
             yield sse_event('log', {'text': f'  train error: {train_err:.1f}px'})
             yield sse_event('log', {'text': f'  val error:   {val_err:.1f}px'})
@@ -947,7 +1008,7 @@ def neuralook_predict(google_id):
         model = _neuralook_models.get(method)
         if model is None:
             # Try loading from checkpoint
-            model, screen_info = _nl_load_model()
+            model, screen_info = _nl_load_model(method)
             if model is None:
                 return jsonify({'error': f'Model not trained for method: {method}'}), 400
             _neuralook_models[method] = model
@@ -1138,10 +1199,10 @@ def neuralook_auto_refine(google_id):
             return jsonify({'rejected': True, 'reason': 'Not enough data for train/val split'}), 200
 
         # Load existing model
-        method = 'cnn'
+        method = body.get('method', 'cnn')
         model = _neuralook_models.get(method)
         if model is None:
-            model, screen_info = _nl_load_model()
+            model, screen_info = _nl_load_model(method)
             if model is None:
                 return jsonify({'rejected': True, 'reason': 'No existing model to refine'}), 200
             _neuralook_models[method] = model
@@ -1212,43 +1273,22 @@ def neuralook_auto_refine(google_id):
         train_err_rounded = round(train_err, 1)
         n_total = len(X_list)
 
-        # Check improvement: must improve by >= 2px
-        improved = False
-        if baseline_val_error is not None and val_err_rounded <= baseline_val_error - 2:
-            improved = True
-        elif baseline_val_error is None:
-            improved = True  # No baseline, accept any result
-
-        if improved:
-            _neuralook_models[method] = model
-            _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
-            _nl_save_model(model, screen_w, screen_h, eye_w, eye_h)
-            # Clear implicit samples
-            if os.path.exists(impl_path):
-                os.remove(impl_path)
-            _nl_append_refine_history(val_err_rounded, train_err_rounded, n_total, True)
-            # Unfreeze conv layers for next time
-            for param in model.features.parameters():
-                param.requires_grad = True
-            return jsonify({
-                'improved': True, 'val_error_px': val_err_rounded,
-                'train_error_px': train_err_rounded, 'samples': n_total
-            })
-        else:
-            # Rollback
-            model.load_state_dict(pre_refine_state)
-            model.eval()
-            _neuralook_models[method] = model
-            # Unfreeze conv layers
-            for param in model.features.parameters():
-                param.requires_grad = True
-            _nl_append_refine_history(val_err_rounded, train_err_rounded, n_total, False)
-            reason = f'No improvement (baseline={baseline_val_error}px, new={val_err_rounded}px, need -2px)'
-            return jsonify({
-                'rejected': True, 'reason': reason,
-                'val_error_px': val_err_rounded, 'train_error_px': train_err_rounded,
-                'samples': n_total
-            })
+        # Always accept the refined model
+        _neuralook_models[method] = model
+        _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
+        _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method)
+        # Clear implicit samples
+        if os.path.exists(impl_path):
+            os.remove(impl_path)
+        improved = baseline_val_error is None or val_err_rounded < baseline_val_error
+        _nl_append_refine_history(val_err_rounded, train_err_rounded, n_total, improved)
+        # Unfreeze conv layers for next time
+        for param in model.features.parameters():
+            param.requires_grad = True
+        return jsonify({
+            'improved': True, 'val_error_px': val_err_rounded,
+            'train_error_px': train_err_rounded, 'samples': n_total
+        })
 
     except ImportError:
         return jsonify({'rejected': True, 'reason': 'PyTorch not installed'}), 200

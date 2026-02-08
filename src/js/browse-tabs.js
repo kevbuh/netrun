@@ -1110,6 +1110,10 @@ function _browseInjectContentScripts(tab, frame) {
           _lastMove=now;
           console.log('__AETHER_MOUSE__'+e.screenX+','+e.screenY);
         });
+        // Relay clicks for neuralook implicit tracking
+        document.addEventListener('click',function(e){
+          console.log('__NEURALOOK_CLICK__'+e.screenX+','+e.screenY);
+        },true);
       })();
     `).catch(()=>{});
 
@@ -1212,6 +1216,13 @@ function _browseInjectContentScripts(tab, frame) {
           _showBrowseContextMenu(x, y, { linkUrl: data.href, linkText: data.text || '' });
         }
       } catch (err) {}
+    } else if (e.message && e.message.startsWith('__NEURALOOK_CLICK__')) {
+      if (typeof _nlHandleIframeClick === 'function') {
+        const parts = e.message.slice('__NEURALOOK_CLICK__'.length).split(',');
+        const x = parseInt(parts[0]) - window.screenX;
+        const y = parseInt(parts[1]) - window.screenY;
+        _nlHandleIframeClick(x, y);
+      }
     }
   });
 }
@@ -2331,18 +2342,23 @@ function _updateCCButton() {
           <button class="browse-cc-pill-dismiss" onclick="_dismissCCPill()" title="Dismiss">&times;</button>
         `;
         document.body.appendChild(pill);
+        pillStackAdd('browse-cc-pill');
       }
       pill.style.display = 'flex';
+      _pillStackReflow();
     } else if (pill) {
       pill.style.display = 'none';
+      _pillStackReflow();
     }
   } else if (pill) {
     pill.style.display = 'none';
+    _pillStackReflow();
   }
 }
 
 function _dismissCCPill() {
   _ccPillDismissed = true;
+  pillStackRemove('browse-cc-pill');
   const pill = document.getElementById('browse-cc-pill');
   if (pill) pill.style.display = 'none';
 }
@@ -2371,7 +2387,7 @@ async function toggleCaptions() {
 
   // Hide pill and highlight CC button
   const pill = document.getElementById('browse-cc-pill');
-  if (pill) pill.style.display = 'none';
+  if (pill) { pill.style.display = 'none'; _pillStackReflow(); }
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.style.color = 'var(--accent)';
 
@@ -3562,17 +3578,42 @@ function _installOverviewKeyHandler() {
         e.preventDefault();
         _overviewBrowseExpanded = false;
         _renderWindowOverview();
-      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx === -1 && winCount > 1) {
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx >= 0) {
+        // Delete selected tab
         e.preventDefault();
-        if (curWin) browseCloseWindow(curWin.id);
-        if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
-        _renderWindowOverview();
+        if (curWin) {
+          var tabToClose = curWin.tabs[_overviewBrowseTabIdx];
+          if (tabToClose) {
+            browseSelectWindow(curWin.id);
+            browseCloseTab(tabToClose.id);
+          }
+          // Adjust tab index
+          var newTabCount = curWin.tabs.length;
+          if (newTabCount === 0) {
+            // Window has no tabs left — close the window
+            browseCloseWindow(curWin.id);
+            if (_browseWindows.length === 0) {
+              _overviewBrowseExpanded = false;
+            } else {
+              if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
+              _overviewBrowseTabIdx = -1;
+            }
+          } else if (_overviewBrowseTabIdx >= newTabCount) {
+            _overviewBrowseTabIdx = newTabCount - 1;
+          }
+          _renderWindowOverview();
+        }
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx === -1) {
+        // Delete whole window
+        e.preventDefault();
+        if (curWin) _overviewCloseBrowseWin(curWin.id);
       }
       return;
     }
 
-    // ── Top-level app strip mode (horizontal row) ──
+    // ── Top-level app strip mode (4-column grid) ──
     var total = _wmWindows.length;
+    var cols = 4;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
@@ -3588,10 +3629,37 @@ function _installOverviewKeyHandler() {
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];
+      // If on browse card, expand browse detail
       if (wDown && wDown.key === 'browse') {
         _overviewBrowseExpanded = true;
         _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
         _overviewBrowseTabIdx = -1;
+        _renderWindowOverview();
+      } else {
+        // Move down one row in the grid
+        var nextIdx = _overviewSelectedIdx + cols;
+        if (nextIdx < total) {
+          _overviewSelectedIdx = nextIdx;
+          _updateOverviewHighlight();
+          var wD = _wmWindows[_overviewSelectedIdx];
+          if (wD) { _wmFocusIndex = _overviewSelectedIdx; var mD = _wmViewMeta[wD.key]; if (mD) mD.openFn(); _overviewScheduleCapture(); }
+        }
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      var prevIdx = _overviewSelectedIdx - cols;
+      if (prevIdx >= 0) {
+        _overviewSelectedIdx = prevIdx;
+        _updateOverviewHighlight();
+        var wU = _wmWindows[_overviewSelectedIdx];
+        if (wU) { _wmFocusIndex = _overviewSelectedIdx; var mU = _wmViewMeta[wU.key]; if (mU) mU.openFn(); _overviewScheduleCapture(); }
+      }
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      if (total > 1) {
+        _wmCloseWindow(_overviewSelectedIdx);
+        if (_overviewSelectedIdx >= _wmWindows.length) _overviewSelectedIdx = _wmWindows.length - 1;
+        _wmFocusIndex = _overviewSelectedIdx;
         _renderWindowOverview();
       }
     } else if (e.key === 'Enter') {

@@ -58,6 +58,30 @@ document.addEventListener('mouseout', function(e) {
   if (_linkUrlFromElement(e.target)) _hideLinkPreview();
 });
 
+// ── Pill stack manager (bottom-right notification pills) ──
+var _pillStack = [];
+var _PILL_GAP = 8;
+var _PILL_BOTTOM = 20;
+
+function pillStackAdd(id) {
+  if (_pillStack.indexOf(id) < 0) _pillStack.push(id);
+  requestAnimationFrame(_pillStackReflow);
+}
+function pillStackRemove(id) {
+  var i = _pillStack.indexOf(id);
+  if (i >= 0) _pillStack.splice(i, 1);
+  _pillStackReflow();
+}
+function _pillStackReflow() {
+  var bottom = _PILL_BOTTOM;
+  for (var i = 0; i < _pillStack.length; i++) {
+    var el = document.getElementById(_pillStack[i]);
+    if (!el || el.style.display === 'none') continue;
+    el.style.bottom = bottom + 'px';
+    bottom += el.offsetHeight + _PILL_GAP;
+  }
+}
+
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the tab row, URL bar, and macOS traffic lights.
