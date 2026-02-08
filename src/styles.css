@@ -255,6 +255,47 @@
       --tooltip-bg: #222;
       --tooltip-border: #333;
       --aether-bg: #000;
+      --aether-text: #fff;
+      --aether-text-secondary: #ccc;
+      --aether-text-dim: rgba(255,255,255,0.55);
+      --aether-text-dimmer: rgba(255,255,255,0.4);
+      --aether-text-dimmest: rgba(255,255,255,0.3);
+      --aether-border: rgba(255,255,255,0.06);
+      --aether-hover: rgba(255,255,255,0.08);
+      --aether-hover-subtle: rgba(255,255,255,0.06);
+      --aether-scrollbar: rgba(255,255,255,0.12);
+      --aether-shadow: rgba(0,0,0,0.5);
+      --aether-placeholder: rgba(255,255,255,0.35);
+    }
+
+    [data-aether-theme="aether"] {
+      --aether-bg: #fff;
+      --aether-text: #111;
+      --aether-text-secondary: #444;
+      --aether-text-dim: rgba(0,0,0,0.55);
+      --aether-text-dimmer: rgba(0,0,0,0.4);
+      --aether-text-dimmest: rgba(0,0,0,0.3);
+      --aether-border: rgba(0,0,0,0.1);
+      --aether-hover: rgba(0,0,0,0.05);
+      --aether-hover-subtle: rgba(0,0,0,0.04);
+      --aether-scrollbar: rgba(0,0,0,0.12);
+      --aether-shadow: rgba(0,0,0,0.15);
+      --aether-placeholder: rgba(0,0,0,0.35);
+    }
+
+    [data-aether-theme="match"] {
+      --aether-bg: var(--bg-body);
+      --aether-text: var(--text-primary);
+      --aether-text-secondary: var(--text-muted);
+      --aether-text-dim: var(--text-dim);
+      --aether-text-dimmer: var(--text-dimmer);
+      --aether-text-dimmest: var(--text-dimmest);
+      --aether-border: var(--border-subtle);
+      --aether-hover: var(--bg-hover);
+      --aether-hover-subtle: var(--bg-hover);
+      --aether-scrollbar: var(--border-subtle);
+      --aether-shadow: var(--shadow-popup);
+      --aether-placeholder: var(--text-dimmest);
     }
 
     [data-theme="light"] {
@@ -1281,12 +1322,12 @@
       border: none;
       padding: 4px 8px;
       font-size: 0.75rem;
-      color: #fff;
+      color: var(--aether-text);
       outline: none;
       font-family: inherit;
     }
     #pill-browse-url-input::placeholder {
-      color: rgba(255,255,255,0.35);
+      color: var(--aether-placeholder);
     }
     #pill-browse-more {
       flex-shrink: 0;
@@ -1301,20 +1342,20 @@
       display: flex;
       flex-direction: column;
       background: var(--aether-bg);
-      border-right: 1px solid rgba(255,255,255,0.06);
+      border-right: 1px solid var(--aether-border);
       flex-shrink: 0;
       overflow: hidden;
-      color: #ccc;
+      color: var(--aether-text-secondary);
     }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
       display: flex; align-items: center; justify-content: center;
       border: none; background: transparent;
-      color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px;
+      color: var(--aether-text-dimmer); cursor: pointer; border-radius: 4px;
       transition: background 0.15s, color 0.15s;
     }
     .browse-tab-layout-toggle:hover {
-      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
+      background: var(--aether-hover); color: var(--aether-text);
     }
     /* Override for the toggle in horizontal tab row (uses theme colors) */
     #browse-tab-row .browse-tab-layout-toggle {
@@ -1329,28 +1370,28 @@
       overflow-x: hidden;
       padding: 2px 6px;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.12) transparent;
+      scrollbar-color: var(--aether-scrollbar) transparent;
       position: relative;
     }
     .browse-vtabs-list::-webkit-scrollbar { width: 4px; }
-    .browse-vtabs-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+    .browse-vtabs-list::-webkit-scrollbar-thumb { background: var(--aether-scrollbar); border-radius: 2px; }
     .browse-vtabs-list::-webkit-scrollbar-track { background: transparent; }
     .browse-vtabs-actions {
       display: flex;
       align-items: center;
       padding: 4px 6px 6px;
-      border-top: 1px solid rgba(255,255,255,0.06);
+      border-top: 1px solid var(--aether-border);
       flex-shrink: 0;
     }
     .browse-vtab-action-btn {
       width: 100%; height: 28px;
       display: flex; align-items: center; justify-content: center; gap: 4px;
       border: none; background: transparent;
-      color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 6px;
+      color: var(--aether-text-dimmer); cursor: pointer; border-radius: 6px;
       font-size: 0.72rem; transition: background 0.15s, color 0.15s;
     }
     .browse-vtab-action-btn:hover {
-      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
+      background: var(--aether-hover); color: var(--aether-text);
     }
     .browse-vtab {
       display: flex;
@@ -1359,7 +1400,7 @@
       padding: 5px 8px;
       margin: 1px 0;
       font-size: 0.73rem;
-      color: rgba(255,255,255,0.55);
+      color: var(--aether-text-dim);
       background: transparent;
       border: none;
       border-radius: 6px;
@@ -1371,13 +1412,13 @@
       position: relative;
     }
     .browse-vtab:hover {
-      background: rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.85);
+      background: var(--aether-hover-subtle);
+      color: var(--aether-text);
     }
     .browse-vtab:hover .browse-vtab-close { opacity: 1; }
     .browse-vtab.active {
-      background: rgba(255,255,255,0.08);
-      color: #fff;
+      background: var(--aether-hover);
+      color: var(--aether-text);
       border-left: 2px solid var(--accent);
       padding-left: 6px;
     }
@@ -1394,7 +1435,7 @@
       flex-shrink: 0;
       width: 16px; height: 16px;
       border: none; background: transparent;
-      color: rgba(255,255,255,0.3);
+      color: var(--aether-text-dimmest);
       font-size: 0.8rem; line-height: 1;
       border-radius: 4px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
@@ -1403,7 +1444,7 @@
     }
     .browse-vtab.active .browse-vtab-close { opacity: 1; }
     .browse-vtab-close:hover {
-      background: rgba(255,255,255,0.1); color: #fff;
+      background: var(--aether-hover); color: var(--aether-text);
     }
     .browse-vtab-pinned {
       padding: 4px 8px;
@@ -1426,7 +1467,7 @@
       background: color-mix(in srgb, var(--group-color) 30%, transparent);
     }
     .browse-vtab-pin-separator {
-      height: 1px; background: rgba(255,255,255,0.08); margin: 4px 4px; flex-shrink: 0;
+      height: 1px; background: var(--aether-border); margin: 4px 4px; flex-shrink: 0;
     }
     .browse-vtab-insert-indicator {
       position: absolute;
@@ -3112,13 +3153,13 @@
       gap: 0;
       padding: 3px;
       border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--aether-border);
       background: var(--aether-bg);
-      color: #fff;
+      color: var(--aether-text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 0.75rem;
       z-index: 10002;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px var(--aether-shadow);
       max-width: 340px;
     }
     .doc-selection-popup-btns {

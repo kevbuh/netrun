@@ -113,21 +113,12 @@ function _renderAppearanceSettings() {
       </div>
       <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Aether</span>
-        <div class="flex gap-2">
-          ${[
-            { color: '#000000', name: 'Black' },
-            { color: '#0a0a0a', name: 'Charcoal' },
-            { color: '#111111', name: 'Dark Gray' },
-            { color: '#1a1a2e', name: 'Midnight' },
-            { color: '#0d1117', name: 'GitHub Dark' },
-            { color: '#1e1e2e', name: 'Catppuccin' },
-            { color: '#2d1b00', name: 'Espresso' },
-            { color: '#0b1215', name: 'Deep Ocean' },
-            { color: '#1a0a2e', name: 'Grape' },
-          ].map(a => {
-            const cur = localStorage.getItem('aetherColor') || '#000';
-            const sel = cur === a.color || (a.color === '#000000' && (cur === '#000' || !localStorage.getItem('aetherColor')));
-            return '<button onclick="setAetherColor(\'' + a.color + '\')" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ' + (sel ? 'scale-110 ring-2 ring-offset-2' : '') + '" style="background:' + a.color + '; border: 1px solid rgba(255,255,255,0.15);' + (sel ? '--tw-ring-color:var(--accent); --tw-ring-offset-color: var(--bg-body)' : '') + '" title="' + a.name + '"></button>';
+        <div class="flex gap-1.5">
+          ${['midnight','aether','match'].map(t => {
+            const raw = localStorage.getItem('aetherColor') || 'midnight';
+            const cur = raw.startsWith('#') ? 'midnight' : raw;
+            const label = t.charAt(0).toUpperCase() + t.slice(1);
+            return '<button onclick="setAetherColor(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
           }).join('')}
         </div>
       </div>
@@ -1556,9 +1547,9 @@ function applyAccentColor(color) {
   document.documentElement.style.setProperty('--accent-hover', hover);
 }
 
-function setAetherColor(color) {
-  localStorage.setItem('aetherColor', color);
-  document.documentElement.style.setProperty('--aether-bg', color);
+function setAetherColor(mode) {
+  localStorage.setItem('aetherColor', mode);
+  document.documentElement.setAttribute('data-aether-theme', mode);
   renderSettingsView();
 }
 
@@ -1572,8 +1563,9 @@ function applyStoredAppearance() {
   if (accent) applyAccentColor(accent);
   const edTheme = localStorage.getItem('editorTheme');
   if (edTheme && edTheme !== 'auto') document.documentElement.setAttribute('data-editor-theme', edTheme);
-  const aether = localStorage.getItem('aetherColor');
-  if (aether) document.documentElement.style.setProperty('--aether-bg', aether);
+  const aether = localStorage.getItem('aetherColor') || 'midnight';
+  const aetherMode = aether.startsWith('#') ? 'midnight' : aether;
+  document.documentElement.setAttribute('data-aether-theme', aetherMode);
   const iconSize = localStorage.getItem('iconSize') || 'medium';
   document.documentElement.setAttribute('data-icon-size', iconSize);
 }

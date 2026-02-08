@@ -43,6 +43,7 @@ def handle_websocket_flask(ws, cwd=None):
     print(f"[terminal] shell pid={proc.pid}", file=sys.stderr, flush=True)
 
     running = True
+    send_lock = threading.Lock()
 
     def pty_reader():
         """Read from pty master and send to WebSocket."""
@@ -62,7 +63,8 @@ def handle_websocket_flask(ws, cwd=None):
                 if not data:
                     break
                 try:
-                    ws.send(data)
+                    with send_lock:
+                        ws.send(data)
                 except Exception:
                     break
         except Exception as e:
@@ -80,7 +82,7 @@ def handle_websocket_flask(ws, cwd=None):
             except Exception:
                 break
             if msg is None:
-                break
+                continue  # timeout — not a disconnect
             if isinstance(msg, str):
                 if msg.startswith('{"type":"resize"'):
                     try:
