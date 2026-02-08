@@ -232,7 +232,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
 let _researchActiveTab = null;
@@ -786,7 +786,7 @@ const _wmViewMeta = {
 };
 
 // Pre-populate all views (pill bar order)
-const _wmDefaultOrder = ['dashboard','feed','vault','browse','inbox','terminal','neuralook','dev','vibe','settings'];
+const _wmDefaultOrder = ['dashboard','feed','vault','browse','terminal','neuralook','dev','vibe','settings'];
 let _wmWindows = _wmDefaultOrder.map(key => ({
   key,
   label: _wmViewMeta[key].label,

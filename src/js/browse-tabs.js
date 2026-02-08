@@ -1542,14 +1542,8 @@ function _browseUpdateNewTabPage(tab) {
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
         <div class="browse-ntp-inner">
           <div class="browse-ntp-center">
-            <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
-              <div class="relative max-w-[680px] mx-auto">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-                <input type="text" id="search-query" placeholder="Search or enter URL..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="onSearchInput(); _browseUrlShowHistory()" onfocus="this.select(); _browseUrlShowHistory()" onblur="setTimeout(_browseUrlHideHistory,150)" onkeydown="_browseUrlKeydown(event)" />
-                <div id="search-history-dropdown-view" class="hidden rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden" style="display:none;"></div>
-              </div>
-            </form>
-            <div class="flex items-center justify-center gap-1 mt-3 mb-3">
+            <div style="text-align:center;margin-bottom:12px;font-size:2.5rem;font-style:italic;color:var(--text-dimmer);user-select:none;">\u2112</div>
+            <div class="flex items-center justify-center gap-1" style="margin-bottom:12px;">
               <button id="research-tab-search" class="research-tab" onclick="switchResearchTab('search')">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
                 Papers
@@ -1563,6 +1557,13 @@ function _browseUpdateNewTabPage(tab) {
                 Teams
               </button>
             </div>
+            <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
+              <div class="relative max-w-[680px] mx-auto">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+                <input type="text" id="search-query" placeholder="Search or enter URL..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="onSearchInput(); _browseUrlShowHistory()" onfocus="this.select(); _browseUrlShowHistory()" onblur="setTimeout(_browseUrlHideHistory,150)" onkeydown="_browseUrlKeydown(event)" />
+                <div id="search-history-dropdown-view" class="hidden rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden" style="display:none;"></div>
+              </div>
+            </form>
             <div id="research-panel-search" class="research-panel" style="display:none;">
               <div id="search-hints" style="display:none"></div>
             </div>
