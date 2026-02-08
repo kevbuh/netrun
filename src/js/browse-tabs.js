@@ -2833,6 +2833,7 @@ let _overviewKeyHandler = null;
 let _overviewBrowseExpanded = false;
 let _overviewBrowseWinIdx = 0;  // selected window in expanded view
 let _overviewBrowseTabIdx = -1; // -1 = window row selected, >=0 = tab within window
+let _overviewWasBrowseMode = false; // pill bar was in browse-mode before overview opened
 
 // SVG icons for app window cards
 const _wovAppIcons = {
@@ -2896,6 +2897,14 @@ function showBrowseTabOverview() {
   // Capture a fresh snapshot of the current view before showing the overview
   var curKey = _wmWindows[_wmFocusIndex] && _wmWindows[_wmFocusIndex].key;
   if (curKey) _wmCaptureSnapshot(curKey);
+  // Temporarily exit browse mode on the pill bar so the normal app nav is visible
+  var pill = document.getElementById('sidebar-nav');
+  if (pill && pill.classList.contains('browse-mode')) {
+    pill.classList.remove('browse-mode');
+    _overviewWasBrowseMode = true;
+  } else {
+    _overviewWasBrowseMode = false;
+  }
   _browseTabOverviewVisible = true;
   _overviewBrowseExpanded = false;
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
@@ -2955,6 +2964,12 @@ function hideBrowseTabOverview() {
   _browseTabOverviewVisible = false;
   _overviewBrowseExpanded = false;
   _removeOverviewKeyHandler();
+  // Restore browse mode on the pill bar if it was active before
+  if (_overviewWasBrowseMode) {
+    var pill = document.getElementById('sidebar-nav');
+    if (pill && _pillBrowseMode) pill.classList.add('browse-mode');
+    _overviewWasBrowseMode = false;
+  }
   overlay.classList.remove('visible');
   setTimeout(() => { overlay.style.display = 'none'; }, 180);
 }
