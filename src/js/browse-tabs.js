@@ -54,7 +54,12 @@ function _getBrowseStorageKey(baseKey) {
   return username ? `${baseKey}_${username}` : baseKey;
 }
 
+let _browseSaveTabsTimer = 0;
 function _browseSaveTabs() {
+  clearTimeout(_browseSaveTabsTimer);
+  _browseSaveTabsTimer = setTimeout(_browseSaveTabsNow, 100);
+}
+function _browseSaveTabsNow() {
   const data = _browseWindows.map(w => ({
     id: w.id,
     name: w.name,

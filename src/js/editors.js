@@ -660,6 +660,12 @@ let _mermaidMode = 'split'; // 'code', 'split', 'preview'
 let _mermaidCm = null;
 let _mermaidRenderTimer = null;
 let _mermaidIdCounter = 0;
+let _mermaidInited = false;
+function _ensureMermaidInit() {
+  if (_mermaidInited || typeof mermaid === 'undefined') return;
+  mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+  _mermaidInited = true;
+}
 
 const MERMAID_DEFAULT_CONTENT = `graph TD
     A[Start] --> B{Decision}
@@ -715,6 +721,7 @@ function renderMermaidEditor(fname, content) {
 }
 
 async function _renderMermaidPreview() {
+  _ensureMermaidInit();
   var el = document.getElementById('mermaid-preview-content');
   if (!el || !_mermaidCm) return;
   var code = _mermaidCm.getValue().trim();

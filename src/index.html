@@ -10,26 +10,25 @@
   <script>MathJax = { startup: { typeset: false }, tex: { packages: {'[+]': ['ams']}, macros: (function(){var m={R:'\\mathbb{R}',E:'\\mathbb{E}',Ls:'\\mathcal{L}',train:'\\mathcal{D}',valid:'\\mathcal{D_{\\mathrm{valid}}}',test:'\\mathcal{D_{\\mathrm{test}}}'};for(var i=0;i<26;i++){var L=String.fromCharCode(65+i);m['g'+L]='{\\mathcal{'+L+'}}';m['s'+L]='{\\mathbb{'+L+'}}'}return m})() }, svg: { fontCache: 'none' } };</script>
   <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/markdown/markdown.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/markdown/markdown.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/web/pdf_viewer.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-search@0.13.0/lib/xterm-addon-search.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xterm-addon-search@0.13.0/lib/xterm-addon-search.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
   tailwind.config = {
@@ -340,32 +339,32 @@
   <!-- Lazy-loaded views mount here -->
   <div id="view-mount"></div>
 
-  <script src="/js/core.js"></script>
-  <script src="/js/pixel-pet.js"></script>
-  <script src="/js/feed.js"></script>
-  <script src="/js/quality.js"></script>
-  <script src="/js/settings.js"></script>
-  <script src="/js/dashboard.js"></script>
-  <script src="/js/views.js"></script>
-  <script src="/js/paper-sidebar.js"></script>
-  <script src="/js/chat-threads.js"></script>
-  <script src="/js/panel.js"></script>
-  <script src="/js/browse-tabs.js"></script>
-  <script src="/js/browse-urlbar.js"></script>
-  <script src="/js/search.js"></script>
-  <script src="/js/calendar.js"></script>
-  <script src="/js/whiteboard.js"></script>
-  <script src="/js/pdfviewer.js"></script>
-  <script src="/js/teams.js"></script>
-  <script src="/js/experiments.js"></script>
-  <script src="/js/editors.js"></script>
-  <script src="/js/notebook-editor.js"></script>
-  <script src="/js/draw-editor.js"></script>
-  <script src="/js/slides-editor.js"></script>
-  <script src="/js/terminal.js"></script>
-  <script src="/js/vault.js"></script>
-  <script src="/js/vibe.js"></script>
-  <script src="/js/neuralook.js"></script>
+  <script defer src="/js/core.js"></script>
+  <script defer src="/js/pixel-pet.js"></script>
+  <script defer src="/js/feed.js"></script>
+  <script defer src="/js/quality.js"></script>
+  <script defer src="/js/settings.js"></script>
+  <script defer src="/js/dashboard.js"></script>
+  <script defer src="/js/views.js"></script>
+  <script defer src="/js/paper-sidebar.js"></script>
+  <script defer src="/js/chat-threads.js"></script>
+  <script defer src="/js/panel.js"></script>
+  <script defer src="/js/browse-tabs.js"></script>
+  <script defer src="/js/browse-urlbar.js"></script>
+  <script defer src="/js/search.js"></script>
+  <script defer src="/js/calendar.js"></script>
+  <script defer src="/js/whiteboard.js"></script>
+  <script defer src="/js/pdfviewer.js"></script>
+  <script defer src="/js/teams.js"></script>
+  <script defer src="/js/experiments.js"></script>
+  <script defer src="/js/editors.js"></script>
+  <script defer src="/js/notebook-editor.js"></script>
+  <script defer src="/js/draw-editor.js"></script>
+  <script defer src="/js/slides-editor.js"></script>
+  <script defer src="/js/terminal.js"></script>
+  <script defer src="/js/vault.js"></script>
+  <script defer src="/js/vibe.js"></script>
+  <script defer src="/js/neuralook.js"></script>
   <script type="module">
     import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs';
     window.FaceLandmarker = FaceLandmarker;

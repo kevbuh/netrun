@@ -676,9 +676,11 @@ function catalogLogo(entry, size) {
 
 const SOURCE_LOGO_INLINE = {};
 const SOURCE_NAMES = {};
+const FEED_CAT_MAP = {};
 FEED_CATALOG.forEach(f => {
   SOURCE_LOGO_INLINE[f.key] = catalogLogo(f, 'inline');
   SOURCE_NAMES[f.key] = f.name;
+  FEED_CAT_MAP[f.key] = f.cat;
 });
 SOURCE_LOGO_INLINE['quote'] = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#6b7280" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="180" font-weight="bold" font-family="Georgia,serif">&quot;</text></svg>';
 SOURCE_NAMES['quote'] = 'Quote';
@@ -2832,6 +2834,22 @@ let _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null'); 
 let _syncInterval = null;
 let _authReady = false;  // true once login gate has been resolved
 
+// Track dirty sync keys so we only serialize changed ones
+const _syncDirtyKeys = new Set();
+const _syncKeysSet = new Set();
+(function() {
+  const origSetItem = localStorage.setItem.bind(localStorage);
+  const origRemoveItem = localStorage.removeItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    if (_syncKeysSet.has(key)) _syncDirtyKeys.add(key);
+    return origSetItem(key, value);
+  };
+  localStorage.removeItem = function(key) {
+    if (_syncKeysSet.has(key)) _syncDirtyKeys.add(key);
+    return origRemoveItem(key);
+  };
+})();
+
 // Keys to sync between devices (all user settings)
 const SYNC_KEYS = [
   'feedSources', 'customFeeds', 'qualityFilter', 'qualityPrompt',
@@ -2853,6 +2871,7 @@ const SYNC_KEYS = [
   'chatModel', 'chatTools', 'insightsAllowHeuristics',
   'iconSize'
 ];
+SYNC_KEYS.forEach(k => _syncKeysSet.add(k));
 
 // Default ad blocker to enabled
 if (localStorage.getItem('adBlockEnabled') === null) {
@@ -3080,7 +3099,7 @@ function _onLoginSuccess() {
 async function authLogout() {
   if (_authToken) {
     // Push latest settings before logging out
-    await syncToServer().catch(() => {});
+    await syncToServer(true).catch(() => {});
     fetch('/api/auth/logout', {
       method: 'POST',
       headers: _authHeaders()
@@ -3184,10 +3203,10 @@ function openAuthModal() {
 
 // ── Sync ──
 
-function _buildSyncPayload() {
+function _buildSyncPayload(keysToSync) {
   const data = {};
   const now = Date.now() / 1000;
-  for (const key of SYNC_KEYS) {
+  for (const key of keysToSync) {
     const raw = localStorage.getItem(key);
     if (raw !== null) {
       let value;
@@ -3200,26 +3219,34 @@ function _buildSyncPayload() {
 
 function _applySyncData(serverData) {
   for (const [key, entry] of Object.entries(serverData)) {
-    if (!SYNC_KEYS.includes(key)) continue;
+    if (!_syncKeysSet.has(key)) continue;
     const value = entry.value;
     if (value === null || value === undefined) continue;
+    // Temporarily remove from dirty set — this write is from server, not user
+    _syncDirtyKeys.delete(key);
     localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    _syncDirtyKeys.delete(key);
   }
 }
 
-async function syncToServer() {
+async function syncToServer(force) {
   if (!_authToken) return;
+  const keysToSync = force ? SYNC_KEYS : [..._syncDirtyKeys];
+  if (!keysToSync.length) return; // nothing changed
+  _syncDirtyKeys.clear();
   try {
     const res = await fetch('/api/sync', {
       method: 'POST',
       headers: _authHeaders(),
-      body: JSON.stringify({ data: _buildSyncPayload() })
+      body: JSON.stringify({ data: _buildSyncPayload(keysToSync) })
     });
     if (res.status === 401) { authLogout(); return; }
     const result = await res.json();
     if (result.data) _applySyncData(result.data);
   } catch (e) {
     console.warn('[sync] push failed:', e);
+    // Re-mark as dirty so they retry next cycle
+    for (const k of keysToSync) _syncDirtyKeys.add(k);
   }
 }
 
@@ -3254,7 +3281,7 @@ function _stopSyncInterval() {
 async function _doSettingsSync() {
   const s = document.getElementById('settings-sync-status');
   if (s) s.textContent = 'Syncing...';
-  await syncToServer();
+  await syncToServer(true);
   if (s) s.textContent = 'Synced just now';
 }
 

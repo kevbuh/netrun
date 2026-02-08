@@ -1902,15 +1902,15 @@ function _syncUserQuotesIntoAllPapers() {
   }
 }
 
-function getFilteredPapers() {
+function getFilteredPapers(ctx) {
   _syncUserQuotesIntoAllPapers();
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
-  const hidden = new Set(getHiddenPosts());
-  const _blockedWordsSet = new Set(getBlockedWords());
-  const qfOn = isQualityFilterOn();
-  const qCache = qfOn ? getQualityCache() : {};
-  const bypass = qfOn ? getQualityBypass() : {};
+  const hidden = ctx ? ctx.hiddenSet : new Set(getHiddenPosts());
+  const _blockedWordsSet = ctx ? ctx.blockedWords : new Set(getBlockedWords());
+  const qfOn = ctx ? ctx.qfOn : isQualityFilterOn();
+  const qCache = ctx ? ctx.qCache : (qfOn ? getQualityCache() : {});
+  const bypass = ctx ? ctx.bypass : (qfOn ? getQualityBypass() : {});
 
   // Parse structured search prefixes, quoted phrases, and title: prefix
   const parsed = parseSearchQuery(rawSearch);
@@ -1983,28 +1983,36 @@ function getFilteredPapers() {
       return db - da;
     });
   }
-  // Category-aware interleaving: limit same-category runs
-  const catMap = {};
-  for (const f of FEED_CATALOG) catMap[f.key] = f.cat;
+  // Category-aware interleaving: limit same-category runs (O(n) bucket algorithm)
   const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
   if (filtered.length > 1) {
-    const result = [];
-    const remaining = filtered.slice();
-    let lastCat = null;
-    let catRun = 0;
-    while (remaining.length) {
-      let picked = -1;
-      for (let i = 0; i < remaining.length; i++) {
-        const pCat = catMap[remaining[i].source] || remaining[i].source;
-        if (pCat !== lastCat || catRun < maxRun) { picked = i; break; }
-      }
-      if (picked === -1) picked = 0; // all same category, just take next
-      const p = remaining.splice(picked, 1)[0];
-      const pCat = catMap[p.source] || p.source;
-      if (pCat === lastCat) { catRun++; } else { lastCat = pCat; catRun = 1; }
-      result.push(p);
+    // Group items into per-category queues, preserving sort order within each
+    const buckets = new Map(); // cat -> array of items
+    const catOrder = []; // insertion order of categories
+    for (const p of filtered) {
+      const cat = FEED_CAT_MAP[p.source] || p.source;
+      if (!buckets.has(cat)) { buckets.set(cat, []); catOrder.push(cat); }
+      buckets.get(cat).push(p);
     }
-    filtered = result;
+    // Round-robin across categories, taking up to maxRun from each before moving on
+    if (buckets.size > 1) {
+      const result = [];
+      const cursors = new Map(); // cat -> index into its bucket
+      for (const cat of catOrder) cursors.set(cat, 0);
+      let remaining = filtered.length;
+      while (remaining > 0) {
+        for (const cat of catOrder) {
+          const arr = buckets.get(cat);
+          const cur = cursors.get(cat);
+          if (cur >= arr.length) continue;
+          const take = Math.min(maxRun, arr.length - cur);
+          for (let j = 0; j < take; j++) result.push(arr[cur + j]);
+          cursors.set(cat, cur + take);
+          remaining -= take;
+        }
+      }
+      filtered = result;
+    }
   }
   return filtered;
 }
@@ -2020,7 +2028,7 @@ function _renderPaperCompactRow(p, i, ctx) {
     <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i}, event)">
       ${newDot}${sourceChip}
       <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
-      <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i)}</span>
+      <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i, ctx)}</span>
       ${date}
     </div>
     ${_cardCommentContainer(p, i)}
@@ -2048,7 +2056,8 @@ function _renderPaperCard(p, i, ctx) {
     : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
   const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
   const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
-  const userRating = getPaperRating(p.link);
+  const nLink = _normalizeRatingKey(p.link);
+  const userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
   const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   const isRead = readSet.has(p.link);
@@ -2063,20 +2072,40 @@ function _renderPaperCard(p, i, ctx) {
   <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
     <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
     ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
-    <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
+    <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i, ctx)}</div>
     ${_cardCommentContainer(p, i)}
   </div>`;
 }
 
+// ── Debounced renderPapers ──
+let _renderPapersRafId = 0;
 function renderPapers() {
-  const filtered = getFilteredPapers();
-  lastFilteredPapers = filtered;
-  const visible = filtered.slice(0, visibleCount);
+  if (_renderPapersRafId) return; // already scheduled
+  _renderPapersRafId = requestAnimationFrame(() => {
+    _renderPapersRafId = 0;
+    _renderPapersNow();
+  });
+}
+
+function _buildRenderCtx() {
   const qfOn = isQualityFilterOn();
   const qCache = qfOn ? getQualityCache() : {};
   const hiddenSet = new Set(getHiddenPosts());
   const readSet = new Set(getReadPosts());
   const bypass = qfOn ? getQualityBypass() : {};
+  const blockedWords = new Set(getBlockedWords());
+  const savedPosts = getSavedPosts();
+  const repostedSet = new Set(_getRepostedLinks());
+  const ratings = getPaperRatings();
+  return { qfOn, qCache, hiddenSet, readSet, bypass, blockedWords, savedPosts, repostedSet, ratings };
+}
+
+function _renderPapersNow() {
+  const ctx = _buildRenderCtx();
+  const { qfOn, qCache, hiddenSet, readSet, bypass } = ctx;
+  const filtered = getFilteredPapers(ctx);
+  lastFilteredPapers = filtered;
+  const visible = filtered.slice(0, visibleCount);
   const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && p.source !== 'quote' && !(p.title in qCache)).length : 0;
   document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
   const evalEl = document.getElementById('eval-indicator');
@@ -2104,9 +2133,8 @@ function renderPapers() {
     </div>`;
     return;
   }
-  const _ctx = { qfOn, qCache, readSet };
   if (feedViewMode === 'compact') {
-    container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => _renderPaperCompactRow(p, i, _ctx)).join('') + `</div>`;
+    container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => _renderPaperCompactRow(p, i, ctx)).join('') + `</div>`;
   } else if (feedViewMode === 'verbose') {
     container.innerHTML = `<div style="column-span:all" class="flex flex-col gap-3">` + visible.map((p, i) => {
       const isHN = p.source === 'hn';
@@ -2123,9 +2151,10 @@ function renderPapers() {
       const fullDesc = isPoly ? '' : (p.description || '');
       const authors = p.authors ? `<div class="text-[0.76rem] text-dimmer mt-1">${escapeHtml(truncate(p.authors, 200))}</div>` : '';
       const categories = p.categories && p.categories.length ? `<div class="flex gap-1 flex-wrap mt-1.5">${p.categories.slice(0, 6).map(c => `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">${escapeHtml(c)}</span>`).join('')}</div>` : '';
-      const userRating = getPaperRating(p.link);
+      const nLink = _normalizeRatingKey(p.link);
+      const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
       const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-      const isSaved = isPostSaved(p.link);
+      const isSaved = !!ctx.savedPosts[p.link];
       const bmFill = isSaved ? 'var(--accent)' : 'none';
       const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
@@ -2142,7 +2171,7 @@ function renderPapers() {
         ${authors}
         ${fullDesc ? `<div class="text-[0.82rem] text-muted leading-relaxed mt-2">${escapeHtml(fullDesc)}</div>` : ''}
         ${categories}
-        <div class="flex gap-2 flex-wrap items-center mt-3"><span class="text-[0.72rem] text-dim">${escapeHtml(sourceName)}</span>${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i)}</div>
+        <div class="flex gap-2 flex-wrap items-center mt-3"><span class="text-[0.72rem] text-dim">${escapeHtml(sourceName)}</span>${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i, ctx)}</div>
         ${_cardCommentContainer(p, i)}
       </div>`;
     }).join('') + `</div>`;
@@ -2154,7 +2183,7 @@ function renderPapers() {
       const handle = (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return p.source; } })();
       const isPoly = p.source === 'polymarket';
       const snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
-      const isSaved = isPostSaved(p.link);
+      const isSaved = !!ctx.savedPosts[p.link];
       const bmFill = isSaved ? 'var(--accent)' : 'none';
       const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
@@ -2193,7 +2222,7 @@ function renderPapers() {
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
                 <span class="text-[0.72rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${_tweetCommentCounts[p.link] || ''}</span>
               </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ${_isReposted(p.link) ? '' : 'text-dimmer hover:text-green-400'}" style="${_isReposted(p.link) ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)">
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ${ctx.repostedSet.has(p.link) ? '' : 'text-dimmer hover:text-green-400'}" style="${ctx.repostedSet.has(p.link) ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
                 <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
               </button>
@@ -2210,7 +2239,7 @@ function renderPapers() {
       </div>`;
     }).join('') + `</div>`;
   } else {
-    container.innerHTML = visible.map((p, i) => _renderPaperCard(p, i, _ctx)).join('');
+    container.innerHTML = visible.map((p, i) => _renderPaperCard(p, i, ctx)).join('');
   }
   // Animate cards that are new since the last render
   const prevLinks = _renderedLinks;
@@ -2250,15 +2279,16 @@ const _tweetCommentCounts = {}; // link -> count
 const _tweetCommentsOpen = new Set(); // links with expanded comment sections
 
 async function _fetchTweetCommentCounts(papers) {
-  for (const p of papers) {
-    if (_tweetCommentCounts[p.link] !== undefined) continue;
-    try {
-      const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() });
-      const comments = await resp.json();
-      _tweetCommentCounts[p.link] = comments.length;
-    } catch { _tweetCommentCounts[p.link] = 0; }
+  const needed = papers.filter(p => _tweetCommentCounts[p.link] === undefined);
+  if (needed.length) {
+    await Promise.all(needed.map(async p => {
+      try {
+        const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() });
+        const comments = await resp.json();
+        _tweetCommentCounts[p.link] = comments.length;
+      } catch { _tweetCommentCounts[p.link] = 0; }
+    }));
   }
-  // Update count badges in-place
   document.querySelectorAll('[data-tweet-comment-count]').forEach(el => {
     const link = el.dataset.tweetCommentCount;
     if (_tweetCommentCounts[link] !== undefined && _tweetCommentCounts[link] > 0) {
@@ -2455,12 +2485,12 @@ function _tweetRepost(idx, btn) {
 }
 
 // Shared comment & repost action buttons for all card views
-function _cardActionRow(p, i) {
-  const isSaved = isPostSaved(p.link);
+function _cardActionRow(p, i, ctx) {
+  const isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
   const bmFill = isSaved ? 'var(--accent)' : 'none';
   const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
   const commentCount = _tweetCommentCounts[p.link] || '';
-  const reposted = _isReposted(p.link);
+  const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
   return `<div class="flex items-center gap-3 shrink-0 ml-auto">
     <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})" title="Comments">
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>

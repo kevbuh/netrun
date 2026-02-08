@@ -42,6 +42,7 @@ function _renderSidebarHTML(paper) {
       <div class="sidebar-paper-title text-[0.85rem] font-semibold text-primary leading-snug mb-1">${renderTitle(paper.title)}</div>
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] mb-1">${infoMeta.join('<span class="text-dimmest">\u00b7</span>')}</div>
       <div class="sidebar-paper-authors text-[0.72rem] text-muted leading-snug">${paper.authors ? escapeHtml(paper.authors) : ''}</div>
+      <div id="sidebar-paper-authors-cards" class="mt-2"></div>
     </div>`;
   }
 
@@ -57,10 +58,6 @@ function _renderSidebarHTML(paper) {
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        <div class="insight-section" id="insight-drop-authors">
-          <div class="insight-section-title">Authors</div>
-          <div class="insight-section-body" id="insight-pane-authors"></div>
-        </div>
         <div class="insight-section" id="insight-drop-ai">
           <div class="insight-section-title">AI</div>
           <div class="insight-section-body" id="insight-pane-ai"></div>
@@ -417,10 +414,14 @@ function _updatePaperHeader(data) {
 }
 
 function _renderAuthorsPane(data) {
-  const authorsPane = document.getElementById('insight-pane-authors');
-  if (!authorsPane) return;
+  const container = document.getElementById('sidebar-paper-authors-cards');
+  if (!container) return;
   const hasAuthors = data.authors?.length > 0;
-  if (!hasAuthors) { authorsPane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No author data available</div>'; return; }
+  if (!hasAuthors) return;
+
+  // Hide the plain-text author line since we have rich cards
+  const plainAuthors = document.querySelector('#sidebar-paper-info .sidebar-paper-authors');
+  if (plainAuthors) plainAuthors.style.display = 'none';
 
   const fmtNum = (n) => {
     if (!n) return null;
@@ -445,7 +446,7 @@ function _renderAuthorsPane(data) {
     </div>`;
   }
   html += '</div>';
-  authorsPane.innerHTML = html;
+  container.innerHTML = html;
   window._insightAuthors = data.authors;
 
   const authorsList = document.getElementById('paper-authors-list');
@@ -1300,6 +1301,7 @@ function _renderPaperInfoHeader(container) {
     '<div class="sidebar-paper-title text-[0.85rem] font-semibold text-primary leading-snug mb-1">' + renderTitle(paper.title) + '</div>' +
     '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] mb-1">' + infoMeta.join('<span class="text-dimmest">\u00b7</span>') + '</div>' +
     '<div class="sidebar-paper-authors text-[0.72rem] text-muted leading-snug">' + (paper.authors ? escapeHtml(paper.authors) : '') + '</div>' +
+    '<div id="sidebar-paper-authors-cards" class="mt-2"></div>' +
     '</div>';
 }
 
@@ -1308,7 +1310,6 @@ function _renderBrowsePanes(container) {
   container.innerHTML =
     '<div data-pane-id="insights" id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">' +
       '<div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">' +
-        '<div class="insight-section" id="insight-drop-authors"><div class="insight-section-title">Authors</div><div class="insight-section-body" id="insight-pane-authors"></div></div>' +
         '<div class="insight-section" id="insight-drop-ai"><div class="insight-section-title">AI</div><div class="insight-section-body" id="insight-pane-ai"></div></div>' +
         '<div class="insight-section" id="insight-drop-references"><div class="insight-section-title">References</div><div class="insight-section-body" id="insight-pane-references"></div></div>' +
         '<div class="insight-section" id="insight-drop-links"><div class="insight-section-title">Links</div><div class="insight-section-body" id="insight-pane-links"><div id="pdf-links-section"></div></div></div>' +
