@@ -772,7 +772,8 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
     #browse-url-input::placeholder { color: var(--text-muted); }
-    .browse-bar-draggable { touch-action: none; }
+    .browse-bar-draggable { touch-action: none; width: 24px !important; height: 24px !important; }
+    .browse-bar-draggable > svg, .browse-bar-draggable > button > svg { width: 14px; height: 14px; }
     .browse-bar-draggable.dragging { opacity: 0.3; }
 
     /* ── Research view tabs ── */
