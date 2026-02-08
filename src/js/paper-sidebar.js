@@ -423,12 +423,6 @@ function _renderAuthorsPane(data) {
   const plainAuthors = document.querySelector('#sidebar-paper-info .sidebar-paper-authors');
   if (plainAuthors) plainAuthors.style.display = 'none';
 
-  const fmtNum = (n) => {
-    if (!n) return null;
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-    return n.toLocaleString();
-  };
   let html = '<div class="space-y-1" id="paper-authors-list">';
   for (let i = 0; i < data.authors.length; i++) {
     const author = data.authors[i];
@@ -544,13 +538,6 @@ async function fetchPaperReferences(arxivId, containerEl) {
     // Sort by citation count (most cited first) since S2 doesn't preserve paper's citation order
     refs = refs.sort((a, b) => (b.citationCount || 0) - (a.citationCount || 0));
 
-    const fmtNum = (n) => {
-      if (!n) return '0';
-      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-      return n.toLocaleString();
-    };
-
     // Sorted by citation count since S2 doesn't preserve paper's citation order
     let html = `<div class="text-[0.68rem] text-dimmer mb-2">${refs.length} cited papers (sorted by influence)</div><div class="space-y-1" id="references-list">`;
     for (const ref of refs) {
@@ -583,55 +570,8 @@ async function fetchPaperReferences(arxivId, containerEl) {
   }
 }
 
-function showReferencePopup(refNum, arxivId, anchorEl) {
-  // Reuse the citation popup from pdfviewer.js
-  if (typeof showCitationPopup === 'function') {
-    showCitationPopup(refNum, anchorEl);
-  }
-}
-
-async function showReferenceByTitle(title, anchorEl) {
-  // Show popup and search by title
-  if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
-
-  const popup = document.createElement('div');
-  popup.className = 'citation-popup';
-  popup.innerHTML = `<div class="citation-popup-loading"><span class="spinner"></span> Looking up paper...</div>`;
-  document.body.appendChild(popup);
-  if (typeof _citationPopup !== 'undefined') window._citationPopup = popup;
-
-  // Position popup
-  const rect = anchorEl.getBoundingClientRect();
-  popup.style.left = rect.left + 'px';
-  popup.style.top = (rect.bottom + 8) + 'px';
-
-  try {
-    const resp = await fetch('/api/citation-lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: title })
-    });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-
-    if (typeof renderCitationPopup === 'function') {
-      renderCitationPopup(popup, data);
-    } else {
-      // Fallback rendering
-      const fmtNum = (n) => n >= 1000 ? (n/1000).toFixed(1) + 'K' : n;
-      popup.innerHTML = `
-        <div class="citation-popup-title">${escapeHtml(data.title || 'Unknown')}</div>
-        <div class="citation-popup-meta">${data.authors?.slice(0,3).join(', ')}${data.year ? ' · ' + data.year : ''}</div>
-        ${data.abstract ? `<div class="citation-popup-abstract">${escapeHtml(data.abstract.slice(0,200))}...</div>` : ''}
-        <div class="citation-popup-footer">
-          <span class="citation-popup-cited">Cited by ${fmtNum(data.citationCount || 0)}</span>
-          ${data.url ? `<a href="${data.url}" target="_blank" class="citation-popup-link">View paper →</a>` : ''}
-        </div>
-      `;
-    }
-  } catch (e) {
-    popup.innerHTML = `<div class="citation-popup-error">Could not find paper info</div>`;
-  }
+function showReferenceByTitle(title, anchorEl) {
+  _showTitleLookupPopup(title, anchorEl);
 }
 
 // ── Author Profile Page ──

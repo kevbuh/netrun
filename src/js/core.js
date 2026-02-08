@@ -1968,6 +1968,13 @@ function decodeHtml(str) {
   return el.value;
 }
 
+function fmtNum(n) {
+  if (!n) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
 // Shared KaTeX macros — \mathcal shortcuts (\gA–\gZ) and \mathbb shortcuts (\sA–\sZ)
 // from the standard ICLR/NeurIPS math_commands.tex template
 const KATEX_MACROS = (() => {

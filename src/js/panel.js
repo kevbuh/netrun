@@ -117,13 +117,6 @@ function _findKnownAuthor(text) {
 }
 
 function _renderAuthorPreviewHtml(data, containerDiv) {
-  const fmtNum = (n) => {
-    if (!n) return '0';
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-    return n.toLocaleString();
-  };
-
   let html = '<div class="doc-author-result">';
   html += `<div class="doc-author-name">${escapeHtml(data.name)}</div>`;
   const affil = data.affiliations?.length ? data.affiliations[0] : data.affiliation;
@@ -1394,18 +1387,12 @@ function _showReferencePopup(refNum, anchorEl) {
 }
 
 function _renderRefInfo(container, data, refNum, popup) {
-  const fmtNum = (n) => {
-    if (!n) return '0';
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-    return n.toLocaleString();
-  };
   const authors = data.authors?.length
     ? data.authors.slice(0, 3).join(', ') + (data.authors.length > 3 ? ' et al.' : '')
     : '';
   const abstract = data.abstract ? (data.abstract.length > 150 ? data.abstract.slice(0, 150) + '…' : data.abstract) : '';
 
-  let html = `<div class="doc-ref-badge">[${refNum}]</div>`;
+  let html = refNum != null ? `<div class="doc-ref-badge">[${refNum}]</div>` : '';
   html += `<div class="doc-ref-title">${escapeHtml(data.title || 'Unknown')}</div>`;
   if (authors || data.year) {
     html += `<div class="doc-ref-meta">`;
@@ -1443,12 +1430,140 @@ function _renderRefInfo(container, data, refNum, popup) {
 }
 
 function _buildRefContext(data, refNum) {
-  let ctx = `Reference [${refNum}]`;
+  let ctx = refNum != null ? `Reference [${refNum}]` : 'Paper';
   if (data.title) ctx += `: "${data.title}"`;
   if (data.authors?.length) ctx += ` by ${data.authors.slice(0, 3).join(', ')}`;
   if (data.year) ctx += ` (${data.year})`;
   if (data.abstract) ctx += `\n\nAbstract: ${data.abstract.slice(0, 300)}`;
   return ctx;
+}
+
+// Title-based lookup popup — used by paper-sidebar references tab.
+// Reuses the same popup structure as _showReferencePopup but queries by title
+// instead of extracting reference text from the PDF.
+function _showTitleLookupPopup(title, anchorEl) {
+  const existing = document.getElementById('doc-chat-ask-float');
+  if (existing) existing.remove();
+  if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
+
+  _popupChatMessages = [];
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+
+  const popup = document.createElement('div');
+  popup.id = 'doc-chat-ask-float';
+  popup.className = 'doc-selection-popup';
+  popup.style.visibility = 'hidden';
+
+  const refInfo = document.createElement('div');
+  refInfo.className = 'doc-ref-info';
+  refInfo.innerHTML = `<div class="doc-ref-loading"><span class="spinner"></span> Looking up paper…</div>`;
+  popup.appendChild(refInfo);
+
+  const askWrap = document.createElement('div');
+  askWrap.className = 'doc-ask-inline-wrap';
+  const askInput = document.createElement('input');
+  askInput.type = 'text';
+  askInput.placeholder = 'Ask about this paper…';
+  askInput.className = 'doc-ask-inline-input';
+  askInput.disabled = true;
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'doc-ask-inline-send';
+  sendBtn.innerHTML = '↑';
+  sendBtn.title = 'Send';
+  sendBtn.disabled = true;
+
+  let refContextText = title;
+
+  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  sendBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
+    _sendPopupChatMessage(popup, refContextText);
+  });
+  askInput.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter') { ev.preventDefault(); _sendPopupChatMessage(popup, refContextText); }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _aetherPinned = false;
+      popup.remove();
+      _aetherShowCursor();
+      _aetherRestoreFocus();
+    }
+  });
+  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
+  const chatArea = document.createElement('div');
+  chatArea.className = 'doc-popup-chat-area';
+  const chatMsgs = document.createElement('div');
+  chatMsgs.className = 'doc-popup-chat-messages';
+  chatArea.appendChild(chatMsgs);
+  const chatActions = document.createElement('div');
+  chatActions.className = 'doc-popup-chat-actions';
+  const clearBtn = document.createElement('button');
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  clearBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _popupChatMessages = [];
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    chatMsgs.innerHTML = '';
+    chatArea.classList.remove('visible');
+    popup.classList.remove('has-chat');
+    _repositionSelectionPopup();
+  });
+  const statsSpan = document.createElement('span');
+  statsSpan.className = 'doc-chat-stats';
+  chatActions.appendChild(statsSpan);
+  chatActions.appendChild(clearBtn);
+  chatArea.appendChild(chatActions);
+  popup.appendChild(chatArea);
+
+  askWrap.appendChild(askInput);
+  askWrap.appendChild(sendBtn);
+  popup.appendChild(askWrap);
+
+  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  document.body.appendChild(popup);
+
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const popupRect = popup.getBoundingClientRect();
+  let top = anchorRect.top - popupRect.height - 8;
+  const fitsAbove = top >= 4;
+  if (!fitsAbove) top = anchorRect.bottom + 8;
+  let left = anchorRect.left;
+  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
+  if (left < 4) left = 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup.style.visibility = '';
+  popup._anchorTop = anchorRect.top;
+  popup._anchorBottom = anchorRect.bottom;
+  popup._anchorLeft = anchorRect.left;
+  popup._aboveSelection = fitsAbove;
+
+  fetch('/api/citation-lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: title })
+  })
+    .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      _renderRefInfo(refInfo, data, null, popup);
+      refContextText = _buildRefContext(data, null);
+      askInput.disabled = false;
+      sendBtn.disabled = false;
+      _repositionSelectionPopup();
+      setTimeout(() => askInput.focus(), 10);
+    })
+    .catch(() => {
+      refInfo.innerHTML = `<div class="doc-ref-error">Could not find paper info</div>`;
+      askInput.disabled = false;
+      sendBtn.disabled = false;
+      _repositionSelectionPopup();
+    });
 }
 
 // Position a popup so one of its four corners is at (cx, cy), picking the best

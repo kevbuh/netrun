@@ -1723,7 +1723,7 @@ function _browseUpdateNewTabPage(tab) {
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
         <div class="browse-ntp-inner">
           <div class="browse-ntp-center">
-            <div style="text-align:center;margin-bottom:12px;user-select:none;"><svg style="height:3rem;display:inline-block;" viewBox="-0.5 -8.5 6.5 9" xmlns="http://www.w3.org/2000/svg"><path fill="var(--text-dimmer)" d="M1.21943 -1.50635C1.44658 -0.3467 2.17584 0.143462 2.97684 0.143462C3.41918 0.143462 4.12453 -0.0119552 4.96139 -0.633624C5.23636 -0.860772 5.24832 -0.872727 5.24832 -0.956413C5.24832 -1.02814 5.10486 -1.2792 4.96139 -1.2792C4.91357 -1.2792 4.88966 -1.2792 4.77011 -1.15965C4.31582 -0.789041 3.63437 -0.286924 3.00075 -0.286924C2.30735 -0.286924 2.28344 -1.25529 2.28344 -1.54222C2.28344 -1.93674 2.33126 -2.21171 2.39103 -2.57036C2.47472 -2.666 2.72578 -2.8812 2.80946 -2.97684C3.44309 -3.59851 5.34396 -5.49938 5.34396 -7.23288C5.34396 -8.14147 4.8538 -8.39253 4.42341 -8.39253C2.58232 -8.39253 1.1477 -4.49514 1.1477 -2.15193C0.944458 -1.9726 0.406476 -1.53026 0.203238 -1.33898C0.0478207 -1.19552 0.0358655 -1.18356 0.0358655 -1.11183C0.0358655 -1.05205 0.179328 -0.789041 0.310834 -0.789041C0.37061 -0.789041 0.394521 -0.789041 0.561893 -0.944458L1.21943 -1.50635ZM2.59427 -3.51482C3.09639 -5.51133 3.15616 -5.73848 3.3594 -6.36015C3.44309 -6.61121 3.88543 -7.96214 4.41146 -7.96214C4.71034 -7.96214 4.80598 -7.72304 4.80598 -7.34047C4.80598 -6.89813 4.67447 -6.08518 3.82565 -4.93748C3.3594 -4.29191 2.73773 -3.64633 2.59427 -3.51482Z"/></svg></div>
+            <div style="text-align:center;margin-bottom:12px;user-select:none;"><div class="browse-ntp-logo"><svg style="height:3rem;display:inline-block;" viewBox="-0.5 -8.5 6.5 9" xmlns="http://www.w3.org/2000/svg"><path fill="var(--text-dimmer)" d="M1.21943 -1.50635C1.44658 -0.3467 2.17584 0.143462 2.97684 0.143462C3.41918 0.143462 4.12453 -0.0119552 4.96139 -0.633624C5.23636 -0.860772 5.24832 -0.872727 5.24832 -0.956413C5.24832 -1.02814 5.10486 -1.2792 4.96139 -1.2792C4.91357 -1.2792 4.88966 -1.2792 4.77011 -1.15965C4.31582 -0.789041 3.63437 -0.286924 3.00075 -0.286924C2.30735 -0.286924 2.28344 -1.25529 2.28344 -1.54222C2.28344 -1.93674 2.33126 -2.21171 2.39103 -2.57036C2.47472 -2.666 2.72578 -2.8812 2.80946 -2.97684C3.44309 -3.59851 5.34396 -5.49938 5.34396 -7.23288C5.34396 -8.14147 4.8538 -8.39253 4.42341 -8.39253C2.58232 -8.39253 1.1477 -4.49514 1.1477 -2.15193C0.944458 -1.9726 0.406476 -1.53026 0.203238 -1.33898C0.0478207 -1.19552 0.0358655 -1.18356 0.0358655 -1.11183C0.0358655 -1.05205 0.179328 -0.789041 0.310834 -0.789041C0.37061 -0.789041 0.394521 -0.789041 0.561893 -0.944458L1.21943 -1.50635ZM2.59427 -3.51482C3.09639 -5.51133 3.15616 -5.73848 3.3594 -6.36015C3.44309 -6.61121 3.88543 -7.96214 4.41146 -7.96214C4.71034 -7.96214 4.80598 -7.72304 4.80598 -7.34047C4.80598 -6.89813 4.67447 -6.08518 3.82565 -4.93748C3.3594 -4.29191 2.73773 -3.64633 2.59427 -3.51482Z"/></svg></div></div>
             <div class="flex items-center justify-center gap-1" style="margin-bottom:12px;">
               <button id="research-tab-search" class="research-tab" onclick="switchResearchTab('search')">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -2748,6 +2748,46 @@ function _pillSyncUrl() {
   if (!input) return;
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   input.value = (tab && !tab.blank && tab.url) ? tab.url : '';
+  // Safety net: ensure NTP is hidden when a non-blank tab is active in vertical mode
+  if (tab && !tab.blank) {
+    const ntp = document.getElementById('browse-content')?.querySelector('.browse-ntp');
+    if (ntp) ntp.style.display = 'none';
+  }
+  _updateVtabNavButtons();
+}
+
+const _vtabNavBackArrow = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>';
+const _vtabNavFeedIcon = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>';
+
+function _updateVtabNavButtons() {
+  try {
+    const backBtn = document.getElementById('pill-browse-back');
+    const fwdBtn = document.getElementById('pill-browse-fwd');
+    if (!backBtn && !fwdBtn) return;
+    const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+    const hasBackHistory = tab && tab.backStack && tab.backStack.length > 0;
+    let hasElBack = false, hasElFwd = false;
+    try { hasElBack = _browseIsElectron && tab && tab.el && tab.el.canGoBack && tab.el.canGoBack(); } catch(e) {}
+    const hasFwdHistory = tab && tab.forwardStack && tab.forwardStack.length > 0;
+    try { hasElFwd = _browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
+    if (backBtn) {
+      const hasAnyBack = hasBackHistory || hasElBack || !!_browseReturnView;
+      if (!hasAnyBack) {
+        backBtn.style.display = 'none';
+      } else if (!hasBackHistory && !hasElBack && _browseReturnView === 'feed') {
+        backBtn.style.display = '';
+        backBtn.innerHTML = _vtabNavFeedIcon;
+        backBtn.title = 'Back to Feed';
+      } else {
+        backBtn.style.display = '';
+        backBtn.innerHTML = _vtabNavBackArrow;
+        backBtn.title = 'Back';
+      }
+    }
+    if (fwdBtn) {
+      fwdBtn.style.display = (hasFwdHistory || hasElFwd) ? '' : 'none';
+    }
+  } catch(e) {}
 }
 
 /* Keydown for pill URL input */
@@ -4093,26 +4133,31 @@ function _browseRestoreActiveWebview() {
 
 function browseBack() {
   const el = _browseActiveEl();
-  if (!el) return;
-  if (_browseIsElectron && el.canGoBack && el.canGoBack()) { el.goBack(); return; }
+  if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { el.goBack(); return; }
   // Use our own history stack for non-Electron (cross-origin iframes block history.back())
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  if (!tab || !tab.backStack || !tab.backStack.length) return;
-  if (!tab.forwardStack) tab.forwardStack = [];
-  tab.forwardStack.push(tab.url);
-  const prevUrl = tab.backStack.pop();
-  tab.url = prevUrl;
-  tab.title = _browseTitleFromUrl(prevUrl);
-  tab.favicon = _browseFaviconUrl(prevUrl);
-  _browseSetFrameAllow(el, prevUrl);
-  const proxied = _browseProxyUrl(prevUrl);
-  el.dataset.originalUrl = prevUrl;
-  el.src = proxied;
-  const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = prevUrl;
-  _browseRenderTabs();
-  _browseUpdateSaveBtn();
-  _browseSaveTabs();
+  if (tab && tab.backStack && tab.backStack.length) {
+    if (!tab.forwardStack) tab.forwardStack = [];
+    tab.forwardStack.push(tab.url);
+    const prevUrl = tab.backStack.pop();
+    tab.url = prevUrl;
+    tab.title = _browseTitleFromUrl(prevUrl);
+    tab.favicon = _browseFaviconUrl(prevUrl);
+    if (el) {
+      _browseSetFrameAllow(el, prevUrl);
+      const proxied = _browseProxyUrl(prevUrl);
+      el.dataset.originalUrl = prevUrl;
+      el.src = proxied;
+    }
+    const urlInput = document.getElementById('browse-url-input');
+    if (urlInput) urlInput.value = prevUrl;
+    _browseRenderTabs();
+    _browseUpdateSaveBtn();
+    _browseSaveTabs();
+    return;
+  }
+  // No in-tab history — fall back to returning to the previous view (feed, inbox, etc.)
+  if (_browseReturnView) _browseGoBack();
 }
 
 function browseForward() {

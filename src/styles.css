@@ -677,6 +677,9 @@
     .browse-mode.vtab-mode.menu-expanded #pill-browse-hamburger {
       display: none;
     }
+    .browse-mode.vtab-mode.menu-expanded #pill-browse-url {
+      order: -1;
+    }
 
     /* Pill browse tabs — expands to fill in browse mode */
     #pill-browse-tabs {
@@ -1322,6 +1325,28 @@
       display: flex;
     }
 
+    /* ── Pill bar vtab nav buttons (back/forward/refresh) ── */
+    .pill-vtab-nav {
+      display: none;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+    .browse-mode.vtab-mode .pill-vtab-nav {
+      display: flex;
+    }
+    #pill-window-switcher {
+      align-items: center;
+      gap: 0;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+    #pill-window-switcher .sidebar-icon {
+      width: 20px; height: 20px;
+      opacity: 0.5;
+    }
+    #pill-window-switcher .sidebar-icon:hover { opacity: 1; }
+    #pill-window-switcher .sidebar-icon.disabled { opacity: 0.2; pointer-events: none; }
+
     /* ── Vertical tabs sidebar ── */
     .browse-vtabs {
       width: 220px;
@@ -1585,7 +1610,18 @@
       flex-direction: column;
     }
     .browse-ntp-center {
-      margin-top: 28vh;
+      margin-top: 22vh;
+    }
+    .browse-ntp-logo {
+      display: inline-block;
+      padding: 12px;
+      border-radius: 16px;
+      transition: filter 0.12s, transform 0.12s;
+      cursor: pointer;
+    }
+    .browse-ntp-logo:hover {
+      filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 50%, transparent)) drop-shadow(0 0 24px color-mix(in srgb, var(--accent) 30%, transparent));
+      transform: scale(1.08);
     }
 
     /* ── NTP Search Box ── */
