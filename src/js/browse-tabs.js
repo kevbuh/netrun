@@ -532,6 +532,11 @@ function openBrowseWithPaper(url, paper) {
 
   if (!isAlreadyOpen) openBrowse();
 
+  // Ensure _browseActiveWindow points to a valid window (use last window as fallback)
+  if (!_getCurrentWindow() && _browseWindows.length) {
+    browseSelectWindow(_browseWindows[_browseWindows.length - 1].id);
+  }
+
   // Exit split mode when opening a paper from feed — want full-screen view
   if (_browseIsSplitMode()) {
     const win = _getCurrentWindow();
@@ -3578,42 +3583,17 @@ function _installOverviewKeyHandler() {
         e.preventDefault();
         _overviewBrowseExpanded = false;
         _renderWindowOverview();
-      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx >= 0) {
-        // Delete selected tab
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx === -1 && winCount > 1) {
         e.preventDefault();
-        if (curWin) {
-          var tabToClose = curWin.tabs[_overviewBrowseTabIdx];
-          if (tabToClose) {
-            browseSelectWindow(curWin.id);
-            browseCloseTab(tabToClose.id);
-          }
-          // Adjust tab index
-          var newTabCount = curWin.tabs.length;
-          if (newTabCount === 0) {
-            // Window has no tabs left — close the window
-            browseCloseWindow(curWin.id);
-            if (_browseWindows.length === 0) {
-              _overviewBrowseExpanded = false;
-            } else {
-              if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
-              _overviewBrowseTabIdx = -1;
-            }
-          } else if (_overviewBrowseTabIdx >= newTabCount) {
-            _overviewBrowseTabIdx = newTabCount - 1;
-          }
-          _renderWindowOverview();
-        }
-      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx === -1) {
-        // Delete whole window
-        e.preventDefault();
-        if (curWin) _overviewCloseBrowseWin(curWin.id);
+        if (curWin) browseCloseWindow(curWin.id);
+        if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
+        _renderWindowOverview();
       }
       return;
     }
 
-    // ── Top-level app strip mode (4-column grid) ──
+    // ── Top-level app strip mode (horizontal row) ──
     var total = _wmWindows.length;
-    var cols = 4;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
@@ -3629,37 +3609,10 @@ function _installOverviewKeyHandler() {
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];
-      // If on browse card, expand browse detail
       if (wDown && wDown.key === 'browse') {
         _overviewBrowseExpanded = true;
         _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
         _overviewBrowseTabIdx = -1;
-        _renderWindowOverview();
-      } else {
-        // Move down one row in the grid
-        var nextIdx = _overviewSelectedIdx + cols;
-        if (nextIdx < total) {
-          _overviewSelectedIdx = nextIdx;
-          _updateOverviewHighlight();
-          var wD = _wmWindows[_overviewSelectedIdx];
-          if (wD) { _wmFocusIndex = _overviewSelectedIdx; var mD = _wmViewMeta[wD.key]; if (mD) mD.openFn(); _overviewScheduleCapture(); }
-        }
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      var prevIdx = _overviewSelectedIdx - cols;
-      if (prevIdx >= 0) {
-        _overviewSelectedIdx = prevIdx;
-        _updateOverviewHighlight();
-        var wU = _wmWindows[_overviewSelectedIdx];
-        if (wU) { _wmFocusIndex = _overviewSelectedIdx; var mU = _wmViewMeta[wU.key]; if (mU) mU.openFn(); _overviewScheduleCapture(); }
-      }
-    } else if (e.key === 'Backspace' || e.key === 'Delete') {
-      e.preventDefault();
-      if (total > 1) {
-        _wmCloseWindow(_overviewSelectedIdx);
-        if (_overviewSelectedIdx >= _wmWindows.length) _overviewSelectedIdx = _wmWindows.length - 1;
-        _wmFocusIndex = _overviewSelectedIdx;
         _renderWindowOverview();
       }
     } else if (e.key === 'Enter') {

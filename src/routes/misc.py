@@ -921,6 +921,21 @@ def neuralook_train(google_id):
                         best_val_loss = val_loss
                         best_state = {k: v.clone() for k, v in model.state_dict().items()}
                         no_improve = 0
+                        # Hot-swap: load best weights into serving model, save checkpoint, notify frontend
+                        model.load_state_dict(best_state)
+                        model.eval()
+                        _neuralook_models[method] = model
+                        _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method)
+                        with torch.no_grad():
+                            vp_hot = model(X_val, AUX_val)
+                            vp2_hot = vp_hot.clone(); vp2_hot[:, 0] *= screen_w; vp2_hot[:, 1] *= screen_h
+                            yv_hot = Y_val.clone(); yv_hot[:, 0] *= screen_w; yv_hot[:, 1] *= screen_h
+                            hot_val_err = round(torch.sqrt(((vp2_hot - yv_hot) ** 2).sum(dim=1)).mean().item(), 1)
+                            tp_hot = model(X_train, AUX_train)
+                            tp2_hot = tp_hot.clone(); tp2_hot[:, 0] *= screen_w; tp2_hot[:, 1] *= screen_h
+                            yt_hot = Y_train.clone(); yt_hot[:, 0] *= screen_w; yt_hot[:, 1] *= screen_h
+                            hot_train_err = round(torch.sqrt(((tp2_hot - yt_hot) ** 2).sum(dim=1)).mean().item(), 1)
+                        yield sse_event('model_updated', {'val_error_px': hot_val_err, 'train_error_px': hot_train_err, 'epoch': epoch})
                     else:
                         no_improve += 10
                     cur_lr = optimizer.param_groups[0]['lr']

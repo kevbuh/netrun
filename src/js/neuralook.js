@@ -131,15 +131,13 @@ let _nlCurrentFixation = null;
 
 // 5x5 calibration grid (25 points)
 const _NL_CAL_POSITIONS = [
-  [8,8],[29,8],[50,8],[71,8],[92,8],
-  [8,29],[29,29],[50,29],[71,29],[92,29],
-  [8,50],[29,50],[50,50],[71,50],[92,50],
-  [8,71],[29,71],[50,71],[71,71],[92,71],
-  [8,92],[29,92],[50,92],[71,92],[92,92]
+  [10,10],[50,10],[90,10],
+  [10,50],[50,50],[90,50],
+  [10,90],[50,90],[90,90]
 ];
 
-const _NL_STARE_MS = 1200;
-const _NL_SETTLE_MS = 250;
+const _NL_STARE_MS = 800;
+const _NL_SETTLE_MS = 150;
 
 // Eye crop dimensions
 const _NL_EYE_W = 128;
@@ -267,6 +265,7 @@ function renderNeuralookView() {
 
   if (_nlTracking) {
     requestAnimationFrame(() => _nlRefreshDashboard());
+    _nlAttachCameraPreview();
   } else {
     if (_nlCameraOn) _nlAttachCameraPreview();
   }
@@ -320,8 +319,25 @@ function _nlRenderTrainDetailView(container) {
 
         <!-- Two-column body -->
         <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;">
-          <!-- Left col: loss graph + stats -->
+          <!-- Left col: eye crops + loss graph + stats -->
           <div style="display:flex;flex-direction:column;gap:10px;min-height:0;">
+            <!-- Eye crop preview -->
+            <div class="bg-card border border-border-card rounded-xl p-2.5" style="flex-shrink:0;">
+              <div class="flex items-center gap-3">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                  <canvas id="nl-train-eye-left" width="${_NL_EYE_W}" height="${_NL_EYE_H}" style="width:${_NL_EYE_W}px;height:${_NL_EYE_H}px;border-radius:6px;background:#000;image-rendering:pixelated;"></canvas>
+                  <span class="text-[0.6rem] text-dimmer">Left</span>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                  <canvas id="nl-train-eye-right" width="${_NL_EYE_W}" height="${_NL_EYE_H}" style="width:${_NL_EYE_W}px;height:${_NL_EYE_H}px;border-radius:6px;background:#000;image-rendering:pixelated;"></canvas>
+                  <span class="text-[0.6rem] text-dimmer">Right</span>
+                </div>
+                <div class="flex flex-col gap-0.5 text-[0.62rem] text-muted ml-auto" id="nl-train-eye-info">
+                  <span>${_NL_EYE_W}×${_NL_EYE_H} grayscale</span>
+                  <span>2 channels</span>
+                </div>
+              </div>
+            </div>
             <!-- Loss graph -->
             <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;">
               <div class="flex items-center justify-between mb-1" style="flex-shrink:0;">
@@ -376,6 +392,61 @@ function _nlRenderTrainDetailView(container) {
 
   _nlRefreshTrainDetails();
   _nlDrawTrainLossGraph();
+  _nlStartEyeCropPreview();
+}
+
+let _nlEyeCropRAF = null;
+
+function _nlStartEyeCropPreview() {
+  if (_nlEyeCropRAF) cancelAnimationFrame(_nlEyeCropRAF);
+  function loop() {
+    if (!document.getElementById('nl-train-eye-left')) { _nlEyeCropRAF = null; return; }
+    _nlDrawEyeCrops();
+    _nlEyeCropRAF = requestAnimationFrame(loop);
+  }
+  _nlEyeCropRAF = requestAnimationFrame(loop);
+}
+
+function _nlDrawEyeCrops() {
+  const leftCanvas = document.getElementById('nl-train-eye-left');
+  const rightCanvas = document.getElementById('nl-train-eye-right');
+  if (!leftCanvas || !rightCanvas) return;
+
+  // Try live capture if video is available
+  let data = _nlLastCapture;
+  if (_nlFaceLandmarker && _nlVideoEl && _nlVideoEl.srcObject) {
+    const live = _nlCaptureEyeCrops();
+    if (live) data = live;
+  }
+  if (!data || !data.eyeData) return;
+
+  const eyeSize = _NL_EYE_W * _NL_EYE_H;
+  const raw = data.eyeData;
+
+  // Draw left eye
+  const lCtx = leftCanvas.getContext('2d');
+  const lImg = lCtx.createImageData(_NL_EYE_W, _NL_EYE_H);
+  for (let i = 0; i < eyeSize; i++) {
+    const v = raw[i];
+    lImg.data[i * 4] = v; lImg.data[i * 4 + 1] = v; lImg.data[i * 4 + 2] = v; lImg.data[i * 4 + 3] = 255;
+  }
+  lCtx.putImageData(lImg, 0, 0);
+
+  // Draw right eye
+  const rCtx = rightCanvas.getContext('2d');
+  const rImg = rCtx.createImageData(_NL_EYE_W, _NL_EYE_H);
+  for (let i = 0; i < eyeSize; i++) {
+    const v = raw[eyeSize + i];
+    rImg.data[i * 4] = v; rImg.data[i * 4 + 1] = v; rImg.data[i * 4 + 2] = v; rImg.data[i * 4 + 3] = 255;
+  }
+  rCtx.putImageData(rImg, 0, 0);
+
+  // Update info with head pose
+  const infoEl = document.getElementById('nl-train-eye-info');
+  if (infoEl && data.headPose) {
+    const [yaw, pitch, roll] = data.headPose;
+    infoEl.innerHTML = `<span>${_NL_EYE_W}×${_NL_EYE_H} grayscale</span><span>yaw ${yaw.toFixed(2)} pitch ${pitch.toFixed(2)}</span>`;
+  }
 }
 
 function _nlAppendTrainLog(line) {
@@ -790,7 +861,17 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
                 const data = JSON.parse(line.slice(6));
                 if (currentEvent === 'log' && onLog) onLog(data.text);
                 else if (currentEvent === 'progress' && onProgress) onProgress(data);
-                else if (currentEvent === 'done') {
+                else if (currentEvent === 'model_updated') {
+                  _nlTrainError = data.train_error_px;
+                  _nlValError = data.val_error_px;
+                  _nlModelTrained = true;
+                  _nlReady = true;
+                  _nlModelVersion++;
+                  _nlBaselineValError = data.val_error_px;
+                  _nlShowModelUpdatedPill(_nlModelVersion, data.val_error_px);
+                  if (onLog) onLog(`► Model updated to v${_nlModelVersion} — val ${data.val_error_px}px (epoch ${data.epoch})`);
+                  _nlRefreshStats();
+                } else if (currentEvent === 'done') {
                   _nlTrainError = data.train_error_px;
                   _nlValError = data.val_error_px || null;
                   _nlModelTrained = true;
@@ -1250,7 +1331,7 @@ function _nlShowNextCalibrationDot() {
         dot.style.opacity = '0';
         ring.style.opacity = '0';
         _nlCurrentPoint++;
-        setTimeout(() => { dot.remove(); ring.remove(); _nlShowNextCalibrationDot(); }, 200);
+        setTimeout(() => { dot.remove(); ring.remove(); _nlShowNextCalibrationDot(); }, 80);
         return;
       }
 
@@ -1460,18 +1541,11 @@ function _nlHandleImplicitClick(e) {
     _nlShowClickFeedback(e.clientX, e.clientY, false, `stale ${age}ms`);
     return;
   }
-  // Confidence: predicted gaze must be within adaptive radius of click
   const dx = _nlLastPrediction.x - e.clientX;
   const dy = _nlLastPrediction.y - e.clientY;
   const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-  if (dist > _nlAdaptiveRadius) {
-    console.log(`[neuralook] click rejected: gaze too far (${dist}px) — predicted (${Math.round(_nlLastPrediction.x)},${Math.round(_nlLastPrediction.y)}) vs click (${e.clientX},${e.clientY})`);
-    _nlShowClickFeedback(e.clientX, e.clientY, false, `${dist}px`);
-    return;
-  }
   console.log(`[neuralook] implicit click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
   _nlShowClickFeedback(e.clientX, e.clientY, true, `${dist}px`);
-  // Build sample
   _nlImplicitBuffer.push({
     eyeData: Array.from(_nlLastCapture.eyeData),
     headPose: _nlLastCapture.headPose,
@@ -1479,7 +1553,6 @@ function _nlHandleImplicitClick(e) {
     screenX: e.clientX,
     screenY: e.clientY
   });
-  // Auto-flush at 50 samples
   if (_nlImplicitBuffer.length >= 50) _nlFlushImplicitSamples();
 }
 
@@ -1492,7 +1565,6 @@ function _nlHandleIframeClick(clientX, clientY) {
   const dx = _nlLastPrediction.x - clientX;
   const dy = _nlLastPrediction.y - clientY;
   const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-  if (dist > _nlAdaptiveRadius) return;
   console.log(`[neuralook] iframe click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
   _nlShowClickFeedback(clientX, clientY, true, `${dist}px`);
   _nlImplicitBuffer.push({
@@ -1591,6 +1663,8 @@ function _nlCheckAutoRefine() {
 
 async function _nlStartAutoRefine() {
   _nlAutoRefineInProgress = true;
+  _nlRefreshStats();
+  _nlShowAutoRefineProgressPill();
   // Flush pending buffer first
   if (_nlImplicitBuffer.length > 0) {
     const samples = _nlImplicitBuffer.splice(0);
@@ -1617,6 +1691,7 @@ async function _nlStartAutoRefine() {
     });
     const result = await resp.json();
     _nlLastAutoRefineTime = Date.now();
+    _nlDismissAutoRefineProgressPill();
     if (result.improved) {
       _nlModelVersion++;
       _nlBaselineValError = result.val_error_px;
@@ -1643,6 +1718,7 @@ async function _nlStartAutoRefine() {
     _nlRefreshStats();
   } catch (e) {
     console.warn('[neuralook] auto-refine error:', e);
+    _nlDismissAutoRefineProgressPill();
   } finally {
     _nlAutoRefineInProgress = false;
   }
@@ -1650,6 +1726,42 @@ async function _nlStartAutoRefine() {
 
 function _nlUpdateAdaptiveRadius(valErrorPx) {
   _nlAdaptiveRadius = Math.max(350, Math.min(600, Math.round(valErrorPx * 4)));
+}
+
+function _nlShowAutoRefineProgressPill() {
+  _nlDismissAutoRefineProgressPill();
+  const pill = document.createElement('div');
+  pill.id = 'nl-autorefine-progress-pill';
+  Object.assign(pill.style, {
+    position: 'fixed', right: '20px', zIndex: '99999',
+    background: 'var(--bg-card, #23232a)', border: '1px solid var(--border-card, #2a2a2f)',
+    borderRadius: '14px', padding: '10px 16px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', fontFamily: 'inherit', fontSize: '0.78rem',
+    color: 'var(--text-primary, #e5e5e5)', transition: 'opacity 0.3s, transform 0.3s',
+    opacity: '0', transform: 'translateY(10px)', display: 'flex', alignItems: 'center', gap: '10px',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
+  });
+  pill.innerHTML = `
+    <svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite;flex-shrink:0;">
+      <circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/>
+    </svg>
+    <div style="line-height:1.4;">
+      <div style="font-weight:600;font-size:0.8rem;">Refining ${_nlModelLabel()}...</div>
+      <div style="font-size:0.7rem;color:var(--text-secondary,#888);">${_nlImplicitCount} clicks · v${_nlModelVersion}</div>
+    </div>
+  `;
+  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); };
+  document.body.appendChild(pill);
+  pillStackAdd('nl-autorefine-progress-pill');
+  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
+}
+
+function _nlDismissAutoRefineProgressPill() {
+  const pill = document.getElementById('nl-autorefine-progress-pill');
+  if (!pill) return;
+  pillStackRemove('nl-autorefine-progress-pill');
+  pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
+  setTimeout(() => pill.remove(), 300);
 }
 
 function _nlShowAutoRefinePill(valErrorPx) {
@@ -2076,12 +2188,19 @@ function _nlRenderDashboardColumn() {
           <canvas id="nl-spark-gazey" style="width:100%;height:36px;display:block;"></canvas>
         </div>
       </div>
-      <!-- Heatmap + Stats -->
+      <!-- Heatmap + Camera + Stats -->
       <div style="display:flex;gap:10px;flex:1;min-height:0;">
-        <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;">
-          <span class="text-[0.72rem] text-muted mb-1.5">Screen Heatmap</span>
-          <div style="flex:1;min-height:0;position:relative;border-radius:8px;overflow:hidden;background:rgba(10,20,60,0.15);">
-            <canvas id="nl-heatmap-canvas" style="width:100%;height:100%;display:block;"></canvas>
+        <div style="flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;">
+          <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+            <span class="text-[0.72rem] text-muted mb-1.5">Screen Heatmap</span>
+            <div style="flex:1;min-height:0;position:relative;border-radius:8px;overflow:hidden;background:rgba(10,20,60,0.15);">
+              <canvas id="nl-heatmap-canvas" style="width:100%;height:100%;display:block;"></canvas>
+            </div>
+          </div>
+          <div class="bg-card border border-border-card rounded-xl p-2" style="height:120px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
+              <span class="text-dimmer text-[0.68rem]" id="nl-camera-placeholder">Camera</span>
+            </div>
           </div>
         </div>
         <div style="width:200px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
