@@ -1712,6 +1712,8 @@ function _browseUpdateNewTabPage(tab) {
   } else if (ntp) {
     ntp.style.display = 'none';
   }
+  const pinchOverlay = container.querySelector('.browse-pinch-overlay');
+  if (pinchOverlay) pinchOverlay.style.pointerEvents = (tab && tab.blank) ? 'none' : 'auto';
 }
 
 function browseCloseTab(id) {
@@ -3102,6 +3104,7 @@ async function _overviewDoCapture() {
     var base64 = await window.electronAPI.captureScreen({
       x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
     });
+    if (!_browseTabOverviewVisible) { _overviewCapturing = false; return; }
     overlay.style.display = 'flex';
     overlay.style.opacity = '1';
     overlay.offsetHeight;
@@ -3120,8 +3123,10 @@ async function _overviewDoCapture() {
       }
     }
   } catch (e) {
-    overlay.style.display = 'flex';
-    overlay.style.opacity = '1';
+    if (_browseTabOverviewVisible) {
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+    }
     overlay.style.transition = '';
   }
   _overviewCapturing = false;
@@ -3225,7 +3230,8 @@ function hideBrowseTabOverview() {
     _overviewWasBrowseMode = false;
   }
   overlay.classList.remove('visible');
-  setTimeout(() => { overlay.style.display = 'none'; }, 180);
+  overlay.style.opacity = '';
+  setTimeout(() => { if (!_browseTabOverviewVisible) overlay.style.display = 'none'; }, 180);
 }
 
 function _installOverviewKeyHandler() {
@@ -4134,6 +4140,8 @@ function _browseInstallPinchOverlay() {
   overlay.className = 'browse-pinch-overlay';
   overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:auto;';
   container.appendChild(overlay);
+  const ntp = container.querySelector('.browse-ntp');
+  if (ntp && ntp.style.display !== 'none') overlay.style.pointerEvents = 'none';
 
   // Chrome: pinch fires wheel with ctrlKey
   overlay.addEventListener('wheel', function(e) {
