@@ -31,6 +31,7 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 # Neuralook state
 _neuralook_models = {}
 _neuralook_screen = None
+_neuralook_hidden = {}  # per-method LSTM hidden state for temporal models
 _whisper_model = None
 
 # Lazy-initialized GazeCNN class (needs torch)
@@ -44,9 +45,10 @@ def _get_gaze_cnn_class():
     import torch.nn as nn
 
     class GazeCNN(nn.Module):
-        def __init__(self, aux_dim=9):
+        def __init__(self, aux_dim=9, temporal=False):
             super().__init__()
             self.aux_dim = aux_dim
+            self.temporal = temporal
             self.features = nn.Sequential(
                 nn.Conv2d(2, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
                 nn.MaxPool2d(2),
@@ -55,16 +57,40 @@ def _get_gaze_cnn_class():
                 nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
                 nn.AdaptiveAvgPool2d((4, 4)),
             )
-            self.head = nn.Sequential(
-                nn.Linear(128 * 4 * 4 + aux_dim, 256), nn.ReLU(), nn.Dropout(0.3),
-                nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
-                nn.Linear(64, 2)
-            )
-        def forward(self, x, aux):
+            feat_dim = 128 * 4 * 4 + aux_dim  # 2057
+            if temporal:
+                self.proj = nn.Sequential(nn.Linear(feat_dim, 128), nn.ReLU())
+                self.lstm = nn.LSTM(input_size=128, hidden_size=64, num_layers=1, batch_first=True)
+                self.head = nn.Sequential(
+                    nn.Linear(64, 32), nn.ReLU(), nn.Dropout(0.3),
+                    nn.Linear(32, 2)
+                )
+            else:
+                self.head = nn.Sequential(
+                    nn.Linear(feat_dim, 256), nn.ReLU(), nn.Dropout(0.3),
+                    nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
+                    nn.Linear(64, 2)
+                )
+        def forward(self, x, aux, hidden=None):
+            if self.temporal and x.dim() == 5:
+                # Sequence input: x=[B,T,2,H,W], aux=[B,T,9]
+                B, T = x.shape[0], x.shape[1]
+                x_flat = x.view(B * T, *x.shape[2:])
+                aux_flat = aux.view(B * T, -1)
+                feat = self.features(x_flat)
+                feat = feat.view(B * T, -1)
+                combined = torch.cat([feat, aux_flat], dim=1)
+                proj = self.proj(combined).view(B, T, -1)
+                lstm_out, _ = self.lstm(proj)
+                return self.head(lstm_out), None
             feat = self.features(x)
             feat = feat.view(feat.size(0), -1)
             combined = torch.cat([feat, aux], dim=1)
-            return self.head(combined)
+            if self.temporal:
+                proj = self.proj(combined).unsqueeze(1)  # [B,1,128]
+                lstm_out, new_hidden = self.lstm(proj, hidden)
+                return self.head(lstm_out.squeeze(1)), new_hidden
+            return self.head(combined), None
 
     _GazeCNN = GazeCNN
     return _GazeCNN
@@ -93,9 +119,10 @@ def _get_gaze_mobilenet_class():
             return self.pointwise(self.depthwise(x))
 
     class GazeMobileNet(nn.Module):
-        def __init__(self, aux_dim=9):
+        def __init__(self, aux_dim=9, temporal=False):
             super().__init__()
             self.aux_dim = aux_dim
+            self.temporal = temporal
             self.features = nn.Sequential(
                 nn.Conv2d(2, 16, 3, stride=2, padding=1), nn.BatchNorm2d(16), nn.ReLU(),
                 DepthwiseSeparableConv(16, 32, stride=2),
@@ -103,16 +130,39 @@ def _get_gaze_mobilenet_class():
                 DepthwiseSeparableConv(64, 64, stride=1),
                 nn.AdaptiveAvgPool2d((4, 4)),
             )
-            self.head = nn.Sequential(
-                nn.Linear(64 * 4 * 4 + aux_dim, 128), nn.ReLU(), nn.Dropout(0.2),
-                nn.Linear(128, 32), nn.ReLU(), nn.Dropout(0.2),
-                nn.Linear(32, 2)
-            )
-        def forward(self, x, aux):
+            feat_dim = 64 * 4 * 4 + aux_dim  # 1033
+            if temporal:
+                self.proj = nn.Sequential(nn.Linear(feat_dim, 64), nn.ReLU())
+                self.lstm = nn.LSTM(input_size=64, hidden_size=32, num_layers=1, batch_first=True)
+                self.head = nn.Sequential(
+                    nn.Linear(32, 16), nn.ReLU(), nn.Dropout(0.2),
+                    nn.Linear(16, 2)
+                )
+            else:
+                self.head = nn.Sequential(
+                    nn.Linear(feat_dim, 128), nn.ReLU(), nn.Dropout(0.2),
+                    nn.Linear(128, 32), nn.ReLU(), nn.Dropout(0.2),
+                    nn.Linear(32, 2)
+                )
+        def forward(self, x, aux, hidden=None):
+            if self.temporal and x.dim() == 5:
+                B, T = x.shape[0], x.shape[1]
+                x_flat = x.view(B * T, *x.shape[2:])
+                aux_flat = aux.view(B * T, -1)
+                feat = self.features(x_flat)
+                feat = feat.view(B * T, -1)
+                combined = torch.cat([feat, aux_flat], dim=1)
+                proj = self.proj(combined).view(B, T, -1)
+                lstm_out, _ = self.lstm(proj)
+                return self.head(lstm_out), None
             feat = self.features(x)
             feat = feat.view(feat.size(0), -1)
             combined = torch.cat([feat, aux], dim=1)
-            return self.head(combined)
+            if self.temporal:
+                proj = self.proj(combined).unsqueeze(1)
+                lstm_out, new_hidden = self.lstm(proj, hidden)
+                return self.head(lstm_out.squeeze(1)), new_hidden
+            return self.head(combined), None
 
     _GazeMobileNet = GazeMobileNet
     return _GazeMobileNet
@@ -133,7 +183,8 @@ def _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method='cnn'):
     torch.save(model.state_dict(), model_path)
     with open(meta_path, 'w') as f:
         json.dump({'aux_dim': model.aux_dim, 'screen_w': screen_w, 'screen_h': screen_h,
-                   'eye_w': eye_w, 'eye_h': eye_h, 'method': method}, f)
+                   'eye_w': eye_w, 'eye_h': eye_h, 'method': method,
+                   'temporal': getattr(model, 'temporal', False)}, f)
 
 
 def _nl_load_model(method='cnn'):
@@ -148,7 +199,8 @@ def _nl_load_model(method='cnn'):
         with open(meta_path, 'r') as f:
             meta = json.load(f)
         ModelClass = _nl_get_model_class(method)
-        model = ModelClass(aux_dim=meta.get('aux_dim', 9))
+        temporal = meta.get('temporal', False)
+        model = ModelClass(aux_dim=meta.get('aux_dim', 9), temporal=temporal)
         model.load_state_dict(torch.load(model_path, weights_only=True))
         model.eval()
         screen_info = (meta['screen_w'], meta['screen_h'], meta['eye_w'], meta['eye_h'])
@@ -733,14 +785,41 @@ def save_calibration(google_id):
         return jsonify({'error': str(e)}), 500
 
 
+def _nl_build_temporal_sequences(X, AUX, Y, targets_rounded, seq_len=8):
+    """Group frames by screen target and create overlapping sliding windows."""
+    import torch
+    from collections import defaultdict
+    target_indices = defaultdict(list)
+    for i, t in enumerate(targets_rounded):
+        target_indices[t].append(i)
+    seq_X, seq_AUX, seq_Y = [], [], []
+    for t, indices in target_indices.items():
+        indices.sort()
+        if len(indices) < seq_len:
+            # Pad short sequences by repeating last frame
+            padded = indices + [indices[-1]] * (seq_len - len(indices))
+            seq_X.append(X[padded])
+            seq_AUX.append(AUX[padded])
+            seq_Y.append(Y[padded])
+        else:
+            for start in range(len(indices) - seq_len + 1):
+                window = indices[start:start + seq_len]
+                seq_X.append(X[window])
+                seq_AUX.append(AUX[window])
+                seq_Y.append(Y[window])
+    if not seq_X:
+        return None, None, None
+    return torch.stack(seq_X), torch.stack(seq_AUX), torch.stack(seq_Y)
+
+
 @bp.route('/api/neuralook/train', methods=['POST'])
 @require_auth
 def neuralook_train(google_id):
-    global _neuralook_models, _neuralook_screen
+    global _neuralook_models, _neuralook_screen, _neuralook_hidden
     body = request.get_json(force=True, silent=True) or {}
 
     def generate():
-        global _neuralook_models, _neuralook_screen
+        global _neuralook_models, _neuralook_screen, _neuralook_hidden
         try:
             import torch
             import torch.nn as nn
@@ -837,6 +916,14 @@ def neuralook_train(google_id):
                         else: aug[i, :, :, s:] = 0.0
                 return aug.clamp(0.0, 1.0)
 
+            # Build temporal sequences from calibration data
+            SEQ_LEN = 8
+            train_targets = [targets_rounded[i] for i in range(len(targets_rounded)) if train_mask[i]]
+            val_targets_list = [targets_rounded[i] for i in range(len(targets_rounded)) if val_mask[i]]
+            seq_X_train, seq_AUX_train, seq_Y_train = _nl_build_temporal_sequences(X_train, AUX_train, Y_train, train_targets, SEQ_LEN)
+            seq_X_val, seq_AUX_val, seq_Y_val = _nl_build_temporal_sequences(X_val, AUX_val, Y_val, val_targets_list, SEQ_LEN)
+            use_temporal = seq_X_train is not None and seq_X_train.shape[0] >= 2
+
             # Refine: load existing model and freeze conv layers
             if refine:
                 model = _neuralook_models.get(method)
@@ -846,17 +933,23 @@ def neuralook_train(google_id):
                         yield sse_event('error', {'error': 'No existing model to refine'})
                         return
                     _neuralook_screen = screen_info
-                # Freeze conv layers
-                for param in model.features.parameters():
-                    param.requires_grad = False
-                trainable_params = [p for p in model.parameters() if p.requires_grad]
-                optimizer = torch.optim.Adam(trainable_params, lr=5e-5, weight_decay=1e-4)
-                max_epochs = 100
-                patience = 30
-                yield sse_event('log', {'text': f'Refine mode: frozen conv layers, lr=5e-5, max_epochs={max_epochs}'})
-                yield sse_event('log', {'text': f'Combining {len(samples) - len(implicit_samples)} calibration + {len(implicit_samples)} implicit samples'})
-            else:
-                model = ModelClass(aux_dim=9)
+                # If refining a non-temporal model, start fresh with temporal
+                if not getattr(model, 'temporal', False) and use_temporal:
+                    yield sse_event('log', {'text': 'Upgrading non-temporal model → fresh temporal training'})
+                    model = ModelClass(aux_dim=9, temporal=True)
+                    refine = False  # treat as fresh training
+                else:
+                    # Freeze conv layers
+                    for param in model.features.parameters():
+                        param.requires_grad = False
+                    trainable_params = [p for p in model.parameters() if p.requires_grad]
+                    optimizer = torch.optim.Adam(trainable_params, lr=5e-5, weight_decay=1e-4)
+                    max_epochs = 100
+                    patience = 30
+                    yield sse_event('log', {'text': f'Refine mode: frozen conv layers, lr=5e-5, max_epochs={max_epochs}'})
+                    yield sse_event('log', {'text': f'Combining {len(samples) - len(implicit_samples)} calibration + {len(implicit_samples)} implicit samples'})
+            if not refine:
+                model = ModelClass(aux_dim=9, temporal=use_temporal)
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 max_epochs = 100
                 patience = 30
@@ -876,15 +969,26 @@ def neuralook_train(google_id):
             n_params = sum(p.numel() for p in model.parameters())
             n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
             model_name = 'GazeMobileNet' if method == 'mobilenet' else 'GazeCNN'
-            yield sse_event('log', {'text': f'{model_name} | params: {n_params:,} ({n_trainable:,} trainable) | input: [B, 2, {eye_h}, {eye_w}]'})
+            temporal_tag = ' + temporal LSTM' if model.temporal else ''
+            yield sse_event('log', {'text': f'{model_name}{temporal_tag} | params: {n_params:,} ({n_trainable:,} trainable) | input: [B, 2, {eye_h}, {eye_w}]'})
             if method == 'mobilenet':
                 yield sse_event('log', {'text': f'  features: Conv2d(2→16,s=2) → BN → DSConv(16→32,s=2) → DSConv(32→64,s=2) → DSConv(64→64,s=1) → AdaptivePool(4,4)'})
-                yield sse_event('log', {'text': f'  head: Flatten(1024) + aux(9: hp+iris) → Linear(1033,128) → ReLU → Drop(0.2) → Linear(128,32) → ReLU → Drop(0.2) → Linear(32,2)'})
+                if model.temporal:
+                    yield sse_event('log', {'text': f'  temporal: Flatten(1024) + aux(9) → proj Linear(1033,64) → ReLU → LSTM(64→32, 1 layer)'})
+                    yield sse_event('log', {'text': f'  head: Linear(32,16) → ReLU → Drop(0.2) → Linear(16,2)'})
+                else:
+                    yield sse_event('log', {'text': f'  head: Flatten(1024) + aux(9: hp+iris) → Linear(1033,128) → ReLU → Drop(0.2) → Linear(128,32) → ReLU → Drop(0.2) → Linear(32,2)'})
             else:
                 yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
-                yield sse_event('log', {'text': f'  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+                if model.temporal:
+                    yield sse_event('log', {'text': f'  temporal: Flatten(2048) + aux(9) → proj Linear(2057,128) → ReLU → LSTM(128→64, 1 layer)'})
+                    yield sse_event('log', {'text': f'  head: Linear(64,32) → ReLU → Drop(0.3) → Linear(32,2)'})
+                else:
+                    yield sse_event('log', {'text': f'  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
             yield sse_event('log', {'text': f'Adam(lr={optimizer.param_groups[0]["lr"]}, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
+            if model.temporal and seq_X_train is not None:
+                yield sse_event('log', {'text': f'temporal sequences: {seq_X_train.shape[0]} train, {seq_X_val.shape[0] if seq_X_val is not None else 0} val (seq_len={SEQ_LEN})'})
             yield sse_event('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
             if not refine:
                 yield sse_event('log', {'text': 'augmentation: brightness(±20%), contrast(±15%), noise(σ=0.02), h-shift(±2px)'})
@@ -892,29 +996,56 @@ def neuralook_train(google_id):
             yield sse_event('log', {'text': f'{"epoch":>6}  {"train_loss":>11}  {"val_loss":>11}  {"lr":>10}  {"best":>5}  {"patience":>8}'})
             yield sse_event('log', {'text': '─' * 65})
 
+            # Determine if we're training on sequences or flat frames
+            _train_temporal = model.temporal and seq_X_train is not None and seq_X_val is not None
+
             last_train_loss = 0.0
             for epoch in range(max_epochs):
                 model.train()
-                perm = torch.randperm(n_train)
-                epoch_loss = 0.0
-                n_batches = 0
-                for start in range(0, n_train, batch_size):
-                    idx = perm[start:start + batch_size]
-                    x_batch = augment_batch(X_train[idx]) if not refine else X_train[idx]
-                    pred = model(x_batch, AUX_train[idx])
-                    loss = nn.functional.mse_loss(pred, Y_train[idx])
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    epoch_loss += loss.item()
-                    n_batches += 1
+                if _train_temporal:
+                    n_seq = seq_X_train.shape[0]
+                    seq_batch_size = min(16, n_seq)
+                    perm = torch.randperm(n_seq)
+                    epoch_loss = 0.0
+                    n_batches = 0
+                    for start in range(0, n_seq, seq_batch_size):
+                        idx = perm[start:start + seq_batch_size]
+                        x_batch = seq_X_train[idx]
+                        if not refine:
+                            # Augment each frame in the sequence
+                            B, T = x_batch.shape[0], x_batch.shape[1]
+                            x_flat = x_batch.view(B * T, *x_batch.shape[2:])
+                            x_flat = augment_batch(x_flat)
+                            x_batch = x_flat.view(B, T, *x_batch.shape[2:])
+                        pred, _ = model(x_batch, seq_AUX_train[idx])
+                        loss = nn.functional.mse_loss(pred, seq_Y_train[idx])
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                        epoch_loss += loss.item()
+                        n_batches += 1
+                else:
+                    perm = torch.randperm(n_train)
+                    epoch_loss = 0.0
+                    n_batches = 0
+                    for start in range(0, n_train, batch_size):
+                        idx = perm[start:start + batch_size]
+                        x_batch = augment_batch(X_train[idx]) if not refine else X_train[idx]
+                        pred, _ = model(x_batch, AUX_train[idx])
+                        loss = nn.functional.mse_loss(pred, Y_train[idx])
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                        epoch_loss += loss.item()
+                        n_batches += 1
                 last_train_loss = epoch_loss / max(n_batches, 1)
                 scheduler.step()
 
                 if epoch % 10 == 0:
                     model.eval()
                     with torch.no_grad():
-                        val_pred = model(X_val, AUX_val)
+                        # Validate per-frame (not sequences) for consistent pixel-error metric
+                        val_pred, _ = model(X_val, AUX_val)
                         val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
                     improved = val_loss < best_val_loss
                     if improved:
@@ -925,13 +1056,14 @@ def neuralook_train(google_id):
                         model.load_state_dict(best_state)
                         model.eval()
                         _neuralook_models[method] = model
+                        _neuralook_hidden[method] = None
                         _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method)
                         with torch.no_grad():
-                            vp_hot = model(X_val, AUX_val)
+                            vp_hot, _ = model(X_val, AUX_val)
                             vp2_hot = vp_hot.clone(); vp2_hot[:, 0] *= screen_w; vp2_hot[:, 1] *= screen_h
                             yv_hot = Y_val.clone(); yv_hot[:, 0] *= screen_w; yv_hot[:, 1] *= screen_h
                             hot_val_err = round(torch.sqrt(((vp2_hot - yv_hot) ** 2).sum(dim=1)).mean().item(), 1)
-                            tp_hot = model(X_train, AUX_train)
+                            tp_hot, _ = model(X_train, AUX_train)
                             tp2_hot = tp_hot.clone(); tp2_hot[:, 0] *= screen_w; tp2_hot[:, 1] *= screen_h
                             yt_hot = Y_train.clone(); yt_hot[:, 0] *= screen_w; yt_hot[:, 1] *= screen_h
                             hot_train_err = round(torch.sqrt(((tp2_hot - yt_hot) ** 2).sum(dim=1)).mean().item(), 1)
@@ -954,16 +1086,17 @@ def neuralook_train(google_id):
                 model.load_state_dict(best_state)
                 yield sse_event('log', {'text': f'Restored best model (val_loss={best_val_loss:.6f})'})
             model.eval()
+            _neuralook_hidden[method] = None
             yield sse_event('log', {'text': ''})
             yield sse_event('log', {'text': 'Evaluating on train/val sets...'})
             yield sse_event('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
 
             with torch.no_grad():
-                train_pred = model(X_train, AUX_train)
+                train_pred, _ = model(X_train, AUX_train)
                 tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
                 yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
                 train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
-                vp = model(X_val, AUX_val)
+                vp, _ = model(X_val, AUX_val)
                 vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
                 yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
                 val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
@@ -998,7 +1131,8 @@ def neuralook_train(google_id):
                 'train_samples': int(train_mask.sum()),
                 'val_samples': int(val_mask.sum()),
                 'val_points': n_val_points,
-                'refined': refine
+                'refined': refine,
+                'temporal': model.temporal
             })
         except ImportError:
             yield sse_event('error', {'error': 'PyTorch not installed on server'})
@@ -1015,7 +1149,7 @@ def neuralook_train(google_id):
 @bp.route('/api/neuralook/predict', methods=['POST'])
 @require_auth
 def neuralook_predict(google_id):
-    global _neuralook_models, _neuralook_screen
+    global _neuralook_models, _neuralook_screen, _neuralook_hidden
     body = request.get_json(force=True, silent=True) or {}
     try:
         import torch
@@ -1047,7 +1181,11 @@ def neuralook_predict(google_id):
         was_training = model.training
         model.eval()
         with torch.no_grad():
-            pred = model(inp, aux)[0]
+            hidden = _neuralook_hidden.get(method)
+            pred, new_hidden = model(inp, aux, hidden)
+            if new_hidden is not None:
+                _neuralook_hidden[method] = tuple(h.detach() for h in new_hidden)
+            pred = pred[0]
         if was_training:
             model.train()
         return jsonify({
@@ -1056,6 +1194,16 @@ def neuralook_predict(google_id):
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/neuralook/reset-hidden', methods=['POST'])
+@require_auth
+def neuralook_reset_hidden(google_id):
+    global _neuralook_hidden
+    body = request.get_json(force=True, silent=True) or {}
+    method = body.get('method', 'cnn')
+    _neuralook_hidden[method] = None
+    return jsonify({'ok': True})
 
 
 @bp.route('/api/neuralook/implicit-samples', methods=['POST'])
@@ -1136,7 +1284,7 @@ def neuralook_refine_history(google_id):
 @bp.route('/api/neuralook/auto-refine', methods=['POST'])
 @require_auth
 def neuralook_auto_refine(google_id):
-    global _neuralook_models, _neuralook_screen
+    global _neuralook_models, _neuralook_screen, _neuralook_hidden
     body = request.get_json(force=True, silent=True) or {}
     try:
         import torch
@@ -1229,9 +1377,12 @@ def neuralook_auto_refine(google_id):
         # Save pre-refine state for rollback
         pre_refine_state = {k: v.clone() for k, v in model.state_dict().items()}
 
-        # Freeze conv layers, micro-refinement settings
+        # Freeze conv layers (and proj for temporal models), micro-refinement settings
         for param in model.features.parameters():
             param.requires_grad = False
+        if getattr(model, 'temporal', False) and hasattr(model, 'proj'):
+            for param in model.proj.parameters():
+                param.requires_grad = False
         trainable_params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.Adam(trainable_params, lr=2e-5, weight_decay=1e-4)
         max_epochs = 30
@@ -1250,7 +1401,7 @@ def neuralook_auto_refine(google_id):
             n_batches = 0
             for start in range(0, n_train, batch_size):
                 idx = perm[start:start + batch_size]
-                pred = model(X_train[idx], AUX_train[idx])
+                pred, _ = model(X_train[idx], AUX_train[idx])
                 loss = nn.functional.mse_loss(pred, Y_train[idx])
                 optimizer.zero_grad()
                 loss.backward()
@@ -1261,7 +1412,7 @@ def neuralook_auto_refine(google_id):
             # Validate every epoch
             model.eval()
             with torch.no_grad():
-                val_pred = model(X_val, AUX_val)
+                val_pred, _ = model(X_val, AUX_val)
                 val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
@@ -1278,11 +1429,11 @@ def neuralook_auto_refine(google_id):
         model.eval()
 
         with torch.no_grad():
-            train_pred = model(X_train, AUX_train)
+            train_pred, _ = model(X_train, AUX_train)
             tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
             yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
             train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
-            vp = model(X_val, AUX_val)
+            vp, _ = model(X_val, AUX_val)
             vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
             yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
             val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
@@ -1293,6 +1444,7 @@ def neuralook_auto_refine(google_id):
 
         # Always accept the refined model
         _neuralook_models[method] = model
+        _neuralook_hidden[method] = None
         _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
         _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method)
         # Clear implicit samples
@@ -1300,8 +1452,8 @@ def neuralook_auto_refine(google_id):
             os.remove(impl_path)
         improved = baseline_val_error is None or val_err_rounded < baseline_val_error
         _nl_append_refine_history(val_err_rounded, train_err_rounded, n_total, improved)
-        # Unfreeze conv layers for next time
-        for param in model.features.parameters():
+        # Unfreeze all layers for next time
+        for param in model.parameters():
             param.requires_grad = True
         return jsonify({
             'improved': True, 'val_error_px': val_err_rounded,

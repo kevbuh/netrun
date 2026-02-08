@@ -497,7 +497,7 @@ function _nlRefreshTrainDetails() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
 
   el.innerHTML =
-    row('Architecture', _nlModelType === 'mobilenet' ? 'MobileNet (2ch 64x128 + hp+iris → 128 → 32 → 2)' : 'CNN (2ch 64x128 + hp+iris → 256 → 64 → 2)') +
+    row('Architecture', _nlModelType === 'mobilenet' ? 'MobileNet + temporal LSTM (2ch 64x128 + hp+iris → proj 64 → LSTM 32 → 16 → 2)' : 'CNN + temporal LSTM (2ch 64x128 + hp+iris → proj 128 → LSTM 64 → 32 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
     row('Calibration', `${_NL_CAL_POSITIONS.length} fixed grid points`) +
@@ -1501,6 +1501,11 @@ async function _nlStartTracking() {
     _nlShowError('Camera error: ' + (e.message || e));
     return;
   }
+  // Reset LSTM hidden state for fresh tracking session
+  fetch('/api/neuralook/reset-hidden', {
+    method: 'POST', headers: _authHeaders(),
+    body: JSON.stringify({ method: _nlModelType })
+  }).catch(() => {});
   _nlTracking = true;
   _nlResetSessionStats();
   _nlUpdatePillIndicator();
@@ -1950,7 +1955,7 @@ function _nlRefreshStats() {
     : '<span class="text-dimmer">Off</span>';
 
   el.innerHTML =
-    row('Model', `${_nlModelLabel()} v${_nlModelVersion} (2ch 64x128 + hp+iris)`) +
+    row('Model', `${_nlModelLabel()} v${_nlModelVersion} + temporal LSTM`) +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 + aux(9)`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +

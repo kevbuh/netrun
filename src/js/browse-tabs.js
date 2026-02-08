@@ -3700,6 +3700,9 @@ function _updateOverviewHighlight() {
   overlay.querySelectorAll('.wov-card').forEach((card, i) => {
     card.classList.toggle('wov-selected', i === _overviewSelectedIdx);
   });
+  overlay.querySelectorAll('.wov-pill').forEach((pill, i) => {
+    pill.classList.toggle('wov-pill-active', i === _overviewSelectedIdx);
+  });
   const sel = overlay.querySelector('.wov-card.wov-selected');
   if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
@@ -3740,6 +3743,7 @@ function _renderWindowOverview() {
       gridHtml += '</div></div>';
     }
     gridHtml += '</div>';
+    gridHtml += '<button class="wov-grid-new-win">+ New Window</button>';
     overlay.innerHTML = gridHtml;
 
     // Wire up grid click handlers
@@ -3763,6 +3767,15 @@ function _renderWindowOverview() {
         tabEl.addEventListener('click', function() { _overviewClickBrowseTab(bw.id, tab.id); });
       });
     });
+
+    // Wire up new window button
+    var newWinBtn = overlay.querySelector('.wov-grid-new-win');
+    if (newWinBtn) {
+      newWinBtn.addEventListener('click', function() {
+        wmOpen('browse');
+        browseCreateWindow();
+      });
+    }
 
     // Scroll focused tab into view
     var selTab = overlay.querySelector('.wov-bt.wov-selected') || overlay.querySelector('.wov-grid-cell-header.wov-selected');
@@ -3800,12 +3813,32 @@ function _renderWindowOverview() {
   }
   html += '</div>';
 
+  // Pills bar
+  html += '<div class="wov-pills">';
+  for (var pi = 0; pi < _wmWindows.length; pi++) {
+    html += '<button class="wov-pill' + (pi === _overviewSelectedIdx ? ' wov-pill-active' : '') + '" data-idx="' + pi + '">'
+      + '<span class="wov-pill-label">' + escapeHtml(_wmWindows[pi].label) + '</span>'
+      + '</button>';
+  }
+  html += '</div>';
+
   overlay.innerHTML = html;
 
   // Wire up click handlers
   overlay.querySelectorAll('.wov-card').forEach(function(card, idx) {
     card.addEventListener('click', function() {
       _overviewClickApp(_wmWindows[idx].key);
+    });
+  });
+
+  // Wire up pill clicks
+  overlay.querySelectorAll('.wov-pill').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      var idx = parseInt(pill.dataset.idx);
+      if (!isNaN(idx) && idx >= 0 && idx < _wmWindows.length) {
+        _overviewSelectedIdx = idx;
+        _updateOverviewHighlight();
+      }
     });
   });
 
