@@ -30,7 +30,7 @@
       height: 28px;
       border: none;
       background: transparent;
-      color: #fff;
+      color: var(--aether-text);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -38,7 +38,7 @@
       border-radius: 6px;
       transition: color 0.15s ease;
     }
-    #global-overview-btn:hover { color: #fff; }
+    #global-overview-btn:hover { color: var(--aether-text); }
     /* Electron: pill bar is not draggable */
     body.electron-app #sidebar-nav {
       -webkit-app-region: no-drag;
@@ -500,7 +500,7 @@
     .pill-separator {
       width: 1px;
       height: 20px;
-      background: rgba(255, 255, 255, 0.25);
+      background: var(--aether-text-dimmest);
       margin: 0 2px;
       flex-shrink: 0;
     }
@@ -517,7 +517,7 @@
       border: none;
       outline: none;
       background: transparent;
-      color: #fff;
+      color: var(--aether-text);
       transition: transform 0.25s ease, color 0.15s ease, background 0.15s ease;
       flex-shrink: 0;
       padding: 0;
@@ -525,13 +525,13 @@
 
     .sidebar-icon:hover {
       background: transparent;
-      color: #fff;
+      color: var(--aether-text);
       transform: scale(1.3);
     }
 
     .sidebar-icon.active {
       background: transparent;
-      color: #fff;
+      color: var(--aether-text);
     }
     .sidebar-icon.active:hover {
       background: transparent;
@@ -580,28 +580,7 @@
       border-radius: 50% !important;
     }
 
-    /* ── Pill bar light theme overrides ── */
-    [data-theme="light"] .pill-separator,
-    [data-theme="daylight"] .pill-separator,
-    [data-theme="sepia"] .pill-separator {
-      background: rgba(0, 0, 0, 0.1);
-    }
-    [data-theme="light"] .sidebar-icon,
-    [data-theme="daylight"] .sidebar-icon,
-    [data-theme="sepia"] .sidebar-icon {
-      color: #fff;
-    }
-    [data-theme="light"] .sidebar-icon:hover,
-    [data-theme="daylight"] .sidebar-icon:hover,
-    [data-theme="sepia"] .sidebar-icon:hover {
-      background: transparent;
-      color: #fff;
-    }
-    [data-theme="light"] .sidebar-icon.active,
-    [data-theme="daylight"] .sidebar-icon.active,
-    [data-theme="sepia"] .sidebar-icon.active {
-      color: #fff;
-    }
+    /* Pill bar light theme overrides removed — aether variables handle all themes */
 
     /* ── Icon size overrides ── */
     /* small = current defaults (no override needed for sidebar w-4/h-4 = 16px, browse w-5/h-5 = 20px) */
@@ -730,12 +709,12 @@
       flex: 1 1 0;
     }
     #pill-browse-tabs .browse-tab.active {
-      background: var(--bg-body);
-      color: #fff;
+      background: var(--aether-hover);
+      color: var(--aether-text);
     }
     #pill-browse-tabs .browse-tab:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #fff;
+      background: var(--aether-hover);
+      color: var(--aether-text);
     }
     #pill-browse-tabs .browse-tab-close {
       width: 14px;
@@ -797,19 +776,6 @@
     [data-theme="sepia"] .pill-bar.browse-mode {
       background: rgba(0, 0, 0, 0.08);
     }
-    [data-theme="light"] #pill-browse-tabs .browse-tab.active,
-    [data-theme="daylight"] #pill-browse-tabs .browse-tab.active,
-    [data-theme="sepia"] #pill-browse-tabs .browse-tab.active {
-      background: var(--bg-body);
-      color: var(--text-primary);
-    }
-    [data-theme="light"] #pill-browse-tabs .browse-tab:hover,
-    [data-theme="daylight"] #pill-browse-tabs .browse-tab:hover,
-    [data-theme="sepia"] #pill-browse-tabs .browse-tab:hover {
-      background: rgba(255, 255, 255, 0.3);
-      color: var(--text-primary);
-    }
-
     /* ── Browse bar drag ghost ── */
     .browse-bar-drag-ghost {
       position: fixed;
@@ -3049,8 +3015,8 @@
     }
     .doc-msg-speaking { opacity: 1 !important; color: var(--accent); animation: mic-pulse 1s ease-in-out infinite; }
     .doc-msg-ai p { margin: 0.3em 0; }
-    .doc-msg-ai code { background: rgba(255,255,255,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
-    .doc-msg-ai pre { background: rgba(255,255,255,0.04); padding: 0.6em; border-radius: 4px; overflow-x: auto; margin: 0.3em 0; }
+    .doc-msg-ai code { background: var(--aether-hover-subtle); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
+    .doc-msg-ai pre { background: var(--aether-hover-subtle); padding: 0.6em; border-radius: 4px; overflow-x: auto; margin: 0.3em 0; }
     .doc-msg-ai pre code { background: none; padding: 0; }
     .doc-chat-thinking { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; }
     .doc-chat-thinking .dot {
@@ -3215,7 +3181,7 @@
     }
     .doc-selection-hl-dot:hover {
       transform: scale(1.25);
-      border-color: rgba(255,255,255,0.5);
+      border-color: var(--aether-text-dim);
     }
     .doc-selection-preview {
       padding: 4px 8px;
@@ -3263,7 +3229,7 @@
       border-radius: 4px;
       transition: color 0.15s, background 0.15s;
     }
-    .doc-ask-inline-send:hover, .doc-ask-mic-btn:hover { color: var(--accent); background: rgba(255,255,255,0.06); }
+    .doc-ask-inline-send:hover, .doc-ask-mic-btn:hover { color: var(--accent); background: var(--aether-hover-subtle); }
     .doc-ask-inline-send:disabled { opacity: 0.3; cursor: not-allowed; }
     .doc-ask-mic-btn {
       display: flex; align-items: center; justify-content: center;
@@ -3670,7 +3636,7 @@
     .doc-wiki-title {
       font-size: 0.85rem;
       font-weight: 600;
-      color: #fff;
+      color: var(--aether-text);
       line-height: 1.3;
     }
     .doc-wiki-extract {
@@ -3895,7 +3861,7 @@
     }
     .aether-topbar-icon:hover {
       color: var(--accent);
-      background: rgba(255,255,255,0.06);
+      background: var(--aether-hover-subtle);
     }
     .doc-popup-chat-actions button {
       background: none;
@@ -3908,7 +3874,7 @@
     }
     .doc-popup-chat-actions button:hover {
       color: var(--accent);
-      background: rgba(255,255,255,0.06);
+      background: var(--aether-hover-subtle);
     }
     .doc-selection-popup.has-chat {
       max-width: 400px;
@@ -4046,8 +4012,8 @@
       font-family: inherit;
     }
     .aether-profile-items .doc-aether-ctx-item:not(.doc-aether-ctx-info):hover {
-      background: rgba(255,255,255,0.12);
-      color: #fff;
+      background: var(--aether-hover);
+      color: var(--aether-text);
     }
     .aether-profile-items .doc-aether-ctx-info {
       font-size: 0.65rem;
@@ -4056,18 +4022,18 @@
     }
     .aether-profile-items .doc-aether-ctx-label {
       font-weight: 600;
-      color: #fff;
+      color: var(--aether-text);
     }
     .aether-profile-items .doc-aether-ctx-sub {
       font-size: 0.58rem;
       opacity: 0.7;
-      color: rgba(255,255,255,0.6);
+      color: var(--aether-text-dim);
     }
     .aether-profile-items .doc-aether-ctx-danger {
       color: var(--accent);
     }
     .aether-profile-items .doc-aether-ctx-danger:hover {
-      background: rgba(255,255,255,0.06);
+      background: var(--aether-hover-subtle);
       color: var(--accent);
     }
     .aether-profile-items svg {
@@ -4075,7 +4041,7 @@
     }
     .aether-profile-items .doc-aether-ctx-sep {
       margin: 1px 10px;
-      background: rgba(255,255,255,0.06);
+      background: var(--aether-border);
     }
     /* AI suggestion – ghost text inside input area */
     .aether-suggestion {

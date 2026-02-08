@@ -3985,7 +3985,14 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '=' || e.key === '+') { e.preventDefault(); browseZoom(1); }
   else if (e.key === '-') { e.preventDefault(); browseZoom(-1); }
   else if (e.key === '0') { e.preventDefault(); browseZoom(0); }
-  else if (e.key === 'f') { e.preventDefault(); _browseToggleFindBar(); }
+  else if (e.key === 'f') {
+    e.preventDefault();
+    const ntp = browseView.querySelector('.browse-ntp');
+    if (ntp && ntp.style.display !== 'none') {
+      const inp = ntp.querySelector('#search-query');
+      if (inp) { inp.focus(); inp.select(); }
+    } else { _browseToggleFindBar(); }
+  }
   else if (e.key === ']') { e.preventDefault(); if (typeof toggleBrowseSidebar === 'function') toggleBrowseSidebar(); }
 });
 
