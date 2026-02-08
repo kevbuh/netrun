@@ -285,22 +285,36 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
   const hasInstant = _instantAnswer && _instantAnswer.html;
-  const showLucky = !filter;
+  const { ntp } = _getOmniInput();
+  const showLucky = !filter && !ntp;
 
   if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) { dd.style.display = 'none'; dd.classList.add('hidden'); return; }
 
   _browseUrlHistIdx = -1;
-  const rect = input.getBoundingClientRect();
-  // NTP dropdown needs fixed positioning
-  dd.style.position = 'fixed';
-  dd.style.left = rect.left + 'px';
-  dd.style.top = (rect.bottom + 2) + 'px';
-  dd.style.width = rect.width + 'px';
-  dd.style.maxHeight = '380px';
-  dd.style.overflowY = 'auto';
 
-  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
-  const hoverOn = "this.style.background='var(--bg-hover)'";
+  if (ntp) {
+    // NTP: inline inside the search box, no fixed positioning
+    dd.style.position = '';
+    dd.style.left = '';
+    dd.style.top = '';
+    dd.style.width = '';
+    dd.style.maxHeight = '320px';
+    dd.style.overflowY = 'auto';
+  } else {
+    const rect = input.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.left = rect.left + 'px';
+    dd.style.top = (rect.bottom + 2) + 'px';
+    dd.style.width = rect.width + 'px';
+    dd.style.maxHeight = '380px';
+    dd.style.overflowY = 'auto';
+  }
+
+  const rowStyle = ntp
+    ? 'display:flex;align-items:center;gap:10px;padding:8px 4px;cursor:pointer;font-size:0.85rem;color:var(--text-primary);transition:background 0.12s;border-radius:8px;margin:0 -4px;'
+    : 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
+  const hoverBg = ntp ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--bg-hover)';
+  const hoverOn = "this.style.background='" + hoverBg + "'";
   const hoverOff = "this.style.background='none'";
 
   // Section renderers — each returns HTML string or '' if nothing to show
@@ -347,28 +361,37 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     },
     recent: () => {
       if (!showBrowse.length) return '';
-      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+      const iconSize = ntp ? '16px' : '14px';
+      const navFn = ntp
+        ? (url) => `event.preventDefault(); _browseUrlHideHistory(); browseNavigate('${url}');`
+        : (url) => `event.preventDefault(); document.getElementById('browse-url-input').value='${url}'; _browseUrlHideHistory(); browseNavigate('${url}');`;
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
       h += showBrowse.map(bh => {
         const favicon = _browseFaviconUrl(bh.url);
         let domain = '';
         try { domain = new URL(bh.url).hostname.replace('www.', ''); } catch {}
         const safeUrl = escapeHtml(bh.url).replace(/"/g, '&quot;');
         const displayTitle = escapeHtml(bh.title || domain);
-        return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(bh.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(bh.url).replace(/'/g, "\\'")}');">
-          <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
+        return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(escapeHtml(bh.url).replace(/'/g, "\\'"))}">
+          <img src="${escapeHtml(favicon)}" style="width:${iconSize};height:${iconSize};flex-shrink:0;border-radius:3px;" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+          <svg style="width:${iconSize};height:${iconSize};flex-shrink:0;color:var(--text-dimmer);display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
-          <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
         </div>`;
       }).join('');
       return h;
     },
     suggestions: () => {
       if (!suggestions.length) return '';
-      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
+      const iconSize = ntp ? '16px' : '13px';
+      const navFn = ntp
+        ? (q) => `event.preventDefault(); document.getElementById('search-query').value='${q}'; _browseUrlHideHistory(); submitSearch();`
+        : (q) => `event.preventDefault(); document.getElementById('browse-url-input').value='${q}'; _browseUrlHideHistory(); browseNavigate('${q}');`;
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
       h += suggestions.map(s => {
         const safeS = escapeHtml(s);
-        return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeS.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeS.replace(/'/g, "\\'")}');">
-          <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+        return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(safeS.replace(/'/g, "\\'"))}">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeS}</span>
         </div>`;
       }).join('');
@@ -376,12 +399,13 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     },
     projects: () => {
       if (!projects.length) return '';
-      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
+      const iconSize = ntp ? '16px' : '13px';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
       h += projects.map(exp => {
         const safeId = escapeHtml(exp.id);
         const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
         return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); openExperimentDetail('${safeId}');">
-          <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
           ${updated ? `<span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
         </div>`;
@@ -390,14 +414,18 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     },
     history: () => {
       if (!showHist.length) return '';
-      let h = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
+      const iconSize = ntp ? '16px' : '13px';
+      const navFn = ntp
+        ? (q) => `event.preventDefault(); document.getElementById('search-query').value='${q}'; _browseUrlHideHistory(); submitSearch();`
+        : (q) => `event.preventDefault(); document.getElementById('browse-url-input').value='${q}'; _browseUrlHideHistory(); browseNavigate('${q}');`;
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
       h += showHist.map(sh => {
         const time = _relativeTime(sh.ts);
         const safeQ = escapeHtml(sh.q);
-        return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${safeQ.replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${safeQ.replace(/'/g, "\\'")}');">
-          <svg style="width:13px;height:13px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+        return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(safeQ.replace(/'/g, "\\'"))}">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
-          <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
         </div>`;
       }).join('');
       return h;

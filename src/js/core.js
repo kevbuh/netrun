@@ -974,10 +974,10 @@ function _wmToggleTiling() {
     for (var i = 0; i < _wmWindows.length; i++) {
       if (_wmWindows[i].sidebarId === id) return i;
     }
-    // Profile icon → dashboard
-    if (id === 'sb-user-avatar') {
+    // Settings icon → settings
+    if (id === 'sb-settings') {
       for (var j = 0; j < _wmWindows.length; j++) {
-        if (_wmWindows[j].key === 'dashboard') return j;
+        if (_wmWindows[j].key === 'settings') return j;
       }
     }
     return -1;
@@ -3183,11 +3183,9 @@ async function authLogout() {
 }
 
 function _updateAccountUI() {
-  const wrap = document.getElementById('sb-user-wrap');
-  const avatar = document.getElementById('sb-user-avatar');
-  const gear = document.getElementById('sb-settings');
-  if (!wrap || !avatar) {
-    // DOM not ready yet, retry after load
+  const avatarSpan = document.getElementById('sb-dashboard-avatar');
+  const avatarIcon = document.getElementById('sb-dashboard-icon');
+  if (!avatarSpan) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', _updateAccountUI, { once: true });
     }
@@ -3195,18 +3193,16 @@ function _updateAccountUI() {
   }
   if (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) {
     if (_authUserInfo.picture) {
-      avatar.innerHTML = `<img src="${_authUserInfo.picture.replace(/"/g, '&quot;')}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" referrerpolicy="no-referrer" />`;
-      avatar.style.cssText = 'background:none; padding:0;';
+      avatarSpan.innerHTML = `<img src="${_authUserInfo.picture.replace(/"/g, '&quot;')}" style="width:22px;height:22px;object-fit:cover;border-radius:50%;display:block;" referrerpolicy="no-referrer" />`;
     } else {
       const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
-      avatar.textContent = letter;
-      avatar.style.cssText = 'background:var(--accent);';
+      avatarSpan.innerHTML = `<span style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${letter}</span>`;
     }
-    wrap.style.display = '';
-    if (gear) gear.style.display = 'none';
+    avatarSpan.style.display = '';
+    if (avatarIcon) avatarIcon.style.display = 'none';
   } else {
-    wrap.style.display = 'none';
-    if (gear) gear.style.display = '';
+    avatarSpan.style.display = 'none';
+    if (avatarIcon) avatarIcon.style.display = '';
   }
 }
 
@@ -3244,7 +3240,7 @@ function _toggleUserMenu() {
   // Close on outside click
   setTimeout(() => {
     function _closeMenu(e) {
-      if (!pop.contains(e.target) && e.target.id !== 'sb-user-avatar') {
+      if (!pop.contains(e.target) && e.target.id !== 'sb-settings') {
         pop.style.display = 'none';
         document.removeEventListener('click', _closeMenu);
       }

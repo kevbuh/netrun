@@ -534,11 +534,9 @@
       box-shadow: none;
     }
 
-    /* ── Sidebar user avatar (force circle) ── */
-    #sb-user-avatar {
+    /* ── Dashboard avatar (force circle when showing profile pic) ── */
+    #sb-dashboard-avatar img {
       border-radius: 50% !important;
-      overflow: hidden !important;
-      padding: 0 !important;
     }
 
     /* ── Pill bar light theme overrides ── */
@@ -1271,8 +1269,10 @@
                   opacity 0.25s ease 0.1s;
     }
     .browse-mode.vtab-mode #pill-browse-url {
-      max-width: 100%;
+      max-width: 600px;
+      flex: 1 1 auto;
       opacity: 1;
+      margin: 0 auto;
     }
     #pill-browse-url-input {
       flex: 1;
@@ -1565,12 +1565,16 @@
       border: 1px solid var(--border-input);
       border-radius: 20px;
       padding: 16px 20px 12px;
-      box-shadow: 0 0 20px rgba(180,69,26,0.12), 0 0 40px rgba(180,69,26,0.06);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 12%, transparent), 0 0 40px color-mix(in srgb, var(--accent) 6%, transparent);
       transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ntp-search-box:hover {
+      border-color: var(--text-dimmer);
+      box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 48px color-mix(in srgb, var(--accent) 9%, transparent);
     }
     .ntp-search-box:focus-within {
       border-color: var(--text-dimmer);
-      box-shadow: 0 0 24px rgba(180,69,26,0.2), 0 0 48px rgba(180,69,26,0.1);
+      box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 20%, transparent), 0 0 48px color-mix(in srgb, var(--accent) 10%, transparent);
     }
     .ntp-search-row {
       display: flex;

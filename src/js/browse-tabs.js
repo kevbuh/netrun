@@ -1653,13 +1653,13 @@ function _browseUpdateNewTabPage(tab) {
                   <svg class="ntp-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
                   <input type="text" id="search-query" placeholder="Ask anything..." autocomplete="off" class="ntp-search-input" oninput="onSearchInput(); _browseUrlShowHistory()" onfocus="this.select(); _browseUrlShowHistory()" onblur="setTimeout(_browseUrlHideHistory,150)" onkeydown="_browseUrlKeydown(event)" />
                 </div>
+                <div id="search-history-dropdown-view" class="ntp-dropdown" style="display:none;"></div>
                 <div class="ntp-search-actions">
                   <button type="button" class="ntp-action-pill" onclick="document.getElementById('browse-pdf-file-input').click()">+ Add tabs or files</button>
                   <button type="button" class="ntp-action-dots" title="More options">&middot;&middot;&middot;</button>
                   <div style="flex:1"></div>
                   <button type="submit" class="ntp-action-submit" title="Search"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg></button>
                 </div>
-                <div id="search-history-dropdown-view" class="hidden rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden" style="display:none;"></div>
               </div>
             </form>
             <div id="research-panel-search" class="research-panel" style="display:none;">
@@ -4700,7 +4700,9 @@ function toggleBrowseMoreMenu() {
     ? (document.getElementById('pill-browse-more') || document.getElementById('pill-browse-hamburger'))
     : document.getElementById('browse-more-btn')) || document.getElementById('browse-more-btn');
   const btnRect = anchorBtn.getBoundingClientRect();
-  const menuPos = `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
+  const menuPos = isVertical
+    ? `right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px`
+    : `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
   dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
     ${overflowRows}${fixedItems}
   </div>`;

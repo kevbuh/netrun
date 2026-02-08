@@ -1809,7 +1809,7 @@ document.addEventListener('mousemove', function(e) {
     popup.style.left = Math.max(4, cx - pw / 2) + 'px';
     popup.style.top = cy + 'px';
     // Inject/remove profile items when hovering the profile icon
-    const isProfile = hovered.id === 'sb-user-avatar';
+    const isProfile = hovered.id === 'sb-settings';
     const hasProfileItems = !!popup.querySelector('.aether-profile-items');
     if (isProfile && !hasProfileItems) {
       _injectProfileItems(popup);
@@ -3819,8 +3819,8 @@ function _injectProfileItems(popup) {
 
 // ── Helper: open aether panel anchored to profile icon ──
 function _openProfilePanel() {
-  const avatar = document.getElementById('sb-user-avatar');
-  if (!avatar) return;
+  const btn = document.getElementById('sb-settings');
+  if (!btn) return;
   // Close existing panel and restore cursor
   _aetherShowCursor();
   const existing = document.getElementById('doc-chat-ask-float');
@@ -3828,7 +3828,7 @@ function _openProfilePanel() {
   // Close old popover if visible
   const pop = document.getElementById('user-menu-popover');
   if (pop) pop.style.display = 'none';
-  const rect = avatar.getBoundingClientRect();
+  const rect = btn.getBoundingClientRect();
   _showPanel({ anchor: { x: rect.left + rect.width / 2, y: rect.bottom + 6 }, trackCursor: false });
   // Inject profile items after panel is built
   const popup = document.getElementById('doc-chat-ask-float');
