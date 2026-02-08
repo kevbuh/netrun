@@ -1953,52 +1953,48 @@
       flex-shrink: 0;
     }
 
-    /* ── Browse tab overlay (inside the browse card preview) ── */
-    .wov-browse-overlay {
-      position: absolute;
-      inset: 0;
-      background: color-mix(in srgb, var(--bg-primary, #0a0a0e) 92%, transparent);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: thin;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .wov-win-card {
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
-      border: 1px solid var(--border-card);
-      border-radius: 10px;
+    /* ── Browse grid mode (full-screen tiling grid) ── */
+    .wov-browse-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2px;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      transition: border-color 0.25s ease, box-shadow 0.25s ease;
     }
-    .wov-win-card.wov-win-focus {
-      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-      box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 10%, transparent);
+    .wov-grid-cell {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      border: 1.5px solid transparent;
+      transition: border-color 0.2s ease;
+      background: color-mix(in srgb, var(--bg-primary, #0a0a0e) 95%, transparent);
     }
-    .wov-win-card.wov-win-active {
-      border-color: color-mix(in srgb, var(--accent) 20%, var(--border-card));
+    .wov-grid-cell.wov-win-focus {
+      border-color: color-mix(in srgb, var(--accent) 50%, transparent);
     }
-    .wov-win-header {
+    .wov-grid-cell.wov-win-active {
+      border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    .wov-grid-cell-header {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
       border-bottom: 1px solid var(--border-card);
-      border: 2px solid transparent;
-      border-radius: 9px 9px 0 0;
+      flex-shrink: 0;
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease;
+      transition: background 0.15s ease;
     }
-    .wov-win-header.wov-selected {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    .wov-grid-cell-header.wov-selected {
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+    .wov-grid-cell-tabs {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: thin;
     }
     .wov-win-name {
       flex: 1;
@@ -2024,22 +2020,22 @@
       opacity: 0; transition: opacity 0.1s;
       flex-shrink: 0;
     }
-    .wov-win-header.wov-selected .wov-win-close { opacity: 1; }
+    .wov-grid-cell-header.wov-selected .wov-win-close,
+    .wov-grid-cell-header:hover .wov-win-close { opacity: 1; }
 
-    /* Browse tabs inside window card */
+    /* Tabs inside grid cell */
     .wov-bt {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 5px 12px;
-      border: 2px solid transparent;
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease;
+      transition: background 0.15s ease;
     }
+    .wov-bt:hover { background: var(--bg-hover); }
     .wov-bt.wov-bt-active .wov-bt-title { color: var(--text-primary); }
     .wov-bt.wov-selected {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
     }
     .wov-bt-fav { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
     .wov-bt-dot {
@@ -2055,6 +2051,9 @@
       white-space: nowrap;
     }
     .wov-bt.wov-selected .wov-bt-title { color: var(--text-primary); }
+
+    /* Hide strip when in grid mode */
+    .browse-tab-overview.wov-browse-grid-mode .wov-cards-strip { display: none; }
 
     /* ── Light theme overrides for overview ── */
     [data-theme="light"] .wov-card,
@@ -7172,7 +7171,7 @@
     @keyframes ppFadeIn { from { opacity: 0; } to { opacity: 1; } }
     .print-preview-dialog {
       width: 780px; max-width: 92vw; height: 520px; max-height: 85vh;
-      background: var(--bg-primary); border: 1px solid var(--border-card);
+      background: var(--bg-card); border: 1px solid var(--border-card);
       border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.4);
       display: flex; overflow: hidden;
     }
@@ -7234,7 +7233,7 @@
     }
     .print-preview-select {
       font-size: 0.8rem; padding: 5px 8px; border: 1px solid var(--border-card);
-      border-radius: 6px; background: var(--bg-primary); color: var(--text-primary);
+      border-radius: 6px; background: var(--bg-card); color: var(--text-primary);
       cursor: pointer;
     }
     .print-preview-actions {
