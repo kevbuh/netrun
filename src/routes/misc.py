@@ -1,5 +1,5 @@
 """Misc routes: neuralook (SSE), transcribe, vibe/git, reveal-in-finder, settings, version, dev-stats,
-calendar, todos, images, saved-posts, custom-feeds, tex-preview, local-file, arxiv-pdf."""
+calendar, todos, images, saved-posts, custom-feeds, tex-preview, local-file, arxiv-pdf, pdf-proxy."""
 import base64
 import json
 import os
@@ -569,6 +569,26 @@ def arxiv_pdf():
     pdf_url = f'https://arxiv.org/pdf/{arxiv_id}.pdf'
     try:
         req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
+        ctx = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+            data = resp.read()
+            r = Response(data, content_type='application/pdf')
+            r.headers['Content-Length'] = str(len(data))
+            r.headers['Access-Control-Allow-Origin'] = '*'
+            return r
+    except Exception as e:
+        return Response(str(e).encode(), status=502, content_type='text/plain')
+
+
+@bp.route('/api/pdf-proxy')
+def pdf_proxy():
+    import ssl
+    import urllib.request
+    url = request.args.get('url', '').strip()
+    if not url or not url.startswith('http'):
+        return Response(status=400)
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         ctx = ssl._create_unverified_context()
         with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
             data = resp.read()
