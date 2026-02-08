@@ -570,16 +570,10 @@
     /* medium (default) */
     [data-icon-size="medium"] .sidebar-icon > svg,
     [data-icon-size="medium"] #global-overview-btn svg { width: 18px !important; height: 18px !important; }
-    [data-icon-size="medium"] #browse-bar > button svg,
-    [data-icon-size="medium"] #browse-bar > span button svg,
-    [data-icon-size="medium"] #browse-bar > div button svg { width: 22px !important; height: 22px !important; }
 
     /* large */
     [data-icon-size="large"] .sidebar-icon > svg,
     [data-icon-size="large"] #global-overview-btn svg { width: 20px !important; height: 20px !important; }
-    [data-icon-size="large"] #browse-bar > button svg,
-    [data-icon-size="large"] #browse-bar > span button svg,
-    [data-icon-size="large"] #browse-bar > div button svg { width: 24px !important; height: 24px !important; }
 
     /* ── Dynamic Island — pill bar browse mode ── */
     .pill-bar.browse-mode {
@@ -772,8 +766,7 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
     #browse-url-input::placeholder { color: var(--text-muted); }
-    .browse-bar-draggable { touch-action: none; width: 24px !important; height: 24px !important; }
-    .browse-bar-draggable > svg, .browse-bar-draggable > button > svg { width: 14px; height: 14px; }
+    .browse-bar-draggable { touch-action: none; }
     .browse-bar-draggable.dragging { opacity: 0.3; }
 
     /* ── Research view tabs ── */
@@ -6917,6 +6910,32 @@
       border-radius: 6px;
     }
     .vault-chat-sources,
+    .vault-chat-sources-wrap {
+      flex-shrink: 0;
+    }
+    .vault-sources-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px 0;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.62rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .vault-sources-toggle:hover { color: rgba(255,255,255,0.8); }
+    .vault-sources-chevron {
+      transition: transform 0.2s;
+    }
+    .vault-chat-sources-wrap.collapsed .vault-sources-chevron {
+      transform: rotate(-90deg);
+    }
+    .vault-chat-sources-wrap.collapsed .vault-chat-sources-fixed {
+      display: none;
+    }
+    .vault-chat-sources,
     .vault-chat-sources-fixed {
       display: flex;
       gap: 6px;
@@ -6925,15 +6944,14 @@
       scrollbar-width: none;
       flex-shrink: 0;
     }
-    .vault-chat-sources::-webkit-scrollbar { display: none; }
+    .vault-chat-sources::-webkit-scrollbar,
+    .vault-chat-sources-fixed::-webkit-scrollbar { display: none; }
     .vault-chat-source-card {
       display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 80px;
-      max-width: 120px;
-      padding: 6px 8px;
-      border-radius: 8px;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px 3px 4px;
+      border-radius: 6px;
       background: rgba(255,255,255,0.06);
       cursor: pointer;
       transition: background 0.15s;
@@ -6943,12 +6961,12 @@
       background: rgba(255,255,255,0.12);
     }
     .vault-source-num {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.12);
       color: #fff;
-      font-size: 0.58rem;
+      font-size: 0.55rem;
       font-weight: 600;
       display: flex;
       align-items: center;
@@ -6956,18 +6974,39 @@
       flex-shrink: 0;
     }
     .vault-source-title {
-      font-size: 0.65rem;
-      color: #fff;
-      font-weight: 500;
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.7);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: 1.2;
+      max-width: 80px;
+      line-height: 1;
     }
     .vault-source-score {
-      font-size: 0.58rem;
-      color: rgba(255,255,255,0.4);
-      font-weight: 500;
+      font-size: 0.55rem;
+      color: rgba(255,255,255,0.3);
+      flex-shrink: 0;
+    }
+    .vault-source-ref {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.6);
+      font-size: 0.5rem;
+      font-weight: 600;
+      cursor: pointer;
+      vertical-align: super;
+      margin: 0 1px;
+      transition: background 0.15s, color 0.15s;
+      text-decoration: none;
+    }
+    .vault-source-ref:hover {
+      background: var(--accent);
+      color: #fff;
     }
 
     .ntp-vault-note-row {

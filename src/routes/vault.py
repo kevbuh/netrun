@@ -304,11 +304,12 @@ def vault_chat(google_id):
 
     # Build system prompt with retrieved notes
     if context_chunks:
-        notes_text = '\n\n'.join(context_chunks)
+        numbered_chunks = [f"[{i+1}] {chunk}" for i, chunk in enumerate(context_chunks)]
+        notes_text = '\n\n'.join(numbered_chunks)
         system_msg = (
             "You are a helpful assistant with access to the user's personal notes. "
             "Answer their questions based on the note contents below when relevant. "
-            "Cite which notes you draw from.\n\n"
+            "Cite sources inline using [1], [2], etc. to reference the note numbers.\n\n"
             "--- NOTES ---\n" + notes_text + "\n--- END NOTES ---"
         )
     else:
