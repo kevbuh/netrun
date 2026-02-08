@@ -699,7 +699,6 @@ const VIEW_REGISTRY = {
   'teams-view':          { template: '/views/teams.html',     tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
-  'vibe-view':           { template: '/views/vibe.html',     tier: 2 },
 };
 
 async function ensureView(viewId) {
@@ -749,7 +748,7 @@ function hideAllViews() {
   if (typeof _setPillBrowseMode === 'function') _setPillBrowseMode(false);
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
-  if (typeof _vibeCleanup === 'function') _vibeCleanup();
+  if (typeof _vaultGitMode !== 'undefined' && _vaultGitMode) { document.removeEventListener('keydown', _vibeKeyHandler); }
   // Hide universal panel (next view's open function will re-show if it has registered tabs)
   const _upanel = document.getElementById('universal-panel');
   if (_upanel) _upanel.style.display = 'none';
@@ -787,13 +786,12 @@ const _wmViewMeta = {
   terminal:   { sidebarId: 'sb-terminal',  label: 'Terminal',   openFn() { openTerminal(); } },
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook',  openFn() { openNeuralook(); } },
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
-  vibe:       { sidebarId: 'sb-vibe',      label: 'Vibe',       openFn() { openVibe(); } },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
   calendar:   { sidebarId: 'sb-calendar',  label: 'Calendar',   openFn() { openCalendar(); } },
 };
 
 // Pre-populate all views (pill bar order)
-const _wmDefaultOrder = ['dashboard','feed','vault','browse','terminal','neuralook','dev','vibe','settings'];
+const _wmDefaultOrder = ['dashboard','feed','vault','browse','terminal','neuralook','dev','settings'];
 let _wmWindows = _wmDefaultOrder.map(key => ({
   key,
   label: _wmViewMeta[key].label,
@@ -1387,7 +1385,7 @@ function routeFromHash() {
   else if (hash === '#terminal') wmOpen('terminal');
   else if (hash === '#neuralook') wmOpen('neuralook');
   else if (hash === '#dev') wmOpen('dev');
-  else if (hash === '#vibe') wmOpen('vibe');
+  else if (hash === '#vibe') wmOpen('vault'); // legacy redirect
   else if (hash === '#feed') wmOpen('feed');
   else if (hash.startsWith('#experiment/')) {
     const expPart = hash.slice('#experiment/'.length);
@@ -2845,7 +2843,8 @@ const SYNC_KEYS = [
   'blockedWords', 'qualityBypass', 'searchHistory', 'userQuotes', 'repostedLinks',
   'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
   'pdfHighlights', 'pdfDrawings',
-  'chatModel', 'chatTools', 'insightsAllowHeuristics'
+  'chatModel', 'chatTools', 'insightsAllowHeuristics',
+  'iconSize'
 ];
 
 // Default ad blocker to enabled

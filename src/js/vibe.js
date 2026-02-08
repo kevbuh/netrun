@@ -1,144 +1,9 @@
-// ── Vibe Panel: Split Terminals + Lazygit-style Git Dashboard ──
+// ── Lazygit-style Git Dashboard (embedded in Vault) ──
 
 let _vibeActivePane = 0;
 let _vibeData = {};
 let _vibeCmdLog = [];
 let _vibeSelectedIdx = {};
-let _vibeTerminals = []; // [{id, termObj}] — our two embedded terminals
-let _vibeTermSplitRatio = 0.5;
-
-async function openVibe() {
-  setSidebarLoading('sb-vibe');
-  hideAllViews();
-  const view = await ensureView('vibe-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  view.style.height = '100%';
-  if (window.location.hash !== '#vibe') window.location.hash = '#vibe';
-  setSidebarActive('sb-vibe');
-  _vibeActivePane = 0;
-  _vibeSelectedIdx = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
-  _vibeInitTerminals();
-  _vibeRefresh();
-  _vibeInitResize();
-  document.addEventListener('keydown', _vibeKeyHandler);
-}
-
-function _vibeCleanup() {
-  document.removeEventListener('keydown', _vibeKeyHandler);
-  // Don't destroy terminals — just detach. They stay alive for re-mount.
-}
-
-function _vibeToggleTerminals() {
-  const container = document.querySelector('.vibe-container');
-  const terms = document.querySelector('.vibe-terminals');
-  if (!container || !terms) return;
-  const hidden = terms.classList.toggle('vibe-terms-hidden');
-  container.classList.toggle('vibe-no-terms', hidden);
-  // Re-fit terminals when showing them again
-  if (!hidden) {
-    setTimeout(() => {
-      _vibeTerminals.forEach(t => { try { t.fitAddon.fit(); } catch (_) {} });
-    }, 50);
-  }
-}
-
-// ── Terminal embedding ──
-
-let _vibeVaultPath = null;
-
-async function _vibeInitTerminals() {
-  const topEl = document.getElementById('vibe-term-top');
-  const bottomEl = document.getElementById('vibe-term-bottom');
-  if (!topEl || !bottomEl) return;
-
-  // Fetch vault path for terminal cwd
-  if (!_vibeVaultPath) {
-    try {
-      const resp = await fetch('/api/vault/path', { headers: _authHeaders() });
-      if (resp.ok) {
-        const data = await resp.json();
-        _vibeVaultPath = data.path || null;
-      }
-    } catch {}
-  }
-
-  // Create two terminals if we haven't yet
-  if (_vibeTerminals.length < 2) {
-    _vibeTerminals = [];
-    for (let i = 0; i < 2; i++) {
-      const t = createTerminal('Claude ' + (i + 1), true); // skipLayoutUpdate
-      _vibeTerminals.push(t);
-    }
-  }
-
-  // Mount each into its container
-  [topEl, bottomEl].forEach((el, i) => {
-    const t = _vibeTerminals[i];
-    if (!t) return;
-    el.innerHTML = '';
-    const pane = t.container;
-    pane.style.cssText = 'width:100%;height:100%;position:relative;';
-    el.appendChild(pane);
-
-    if (!pane.querySelector('.xterm')) {
-      t.term.open(pane);
-      t.fitAddon.fit();
-      _connectTerminalWs(t, _vibeVaultPath);
-      const ro = new ResizeObserver(() => {
-        try { t.fitAddon.fit(); } catch (_) {}
-      });
-      ro.observe(pane);
-    } else {
-      setTimeout(() => {
-        try { t.fitAddon.fit(); } catch (_) {}
-      }, 50);
-    }
-  });
-}
-
-// ── Draggable terminal split resize ──
-
-function _vibeInitResize() {
-  const handle = document.getElementById('vibe-term-resize');
-  if (!handle) return;
-  let dragging = false;
-  handle.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    dragging = true;
-    document.body.style.cursor = 'row-resize';
-    const termContainer = handle.parentElement;
-    const onMove = (e2) => {
-      if (!dragging) return;
-      const rect = termContainer.getBoundingClientRect();
-      const y = e2.clientY - rect.top;
-      const ratio = Math.max(0.15, Math.min(0.85, y / rect.height));
-      _vibeTermSplitRatio = ratio;
-      _vibeApplyTermSplit();
-    };
-    const onUp = () => {
-      dragging = false;
-      document.body.style.cursor = '';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-}
-
-function _vibeApplyTermSplit() {
-  const top = document.getElementById('vibe-term-top');
-  const bottom = document.getElementById('vibe-term-bottom');
-  if (!top || !bottom) return;
-  const pct = (_vibeTermSplitRatio * 100).toFixed(1);
-  top.style.flex = `0 0 ${pct}%`;
-  bottom.style.flex = `0 0 ${100 - parseFloat(pct)}%`;
-  // Refit terminals
-  _vibeTerminals.forEach(t => {
-    try { t.fitAddon.fit(); } catch (_) {}
-  });
-}
 
 // ── Git data fetching ──
 
@@ -372,13 +237,13 @@ function _vibeUpdateSelection(paneIdx) {
   }
 }
 
-// ── Keyboard navigation (only when not focused on terminal) ──
+// ── Keyboard navigation (only when git mode is active in vault) ──
 
 function _vibeKeyHandler(e) {
   // Don't intercept if typing in an input or terminal
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.target.closest('.xterm')) return;
-  if (window.location.hash !== '#vibe') return;
+  if (!_vaultGitMode) return;
 
   const paneCount = 6;
 
@@ -449,7 +314,8 @@ function _vibeActivateSelection() {
   else if (pane === 4) _vibeSelectStash(idx);
 }
 
-// Auto-refresh when tab regains focus
+// Auto-refresh git status when tab regains focus
 window.addEventListener('focus', () => {
-  if (window.location.hash === '#vibe') _vibeRefresh();
+  if (window.location.hash === '#vault' && _vaultGitMode) _vibeRefresh();
+  if (window.location.hash === '#vault' && typeof _vaultFetchGitStatus === 'function') _vaultFetchGitStatus();
 });

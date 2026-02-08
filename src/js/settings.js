@@ -142,6 +142,16 @@ function _renderAppearanceSettings() {
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Icon Size</span>
+        <div class="flex gap-1.5">
+          ${['small','medium','large'].map(s => {
+            const cur = localStorage.getItem('iconSize') || 'medium';
+            const label = s.charAt(0).toUpperCase() + s.slice(1);
+            return '<button onclick="setIconSize(\'' + s + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === s ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
+          }).join('')}
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Loading Spinner</span>
         <div class="flex items-center gap-2">
           <button onclick="cycleSpinner(-1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&lsaquo;</button>
@@ -675,6 +685,7 @@ function _renderPanelSettings() {
   const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
   const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
   const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
+  const vaultMin = parseInt(localStorage.getItem('vaultChatMinSimilarity') || '30', 10);
   setTimeout(_loadSettingsModels, 0);
   return `
     <div class="mb-8">
@@ -733,6 +744,15 @@ function _renderPanelSettings() {
         <span id="sem-min-val" class="text-muted text-[0.78rem] w-10 text-right">${semMin}%</span>
       </div>
       <p class="text-dimmer text-[0.68rem] mt-1">Only results above this score appear in the highlight popup. Lower = more results, higher = stricter.</p>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Notes RAG Threshold</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Minimum similarity for vault notes to be included as context when chatting without a document.</p>
+      <div class="flex items-center gap-3">
+        <span class="text-primary text-[0.8rem] shrink-0">Min similarity</span>
+        <input type="range" min="10" max="80" value="${vaultMin}" oninput="document.getElementById('vault-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('vaultChatMinSimilarity', this.value)" class="flex-1 accent-[var(--accent)]" />
+        <span id="vault-min-val" class="text-muted text-[0.78rem] w-10 text-right">${vaultMin}%</span>
+      </div>
     </div>
   `;
 }
@@ -1062,6 +1082,12 @@ function setEditorTheme(theme) {
     const btn = document.getElementById('editor-theme-btn-' + t);
     if (btn) btn.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
   });
+}
+
+function setIconSize(size) {
+  localStorage.setItem('iconSize', size);
+  document.documentElement.setAttribute('data-icon-size', size);
+  renderSettingsView();
 }
 
 /* ── Daylight Theme Engine ── */
@@ -1522,6 +1548,8 @@ function applyStoredAppearance() {
   if (edTheme && edTheme !== 'auto') document.documentElement.setAttribute('data-editor-theme', edTheme);
   const aether = localStorage.getItem('aetherColor');
   if (aether) document.documentElement.style.setProperty('--aether-bg', aether);
+  const iconSize = localStorage.getItem('iconSize') || 'medium';
+  document.documentElement.setAttribute('data-icon-size', iconSize);
 }
 
 applyStoredAppearance();

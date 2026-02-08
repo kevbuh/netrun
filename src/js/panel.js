@@ -406,6 +406,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         : { 'Content-Type': 'application/json' };
       if (useVaultChat) {
         body.query = q;
+        body.min_similarity = (parseInt(localStorage.getItem('vaultChatMinSimilarity') || '30', 10)) / 100;
         delete body.context;
         delete body.tools;
       }
@@ -630,8 +631,12 @@ function _renderPopupChat(popup, final) {
     }
     let sourcesHtml = '';
     if (m._sources && m._sources.length) {
-      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map(s =>
-        `<span class="vault-chat-source-chip" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)} (${Math.round(s.score * 100)}%)">${escapeHtml(s.title.length > 25 ? s.title.slice(0, 22) + '…' : s.title)}</span>`
+      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map((s, si) =>
+        `<div class="vault-chat-source-card" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">` +
+        `<span class="vault-source-num">${si + 1}</span>` +
+        `<span class="vault-source-title">${escapeHtml(s.title.length > 20 ? s.title.slice(0, 18) + '…' : s.title)}</span>` +
+        `<span class="vault-source-score">${Math.round(s.score * 100)}%</span>` +
+        `</div>`
       ).join('') + '</div>';
     }
     const isLast = i === _popupChatMessages.length - 1;

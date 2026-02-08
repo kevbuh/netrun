@@ -9,6 +9,10 @@ let _vaultSaveTimeout = null;
 let _vaultMarimoActive = false; // Whether a marimo server is running for current note
 let _vaultEditorMode = 'note'; // 'note' | 'file'
 let _vaultExpandedProjects = new Set(); // project IDs currently expanded in tree
+let _vaultGitMode = false;
+let _vaultGitStatus = {}; // { 'path/file.md': 'M' }
+let _vaultTerminal = null; // single terminal instance for right panel
+let _vaultPath = null; // cached vault path
 
 // Open vault view
 async function openVault() {
@@ -33,6 +37,9 @@ async function initVault() {
   }
 
   renderVaultFileTree();
+
+  // Fetch git status for file tree badges (non-blocking)
+  if (typeof _vibeGit === 'function') _vaultFetchGitStatus();
 
   // Load last opened note or first note
   const lastNote = localStorage.getItem('vaultLastNote');
@@ -383,6 +390,7 @@ function renderVaultFileItem(note) {
          ondragend="vaultDragEnd(event)">
       ${icon}
       <span class="truncate">${escapeHtml(note.title || 'Untitled')}</span>
+      ${_vaultGitBadge(_vaultGitStatus[note.title + '.md'] || _vaultGitStatus[note.id + '.md'] || '')}
     </div>
   `;
 }
@@ -673,6 +681,15 @@ async function openVaultNote(noteId) {
     _vaultGraphMode = false;
     document.getElementById('vault-graph-btn')?.classList.remove('active');
     if (graphContainer) graphContainer.style.display = 'none';
+  }
+
+  // Reset git view if active
+  if (_vaultGitMode) {
+    _vaultGitMode = false;
+    document.getElementById('vault-git-btn')?.classList.remove('active');
+    const gitC = document.getElementById('vault-git-container');
+    if (gitC) gitC.style.display = 'none';
+    document.removeEventListener('keydown', _vibeKeyHandler);
   }
 
   if (note.type === 'marimo') {
@@ -1086,6 +1103,7 @@ function _renderProjectChildren(children, projectId) {
            oncontextmenu="showVaultProjectFileMenu(event, '${escapedProject}', '${escapedFile}')">
         <span class="text-[0.55rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
         <span class="truncate">${escapeHtml(file.name)}</span>
+        ${_vaultGitBadge(_vaultGitStatus[file.name] || '')}
       </div>
     `;
   });
@@ -1125,6 +1143,7 @@ function _renderProjectChildrenDeep(children, projectId, parentPath, depth) {
            oncontextmenu="showVaultProjectFileMenu(event, '${escapedProject}', '${escapedFile}')">
         <span class="text-[0.55rem] px-1 py-0.5 rounded shrink-0 ${badgeCls}">${badge}</span>
         <span class="truncate">${escapeHtml(file.name)}</span>
+        ${_vaultGitBadge(_vaultGitStatus[fullPath] || '')}
       </div>
     `;
   });
@@ -1645,6 +1664,15 @@ function vaultFilterByTag(tag) {
 
 // Toggle graph view
 function vaultToggleGraph() {
+  // Deactivate git mode if active
+  if (_vaultGitMode) {
+    _vaultGitMode = false;
+    document.getElementById('vault-git-btn')?.classList.remove('active');
+    const gitC = document.getElementById('vault-git-container');
+    if (gitC) gitC.style.display = 'none';
+    document.removeEventListener('keydown', _vibeKeyHandler);
+  }
+
   _vaultGraphMode = !_vaultGraphMode;
 
   const btn = document.getElementById('vault-graph-btn');
@@ -1661,6 +1689,45 @@ function vaultToggleGraph() {
     renderVaultGraph();
   } else {
     graph.style.display = 'none';
+    editor.style.display = _vaultPreviewMode ? 'none' : '';
+    preview.style.display = _vaultPreviewMode ? '' : 'none';
+  }
+}
+
+// Toggle git dashboard view
+function vaultToggleGit() {
+  // Deactivate graph mode if active
+  if (_vaultGraphMode) {
+    _vaultGraphMode = false;
+    document.getElementById('vault-graph-btn')?.classList.remove('active');
+    const graphC = document.getElementById('vault-graph-container');
+    if (graphC) graphC.style.display = 'none';
+  }
+
+  _vaultGitMode = !_vaultGitMode;
+
+  const btn = document.getElementById('vault-git-btn');
+  const editor = document.getElementById('vault-editor-container');
+  const preview = document.getElementById('vault-preview-container');
+  const gitContainer = document.getElementById('vault-git-container');
+  const marimo = document.getElementById('vault-marimo-container');
+  const filePane = document.getElementById('vault-file-editor-pane');
+
+  btn.classList.toggle('active', _vaultGitMode);
+
+  if (_vaultGitMode) {
+    editor.style.display = 'none';
+    preview.style.display = 'none';
+    if (marimo) marimo.style.display = 'none';
+    if (filePane) filePane.style.display = 'none';
+    gitContainer.style.display = 'flex';
+    _vibeActivePane = 0;
+    _vibeSelectedIdx = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+    document.addEventListener('keydown', _vibeKeyHandler);
+    _vibeRefresh();
+  } else {
+    gitContainer.style.display = 'none';
+    document.removeEventListener('keydown', _vibeKeyHandler);
     editor.style.display = _vaultPreviewMode ? 'none' : '';
     preview.style.display = _vaultPreviewMode ? '' : 'none';
   }
@@ -2849,6 +2916,74 @@ async function _sendNtpVaultChat() {
   }
 }
 
+// ── Git status badges for file tree ──
+
+function _vaultGitBadge(status) {
+  if (!status) return '';
+  const colors = { M: 'color:#e5a50a', A: 'color:#22c55e', D: 'color:#ef4444', '?': 'color:#22c55e', R: 'color:#3b82f6', U: 'color:#ef4444' };
+  const c = colors[status] || 'color:var(--text-dimmer)';
+  return `<span class="vault-git-badge" style="${c}">${escapeHtml(status)}</span>`;
+}
+
+async function _ensureVaultPath() {
+  if (_vaultPath) return _vaultPath;
+  try {
+    const resp = await fetch('/api/vault/path', { headers: _authHeaders() });
+    if (resp.ok) {
+      const data = await resp.json();
+      _vaultPath = data.path || null;
+    }
+  } catch {}
+  return _vaultPath;
+}
+
+async function _vaultFetchGitStatus() {
+  try {
+    const data = await _vibeGit('status');
+    if (data.error) return;
+    const lines = (data.output || '').split('\n').filter(Boolean);
+    const map = {};
+    for (const line of lines) {
+      if (line.startsWith('## ')) continue;
+      const code = line.substring(0, 2).trim();
+      const path = line.substring(3).trim();
+      if (code && path) map[path] = code[0] === '?' ? '?' : code.replace(/\s/g, '');
+    }
+    _vaultGitStatus = map;
+    renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+  } catch {}
+}
+
+// Terminal in right panel
+function renderVaultTerminalPanel(container) {
+  if (typeof createTerminal !== 'function') {
+    container.innerHTML = '<div class="p-4 text-dimmer text-sm">Terminal not available</div>';
+    return;
+  }
+  container.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;height:100%;';
+  // Reuse single terminal instance
+  if (!_vaultTerminal) {
+    _vaultTerminal = createTerminal('Vault', true);
+  }
+  const pane = _vaultTerminal.container;
+  pane.style.cssText = 'width:100%;flex:1;min-height:0;position:relative;';
+  container.innerHTML = '';
+  container.appendChild(pane);
+
+  if (!pane.querySelector('.xterm')) {
+    _vaultTerminal.term.open(pane);
+    _vaultTerminal.fitAddon.fit();
+    _ensureVaultPath().then(vp => _connectTerminalWs(_vaultTerminal, vp));
+  } else {
+    setTimeout(() => { try { _vaultTerminal.fitAddon.fit(); } catch {} }, 50);
+  }
+
+  const ro = new ResizeObserver(() => {
+    try { _vaultTerminal.fitAddon.fit(); } catch {}
+  });
+  ro.observe(pane);
+}
+
 registerPanelTabs('vault', {
   tabs: [
     {
@@ -2868,6 +3003,12 @@ registerPanelTabs('vault', {
       label: 'Chat',
       icon: '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg>',
       render: renderVaultChatPanel
+    },
+    {
+      id: 'terminal',
+      label: 'Terminal',
+      icon: '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>',
+      render: renderVaultTerminalPanel
     }
   ]
 });

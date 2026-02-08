@@ -921,7 +921,6 @@ function _browseHandleNavigation(tab, frame) {
       if (urlInput) urlInput.value = e.url;
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
-      _browseCheckPdfPill(tab);
     }
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
@@ -968,6 +967,18 @@ function _browseHandleNavigation(tab, frame) {
     _browseAudioTabs.delete(tab.id);
     _browseRenderTabs();
     _updateAudioIndicator();
+  });
+
+  // Detect built-in PDF viewer after page loads
+  frame.addEventListener('did-finish-load', () => {
+    frame.executeJavaScript('document.contentType').then(ct => {
+      const isPdf = ct === 'application/pdf';
+      if (isPdf !== !!tab._detectedPdf) {
+        tab._detectedPdf = isPdf;
+        if (!isPdf) tab._pdfPillDismissed = false;
+        if (_browseActiveTab === tab.id) _browseCheckPdfPill(tab);
+      }
+    }).catch(() => {});
   });
 }
 
@@ -1200,27 +1211,18 @@ function _browseBindFrame(tab) {
 
 // ── PDF Detection Pill ──
 
-function _browseLooksLikePdf(url) {
-  if (!url) return false;
-  try {
-    const u = new URL(url);
-    if (/\.pdf$/i.test(u.pathname)) return true;
-  } catch {}
-  return false;
-}
-
 function _browseCheckPdfPill(tab) {
   _browseHidePdfPill();
   if (!tab || tab.paper || tab.contentType === 'pdf' || tab.blank) return;
   if (tab._pdfPillDismissed) return;
-  if (_browseLooksLikePdf(tab.url)) _browseShowPdfPill(tab);
+  if (tab._detectedPdf) _browseShowPdfPill(tab);
 }
 
 function _browseShowPdfPill(tab) {
   _browseHidePdfPill();
   const pill = document.createElement('div');
   pill.id = 'browse-pdf-pill';
-  pill.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:999px;box-shadow:0 2px 12px rgba(0,0,0,0.25);cursor:pointer;font-size:13px;color:var(--text-primary);transition:background 0.15s,border-color 0.15s;';
+  pill.style.cssText = 'position:absolute;bottom:16px;right:16px;z-index:100;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:999px;box-shadow:0 2px 12px rgba(0,0,0,0.25);cursor:pointer;font-size:13px;color:var(--text-primary);transition:background 0.15s,border-color 0.15s;';
   pill.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
     + '<span>Open in Note Mode</span>'
     + '<span data-dismiss style="margin-left:2px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;">&times;</span>';
@@ -1244,31 +1246,19 @@ function _browseOpenAsNoteMode(tab) {
   _browseHidePdfPill();
   const url = tab.url;
   const title = tab.title || url.split('/').pop().replace(/\.pdf$/i, '') || 'PDF';
-  // Remove existing frame
-  if (tab.el) { tab.el.remove(); tab.el = null; }
-  // Create paper container
+  tab.paper = { title, link: url, source: 'web', pdfUrl: url };
+  tab.contentType = 'pdf';
+  tab.pdfUrl = '/api/pdf-proxy?url=' + encodeURIComponent(url);
+  // Replace frame with container div
+  if (tab.el) tab.el.remove();
   const container = document.getElementById('browse-content');
   const el = document.createElement('div');
   el.id = 'browse-paper-' + tab.id;
   el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow:hidden;';
   container.appendChild(el);
   tab.el = el;
-  tab.paper = { title, link: url, source: 'web', pdfUrl: url };
-  tab.contentType = 'pdf';
-  tab.pdfUrl = '/api/pdf-proxy?url=' + encodeURIComponent(url);
-  // Init PDF viewer
-  cleanupPdfViewer();
-  initPdfViewer(el, tab.pdfUrl, 'web-' + tab.id);
-  _currentPaperViewPaper = tab.paper;
-  // Update sidebar
-  const browseSb = document.getElementById('browse-sidebar');
-  if (browseSb) {
-    browseSb.innerHTML = _renderSidebarHTML(tab.paper);
-    _initSidebar(browseSb);
-    browseSb.style.display = '';
-  }
-  if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(url);
-  _browseRenderTabs();
+  // Re-select to trigger PDF rendering + sidebar
+  browseSelectTab(tab.id);
   _browseSaveTabs();
 }
 
@@ -1552,7 +1542,7 @@ function browseSelectTab(id) {
     if (browseSb) {
       browseSb.innerHTML = _renderSidebarHTML(tab.contentType === 'pdf' ? tab.paper : null);
       _initSidebar(browseSb);
-      browseSb.style.display = tab.arxivId ? '' : 'none';
+      browseSb.style.display = (tab.arxivId || tab.contentType === 'pdf') ? '' : 'none';
     }
     _initSidebarForUrl(tab.url);
     _startScrollTracker(tab.url);
@@ -3434,8 +3424,6 @@ function browseNavigate(input) {
   if (typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(url);
   }
-  // Show PDF pill if this looks like a PDF
-  _browseCheckPdfPill(tab);
 }
 
 function _browseResolveUrl(input) {
@@ -4688,6 +4676,12 @@ function browseEnableNoteMode() {
   // Already a paper tab — just show sidebar
   if (tab.contentType) {
     togglePaperSidebar();
+    return;
+  }
+
+  // Detected PDF → open in PDF viewer with notes/highlights
+  if (tab._detectedPdf) {
+    _browseOpenAsNoteMode(tab);
     return;
   }
 
