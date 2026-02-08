@@ -1453,8 +1453,7 @@ function routeFromHash() {
   else if (hash === '#profile') openUserProfile('');
   else if (hash.startsWith('#profile/')) {
     const profileUser = decodeURIComponent(hash.slice('#profile/'.length));
-    if (_authUserInfo && profileUser === _authUserInfo.username) { wmOpen('dashboard'); }
-    else openUserProfile(profileUser);
+    openUserProfile(profileUser);
   }
   else if (hash === '#saved-all') openAllSaved();
   else if (hash === '#saved') wmOpen('dashboard');
@@ -1523,10 +1522,6 @@ if (document.readyState === 'loading') {
 // ── User Profile ──
 
 async function openUserProfile(username) {
-  if (username && _authUserInfo && username === _authUserInfo.username) {
-    openDashboard();
-    return;
-  }
   hideAllViews();
   const view = await ensureView('profile-view');
   view.classList.add('active');

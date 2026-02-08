@@ -614,11 +614,6 @@
       opacity: 0;
       pointer-events: none;
     }
-    .browse-mode.vtab-mode #pill-nav-icons {
-      max-width: 800px;
-      opacity: 1;
-      pointer-events: auto;
-    }
     .browse-mode.menu-expanded #pill-nav-icons {
       max-width: 800px;
       opacity: 1;
@@ -628,9 +623,6 @@
     /* Separator between nav icons and browse tabs — only visible when menu is expanded */
     #pill-menu-separator {
       display: none;
-    }
-    .browse-mode.vtab-mode #pill-menu-separator {
-      display: block;
     }
     .browse-mode.menu-expanded #pill-menu-separator {
       display: block;

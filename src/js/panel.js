@@ -1738,7 +1738,7 @@ async function _showWordAether(word, x, y) {
   }
 }
 
-// Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
+// Any left-click outside the aether panel dismisses it (capture phase to bypass stopPropagation)
 document.addEventListener('mousedown', function(e) {
   if (e.button !== 0) return;
   if (_screenshotDragStart || _screenshotCapturing) return;
@@ -1746,6 +1746,8 @@ document.addEventListener('mousedown', function(e) {
   if (!btn) return;
   // Pinned panels survive all clicks (drag, inputs, buttons, click-away)
   if (_aetherPinned) return;
+  // Clicks inside the panel should not dismiss it
+  if (btn.contains(e.target)) return;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
   _savePopupChatToHighlight(btn);
   btn.remove();
