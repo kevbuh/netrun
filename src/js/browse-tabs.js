@@ -1560,8 +1560,8 @@ function _browseUpdateNewTabPage(tab) {
               <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
                 <div class="relative max-w-[680px] mx-auto">
                   <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dimmer pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-                  <input type="text" id="search-query" placeholder="Search papers..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="onSearchInput()" onfocus="showSearchHistoryView()" onblur="setTimeout(hideSearchHistoryView,150)" onkeydown="_searchHistoryKeydown(event)" />
-                  <div id="search-history-dropdown-view" class="hidden absolute left-0 right-0 top-full mt-1 rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden"></div>
+                  <input type="text" id="search-query" placeholder="Search or enter URL..." autocomplete="off" class="w-full pl-9 pr-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.85rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" oninput="onSearchInput(); _browseUrlShowHistory()" onfocus="this.select(); _browseUrlShowHistory()" onblur="setTimeout(_browseUrlHideHistory,150)" onkeydown="_browseUrlKeydown(event)" />
+                  <div id="search-history-dropdown-view" class="hidden rounded-lg border border-border-input bg-card shadow-lg z-50 overflow-hidden" style="display:none;"></div>
                 </div>
               </form>
               <div id="search-hints" style="display:none"></div>
@@ -2910,6 +2910,9 @@ function showBrowseTabOverview() {
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
   _renderWindowOverview();
   overlay.style.display = 'flex';
+  // Instantly scroll to the active card before the fade-in
+  var activeCard = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
+  if (activeCard) activeCard.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
   _installOverviewKeyHandler();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => overlay.classList.add('visible'));
@@ -3155,11 +3158,9 @@ function _renderWindowOverview() {
 
   overlay.innerHTML = appHtml + detailHtml;
 
-  // Scroll selected item into view in expanded mode
-  if (_overviewBrowseExpanded) {
-    var sel = overlay.querySelector('.wov-selected');
-    if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-  }
+  // Scroll selected card into view
+  var sel = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
+  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
 
 function _overviewClickApp(key) {

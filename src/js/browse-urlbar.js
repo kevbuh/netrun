@@ -47,9 +47,20 @@ let _instantAnswer = null; // { type, html } for non-definition instant answers
 let _instantDebounce = null;
 let _instantCache = {};
 
+// Returns the active omnibox input & dropdown elements (NTP search or URL bar)
+function _getOmniInput() {
+  const bar = document.getElementById('browse-bar');
+  if (bar && bar.style.display === 'none') {
+    const input = document.getElementById('search-query');
+    const dd = document.getElementById('search-history-dropdown-view');
+    if (input && dd) return { input, dd, ntp: true };
+  }
+  return { input: document.getElementById('browse-url-input'), dd: document.getElementById('browse-url-history-dd'), ntp: false };
+}
+
 function _browseUrlKeydown(e) {
-  const dd = document.getElementById('browse-url-history-dd');
-  const visible = dd && dd.style.display !== 'none';
+  const { input, dd, ntp } = _getOmniInput();
+  const visible = dd && dd.style.display !== 'none' && !dd.classList.contains('hidden');
 
   if (e.key === 'Enter') {
     if (visible && _browseUrlHistIdx >= 0) {
@@ -61,20 +72,20 @@ function _browseUrlKeydown(e) {
         if (q.startsWith('project:')) {
           openExperimentDetail(q.slice(8));
         } else {
-          document.getElementById('browse-url-input').value = q;
           browseNavigate(q);
         }
       }
+    } else if (ntp) {
+      // NTP: hide dropdown, let form onsubmit (submitSearch) handle Enter
+      _browseUrlHideHistory();
     } else {
       _browseUrlHideHistory();
-      const urlInput = document.getElementById('browse-url-input');
-      browseNavigate(urlInput ? urlInput.value : '');
+      browseNavigate(input ? input.value : '');
     }
     return;
   }
   if (!visible) return;
   const items = dd.querySelectorAll('[data-histq]');
-  const input = document.getElementById('browse-url-input');
   if (e.key === 'ArrowDown') {
     e.preventDefault();
     if (_browseUrlHistIdx === -1) _browseUrlOriginalInput = input ? input.value : '';
@@ -121,8 +132,7 @@ let _feelingLuckyQuery = '';
 let _feelingLuckyLoading = false;
 
 function _browseUrlFeelingLucky() {
-  const input = document.getElementById('browse-url-input');
-  const dd = document.getElementById('browse-url-history-dd');
+  const { input, dd } = _getOmniInput();
   _feelingLuckyLoading = true;
   _feelingLuckyQuery = '';
   _browseUrlRenderLuckyRow(dd);
@@ -166,13 +176,12 @@ function _browseUrlRenderLuckyRow(dd) {
 }
 
 function _browseUrlShowHistory() {
-  const input = document.getElementById('browse-url-input');
-  const dd = document.getElementById('browse-url-history-dd');
+  const { input, dd, ntp } = _getOmniInput();
   if (!input || !dd) return;
   const filter = (input.value || '').trim().toLowerCase();
 
-  // Don't show dropdown on blank new-tab pages with no input
-  if (!filter) {
+  // Don't show dropdown on blank new-tab pages with no input (URL bar only, NTP always shows)
+  if (!filter && !ntp) {
     const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
     const tab = win?.tabs?.find(t => t.id === win.activeTab);
     if (tab && tab.blank) { dd.style.display = 'none'; return; }
@@ -233,13 +242,17 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   _browseUrlOriginalInput = '/history';
 
   const rect = input.getBoundingClientRect();
+  dd.style.position = 'fixed';
   dd.style.left = rect.left + 'px';
   dd.style.top = (rect.bottom + 2) + 'px';
   dd.style.width = rect.width + 'px';
+  dd.style.maxHeight = '380px';
+  dd.style.overflowY = 'auto';
 
   if (!hist.length) {
     dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--text-dim);text-align:center;">No browsing history</div>';
     dd.style.display = '';
+    dd.classList.remove('hidden');
     return;
   }
 
@@ -264,6 +277,7 @@ function _browseUrlRenderHistoryCommand(dd, input) {
 
   dd.innerHTML = html;
   dd.style.display = '';
+  dd.classList.remove('hidden');
 }
 
 function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse) {
@@ -273,13 +287,17 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const hasInstant = _instantAnswer && _instantAnswer.html;
   const showLucky = !filter;
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) { dd.style.display = 'none'; return; }
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) { dd.style.display = 'none'; dd.classList.add('hidden'); return; }
 
   _browseUrlHistIdx = -1;
   const rect = input.getBoundingClientRect();
+  // NTP dropdown needs fixed positioning
+  dd.style.position = 'fixed';
   dd.style.left = rect.left + 'px';
   dd.style.top = (rect.bottom + 2) + 'px';
   dd.style.width = rect.width + 'px';
+  dd.style.maxHeight = '380px';
+  dd.style.overflowY = 'auto';
 
   const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
   const hoverOn = "this.style.background='var(--bg-hover)'";
@@ -394,10 +412,11 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     if (renderer) html += renderer();
   }
 
-  if (!html) { dd.style.display = 'none'; return; }
+  if (!html) { dd.style.display = 'none'; dd.classList.add('hidden'); return; }
 
   dd.innerHTML = html;
   dd.style.display = '';
+  dd.classList.remove('hidden');
 
   // Attach feeling lucky click handlers (must be after innerHTML)
   const luckyRow = dd.querySelector('.browse-lucky-row');
@@ -451,7 +470,7 @@ function _fetchSearchSuggestions(query) {
       _suggestCache[query] = suggestions;
       _currentSuggestions = suggestions;
       // Re-render dropdown if input still matches
-      const input = document.getElementById('browse-url-input');
+      const { input } = _getOmniInput();
       if (input && input.value.trim().toLowerCase() === query) {
         _browseUrlShowHistory();
       }
@@ -477,7 +496,7 @@ function _fetchWordDefinition(word) {
       _defCache[key] = entry;
       _currentDef = entry;
       // Re-render dropdown if input still matches
-      const input = document.getElementById('browse-url-input');
+      const { input } = _getOmniInput();
       if (input && input.value.trim().toLowerCase() === key) {
         _browseUrlShowHistory();
       }
@@ -535,7 +554,7 @@ function _computeInstantAnswer(query) {
       } else {
         _instantAnswer = null;
       }
-      const input = document.getElementById('browse-url-input');
+      const { input } = _getOmniInput();
       if (input && input.value.trim().toLowerCase() === query.toLowerCase()) {
         _browseUrlShowHistory();
       }
@@ -866,13 +885,14 @@ async function _fetchStockAnswer(ticker) {
 function _browseUrlHideHistory() {
   const dd = document.getElementById('browse-url-history-dd');
   if (dd) dd.style.display = 'none';
+  const ntpDd = document.getElementById('search-history-dropdown-view');
+  if (ntpDd) { ntpDd.style.display = 'none'; ntpDd.classList.add('hidden'); }
   _browseUrlHistIdx = -1;
 }
 
 document.addEventListener('mousedown', (e) => {
-  const dd = document.getElementById('browse-url-history-dd');
-  if (!dd || dd.style.display === 'none') return;
-  const input = document.getElementById('browse-url-input');
+  const { input, dd } = _getOmniInput();
+  if (!dd || (dd.style.display === 'none' && dd.classList.contains('hidden'))) return;
   if ((input && input.contains(e.target)) || dd.contains(e.target)) return;
   _browseUrlHideHistory();
 });

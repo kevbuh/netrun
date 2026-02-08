@@ -28,6 +28,12 @@ function submitSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query) return;
 
+  // If it looks like a URL, navigate to it instead of searching
+  if (/^(https?|file|blob|data):\/\//i.test(query) || /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}(\/\S*)?$/i.test(query)) {
+    if (typeof browseNavigate === 'function') browseNavigate(query);
+    return;
+  }
+
   // Handle user: search - open user profile directly
   const userMatch = query.match(/^user:(.+)$/i);
   if (userMatch) {
