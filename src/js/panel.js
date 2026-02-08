@@ -309,6 +309,11 @@ function _sendPopupChatMessage(popup, capturedText) {
   if (!q && _pendingScreenshots.length === 0) return;
   input.value = '';
 
+  // Pin the panel in place and restore the cursor
+  _aetherTrackMode = false;
+  _aetherPinned = true;
+  _aetherShowCursor();
+
   // Grab pending screenshots and note contexts, clear strip
   const images = _pendingScreenshots.slice();
   _pendingScreenshots = [];
@@ -1559,8 +1564,8 @@ document.addEventListener('mousedown', function(e) {
   if (_screenshotDragStart || _screenshotCapturing) return;
   const btn = document.getElementById('doc-chat-ask-float');
   if (!btn) return;
-  // Pinned panels survive click-away
-  if (_aetherPinned && !btn.contains(e.target)) return;
+  // Pinned panels survive all clicks (drag, inputs, buttons, click-away)
+  if (_aetherPinned) return;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
   _savePopupChatToHighlight(btn);
   btn.remove();

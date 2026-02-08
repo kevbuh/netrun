@@ -671,6 +671,7 @@ function _loadSettingsModels() {
 function _renderPanelSettings() {
   const chatModel = localStorage.getItem('chatModel') || 'qwen2.5:3b';
   const visionModel = localStorage.getItem('visionModel') || 'qwen3-vl:8b';
+  const summaryModel = localStorage.getItem('summaryModel') || 'qwen3:0.6b';
   const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
   const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
   const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
@@ -690,6 +691,14 @@ function _renderPanelSettings() {
       <select data-key="visionModel" data-fallback="qwen3-vl:8b" onchange="localStorage.setItem('visionModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
         <option value="${escapeAttr(visionModel)}" selected>${escapeHtml(visionModel)}</option>
       </select>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Daily Summary Model</h3>
+      <p class="text-dim text-[0.8rem] mb-3">The model used to generate the daily overview summary on the home page.</p>
+      <select data-key="summaryModel" data-fallback="qwen3:0.6b" onchange="localStorage.setItem('summaryModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
+        <option value="${escapeAttr(summaryModel)}" selected>${escapeHtml(summaryModel)}</option>
+      </select>
+      <p class="text-dimmer text-[0.68rem] mt-1">A smaller model is recommended for fast summaries. Set to <code class="text-muted">off</code> to disable.</p>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between">

@@ -697,10 +697,6 @@ async function renderDashboard() {
   `;
 
   container.innerHTML = `
-    ${profileHeaderHtml}
-
-    ${overviewHtml}
-
     <!-- Search bar -->
     <div class="mb-5">
       <div class="relative" id="dashboard-search-wrapper">
@@ -709,6 +705,10 @@ async function renderDashboard() {
         <div id="dashboard-search-results" class="absolute left-0 right-0 top-full mt-1 bg-card border border-border-card rounded-lg shadow-xl overflow-hidden overflow-y-auto z-50" style="display:none;max-height:400px"></div>
       </div>
     </div>
+
+    ${profileHeaderHtml}
+
+    ${overviewHtml}
 
     <!-- Calendar: full width -->
     <div class="mb-5">
@@ -837,9 +837,19 @@ async function renderDashboard() {
   }
 
   // ── LLM daily summary (async, streamed) ──
+  const _summaryModel = localStorage.getItem('summaryModel') || 'qwen3:0.6b';
   const summaryEl = document.getElementById('dash-day-summary');
-  if (summaryEl) {
-    _streamDaySummary(summaryEl, _llmActivityData, _openTaskCount, _unreadSavedCount, _todayDateStr);
+  if (summaryEl && _summaryModel && _summaryModel !== 'off') {
+    // Cache key: date + interaction count + task/unread counts
+    const _sumCacheKey = `${_todayKey}:${_llmActivityData.length}:${_openTaskCount}:${_unreadSavedCount}`;
+    const _sumCache = JSON.parse(localStorage.getItem('daySummaryCache') || '{}');
+    if (_sumCache.key === _sumCacheKey && _sumCache.text) {
+      summaryEl.textContent = _sumCache.text;
+    } else {
+      _streamDaySummary(summaryEl, _llmActivityData, _openTaskCount, _unreadSavedCount, _todayDateStr, _summaryModel, _sumCacheKey);
+    }
+  } else if (summaryEl) {
+    summaryEl.remove();
   }
 }
 
@@ -847,7 +857,7 @@ async function renderDashboard() {
 
 let _dashSummaryAbort = null;
 
-async function _streamDaySummary(el, activityLines, openTasks, unreadCount, dateStr) {
+async function _streamDaySummary(el, activityLines, openTasks, unreadCount, dateStr, model, cacheKey) {
   // Abort any in-flight summary
   if (_dashSummaryAbort) { try { _dashSummaryAbort.abort(); } catch(e) {} }
   _dashSummaryAbort = new AbortController();
@@ -878,7 +888,7 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
-        model: 'qwen2.5:1.5b'
+        model: model
       }),
       signal: _dashSummaryAbort.signal
     });
@@ -909,7 +919,11 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
         }
       }
     }
-    if (!text.trim()) el.textContent = '';
+    if (!text.trim()) {
+      el.textContent = '';
+    } else if (cacheKey) {
+      localStorage.setItem('daySummaryCache', JSON.stringify({ key: cacheKey, text: text.trim() }));
+    }
   } catch (e) {
     if (e.name !== 'AbortError') el.textContent = '';
   }
