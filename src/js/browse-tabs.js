@@ -2352,21 +2352,21 @@ function _applyBrowseTabLayout() {
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
     if (vtabs) vtabs.style.display = 'flex';
-    // Move browse bar into vtabs panel (between header and tab list)
-    if (bar && vtabs) {
-      const tabList = document.getElementById('browse-vtabs-list');
-      if (tabList) vtabs.insertBefore(bar, tabList);
+    // Bar stays at top — just toggle class to hide buttons, show hamburger
+    if (bar) {
       bar.classList.add('browse-bar-vertical');
-      bar.style.display = '';
+      const hamburger = document.getElementById('browse-vtabs-more-btn');
+      if (hamburger) hamburger.style.display = '';
     }
     // Clear pill tabs when switching to vertical
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
   } else {
-    // Move browse bar back to its original position (after tab-row)
-    if (bar && tabRow && bar.classList.contains('browse-bar-vertical')) {
-      tabRow.after(bar);
+    // Restore bar to normal mode
+    if (bar) {
       bar.classList.remove('browse-bar-vertical');
+      const hamburger = document.getElementById('browse-vtabs-more-btn');
+      if (hamburger) hamburger.style.display = 'none';
     }
     if (vtabs) vtabs.style.display = 'none';
     if (_pillBrowseMode) {
@@ -4598,9 +4598,26 @@ function toggleBrowseMoreMenu() {
 
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const hasTab = tab && !tab.blank && tab.url;
+  const isVertical = _browseTabLayout === 'vertical';
 
   // Build overflow rows for buttons hidden in the bar
   let overflowRows = '';
+  const btnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;`;
+  const navBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
+
+  // In vertical mode, all bar buttons are hidden — add nav + toolbar buttons to menu
+  if (isVertical) {
+    overflowRows += `<button onclick="browseBack();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg> Back</button>`;
+    overflowRows += `<button onclick="browseForward();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg> Forward</button>`;
+    overflowRows += `<button onclick="browseReload();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Reload</button>`;
+    const isSaved = hasTab && isPostSaved(tab.url);
+    overflowRows += `<button onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
+    overflowRows += `<button onclick="browseShare();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg> Share</button>`;
+    overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker</button>`;
+    overflowRows += `<button onclick="openSearchHistoryPage();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg> Search History</button>`;
+    overflowRows += `<button onclick="browseEnableNoteMode();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg> Note Mode</button>`;
+    overflowRows += `<button onclick="toggleBrowseSidebar();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg> Toggle Sidebar</button>`;
+  } else {
   const overflowIds = typeof getBarOverflowIds === 'function' ? getBarOverflowIds() : [];
   overflowIds.forEach(id => {
     const el = document.getElementById(id);
@@ -4608,7 +4625,6 @@ function toggleBrowseMoreMenu() {
     const label = el.title || id;
     const svgEl = el.querySelector('svg');
     let icon = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
-    const btnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;`;
 
     // Bookmark button: toggle in-place instead of removing from overflow
     if (id === 'browse-save-btn') {
@@ -4621,6 +4637,7 @@ function toggleBrowseMoreMenu() {
       overflowRows += `<button data-overflow-id="${id}" onclick="document.getElementById('browse-more-menu').style.display='none';${onclick.replace(/"/g, '&quot;')}" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
     }
   });
+  }
 
   const fixedBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
   const fixedItems = `
@@ -4645,10 +4662,11 @@ function toggleBrowseMoreMenu() {
       Settings
     </button>`;
 
-  const btnRect = document.getElementById('browse-more-btn').getBoundingClientRect();
-  const menuPos = _browseTabLayout === 'vertical'
-    ? `left:${Math.round(btnRect.right + 4)}px;top:${Math.round(btnRect.top)}px`
-    : `right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px`;
+  const anchorBtn = (isVertical
+    ? document.getElementById('browse-vtabs-more-btn')
+    : document.getElementById('browse-more-btn')) || document.getElementById('browse-more-btn');
+  const btnRect = anchorBtn.getBoundingClientRect();
+  const menuPos = `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
   dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
     ${overflowRows}${fixedItems}
   </div>`;

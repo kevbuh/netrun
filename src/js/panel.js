@@ -467,6 +467,10 @@ function _sendPopupChatMessage(popup, capturedText) {
                 _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
                 _renderPopupChat(popup, false);
               } catch (e) {}
+            } else if (currentEvent === 'web_sources') {
+              try {
+                _popupChatMessages[aiIdx]._webSources = JSON.parse(line.slice(6));
+              } catch (e) {}
             } else if (currentEvent === 'action') {
               try {
                 const act = JSON.parse(line.slice(6));
@@ -661,55 +665,50 @@ function _renderPopupChat(popup, final) {
         return match;
       });
     }
+    // Sources pill (vault notes or web sources) — inline in actions row
+    let sourcesPillHtml = '';
+    if (m._sources && m._sources.length) {
+      const icons = m._sources.slice(0, 3).map((s, si) =>
+        `<span class="doc-sources-favicon doc-sources-favicon-num" style="z-index:${3 - si}">${si + 1}</span>`
+      ).join('');
+      const cardsHtml = m._sources.map((s, si) =>
+        `<div class="vault-chat-source-card" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">` +
+        `<span class="vault-source-num">${si + 1}</span>` +
+        `<span class="vault-source-title">${escapeHtml(s.title.length > 20 ? s.title.slice(0, 18) + '…' : s.title)}</span>` +
+        `<span class="vault-source-score">${Math.round(s.score * 100)}%</span>` +
+        `</div>`
+      ).join('');
+      sourcesPillHtml = `<div class="doc-msg-search-bubble"><div class="doc-sources-pill"><div class="doc-sources-favicons">${icons}</div><span class="doc-sources-label">${m._sources.length} source${m._sources.length !== 1 ? 's' : ''}</span></div><div class="doc-sources-expanded"><div class="doc-sources-cards">${cardsHtml}</div></div></div>`;
+    }
+    if (m._webSources && m._webSources.length) {
+      const pill = _buildSourcesPill(m._webSources);
+      const expandedHtml = m._webSources.map(r =>
+        `<div class="doc-search-result" data-href="${escapeAttr(r.url)}">` +
+        `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
+        (r.snippet ? `<div class="doc-search-result-snippet">${escapeHtml(r.snippet)}</div>` : '') +
+        `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
+        `</div>`
+      ).join('');
+      sourcesPillHtml += `<div class="doc-msg-search-bubble">${pill}<div class="doc-sources-expanded">${expandedHtml}</div></div>`;
+    }
     const speakBtn = `<button class="doc-msg-action-btn doc-msg-speak-btn" data-action="speak" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
     const copyBtn = `<button class="doc-msg-action-btn" data-action="copy" data-msg-idx="${i}" title="Copy"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
     const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
-    return `<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${speakBtn}${copyBtn}${redoBtn}</div></div>`;
+    return `<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${sourcesPillHtml}${speakBtn}${copyBtn}${redoBtn}</div></div>`;
   }).join('');
   container.querySelectorAll('.doc-msg-ai').forEach(el => renderLatexInEl(el));
-  // Render vault-chat sources above the scrollable messages area
-  let sourcesWrap = popup.querySelector('.vault-chat-sources-wrap');
-  const allSources = _popupChatMessages.filter(m => m._sources && m._sources.length).flatMap(m => m._sources);
-  if (allSources.length) {
-    if (!sourcesWrap) {
-      sourcesWrap = document.createElement('div');
-      sourcesWrap.className = 'vault-chat-sources-wrap collapsed';
-      const toggle = document.createElement('button');
-      toggle.className = 'vault-sources-toggle';
-      toggle.innerHTML = `<span class="vault-sources-toggle-count">${allSources.length} sources</span><svg class="vault-sources-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
-      toggle.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      toggle.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        sourcesWrap.classList.toggle('collapsed');
-      });
-      sourcesWrap.appendChild(toggle);
-      const cards = document.createElement('div');
-      cards.className = 'vault-chat-sources-fixed';
-      sourcesWrap.appendChild(cards);
-      container.parentNode.insertBefore(sourcesWrap, container);
-    }
-    const countEl = sourcesWrap.querySelector('.vault-sources-toggle-count');
-    if (countEl) countEl.textContent = allSources.length + ' source' + (allSources.length > 1 ? 's' : '');
-    const cardsEl = sourcesWrap.querySelector('.vault-chat-sources-fixed');
-    cardsEl.innerHTML = allSources.map((s, si) =>
-      `<div class="vault-chat-source-card" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">` +
-      `<span class="vault-source-num">${si + 1}</span>` +
-      `<span class="vault-source-title">${escapeHtml(s.title.length > 20 ? s.title.slice(0, 18) + '…' : s.title)}</span>` +
-      `<span class="vault-source-score">${Math.round(s.score * 100)}%</span>` +
-      `</div>`
-    ).join('');
-    cardsEl.querySelectorAll('.vault-chat-source-card[data-note-id]').forEach(el => {
-      el.addEventListener('click', (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const noteId = el.getAttribute('data-note-id');
-        window.location.hash = 'vault';
-        setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
-      });
-      el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  // Remove old vault-chat sources dropdown if present
+  const oldSourcesWrap = popup.querySelector('.vault-chat-sources-wrap');
+  if (oldSourcesWrap) oldSourcesWrap.remove();
+  // Attach click handlers for sources pill toggle
+  container.querySelectorAll('.doc-sources-pill').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const bubble = el.closest('.doc-msg-search-bubble');
+      if (bubble) bubble.classList.toggle('expanded');
     });
-  } else if (sourcesWrap) {
-    sourcesWrap.remove();
-  }
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
     el.addEventListener('click', (ev) => {
@@ -754,7 +753,16 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
-  // vault-chat source card clicks are handled above (outside scrollable area)
+  // Attach click handlers for vault source cards (inside pill expanded area)
+  container.querySelectorAll('.vault-chat-source-card[data-note-id]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const noteId = el.getAttribute('data-note-id');
+      window.location.hash = 'vault';
+      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
   // Attach click handlers for inline source references [1], [2], etc.
   container.querySelectorAll('.vault-source-ref[data-note-id]').forEach(el => {
     el.addEventListener('click', (ev) => {

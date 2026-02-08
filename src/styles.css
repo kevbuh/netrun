@@ -1241,57 +1241,25 @@
       border-bottom: 2px solid var(--group-color); border-radius: 8px 8px 0 0;
     }
 
-    /* ── Browse bar reparented into vertical sidebar ── */
-    .browse-bar-vertical {
-      flex-wrap: wrap;
-      gap: 3px;
-      padding: 6px 8px;
-      background: transparent !important;
-      border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-      border-top: none !important;
-      flex-shrink: 0;
-    }
-    .browse-bar-vertical button,
-    .browse-bar-vertical .browse-bar-draggable {
-      color: rgba(255,255,255,0.45);
-    }
-    .browse-bar-vertical button:hover {
-      background: rgba(255,255,255,0.08) !important;
-      color: rgba(255,255,255,0.85) !important;
+    /* ── Browse bar in vertical tab mode — hamburger + URL only ── */
+    .browse-bar-vertical > *:not(#browse-url-input):not(#browse-url-history-dd):not(#browse-vtabs-more-btn):not(#browse-more-menu) {
+      display: none !important;
     }
     .browse-bar-vertical #browse-url-input {
-      width: 100%;
-      flex: 1 1 100%;
-      order: -1;
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.85);
-      font-size: 0.73rem;
-      padding: 5px 8px;
-      margin-bottom: 2px;
+      flex: 1;
     }
-    .browse-bar-vertical #browse-url-input::placeholder {
-      color: rgba(255,255,255,0.3);
+
+    /* ── Hamburger button in browse bar (vertical mode) ── */
+    .browse-vtabs-hamburger {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent;
+      color: var(--text-dimmer); cursor: pointer; border-radius: 6px;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
     }
-    .browse-bar-vertical #browse-url-input:focus {
-      background: rgba(255,255,255,0.1);
-      border-color: rgba(255,255,255,0.15);
-    }
-    .browse-bar-vertical #browse-url-history-dd {
-      left: 220px !important;
-      right: auto !important;
-    }
-    .browse-bar-vertical #browse-return-btn span { display: none; }
-    .browse-bar-vertical #browse-return-btn { padding: 0; width: 28px; height: 28px; justify-content: center; }
-    .browse-bar-vertical #browse-zoom-level { color: rgba(255,255,255,0.4); }
-    .browse-bar-vertical .browse-downloads-dropdown {
-      position: fixed;
-      left: 228px;
-      top: auto;
-      right: auto;
-    }
-    .browse-bar-vertical #browse-more-menu {
-      position: fixed !important;
+    .browse-vtabs-hamburger:hover {
+      background: var(--bg-hover); color: var(--text-primary);
     }
 
     /* ── Vertical tabs sidebar ── */
@@ -1306,20 +1274,6 @@
       flex-shrink: 0;
       overflow: hidden;
       color: #ccc;
-    }
-    .browse-vtabs-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px 4px;
-      flex-shrink: 0;
-    }
-    .browse-vtabs-header-label {
-      font-size: 0.68rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: rgba(255,255,255,0.35);
     }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
@@ -3315,6 +3269,85 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    /* Sources pill — inline in actions row */
+    .doc-msg-search-bubble {
+      position: relative;
+    }
+    .doc-sources-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 8px 1px 2px;
+      background: var(--hover);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .doc-sources-pill:hover {
+      background: var(--border-input);
+    }
+    .doc-sources-favicons {
+      display: flex;
+      align-items: center;
+    }
+    .doc-sources-favicon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid var(--bg-popup);
+      background: var(--bg-popup);
+      object-fit: contain;
+      margin-left: -4px;
+    }
+    .doc-sources-favicon:first-child {
+      margin-left: 0;
+    }
+    .doc-sources-favicon-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.45rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      background: var(--hover);
+    }
+    .doc-sources-label {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .doc-sources-expanded {
+      display: none;
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-input);
+      background: var(--bg-popup);
+      z-index: 10;
+      min-width: 200px;
+      max-width: 320px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .doc-msg-search-bubble.expanded .doc-sources-expanded {
+      display: block;
+    }
+    .doc-sources-cards {
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .doc-sources-cards::-webkit-scrollbar { display: none; }
+    .doc-msg-actions-row .doc-msg-action-btn:first-of-type {
+      margin-left: auto;
     }
 
     /* Paper search results */
@@ -7186,20 +7219,20 @@
       max-width: 120px;
       padding: 6px 8px;
       border-radius: 8px;
-      background: rgba(255,255,255,0.06);
+      background: var(--hover);
       cursor: pointer;
       transition: background 0.15s;
       flex-shrink: 0;
     }
     .vault-chat-source-card:hover {
-      background: rgba(255,255,255,0.12);
+      background: var(--border-input);
     }
     .vault-source-num {
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
+      background: var(--border-input);
+      color: var(--text-primary);
       font-size: 0.58rem;
       font-weight: 600;
       display: flex;
@@ -7209,7 +7242,7 @@
     }
     .vault-source-title {
       font-size: 0.65rem;
-      color: #fff;
+      color: var(--text-primary);
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -7218,7 +7251,7 @@
     }
     .vault-source-score {
       font-size: 0.58rem;
-      color: rgba(255,255,255,0.4);
+      color: var(--text-muted);
       font-weight: 500;
     }
 
