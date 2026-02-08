@@ -235,7 +235,7 @@ let _lastActiveView = 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-inbox': 'inbox', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
-let _researchActiveTab = 'search';
+let _researchActiveTab = null;
 
 function setSidebarActive(id) {
   if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
@@ -1100,18 +1100,25 @@ function switchResearchTab(tab) {
 
   // Update tab buttons
   document.querySelectorAll('.research-tab').forEach(btn => btn.classList.remove('active'));
-  const activeBtn = document.getElementById('research-tab-' + tab);
-  if (activeBtn) activeBtn.classList.add('active');
+  if (tab) {
+    const activeBtn = document.getElementById('research-tab-' + tab);
+    if (activeBtn) activeBtn.classList.add('active');
+  }
 
   // Update panels
   document.querySelectorAll('.research-panel').forEach(panel => panel.style.display = 'none');
-  const activePanel = document.getElementById('research-panel-' + tab);
-  if (activePanel) activePanel.style.display = '';
+  if (tab) {
+    const activePanel = document.getElementById('research-panel-' + tab);
+    if (activePanel) activePanel.style.display = '';
+  }
+
+  // Focus search input on new tab page (always visible)
+  const searchInput = document.getElementById('search-query');
+  if (searchInput) setTimeout(() => searchInput.focus(), 50);
 
   // Tab-specific initialization
   if (tab === 'search') {
-    const input = document.getElementById('search-query');
-    if (input) setTimeout(() => input.focus(), 50);
+    // focus already handled above
   } else if (tab === 'users') {
     const input = document.getElementById('user-search-query');
     if (input) setTimeout(() => input.focus(), 50);

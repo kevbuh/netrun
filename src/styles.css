@@ -38,7 +38,7 @@
       border-radius: 6px;
       transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    #global-overview-btn:hover { color: #fff; transform: scale(2); }
+    #global-overview-btn:hover { color: #fff; }
     /* Electron: pill bar is not draggable */
     body.electron-app #sidebar-nav {
       -webkit-app-region: no-drag;
@@ -708,6 +708,11 @@
       max-width: 28px;
       opacity: 1;
       padding: 0;
+    }
+    #pill-menu-btn:hover,
+    #pill-newtab-btn:hover,
+    #pill-newwin-btn:hover {
+      transform: none;
     }
 
     /* Light theme overrides for browse mode */

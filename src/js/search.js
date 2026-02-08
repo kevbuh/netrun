@@ -44,6 +44,9 @@ function submitSearch() {
     }
   }
 
+  // Activate Papers panel so results are visible
+  if (typeof switchResearchTab === 'function') switchResearchTab('search');
+
   if (typeof saveSearchHistory === 'function') saveSearchHistory(query);
   hideSearchHistoryView();
   const hints = document.getElementById('search-hints');
