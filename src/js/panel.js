@@ -406,7 +406,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         : { 'Content-Type': 'application/json' };
       if (useVaultChat) {
         body.query = q;
-        body.min_similarity = (parseInt(localStorage.getItem('vaultChatMinSimilarity') || '30', 10)) / 100;
+        body.min_similarity = (parseInt(localStorage.getItem('vaultChatMinSimilarity') || '70', 10)) / 100;
         delete body.context;
         delete body.tools;
       }

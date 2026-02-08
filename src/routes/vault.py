@@ -277,7 +277,7 @@ def vault_chat(google_id):
     body = request.get_json(force=True, silent=True) or {}
     messages = body.get('messages', [])
     query = body.get('query', '')
-    min_similarity = body.get('min_similarity', 0.3)
+    min_similarity = body.get('min_similarity', 0.7)
     if not messages:
         return jsonify({'error': 'messages required'}), 400
 

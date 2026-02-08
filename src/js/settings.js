@@ -685,7 +685,7 @@ function _renderPanelSettings() {
   const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
   const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
   const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
-  const vaultMin = parseInt(localStorage.getItem('vaultChatMinSimilarity') || '30', 10);
+  const vaultMin = parseInt(localStorage.getItem('vaultChatMinSimilarity') || '70', 10);
   setTimeout(_loadSettingsModels, 0);
   return `
     <div class="mb-8">

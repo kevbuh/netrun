@@ -801,8 +801,19 @@ let _wmWindows = _wmDefaultOrder.map(key => ({
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
-  _wmCapturePreview();
+  // If already on this view, wiggle the sidebar icon
   const existIdx = _wmWindows.findIndex(w => w.key === key);
+  if (existIdx >= 0 && existIdx === _wmFocusIndex && _wmMode === 'fullscreen') {
+    const btn = document.getElementById(meta.sidebarId);
+    if (btn) {
+      btn.classList.remove('sb-wiggle');
+      void btn.offsetWidth;
+      btn.classList.add('sb-wiggle');
+      setTimeout(() => btn.classList.remove('sb-wiggle'), 400);
+    }
+    return;
+  }
+  _wmCapturePreview();
   if (existIdx >= 0) {
     _wmFocusIndex = existIdx;
   } else {

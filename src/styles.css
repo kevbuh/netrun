@@ -485,7 +485,7 @@
     .sidebar-icon:hover {
       background: transparent;
       color: #fff;
-      transform: scale(2);
+      transform: scale(1.3);
     }
 
     .sidebar-icon.active {
@@ -496,7 +496,7 @@
       background: transparent;
     }
     .sidebar-icon.drag-preview {
-      transform: scale(2);
+      transform: scale(1.3);
     }
 
     /* Pill label (text shown on hover/active) */
@@ -515,6 +515,18 @@
       0% { transform: scale(1); }
       40% { transform: scale(0.7); }
       100% { transform: scale(1); }
+    }
+    .sidebar-icon.sb-wiggle > svg,
+    .sidebar-icon.sb-wiggle > .pill-label {
+      animation: sb-icon-wiggle 0.4s ease;
+    }
+    @keyframes sb-icon-wiggle {
+      0%   { transform: translateX(0); }
+      20%  { transform: translateX(-3px); }
+      40%  { transform: translateX(3px); }
+      60%  { transform: translateX(-2px); }
+      80%  { transform: translateX(2px); }
+      100% { transform: translateX(0); }
     }
 
     /* ── Sidebar keyboard navigation ── */
@@ -5531,8 +5543,8 @@
     #universal-panel {
       position: fixed;
       right: 0;
-      top: 0;
-      height: 100%;
+      top: 34px;
+      height: calc(100% - 34px);
       display: flex;
       flex-direction: column;
       background: var(--bg-sidebar);
