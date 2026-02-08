@@ -652,6 +652,15 @@
       padding: 0;
       margin-right: 0;
     }
+    .browse-mode.vtab-mode.menu-expanded #pill-menu-btn {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
+      margin-right: 6px;
+    }
+    .browse-mode.vtab-mode.menu-expanded #pill-browse-hamburger {
+      display: none;
+    }
 
     /* Pill browse tabs — expands to fill in browse mode */
     #pill-browse-tabs {
@@ -1279,6 +1288,10 @@
     #pill-browse-url-input::placeholder {
       color: rgba(255,255,255,0.35);
     }
+    #pill-browse-more {
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
 
     /* ── Vertical tabs sidebar ── */
     .browse-vtabs {
@@ -1544,6 +1557,104 @@
     }
     .browse-ntp-center {
       margin-top: 28vh;
+    }
+
+    /* ── NTP Search Box ── */
+    .ntp-search-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-input);
+      border-radius: 20px;
+      padding: 16px 20px 12px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ntp-search-box:focus-within {
+      border-color: var(--text-dimmer);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+    }
+    .ntp-search-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ntp-search-icon {
+      width: 18px;
+      height: 18px;
+      color: var(--text-dimmer);
+      flex-shrink: 0;
+    }
+    .ntp-search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      padding: 0;
+    }
+    .ntp-search-input::placeholder {
+      color: var(--text-dimmer);
+    }
+    .ntp-search-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 0;
+    }
+    .ntp-action-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 14px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border-input);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .ntp-action-pill:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .ntp-action-dots {
+      background: none;
+      border: none;
+      color: var(--text-dimmer);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      letter-spacing: 1px;
+      line-height: 1;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .ntp-action-dots:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .ntp-action-submit {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: var(--text-dimmer);
+      color: var(--bg-body);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background 0.15s;
+    }
+    .ntp-action-submit svg {
+      width: 16px;
+      height: 16px;
+    }
+    .ntp-action-submit:hover {
+      background: var(--text-muted);
     }
 
     /* ── Download Indicator ── */
