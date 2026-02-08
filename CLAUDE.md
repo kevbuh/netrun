@@ -40,7 +40,7 @@ Self-contained feed reader, paper browser, and experiment tracker — vanilla Ja
 Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`. Helper modules:
 - `helpers.py` — auth decorators, SSE helpers, chat tools, arxiv query builder
 - `vault_helpers.py` — vault .md file I/O, git operations (shared by vault + social routes)
-- `persistence.py` — DB schema (24 tables), read/write helpers, slugify, prompts, classify_title, cached_fetch
+- `persistence.py` — DB schema (25 tables), read/write helpers, slugify, prompts, classify_title, cached_fetch
 - `kernels.py` — Jupyter kernel management, code execution (sync + streaming)
 - `feed_catalog.py` — server-side mirror of `FEED_CATALOG` from `js/core.js` (must be kept in sync)
 - `feed_parser.py` — RSS/Atom/HN/Polymarket parsing using stdlib only (no external deps)
@@ -61,6 +61,7 @@ Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`
 - `/api/experiments` — CRUD for experiments and their versions, stored as JSON files in `src/experiments/`
 - `/api/check-embed` — checks if a URL can be embedded in an iframe
 - `/api/extract-text` — POST a URL, returns extracted text (PDF via PyMuPDF for arXiv, HTML text extraction for other sites)
+- `/api/extract-links` — POST a URL, returns extracted links from document
 - `/api/paper-insights` — POST a URL, returns extracted repo links and key insights from the document
 - `/api/doc-chat` — POST, SSE streaming chat with optional `vision: true` for screenshot chat
 - `/api/web-search?q=` — GET, DuckDuckGo HTML search, returns `{ results: [{title, url, snippet}] }`
@@ -68,6 +69,18 @@ Flask server (`src/app.py`) with routes split across blueprints in `src/routes/`
 - `/api/embed-content` — POST fire-and-forget embedding via `nomic-embed-text`; takes `{title, link, source, description, type}`, runs in daemon thread
 - `/api/semantic-search` — POST `{query, type?, limit?}`, embeds query and returns cosine-similar results from `embeddings` table
 - `/api/find-similar` — POST `{title, link, description, limit?}`, finds posts similar to the given one (excludes itself)
+- `/api/author-details` — POST, fetches author details
+- `/api/citation-lookup` — POST, fetches citation info for a paper
+- `/api/paper-references` — POST, fetches references for a paper
+- `/api/author-lookup` — POST, looks up author by name
+- `/api/panel-suggest` — POST, returns tab-completion suggestions for panel input
+- `/api/search-suggest` — POST, returns search autocomplete suggestions
+- `/api/neuralook/save-calibration` — POST, saves eye-tracking calibration data
+- `/api/neuralook/train` — POST, SSE streaming training with hot-swap of best weights into serving model
+- `/api/neuralook/predict` — POST, predicts gaze position from webcam frame
+- `/api/neuralook/implicit-samples` — GET/POST, passive gaze samples collected during normal usage
+- `/api/neuralook/refine-history` — GET, returns refinement training history
+- `/api/neuralook/auto-refine` — POST, triggers background model refinement from passive samples
 
 Experiments are stored on disk as `experiments/{slug}/meta.json`.
 
@@ -82,22 +95,24 @@ Multi-file SPA (no build step). HTML skeleton in `index.html`, CSS in `styles.cs
 1. **Onboarding** (`#`) — shown on first visit (no `feedSources` in localStorage) or when all sources are off. 2×N grid of source cards grouped by category, user picks sources, clicks "Start reading"
 2. **Feed** (`#feed`) — multi-source feed with masonry grid, sorting (latest/most cited/for you), trend panels, infinite scroll, search
 3. **Dashboard** (`#saved`) — activity heatmap, reading list, recent experiments, quotes
-4. **Research** (`#research`) — research view with tabs
+4. **Research** (`#research`) — opens browse with blank tab for research; search tabs
 5. **Paper Viewer** (`#view/` or `#paper/`) — arXiv papers use full PDF viewer (highlights, pen, search); non-arXiv posts show the original website in an iframe. Both get sidebar with insights, chat, notes, and comments.
-6. **Browse** (`#browse`) — built-in browser with tabs, URL bar, ad blocker, downloads
+6. **Browse** (`#browse`) — built-in browser with vertical/horizontal tabs, URL bar, ad blocker, downloads
 7. **Experiments** (`#experiment/{id}`) — experiment detail with file sidebar, editors, kernel, venv
 8. **Calendar** (`#calendar`) — month grid, event CRUD
-9. **Vault** (`#vault`) — notes management with marimo integration
+9. **Vault** (`#vault`) — notes management, vibe coding, marimo integration
 10. **Teams** (`#teams`, `#team/{id}`) — team collaboration, messages, todos
 11. **Inbox** (`#inbox`) — unified inbox
 12. **Terminal** (`#terminal`) — WebSocket terminal emulator
-13. **Neuralook** (`#neuralook`) — neural network visualization
-14. **Vibe** (`#vibe`) — vibe coding assistant
-15. **Settings** (`#settings`) — themes, accent, spinners, feed sources, quality filter UI
-16. **Quality Filter** (`#quality`) — AI filter management: prompts, scoring threshold, blocked posts, test suite, cache stats
-17. **Profile** (`#profile/{username}`) — user profile, blog posts
-18. **Author** (`#author/{id}`) — author profile view
-19. **Dev** (`#dev`) — dev stats view
+13. **Neuralook** (`#neuralook`) — eye-tracking calibration, training, and gaze prediction
+14. **Settings** (`#settings`) — themes, accent, spinners, feed sources, quality filter, AI models
+15. **Quality Filter** (`#quality`) — redirects to Settings > Feed > Quality tab
+16. **Algorithm** (`#algorithm`) — redirects to Settings > Feed > Algorithm tab
+17. **Blog** (`#blog/{id}`) — blog post view
+18. **Profile** (`#profile/{username}`) — user profile, blog posts
+19. **Author** (`#author/{id}`) — author profile view
+20. **Dev** (`#dev`) — dev stats view
+21. **Legacy redirects:** `#vibe` → vault, `#experiments` → vault, `#search` → research
 
 ### File Structure
 
@@ -108,22 +123,22 @@ src/
   app.py                — Flask app factory, CLI args, WebSocket terminal, static serving
   helpers.py            — auth decorators, SSE helpers, chat tools, arxiv query builder
   vault_helpers.py      — vault .md file I/O, git operations (shared by vault + social routes)
-  persistence.py        — DB schema (24 tables), read/write helpers, slugify, prompts, classify_title, cached_fetch
+  persistence.py        — DB schema (25 tables), read/write helpers, slugify, prompts, classify_title, cached_fetch
   kernels.py            — Jupyter kernel management, code execution (sync + streaming)
   terminal_server.py    — WebSocket-to-pty bridge for flask-sock
   feed_catalog.py       — server-side feed catalog (mirror of JS FEED_CATALOG, must be kept in sync)
   feed_parser.py        — RSS/Atom/HN/Polymarket parsing (stdlib only, no external deps)
   feed_poller.py        — background feed polling daemon (10min interval, 8 concurrent, 30-day retention)
-  views/                — 18 HTML templates lazy-loaded by VIEW_REGISTRY
+  views/                — 16 HTML templates lazy-loaded by VIEW_REGISTRY
   routes/
     auth.py             — 6 routes: login, logout, username, delete, me, sync
     feed.py             — 14 routes: feeds, RSS proxy, quality filter, models, feed-items
     experiments.py      — 29 routes: experiment CRUD, files, runs, kernel, venv, execute (SSE)
     social.py           — 51 routes: teams, users, messages, comments, blog, achievements
-    content.py          — 11 routes: doc-chat (SSE), extract-text, paper-insights, citations
+    content.py          — 14 routes: doc-chat (SSE), extract-text, extract-links, paper-insights, citations, author/reference lookups, panel/search suggest
     browse.py           — 8 routes: web-search, browse-proxy, image-proxy, link-preview, stock-quote, adblock
-    vault.py            — 10 routes: notes CRUD, marimo start/stop, vault path, vault tree
-    misc.py             — 26 routes: neuralook (SSE), transcribe, vibe/git, todos, calendar, images, saved-content
+    vault.py            — 11 routes: notes CRUD, marimo start/stop, vault path, vault tree
+    misc.py             — 31 routes: neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content
   js/
     core.js             — globals, constants, FEED_CATALOG (166 sources), utilities, routing, window manager, view registry
     pixel-pet.js        — pixel pet system (IIFE: rendering, AI states, mouse interaction)
@@ -150,7 +165,7 @@ src/
     terminal.js         — terminal emulator
     vault.js            — vault (notes) management
     vibe.js             — vibe coding assistant
-    neuralook.js        — neural network visualization
+    neuralook.js        — eye-tracking: calibration, dual-model training (CNN/MobileNet), gaze prediction, continuous passive learning
 ```
 
 **Script load order** (bottom of `<body>`): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `pdfviewer.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then settings/dashboard, then views → paper-sidebar → chat-threads → panel (popup system depends on views), then browse-tabs → browse-urlbar → search (browse depends on panel), then remaining views. All functions are global (no modules).
@@ -161,14 +176,14 @@ The app uses a tiling/fullscreen window manager (`wmOpen()` in `core.js`) to man
 
 - **`_wmWindows`** — array of open windows `{ key, label, sidebarId }`
 - **`_wmMode`** — `'fullscreen'` or `'tiling'`
-- **`_wmViewMeta`** — maps view keys (dashboard, feed, research, vault, browse, inbox, terminal, neuralook, dev, vibe, settings, calendar) to sidebar IDs, labels, and open functions
+- **`_wmViewMeta`** — maps view keys (dashboard, feed, vault, browse, inbox, terminal, neuralook, dev, settings, calendar) to sidebar IDs, labels, and open functions
 - **`wmOpen(key)`** — opens or focuses a view, captures preview snapshot after 600ms
 - **Tiling mode** (`Cmd+T`) — shows overlay with tile cards for all open windows using `html2canvas` previews; keyboard navigable (arrows, Enter, Backspace)
 - **Fullscreen mode** — activates a single window via its `openFn()`
 
 ### Sidebar
 
-The left sidebar (`60px` wide) has buttons for views (dashboard, feed, research, vault, browse, inbox, terminal, neuralook, dev, vibe, settings, calendar). Order is customizable via `localStorage.sidebarOrder`. Keyboard navigable (Up/Down arrows, Enter).
+The left sidebar (`60px` wide) has buttons for views (dashboard, feed, vault, browse, inbox, terminal, neuralook, dev, settings, calendar). Order is customizable via `localStorage.sidebarOrder`. Keyboard navigable (Up/Down arrows, Enter).
 
 ### Feed System
 
@@ -200,7 +215,7 @@ Users can also add custom RSS feeds via settings.
 
 ### AI Quality Filter
 
-The quality filter has its own sidebar tab (`#quality`). It uses a two-phase pipeline via local Ollama (`qwen2.5:1.5b`):
+The quality filter is accessible via Settings > Feed > Quality (`#quality` redirects there). It uses a two-phase pipeline via local Ollama (`qwen2.5:1.5b`):
 
 **Phase 1 — Verdict (KEEP/SKIP):** Each post title is classified as KEEP or SKIP using a configurable system prompt (`DEFAULT_VERDICT_PROMPT`). Posts classified as SKIP are hidden from the feed. The verdict prompt is editable in the Quality Filter tab and can be saved (synced to server as `quality_prompt.txt`).
 
@@ -272,7 +287,7 @@ The aether panel is the unified right-click interaction surface across the app. 
 
 **Text selection popup:** Selecting text replaces the aether panel with a selection popup showing Quote, Aether (single words), and highlight color dots (in PDF). The selection popup also has an inline chat input.
 
-**Drag-to-screenshot (Electron only):** While the aether panel is open and tracking the cursor, left-click-dragging captures a screenshot of the dragged region. The panel pins in place, a dashed selection rectangle with dimmed overlay appears, and on mouseup the region is captured via `electronAPI.captureScreen()` (IPC to `BrowserWindow.capturePage()`). Screenshots appear as thumbnails in an attachment strip above the chat input. When sent, messages with screenshots go to `/api/doc-chat` with `vision: true`, using the `deepseek-ocr` vision model instead of `qwen2.5:3b`.
+**Drag-to-screenshot (Electron only):** While the aether panel is open and tracking the cursor, left-click-dragging captures a screenshot of the dragged region. The panel pins in place, a dashed selection rectangle with dimmed overlay appears, and on mouseup the region is captured via `electronAPI.captureScreen()` (IPC to `BrowserWindow.capturePage()`). Screenshots appear as thumbnails in an attachment strip above the chat input. When sent, messages with screenshots go to `/api/doc-chat` with `vision: true`, using the vision model (configurable via `localStorage.visionModel`, default `qwen3-vl:8b`).
 
 **Key state variables (in `js/views.js`):**
 - `_aetherTrackMode` — whether the panel tracks the cursor
@@ -323,6 +338,28 @@ Local semantic search using Ollama's `nomic-embed-text` model (768-dim, ~274MB).
 - `_renderSemanticResults(container, results, heading)` — render semantic results (feed.js)
 - `doSemanticSearch(query)` — semantic search from `~` prefix (search.js)
 - `store_embedding()` / `search_embeddings()` / `embed_text_ollama()` — backend helpers (persistence.py)
+
+### Neuralook (Eye Tracking)
+
+Webcam-based eye-tracking system for gaze prediction. Uses calibration data to train a neural network that maps webcam frames to screen coordinates.
+
+**Architecture:** Dual-model support — can switch between CNN and MobileNet architectures. Models are trained in the Flask backend (`misc.py`) and served for real-time prediction. Training uses SSE streaming to report progress, and hot-swaps the best weights into the serving model during training.
+
+**Calibration:** User clicks on calibration targets while webcam captures frames. Calibration data is saved via `/api/neuralook/save-calibration` and used for training.
+
+**Continuous passive learning:** `_nlAutoRefineEnabled` enables automatic refinement — the system collects implicit gaze samples during normal usage (via `/api/neuralook/implicit-samples`) and periodically refines the model via `/api/neuralook/auto-refine`. Uses adaptive radius (`_nlAdaptiveRadius`, default 500px) and cooldown (`_nlAutoRefineCooldownMs`, 5 minutes). Refinement history is stored in `localStorage.nlRefinementHistory` (capped at 100 entries).
+
+**Key state variables (in `js/neuralook.js`):**
+- `_nlModelType` — `'cnn'` or `'mobilenet'`
+- `_nlModelState` — per-model tracking object
+- `_nlAutoRefineEnabled`, `_nlAutoRefineInterval` — passive learning toggle/timer
+- `_nlRefinementHistory` — array of refinement metrics
+- `_nlAdaptiveRadius` — adaptive gaze radius (500px default)
+
+**Server-side files:**
+- `neuralook_model.pt` — trained model checkpoint
+- `neuralook_model_meta.json` — model metadata (architecture, version)
+- `neuralook_refine_history.json` — training history
 
 ### External APIs
 
@@ -395,6 +432,7 @@ Auto-created on first run. 25 tables:
 | `aetherColor` | Aether panel color |
 | `spinner` | Loading animation style |
 | `editorTheme` | Code editor theme |
+| `iconSize` | Icon size: small/medium/large |
 | `pixelPet` | Pet on/off |
 | `pixelPetType` | Pet type (cat, froog, etc.) |
 | `pixelPetMode` | Pet behavior mode |
@@ -426,15 +464,25 @@ Auto-created on first run. 25 tables:
 | `browseDownloadsLastSeen` | Last seen download count |
 | `browseBarOrder` | Browse bar button order |
 | `browseBarOverflow` | Overflow menu items |
+| `browseTabLayout` | Tab layout: vertical/horizontal |
 | `browseTabSessions` | Saved tab sessions |
+| `vtabsPanelCollapsed` | Vertical tabs panel collapsed |
+| `urlBarSections` | URL bar section visibility/order |
 | `webSearchHistory` | Web search history |
 | `adBlockEnabled` | Ad blocker on/off |
 | `sitePermissions` | Per-site permissions |
 | `aetherPanelSide` | Left/right panel preference |
-| **Chat** | |
+| **Chat & AI Models** | |
 | `chatModel` | Selected chat model |
+| `visionModel` | Vision model for screenshot chat |
+| `summaryModel` | Summary model for dashboard |
 | `chatThreads` | Document chat threads |
 | `chatTools` | Chat tools on/off |
+| `panelTabComplete` | Panel tab-completion on/off |
+| `panelSemanticSearch` | Panel semantic search on/off |
+| `panelSemanticMin` | Panel semantic search minimum score % |
+| `vaultChatMinSimilarity` | Vault chat minimum similarity % |
+| `vaultChatMessages` | Vault chat message persistence |
 | **Insights** | |
 | `insightsAllowHeuristics` | Allow heuristic insights |
 | `insightSubtab` | Active insight subtab |
@@ -444,7 +492,10 @@ Auto-created on first run. 25 tables:
 | **PDF** | |
 | `pdfHighlights` | PDF highlight annotations |
 | `pdfDrawings` | PDF pen drawings |
+| **Neuralook** | |
+| `nlRefinementHistory` | Eye-tracking refinement training history |
 | **Other** | |
+| `daySummaryCache` | Dashboard day summary cache |
 | `terminalState` | Terminal state persistence |
 | `vaultLastNote` | Last opened note ID |
 | `vaultWelcomeCreated` | Welcome note creation flag |
@@ -474,7 +525,7 @@ Users must sign in before accessing the app. A full-screen login gate blocks all
 4. On register → push current localStorage defaults to server as initial settings
 5. Account button in sidebar opens a modal to sync or sign out
 
-**Synced settings (`SYNC_KEYS`):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile
+**Synced settings (`SYNC_KEYS` — 52 keys):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, clickAether, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile, urlBarSections, blockedWords, qualityBypass, searchHistory, userQuotes, repostedLinks, fyWeightBase, fyWeightAffinity, fyWeightRecency, maxPerCategoryRun, pdfHighlights, pdfDrawings, chatModel, chatTools, insightsAllowHeuristics, iconSize
 
 ## Key Conventions
 

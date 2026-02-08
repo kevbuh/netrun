@@ -325,11 +325,11 @@ function _nlRenderTrainDetailView(container) {
             <div class="bg-card border border-border-card rounded-xl p-2.5" style="flex-shrink:0;">
               <div class="flex items-center gap-3">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <canvas id="nl-train-eye-left" width="${_NL_EYE_W}" height="${_NL_EYE_H}" style="width:${_NL_EYE_W}px;height:${_NL_EYE_H}px;border-radius:6px;background:#000;image-rendering:pixelated;"></canvas>
+                  <canvas id="nl-train-eye-left" width="${_NL_EYE_W}" height="${_NL_EYE_H}" style="width:${_NL_EYE_W}px;height:${_NL_EYE_H}px;border-radius:6px;background:#000;image-rendering:pixelated;transform:scaleY(-1);"></canvas>
                   <span class="text-[0.6rem] text-dimmer">Left</span>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <canvas id="nl-train-eye-right" width="${_NL_EYE_W}" height="${_NL_EYE_H}" style="width:${_NL_EYE_W}px;height:${_NL_EYE_H}px;border-radius:6px;background:#000;image-rendering:pixelated;"></canvas>
+                  <canvas id="nl-train-eye-right" width="${_NL_EYE_W}" height="${_NL_EYE_H}" style="width:${_NL_EYE_W}px;height:${_NL_EYE_H}px;border-radius:6px;background:#000;image-rendering:pixelated;transform:scaleX(-1);"></canvas>
                   <span class="text-[0.6rem] text-dimmer">Right</span>
                 </div>
                 <div class="flex flex-col gap-0.5 text-[0.62rem] text-muted ml-auto" id="nl-train-eye-info">
@@ -423,20 +423,21 @@ function _nlDrawEyeCrops() {
   const eyeSize = _NL_EYE_W * _NL_EYE_H;
   const raw = data.eyeData;
 
-  // Draw left eye
+  // Channel 0 (landmarks 33/133) = user's right eye in raw video → display as left (mirrored)
+  // Channel 1 (landmarks 263/362) = user's left eye in raw video → display as right (mirrored)
+  // Swap channels so labels match the user's perspective (mirrored camera)
   const lCtx = leftCanvas.getContext('2d');
   const lImg = lCtx.createImageData(_NL_EYE_W, _NL_EYE_H);
   for (let i = 0; i < eyeSize; i++) {
-    const v = raw[i];
+    const v = raw[eyeSize + i];
     lImg.data[i * 4] = v; lImg.data[i * 4 + 1] = v; lImg.data[i * 4 + 2] = v; lImg.data[i * 4 + 3] = 255;
   }
   lCtx.putImageData(lImg, 0, 0);
 
-  // Draw right eye
   const rCtx = rightCanvas.getContext('2d');
   const rImg = rCtx.createImageData(_NL_EYE_W, _NL_EYE_H);
   for (let i = 0; i < eyeSize; i++) {
-    const v = raw[eyeSize + i];
+    const v = raw[i];
     rImg.data[i * 4] = v; rImg.data[i * 4 + 1] = v; rImg.data[i * 4 + 2] = v; rImg.data[i * 4 + 3] = 255;
   }
   rCtx.putImageData(rImg, 0, 0);
