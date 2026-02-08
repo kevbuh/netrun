@@ -1532,6 +1532,8 @@ function _browseUpdateBarForTab(tab) {
 function _browseUpdateNewTabPage(tab) {
   const container = document.getElementById('browse-content');
   if (!container) return;
+  const bar = document.getElementById('browse-bar');
+  if (bar) bar.style.display = (tab && tab.blank) ? 'none' : '';
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
@@ -2898,7 +2900,7 @@ function showBrowseTabOverview() {
   _overviewBrowseExpanded = false;
   _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
   _renderWindowOverview();
-  overlay.style.display = 'grid';
+  overlay.style.display = 'flex';
   _installOverviewKeyHandler();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => overlay.classList.add('visible'));
@@ -3021,9 +3023,8 @@ function _installOverviewKeyHandler() {
       return;
     }
 
-    // ── Top-level app strip mode (2D grid, 4 columns) ──
+    // ── Top-level app strip mode (horizontal row) ──
     var total = _wmWindows.length;
-    var cols = 4;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
@@ -3034,26 +3035,12 @@ function _installOverviewKeyHandler() {
       _updateOverviewHighlight();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      var nextIdx = _overviewSelectedIdx + cols;
-      // If moving down would go past items, check if on browse to expand
-      if (nextIdx < total) {
-        _overviewSelectedIdx = nextIdx;
-        _updateOverviewHighlight();
-      } else {
-        var wDown = _wmWindows[_overviewSelectedIdx];
-        if (wDown && wDown.key === 'browse') {
-          _overviewBrowseExpanded = true;
-          _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
-          _overviewBrowseTabIdx = -1;
-          _renderWindowOverview();
-        }
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      var prevIdx = _overviewSelectedIdx - cols;
-      if (prevIdx >= 0) {
-        _overviewSelectedIdx = prevIdx;
-        _updateOverviewHighlight();
+      var wDown = _wmWindows[_overviewSelectedIdx];
+      if (wDown && wDown.key === 'browse') {
+        _overviewBrowseExpanded = true;
+        _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+        _overviewBrowseTabIdx = -1;
+        _renderWindowOverview();
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();

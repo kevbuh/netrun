@@ -1462,17 +1462,18 @@
     .browse-tab-overview {
       position: fixed;
       inset: 0;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-auto-rows: 1fr;
+      display: flex;
+      align-items: stretch;
       gap: 10px;
-      padding: 32px;
+      padding: 32px 48px;
       background: var(--aether-bg);
       z-index: 9998;
       opacity: 0;
       transition: opacity 0.18s ease;
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
       scrollbar-width: none;
+      scroll-snap-type: x proximity;
     }
     .browse-tab-overview::-webkit-scrollbar { display: none; }
     .browse-tab-overview.visible { opacity: 1; }
@@ -1481,6 +1482,9 @@
       flex-direction: column;
       align-items: center;
       gap: 0;
+      min-width: 420px;
+      width: 420px;
+      flex-shrink: 0;
       border-radius: 12px;
       border: 2px solid transparent;
       cursor: pointer;
@@ -1488,6 +1492,7 @@
       color: var(--text-muted);
       position: relative;
       overflow: hidden;
+      scroll-snap-align: center;
     }
     .wov-card:hover { background: var(--bg-hover); }
     .wov-card.wov-active {
@@ -1587,13 +1592,10 @@
     }
     /* Browse expanded — horizontal row of window cards */
     .wov-browse-row {
-      grid-column: 1 / -1;
       display: flex;
-      justify-content: center;
+      align-items: stretch;
       gap: 10px;
-      padding: 4px 0 0;
-      overflow-x: auto;
-      scrollbar-width: none;
+      flex-shrink: 0;
     }
     .wov-browse-row::-webkit-scrollbar { display: none; }
     .wov-win-card {
