@@ -19,7 +19,14 @@ function _searchAuthorLabel(authors) {
 }
 
 function onSearchInput() {
-  const query = (document.getElementById('search-query')?.value || '').trim();
+  const input = document.getElementById('search-query');
+  const query = (input?.value || '').trim();
+  // If input cleared on new-tab page, hide dropdown but keep input focused
+  if (!query && input && input.closest('.browse-ntp')) {
+    if (typeof _browseUrlHideHistory === 'function') _browseUrlHideHistory();
+    renderSearchFeedResults('');
+    return;
+  }
   renderSearchFeedResults(query);
   showSearchHistoryView();
 }

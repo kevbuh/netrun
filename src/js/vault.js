@@ -2463,6 +2463,193 @@ function renderVaultTagsPanel(container) {
   updateVaultTags();
 }
 
+// ── Vault Chat (RAG over notes) ──
+
+let _vaultChatMessages = [];
+let _vaultChatAbort = null;
+
+function _loadVaultChatMessages() {
+  try {
+    const raw = localStorage.getItem('vaultChatMessages');
+    if (raw) _vaultChatMessages = JSON.parse(raw);
+  } catch (e) { _vaultChatMessages = []; }
+}
+
+function _saveVaultChatMessages() {
+  try {
+    const toSave = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
+      role: m.role, content: m.content, _sources: m._sources
+    }));
+    localStorage.setItem('vaultChatMessages', JSON.stringify(toSave));
+  } catch (e) {}
+}
+
+function clearVaultChat() {
+  _vaultChatMessages = [];
+  _saveVaultChatMessages();
+  const container = document.getElementById('vault-chat-panel');
+  if (container) renderVaultChatPanel(container);
+}
+
+function renderVaultChatPanel(container) {
+  _loadVaultChatMessages();
+  container.innerHTML = `
+    <div class="doc-chat-messages vault-chat-messages" id="vault-chat-msgs"></div>
+    <div style="padding:6px 8px; display:flex; gap:4px; border-top:1px solid var(--border-color);">
+      <input class="doc-ask-inline-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
+      <button id="vault-chat-send" style="background:var(--accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
+      <button id="vault-chat-clear" style="background:transparent; color:var(--text-dimmer); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
+    </div>
+  `;
+  _renderVaultChatMessages(true);
+
+  const input = document.getElementById('vault-chat-input');
+  const sendBtn = document.getElementById('vault-chat-send');
+  const clearBtn = document.getElementById('vault-chat-clear');
+
+  sendBtn.addEventListener('click', () => sendVaultChatMessage());
+  clearBtn.addEventListener('click', () => clearVaultChat());
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendVaultChatMessage(); }
+  });
+}
+
+function _renderVaultChatMessages(final) {
+  const container = document.getElementById('vault-chat-msgs');
+  if (!container) return;
+  if (_vaultChatMessages.length === 0) {
+    container.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-dimmer); font-size:0.75rem;">Ask a question about your vault notes</div>';
+    return;
+  }
+  container.innerHTML = _vaultChatMessages.map((m, i) => {
+    if (m.role === 'user') {
+      return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
+    }
+    if (m._thinking) {
+      return '<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>';
+    }
+    let sourcesHtml = '';
+    if (m._sources && m._sources.length) {
+      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map(s =>
+        `<span class="vault-chat-source-chip" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)} (${Math.round(s.score * 100)}%)">${escapeHtml(s.title.length > 25 ? s.title.slice(0, 22) + '…' : s.title)}</span>`
+      ).join('') + '</div>';
+    }
+    const isLast = i === _vaultChatMessages.length - 1;
+    const content = (final || !isLast) && typeof marked !== 'undefined'
+      ? marked.parse(m.content)
+      : escapeHtml(m.content);
+    return sourcesHtml + `<div class="doc-msg-ai">${content}</div>`;
+  }).join('');
+
+  // Attach click handlers for source chips
+  container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const noteId = el.getAttribute('data-note-id');
+      if (typeof openVaultNote === 'function') openVaultNote(noteId);
+    });
+  });
+
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendVaultChatMessage() {
+  const input = document.getElementById('vault-chat-input');
+  if (!input) return;
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  _vaultChatMessages.push({ role: 'user', content: q });
+  _vaultChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  _renderVaultChatMessages(false);
+
+  input.disabled = true;
+  const sendBtn = document.getElementById('vault-chat-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  _vaultChatAbort = new AbortController();
+
+  try {
+    const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
+      role: m.role, content: m.content
+    }));
+    const resp = await fetch('/api/vault-chat', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: filteredMsgs, query: q }),
+      signal: _vaultChatAbort.signal
+    });
+
+    if (!resp.ok) {
+      _vaultChatMessages[_vaultChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
+      _vaultChatMessages[_vaultChatMessages.length - 1]._thinking = false;
+      _renderVaultChatMessages(true);
+      _saveVaultChatMessages();
+      return;
+    }
+
+    let aiText = '';
+    const aiIdx = _vaultChatMessages.length - 1;
+    _vaultChatMessages[aiIdx]._thinking = false;
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          if (currentEvent === 'sources') {
+            try {
+              _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6));
+            } catch (e) {}
+          } else if (currentEvent === 'token') {
+            try {
+              const token = JSON.parse(line.slice(6));
+              aiText += token;
+              _vaultChatMessages[aiIdx].content = aiText;
+              _renderVaultChatMessages(false);
+            } catch (e) {}
+          } else if (currentEvent === 'error') {
+            try {
+              const errMsg = JSON.parse(line.slice(6));
+              _vaultChatMessages[aiIdx].content = 'Error: ' + errMsg;
+            } catch (e) {}
+          }
+        }
+      }
+    }
+
+    _vaultChatMessages[aiIdx].content = aiText;
+    _renderVaultChatMessages(true);
+    _saveVaultChatMessages();
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      const last = _vaultChatMessages[_vaultChatMessages.length - 1];
+      if (last && last.role === 'assistant') {
+        last.content = 'Error: ' + e.message;
+        last._thinking = false;
+      }
+      _renderVaultChatMessages(true);
+      _saveVaultChatMessages();
+    }
+  } finally {
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
 registerPanelTabs('vault', {
   tabs: [
     {
@@ -2476,6 +2663,12 @@ registerPanelTabs('vault', {
       label: 'Tags',
       icon: '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/></svg>',
       render: renderVaultTagsPanel
+    },
+    {
+      id: 'chat',
+      label: 'Chat',
+      icon: '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg>',
+      render: renderVaultChatPanel
     }
   ]
 });

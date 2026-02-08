@@ -1,14 +1,16 @@
 """Vault routes: notes CRUD, file tree, marimo start/stop, vault path, migration."""
+import json
 import os
 import shutil
 import subprocess
 import time
+import urllib.request
 import uuid
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response, stream_with_context
 
-from helpers import require_auth
-from persistence import VAULT_DIR, EXPERIMENTS_DIR, get_user_data, get_user_experiment_ids
+from helpers import require_auth, sse_event
+from persistence import VAULT_DIR, EXPERIMENTS_DIR, get_user_data, get_user_experiment_ids, embed_text_ollama, search_embeddings
 from vault_helpers import (
     _read_vault_md, _write_vault_md, _sanitize_vault_filename,
     _find_vault_note_by_id, _get_user_vault_path, _set_user_vault_path,
@@ -266,6 +268,87 @@ def vault_tree(google_id):
 
     tree = walk_dir(user_vault)
     return jsonify(tree)
+
+
+@bp.route('/api/vault-chat', methods=['POST'])
+@require_auth
+def vault_chat(google_id):
+    """RAG chat over vault notes: embed query, retrieve relevant notes, stream LLM response."""
+    body = request.get_json(force=True, silent=True) or {}
+    messages = body.get('messages', [])
+    query = body.get('query', '')
+    if not messages:
+        return jsonify({'error': 'messages required'}), 400
+
+    # Embed the query and search note embeddings
+    query_vec = embed_text_ollama(query) if query else None
+    sources = []
+    context_chunks = []
+    if query_vec:
+        results = search_embeddings(query_vec, content_type='note', limit=5)
+        user_vault = _get_user_vault_path(google_id)
+        for r in results:
+            if r['score'] < 0.3:
+                continue
+            link = r.get('link', '')
+            if not link.startswith('vault://'):
+                continue
+            note_id = link[len('vault://'):]
+            _, note = _find_vault_note_by_id(user_vault, note_id)
+            if not note:
+                continue
+            content = (note.get('content', '') or '')[:4096]
+            sources.append({'id': note_id, 'title': note.get('title', 'Untitled'), 'score': r['score']})
+            context_chunks.append(f"--- Note: {note.get('title', 'Untitled')} ---\n{content}")
+
+    # Build system prompt with retrieved notes
+    if context_chunks:
+        notes_text = '\n\n'.join(context_chunks)
+        system_msg = (
+            "You are a helpful assistant with access to the user's personal notes. "
+            "Answer their questions based on the note contents below when relevant. "
+            "Cite which notes you draw from.\n\n"
+            "--- NOTES ---\n" + notes_text + "\n--- END NOTES ---"
+        )
+    else:
+        system_msg = (
+            "You are a helpful assistant. The user is asking about their notes, "
+            "but no relevant notes were found. Let them know and answer as best you can."
+        )
+
+    ollama_messages = [{"role": "system", "content": system_msg}] + messages
+
+    def generate():
+        try:
+            yield sse_event('sources', sources)
+
+            payload = json.dumps({
+                "model": "qwen2.5:3b",
+                "messages": ollama_messages,
+                "stream": True
+            }).encode()
+            req = urllib.request.Request(
+                "http://localhost:11434/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                for line in resp:
+                    chunk = json.loads(line)
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        yield sse_event('token', token)
+                    if chunk.get("done"):
+                        break
+            yield sse_event('done', {})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            yield sse_event('error', str(e))
+
+    return Response(stream_with_context(generate()),
+                    content_type='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'Connection': 'keep-alive'})
 
 
 def _auto_migrate_experiments(google_id, vault_path):

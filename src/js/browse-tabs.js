@@ -3176,6 +3176,20 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Auto-focus NTP search input when user starts typing on a blank new-tab page
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key.length !== 1) return; // only printable characters
+  const browseView = document.getElementById('browse-view');
+  if (!browseView || browseView.style.display === 'none') return;
+  const ntp = browseView.querySelector('.browse-ntp');
+  if (!ntp || ntp.style.display === 'none') return;
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+  const input = ntp.querySelector('#search-query');
+  if (input) input.focus();
+});
+
 function _browseTitleFromUrl(url) {
   try {
     const u = new URL(url);

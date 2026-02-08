@@ -2608,8 +2608,8 @@
     }
     .doc-msg-user {
       align-self: flex-end;
-      background: var(--accent);
-      color: #fff;
+      background: var(--bg-card);
+      color: var(--text-primary);
       padding: 6px 12px;
       border-radius: 12px 12px 2px 12px;
       font-size: 0.82rem;
@@ -2636,14 +2636,30 @@
       0% { transform: scale(1.3); opacity: 0.6; }
       100% { transform: scale(1); opacity: 1; }
     }
-    .doc-msg-speak-btn {
-      position: absolute; top: 4px; right: 4px;
+    .doc-msg-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      align-self: flex-start;
+      padding: 0 2px;
+    }
+    .doc-msg-action-btn {
       background: none; border: none; color: var(--text-dimmer); cursor: pointer;
-      padding: 2px; border-radius: 3px; opacity: 0; transition: opacity 0.15s, color 0.15s;
+      padding: 2px; border-radius: 3px; opacity: 0; transition: opacity 0.15s, color 0.15s, transform 0.15s;
       line-height: 1;
     }
-    .doc-msg-ai:hover .doc-msg-speak-btn { opacity: 0.7; }
-    .doc-msg-speak-btn:hover { opacity: 1 !important; color: var(--accent); }
+    .doc-msg-actions-row:hover .doc-msg-action-btn,
+    .doc-msg-ai:hover + .doc-msg-actions-row .doc-msg-action-btn,
+    .doc-msg-user:hover + .doc-msg-actions-row .doc-msg-action-btn { opacity: 0.7; }
+    .doc-msg-action-btn:hover { opacity: 1 !important; color: var(--accent); }
+    .doc-msg-action-btn:active { transform: scale(0.8); }
+    .doc-msg-action-btn.doc-msg-btn-clicked { animation: msg-btn-pop 0.3s ease-out; }
+    @keyframes msg-btn-pop {
+      0% { transform: scale(0.7); opacity: 0.5; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.7; }
+    }
+    .doc-msg-actions-right { align-self: flex-end; }
     .doc-msg-speaking { opacity: 1 !important; color: var(--accent); animation: mic-pulse 1s ease-in-out infinite; }
     .doc-msg-ai p { margin: 0.3em 0; }
     .doc-msg-ai code { background: rgba(255,255,255,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
@@ -3326,14 +3342,14 @@
     }
     .doc-chat-stats {
       font-size: 0.6rem;
-      color: var(--text-dimmer);
-      opacity: 0.7;
+      color: var(--text-dim);
+      opacity: 0.6;
       white-space: nowrap;
     }
     .aether-context-usage {
       font-size: 0.58rem;
-      color: var(--text-dimmer);
-      opacity: 0.7;
+      color: var(--text-dim);
+      opacity: 0.6;
       white-space: nowrap;
       font-family: 'SF Mono', 'Fira Code', monospace;
     }
@@ -3362,6 +3378,7 @@
     .aether-stats-row {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 6px;
       padding: 0 8px 2px;
       min-height: 0;
@@ -3386,6 +3403,7 @@
       font-size: 0.6rem;
       padding: 1px 5px;
       opacity: 0.6;
+      color: var(--text-dim);
     }
     .aether-topbar-btn:hover { opacity: 1; }
     .aether-topbar-right {
@@ -6841,6 +6859,50 @@
     [data-theme="daylight"] .wm-tiling-hint,
     [data-theme="sepia"] .wm-tiling-hint {
       color: rgba(0, 0, 0, 0.35);
+    }
+
+    /* Vault Chat */
+    .vault-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    .vault-chat-messages .doc-msg-user {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .vault-chat-messages .doc-msg-ai {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .vault-chat-sources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .vault-chat-source-chip {
+      font-size: 0.65rem;
+      padding: 1px 7px;
+      border-radius: 9px;
+      background: var(--bg-hover, rgba(128,128,128,0.12));
+      color: var(--text-dim);
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .vault-chat-source-chip:hover {
+      background: var(--accent);
+      color: #fff;
     }
 
 

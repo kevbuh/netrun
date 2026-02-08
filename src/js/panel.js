@@ -559,7 +559,8 @@ function _renderPopupChat(popup, final) {
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
       const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div>`;
+      const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div><div class="doc-msg-actions-row doc-msg-actions-right">${redoBtn}</div>`;
     }
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
@@ -616,8 +617,10 @@ function _renderPopupChat(popup, final) {
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
-    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
-    return `<div class="doc-msg-ai">${content}${speakBtn}</div>`;
+    const speakBtn = `<button class="doc-msg-action-btn doc-msg-speak-btn" data-action="speak" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
+    const copyBtn = `<button class="doc-msg-action-btn" data-action="copy" data-msg-idx="${i}" title="Copy"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+    const editBtn = `<button class="doc-msg-action-btn" data-action="edit" data-msg-idx="${i}" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+    return `<div class="doc-msg-ai">${content}</div><div class="doc-msg-actions-row">${speakBtn}${copyBtn}${editBtn}</div>`;
   }).join('');
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
@@ -663,26 +666,62 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
-  // Attach speak button handlers
-  container.querySelectorAll('.doc-msg-speak-btn').forEach(btn => {
+  // Attach message action button handlers
+  container.querySelectorAll('.doc-msg-action-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
-        container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
-        if (btn.classList.contains('doc-msg-speaking')) return; // was toggling off
+      const action = btn.getAttribute('data-action');
+      const idx = parseInt(btn.getAttribute('data-msg-idx'), 10);
+      const actionsRow = btn.closest('.doc-msg-actions-row');
+      const aiEl = actionsRow ? actionsRow.previousElementSibling : null;
+
+      if (action === 'speak') {
+        if (speechSynthesis.speaking) {
+          speechSynthesis.cancel();
+          container.querySelectorAll('[data-action="speak"]').forEach(b => b.classList.remove('doc-msg-speaking'));
+          if (btn.classList.contains('doc-msg-speaking')) return;
+        }
+        if (!aiEl) return;
+        const text = aiEl.textContent.replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.rate = 1.1;
+        btn.classList.add('doc-msg-speaking');
+        utter.onend = () => btn.classList.remove('doc-msg-speaking');
+        utter.onerror = () => btn.classList.remove('doc-msg-speaking');
+        speechSynthesis.speak(utter);
+      } else if (action === 'copy') {
+        const msg = _popupChatMessages[idx];
+        if (msg && msg.content) {
+          navigator.clipboard.writeText(msg.content).then(() => {
+            btn.title = 'Copied';
+            setTimeout(() => { if (btn.isConnected) btn.title = 'Copy'; }, 1200);
+          }).catch(() => {});
+        }
+      } else if (action === 'redo') {
+        // Resend this user message (idx points to the user message)
+        const userMsg = _popupChatMessages[idx];
+        if (!userMsg || userMsg.role !== 'user') return;
+        _popupChatMessages = _popupChatMessages.slice(0, idx);
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) input.value = userMsg._display || userMsg.content;
+        _sendPopupChatMessage(popup, popup._capturedText || '');
+      } else if (action === 'edit') {
+        // Find the user message before this AI message and put it in the input for editing
+        let userIdx = -1;
+        for (let j = idx - 1; j >= 0; j--) {
+          if (_popupChatMessages[j].role === 'user') { userIdx = j; break; }
+        }
+        if (userIdx < 0) return;
+        const userMsg = _popupChatMessages[userIdx];
+        _popupChatMessages = _popupChatMessages.slice(0, userIdx);
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        _renderPopupChat(popup, true);
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) { input.value = userMsg._display || userMsg.content; input.focus(); }
       }
-      const msgEl = btn.closest('.doc-msg-ai');
-      if (!msgEl) return;
-      const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
-      if (!text) return;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 1.1;
-      btn.classList.add('doc-msg-speaking');
-      utter.onend = () => btn.classList.remove('doc-msg-speaking');
-      utter.onerror = () => btn.classList.remove('doc-msg-speaking');
-      speechSynthesis.speak(utter);
     });
   });
   // Update send/stop button state
@@ -712,10 +751,6 @@ function _renderPopupChat(popup, final) {
   }
   _updateContextBar(popup);
   _updateChatStats(popup, final);
-  // Show/hide redo + copy buttons
-  const hasAiMsg = _popupChatMessages.some(m => m.role === 'assistant' && !m._thinking && m.content);
-  if (popup._redoBtn) popup._redoBtn.style.display = hasAiMsg ? '' : 'none';
-  if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
 }
 
 const _modelContextSizes = {
@@ -3477,9 +3512,7 @@ function _pasteIntoElement(el, text) {
 }
 
 function _flashCopyBtn(popup) {
-  // Find the right copy button: selection copy or chat copy
-  const btn = popup.querySelector('.doc-selection-copy-btn')
-    || (popup._copyChatBtn && popup._copyChatBtn.style.display !== 'none' ? popup._copyChatBtn : null);
+  const btn = popup.querySelector('.doc-selection-copy-btn');
   if (!btn) return;
   btn.textContent = 'Copied';
   btn.classList.remove('doc-copy-flash');
@@ -3951,6 +3984,15 @@ function _panelBuildTopBar(popup) {
   topBar.className = 'doc-popup-chat-actions aether-top-actions';
   topBar.style.cursor = 'grab';
 
+  // Model label (always visible)
+  const modelLabel = document.createElement('span');
+  modelLabel.className = 'aether-topbar-btn';
+  modelLabel.style.cursor = 'default';
+  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  modelLabel.textContent = cm;
+  modelLabel.title = 'Current model';
+  topBar.appendChild(modelLabel);
+
   // Spacer (pushes buttons to the right)
   const spacer = document.createElement('span');
   spacer.style.flex = '1';
@@ -3969,16 +4011,10 @@ function _panelBuildTopBar(popup) {
   topBar.appendChild(saveChatBtn);
   popup._saveChatBtn = saveChatBtn;
 
-  // Stats row — model label + stats + context usage (hidden until chat starts)
+  // Stats row — stats + context usage (hidden until chat starts)
   const statsRow = document.createElement('div');
   statsRow.className = 'aether-stats-row';
   statsRow.style.display = 'none';
-  const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-model-label';
-  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  modelLabel.textContent = cm;
-  modelLabel.title = 'Current model';
-  statsRow.appendChild(modelLabel);
   const statsSpan = document.createElement('span');
   statsSpan.className = 'doc-chat-stats';
   statsRow.appendChild(statsSpan);
@@ -3987,76 +4023,6 @@ function _panelBuildTopBar(popup) {
   ctxSpan.textContent = '';
   statsRow.appendChild(ctxSpan);
 
-  // Clear button
-  const clearBtn = document.createElement('button');
-  clearBtn.className = 'aether-topbar-btn';
-  clearBtn.textContent = 'Clear';
-  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  clearBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _popupChatMessages = [];
-    _chatStreamStart = 0;
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    const cm = popup.querySelector('.doc-popup-chat-messages');
-    if (cm) cm.innerHTML = '';
-    const ca = popup.querySelector('.doc-popup-chat-area');
-    if (ca) ca.classList.remove('visible');
-    popup.classList.remove('has-chat');
-    statsSpan.textContent = '';
-    statsRow.style.display = 'none';
-    _repositionSelectionPopup();
-  });
-  topBar.appendChild(clearBtn);
-
-  // Redo button — resend last user message
-  const redoBtn = document.createElement('button');
-  redoBtn.className = 'aether-topbar-btn';
-  redoBtn.textContent = 'Redo';
-  redoBtn.style.display = 'none';
-  redoBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  redoBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    // Find last user message
-    let lastUserIdx = -1;
-    for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
-      if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
-    }
-    if (lastUserIdx < 0) return;
-    // Remove the last user message and everything after it
-    const lastUserMsg = _popupChatMessages[lastUserIdx];
-    _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    // Re-insert user message and re-send
-    const input = popup.querySelector('.doc-ask-inline-input');
-    if (input) input.value = lastUserMsg._display || lastUserMsg.content;
-    _sendPopupChatMessage(popup, popup._capturedText || '');
-  });
-  topBar.appendChild(redoBtn);
-  popup._redoBtn = redoBtn;
-
-  // Copy chat button — copy last AI response
-  const copyChatBtn = document.createElement('button');
-  copyChatBtn.className = 'aether-topbar-btn';
-  copyChatBtn.style.display = 'none';
-  copyChatBtn.textContent = 'Copy';
-  copyChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  copyChatBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    // Find last assistant message
-    let lastAi = '';
-    for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
-      if (_popupChatMessages[i].role === 'assistant' && !_popupChatMessages[i]._thinking) {
-        lastAi = _popupChatMessages[i].content; break;
-      }
-    }
-    if (!lastAi) return;
-    navigator.clipboard.writeText(lastAi).then(() => {
-      copyChatBtn.textContent = 'Copied';
-      setTimeout(() => { if (copyChatBtn.isConnected) copyChatBtn.textContent = 'Copy'; }, 1200);
-    }).catch(() => {});
-  });
-  topBar.appendChild(copyChatBtn);
-  popup._copyChatBtn = copyChatBtn;
 
   // Right-side icon group (aligns with mic + send below)
   const topRightGroup = document.createElement('span');
