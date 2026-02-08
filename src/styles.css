@@ -6948,10 +6948,12 @@
     .vault-chat-sources-fixed::-webkit-scrollbar { display: none; }
     .vault-chat-source-card {
       display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px 3px 4px;
-      border-radius: 6px;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 80px;
+      max-width: 120px;
+      padding: 6px 8px;
+      border-radius: 8px;
       background: rgba(255,255,255,0.06);
       cursor: pointer;
       transition: background 0.15s;
@@ -6961,12 +6963,12 @@
       background: rgba(255,255,255,0.12);
     }
     .vault-source-num {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.1);
       color: #fff;
-      font-size: 0.55rem;
+      font-size: 0.58rem;
       font-weight: 600;
       display: flex;
       align-items: center;
@@ -6974,39 +6976,18 @@
       flex-shrink: 0;
     }
     .vault-source-title {
-      font-size: 0.62rem;
-      color: rgba(255,255,255,0.7);
+      font-size: 0.65rem;
+      color: #fff;
+      font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 80px;
-      line-height: 1;
+      line-height: 1.2;
     }
     .vault-source-score {
-      font-size: 0.55rem;
-      color: rgba(255,255,255,0.3);
-      flex-shrink: 0;
-    }
-    .vault-source-ref {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.1);
-      color: rgba(255,255,255,0.6);
-      font-size: 0.5rem;
-      font-weight: 600;
-      cursor: pointer;
-      vertical-align: super;
-      margin: 0 1px;
-      transition: background 0.15s, color 0.15s;
-      text-decoration: none;
-    }
-    .vault-source-ref:hover {
-      background: var(--accent);
-      color: #fff;
+      font-size: 0.58rem;
+      color: rgba(255,255,255,0.4);
+      font-weight: 500;
     }
 
     .ntp-vault-note-row {
