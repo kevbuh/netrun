@@ -1952,15 +1952,41 @@
       background: var(--accent);
       flex-shrink: 0;
     }
+    .wov-browse-hint {
+      font-size: 0.6rem;
+      color: var(--text-dimmest);
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .wov-card.wov-selected .wov-browse-hint {
+      opacity: 1;
+    }
 
     /* Pills indicator bar */
     .wov-pills {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       gap: 4px;
       padding: 12px 0 20px;
       flex-shrink: 0;
+    }
+    .wov-pill-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .wov-pill-arrow {
+      font-size: 1.4rem;
+      color: var(--accent);
+      line-height: 1;
+      animation: wov-bounce 1.2s ease-in-out infinite;
+    }
+    @keyframes wov-bounce {
+      0%, 100% { transform: translateY(0); opacity: 0.5; }
+      50% { transform: translateY(5px); opacity: 1; }
     }
     .wov-pill {
       border: none;

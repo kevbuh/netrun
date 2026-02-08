@@ -30,7 +30,6 @@ function _renderSidebarHTML(paper) {
     const sourceName = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[paper.source]) || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
     let infoMeta = [];
     if (sourceName) infoMeta.push(`<span class="text-meta-value">${escapeHtml(sourceName)}</span>`);
-    if (paper.authors) infoMeta.push(`<span class="text-muted truncate">${escapeHtml(paper.authors)}</span>`);
     if (paper.published) infoMeta.push(`<span class="text-dim">${escapeHtml(paper.published)}</span>`);
     if (paper.categories && paper.categories.length) {
       const catTags = paper.categories.slice(0, 3).map(c => {
@@ -40,8 +39,9 @@ function _renderSidebarHTML(paper) {
       infoMeta.push(...catTags);
     }
     paperInfoHtml = `<div id="sidebar-paper-info" class="px-4 py-3 border-b border-border-card shrink-0">
-      <div class="text-[0.85rem] font-semibold text-primary leading-snug mb-1.5">${renderTitle(paper.title)}</div>
-      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem]">${infoMeta.join('<span class="text-dimmest">\u00b7</span>')}</div>
+      <div class="sidebar-paper-title text-[0.85rem] font-semibold text-primary leading-snug mb-1">${renderTitle(paper.title)}</div>
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] mb-1">${infoMeta.join('<span class="text-dimmest">\u00b7</span>')}</div>
+      <div class="sidebar-paper-authors text-[0.72rem] text-muted leading-snug">${paper.authors ? escapeHtml(paper.authors) : ''}</div>
     </div>`;
   }
 
@@ -349,8 +349,6 @@ function _loadInsightSubtab(subtab) {
     _fetchReferences(url);
   }
   // 'links' is rendered from PDF extraction, no fetch needed
-  // 'contents' is rendered from PDF outline, no fetch needed
-  if (subtab === 'contents' && typeof _renderPdfToc === 'function') _renderPdfToc();
 }
 
 let _insightsDataCache = null;
@@ -377,6 +375,9 @@ async function _fetchAuthorsAndAI(url, requestedTab) {
     if (data.error) throw new Error(data.error);
     _insightsDataCache = data;
 
+    // Update header with real title and authors from API
+    _updatePaperHeader(data);
+
     // Merge repo links
     if (data.repos?.length) {
       for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
@@ -390,6 +391,28 @@ async function _fetchAuthorsAndAI(url, requestedTab) {
   } catch (e) {
     console.error('[Insights] Error:', e);
     if (pane) pane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
+  }
+}
+
+function _updatePaperHeader(data) {
+  const header = document.getElementById('sidebar-paper-info');
+  if (!header) return;
+  const paper = _currentPaperViewPaper;
+  if (!paper) return;
+
+  // Update title if API returned a real one
+  if (data.title) {
+    paper.title = data.title;
+    const titleEl = header.querySelector('.sidebar-paper-title');
+    if (titleEl) titleEl.innerHTML = renderTitle(data.title);
+  }
+
+  // Update authors line from API data
+  if (data.authors?.length) {
+    const names = data.authors.map(a => a.name).join(', ');
+    paper.authors = names;
+    const authorsEl = header.querySelector('.sidebar-paper-authors');
+    if (authorsEl) authorsEl.textContent = names;
   }
 }
 
@@ -1266,7 +1289,6 @@ function _renderPaperInfoHeader(container) {
   const sourceName = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[paper.source]) || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
   let infoMeta = [];
   if (sourceName) infoMeta.push('<span class="text-meta-value">' + escapeHtml(sourceName) + '</span>');
-  if (paper.authors) infoMeta.push('<span class="text-muted truncate">' + escapeHtml(paper.authors) + '</span>');
   if (paper.published) infoMeta.push('<span class="text-dim">' + escapeHtml(paper.published) + '</span>');
   if (paper.categories && paper.categories.length) {
     paper.categories.slice(0, 3).forEach(function(c) {
@@ -1275,8 +1297,9 @@ function _renderPaperInfoHeader(container) {
     });
   }
   container.innerHTML = '<div id="sidebar-paper-info" class="px-4 py-3 border-b border-border-card shrink-0">' +
-    '<div class="text-[0.85rem] font-semibold text-primary leading-snug mb-1.5">' + renderTitle(paper.title) + '</div>' +
-    '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem]">' + infoMeta.join('<span class="text-dimmest">\u00b7</span>') + '</div>' +
+    '<div class="sidebar-paper-title text-[0.85rem] font-semibold text-primary leading-snug mb-1">' + renderTitle(paper.title) + '</div>' +
+    '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] mb-1">' + infoMeta.join('<span class="text-dimmest">\u00b7</span>') + '</div>' +
+    '<div class="sidebar-paper-authors text-[0.72rem] text-muted leading-snug">' + (paper.authors ? escapeHtml(paper.authors) : '') + '</div>' +
     '</div>';
 }
 

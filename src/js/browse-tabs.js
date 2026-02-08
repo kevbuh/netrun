@@ -3700,8 +3700,22 @@ function _updateOverviewHighlight() {
   overlay.querySelectorAll('.wov-card').forEach((card, i) => {
     card.classList.toggle('wov-selected', i === _overviewSelectedIdx);
   });
-  overlay.querySelectorAll('.wov-pill').forEach((pill, i) => {
-    pill.classList.toggle('wov-pill-active', i === _overviewSelectedIdx);
+  overlay.querySelectorAll('.wov-pill-wrap').forEach((wrap, i) => {
+    var pill = wrap.querySelector('.wov-pill');
+    var active = i === _overviewSelectedIdx;
+    if (pill) pill.classList.toggle('wov-pill-active', active);
+    var isBrowse = _wmWindows[i] && _wmWindows[i].key === 'browse';
+    var showArrow = isBrowse && active;
+    wrap.classList.toggle('wov-pill-has-arrow', showArrow);
+    var arrow = wrap.querySelector('.wov-pill-arrow');
+    if (showArrow && !arrow) {
+      arrow = document.createElement('span');
+      arrow.className = 'wov-pill-arrow';
+      arrow.innerHTML = '&#9662;';
+      wrap.appendChild(arrow);
+    } else if (!showArrow && arrow) {
+      arrow.remove();
+    }
   });
   const sel = overlay.querySelector('.wov-card.wov-selected');
   if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -3806,8 +3820,13 @@ function _renderWindowOverview() {
     html += '<div class="wov-card-bar">'
       + '<div class="wov-card-icon">' + icon + '</div>'
       + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'
-      + (isActive ? '<span class="wov-active-dot"></span>' : '')
-      + '</div>';
+      + (isActive ? '<span class="wov-active-dot"></span>' : '');
+    if (w.key === 'browse') {
+      var bTabCount = 0;
+      _browseWindows.forEach(function(bw) { bTabCount += bw.tabs.length; });
+      html += '<span class="wov-browse-hint">' + bTabCount + ' tabs &#9662;</span>';
+    }
+    html += '</div>';
 
     html += '</div>'; // close card
   }
@@ -3816,9 +3835,14 @@ function _renderWindowOverview() {
   // Pills bar
   html += '<div class="wov-pills">';
   for (var pi = 0; pi < _wmWindows.length; pi++) {
-    html += '<button class="wov-pill' + (pi === _overviewSelectedIdx ? ' wov-pill-active' : '') + '" data-idx="' + pi + '">'
+    var isBrowsePill = _wmWindows[pi].key === 'browse';
+    var pillActive = pi === _overviewSelectedIdx;
+    html += '<div class="wov-pill-wrap' + (isBrowsePill && pillActive ? ' wov-pill-has-arrow' : '') + '">'
+      + '<button class="wov-pill' + (pillActive ? ' wov-pill-active' : '') + '" data-idx="' + pi + '">'
       + '<span class="wov-pill-label">' + escapeHtml(_wmWindows[pi].label) + '</span>'
-      + '</button>';
+      + '</button>'
+      + (isBrowsePill && pillActive ? '<span class="wov-pill-arrow">&#9662;</span>' : '')
+      + '</div>';
   }
   html += '</div>';
 

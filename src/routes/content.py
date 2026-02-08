@@ -361,6 +361,7 @@ def paper_insights():
 
         # 0. Extract authors from Semantic Scholar (includes stats)
         authors = []
+        paper_title = None
         arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
         if arxiv_match:
             arxiv_id = arxiv_match.group(1)
@@ -373,12 +374,14 @@ def paper_insights():
             else:
                 try:
                     # First get paper with author IDs
-                    s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=authors.authorId,authors.name,authors.affiliations'
+                    s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=title,authors.authorId,authors.name,authors.affiliations'
                     s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
                     ctx = ssl._create_unverified_context()
                     with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
                         s2_data = json.loads(s2_resp.read())
                     print(f'[paper-insights] S2 paper authors: {len(s2_data.get("authors", []))} authors')
+                    if s2_data.get('title'):
+                        paper_title = s2_data['title']
                     if 'authors' in s2_data:
                         # Collect author IDs for batch lookup (limit to first 10)
                         author_ids = []
@@ -575,6 +578,8 @@ def paper_insights():
                 })
 
         result = {'repos': repos, 'insights': insights, 'authors': authors}
+        if paper_title:
+            result['title'] = paper_title
         _insights_cache[_cache_key] = result
         return jsonify(result)
     except Exception as e:
