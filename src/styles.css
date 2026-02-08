@@ -2616,6 +2616,19 @@
       max-width: 80%;
       word-break: break-word;
     }
+    .doc-msg-user.doc-msg-editing {
+      padding: 3px 6px;
+    }
+    .doc-msg-edit-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: inherit;
+      font-family: inherit;
+      width: 100%;
+      padding: 2px 0;
+    }
     .doc-msg-ai {
       align-self: flex-start;
       background: var(--bg-card);

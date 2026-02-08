@@ -803,7 +803,6 @@ let _wmWindows = _wmDefaultOrder.map(key => ({
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
-  // Capture preview of current view before switching
   _wmCapturePreview();
   const existIdx = _wmWindows.findIndex(w => w.key === key);
   if (existIdx >= 0) {

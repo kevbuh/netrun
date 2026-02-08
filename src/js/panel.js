@@ -712,19 +712,25 @@ function _renderPopupChat(popup, final) {
       const aiEl = actionsRow ? actionsRow.previousElementSibling : null;
 
       if (action === 'speak') {
+        const wasSpeaking = btn.classList.contains('doc-msg-speaking');
         if (speechSynthesis.speaking) {
           speechSynthesis.cancel();
           container.querySelectorAll('[data-action="speak"]').forEach(b => b.classList.remove('doc-msg-speaking'));
-          if (btn.classList.contains('doc-msg-speaking')) return;
         }
-        if (!aiEl) return;
-        const text = aiEl.textContent.replace(/\s+/g, ' ').trim();
+        if (wasSpeaking) return; // was toggling off
+        const bubble = btn.closest('.doc-msg-ai');
+        if (!bubble) return;
+        // Get text excluding the actions row
+        const clone = bubble.cloneNode(true);
+        const actRow = clone.querySelector('.doc-msg-actions-row');
+        if (actRow) actRow.remove();
+        const text = clone.textContent.replace(/\s+/g, ' ').trim();
         if (!text) return;
         const utter = new SpeechSynthesisUtterance(text);
         utter.rate = 1.1;
         btn.classList.add('doc-msg-speaking');
-        utter.onend = () => btn.classList.remove('doc-msg-speaking');
-        utter.onerror = () => btn.classList.remove('doc-msg-speaking');
+        utter.onend = () => { if (btn.isConnected) btn.classList.remove('doc-msg-speaking'); };
+        utter.onerror = () => { if (btn.isConnected) btn.classList.remove('doc-msg-speaking'); };
         speechSynthesis.speak(utter);
       } else if (action === 'copy') {
         const msg = _popupChatMessages[idx];
@@ -748,14 +754,36 @@ function _renderPopupChat(popup, final) {
         if (input) input.value = userMsg._display || userMsg.content;
         _sendPopupChatMessage(popup, popup._capturedText || '');
       } else if (action === 'edit') {
-        // Edit is on user message — put it back in the input
+        // Edit is on user message — turn bubble into inline textbox
         const userMsg = _popupChatMessages[idx];
         if (!userMsg || userMsg.role !== 'user') return;
-        _popupChatMessages = _popupChatMessages.slice(0, idx);
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        _renderPopupChat(popup, true);
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) { input.value = userMsg._display || userMsg.content; input.focus(); }
+        const bubble = btn.closest('.doc-msg-user');
+        if (!bubble) return;
+        const origText = userMsg._display || userMsg.content;
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.className = 'doc-msg-edit-input';
+        editInput.value = origText;
+        bubble.innerHTML = '';
+        bubble.appendChild(editInput);
+        bubble.classList.add('doc-msg-editing');
+        editInput.focus();
+        editInput.setSelectionRange(origText.length, origText.length);
+        const submitEdit = () => {
+          const val = editInput.value.trim();
+          if (!val) return;
+          _popupChatMessages = _popupChatMessages.slice(0, idx);
+          if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+          const mainInput = popup.querySelector('.doc-ask-inline-input');
+          if (mainInput) mainInput.value = val;
+          _sendPopupChatMessage(popup, popup._capturedText || '');
+        };
+        editInput.addEventListener('keydown', (ev) => {
+          ev.stopPropagation();
+          if (ev.key === 'Enter') { ev.preventDefault(); submitEdit(); }
+          if (ev.key === 'Escape') { ev.preventDefault(); _renderPopupChat(popup, true); }
+        });
+        editInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
       }
     });
   });
@@ -2295,6 +2323,7 @@ const _aetherCommands = [
   { name: 'links', desc: 'List all links on page', _special: true },
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'tabs', desc: 'Switch to an open tab', _special: true },
+  { name: 'vault', desc: 'Ask about your notes', hasArgs: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
@@ -3160,6 +3189,7 @@ Type in the browser URL bar:
 | \`/paper query\` | Search arXiv papers |
 | \`/user query\` | Search for users |
 | \`/notes\` | Browse your notes |
+| \`/vault query\` | Ask about your notes |
 | \`/links\` | List links on page |
 | \`/tab\` | Add tab to context |
 | \`/model\` | Change chat model |
@@ -3310,6 +3340,96 @@ async function _doAetherDefine(popup, word) {
   _repositionSelectionPopup();
 }
 
+async function _doAetherVaultChat(popup, query) {
+  _aetherTrackMode = false;
+  _aetherPinned = true;
+  _aetherShowCursor();
+
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+
+  _popupChatMessages.push({ role: 'user', content: query, _display: query });
+  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+
+  popup.classList.add('has-chat');
+  const chatArea = popup.querySelector('.doc-popup-chat-area');
+  if (chatArea) chatArea.classList.add('visible');
+  _renderPopupChat(popup, false);
+
+  if (input) input.disabled = true;
+  const sendBtn = popup.querySelector('.doc-ask-inline-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  _popupChatAbort = new AbortController();
+
+  try {
+    const filteredMsgs = _popupChatMessages.filter(m => !m._thinking).map(m => ({
+      role: m.role, content: m.content
+    }));
+    const resp = await fetch('/api/vault-chat', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: filteredMsgs, query }),
+      signal: _popupChatAbort.signal
+    });
+
+    const aiIdx = _popupChatMessages.length - 1;
+    if (!resp.ok) {
+      _popupChatMessages[aiIdx].content = 'Error: server returned ' + resp.status;
+      _popupChatMessages[aiIdx]._thinking = false;
+      _renderPopupChat(popup, true);
+      return;
+    }
+
+    let aiText = '';
+    _popupChatMessages[aiIdx]._thinking = false;
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          if (currentEvent === 'sources') {
+            try { _popupChatMessages[aiIdx]._sources = JSON.parse(line.slice(6)); } catch (e) {}
+          } else if (currentEvent === 'token') {
+            try {
+              aiText += JSON.parse(line.slice(6));
+              _popupChatMessages[aiIdx].content = aiText;
+              _renderPopupChat(popup, false);
+            } catch (e) {}
+          } else if (currentEvent === 'error') {
+            try { _popupChatMessages[aiIdx].content = 'Error: ' + JSON.parse(line.slice(6)); } catch (e) {}
+          }
+        }
+      }
+    }
+
+    _popupChatMessages[aiIdx].content = aiText;
+    _renderPopupChat(popup, true);
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      const last = _popupChatMessages[_popupChatMessages.length - 1];
+      if (last && last.role === 'assistant') { last.content = 'Error: ' + e.message; last._thinking = false; }
+      _renderPopupChat(popup, true);
+    }
+  }
+  _popupChatAbort = null;
+  if (input) input.disabled = false;
+  if (sendBtn) sendBtn.disabled = false;
+  if (input) input.focus();
+  _repositionSelectionPopup();
+}
+
 function _aetherExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -3323,6 +3443,7 @@ function _aetherExecCommand(popup, text) {
       if (cmdName === 'paper') { _doAetherPaperSearch(popup, args); return true; }
       if (cmdName === 'user') { _doAetherUserSearch(popup, args); return true; }
       if (cmdName === 'notes') { _doAetherNoteSearch(popup, args); return true; }
+      if (cmdName === 'vault') { _doAetherVaultChat(popup, args); return true; }
       if (cmdName === 'search') { _doAetherSearchNewTab(popup, args); return true; }
       if (cmdName === 'define') { _doAetherDefine(popup, args); return true; }
     }
