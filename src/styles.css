@@ -1299,6 +1299,14 @@
       flex-shrink: 0;
       -webkit-app-region: no-drag;
     }
+    #pill-vtabs-toggle {
+      display: none;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+    .browse-mode.vtab-mode #pill-vtabs-toggle {
+      display: flex;
+    }
 
     /* ── Vertical tabs sidebar ── */
     .browse-vtabs {

@@ -17,6 +17,7 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 let _browseAudioTabs = new Map();
 let _pillBrowseMode = false;
 let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'vertical';
+let _vtabsPanelCollapsed = localStorage.getItem('vtabsPanelCollapsed') === 'true';
 const _BROWSE_CLOSED_TABS_MAX = 50;
 let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
 
@@ -2354,6 +2355,15 @@ function toggleBrowseTabLayout() {
   }
 }
 
+function toggleVtabsPanel() {
+  _vtabsPanelCollapsed = !_vtabsPanelCollapsed;
+  localStorage.setItem('vtabsPanelCollapsed', _vtabsPanelCollapsed);
+  const vtabs = document.getElementById('browse-vtabs');
+  if (vtabs) vtabs.style.display = _vtabsPanelCollapsed ? 'none' : 'flex';
+  const btn = document.getElementById('pill-vtabs-toggle');
+  if (btn) btn.style.opacity = _vtabsPanelCollapsed ? '0.5' : '';
+}
+
 function _applyBrowseTabLayout() {
   const tabRow = document.getElementById('browse-tab-row');
   const vtabs = document.getElementById('browse-vtabs');
@@ -2363,9 +2373,12 @@ function _applyBrowseTabLayout() {
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
-    if (vtabs) vtabs.style.display = 'flex';
+    if (vtabs) vtabs.style.display = _vtabsPanelCollapsed ? 'none' : 'flex';
     // Expand pill bar full-width, keep nav icons visible, show URL input
     if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
+    // Sync toggle button opacity
+    const vtBtn = document.getElementById('pill-vtabs-toggle');
+    if (vtBtn) vtBtn.style.opacity = _vtabsPanelCollapsed ? '0.5' : '';
     if (dragPill) dragPill.style.display = 'none';
     _pillSyncUrl();
     const pillTabs = document.getElementById('pill-browse-tabs');
