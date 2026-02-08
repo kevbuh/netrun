@@ -1903,14 +1903,11 @@ function _syncUserQuotesIntoAllPapers() {
 }
 
 function getFilteredPapers(ctx) {
-  _syncUserQuotesIntoAllPapers();
+  if (!ctx) ctx = _buildRenderCtx();
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
-  const hidden = ctx ? ctx.hiddenSet : new Set(getHiddenPosts());
-  const _blockedWordsSet = ctx ? ctx.blockedWords : new Set(getBlockedWords());
-  const qfOn = ctx ? ctx.qfOn : isQualityFilterOn();
-  const qCache = ctx ? ctx.qCache : (qfOn ? getQualityCache() : {});
-  const bypass = ctx ? ctx.bypass : (qfOn ? getQualityBypass() : {});
+  const { hiddenSet: hidden, blockedWords: _blockedWordsSet, qfOn, qCache, bypass } = ctx;
+  const qThreshold = qfOn ? getQualityThreshold() : 0;
 
   // Parse structured search prefixes, quoted phrases, and title: prefix
   const parsed = parseSearchQuery(rawSearch);
@@ -1932,7 +1929,7 @@ function getFilteredPapers(ctx) {
       const entry = qCache[p.title];
       const verdict = entry?.v ?? entry;
       if (verdict === 'skip') return false;
-      if (verdict === 'keep' && entry?.s != null && entry.s < getQualityThreshold()) return false;
+      if (verdict === 'keep' && entry?.s != null && entry.s < qThreshold) return false;
     }
     if (category && !p.categories.includes(category)) return false;
     if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
@@ -2101,6 +2098,7 @@ function _buildRenderCtx() {
 }
 
 function _renderPapersNow() {
+  _syncUserQuotesIntoAllPapers();
   const ctx = _buildRenderCtx();
   const { qfOn, qCache, hiddenSet, readSet, bypass } = ctx;
   const filtered = getFilteredPapers(ctx);

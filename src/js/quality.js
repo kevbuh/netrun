@@ -279,9 +279,9 @@ async function _qualityFilterPapersInner() {
     _qfPhase = 'verdict';
     _qfRemaining = needVerdict.length;
     _updateQfProgress();
-    for (let i = 0; i < needVerdict.length; i += 10) {
+    for (let i = 0; i < needVerdict.length; i += 40) {
       if (_qfAborted) return;
-      const batch = needVerdict.slice(i, i + 10);
+      const batch = needVerdict.slice(i, i + 40);
       try {
         const resp = await fetch('/api/quality-filter', {
           method: 'POST',
@@ -298,9 +298,9 @@ async function _qualityFilterPapersInner() {
         saveQualityCacheData(updated);
         _qfRemaining = Math.max(0, needVerdict.length - i - batch.length);
         _updateQfProgress();
-        renderPapers();
       } catch { /* Ollama may be offline */ }
     }
+    renderPapers();
   }
 
   // Phase 2: score only for kept papers that lack a score
@@ -312,13 +312,13 @@ async function _qualityFilterPapersInner() {
     _qfPhase = 'score';
     _qfRemaining = needScore.length;
     _updateQfProgress();
-    for (let i = 0; i < needScore.length; i += 10) {
+    const interestCtx = buildInterestContext();
+    for (let i = 0; i < needScore.length; i += 40) {
       if (_qfAborted) return;
-      const batch = needScore.slice(i, i + 10);
+      const batch = needScore.slice(i, i + 40);
       try {
         const scoreBody = { titles: batch, mode: 'score' };
-        const ctx = buildInterestContext();
-        if (ctx) scoreBody.interest_context = ctx;
+        if (interestCtx) scoreBody.interest_context = interestCtx;
         const resp = await fetch('/api/quality-filter', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -334,9 +334,9 @@ async function _qualityFilterPapersInner() {
         saveQualityCacheData(updated);
         _qfRemaining = Math.max(0, needScore.length - i - batch.length);
         _updateQfProgress();
-        renderPapers();
       } catch { /* Ollama may be offline */ }
     }
+    renderPapers();
   }
   _qfPhase = '';
   _qfRemaining = 0;
