@@ -910,7 +910,20 @@ async function _fetchStockAnswer(ticker) {
   </div>` };
 }
 
+let _browseUrlHideTimeout = null;
+
+function _browseUrlScheduleHide() {
+  clearTimeout(_browseUrlHideTimeout);
+  _browseUrlHideTimeout = setTimeout(_browseUrlHideHistory, 150);
+}
+
+function _browseUrlCancelHide() {
+  clearTimeout(_browseUrlHideTimeout);
+  _browseUrlHideTimeout = null;
+}
+
 function _browseUrlHideHistory() {
+  _browseUrlHideTimeout = null;
   const dd = document.getElementById('browse-url-history-dd');
   if (dd) dd.style.display = 'none';
   const ntpDd = document.getElementById('search-history-dropdown-view');

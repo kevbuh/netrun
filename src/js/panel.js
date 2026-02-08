@@ -2942,16 +2942,8 @@ function _aetherRenderModelDropdown(popup) {
     el.addEventListener('click', ev => {
       ev.stopPropagation(); ev.preventDefault();
       const idx = parseInt(el.dataset.idx);
-      const model = _aetherModelList[idx];
-      if (model) {
-        _aetherModelIdx = idx;
-        localStorage.setItem('chatModel', model);
-        _aetherRenderModelDropdown(popup);
-        const label = popup.querySelector('.aether-model-label');
-        if (label) label.textContent = model;
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) { input.value = ''; input.focus(); }
-      }
+      _aetherModelIdx = idx;
+      _aetherSelectModel(popup);
     });
   });
   _repositionSelectionPopup();
@@ -2968,11 +2960,11 @@ function _aetherSelectModel(popup) {
   const model = _aetherModelList[_aetherModelIdx];
   if (model) {
     localStorage.setItem('chatModel', model);
-    _aetherRenderModelDropdown(popup);
+    _aetherHideModelDropdown(popup);
     const label = popup.querySelector('.aether-model-label');
     if (label) label.textContent = model;
     const input = popup.querySelector('.doc-ask-inline-input');
-    if (input) { input.value = ''; input.focus(); }
+    if (input) { input.value = ''; input.placeholder = 'Ask anything…'; input.focus(); }
   }
 }
 
@@ -4229,7 +4221,7 @@ function _panelBuildTopBar(popup) {
 
   // Model label (always visible)
   const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-topbar-btn';
+  modelLabel.className = 'aether-topbar-btn aether-model-label';
   modelLabel.style.cursor = 'default';
   const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
   modelLabel.textContent = cm;
