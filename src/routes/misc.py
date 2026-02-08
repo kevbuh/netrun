@@ -802,8 +802,8 @@ def neuralook_train(google_id):
             else:
                 model = GazeCNN(aux_dim=9)
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-                max_epochs = 300
-                patience = 80
+                max_epochs = 100
+                patience = 30
 
             _neuralook_models[method] = model
             _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)

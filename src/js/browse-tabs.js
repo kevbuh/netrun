@@ -20,7 +20,8 @@ let _pillBrowseMode = false;
 // Closed captions state
 let _ccStream = null;
 let _ccSocket = null;
-let _ccRecorder = null;
+let _ccAudioCtx = null;
+let _ccWorkletNode = null;
 let _ccActive = false;
 let _ccTabId = null;
 let _ccCaptionLines = [];
@@ -2403,58 +2404,80 @@ async function toggleCaptions() {
     _ccSocket.onclose = () => { if (_ccActive) stopCaptions(); };
     _ccSocket.onerror = () => { if (_ccActive) stopCaptions(); };
 
-    // Wait for socket to open before starting recorder
+    // Wait for socket to open, then send format handshake
     await new Promise((resolve, reject) => {
       _ccSocket.onopen = resolve;
       setTimeout(() => reject(new Error('WebSocket timeout')), 5000);
     });
 
-    // Start the record-stop-restart cycle
-    _ccStartRecordCycle();
+    // Tell the server we're sending raw float32 PCM at 16kHz
+    _ccSocket.send(JSON.stringify({ format: 'f32pcm', rate: 16000 }));
+
+    // Start AudioWorklet pipeline (raw PCM, no MediaRecorder/ffmpeg)
+    await _ccStartAudioWorklet();
   } catch (err) {
     console.warn('CC start failed:', err);
     stopCaptions();
   }
 }
 
-function _ccStartRecordCycle() {
+async function _ccStartAudioWorklet() {
   if (!_ccActive || !_ccStream) return;
 
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus' : 'audio/webm';
-  _ccRecorder = new MediaRecorder(_ccStream, { mimeType });
+  // Create AudioContext at 16kHz — Chrome auto-resamples the input stream
+  _ccAudioCtx = new AudioContext({ sampleRate: 16000 });
 
-  _ccRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0 && _ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
-      e.data.arrayBuffer().then(buf => {
-        if (_ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
-          _ccSocket.send(buf);
+  // Inline AudioWorklet processor (no separate file, fits no-build-step architecture)
+  const processorCode = `
+    class CCProcessor extends AudioWorkletProcessor {
+      constructor() {
+        super();
+        this._buf = new Float32Array(24000); // 1.5s at 16kHz
+        this._pos = 0;
+      }
+      process(inputs) {
+        const ch = inputs[0] && inputs[0][0];
+        if (!ch) return true;
+        for (let i = 0; i < ch.length; i++) {
+          this._buf[this._pos++] = ch[i];
+          if (this._pos >= 24000) {
+            this.port.postMessage(this._buf.buffer.slice(0));
+            this._pos = 0;
+          }
         }
-      });
+        return true;
+      }
+    }
+    registerProcessor('cc-processor', CCProcessor);
+  `;
+  const blob = new Blob([processorCode], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  await _ccAudioCtx.audioWorklet.addModule(url);
+  URL.revokeObjectURL(url);
+
+  _ccWorkletNode = new AudioWorkletNode(_ccAudioCtx, 'cc-processor');
+  _ccWorkletNode.port.onmessage = (e) => {
+    if (_ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
+      _ccSocket.send(e.data); // raw Float32Array ArrayBuffer
     }
   };
 
-  // When this cycle's recorder stops, start a new one (produces a fresh WebM with headers each time)
-  _ccRecorder.onstop = () => {
-    if (_ccActive) _ccStartRecordCycle();
-  };
-
-  _ccRecorder.start();
-  // Stop after 2s to produce a complete, standalone WebM file
-  setTimeout(() => {
-    if (_ccRecorder && _ccRecorder.state === 'recording') {
-      _ccRecorder.stop();
-    }
-  }, 2000);
+  const source = _ccAudioCtx.createMediaStreamSource(_ccStream);
+  source.connect(_ccWorkletNode);
+  // Don't connect to destination — we don't want to play back the audio
 }
 
 function stopCaptions() {
-  if (!_ccActive && !_ccStream && !_ccSocket && !_ccRecorder) return;
+  if (!_ccActive && !_ccStream && !_ccSocket && !_ccWorkletNode) return;
   _ccActive = false;
 
-  if (_ccRecorder) {
-    try { _ccRecorder.stop(); } catch {}
-    _ccRecorder = null;
+  if (_ccWorkletNode) {
+    try { _ccWorkletNode.disconnect(); } catch {}
+    _ccWorkletNode = null;
+  }
+  if (_ccAudioCtx) {
+    try { _ccAudioCtx.close(); } catch {}
+    _ccAudioCtx = null;
   }
   if (_ccStream) {
     _ccStream.getTracks().forEach(t => t.stop());

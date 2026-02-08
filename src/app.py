@@ -68,9 +68,29 @@ def terminal_ws(ws):
     handle_websocket_flask(ws, cwd=cwd)
 
 
+def _write_pcm_wav(pcm_bytes, sample_rate, wav_path):
+    """Convert raw float32 PCM bytes → 16-bit WAV file (no ffmpeg, no numpy)."""
+    import struct
+    import array
+    n_floats = len(pcm_bytes) // 4
+    floats = struct.unpack(f'<{n_floats}f', pcm_bytes)
+    int16s = array.array('h', (max(-32768, min(32767, int(s * 32767))) for s in floats))
+    data_bytes = int16s.tobytes()
+    with open(wav_path, 'wb') as f:
+        # 44-byte WAV header
+        f.write(b'RIFF')
+        f.write(struct.pack('<I', 36 + len(data_bytes)))
+        f.write(b'WAVE')
+        f.write(b'fmt ')
+        f.write(struct.pack('<IHHIIHH', 16, 1, 1, sample_rate, sample_rate * 2, 2, 16))
+        f.write(b'data')
+        f.write(struct.pack('<I', len(data_bytes)))
+        f.write(data_bytes)
+
+
 @sock.route('/ws/captions')
 def captions_ws(ws):
-    """Real-time closed captions: receive WebM audio chunks, transcribe via whisper.cpp."""
+    """Real-time closed captions: receive audio chunks, transcribe via whisper.cpp."""
     import subprocess
     import tempfile
     import uuid
@@ -91,6 +111,9 @@ def captions_ws(ws):
         ws.send(json.dumps({'error': f'Whisper init failed: {e}'}))
         return
 
+    pcm_mode = False
+    pcm_rate = 16000
+
     while True:
         try:
             data = ws.receive(timeout=30)
@@ -99,17 +122,38 @@ def captions_ws(ws):
         if data is None:
             break
 
+        # Detect format handshake (text JSON message)
+        if isinstance(data, str):
+            try:
+                msg = json.loads(data)
+                if msg.get('format') == 'f32pcm':
+                    pcm_mode = True
+                    pcm_rate = msg.get('rate', 16000)
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            continue
+
         uid = uuid.uuid4().hex
-        tmp_webm = os.path.join(tempfile.gettempdir(), f'cc_{uid}.webm')
         tmp_wav = os.path.join(tempfile.gettempdir(), f'cc_{uid}.wav')
         try:
-            with open(tmp_webm, 'wb') as f:
-                f.write(data if isinstance(data, bytes) else data.encode())
-            result = subprocess.run(
-                ['ffmpeg', '-y', '-i', tmp_webm, '-ar', '16000', '-ac', '1', '-f', 'wav', tmp_wav],
-                capture_output=True, timeout=10)
-            if result.returncode != 0:
-                continue
+            if pcm_mode:
+                # Raw float32 PCM → WAV (no ffmpeg)
+                _write_pcm_wav(data, pcm_rate, tmp_wav)
+            else:
+                # Legacy: WebM → ffmpeg → WAV
+                tmp_webm = os.path.join(tempfile.gettempdir(), f'cc_{uid}.webm')
+                with open(tmp_webm, 'wb') as f:
+                    f.write(data)
+                result = subprocess.run(
+                    ['ffmpeg', '-y', '-i', tmp_webm, '-ar', '16000', '-ac', '1', '-f', 'wav', tmp_wav],
+                    capture_output=True, timeout=10)
+                try:
+                    os.remove(tmp_webm)
+                except OSError:
+                    pass
+                if result.returncode != 0:
+                    continue
+
             segments = model.transcribe(tmp_wav)
             text = ' '.join(seg.text.strip() for seg in segments).strip()
             if text and text not in _NOISE_PATTERNS:
@@ -117,11 +161,10 @@ def captions_ws(ws):
         except Exception:
             pass
         finally:
-            for f in (tmp_webm, tmp_wav):
-                try:
-                    os.remove(f)
-                except OSError:
-                    pass
+            try:
+                os.remove(tmp_wav)
+            except OSError:
+                pass
 
 
 # ── Static file serving ──

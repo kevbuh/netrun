@@ -62,7 +62,7 @@ let _nlLastAutoRefineTime = 0;
 let _nlAutoRefineInProgress = false;
 let _nlRefinementHistory = [];
 let _nlBaselineValError = null;
-let _nlAdaptiveRadius = 400;
+let _nlAdaptiveRadius = 500;
 let _nlTimedFlushInterval = null;
 let _nlModelVersion = 0; // increments on each successful train/refine
 
@@ -247,7 +247,7 @@ function _nlRenderTrainDetailView(container) {
   const isError = _nlTrainPhase === 'error';
   const prog = _nlTrainProgress || {};
   const epoch = prog.epoch || 0;
-  const maxEpochs = prog.max_epochs || 3000;
+  const maxEpochs = prog.max_epochs || 100;
   const pct = Math.round((epoch / maxEpochs) * 100);
   const elapsed = Math.round((Date.now() - _nlTrainStartTime) / 1000);
   const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
@@ -358,7 +358,7 @@ function _nlRefreshTrainView() {
 
   const prog = _nlTrainProgress || {};
   const epoch = prog.epoch || 0;
-  const maxEpochs = prog.max_epochs || 3000;
+  const maxEpochs = prog.max_epochs || 100;
   const pct = Math.round((epoch / maxEpochs) * 100);
   const latestLoss = _nlTrainLossHistory.length > 0 ? _nlTrainLossHistory[_nlTrainLossHistory.length - 1].val_loss : null;
 
@@ -382,7 +382,7 @@ function _nlRefreshTrainDetails() {
   const elapsed = Math.round((Date.now() - _nlTrainStartTime) / 1000);
   const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
   const epoch = prog.epoch || 0;
-  const maxEpochs = prog.max_epochs || 3000;
+  const maxEpochs = prog.max_epochs || 100;
   const rate = elapsed > 0 ? (epoch / elapsed).toFixed(1) : '—';
   const eta = elapsed > 0 && epoch > 0 && _nlTraining ? Math.round((maxEpochs - epoch) * elapsed / epoch) : null;
   const etaStr = eta != null ? (eta < 60 ? `~${eta}s` : `~${Math.floor(eta / 60)}m ${eta % 60}s`) : '—';
@@ -1407,6 +1407,8 @@ function _nlStopTracking() {
   // Flush remaining implicit samples
   if (_nlImplicitBuffer.length > 0) _nlFlushImplicitSamples();
   _nlRemoveDot();
+  // Also turn off camera
+  if (_nlCameraOn) { _nlCameraOn = false; _nlStopVideo(); }
   renderNeuralookView();
 }
 
@@ -1588,7 +1590,7 @@ async function _nlStartAutoRefine() {
 }
 
 function _nlUpdateAdaptiveRadius(valErrorPx) {
-  _nlAdaptiveRadius = Math.max(80, Math.min(400, Math.round(valErrorPx * 2.5)));
+  _nlAdaptiveRadius = Math.max(350, Math.min(600, Math.round(valErrorPx * 4)));
 }
 
 function _nlShowAutoRefinePill(valErrorPx) {

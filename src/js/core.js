@@ -760,6 +760,7 @@ function hideAllViews() {
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
 let _wmTilingHandler = null;   // keydown handler installed when tiling
+let _wmTilingClickHandler = null; // click-outside handler to dismiss tiling
 let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
 
 // Capture a preview screenshot of the current view (below the pill bar)
@@ -881,6 +882,16 @@ function _wmEnterTiling() {
     else if ((e.key === 'Backspace' || e.key === 'w') && _wmWindows.length > 1) { e.preventDefault(); _wmCloseWindow(_wmFocusIndex); }
   };
   document.addEventListener('keydown', _wmTilingHandler, true);
+
+  // Click outside dock → dismiss tiling (let click pass through so user can interact)
+  _wmTilingClickHandler = function(e) {
+    var d = document.getElementById('wm-tiling-dock');
+    if (!d || !d.contains(e.target)) {
+      _wmExitTiling(_wmFocusIndex);
+    }
+  };
+  document.addEventListener('mousedown', _wmTilingClickHandler, true);
+
   _wmScrollToFocused();
 }
 
@@ -896,6 +907,10 @@ function _wmExitTiling(index) {
   if (_wmTilingHandler) {
     document.removeEventListener('keydown', _wmTilingHandler, true);
     _wmTilingHandler = null;
+  }
+  if (_wmTilingClickHandler) {
+    document.removeEventListener('click', _wmTilingClickHandler, true);
+    _wmTilingClickHandler = null;
   }
   var dock = document.getElementById('wm-tiling-dock');
   if (dock) dock.remove();
