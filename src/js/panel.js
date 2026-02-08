@@ -35,6 +35,17 @@ let _aetherDragging = false;
 let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
 
+// Restore cursor when the aether panel is removed from DOM
+new MutationObserver(function(mutations) {
+  for (const m of mutations) {
+    for (const node of m.removedNodes) {
+      if (node.id === 'doc-chat-ask-float') {
+        document.body.classList.remove('aether-hide-cursor');
+        return;
+      }
+    }
+  }
+}).observe(document.body, { childList: true });
 
 function _isAetherEligible(text) {
   if (!text || text.length > 80) return false;
@@ -1537,6 +1548,7 @@ document.addEventListener('mousedown', function(e) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     _savePopupChatToHighlight(btn);
     btn.remove();
+    document.body.classList.remove('aether-hide-cursor');
   }
 });
 
@@ -1722,7 +1734,7 @@ function _handleContextMenuChat(e) {
   const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
   // _showPanel handles retiring pinned panels
   if (popup) { popup.remove(); _aetherTrackMode = false; }
-  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: false });
+  _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: true });
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
@@ -1775,7 +1787,7 @@ function _injectIframeChatHandler(iframe) {
           linkText: linkEl ? (linkEl.textContent || '').trim() : '',
           imgUrl: imgEl ? imgEl.src : ''
         } : null;
-        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu, trackCursor: false });
+        _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, priorEditable, contextMenu, trackCursor: !contextMenu });
       });
 
       // Text selection → selection popup
@@ -3456,14 +3468,8 @@ function _injectProfileItems(popup) {
     ctxDiv.appendChild(info);
   }
 
-  const inboxBadge = document.getElementById('inbox-badge');
-  const inboxCount = inboxBadge && inboxBadge.style.display !== 'none' ? parseInt(inboxBadge.textContent || '0', 10) : 0;
-  const inboxLabel = inboxCount > 0 ? 'Inbox' : 'Inbox';
-  const inboxBadgeHtml = inboxCount > 0 ? ' <span style="margin-left:auto;min-width:16px;height:16px;border-radius:8px;background:var(--accent);color:#fff;font-size:0.65rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">' + inboxCount + '</span>' : '';
-
   const items = [
     { label: 'View Profile', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z"/></svg>', fn: () => openUserProfile(username) },
-    { label: inboxLabel, icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>', badgeHtml: inboxBadgeHtml, fn: () => wmOpen('inbox') },
     { label: 'Settings', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>', fn: () => openSettings() },
     { label: 'Help', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>', fn: () => { openBrowse(); setTimeout(() => openHelpPage(), 50); } },
     { sep: true },
@@ -3479,11 +3485,7 @@ function _injectProfileItems(popup) {
     }
     const item = document.createElement('div');
     item.className = 'doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : '');
-    if (entry.badgeHtml) {
-      item.style.display = 'flex';
-      item.style.alignItems = 'center';
-    }
-    item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label) + (entry.badgeHtml || '');
+    item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
     item.addEventListener('mousedown', (ev) => ev.stopPropagation());
     item.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
@@ -4637,25 +4639,15 @@ function _showPanel(config) {
 
   popup.addEventListener('mousedown', (ev) => {
     ev.stopPropagation();
+    document.body.classList.remove('aether-hide-cursor');
   });
 
-  // Dismiss on mouse leave (unless pinned or user has typed/chatted)
-  // Only activate after mouse has entered the panel at least once
-  if (isCursorAnchor && finalized) {
-    let _mouseEnteredPanel = false;
-    popup.addEventListener('mouseenter', () => { _mouseEnteredPanel = true; });
-    popup.addEventListener('mouseleave', () => {
-      if (!_mouseEnteredPanel) return;
-      if (popup._isStickyNote) return;
-      if (_popupChatMessages.length) return;
-      const input = popup.querySelector('.doc-ask-inline-input');
-      if (input && input.value.trim()) return;
-      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      popup.remove();
-    });
-  }
-
   document.body.appendChild(popup);
+
+  // Hide cursor while panel is open
+  if (isCursorAnchor && finalized) {
+    document.body.classList.add('aether-hide-cursor');
+  }
 
   // ── Cmd+C handler + positioning ──
   _panelBuildCopyKeyHandler(popup);

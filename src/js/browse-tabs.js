@@ -1542,7 +1542,7 @@ function _browseUpdateNewTabPage(tab) {
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
         <div class="browse-ntp-inner">
           <div class="browse-ntp-center">
-            <div style="text-align:center;margin-bottom:12px;font-size:2.5rem;font-style:italic;color:var(--text-dimmer);user-select:none;">\u2112</div>
+            <div style="text-align:center;margin-bottom:12px;font-size:3rem;font-family:'Times New Roman',Georgia,serif;color:var(--text-dimmer);user-select:none;">\u2113</div>
             <div class="flex items-center justify-center gap-1" style="margin-bottom:12px;">
               <button id="research-tab-search" class="research-tab" onclick="switchResearchTab('search')">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>

@@ -2738,6 +2738,7 @@
     .thread-tree-svg .thread-node:hover { r: 6; }
     .thread-tree-svg .thread-label:hover { fill: var(--accent) !important; }
 
+    body.aether-hide-cursor, body.aether-hide-cursor * { cursor: none !important; }
     .doc-selection-popup {
       position: fixed;
       display: flex;
