@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, session, desktopCapturer } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -9,6 +9,7 @@ app.setName('Aether');
 let pythonProcess = null;
 let mainWindow = null;
 let serverPort = null;
+let _ccTargetWcId = null;
 
 const isDev = !app.isPackaged;
 
@@ -465,6 +466,33 @@ app.whenReady().then(() => {
     const x = pos.x - bounds.x;
     const y = pos.y - bounds.y;
     win.webContents.sendInputEvent({ type: 'mouseMove', x, y });
+  });
+
+  // Closed captions — route webview audio to getDisplayMedia
+  ipcMain.handle('start-cc', async (event, wcId) => {
+    _ccTargetWcId = wcId;
+    return true;
+  });
+
+  ipcMain.handle('stop-cc', async () => {
+    _ccTargetWcId = null;
+    return true;
+  });
+
+  session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+    if (_ccTargetWcId && mainWindow) {
+      const { webContents } = require('electron');
+      const targetWc = webContents.fromId(_ccTargetWcId);
+      if (targetWc) {
+        callback({
+          video: mainWindow.webContents.mainFrame,
+          audio: targetWc.mainFrame,
+          enableLocalEcho: true
+        });
+        return;
+      }
+    }
+    callback(null);
   });
 
   ipcMain.handle('capture-screen', async (event, rect) => {

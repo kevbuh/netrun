@@ -16,6 +16,15 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 // Audio tracking: { tabId: { windowId, muted } }
 let _browseAudioTabs = new Map();
 let _pillBrowseMode = false;
+
+// Closed captions state
+let _ccStream = null;
+let _ccSocket = null;
+let _ccRecorder = null;
+let _ccActive = false;
+let _ccTabId = null;
+let _ccCaptionLines = [];
+let _ccFadeTimer = null;
 let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'vertical';
 let _vtabsPanelCollapsed = localStorage.getItem('vtabsPanelCollapsed') === 'true';
 const _BROWSE_CLOSED_TABS_MAX = 50;
@@ -302,6 +311,7 @@ function _browseCreateTabInWindow(windowId, url) {
 
 // Helper: destroy a tab's DOM elements (for session replace)
 function _destroyTab(tab) {
+  if (_ccTabId === tab.id) stopCaptions();
   if (tab.el) tab.el.remove();
   _browseAudioTabs.delete(tab.id);
 }
@@ -968,6 +978,7 @@ function _browseHandleNavigation(tab, frame) {
   });
   frame.addEventListener('media-paused', () => {
     _browseAudioTabs.delete(tab.id);
+    _ccPillDismissed = false;
     _browseRenderTabs();
     _updateAudioIndicator();
   });
@@ -1492,6 +1503,9 @@ function browseSelectTab(id) {
     _browseApplyZoom();
   }
 
+  // Stop captions when switching away from captured tab
+  if (_ccTabId && _ccTabId !== id) stopCaptions();
+
   // Clean up PDF viewer when switching away from a PDF tab
   const prevTab = win.tabs.find(t => t.id === win.activeTab);
   if (prevTab && prevTab.contentType === 'pdf' && prevTab.id !== id) {
@@ -1620,7 +1634,7 @@ function _browseUpdateNewTabPage(tab) {
   const container = document.getElementById('browse-content');
   if (!container) return;
   const bar = document.getElementById('browse-bar');
-  if (bar) bar.style.display = (tab && tab.blank) ? 'none' : '';
+  if (bar) bar.style.display = (tab && tab.blank) || _browseTabLayout === 'vertical' ? 'none' : '';
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
@@ -1734,6 +1748,8 @@ function browseCloseTab(id) {
   if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
   localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
   if (tab.contentType === 'pdf') cleanupPdfViewer();
+  // Stop captions if this is the captured tab
+  if (_ccTabId === id) stopCaptions();
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);
@@ -2214,6 +2230,9 @@ function toggleAllAudio() {
 function _updateAudioIndicator() {
   let indicator = document.getElementById('audio-indicator');
 
+  // CC button + pill — always update regardless of early returns
+  _updateCCButton();
+
   if (_browseAudioTabs.size === 0) {
     if (indicator) indicator.style.display = 'none';
     return;
@@ -2273,6 +2292,197 @@ function _updateAudioIndicator() {
   `;
 
   indicator.style.display = 'flex';
+}
+
+// ── Closed Captions ──
+
+let _ccPillDismissed = false;
+
+function _updateCCButton() {
+  const hasAudio = _browseIsElectron && _browseAudioTabs.size > 0;
+  const browseView = document.getElementById('browse-view');
+  const isOnBrowse = browseView && browseView.style.display !== 'none';
+
+  // Toolbar CC button — show when on browse view and audio playing
+  const ccBtn = document.getElementById('browse-cc-btn');
+  if (ccBtn) {
+    ccBtn.style.display = (hasAudio && isOnBrowse) ? '' : 'none';
+    ccBtn.style.color = _ccActive ? 'var(--accent)' : '';
+  }
+
+  // CC suggestion pill — bottom-right, shown when audio detected on active tab
+  let pill = document.getElementById('browse-cc-pill');
+  if (hasAudio && isOnBrowse && !_ccActive && !_ccPillDismissed) {
+    // Only show if audio is on the active tab
+    const win = _getCurrentWindow();
+    const activeHasAudio = win && _browseAudioTabs.has(win.activeTab);
+    if (activeHasAudio) {
+      if (!pill) {
+        pill = document.createElement('div');
+        pill.id = 'browse-cc-pill';
+        pill.className = 'browse-cc-pill';
+        pill.innerHTML = `
+          <button class="browse-cc-pill-btn" onclick="toggleCaptions()">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none">CC</text></svg>
+            Turn on captions
+          </button>
+          <button class="browse-cc-pill-dismiss" onclick="_dismissCCPill()" title="Dismiss">&times;</button>
+        `;
+        document.body.appendChild(pill);
+      }
+      pill.style.display = 'flex';
+    } else if (pill) {
+      pill.style.display = 'none';
+    }
+  } else if (pill) {
+    pill.style.display = 'none';
+  }
+}
+
+function _dismissCCPill() {
+  _ccPillDismissed = true;
+  const pill = document.getElementById('browse-cc-pill');
+  if (pill) pill.style.display = 'none';
+}
+
+async function toggleCaptions() {
+  if (_ccActive) {
+    stopCaptions();
+    return;
+  }
+
+  if (!_browseIsElectron || !window.electronAPI) return;
+
+  // Find the active tab's webview
+  const win = _getCurrentWindow();
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === win.activeTab);
+  if (!tab || !tab.el) return;
+  if (typeof tab.el.getWebContentsId !== 'function') return;
+
+  let wcId;
+  try { wcId = tab.el.getWebContentsId(); } catch { return; }
+  if (!wcId) return;
+  _ccTabId = tab.id;
+  _ccActive = true;
+  _ccCaptionLines = [];
+
+  // Hide pill and highlight CC button
+  const pill = document.getElementById('browse-cc-pill');
+  if (pill) pill.style.display = 'none';
+  const ccBtn = document.getElementById('browse-cc-btn');
+  if (ccBtn) ccBtn.style.color = 'var(--accent)';
+
+  try {
+    // Tell main process to route this webview's audio
+    await electronAPI.startCC(wcId);
+
+    // Request display media (audio from the target webview)
+    _ccStream = await navigator.mediaDevices.getDisplayMedia({
+      audio: true,
+      video: { width: { ideal: 2 }, height: { ideal: 2 }, frameRate: { ideal: 1 } }
+    });
+
+    // Drop video tracks — we only need audio
+    _ccStream.getVideoTracks().forEach(t => t.stop());
+
+    // Open WebSocket to Flask captions endpoint
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    _ccSocket = new WebSocket(`${wsProto}//${location.host}/ws/captions`);
+    _ccSocket.binaryType = 'arraybuffer';
+
+    _ccSocket.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.text) _showCaption(msg.text);
+      } catch {}
+    };
+    _ccSocket.onclose = () => stopCaptions();
+    _ccSocket.onerror = () => stopCaptions();
+
+    // Wait for socket to open before starting recorder
+    await new Promise((resolve, reject) => {
+      _ccSocket.onopen = resolve;
+      setTimeout(() => reject(new Error('WebSocket timeout')), 5000);
+    });
+
+    // Create MediaRecorder with 2s chunks
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus' : 'audio/webm';
+    _ccRecorder = new MediaRecorder(_ccStream, { mimeType });
+
+    _ccRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0 && _ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
+        e.data.arrayBuffer().then(buf => {
+          if (_ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
+            _ccSocket.send(buf);
+          }
+        });
+      }
+    };
+
+    _ccRecorder.onstop = () => stopCaptions();
+    _ccRecorder.start(2000); // 2-second timeslice
+  } catch (err) {
+    console.warn('CC start failed:', err);
+    stopCaptions();
+  }
+}
+
+function stopCaptions() {
+  if (!_ccActive && !_ccStream && !_ccSocket && !_ccRecorder) return;
+  _ccActive = false;
+
+  if (_ccRecorder) {
+    try { _ccRecorder.stop(); } catch {}
+    _ccRecorder = null;
+  }
+  if (_ccStream) {
+    _ccStream.getTracks().forEach(t => t.stop());
+    _ccStream = null;
+  }
+  if (_ccSocket) {
+    try { _ccSocket.close(); } catch {}
+    _ccSocket = null;
+  }
+  if (_browseIsElectron && window.electronAPI) {
+    electronAPI.stopCC();
+  }
+
+  // Remove overlay
+  const overlay = document.getElementById('browse-cc-overlay');
+  if (overlay) overlay.remove();
+  if (_ccFadeTimer) { clearTimeout(_ccFadeTimer); _ccFadeTimer = null; }
+  _ccCaptionLines = [];
+  _ccTabId = null;
+
+  // Reset CC button
+  const ccBtn = document.getElementById('browse-cc-btn');
+  if (ccBtn) ccBtn.style.color = '';
+}
+
+function _showCaption(text) {
+  _ccCaptionLines.push(text);
+  if (_ccCaptionLines.length > 3) _ccCaptionLines.shift();
+
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+
+  let overlay = document.getElementById('browse-cc-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'browse-cc-overlay';
+    container.appendChild(overlay);
+  }
+
+  overlay.textContent = _ccCaptionLines.join(' ');
+  overlay.classList.remove('fade-out');
+
+  // Reset fade timer
+  if (_ccFadeTimer) clearTimeout(_ccFadeTimer);
+  _ccFadeTimer = setTimeout(() => {
+    if (overlay) overlay.classList.add('fade-out');
+  }, 8000);
 }
 
 function _browseRenderTabHtml(t, activeTab) {
@@ -2370,19 +2580,26 @@ function _applyBrowseTabLayout() {
   const bar = document.getElementById('browse-bar');
   const pill = document.getElementById('sidebar-nav');
   const dragPill = document.getElementById('drag-pill');
+  // Only apply browse-mode pill styling if browse view is actually open
+  const browseView = document.getElementById('browse-view');
+  const browseOpen = browseView && browseView.style.display !== 'none' && !browseView.classList.contains('hidden');
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
-    if (vtabs) vtabs.style.display = _vtabsPanelCollapsed ? 'none' : 'flex';
-    // Expand pill bar full-width, keep nav icons visible, show URL input
-    if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
-    // Sync toggle button opacity
-    const vtBtn = document.getElementById('pill-vtabs-toggle');
-    if (vtBtn) vtBtn.style.opacity = _vtabsPanelCollapsed ? '0.5' : '';
-    if (dragPill) dragPill.style.display = 'none';
-    _pillSyncUrl();
-    const pillTabs = document.getElementById('pill-browse-tabs');
-    if (pillTabs) pillTabs.innerHTML = '';
+    if (browseOpen) {
+      if (vtabs) vtabs.style.display = _vtabsPanelCollapsed ? 'none' : 'flex';
+      if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
+      const vtBtn = document.getElementById('pill-vtabs-toggle');
+      if (vtBtn) vtBtn.style.opacity = _vtabsPanelCollapsed ? '0.5' : '';
+      if (dragPill) dragPill.style.display = 'none';
+      _pillSyncUrl();
+      const pillTabs = document.getElementById('pill-browse-tabs');
+      if (pillTabs) pillTabs.innerHTML = '';
+    } else {
+      if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }
+      if (vtabs) vtabs.style.display = 'none';
+      if (dragPill) dragPill.style.display = '';
+    }
   } else {
     // Restore everything
     if (bar) bar.style.display = '';

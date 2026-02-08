@@ -161,10 +161,10 @@ def dev_stats():
         except Exception:
             pass
         try:
-            r = subprocess.run(['git', 'log', '--reverse', '--format=%ad', '--date=short', '-1'],
+            r = subprocess.run(['git', 'log', '--reverse', '--format=%ad', '--date=short'],
                                capture_output=True, text=True, cwd=git_root)
             if r.returncode == 0 and r.stdout.strip():
-                first_commit_date = r.stdout.strip()
+                first_commit_date = r.stdout.strip().split('\n')[0]
                 from datetime import datetime
                 fd = datetime.strptime(first_commit_date, '%Y-%m-%d')
                 project_age_days = max(1, (datetime.now() - fd).days)
@@ -1016,3 +1016,243 @@ def neuralook_implicit_samples_get(google_id):
         except Exception:
             pass
     return jsonify({'count': count})
+
+
+def _nl_append_refine_history(val_err, train_err, n_samples, improved):
+    """Append an entry to neuralook_refine_history.json (capped at 100)."""
+    hist_path = os.path.join(DIR, 'neuralook_refine_history.json')
+    history = []
+    if os.path.exists(hist_path):
+        try:
+            with open(hist_path, 'r') as f:
+                history = json.load(f)
+        except Exception:
+            history = []
+    history.append({
+        'timestamp': time.time(),
+        'val_error_px': val_err,
+        'train_error_px': train_err,
+        'samples': n_samples,
+        'improved': improved
+    })
+    if len(history) > 100:
+        history = history[-100:]
+    with open(hist_path, 'w') as f:
+        json.dump(history, f)
+
+
+@bp.route('/api/neuralook/refine-history')
+@require_auth
+def neuralook_refine_history(google_id):
+    hist_path = os.path.join(DIR, 'neuralook_refine_history.json')
+    if os.path.exists(hist_path):
+        try:
+            with open(hist_path, 'r') as f:
+                return jsonify(json.load(f))
+        except Exception:
+            pass
+    return jsonify([])
+
+
+@bp.route('/api/neuralook/auto-refine', methods=['POST'])
+@require_auth
+def neuralook_auto_refine(google_id):
+    global _neuralook_models, _neuralook_screen
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        import torch
+        import torch.nn as nn
+        import random
+
+        screen_w = body.get('screenW', 1920)
+        screen_h = body.get('screenH', 1080)
+        eye_w = body.get('eyeW', 128)
+        eye_h = body.get('eyeH', 64)
+        baseline_val_error = body.get('baseline_val_error')
+
+        # Load calibration data
+        calib_path = os.path.join(DIR, 'neuralook_calibration.json')
+        samples = []
+        if os.path.exists(calib_path):
+            with open(calib_path, 'r') as f:
+                calib = json.load(f)
+            samples = calib.get('samples', [])
+            screen_w = calib.get('screenW', screen_w)
+            screen_h = calib.get('screenH', screen_h)
+            eye_w = calib.get('eyeW', eye_w)
+            eye_h = calib.get('eyeH', eye_h)
+
+        # Load implicit samples
+        impl_path = os.path.join(DIR, 'neuralook_implicit.json')
+        implicit_samples = []
+        if os.path.exists(impl_path):
+            try:
+                with open(impl_path, 'r') as f:
+                    implicit_samples = json.load(f)
+            except Exception:
+                implicit_samples = []
+
+        if not implicit_samples:
+            return jsonify({'rejected': True, 'reason': 'No implicit samples'}), 200
+
+        all_samples = samples + implicit_samples
+
+        # Build tensors
+        iris_default = [0.5, 0.5, 0.5, 0.5, 0.3, 0.3]
+        eye_size = eye_w * eye_h
+        X_list, AUX_list, Y_list = [], [], []
+        for s in all_samples:
+            raw = s['eyeData']
+            if len(raw) != eye_size * 2:
+                continue
+            left = torch.tensor(raw[:eye_size], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
+            right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
+            X_list.append(torch.cat([left, right], dim=0))
+            hp = s.get('headPose', [0.0, 0.0, 0.0])
+            hp = hp[:3] if len(hp) >= 3 else hp + [0.0] * (3 - len(hp))
+            iris = s.get('irisFeatures', iris_default)
+            iris = iris[:6] if len(iris) >= 6 else iris + [0.0] * (6 - len(iris))
+            AUX_list.append(hp + iris)
+            Y_list.append([s['screenX'] / screen_w, s['screenY'] / screen_h])
+
+        if len(X_list) < 10:
+            return jsonify({'rejected': True, 'reason': f'Only {len(X_list)} valid samples'}), 200
+
+        X = torch.stack(X_list)
+        AUX = torch.tensor(AUX_list, dtype=torch.float32)
+        Y = torch.tensor(Y_list, dtype=torch.float32)
+
+        # Train/val split by unique screen targets
+        targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in all_samples if len(s['eyeData']) == eye_size * 2]
+        unique_targets = list(set(targets_rounded))
+        n_val_points = max(2, len(unique_targets) // 4)
+        random.shuffle(unique_targets)
+        val_targets = set(unique_targets[:n_val_points])
+        val_mask = torch.tensor([t in val_targets for t in targets_rounded])
+        train_mask = ~val_mask
+
+        X_train, AUX_train, Y_train = X[train_mask], AUX[train_mask], Y[train_mask]
+        X_val, AUX_val, Y_val = X[val_mask], AUX[val_mask], Y[val_mask]
+
+        if X_train.shape[0] < 5 or X_val.shape[0] < 2:
+            return jsonify({'rejected': True, 'reason': 'Not enough data for train/val split'}), 200
+
+        # Load existing model
+        method = 'cnn'
+        model = _neuralook_models.get(method)
+        if model is None:
+            model, screen_info = _nl_load_model()
+            if model is None:
+                return jsonify({'rejected': True, 'reason': 'No existing model to refine'}), 200
+            _neuralook_models[method] = model
+            _neuralook_screen = screen_info
+
+        # Save pre-refine state for rollback
+        pre_refine_state = {k: v.clone() for k, v in model.state_dict().items()}
+
+        # Freeze conv layers, micro-refinement settings
+        for param in model.features.parameters():
+            param.requires_grad = False
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
+        optimizer = torch.optim.Adam(trainable_params, lr=2e-5, weight_decay=1e-4)
+        max_epochs = 30
+        patience = 10
+
+        n_train = X_train.shape[0]
+        batch_size = min(64, n_train)
+        best_val_loss = float('inf')
+        best_state = None
+        no_improve = 0
+
+        for epoch in range(max_epochs):
+            model.train()
+            perm = torch.randperm(n_train)
+            epoch_loss = 0.0
+            n_batches = 0
+            for start in range(0, n_train, batch_size):
+                idx = perm[start:start + batch_size]
+                pred = model(X_train[idx], AUX_train[idx])
+                loss = nn.functional.mse_loss(pred, Y_train[idx])
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                epoch_loss += loss.item()
+                n_batches += 1
+
+            # Validate every epoch
+            model.eval()
+            with torch.no_grad():
+                val_pred = model(X_val, AUX_val)
+                val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_state = {k: v.clone() for k, v in model.state_dict().items()}
+                no_improve = 0
+            else:
+                no_improve += 1
+            if no_improve >= patience:
+                break
+
+        # Evaluate best checkpoint
+        if best_state:
+            model.load_state_dict(best_state)
+        model.eval()
+
+        with torch.no_grad():
+            train_pred = model(X_train, AUX_train)
+            tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
+            yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
+            train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
+            vp = model(X_val, AUX_val)
+            vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
+            yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
+            val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
+
+        val_err_rounded = round(val_err, 1)
+        train_err_rounded = round(train_err, 1)
+        n_total = len(X_list)
+
+        # Check improvement: must improve by >= 2px
+        improved = False
+        if baseline_val_error is not None and val_err_rounded <= baseline_val_error - 2:
+            improved = True
+        elif baseline_val_error is None:
+            improved = True  # No baseline, accept any result
+
+        if improved:
+            _neuralook_models[method] = model
+            _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
+            _nl_save_model(model, screen_w, screen_h, eye_w, eye_h)
+            # Clear implicit samples
+            if os.path.exists(impl_path):
+                os.remove(impl_path)
+            _nl_append_refine_history(val_err_rounded, train_err_rounded, n_total, True)
+            # Unfreeze conv layers for next time
+            for param in model.features.parameters():
+                param.requires_grad = True
+            return jsonify({
+                'improved': True, 'val_error_px': val_err_rounded,
+                'train_error_px': train_err_rounded, 'samples': n_total
+            })
+        else:
+            # Rollback
+            model.load_state_dict(pre_refine_state)
+            model.eval()
+            _neuralook_models[method] = model
+            # Unfreeze conv layers
+            for param in model.features.parameters():
+                param.requires_grad = True
+            _nl_append_refine_history(val_err_rounded, train_err_rounded, n_total, False)
+            reason = f'No improvement (baseline={baseline_val_error}px, new={val_err_rounded}px, need -2px)'
+            return jsonify({
+                'rejected': True, 'reason': reason,
+                'val_error_px': val_err_rounded, 'train_error_px': train_err_rounded,
+                'samples': n_total
+            })
+
+    except ImportError:
+        return jsonify({'rejected': True, 'reason': 'PyTorch not installed'}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'rejected': True, 'reason': str(e)}), 200

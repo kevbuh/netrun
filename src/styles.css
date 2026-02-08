@@ -638,12 +638,10 @@
       pointer-events: auto;
     }
 
-    /* Separator between nav icons and browse tabs — only visible when menu is expanded */
-    #pill-menu-separator {
-      display: none;
-    }
-    .browse-mode.menu-expanded #pill-menu-separator {
-      display: block;
+
+    /* Neuralook active highlight */
+    #sb-neuralook.nl-active {
+      color: #4ade80;
     }
 
     /* Menu button — hidden by default, appears in browse mode, pinned far left */
@@ -1303,6 +1301,9 @@
       display: none;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
+    }
+    #pill-vtabs-toggle:hover {
+      transform: none;
     }
     .browse-mode.vtab-mode #pill-vtabs-toggle {
       display: flex;
@@ -2460,6 +2461,80 @@
     }
     .audio-indicator-title-btn:hover {
       background: var(--bg-hover);
+    }
+    /* ── Closed captions overlay ── */
+    #browse-cc-overlay {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 80%;
+      padding: 8px 18px;
+      background: rgba(0, 0, 0, 0.78);
+      color: #fff;
+      font-size: 1rem;
+      line-height: 1.5;
+      border-radius: 8px;
+      text-align: center;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 1;
+      transition: opacity 0.6s ease;
+    }
+    #browse-cc-overlay.fade-out {
+      opacity: 0;
+    }
+    /* ── CC suggestion pill ── */
+    .browse-cc-pill {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      z-index: 9999;
+      animation: audio-indicator-in 0.3s ease;
+    }
+    .browse-cc-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .browse-cc-pill-btn:hover {
+      background: var(--bg-hover);
+    }
+    .browse-cc-pill-dismiss {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .browse-cc-pill-dismiss:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
     }
     /* ── Finder pagination column span ── */
     .finder-pagination {

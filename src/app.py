@@ -68,6 +68,62 @@ def terminal_ws(ws):
     handle_websocket_flask(ws, cwd=cwd)
 
 
+@sock.route('/ws/captions')
+def captions_ws(ws):
+    """Real-time closed captions: receive WebM audio chunks, transcribe via whisper.cpp."""
+    import subprocess
+    import tempfile
+    import uuid
+
+    _NOISE_PATTERNS = {'[BLANK_AUDIO]', '[silence]', '[Music]', '[music]',
+                       '[Applause]', '[applause]', '[Laughter]', '[laughter]',
+                       '[ Silence ]', '(silence)', '...', '[MUSIC]',
+                       '[NO SPEECH]', '[no speech]', '[inaudible]'}
+
+    from routes.misc import _whisper_model
+    try:
+        from pywhispercpp.model import Model as WhisperModel
+        import routes.misc as _misc_mod
+        if _misc_mod._whisper_model is None:
+            _misc_mod._whisper_model = WhisperModel('tiny')
+        model = _misc_mod._whisper_model
+    except Exception as e:
+        ws.send(json.dumps({'error': f'Whisper init failed: {e}'}))
+        return
+
+    while True:
+        try:
+            data = ws.receive(timeout=30)
+        except Exception:
+            break
+        if data is None:
+            break
+
+        uid = uuid.uuid4().hex
+        tmp_webm = os.path.join(tempfile.gettempdir(), f'cc_{uid}.webm')
+        tmp_wav = os.path.join(tempfile.gettempdir(), f'cc_{uid}.wav')
+        try:
+            with open(tmp_webm, 'wb') as f:
+                f.write(data if isinstance(data, bytes) else data.encode())
+            result = subprocess.run(
+                ['ffmpeg', '-y', '-i', tmp_webm, '-ar', '16000', '-ac', '1', '-f', 'wav', tmp_wav],
+                capture_output=True, timeout=10)
+            if result.returncode != 0:
+                continue
+            segments = model.transcribe(tmp_wav)
+            text = ' '.join(seg.text.strip() for seg in segments).strip()
+            if text and text not in _NOISE_PATTERNS:
+                ws.send(json.dumps({'text': text}))
+        except Exception:
+            pass
+        finally:
+            for f in (tmp_webm, tmp_wav):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+
+
 # ── Static file serving ──
 
 @app.route('/favicon.ico')

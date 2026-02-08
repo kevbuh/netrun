@@ -53,6 +53,19 @@ let _nlLastPrediction = null; // { x, y, ts }
 let _nlImplicitCount = 0;    // server-side count
 let _nlImplicitLastFlush = 0;
 
+// Auto-refine (continuous passive learning)
+let _nlAutoRefineEnabled = true;
+let _nlAutoRefineInterval = null;
+let _nlAutoRefineMinSamples = 30;
+let _nlAutoRefineCooldownMs = 5 * 60000; // 5 min between auto-refines
+let _nlLastAutoRefineTime = 0;
+let _nlAutoRefineInProgress = false;
+let _nlRefinementHistory = [];
+let _nlBaselineValError = null;
+let _nlAdaptiveRadius = 400;
+let _nlTimedFlushInterval = null;
+let _nlModelVersion = 0; // increments on each successful train/refine
+
 // Smoothing
 let _nlGazeBuffer = [];
 const _NL_BUFFER_SIZE = 6;
@@ -69,6 +82,20 @@ let _nlHistGazeX = [];
 let _nlHistGazeY = [];
 let _nlHistJitter = [];
 let _nlHistRate = [];
+
+// Session stats
+let _nlSessionStartTime = 0;
+let _nlSessionPredictions = 0;
+const _NL_HEATMAP_COLS = 16;
+const _NL_HEATMAP_ROWS = 10;
+let _nlHeatmapGrid = new Array(_NL_HEATMAP_COLS * _NL_HEATMAP_ROWS).fill(0);
+let _nlHeatmapMax = 0;
+const _NL_FIXATION_RADIUS = 50;
+const _NL_FIXATION_MIN_MS = 150;
+let _nlFixationCount = 0;
+let _nlFixationDurations = [];
+let _nlSaccadeCount = 0;
+let _nlCurrentFixation = null;
 
 // 7x7 calibration grid (49 points)
 const _NL_CAL_POSITIONS = [
@@ -87,6 +114,12 @@ const _NL_SETTLE_MS = 400;
 // Eye crop dimensions
 const _NL_EYE_W = 128;
 const _NL_EYE_H = 64;
+
+function _nlUpdatePillIndicator() {
+  const el = document.getElementById('sb-neuralook');
+  if (!el) return;
+  el.classList.toggle('nl-active', _nlTracking || _nlCalibrating || _nlTraining || _nlCameraOn);
+}
 
 async function openNeuralook() {
   _nlDismissTrainPill();
@@ -170,11 +203,15 @@ function renderNeuralookView() {
             <button onclick="_nlToggleTracking()" class="px-4 py-2 rounded-lg border border-border-input text-[0.82rem] font-medium cursor-pointer transition-colors w-full ${_nlTracking ? 'bg-accent text-white border-accent hover:bg-accent-hover' : 'bg-card text-primary hover:border-accent hover:text-accent'}" ${!_nlReady ? 'disabled style="opacity:0.5"' : ''}>
               ${trackingLabel}
             </button>
+            <label class="flex items-center gap-2 text-[0.75rem] text-muted cursor-pointer select-none mt-1" ${!_nlReady ? 'style="opacity:0.5;pointer-events:none"' : ''}>
+              <input type="checkbox" ${_nlAutoRefineEnabled ? 'checked' : ''} onchange="_nlAutoRefineEnabled=this.checked" style="accent-color:var(--accent,#b4451a)">
+              Auto-refine
+            </label>
           </div>
         </div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+      ${_nlTracking ? _nlRenderDashboardColumn() : `<div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
         <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
           <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;max-height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
             <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
@@ -190,13 +227,18 @@ function renderNeuralookView() {
           <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
           <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
         </div>
-      </div>
+      </div>`}
     </div>
   `;
 
-  if (_nlCameraOn) _nlAttachCameraPreview();
+  if (_nlTracking) {
+    requestAnimationFrame(() => _nlRefreshDashboard());
+  } else {
+    if (_nlCameraOn) _nlAttachCameraPreview();
+  }
   _nlFetchImplicitCount();
-  _nlRefreshStats();
+  _nlLoadRefinementHistory();
+  if (!_nlTracking) _nlRefreshStats();
   _nlStartStatsInterval();
 }
 
@@ -762,7 +804,7 @@ function _nlShowTrainPill() {
     </div>
     <div id="nl-pill-text" style="flex:1;line-height:1.4;">
       <div id="nl-pill-title" style="font-weight:600;font-size:0.8rem;">Training CNN</div>
-      <div id="nl-pill-detail" style="font-size:0.7rem;color:var(--text-secondary,#888);">Starting...</div>
+      <div id="nl-pill-detail" style="font-size:0.7rem;color:var(--text-secondary,#888);">Starting... · v${_nlModelVersion + 1}</div>
     </div>
     <div id="nl-pill-stop" onclick="event.stopPropagation();_nlStopTraining();" style="width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:1px solid var(--border,#333);transition:border-color 0.2s;" onmouseover="this.style.borderColor='#f87171'" onmouseout="this.style.borderColor='var(--border,#333)'">
       <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#f87171"/></svg>
@@ -793,6 +835,7 @@ function _nlTrainETA(epoch, maxEpochs) {
 function _nlStopTraining() {
   if (_nlTrainAbort) { _nlTrainAbort.abort(); _nlTrainAbort = null; }
   _nlTraining = false;
+  _nlUpdatePillIndicator();
   _nlTrainPhase = 'error';
   _nlTrainResult = { error: 'Stopped by user' };
   _nlErrorTrainPill('Stopped');
@@ -929,6 +972,7 @@ function _nlAttachCameraPreview() {
 function _nlToggleCamera() {
   if (_nlCameraOn) {
     _nlCameraOn = false;
+    _nlUpdatePillIndicator();
     if (_nlTracking) _nlStopTracking();
     if (!_nlCalibrating) _nlStopVideo();
     const box = document.getElementById('nl-camera-preview');
@@ -945,6 +989,7 @@ function _nlToggleCamera() {
     }
   } else {
     _nlCameraOn = true;
+    _nlUpdatePillIndicator();
     _nlAttachCameraPreview();
     if (!(_nlVideoEl && _nlVideoEl.srcObject)) {
       const box = document.getElementById('nl-camera-preview');
@@ -978,6 +1023,7 @@ async function _nlStartCalibration() {
   if (_nlCalibrating) return;
 
   _nlCalibrating = true;
+  _nlUpdatePillIndicator();
   _nlCalibData = [];
   _nlModelTrained = false;
   _nlReady = false;
@@ -991,6 +1037,7 @@ async function _nlStartCalibration() {
   const mpOk = await _nlInitMediapipe();
   if (!mpOk) {
     _nlCalibrating = false;
+    _nlUpdatePillIndicator();
     _nlShowError(_nlMpCdnLoaded ? 'Failed to initialize face model.' : 'MediaPipe CDN failed to load.');
     renderNeuralookView();
     return;
@@ -999,8 +1046,10 @@ async function _nlStartCalibration() {
   try {
     await _nlEnsureVideo();
     _nlCameraOn = true;
+    _nlUpdatePillIndicator();
   } catch (e) {
     _nlCalibrating = false;
+    _nlUpdatePillIndicator();
     _nlShowError('Camera error: ' + (e.message || e));
     renderNeuralookView();
     return;
@@ -1012,6 +1061,7 @@ async function _nlStartCalibration() {
   if (reqFs) {
     try { await reqFs.call(el); } catch (e) {
       _nlCalibrating = false;
+      _nlUpdatePillIndicator();
       _nlShowError('Fullscreen required for calibration.');
       renderNeuralookView();
       return;
@@ -1028,6 +1078,7 @@ function _nlFullscreenChange() {
   const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
   if (!isFs && _nlCalibrating) {
     _nlCalibrating = false;
+    _nlUpdatePillIndicator();
     _nlCurrentPoint = 0;
     const overlay = document.getElementById('nl-calibration-overlay');
     if (overlay) overlay.remove();
@@ -1201,6 +1252,7 @@ async function _nlOnCalibrationComplete() {
   } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
 
   _nlTraining = true;
+  _nlUpdatePillIndicator();
   _nlTrainPhase = 'training';
   _nlTrainProgress = null;
   _nlTrainResult = null;
@@ -1223,12 +1275,12 @@ async function _nlOnCalibrationComplete() {
         _nlAppendTrainLog('✓ Model ready — tracking available');
       }
       if (prog.phase === 'evaluating') {
-        _nlUpdateTrainPill('Training CNN', 'Evaluating...');
+        _nlUpdateTrainPill('Training CNN v' + (_nlModelVersion + 1), 'Evaluating...');
       } else {
         const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
         const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
         const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-        _nlUpdateTrainPill('Training CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+        _nlUpdateTrainPill('Training CNN v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
       }
       _nlRefreshTrainView();
       _nlRefreshBanner();
@@ -1240,17 +1292,23 @@ async function _nlOnCalibrationComplete() {
     _nlTrainResult = result;
     _nlTrainPhase = 'done';
     _nlTraining = false;
+    _nlUpdatePillIndicator();
     _nlReady = true;
+    _nlModelVersion++;
 
     const valPx = result.val_error_px;
+    _nlBaselineValError = valPx;
+    _nlUpdateAdaptiveRadius(valPx);
     const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
-    _nlFinishTrainPill('Training Done', `Val ${valPx}px — ${label}`, color);
+    _nlFinishTrainPill('Training Done — v' + _nlModelVersion, `Val ${valPx}px — ${label}`, color);
+    _nlShowModelUpdatedPill(_nlModelVersion, valPx);
     _nlRefreshTrainView();
     renderNeuralookView();
   } catch (e) {
     _nlTrainPhase = 'error';
     _nlTraining = false;
+    _nlUpdatePillIndicator();
     _nlTrainResult = { error: e.message || String(e) };
     _nlErrorTrainPill(e.message || String(e));
     _nlRefreshTrainView();
@@ -1260,6 +1318,7 @@ async function _nlOnCalibrationComplete() {
 
 function _nlFinishCalibration() {
   _nlCalibrating = false;
+  _nlUpdatePillIndicator();
   const overlay = document.getElementById('nl-calibration-overlay');
   if (overlay) overlay.remove();
 
@@ -1278,6 +1337,9 @@ function _nlApplyGazePrediction(pred) {
   _nlGazeX = sx / _nlGazeBuffer.length;
   _nlGazeY = sy / _nlGazeBuffer.length;
   _nlMoveDot(_nlGazeX, _nlGazeY);
+  _nlSessionPredictions++;
+  _nlUpdateHeatmap(_nlGazeX, _nlGazeY);
+  _nlDetectFixation(_nlGazeX, _nlGazeY, Date.now());
 }
 
 // ── Tracking Loop ──
@@ -1319,18 +1381,31 @@ async function _nlStartTracking() {
     return;
   }
   _nlTracking = true;
+  _nlResetSessionStats();
+  _nlUpdatePillIndicator();
   _nlGazeBuffer = [];
   _nlCreateDot();
   _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
   // Start collecting implicit click samples
   document.addEventListener('click', _nlHandleImplicitClick, true);
+  // Start auto-refine check (60s) and timed buffer flush (30s)
+  _nlAutoRefineInterval = setInterval(_nlCheckAutoRefine, 60000);
+  _nlTimedFlushInterval = setInterval(() => {
+    if (_nlImplicitBuffer.length > 0) _nlFlushImplicitSamples();
+  }, 30000);
+  _nlFetchImplicitCount();
+  _nlLoadRefinementHistory();
   renderNeuralookView();
 }
 
 function _nlStopTracking() {
   _nlTracking = false;
+  _nlUpdatePillIndicator();
   if (_nlTrackingRAF) { cancelAnimationFrame(_nlTrackingRAF); _nlTrackingRAF = null; }
   document.removeEventListener('click', _nlHandleImplicitClick, true);
+  // Clear auto-refine and timed flush intervals
+  if (_nlAutoRefineInterval) { clearInterval(_nlAutoRefineInterval); _nlAutoRefineInterval = null; }
+  if (_nlTimedFlushInterval) { clearInterval(_nlTimedFlushInterval); _nlTimedFlushInterval = null; }
   // Flush remaining implicit samples
   if (_nlImplicitBuffer.length > 0) _nlFlushImplicitSamples();
   _nlRemoveDot();
@@ -1344,17 +1419,20 @@ function _nlHandleImplicitClick(e) {
   const age = Math.round(now - _nlLastPrediction.ts);
   if (age > 500) {
     console.log(`[neuralook] click rejected: prediction too old (${age}ms)`);
+    _nlShowClickFeedback(e.clientX, e.clientY, false, `stale ${age}ms`);
     return;
   }
-  // Confidence: predicted gaze must be within 400px of click
+  // Confidence: predicted gaze must be within adaptive radius of click
   const dx = _nlLastPrediction.x - e.clientX;
   const dy = _nlLastPrediction.y - e.clientY;
   const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-  if (dist > 400) {
+  if (dist > _nlAdaptiveRadius) {
     console.log(`[neuralook] click rejected: gaze too far (${dist}px) — predicted (${Math.round(_nlLastPrediction.x)},${Math.round(_nlLastPrediction.y)}) vs click (${e.clientX},${e.clientY})`);
+    _nlShowClickFeedback(e.clientX, e.clientY, false, `${dist}px`);
     return;
   }
   console.log(`[neuralook] implicit click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
+  _nlShowClickFeedback(e.clientX, e.clientY, true, `${dist}px`);
   // Build sample
   _nlImplicitBuffer.push({
     eyeData: Array.from(_nlLastCapture.eyeData),
@@ -1387,9 +1465,204 @@ function _nlFetchImplicitCount() {
     .catch(() => {});
 }
 
+// ── Click Feedback Indicators ──
+
+function _nlShowClickFeedback(x, y, accepted, detail) {
+  const el = document.createElement('div');
+  const color = accepted ? '#4ade80' : '#f87171';
+  Object.assign(el.style, {
+    position: 'fixed', left: (x + 12) + 'px', top: (y - 8) + 'px', zIndex: '99999',
+    pointerEvents: 'none', fontSize: '0.65rem', fontFamily: 'inherit', fontWeight: '600',
+    color, whiteSpace: 'nowrap', lineHeight: '1',
+    opacity: '1', transition: 'opacity 0.8s ease-out, transform 0.8s ease-out',
+    transform: 'translateY(0)'
+  });
+  el.textContent = accepted ? `+${detail}` : detail;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = '0'; el.style.transform = 'translateY(-16px)'; });
+  setTimeout(() => el.remove(), 900);
+}
+
+function _nlShowModelUpdatedPill(version, valErrorPx) {
+  const existing = document.getElementById('nl-model-updated-pill');
+  if (existing) existing.remove();
+  // Stack above auto-refine pill if present
+  const hasAutoRefine = document.getElementById('nl-autorefine-pill');
+  const bottomPos = hasAutoRefine ? '72px' : '20px';
+  const pill = document.createElement('div');
+  pill.id = 'nl-model-updated-pill';
+  Object.assign(pill.style, {
+    position: 'fixed', bottom: bottomPos, right: '20px', zIndex: '99999',
+    background: 'var(--bg-card, #23232a)', border: '1px solid #60a5fa',
+    borderRadius: '14px', padding: '10px 16px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(96,165,250,0.15)',
+    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
+    transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
+    display: 'flex', alignItems: 'center', gap: '10px',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
+  });
+  pill.innerHTML = `
+    <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#60a5fa"/><path d="M9 5v4l3 2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div style="line-height:1.4;">
+      <div style="font-weight:600;font-size:0.8rem;">Tracking model updated to v${version}</div>
+      <div style="font-size:0.7rem;color:var(--text-secondary,#888);">Val error: ${valErrorPx}px</div>
+    </div>
+  `;
+  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pill.remove(); };
+  document.body.appendChild(pill);
+  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
+  pill.animate([
+    { boxShadow: '0 0 0 0 rgba(96,165,250,0.4)', transform: 'translateY(0) scale(1)' },
+    { boxShadow: '0 0 20px 8px rgba(96,165,250,0.25)', transform: 'translateY(-2px) scale(1.03)' },
+    { boxShadow: '0 0 0 0 rgba(96,165,250,0)', transform: 'translateY(0) scale(1)' }
+  ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
+  setTimeout(() => {
+    pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
+    setTimeout(() => pill.remove(), 300);
+  }, 5000);
+}
+
+// ── Auto-Refine (Continuous Passive Learning) ──
+
+function _nlCheckAutoRefine() {
+  if (!_nlTracking || !_nlModelTrained || _nlTraining || _nlAutoRefineInProgress || !_nlAutoRefineEnabled) return;
+  if (_nlImplicitCount < _nlAutoRefineMinSamples) return;
+  if (Date.now() - _nlLastAutoRefineTime < _nlAutoRefineCooldownMs) return;
+  _nlStartAutoRefine();
+}
+
+async function _nlStartAutoRefine() {
+  _nlAutoRefineInProgress = true;
+  // Flush pending buffer first
+  if (_nlImplicitBuffer.length > 0) {
+    const samples = _nlImplicitBuffer.splice(0);
+    _nlImplicitLastFlush = Date.now();
+    try {
+      const resp = await fetch('/api/neuralook/implicit-samples', {
+        method: 'POST', headers: _authHeaders(),
+        body: JSON.stringify({ samples })
+      });
+      const data = await resp.json();
+      if (data.count != null) _nlImplicitCount = data.count;
+    } catch (_) {}
+  }
+  // Request auto-refine
+  try {
+    const resp = await fetch('/api/neuralook/auto-refine', {
+      method: 'POST', headers: _authHeaders(),
+      body: JSON.stringify({
+        screenW: window.innerWidth, screenH: window.innerHeight,
+        eyeW: _NL_EYE_W, eyeH: _NL_EYE_H,
+        baseline_val_error: _nlBaselineValError
+      })
+    });
+    const result = await resp.json();
+    _nlLastAutoRefineTime = Date.now();
+    if (result.improved) {
+      _nlModelVersion++;
+      _nlBaselineValError = result.val_error_px;
+      _nlValError = result.val_error_px;
+      _nlTrainError = result.train_error_px;
+      _nlImplicitCount = 0;
+      _nlUpdateAdaptiveRadius(result.val_error_px);
+      _nlRefinementHistory.push({
+        timestamp: Date.now(), val_error_px: result.val_error_px,
+        train_error_px: result.train_error_px, samples: result.samples, improved: true
+      });
+      _nlSaveRefinementHistory();
+      _nlShowAutoRefinePill(result.val_error_px);
+      _nlShowModelUpdatedPill(_nlModelVersion, result.val_error_px);
+      console.log(`[neuralook] auto-refine improved: v${_nlModelVersion}, val=${result.val_error_px}px, radius=${_nlAdaptiveRadius}px`);
+    } else {
+      _nlRefinementHistory.push({
+        timestamp: Date.now(), val_error_px: result.val_error_px,
+        train_error_px: result.train_error_px, samples: result.samples || 0, improved: false
+      });
+      _nlSaveRefinementHistory();
+      console.log(`[neuralook] auto-refine rejected: ${result.reason || 'no improvement'}`);
+    }
+    _nlRefreshStats();
+  } catch (e) {
+    console.warn('[neuralook] auto-refine error:', e);
+  } finally {
+    _nlAutoRefineInProgress = false;
+  }
+}
+
+function _nlUpdateAdaptiveRadius(valErrorPx) {
+  _nlAdaptiveRadius = Math.max(80, Math.min(400, Math.round(valErrorPx * 2.5)));
+}
+
+function _nlShowAutoRefinePill(valErrorPx) {
+  if (window.location.hash === '#neuralook') {
+    // Just refresh stats, no pill needed
+    _nlRefreshStats();
+    return;
+  }
+  // Reuse pill infrastructure but lighter
+  const existing = document.getElementById('nl-autorefine-pill');
+  if (existing) existing.remove();
+  const pill = document.createElement('div');
+  pill.id = 'nl-autorefine-pill';
+  Object.assign(pill.style, {
+    position: 'fixed', bottom: '20px', right: '20px', zIndex: '99999',
+    background: 'var(--bg-card, #23232a)', border: '1px solid #4ade80',
+    borderRadius: '14px', padding: '10px 16px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(74,222,128,0.15)',
+    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
+    transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
+    display: 'flex', alignItems: 'center', gap: '10px',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
+  });
+  pill.innerHTML = `
+    <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#4ade80"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div style="line-height:1.4;">
+      <div style="font-weight:600;font-size:0.8rem;">Model improved</div>
+      <div style="font-size:0.7rem;color:var(--text-secondary,#888);">Val error: ${valErrorPx}px</div>
+    </div>
+  `;
+  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pill.remove(); };
+  document.body.appendChild(pill);
+  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
+  pill.animate([
+    { boxShadow: '0 0 0 0 rgba(74,222,128,0.4)', transform: 'translateY(0) scale(1)' },
+    { boxShadow: '0 0 20px 8px rgba(74,222,128,0.25)', transform: 'translateY(-2px) scale(1.03)' },
+    { boxShadow: '0 0 0 0 rgba(74,222,128,0)', transform: 'translateY(0) scale(1)' }
+  ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
+  setTimeout(() => {
+    pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
+    setTimeout(() => pill.remove(), 300);
+  }, 4000);
+}
+
+function _nlSaveRefinementHistory() {
+  try {
+    if (_nlRefinementHistory.length > 100) _nlRefinementHistory = _nlRefinementHistory.slice(-100);
+    localStorage.setItem('nlRefinementHistory', JSON.stringify(_nlRefinementHistory));
+  } catch (_) {}
+}
+
+function _nlLoadRefinementHistory() {
+  try {
+    const raw = localStorage.getItem('nlRefinementHistory');
+    if (raw) {
+      _nlRefinementHistory = JSON.parse(raw);
+      // Restore baseline from last accepted refine
+      for (let i = _nlRefinementHistory.length - 1; i >= 0; i--) {
+        if (_nlRefinementHistory[i].improved) {
+          _nlBaselineValError = _nlRefinementHistory[i].val_error_px;
+          _nlUpdateAdaptiveRadius(_nlBaselineValError);
+          break;
+        }
+      }
+    }
+  } catch (_) {}
+}
+
 function _nlRefineModel() {
   if (_nlTraining) return;
   _nlTraining = true;
+  _nlUpdatePillIndicator();
   _nlTrainPhase = 'training';
   _nlTrainProgress = null;
   _nlTrainResult = null;
@@ -1405,12 +1678,12 @@ function _nlRefineModel() {
     _nlTrainPhase = prog.phase || 'training';
     if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
     if (prog.phase === 'evaluating') {
-      _nlUpdateTrainPill('Refining CNN', 'Evaluating...');
+      _nlUpdateTrainPill('Refining CNN → v' + (_nlModelVersion + 1), 'Evaluating...');
     } else {
       const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
       const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
       const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
-      _nlUpdateTrainPill('Refining CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      _nlUpdateTrainPill('Refining CNN → v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
     }
     _nlRefreshTrainView();
     _nlRefreshBanner();
@@ -1421,17 +1694,23 @@ function _nlRefineModel() {
     _nlTrainResult = result;
     _nlTrainPhase = 'done';
     _nlTraining = false;
+    _nlUpdatePillIndicator();
     _nlReady = true;
+    _nlModelVersion++;
     _nlImplicitCount = 0; // cleared on server
     const valPx = result.val_error_px;
+    _nlBaselineValError = valPx;
+    _nlUpdateAdaptiveRadius(valPx);
     const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
     const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
-    _nlFinishTrainPill('Refinement Done', `Val ${valPx}px — ${label}`, color);
+    _nlFinishTrainPill('Refinement Done — v' + _nlModelVersion, `Val ${valPx}px — ${label}`, color);
+    _nlShowModelUpdatedPill(_nlModelVersion, valPx);
     _nlRefreshTrainView();
     renderNeuralookView();
   }).catch(e => {
     _nlTrainPhase = 'error';
     _nlTraining = false;
+    _nlUpdatePillIndicator();
     _nlTrainResult = { error: e.message || String(e) };
     _nlErrorTrainPill(e.message || String(e));
     _nlRefreshTrainView();
@@ -1485,8 +1764,13 @@ function _nlUpdateDotSize(size) {
 function _nlStartStatsInterval() {
   _nlStopStatsInterval();
   _nlStatsInterval = setInterval(() => {
-    if (!document.getElementById('nl-model-stats')) { _nlStopStatsInterval(); return; }
-    _nlRefreshStats();
+    if (_nlTracking) {
+      if (!document.getElementById('nl-dash-rate')) { _nlStopStatsInterval(); return; }
+      _nlRefreshDashboard();
+    } else {
+      if (!document.getElementById('nl-model-stats')) { _nlStopStatsInterval(); return; }
+      _nlRefreshStats();
+    }
   }, 500);
   _nlRateInterval = setInterval(() => { _nlPredictionRate = _nlPredictionsThisSec; _nlPredictionsThisSec = 0; }, 1000);
 }
@@ -1530,8 +1814,14 @@ function _nlRefreshStats() {
 
   const implicitInfo = _nlImplicitCount > 0 ? `${_nlImplicitCount} clicks` + (_nlImplicitBuffer.length > 0 ? ` (+${_nlImplicitBuffer.length} pending)` : '') : _nlImplicitBuffer.length > 0 ? `${_nlImplicitBuffer.length} pending` : '<span class="text-dimmer">None</span>';
 
+  const refineCount = _nlRefinementHistory.filter(h => h.improved).length;
+  const bestError = _nlBaselineValError !== null ? `${_nlBaselineValError}px` : '<span class="text-dimmer">—</span>';
+  const autoRefineStatus = _nlAutoRefineInProgress ? '<span style="color:var(--accent)">Refining...</span>'
+    : _nlAutoRefineEnabled ? '<span style="color:#4ade80">Active</span>'
+    : '<span class="text-dimmer">Off</span>';
+
   el.innerHTML =
-    row('Model', 'CNN (2ch 64x128 + hp+iris)') +
+    row('Model', `CNN v${_nlModelVersion} (2ch 64x128 + hp+iris)`) +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 + aux(9)`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
@@ -1542,6 +1832,10 @@ function _nlRefreshStats() {
     row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
     row('Predictions', `${_nlPredictionCount.toLocaleString()}`) +
     row('Implicit clicks', implicitInfo) +
+    row('Auto-refine', autoRefineStatus) +
+    row('Refinements', refineCount > 0 ? `${refineCount}` : '<span class="text-dimmer">0</span>') +
+    row('Best val error', bestError) +
+    row('Confidence radius', `${_nlAdaptiveRadius}px`) +
     (_nlImplicitCount > 0 && !_nlTraining && _nlModelTrained ? `<div class="col-span-2 mt-1"><button onclick="_nlRefineModel()" class="px-3 py-1 rounded-lg border border-border-input bg-card text-primary text-[0.75rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full">Refine Model (${_nlImplicitCount} clicks)</button></div>` : '');
 
   // Update banner detail if training is in progress
@@ -1584,4 +1878,220 @@ function _nlDrawGraph(canvasId, data, color, fixedMin, fixedMax) {
     grad.addColorStop(0, color + '18'); grad.addColorStop(1, color + '00');
     ctx.fillStyle = grad; ctx.fill();
   }
+}
+
+// ── Session Stats Dashboard ──
+
+function _nlResetSessionStats() {
+  _nlSessionStartTime = Date.now();
+  _nlSessionPredictions = 0;
+  _nlHeatmapGrid = new Array(_NL_HEATMAP_COLS * _NL_HEATMAP_ROWS).fill(0);
+  _nlHeatmapMax = 0;
+  _nlFixationCount = 0;
+  _nlFixationDurations = [];
+  _nlSaccadeCount = 0;
+  _nlCurrentFixation = null;
+  _nlHistGazeX = [];
+  _nlHistGazeY = [];
+  _nlHistJitter = [];
+  _nlHistRate = [];
+}
+
+function _nlPushHistorySample() {
+  _nlHistRate.push(_nlPredictionRate);
+  _nlHistJitter.push(_nlTracking ? Math.round(_nlComputeJitter()) : null);
+  _nlHistGazeX.push(_nlTracking ? Math.round(_nlGazeX) : null);
+  _nlHistGazeY.push(_nlTracking ? Math.round(_nlGazeY) : null);
+  if (_nlHistRate.length > _NL_GRAPH_LEN) _nlHistRate.shift();
+  if (_nlHistJitter.length > _NL_GRAPH_LEN) _nlHistJitter.shift();
+  if (_nlHistGazeX.length > _NL_GRAPH_LEN) _nlHistGazeX.shift();
+  if (_nlHistGazeY.length > _NL_GRAPH_LEN) _nlHistGazeY.shift();
+}
+
+function _nlUpdateHeatmap(x, y) {
+  const col = Math.floor((x / window.innerWidth) * _NL_HEATMAP_COLS);
+  const row = Math.floor((y / window.innerHeight) * _NL_HEATMAP_ROWS);
+  if (col < 0 || col >= _NL_HEATMAP_COLS || row < 0 || row >= _NL_HEATMAP_ROWS) return;
+  const idx = row * _NL_HEATMAP_COLS + col;
+  _nlHeatmapGrid[idx]++;
+  if (_nlHeatmapGrid[idx] > _nlHeatmapMax) _nlHeatmapMax = _nlHeatmapGrid[idx];
+}
+
+function _nlHeatColor(t) {
+  // 5-stop gradient: dark blue → blue → cyan → yellow → red
+  if (t <= 0) return 'rgba(10,20,60,0.15)';
+  const a = Math.min(0.25 + t * 0.75, 1);
+  let r, g, b;
+  if (t < 0.25) { const s = t / 0.25; r = 10; g = 20 + s * 40; b = 60 + s * 140; }
+  else if (t < 0.5) { const s = (t - 0.25) / 0.25; r = 10 + s * 20; g = 60 + s * 195; b = 200 - s * 20; }
+  else if (t < 0.75) { const s = (t - 0.5) / 0.25; r = 30 + s * 225; g = 255 - s * 30; b = 180 - s * 160; }
+  else { const s = (t - 0.75) / 0.25; r = 255; g = 225 - s * 185; b = 20 - s * 20; }
+  return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a.toFixed(2)})`;
+}
+
+function _nlDrawHeatmap() {
+  const canvas = document.getElementById('nl-heatmap-canvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+  if (w <= 0 || h <= 0) return;
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  const cellW = w / _NL_HEATMAP_COLS, cellH = h / _NL_HEATMAP_ROWS;
+  const mx = _nlHeatmapMax || 1;
+  for (let r = 0; r < _NL_HEATMAP_ROWS; r++) {
+    for (let c = 0; c < _NL_HEATMAP_COLS; c++) {
+      const v = _nlHeatmapGrid[r * _NL_HEATMAP_COLS + c];
+      ctx.fillStyle = _nlHeatColor(v / mx);
+      ctx.fillRect(c * cellW, r * cellH, cellW + 0.5, cellH + 0.5);
+    }
+  }
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = dpr * 0.5;
+  for (let c = 1; c < _NL_HEATMAP_COLS; c++) { ctx.beginPath(); ctx.moveTo(c * cellW, 0); ctx.lineTo(c * cellW, h); ctx.stroke(); }
+  for (let r = 1; r < _NL_HEATMAP_ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r * cellH); ctx.lineTo(w, r * cellH); ctx.stroke(); }
+}
+
+function _nlDetectFixation(x, y, ts) {
+  if (!_nlCurrentFixation) {
+    _nlCurrentFixation = { cx: x, cy: y, startTs: ts, points: [{ x, y }] };
+    return;
+  }
+  const f = _nlCurrentFixation;
+  const dx = x - f.cx, dy = y - f.cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist <= _NL_FIXATION_RADIUS) {
+    f.points.push({ x, y });
+    // Update centroid
+    let sx = 0, sy = 0;
+    for (const p of f.points) { sx += p.x; sy += p.y; }
+    f.cx = sx / f.points.length;
+    f.cy = sy / f.points.length;
+  } else {
+    // End current fixation if long enough
+    const dur = ts - f.startTs;
+    if (dur >= _NL_FIXATION_MIN_MS) {
+      _nlFixationCount++;
+      _nlFixationDurations.push(dur);
+      _nlSaccadeCount++;
+    }
+    _nlCurrentFixation = { cx: x, cy: y, startTs: ts, points: [{ x, y }] };
+  }
+}
+
+function _nlRenderDashboardColumn() {
+  return `
+    <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+      <!-- Sparklines -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex-shrink:0;">
+        <div class="bg-card border border-border-card rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[0.68rem] text-muted">Rate</span>
+            <span class="text-[0.78rem] text-primary font-medium tabular-nums" id="nl-dash-rate">0 Hz</span>
+          </div>
+          <canvas id="nl-spark-rate" style="width:100%;height:36px;display:block;"></canvas>
+        </div>
+        <div class="bg-card border border-border-card rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[0.68rem] text-muted">Jitter</span>
+            <span class="text-[0.78rem] text-primary font-medium tabular-nums" id="nl-dash-jitter">0px</span>
+          </div>
+          <canvas id="nl-spark-jitter" style="width:100%;height:36px;display:block;"></canvas>
+        </div>
+        <div class="bg-card border border-border-card rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[0.68rem] text-muted">Gaze X</span>
+            <span class="text-[0.78rem] text-primary font-medium tabular-nums" id="nl-dash-gazex">0</span>
+          </div>
+          <canvas id="nl-spark-gazex" style="width:100%;height:36px;display:block;"></canvas>
+        </div>
+        <div class="bg-card border border-border-card rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[0.68rem] text-muted">Gaze Y</span>
+            <span class="text-[0.78rem] text-primary font-medium tabular-nums" id="nl-dash-gazey">0</span>
+          </div>
+          <canvas id="nl-spark-gazey" style="width:100%;height:36px;display:block;"></canvas>
+        </div>
+      </div>
+      <!-- Heatmap + Stats -->
+      <div style="display:flex;gap:10px;flex:1;min-height:0;">
+        <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+          <span class="text-[0.72rem] text-muted mb-1.5">Screen Heatmap</span>
+          <div style="flex:1;min-height:0;position:relative;border-radius:8px;overflow:hidden;background:rgba(10,20,60,0.15);">
+            <canvas id="nl-heatmap-canvas" style="width:100%;height:100%;display:block;"></canvas>
+          </div>
+        </div>
+        <div style="width:200px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
+          <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;">
+            <span class="text-[0.72rem] text-muted font-medium">Session</span>
+            <div class="mt-2 flex flex-col gap-1.5 text-[0.72rem]">
+              <div class="flex justify-between"><span class="text-muted">Duration</span><span class="text-primary tabular-nums" id="nl-dash-duration">0s</span></div>
+              <div class="flex justify-between"><span class="text-muted">Fixations</span><span class="text-primary tabular-nums" id="nl-dash-fixations">0</span></div>
+              <div class="flex justify-between"><span class="text-muted">Avg Dur</span><span class="text-primary tabular-nums" id="nl-dash-avgdur">—</span></div>
+              <div class="flex justify-between"><span class="text-muted">Saccades</span><span class="text-primary tabular-nums" id="nl-dash-saccades">0</span></div>
+              <div class="flex justify-between"><span class="text-muted">Predictions</span><span class="text-primary tabular-nums" id="nl-dash-predictions">0</span></div>
+            </div>
+          </div>
+          <div class="bg-card border border-border-card rounded-xl p-3" style="flex-shrink:0;">
+            <span class="text-[0.72rem] text-muted font-medium">Model</span>
+            <div class="mt-2 flex flex-col gap-1 text-[0.68rem]" id="nl-dash-modelinfo">
+              <span class="text-primary">CNN v0</span>
+              <span class="text-dimmer">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function _nlRefreshDashboard() {
+  if (!_nlTracking || !document.getElementById('nl-dash-rate')) return;
+
+  _nlPushHistorySample();
+
+  // Sparklines
+  _nlDrawGraph('nl-spark-rate', _nlHistRate, '#4ade80', 0, null);
+  _nlDrawGraph('nl-spark-jitter', _nlHistJitter, '#fbbf24', 0, null);
+  _nlDrawGraph('nl-spark-gazex', _nlHistGazeX, '#60a5fa', 0, window.innerWidth);
+  _nlDrawGraph('nl-spark-gazey', _nlHistGazeY, '#a78bfa', 0, window.innerHeight);
+
+  // Sparkline values
+  const rateEl = document.getElementById('nl-dash-rate');
+  if (rateEl) rateEl.textContent = _nlPredictionRate + ' Hz';
+  const jitterEl = document.getElementById('nl-dash-jitter');
+  if (jitterEl) jitterEl.textContent = Math.round(_nlComputeJitter()) + 'px';
+  const gxEl = document.getElementById('nl-dash-gazex');
+  if (gxEl) gxEl.textContent = Math.round(_nlGazeX);
+  const gyEl = document.getElementById('nl-dash-gazey');
+  if (gyEl) gyEl.textContent = Math.round(_nlGazeY);
+
+  // Heatmap
+  _nlDrawHeatmap();
+
+  // Session stats
+  const elapsed = Math.round((Date.now() - _nlSessionStartTime) / 1000);
+  const durEl = document.getElementById('nl-dash-duration');
+  if (durEl) durEl.textContent = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+  const fixEl = document.getElementById('nl-dash-fixations');
+  if (fixEl) fixEl.textContent = _nlFixationCount.toLocaleString();
+  const avgEl = document.getElementById('nl-dash-avgdur');
+  if (avgEl) avgEl.textContent = _nlFixationDurations.length > 0 ? Math.round(_nlFixationDurations.reduce((a, b) => a + b, 0) / _nlFixationDurations.length) + 'ms' : '—';
+  const sacEl = document.getElementById('nl-dash-saccades');
+  if (sacEl) sacEl.textContent = _nlSaccadeCount.toLocaleString();
+  const predEl = document.getElementById('nl-dash-predictions');
+  if (predEl) predEl.textContent = _nlSessionPredictions.toLocaleString();
+
+  // Compact model info
+  const miEl = document.getElementById('nl-dash-modelinfo');
+  if (miEl) {
+    const valStr = _nlValError !== null ? `${_nlValError}px val` : 'no val';
+    const calStr = `${_nlCalibData.length} cal`;
+    const autoStr = _nlAutoRefineEnabled ? 'Auto \u2713' : 'Auto off';
+    miEl.innerHTML = `<span class="text-primary">CNN v${_nlModelVersion} \u00b7 ${valStr}</span><span class="text-dimmer">${calStr} \u00b7 ${autoStr}</span>`;
+  }
+
+  _nlRefreshBanner();
 }
