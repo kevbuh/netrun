@@ -629,16 +629,6 @@ function _renderPopupChat(popup, final) {
       }).join('');
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
-    let sourcesHtml = '';
-    if (m._sources && m._sources.length) {
-      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map((s, si) =>
-        `<div class="vault-chat-source-card" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">` +
-        `<span class="vault-source-num">${si + 1}</span>` +
-        `<span class="vault-source-title">${escapeHtml(s.title.length > 20 ? s.title.slice(0, 18) + '…' : s.title)}</span>` +
-        `<span class="vault-source-score">${Math.round(s.score * 100)}%</span>` +
-        `</div>`
-      ).join('') + '</div>';
-    }
     const isLast = i === _popupChatMessages.length - 1;
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
@@ -646,8 +636,36 @@ function _renderPopupChat(popup, final) {
     const speakBtn = `<button class="doc-msg-action-btn doc-msg-speak-btn" data-action="speak" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
     const copyBtn = `<button class="doc-msg-action-btn" data-action="copy" data-msg-idx="${i}" title="Copy"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
     const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
-    return `${sourcesHtml}<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${speakBtn}${copyBtn}${redoBtn}</div></div>`;
+    return `<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${speakBtn}${copyBtn}${redoBtn}</div></div>`;
   }).join('');
+  // Render vault-chat sources above the scrollable messages area
+  let sourcesContainer = popup.querySelector('.vault-chat-sources-fixed');
+  const allSources = _popupChatMessages.filter(m => m._sources && m._sources.length).flatMap(m => m._sources);
+  if (allSources.length) {
+    if (!sourcesContainer) {
+      sourcesContainer = document.createElement('div');
+      sourcesContainer.className = 'vault-chat-sources-fixed';
+      container.parentNode.insertBefore(sourcesContainer, container);
+    }
+    sourcesContainer.innerHTML = allSources.map((s, si) =>
+      `<div class="vault-chat-source-card" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">` +
+      `<span class="vault-source-num">${si + 1}</span>` +
+      `<span class="vault-source-title">${escapeHtml(s.title.length > 20 ? s.title.slice(0, 18) + '…' : s.title)}</span>` +
+      `<span class="vault-source-score">${Math.round(s.score * 100)}%</span>` +
+      `</div>`
+    ).join('');
+    sourcesContainer.querySelectorAll('.vault-chat-source-card[data-note-id]').forEach(el => {
+      el.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const noteId = el.getAttribute('data-note-id');
+        window.location.hash = 'vault';
+        setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+      });
+      el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    });
+  } else if (sourcesContainer) {
+    sourcesContainer.remove();
+  }
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
     el.addEventListener('click', (ev) => {
@@ -692,16 +710,7 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
-  // Attach click handlers for vault-chat source chips
-  container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const noteId = el.getAttribute('data-note-id');
-      window.location.hash = 'vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
+  // vault-chat source card clicks are handled above (outside scrollable area)
   // Attach message action button handlers
   container.querySelectorAll('.doc-msg-action-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());

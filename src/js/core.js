@@ -1240,7 +1240,6 @@ function showPanelForView(viewKey) {
   tabBar.innerHTML = reg.tabs.map(t =>
     `<button class="universal-panel-tab-btn${_panelActiveTab === t.id ? ' active' : ''}" data-tab-id="${t.id}" onclick="switchPanelTab('${t.id}')" title="${t.label}">${t.icon ? t.icon : ''}<span class="panel-tab-label">${t.label}</span></button>`
   ).join('');
-  _panelCheckTabOverflow();
 
   // Select default tab
   const defaultTab = reg.tabs.find(t => t.id === _panelActiveTab) ? _panelActiveTab : reg.tabs[0].id;
@@ -1250,6 +1249,7 @@ function showPanelForView(viewKey) {
     panel.style.display = 'flex';
     panel.style.width = _panelWidth + 'px';
     _applyPanelMargin();
+    requestAnimationFrame(() => _panelCheckTabOverflow());
   }
 }
 

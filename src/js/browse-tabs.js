@@ -1246,9 +1246,14 @@ function _browseOpenAsNoteMode(tab) {
   _browseHidePdfPill();
   const url = tab.url;
   const title = tab.title || url.split('/').pop().replace(/\.pdf$/i, '') || 'PDF';
-  tab.paper = { title, link: url, source: 'web', pdfUrl: url };
+  const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
+  const arxivId = arxivMatch ? arxivMatch[1] : '';
+  tab.paper = { title, link: url, source: arxivId ? 'arxiv' : 'web', arxivId };
   tab.contentType = 'pdf';
-  tab.pdfUrl = '/api/pdf-proxy?url=' + encodeURIComponent(url);
+  tab.arxivId = arxivId || null;
+  tab.pdfUrl = arxivId
+    ? '/api/arxiv-pdf?id=' + encodeURIComponent(arxivId)
+    : '/api/pdf-proxy?url=' + encodeURIComponent(url);
   // Replace frame with container div
   if (tab.el) tab.el.remove();
   const container = document.getElementById('browse-content');
@@ -1257,8 +1262,23 @@ function _browseOpenAsNoteMode(tab) {
   el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow:hidden;';
   container.appendChild(el);
   tab.el = el;
-  // Re-select to trigger PDF rendering + sidebar
-  browseSelectTab(tab.id);
+  // Hide other tabs
+  const win = _getCurrentWindow();
+  if (win) win.tabs.forEach(t => { if (t.el && t.id !== tab.id) t.el.style.display = 'none'; });
+  // Init PDF viewer directly
+  cleanupPdfViewer();
+  initPdfViewer(el, tab.pdfUrl, arxivId || ('web-' + tab.id));
+  _currentPaperViewPaper = tab.paper;
+  // Sidebar
+  const browseSb = document.getElementById('browse-sidebar');
+  if (browseSb) {
+    browseSb.innerHTML = typeof _renderSidebarHTML === 'function' ? _renderSidebarHTML(tab.paper) : '';
+    if (typeof _initSidebar === 'function') _initSidebar(browseSb);
+    browseSb.style.display = '';
+  }
+  if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(url);
+  _browseRenderTabs();
+  _browseUpdateBarForTab(tab);
   _browseSaveTabs();
 }
 
@@ -4679,26 +4699,22 @@ function browseEnableNoteMode() {
     return;
   }
 
-  // Detected PDF → open in PDF viewer with notes/highlights
-  if (tab._detectedPdf) {
+  // Detected PDF or arXiv → open in PDF viewer with notes/highlights
+  if (tab._detectedPdf || /arxiv\.org\/(abs|pdf)\//.test(tab.url)) {
     _browseOpenAsNoteMode(tab);
     return;
   }
 
   // Convert current iframe tab into a paper tab with reader view
-  const isArxiv = /arxiv\.org\/(abs|pdf)\//.test(tab.url);
-  const arxivId = isArxiv ? (tab.url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '' : '';
   tab.paper = {
     title: tab.title || _browseTitleFromUrl(tab.url),
     link: tab.url,
     description: '',
     authors: '',
     categories: [],
-    source: isArxiv ? 'arxiv' : 'browse',
-    arxivId: arxivId
+    source: 'browse'
   };
-  tab.contentType = arxivId ? 'pdf' : 'reader';
-  tab.arxivId = arxivId || null;
+  tab.contentType = 'reader';
 
   // Replace iframe with a container div
   if (tab.el) tab.el.remove();

@@ -5573,13 +5573,16 @@
       border-bottom: 1px solid var(--border-subtle);
     }
     #universal-panel-tabs.icons-only .panel-tab-label { display: none; }
+    #universal-panel-tabs.icons-only .universal-panel-tab-btn { padding: 6px 8px; justify-content: center; flex: 1; }
     #universal-panel-tabs.icons-only .universal-panel-tab-btn svg { margin-right: 0; }
     .universal-panel-tab-btn {
       display: flex;
       align-items: center;
+      justify-content: center;
       white-space: nowrap;
       flex-shrink: 0;
-      padding: 6px 10px;
+      height: 32px;
+      padding: 0 10px;
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
@@ -6912,12 +6915,14 @@
       padding: 4px 8px;
       border-radius: 6px;
     }
-    .vault-chat-sources {
+    .vault-chat-sources,
+    .vault-chat-sources-fixed {
       display: flex;
       gap: 6px;
-      margin-bottom: 6px;
+      padding: 4px 8px;
       overflow-x: auto;
       scrollbar-width: none;
+      flex-shrink: 0;
     }
     .vault-chat-sources::-webkit-scrollbar { display: none; }
     .vault-chat-source-card {

@@ -684,7 +684,7 @@ function dismissHighlightPopup() {
     _pdfPopup = null;
   }
   _pdfSavedRange = null;
-  document.removeEventListener('mousedown', _dismissPopupHandler);
+  if (typeof _dismissPopupHandler === 'function') document.removeEventListener('mousedown', _dismissPopupHandler);
 }
 
 // ── Create highlight from current selection ──
