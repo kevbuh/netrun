@@ -2409,26 +2409,43 @@ async function toggleCaptions() {
       setTimeout(() => reject(new Error('WebSocket timeout')), 5000);
     });
 
-    // Create MediaRecorder with 2s chunks on audio-only stream
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus' : 'audio/webm';
-    _ccRecorder = new MediaRecorder(_ccStream, { mimeType });
-
-    _ccRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0 && _ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
-        e.data.arrayBuffer().then(buf => {
-          if (_ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
-            _ccSocket.send(buf);
-          }
-        });
-      }
-    };
-
-    _ccRecorder.start(2000); // 2-second timeslice
+    // Start the record-stop-restart cycle
+    _ccStartRecordCycle();
   } catch (err) {
     console.warn('CC start failed:', err);
     stopCaptions();
   }
+}
+
+function _ccStartRecordCycle() {
+  if (!_ccActive || !_ccStream) return;
+
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus' : 'audio/webm';
+  _ccRecorder = new MediaRecorder(_ccStream, { mimeType });
+
+  _ccRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0 && _ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
+      e.data.arrayBuffer().then(buf => {
+        if (_ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
+          _ccSocket.send(buf);
+        }
+      });
+    }
+  };
+
+  // When this cycle's recorder stops, start a new one (produces a fresh WebM with headers each time)
+  _ccRecorder.onstop = () => {
+    if (_ccActive) _ccStartRecordCycle();
+  };
+
+  _ccRecorder.start();
+  // Stop after 2s to produce a complete, standalone WebM file
+  setTimeout(() => {
+    if (_ccRecorder && _ccRecorder.state === 'recording') {
+      _ccRecorder.stop();
+    }
+  }, 2000);
 }
 
 function stopCaptions() {
