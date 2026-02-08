@@ -136,7 +136,6 @@ let _termSettings = {
 };
 
 function openTerminal() {
-  setSidebarLoading('sb-terminal');
   hideAllViews();
   // Close bottom panel if open — terminals will be reparented to full view
   if (_bottomTerminalVisible) {

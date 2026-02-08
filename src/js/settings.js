@@ -24,7 +24,6 @@ function _setSettingsFeedTab(tab) {
 }
 
 async function openSettings() {
-  setSidebarLoading('sb-settings');
   hideAllViews();
   const view = await ensureView('settings-view');
   view.classList.add('active');

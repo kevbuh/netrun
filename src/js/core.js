@@ -823,14 +823,17 @@ let _wmWindows = _wmDefaultOrder.map(key => ({
   sidebarId: _wmViewMeta[key].sidebarId,
 }));
 
+let _wmLastNavTime = 0; // timestamp of last wmOpen navigation
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
   // Dismiss overview if open
   if (typeof _browseTabOverviewVisible !== 'undefined' && _browseTabOverviewVisible && typeof hideBrowseTabOverview === 'function') hideBrowseTabOverview();
-  // If already on this view, wiggle the sidebar icon
   const existIdx = _wmWindows.findIndex(w => w.key === key);
   if (existIdx >= 0 && existIdx === _wmFocusIndex && _wmMode === 'fullscreen') {
+    // Skip if this is a re-entrant call from the hash router after a recent navigation
+    if (Date.now() - _wmLastNavTime < 500) return;
+    // Already on this view — wiggle the sidebar icon
     const btn = document.getElementById(meta.sidebarId);
     if (btn) {
       btn.classList.remove('sb-wiggle');
@@ -838,6 +841,7 @@ function wmOpen(key) {
       btn.classList.add('sb-wiggle');
       setTimeout(() => btn.classList.remove('sb-wiggle'), 400);
     }
+    setSidebarLoading(meta.sidebarId);
     return;
   }
   _wmCapturePreview();
@@ -847,6 +851,7 @@ function wmOpen(key) {
     _wmWindows.push({ key, label: meta.label, sidebarId: meta.sidebarId });
     _wmFocusIndex = _wmWindows.length - 1;
   }
+  _wmLastNavTime = Date.now();
   _wmActivateWindow(_wmFocusIndex);
 }
 
@@ -973,7 +978,6 @@ function _wmToggleTiling() {
 })();
 
 function goHome() {
-  setSidebarLoading('sb-home');
   const alreadyOnFeed = window.location.hash === '#feed';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
   // Unmount Tier 2 views when going home
@@ -1095,7 +1099,6 @@ function openExperiments() {
 }
 
 async function openDashboard() {
-  setSidebarLoading('sb-dashboard');
   hideAllViews();
   const view = await ensureView('dashboard-view');
   view.classList.add('active');

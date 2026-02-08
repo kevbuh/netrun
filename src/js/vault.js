@@ -16,7 +16,6 @@ let _vaultPath = null; // cached vault path
 
 // Open vault view
 async function openVault() {
-  setSidebarLoading('sb-vault');
   hideAllViews();
   const view = await ensureView('vault-view');
   view.classList.add('active');

@@ -62,6 +62,16 @@ function _renderSidebarHTML(paper) {
           <div class="insight-section-title">AI</div>
           <div class="insight-section-body" id="insight-pane-ai"></div>
         </div>
+        <div class="insight-section" id="insight-drop-smart">
+          <div class="insight-section-title" style="display:flex;align-items:center;gap:6px">
+            Smart Highlights
+            <span style="flex:1"></span>
+            <button id="smart-hl-toggle" class="pdf-tb-btn" title="Toggle highlights in PDF" onclick="toggleSmartHighlightsVisibility()" style="padding:2px 4px;font-size:0.7rem;opacity:1">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
+          </div>
+          <div class="insight-section-body" id="insight-pane-smart"></div>
+        </div>
         <div class="insight-section" id="insight-drop-references">
           <div class="insight-section-title">References</div>
           <div class="insight-section-body" id="insight-pane-references"></div>
@@ -102,7 +112,7 @@ function _initSidebarForUrl(url) {
   _paperNoteSelected = null;
   _paperInsightsLoaded = false;
   _insightsDataCache = null;
-  _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
+  _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false, smart: false };
   _sidebarScrollPositions = {};
   fetchPaperNotes();
   fetchPaperComments();
@@ -319,11 +329,11 @@ async function _verifyInsightsInPdf(insights) {
 }
 
 // Track which insight sub-tabs have been loaded
-let _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
+let _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false, smart: false };
 
 async function fetchPaperInsights(url) {
   _paperInsightsLoaded = true;
-  _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
+  _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false, smart: false };
 
   // Load all sections immediately
   setTimeout(() => {

@@ -518,7 +518,7 @@
       outline: none;
       background: transparent;
       color: var(--aether-text);
-      transition: transform 0.25s ease, color 0.15s ease, background 0.15s ease;
+      transition: color 0.15s ease, background 0.15s ease;
       flex-shrink: 0;
       padding: 0;
     }

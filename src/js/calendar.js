@@ -11,7 +11,6 @@ let calendarShowForm = false;
 }
 
 async function openCalendar() {
-  setSidebarLoading('sb-calendar');
   hideAllViews();
   const view = await ensureView('calendar-view');
   view.classList.add('active');

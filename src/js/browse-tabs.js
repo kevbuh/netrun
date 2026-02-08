@@ -417,7 +417,6 @@ function openBrowse(url) {
   const alreadyVisible = view && view.style.display === 'flex';
 
   if (!alreadyVisible) {
-    setSidebarLoading('sb-browse');
     hideAllViews();
     view.classList.add('active');
     view.style.display = 'flex';
@@ -1807,6 +1806,7 @@ function _browseUpdateNewTabPage(tab) {
   } else if (ntp) {
     ntp.style.display = 'none';
   }
+  if (_browseTabLayout === 'vertical') _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');
   if (pinchOverlay) pinchOverlay.style.pointerEvents = (tab && tab.blank) ? 'none' : 'auto';
 }
@@ -2747,9 +2747,17 @@ function _pillSyncUrl() {
   const input = document.getElementById('pill-browse-url-input');
   if (!input) return;
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  input.value = (tab && !tab.blank && tab.url) ? tab.url : '';
+  const isBlankNtp = tab && tab.blank;
+  input.value = (!isBlankNtp && tab && tab.url) ? tab.url : '';
+  // Hide URL input + reload in vertical mode on new tab page
+  if (_browseTabLayout === 'vertical') {
+    input.style.visibility = isBlankNtp ? 'hidden' : '';
+    input.style.pointerEvents = isBlankNtp ? 'none' : '';
+    const reload = document.getElementById('pill-browse-reload');
+    if (reload) reload.style.display = isBlankNtp ? 'none' : '';
+  }
   // Safety net: ensure NTP is hidden when a non-blank tab is active in vertical mode
-  if (tab && !tab.blank) {
+  if (!isBlankNtp) {
     const ntp = document.getElementById('browse-content')?.querySelector('.browse-ntp');
     if (ntp) ntp.style.display = 'none';
   }

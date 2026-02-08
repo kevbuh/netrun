@@ -22,6 +22,7 @@ from persistence import (
     cached_fetch, get_cached_references, set_cached_references,
     get_cached_author, set_cached_author,
     store_embedding, embed_text_ollama, search_embeddings,
+    smart_highlights_get, smart_highlights_set,
 )
 
 bp = Blueprint('content', __name__)
@@ -35,6 +36,27 @@ _S2_CACHE_TTL = 3600  # 1 hour
 
 # In-memory cache for paper insights: url -> { repos, contribution }
 _insights_cache = {}
+
+# In-memory cache for smart highlights: url -> [items]
+_smart_hl_cache = {}
+
+SMART_HIGHLIGHTS_PROMPT = (
+    "You are a research paper analyzer. Read the document text below and extract "
+    "8-15 important passages grouped into three categories:\n"
+    "- Claim (3-5): Key claims, hypotheses, or contributions made by the authors\n"
+    "- Method (2-4): Methodological approaches, techniques, or algorithms described\n"
+    "- Result (3-5): Experimental results, findings, or quantitative outcomes\n\n"
+    "For each item provide:\n"
+    "- \"category\": one of \"Claim\", \"Method\", or \"Result\"\n"
+    "- \"text\": an EXACT verbatim quote from the document (copy-paste, do not paraphrase)\n"
+    "- \"summary\": a 1-sentence plain-English paraphrase\n\n"
+    "Rules:\n"
+    "- Each \"text\" MUST be a direct quote that appears word-for-word in the document\n"
+    "- Skip boilerplate (acknowledgments, references, license text, author affiliations)\n"
+    "- Keep quotes between 10-80 words each\n"
+    "- Respond ONLY with a JSON array, no other text\n\n"
+    "--- DOCUMENT TEXT ---\n"
+)
 
 
 # ── Helper: extract text from a URL (shared by extract-text and paper-insights) ──
@@ -344,6 +366,69 @@ def extract_links():
         return jsonify({'error': str(e)}), 502
 
 
+def _extract_smart_highlights(body):
+    """Extract structured Claims/Methods/Results highlights from a paper."""
+    url = body.get('url', '').strip()
+    if not url:
+        return jsonify({'error': 'url required'}), 400
+
+    # Check in-memory cache
+    if url in _smart_hl_cache:
+        return jsonify({'highlights': _smart_hl_cache[url]})
+
+    # Check SQLite cache
+    cached = smart_highlights_get(url)
+    if cached is not None:
+        _smart_hl_cache[url] = cached
+        return jsonify({'highlights': cached})
+
+    # Extract text
+    extracted = _do_extract_text(url)
+    text = extracted['text']
+    truncated_text = text[:15000]
+
+    highlights = []
+    try:
+        prompt = SMART_HIGHLIGHTS_PROMPT + truncated_text + "\n--- END ---"
+        llm_payload = json.dumps({
+            "model": "qwen2.5:3b",
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"temperature": 0, "num_predict": 3000}
+        }).encode()
+        llm_req = urllib.request.Request(
+            "http://localhost:11434/api/chat",
+            data=llm_payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(llm_req, timeout=90) as llm_resp:
+            llm_data = json.loads(llm_resp.read())
+        raw_content = llm_data.get("message", {}).get("content", "").strip()
+        # Parse JSON from response (handle markdown code fences)
+        json_str = raw_content
+        if '```' in json_str:
+            json_str = re.sub(r'```(?:json)?\s*', '', json_str)
+            json_str = json_str.replace('```', '')
+        json_str = json_str.strip()
+        parsed = json.loads(json_str)
+        valid_cats = {'Claim', 'Method', 'Result'}
+        if isinstance(parsed, list):
+            for item in parsed[:15]:
+                if isinstance(item, dict) and item.get('category') in valid_cats and item.get('text'):
+                    highlights.append({
+                        'category': item['category'],
+                        'text': item['text'][:500],
+                        'summary': (item.get('summary') or '')[:300],
+                    })
+    except Exception as e:
+        print(f"[smart-highlights] LLM extraction failed: {e}")
+
+    # Cache results
+    _smart_hl_cache[url] = highlights
+    smart_highlights_set(url, highlights)
+    return jsonify({'highlights': highlights})
+
+
 @bp.route('/api/paper-insights', methods=['POST'])
 def paper_insights():
     try:
@@ -351,6 +436,12 @@ def paper_insights():
         url = body.get('url', '').strip()
         if not url:
             return jsonify({'error': 'url required'}), 400
+
+        # Smart highlights mode — separate extraction pipeline
+        mode = body.get('mode', 'insights')
+        if mode == 'highlights':
+            return _extract_smart_highlights(body)
+
         allow_heuristics = body.get('allowHeuristics', True)
         _cache_key = url + ('::h' if allow_heuristics else '::noh')
         # Cache read disabled for dev -- always fetch fresh

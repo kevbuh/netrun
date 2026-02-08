@@ -41,6 +41,17 @@ let _pdfExtractedLinks = new Set();
 // ── PDF outline / table of contents ──
 let _pdfOutline = null;
 
+// ── Smart Highlights state ──
+let _smartHighlights = [];
+let _smartHighlightsVisible = true;
+let _smartHighlightOverlays = [];
+
+const SMART_HL_COLORS = {
+  Claim:  { bg: 'rgba(66,165,245,0.18)',  border: 'rgba(66,165,245,0.6)',  solid: '#42a5f5' },
+  Method: { bg: 'rgba(171,71,188,0.18)',  border: 'rgba(171,71,188,0.6)',  solid: '#ab47bc' },
+  Result: { bg: 'rgba(76,175,80,0.18)',   border: 'rgba(76,175,80,0.6)',   solid: '#4caf50' },
+};
+
 // ── Fit-width / spread / dark mode state ──
 let _pdfFitWidthMode = false;
 let _pdfDarkRender = false;
@@ -1694,6 +1705,88 @@ function pdfDrawRedo() {
   replayDrawingsForPage(pageNum);
 }
 
+// ── Smart Highlights in PDF ──
+
+async function renderSmartHighlightsInPdf(items) {
+  clearSmartHighlightOverlays();
+  _smartHighlights = items || [];
+  if (!_smartHighlights.length || !_pdfPagesContainer || !_smartHighlightsVisible) return;
+
+  await _ensureAllPagesRendered();
+
+  const wrappers = _pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+  for (const item of _smartHighlights) {
+    const queryNorm = _normalizeForSearch(item.text);
+    if (queryNorm.length < 5) continue;
+    const colors = SMART_HL_COLORS[item.category] || SMART_HL_COLORS.Claim;
+
+    for (const wrapper of wrappers) {
+      const pageIdx = _buildPageIndex(wrapper);
+      if (!pageIdx) continue;
+
+      let searchFrom = 0;
+      while (true) {
+        const idx = pageIdx.joined.indexOf(queryNorm, searchFrom);
+        if (idx === -1) break;
+        searchFrom = idx + 1;
+
+        const matchChars = pageIdx.charMap.slice(idx, idx + queryNorm.length);
+        const involvedSpans = new Set();
+        matchChars.forEach(c => { if (c.span) involvedSpans.add(c.span); });
+
+        const wrapperRect = wrapper.getBoundingClientRect();
+        involvedSpans.forEach(span => {
+          const rect = span.getBoundingClientRect();
+          if (rect.width < 1 || rect.height < 1) return;
+          const div = document.createElement('div');
+          div.className = 'pdf-smart-highlight';
+          div.style.left = (rect.left - wrapperRect.left) + 'px';
+          div.style.top = (rect.top - wrapperRect.top) + 'px';
+          div.style.width = rect.width + 'px';
+          div.style.height = rect.height + 'px';
+          div.style.background = colors.bg;
+          div.style.borderBottom = '2px solid ' + colors.border;
+          pageIdx.hlLayer.appendChild(div);
+          _smartHighlightOverlays.push(div);
+        });
+        break; // only highlight first match per page
+      }
+    }
+  }
+}
+
+function clearSmartHighlightOverlays() {
+  _smartHighlightOverlays.forEach(el => el.remove());
+  _smartHighlightOverlays = [];
+}
+
+function toggleSmartHighlightsVisibility() {
+  _smartHighlightsVisible = !_smartHighlightsVisible;
+  if (_smartHighlightsVisible) {
+    renderSmartHighlightsInPdf(_smartHighlights);
+  } else {
+    clearSmartHighlightOverlays();
+  }
+  // Update toggle button
+  const btn = document.getElementById('smart-hl-toggle');
+  if (btn) btn.style.opacity = _smartHighlightsVisible ? '1' : '0.4';
+}
+
+function loadSmartHighlights(key) {
+  try {
+    const all = JSON.parse(localStorage.getItem('smartHighlights') || '{}');
+    return all[key] || null;
+  } catch { return null; }
+}
+
+function saveSmartHighlights(key, data) {
+  try {
+    const all = JSON.parse(localStorage.getItem('smartHighlights') || '{}');
+    all[key] = data;
+    localStorage.setItem('smartHighlights', JSON.stringify(all));
+  } catch {}
+}
+
 // ── Cleanup ──
 
 function cleanupPdfViewer() {
@@ -1723,6 +1816,9 @@ function cleanupPdfViewer() {
   _pdfFitWidthMode = false;
   _pdfDarkRender = false;
   _pdfSpreadMode = false;
+  clearSmartHighlightOverlays();
+  _smartHighlights = [];
+  _smartHighlightsVisible = true;
   pdfClearSearchHighlights();
   dismissHighlightPopup();
   dismissNotePopup();
@@ -1997,16 +2093,11 @@ function _renderPdfLinks() {
 }
 
 // ── Citation Hover Popup ──
-let _citationPopup = null;
-let _citationHoverTimeout = null;
 let _citationCache = {}; // Cache looked up citations
 
 function dismissCitationPopup() {
-  clearTimeout(_citationHoverTimeout);
-  if (_citationPopup) {
-    _citationPopup.remove();
-    _citationPopup = null;
-  }
+  // Remove the lookup popup if present
+  document.getElementById('doc-chat-ask-float')?.remove();
 }
 
 function showCitationPopup(refNum, anchorEl) {
@@ -2014,8 +2105,43 @@ function showCitationPopup(refNum, anchorEl) {
   _showReferencePopup(refNum, anchorEl);
 }
 
+// Extract reference text from a block of text using common citation patterns.
+// Shared by findReferenceText (sync, from text layers) and _findReferenceTextAsync (async, from PDF pages).
+function _extractRefFromText(refNum, text) {
+  const patterns = [
+    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([^\\[\\]]{10,300})`, 'i'),
+    new RegExp(`(?:^|\\s)${refNum}\\.\\s*([^\\n]{10,300})`, 'm'),
+    new RegExp(`\\(\\s*${refNum}\\s*\\)\\s*([^\\(\\)]{10,300})`, 'i'),
+    new RegExp(`(?:^|\\s)${refNum}\\s+([A-Z][a-z]+[^\\d]{10,200})`, 'm'),
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      let refText = match[1].trim();
+      const titleMatch = refText.match(/"([^"]+)"|\u201C([^\u201D]+)\u201D|'([^']+)'/);
+      if (titleMatch) return titleMatch[1] || titleMatch[2] || titleMatch[3];
+      return refText.slice(0, 100).replace(/\s+/g, ' ');
+    }
+  }
+  return null;
+}
+
+// Global fallback: search all collected text for reference patterns
+function _extractRefGlobal(refNum, allText) {
+  const globalPatterns = [
+    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([A-Z][^\\[\\]]{10,200})`, 'g'),
+    new RegExp(`(?:^|\\n)\\s*${refNum}\\.\\s*([A-Z][^\\n]{10,200})`, 'gm'),
+  ];
+  for (const pattern of globalPatterns) {
+    const matches = [...allText.matchAll(pattern)];
+    if (matches.length > 0) {
+      return matches[matches.length - 1][1].trim().slice(0, 100).replace(/\s+/g, ' ');
+    }
+  }
+  return null;
+}
+
 function findReferenceText(refNum) {
-  // Try to find the reference in the rendered PDF pages (fallback if API fails)
   if (!_pdfPagesContainer) return null;
 
   const textLayers = _pdfPagesContainer.querySelectorAll('.textLayer');
@@ -2026,47 +2152,15 @@ function findReferenceText(refNum) {
     const text = layer.textContent || '';
     allText += text + '\n';
 
-    if (/references|bibliography/i.test(text)) {
-      inReferences = true;
-    }
+    if (/references|bibliography/i.test(text)) inReferences = true;
 
     if (inReferences) {
-      const patterns = [
-        new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([^\\[\\]]{10,300})`, 'i'),
-        new RegExp(`(?:^|\\s)${refNum}\\.\\s*([^\\n]{10,300})`, 'm'),
-        new RegExp(`\\(\\s*${refNum}\\s*\\)\\s*([^\\(\\)]{10,300})`, 'i'),
-        new RegExp(`(?:^|\\s)${refNum}\\s+([A-Z][a-z]+[^\\d]{10,200})`, 'm'),
-      ];
-
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) {
-          let refText = match[1].trim();
-          const titleMatch = refText.match(/"([^"]+)"|"([^"]+)"|'([^']+)'/);
-          if (titleMatch) {
-            return titleMatch[1] || titleMatch[2] || titleMatch[3];
-          }
-          return refText.slice(0, 100).replace(/\s+/g, ' ');
-        }
-      }
+      const result = _extractRefFromText(refNum, text);
+      if (result) return result;
     }
   }
 
-  // Fallback: search all text
-  const globalPatterns = [
-    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([A-Z][^\\[\\]]{10,200})`, 'g'),
-    new RegExp(`(?:^|\\n)\\s*${refNum}\\.\\s*([A-Z][^\\n]{10,200})`, 'gm'),
-  ];
-
-  for (const pattern of globalPatterns) {
-    const matches = [...allText.matchAll(pattern)];
-    if (matches.length > 0) {
-      const match = matches[matches.length - 1];
-      return match[1].trim().slice(0, 100).replace(/\s+/g, ' ');
-    }
-  }
-
-  return null;
+  return _extractRefGlobal(refNum, allText);
 }
 
 function setupCitationHovers(textLayerDiv) {
@@ -2241,9 +2335,3 @@ function _onTocItemClick(el) {
   if (dest) _navigateToPdfDest(dest);
 }
 
-// Close citation popup when clicking outside
-document.addEventListener('click', (e) => {
-  if (_citationPopup && !e.target.closest('.citation-popup') && !e.target.closest('.pdf-citation-ref')) {
-    dismissCitationPopup();
-  }
-}, true);

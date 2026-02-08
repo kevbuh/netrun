@@ -515,6 +515,13 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_emb_type ON embeddings(content_type);
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS smart_highlights_cache (
+            url_hash TEXT PRIMARY KEY,
+            highlights_json TEXT NOT NULL,
+            cached_at REAL NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -574,6 +581,34 @@ def quality_cache_set(entries, prompt_hash):
             "INSERT OR REPLACE INTO quality_cache (title_hash, prompt_hash, verdict, score, cached_at) VALUES (?, ?, ?, ?, ?)",
             (th, prompt_hash, verdict, score, now)
         )
+    conn.commit()
+    conn.close()
+
+
+# ── Smart highlights cache ──
+
+def smart_highlights_get(url):
+    """Look up cached smart highlights for a paper URL. Returns parsed JSON or None."""
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:20]
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT highlights_json FROM smart_highlights_cache WHERE url_hash = ?",
+        (url_hash,)
+    ).fetchone()
+    conn.close()
+    if row:
+        return json.loads(row['highlights_json'])
+    return None
+
+
+def smart_highlights_set(url, data):
+    """Store smart highlights for a paper URL."""
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:20]
+    conn = _get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO smart_highlights_cache (url_hash, highlights_json, cached_at) VALUES (?, ?, ?)",
+        (url_hash, json.dumps(data), time.time())
+    )
     conn.commit()
     conn.close()
 

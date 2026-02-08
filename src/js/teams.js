@@ -243,7 +243,6 @@ function showEmojiPicker(teamId, msgId, btn) {
 // ── Inbox View ──
 
 async function openInbox() {
-  setSidebarLoading('sb-inbox');
   hideAllViews();
   const view = await ensureView('inbox-view');
   view.classList.add('active');

@@ -1155,7 +1155,6 @@ async function _findReferenceTextAsync(refNum) {
   // Extract text from the last pages of the PDF to find the reference
   if (typeof _pdfDoc === 'undefined' || !_pdfDoc) return null;
   const total = _pdfDoc.numPages;
-  // Search last 5 pages (references are usually at the end)
   const startPage = Math.max(1, total - 4);
 
   let allText = '';
@@ -1163,285 +1162,18 @@ async function _findReferenceTextAsync(refNum) {
     try {
       const page = await _pdfDoc.getPage(p);
       const content = await page.getTextContent();
-      // Join items without extra spaces — PDF.js items already include trailing spaces
       const pageText = content.items.map(item => item.str + (item.hasEOL ? '\n' : '')).join('');
       allText += pageText + '\n';
     } catch (e) { /* skip */ }
   }
 
   if (!allText) return null;
-
-  // Search for the reference pattern
-  const patterns = [
-    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([^\\[\\]]{10,300})`, 'i'),
-    new RegExp(`(?:^|\\s)${refNum}\\.\\s*([^\\n]{10,300})`, 'm'),
-    new RegExp(`\\(\\s*${refNum}\\s*\\)\\s*([^\\(\\)]{10,300})`, 'i'),
-    new RegExp(`(?:^|\\s)${refNum}\\s+([A-Z][a-z]+[^\\d]{10,200})`, 'm'),
-  ];
-
-  for (const pattern of patterns) {
-    const match = allText.match(pattern);
-    if (match) {
-      let refText = match[1].trim();
-      // Try to extract a quoted title
-      const titleMatch = refText.match(/"([^"]+)"|[\u201C]([^\u201D]+)[\u201D]|'([^']+)'/);
-      if (titleMatch) {
-        return titleMatch[1] || titleMatch[2] || titleMatch[3];
-      }
-      return refText.slice(0, 100).replace(/\s+/g, ' ');
-    }
-  }
-
-  // Broader fallback
-  const globalPatterns = [
-    new RegExp(`\\[\\s*${refNum}\\s*\\]\\s*([A-Z][^\\[\\]]{10,200})`, 'g'),
-    new RegExp(`(?:^|\\n)\\s*${refNum}\\.\\s*([A-Z][^\\n]{10,200})`, 'gm'),
-  ];
-  for (const pattern of globalPatterns) {
-    const matches = [...allText.matchAll(pattern)];
-    if (matches.length > 0) {
-      return matches[matches.length - 1][1].trim().slice(0, 100).replace(/\s+/g, ' ');
-    }
-  }
-
-  return null;
+  return _extractRefFromText(refNum, allText) || _extractRefGlobal(refNum, allText);
 }
 
-function _showReferencePopup(refNum, anchorEl) {
-  // Remove any existing popup
-  const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) existing.remove();
-  if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
-
-  _popupChatMessages = [];
-  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-
-  const popup = document.createElement('div');
-  popup.id = 'doc-chat-ask-float';
-  popup.className = 'doc-selection-popup';
-  popup.style.visibility = 'hidden';
-
-  // -- Reference info area (loading initially) --
-  const refInfo = document.createElement('div');
-  refInfo.className = 'doc-ref-info';
-  refInfo.innerHTML = `<div class="doc-ref-loading"><span class="spinner"></span> Looking up [${refNum}]…</div>`;
-  popup.appendChild(refInfo);
-
-  // -- Ask input + send button --
-  const askWrap = document.createElement('div');
-  askWrap.className = 'doc-ask-inline-wrap';
-  const askInput = document.createElement('input');
-  askInput.type = 'text';
-  askInput.placeholder = 'Ask about this reference…';
-  askInput.className = 'doc-ask-inline-input';
-  askInput.disabled = true; // Enabled once reference loads
-  const sendBtn = document.createElement('button');
-  sendBtn.className = 'doc-ask-inline-send';
-  sendBtn.innerHTML = '↑';
-  sendBtn.title = 'Send';
-  sendBtn.disabled = true;
-
-  // We'll store the context text for chat once the reference loads
-  let refContextText = `Reference [${refNum}]`;
-
-  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  sendBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
-    _sendPopupChatMessage(popup, refContextText);
-  });
-  askInput.addEventListener('keydown', (ev) => {
-    ev.stopPropagation();
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      _sendPopupChatMessage(popup, refContextText);
-    }
-    if (ev.key === 'Escape') {
-      ev.preventDefault();
-      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _aetherPinned = false;
-      popup.remove();
-      _aetherShowCursor();
-      _aetherRestoreFocus();
-    }
-  });
-  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
-
-  // -- Inline chat area (hidden until first message) --
-  const chatArea = document.createElement('div');
-  chatArea.className = 'doc-popup-chat-area';
-  const chatMsgs = document.createElement('div');
-  chatMsgs.className = 'doc-popup-chat-messages';
-  chatArea.appendChild(chatMsgs);
-  const chatActions = document.createElement('div');
-  chatActions.className = 'doc-popup-chat-actions';
-  const clearBtn = document.createElement('button');
-  clearBtn.textContent = 'Clear';
-  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  clearBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _popupChatMessages = [];
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    chatMsgs.innerHTML = '';
-    chatArea.classList.remove('visible');
-    popup.classList.remove('has-chat');
-    _repositionSelectionPopup();
-  });
-  const statsSpan2 = document.createElement('span');
-  statsSpan2.className = 'doc-chat-stats';
-  chatActions.appendChild(statsSpan2);
-  chatActions.appendChild(clearBtn);
-  chatArea.appendChild(chatActions);
-  popup.appendChild(chatArea);
-
-  // Ask input always at the bottom
-  askWrap.appendChild(askInput);
-  askWrap.appendChild(sendBtn);
-  popup.appendChild(askWrap);
-
-  popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  document.body.appendChild(popup);
-
-  // Position above the anchor element
-  const anchorRect = anchorEl.getBoundingClientRect();
-  const popupRect = popup.getBoundingClientRect();
-  let top = anchorRect.top - popupRect.height - 8;
-  const fitsAbove = top >= 4;
-  if (!fitsAbove) top = anchorRect.bottom + 8;
-  let left = anchorRect.left;
-  if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
-  if (left < 4) left = 4;
-  popup.style.top = top + 'px';
-  popup.style.left = left + 'px';
-  popup.style.visibility = '';
-  popup._anchorTop = anchorRect.top;
-  popup._anchorBottom = anchorRect.bottom;
-  popup._anchorLeft = anchorRect.left;
-  popup._aboveSelection = fitsAbove;
-
-  // Fetch reference data
-  const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
-  if (_citationCache[cacheKey]) {
-    _renderRefInfo(refInfo, _citationCache[cacheKey], refNum, popup);
-    refContextText = _buildRefContext(_citationCache[cacheKey], refNum);
-    askInput.disabled = false;
-    sendBtn.disabled = false;
-    _repositionSelectionPopup();
-    setTimeout(() => askInput.focus(), 10);
-    return;
-  }
-
-  // Try sync search first (rendered pages), then async (extract from PDF directly)
-  const refText = typeof findReferenceText === 'function' ? findReferenceText(refNum) : null;
-
-  const doLookup = (query) => {
-    fetch('/api/citation-lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query })
-    })
-      .then(r => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.json();
-      })
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        _citationCache[cacheKey] = data;
-        _renderRefInfo(refInfo, data, refNum, popup);
-        refContextText = _buildRefContext(data, refNum);
-        askInput.disabled = false;
-        sendBtn.disabled = false;
-        _repositionSelectionPopup();
-        setTimeout(() => askInput.focus(), 10);
-      })
-      .catch(() => {
-        // Show the extracted reference text even if the API is down
-        refInfo.innerHTML = `<div class="doc-ref-badge">[${refNum}]</div><div class="doc-ref-title" style="font-weight:400">${escapeHtml(query)}</div><div class="doc-ref-meta" style="color:var(--text-dimmer)">Semantic Scholar unavailable</div>`;
-        refContextText = `Reference [${refNum}]: ${query}`;
-        askInput.disabled = false;
-        sendBtn.disabled = false;
-        _repositionSelectionPopup();
-        setTimeout(() => askInput.focus(), 10);
-      });
-  };
-
-  const showNotFound = () => {
-    refInfo.innerHTML = `<div class="doc-ref-error">Could not find [${refNum}]</div>`;
-    askInput.disabled = false;
-    sendBtn.disabled = false;
-    _repositionSelectionPopup();
-  };
-
-  if (refText) {
-    doLookup(refText);
-  } else {
-    // Async fallback: extract text from last pages of PDF to find reference
-    _findReferenceTextAsync(refNum).then(asyncRefText => {
-      if (asyncRefText) {
-        doLookup(asyncRefText);
-      } else {
-        showNotFound();
-      }
-    }).catch(() => showNotFound());
-  }
-}
-
-function _renderRefInfo(container, data, refNum, popup) {
-  const authors = data.authors?.length
-    ? data.authors.slice(0, 3).join(', ') + (data.authors.length > 3 ? ' et al.' : '')
-    : '';
-  const abstract = data.abstract ? (data.abstract.length > 150 ? data.abstract.slice(0, 150) + '…' : data.abstract) : '';
-
-  let html = refNum != null ? `<div class="doc-ref-badge">[${refNum}]</div>` : '';
-  html += `<div class="doc-ref-title">${escapeHtml(data.title || 'Unknown')}</div>`;
-  if (authors || data.year) {
-    html += `<div class="doc-ref-meta">`;
-    if (authors) html += `<span>${escapeHtml(authors)}</span>`;
-    if (data.venue) html += `<span> · ${escapeHtml(data.venue)}</span>`;
-    if (data.year) html += `<span> · ${data.year}</span>`;
-    html += `</div>`;
-  }
-  if (abstract) html += `<div class="doc-ref-abstract">${escapeHtml(abstract)}</div>`;
-  html += `<div class="doc-ref-footer">`;
-  html += `<span class="doc-ref-cited">Cited by ${fmtNum(data.citationCount)}</span>`;
-  if (data.url) html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" data-external-link>View paper →</a>`;
-  // Open in viewer if it has an arXiv ID
-  if (data.arxivId) {
-    html += `<a class="doc-ref-link" href="#view/${encodeURIComponent('https://arxiv.org/abs/' + data.arxivId)}" data-ref-nav>Open →</a>`;
-  }
-  html += `</div>`;
-  container.innerHTML = html;
-  // External links: explicit window.open to guarantee new browser tab
-  container.querySelectorAll('[data-external-link]').forEach(a => {
-    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    a.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      window.open(a.getAttribute('href'), '_blank');
-    });
-  });
-  // In-app navigation links
-  container.querySelectorAll('[data-ref-nav]').forEach(a => {
-    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    a.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      document.getElementById('doc-chat-ask-float')?.remove();
-    });
-  });
-}
-
-function _buildRefContext(data, refNum) {
-  let ctx = refNum != null ? `Reference [${refNum}]` : 'Paper';
-  if (data.title) ctx += `: "${data.title}"`;
-  if (data.authors?.length) ctx += ` by ${data.authors.slice(0, 3).join(', ')}`;
-  if (data.year) ctx += ` (${data.year})`;
-  if (data.abstract) ctx += `\n\nAbstract: ${data.abstract.slice(0, 300)}`;
-  return ctx;
-}
-
-// Title-based lookup popup — used by paper-sidebar references tab.
-// Reuses the same popup structure as _showReferencePopup but queries by title
-// instead of extracting reference text from the PDF.
-function _showTitleLookupPopup(title, anchorEl) {
+// Shared popup scaffolding for reference and title-based lookups.
+// Returns { popup, refInfo, askInput, sendBtn, setContext(text) }.
+function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) existing.remove();
   if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
@@ -1456,14 +1188,14 @@ function _showTitleLookupPopup(title, anchorEl) {
 
   const refInfo = document.createElement('div');
   refInfo.className = 'doc-ref-info';
-  refInfo.innerHTML = `<div class="doc-ref-loading"><span class="spinner"></span> Looking up paper…</div>`;
+  refInfo.innerHTML = loadingHtml;
   popup.appendChild(refInfo);
 
   const askWrap = document.createElement('div');
   askWrap.className = 'doc-ask-inline-wrap';
   const askInput = document.createElement('input');
   askInput.type = 'text';
-  askInput.placeholder = 'Ask about this paper…';
+  askInput.placeholder = placeholder;
   askInput.className = 'doc-ask-inline-input';
   askInput.disabled = true;
   const sendBtn = document.createElement('button');
@@ -1472,17 +1204,21 @@ function _showTitleLookupPopup(title, anchorEl) {
   sendBtn.title = 'Send';
   sendBtn.disabled = true;
 
-  let refContextText = title;
+  let _ctx = '';
+  const ctx = {
+    get text() { return _ctx; },
+    set text(v) { _ctx = v; }
+  };
 
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   sendBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
-    _sendPopupChatMessage(popup, refContextText);
+    _sendPopupChatMessage(popup, ctx.text);
   });
   askInput.addEventListener('keydown', (ev) => {
     ev.stopPropagation();
-    if (ev.key === 'Enter') { ev.preventDefault(); _sendPopupChatMessage(popup, refContextText); }
+    if (ev.key === 'Enter') { ev.preventDefault(); _sendPopupChatMessage(popup, ctx.text); }
     if (ev.key === 'Escape') {
       ev.preventDefault();
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -1543,6 +1279,126 @@ function _showTitleLookupPopup(title, anchorEl) {
   popup._anchorLeft = anchorRect.left;
   popup._aboveSelection = fitsAbove;
 
+  const enableInput = () => { askInput.disabled = false; sendBtn.disabled = false; _repositionSelectionPopup(); setTimeout(() => askInput.focus(), 10); };
+
+  return { popup, refInfo, askInput, sendBtn, ctx, enableInput };
+}
+
+function _showReferencePopup(refNum, anchorEl) {
+  const { popup, refInfo, ctx, enableInput } = _buildLookupPopup(
+    anchorEl,
+    'Ask about this reference…',
+    `<div class="doc-ref-loading"><span class="spinner"></span> Looking up [${refNum}]…</div>`
+  );
+  ctx.text = `Reference [${refNum}]`;
+
+  // Check cache
+  const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
+  if (_citationCache[cacheKey]) {
+    _renderRefInfo(refInfo, _citationCache[cacheKey], refNum, popup);
+    ctx.text = _buildRefContext(_citationCache[cacheKey], refNum);
+    enableInput();
+    return;
+  }
+
+  const doLookup = (query) => {
+    fetch('/api/citation-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    })
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        _citationCache[cacheKey] = data;
+        _renderRefInfo(refInfo, data, refNum, popup);
+        ctx.text = _buildRefContext(data, refNum);
+        enableInput();
+      })
+      .catch(() => {
+        refInfo.innerHTML = `<div class="doc-ref-badge">[${refNum}]</div><div class="doc-ref-title" style="font-weight:400">${escapeHtml(query)}</div><div class="doc-ref-meta" style="color:var(--text-dimmer)">Semantic Scholar unavailable</div>`;
+        ctx.text = `Reference [${refNum}]: ${query}`;
+        enableInput();
+      });
+  };
+
+  const showNotFound = () => {
+    refInfo.innerHTML = `<div class="doc-ref-error">Could not find [${refNum}]</div>`;
+    enableInput();
+  };
+
+  const refText = typeof findReferenceText === 'function' ? findReferenceText(refNum) : null;
+  if (refText) {
+    doLookup(refText);
+  } else {
+    _findReferenceTextAsync(refNum).then(asyncRefText => {
+      if (asyncRefText) doLookup(asyncRefText);
+      else showNotFound();
+    }).catch(() => showNotFound());
+  }
+}
+
+function _renderRefInfo(container, data, refNum, popup) {
+  const authors = data.authors?.length
+    ? data.authors.slice(0, 3).join(', ') + (data.authors.length > 3 ? ' et al.' : '')
+    : '';
+  const abstract = data.abstract ? (data.abstract.length > 150 ? data.abstract.slice(0, 150) + '…' : data.abstract) : '';
+
+  let html = refNum != null ? `<div class="doc-ref-badge">[${refNum}]</div>` : '';
+  html += `<div class="doc-ref-title">${escapeHtml(data.title || 'Unknown')}</div>`;
+  if (authors || data.year) {
+    html += `<div class="doc-ref-meta">`;
+    if (authors) html += `<span>${escapeHtml(authors)}</span>`;
+    if (data.venue) html += `<span> · ${escapeHtml(data.venue)}</span>`;
+    if (data.year) html += `<span> · ${data.year}</span>`;
+    html += `</div>`;
+  }
+  if (abstract) html += `<div class="doc-ref-abstract">${escapeHtml(abstract)}</div>`;
+  html += `<div class="doc-ref-footer">`;
+  html += `<span class="doc-ref-cited">Cited by ${fmtNum(data.citationCount)}</span>`;
+  if (data.url) html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" data-external-link>View paper →</a>`;
+  // Open in viewer if it has an arXiv ID
+  if (data.arxivId) {
+    html += `<a class="doc-ref-link" href="#view/${encodeURIComponent('https://arxiv.org/abs/' + data.arxivId)}" data-ref-nav>Open →</a>`;
+  }
+  html += `</div>`;
+  container.innerHTML = html;
+  // External links: explicit window.open to guarantee new browser tab
+  container.querySelectorAll('[data-external-link]').forEach(a => {
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      window.open(a.getAttribute('href'), '_blank');
+    });
+  });
+  // In-app navigation links
+  container.querySelectorAll('[data-ref-nav]').forEach(a => {
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    a.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      document.getElementById('doc-chat-ask-float')?.remove();
+    });
+  });
+}
+
+function _buildRefContext(data, refNum) {
+  let ctx = refNum != null ? `Reference [${refNum}]` : 'Paper';
+  if (data.title) ctx += `: "${data.title}"`;
+  if (data.authors?.length) ctx += ` by ${data.authors.slice(0, 3).join(', ')}`;
+  if (data.year) ctx += ` (${data.year})`;
+  if (data.abstract) ctx += `\n\nAbstract: ${data.abstract.slice(0, 300)}`;
+  return ctx;
+}
+
+// Title-based lookup popup — used by paper-sidebar references tab.
+function _showTitleLookupPopup(title, anchorEl) {
+  const { refInfo, ctx, enableInput } = _buildLookupPopup(
+    anchorEl,
+    'Ask about this paper…',
+    `<div class="doc-ref-loading"><span class="spinner"></span> Looking up paper…</div>`
+  );
+  ctx.text = title;
+
   fetch('/api/citation-lookup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1551,18 +1407,13 @@ function _showTitleLookupPopup(title, anchorEl) {
     .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
     .then(data => {
       if (data.error) throw new Error(data.error);
-      _renderRefInfo(refInfo, data, null, popup);
-      refContextText = _buildRefContext(data, null);
-      askInput.disabled = false;
-      sendBtn.disabled = false;
-      _repositionSelectionPopup();
-      setTimeout(() => askInput.focus(), 10);
+      _renderRefInfo(refInfo, data, null, null);
+      ctx.text = _buildRefContext(data, null);
+      enableInput();
     })
     .catch(() => {
       refInfo.innerHTML = `<div class="doc-ref-error">Could not find paper info</div>`;
-      askInput.disabled = false;
-      sendBtn.disabled = false;
-      _repositionSelectionPopup();
+      enableInput();
     });
 }
 
