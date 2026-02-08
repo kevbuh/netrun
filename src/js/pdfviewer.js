@@ -752,10 +752,15 @@ function _initPdfThumbs() {
       label.textContent = i;
       item.appendChild(label);
 
-      item.addEventListener('click', () => _pdfThumbGoToPage(i));
       item.addEventListener('keydown', e => _pdfThumbKeyHandler(e, i));
       scroll.appendChild(item);
     }
+
+    // Event delegation for clicks — captures clicks on any child (canvas, label, etc.)
+    scroll.addEventListener('click', e => {
+      const item = e.target.closest('.pdf-thumb-item');
+      if (item) _pdfThumbGoToPage(parseInt(item.dataset.page));
+    });
 
     // Lazy-render thumbnails with IntersectionObserver
     _pdfThumbObserver = new IntersectionObserver(entries => {

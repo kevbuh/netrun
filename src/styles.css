@@ -5205,6 +5205,8 @@
       flex-shrink: 0;
       background: var(--bg-card);
       border-right: 1px solid var(--border-dim);
+      position: relative;
+      z-index: 3;
     }
     .pdf-thumb-scroll {
       overflow-y: auto;
