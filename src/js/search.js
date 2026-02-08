@@ -28,8 +28,9 @@ function submitSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query) return;
 
-  // If it looks like a URL, navigate to it instead of searching
-  if (/^(https?|file|blob|data):\/\//i.test(query) || /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}(\/\S*)?$/i.test(query)) {
+  // Default: navigate via browseNavigate (Google search or URL)
+  // Paper search only when Papers tab is explicitly active
+  if (_researchActiveTab !== 'search') {
     if (typeof browseNavigate === 'function') browseNavigate(query);
     return;
   }
@@ -43,9 +44,6 @@ function submitSearch() {
       return;
     }
   }
-
-  // Activate Papers panel so results are visible
-  if (typeof switchResearchTab === 'function') switchResearchTab('search');
 
   if (typeof saveSearchHistory === 'function') saveSearchHistory(query);
   hideSearchHistoryView();

@@ -1602,8 +1602,11 @@ function _browseUpdateNewTabPage(tab) {
       });
     }
     ntp.style.display = '';
-    // Restore active research tab
-    switchResearchTab(_researchActiveTab);
+    // Clear search input and reset to default state
+    const ntpInput = ntp.querySelector('#search-query');
+    if (ntpInput) ntpInput.value = '';
+    _researchActiveTab = null;
+    switchResearchTab(null);
   } else if (ntp) {
     ntp.style.display = 'none';
   }
