@@ -113,6 +113,8 @@ function _initSidebarForUrl(url) {
   _sidebarScrollPositions = {};
   fetchPaperNotes();
   fetchPaperComments();
+  // Extract doc text in background so popup chat has context
+  extractDocText(url);
   const savedTab = localStorage.getItem('sidebarTab');
   if (savedTab && ['insights', 'notes', 'comments', 'terminal'].includes(savedTab)) {
     setTimeout(() => switchSidebarTab(savedTab), 0);

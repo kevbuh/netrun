@@ -972,25 +972,6 @@ function _updateChatStats(popup, final) {
   statsEl.textContent = parts.join(' \u00B7 ');
 }
 
-function _sendPopupChatToSidebar() {
-  // Copy popup messages into sidebar doc chat and persist (with full metadata)
-  for (const m of _popupChatMessages) {
-    const full = { ...m, ts: m.ts || Date.now() };
-    delete full._thinking;
-    _docChatMessages.push(full);
-    _appendToActiveThread(_chatUrl(), full);
-  }
-  renderDocChatMessages(true);
-  switchSidebarTab('chat');
-  // Dismiss popup
-  const popup = document.getElementById('doc-chat-ask-float');
-  if (popup) popup.remove();
-  _popupChatMessages = [];
-  _pendingScreenshots = [];
-  _pendingNoteContexts = [];
-  _pendingTabContexts = [];
-  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-}
 
 function _saveChatAsHighlight(popup) {
   if (!_popupChatMessages.length) return;
@@ -4248,21 +4229,6 @@ function _panelBuildTopBar(popup) {
   // Right-side icon group (aligns with mic + send below)
   const topRightGroup = document.createElement('span');
   topRightGroup.className = 'aether-topbar-right';
-
-  const openSidebarBtn = document.createElement('button');
-  openSidebarBtn.className = 'aether-topbar-icon';
-  openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
-  openSidebarBtn.title = 'Open in sidebar';
-  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openSidebarBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _aetherTrackMode = false;
-    if (!_panelVisible) { _panelVisible = true; localStorage.setItem('universalPanelVisible', 'true'); }
-    showPanelForView('browse');
-    switchPanelTab('chat');
-    _sendPopupChatToSidebar();
-  });
-  topRightGroup.appendChild(openSidebarBtn);
 
   topBar.appendChild(topRightGroup);
 

@@ -3128,10 +3128,9 @@
     .doc-chat-input-row {
       display: flex;
       gap: 6px;
-      padding: 8px 0 16px;
+      padding: 8px 0;
       border-top: 1px solid var(--border-card);
       flex-shrink: 0;
-      position: relative;
     }
     .doc-chat-input-row input {
       flex: 1;
