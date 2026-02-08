@@ -2378,13 +2378,16 @@ async function toggleCaptions() {
     await electronAPI.startCC(wcId);
 
     // Request display media (audio from the target webview)
-    _ccStream = await navigator.mediaDevices.getDisplayMedia({
+    const rawStream = await navigator.mediaDevices.getDisplayMedia({
       audio: true,
-      video: { width: { ideal: 2 }, height: { ideal: 2 }, frameRate: { ideal: 1 } }
+      video: true
     });
 
-    // Drop video tracks — we only need audio
-    _ccStream.getVideoTracks().forEach(t => t.stop());
+    // Build an audio-only stream for the recorder, then kill video tracks
+    const audioTracks = rawStream.getAudioTracks();
+    if (!audioTracks.length) { rawStream.getTracks().forEach(t => t.stop()); throw new Error('No audio track'); }
+    _ccStream = new MediaStream(audioTracks);
+    rawStream.getVideoTracks().forEach(t => t.stop());
 
     // Open WebSocket to Flask captions endpoint
     const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -2397,8 +2400,8 @@ async function toggleCaptions() {
         if (msg.text) _showCaption(msg.text);
       } catch {}
     };
-    _ccSocket.onclose = () => stopCaptions();
-    _ccSocket.onerror = () => stopCaptions();
+    _ccSocket.onclose = () => { if (_ccActive) stopCaptions(); };
+    _ccSocket.onerror = () => { if (_ccActive) stopCaptions(); };
 
     // Wait for socket to open before starting recorder
     await new Promise((resolve, reject) => {
@@ -2406,7 +2409,7 @@ async function toggleCaptions() {
       setTimeout(() => reject(new Error('WebSocket timeout')), 5000);
     });
 
-    // Create MediaRecorder with 2s chunks
+    // Create MediaRecorder with 2s chunks on audio-only stream
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus' : 'audio/webm';
     _ccRecorder = new MediaRecorder(_ccStream, { mimeType });
@@ -2421,7 +2424,6 @@ async function toggleCaptions() {
       }
     };
 
-    _ccRecorder.onstop = () => stopCaptions();
     _ccRecorder.start(2000); // 2-second timeslice
   } catch (err) {
     console.warn('CC start failed:', err);
@@ -2582,7 +2584,7 @@ function _applyBrowseTabLayout() {
   const dragPill = document.getElementById('drag-pill');
   // Only apply browse-mode pill styling if browse view is actually open
   const browseView = document.getElementById('browse-view');
-  const browseOpen = browseView && browseView.style.display !== 'none' && !browseView.classList.contains('hidden');
+  const browseOpen = browseView && browseView.style.display === 'flex';
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
