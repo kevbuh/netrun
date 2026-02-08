@@ -527,5 +527,6 @@ function renderDocChatMessages(final) {
     const branchBtn = (final || !isLast) ? `<button class="chat-branch-btn" onclick="branchFromMessage(${i})" title="Branch conversation here"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M12 15V12c0-2 2-3 6-3M12 12c0-2-2-3-6-3"/></svg></button>` : '';
     return `<div class="doc-msg-ai">${content}${branchBtn}</div>`;
   }).join('');
+  container.querySelectorAll('.doc-msg-ai').forEach(el => renderLatexInEl(el));
   container.scrollTop = container.scrollHeight;
 }

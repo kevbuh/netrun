@@ -376,7 +376,13 @@ function openBrowse(url) {
     view.style.display = 'flex';
     view.style.flexDirection = 'column';
     setSidebarActive('sb-browse');
-    _setPillBrowseMode(true);
+    if (_browseTabLayout === 'vertical') {
+      // Vertical tabs: normal sidebar, full browse bar, no pill mode
+      _setPillBrowseMode(false);
+      _applyBrowseTabLayout();
+    } else {
+      _setPillBrowseMode(true);
+    }
 
     // Hide panel by default — shown later when a paper tab is selected
     hidePanel();
@@ -1622,7 +1628,7 @@ function _browseUpdateNewTabPage(tab) {
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" style="display:none">
         <div class="browse-ntp-inner">
           <div class="browse-ntp-center">
-            <div style="text-align:center;margin-bottom:12px;font-size:3rem;font-family:'Times New Roman',Georgia,serif;color:var(--text-dimmer);user-select:none;">\u2113</div>
+            <div style="text-align:center;margin-bottom:12px;user-select:none;"><svg style="height:3rem;display:inline-block;" viewBox="-0.5 -8.5 6.5 9" xmlns="http://www.w3.org/2000/svg"><path fill="var(--text-dimmer)" d="M1.21943 -1.50635C1.44658 -0.3467 2.17584 0.143462 2.97684 0.143462C3.41918 0.143462 4.12453 -0.0119552 4.96139 -0.633624C5.23636 -0.860772 5.24832 -0.872727 5.24832 -0.956413C5.24832 -1.02814 5.10486 -1.2792 4.96139 -1.2792C4.91357 -1.2792 4.88966 -1.2792 4.77011 -1.15965C4.31582 -0.789041 3.63437 -0.286924 3.00075 -0.286924C2.30735 -0.286924 2.28344 -1.25529 2.28344 -1.54222C2.28344 -1.93674 2.33126 -2.21171 2.39103 -2.57036C2.47472 -2.666 2.72578 -2.8812 2.80946 -2.97684C3.44309 -3.59851 5.34396 -5.49938 5.34396 -7.23288C5.34396 -8.14147 4.8538 -8.39253 4.42341 -8.39253C2.58232 -8.39253 1.1477 -4.49514 1.1477 -2.15193C0.944458 -1.9726 0.406476 -1.53026 0.203238 -1.33898C0.0478207 -1.19552 0.0358655 -1.18356 0.0358655 -1.11183C0.0358655 -1.05205 0.179328 -0.789041 0.310834 -0.789041C0.37061 -0.789041 0.394521 -0.789041 0.561893 -0.944458L1.21943 -1.50635ZM2.59427 -3.51482C3.09639 -5.51133 3.15616 -5.73848 3.3594 -6.36015C3.44309 -6.61121 3.88543 -7.96214 4.41146 -7.96214C4.71034 -7.96214 4.80598 -7.72304 4.80598 -7.34047C4.80598 -6.89813 4.67447 -6.08518 3.82565 -4.93748C3.3594 -4.29191 2.73773 -3.64633 2.59427 -3.51482Z"/></svg></div>
             <div class="flex items-center justify-center gap-1" style="margin-bottom:12px;">
               <button id="research-tab-search" class="research-tab" onclick="switchResearchTab('search')">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
@@ -2326,20 +2332,42 @@ function _browseRenderVTabHtml(t, activeTab) {
 function toggleBrowseTabLayout() {
   _browseTabLayout = _browseTabLayout === 'vertical' ? 'horizontal' : 'vertical';
   localStorage.setItem('browseTabLayout', _browseTabLayout);
-  if (_pillBrowseMode) _setPillBrowseMode(true);
-  else _applyBrowseTabLayout();
+  const browseView = document.getElementById('browse-view');
+  const browseOpen = browseView && browseView.style.display !== 'none';
+  if (browseOpen) {
+    if (_browseTabLayout === 'vertical') {
+      _setPillBrowseMode(false);
+      _applyBrowseTabLayout();
+    } else {
+      _setPillBrowseMode(true);
+    }
+  }
 }
 
 function _applyBrowseTabLayout() {
   const tabRow = document.getElementById('browse-tab-row');
   const vtabs = document.getElementById('browse-vtabs');
+  const bar = document.getElementById('browse-bar');
+  const browseView = document.getElementById('browse-view');
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
     if (vtabs) vtabs.style.display = 'flex';
+    // Move browse bar into vtabs panel (between header and tab list)
+    if (bar && vtabs) {
+      const tabList = document.getElementById('browse-vtabs-list');
+      if (tabList) vtabs.insertBefore(bar, tabList);
+      bar.classList.add('browse-bar-vertical');
+      bar.style.display = '';
+    }
     // Clear pill tabs when switching to vertical
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
   } else {
+    // Move browse bar back to its original position (after tab-row)
+    if (bar && tabRow && bar.classList.contains('browse-bar-vertical')) {
+      tabRow.after(bar);
+      bar.classList.remove('browse-bar-vertical');
+    }
     if (vtabs) vtabs.style.display = 'none';
     if (_pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
@@ -4607,13 +4635,21 @@ function toggleBrowseMoreMenu() {
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>
       Print page
     </button>
+    <button onclick="toggleBrowseTabLayout();document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      ${_browseTabLayout === 'vertical'
+        ? '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h16v5H4V3zM4 3h16v18H4V3z"/></svg> Horizontal Tabs'
+        : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg> Vertical Tabs'}
+    </button>
     <button onclick="location.hash='#settings';document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       Settings
     </button>`;
 
   const btnRect = document.getElementById('browse-more-btn').getBoundingClientRect();
-  dd.innerHTML = `<div style="position:fixed;right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px;min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
+  const menuPos = _browseTabLayout === 'vertical'
+    ? `left:${Math.round(btnRect.right + 4)}px;top:${Math.round(btnRect.top)}px`
+    : `right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px`;
+  dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
     ${overflowRows}${fixedItems}
   </div>`;
   dd.style.display = '';
@@ -4844,19 +4880,11 @@ function _setPillBrowseMode(enabled) {
   const vtabs = document.getElementById('browse-vtabs');
   const dragPill = document.getElementById('drag-pill');
   if (enabled) {
-    if (_browseTabLayout === 'vertical') {
-      // Vertical tabs sidebar stays visible, pill bar doesn't show tabs
-      if (pill) pill.classList.add('browse-mode');
-      if (tabRow) tabRow.style.display = 'none';
-      if (vtabs) vtabs.style.display = 'flex';
-      if (dragPill) dragPill.style.display = 'none';
-    } else {
-      if (pill) pill.classList.add('browse-mode');
-      if (tabRow) tabRow.style.display = 'none';
-      if (vtabs) vtabs.style.display = 'none';
-      if (dragPill) dragPill.style.display = 'none';
-      _pillSyncTabs();
-    }
+    if (pill) pill.classList.add('browse-mode');
+    if (tabRow) tabRow.style.display = 'none';
+    if (vtabs) vtabs.style.display = 'none';
+    if (dragPill) dragPill.style.display = 'none';
+    _pillSyncTabs();
   } else {
     if (pill) pill.classList.remove('browse-mode');
     if (dragPill) dragPill.style.display = '';

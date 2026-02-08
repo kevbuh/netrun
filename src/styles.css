@@ -1241,6 +1241,59 @@
       border-bottom: 2px solid var(--group-color); border-radius: 8px 8px 0 0;
     }
 
+    /* ── Browse bar reparented into vertical sidebar ── */
+    .browse-bar-vertical {
+      flex-wrap: wrap;
+      gap: 3px;
+      padding: 6px 8px;
+      background: transparent !important;
+      border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+      border-top: none !important;
+      flex-shrink: 0;
+    }
+    .browse-bar-vertical button,
+    .browse-bar-vertical .browse-bar-draggable {
+      color: rgba(255,255,255,0.45);
+    }
+    .browse-bar-vertical button:hover {
+      background: rgba(255,255,255,0.08) !important;
+      color: rgba(255,255,255,0.85) !important;
+    }
+    .browse-bar-vertical #browse-url-input {
+      width: 100%;
+      flex: 1 1 100%;
+      order: -1;
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.85);
+      font-size: 0.73rem;
+      padding: 5px 8px;
+      margin-bottom: 2px;
+    }
+    .browse-bar-vertical #browse-url-input::placeholder {
+      color: rgba(255,255,255,0.3);
+    }
+    .browse-bar-vertical #browse-url-input:focus {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.15);
+    }
+    .browse-bar-vertical #browse-url-history-dd {
+      left: 220px !important;
+      right: auto !important;
+    }
+    .browse-bar-vertical #browse-return-btn span { display: none; }
+    .browse-bar-vertical #browse-return-btn { padding: 0; width: 28px; height: 28px; justify-content: center; }
+    .browse-bar-vertical #browse-zoom-level { color: rgba(255,255,255,0.4); }
+    .browse-bar-vertical .browse-downloads-dropdown {
+      position: fixed;
+      left: 228px;
+      top: auto;
+      right: auto;
+    }
+    .browse-bar-vertical #browse-more-menu {
+      position: fixed !important;
+    }
+
     /* ── Vertical tabs sidebar ── */
     .browse-vtabs {
       width: 220px;
@@ -1248,10 +1301,11 @@
       max-width: 300px;
       display: flex;
       flex-direction: column;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border-sidebar);
+      background: var(--aether-bg);
+      border-right: 1px solid rgba(255,255,255,0.06);
       flex-shrink: 0;
       overflow: hidden;
+      color: #ccc;
     }
     .browse-vtabs-header {
       display: flex;
@@ -1265,16 +1319,23 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--text-dimmest);
+      color: rgba(255,255,255,0.35);
     }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
       display: flex; align-items: center; justify-content: center;
       border: none; background: transparent;
-      color: var(--text-dimmer); cursor: pointer; border-radius: 4px;
+      color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px;
       transition: background 0.15s, color 0.15s;
     }
     .browse-tab-layout-toggle:hover {
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
+    }
+    /* Override for the toggle in horizontal tab row (uses theme colors) */
+    #browse-tab-row .browse-tab-layout-toggle {
+      color: var(--text-dimmer);
+    }
+    #browse-tab-row .browse-tab-layout-toggle:hover {
       background: var(--bg-hover); color: var(--text-primary);
     }
     .browse-vtabs-list {
@@ -1283,28 +1344,28 @@
       overflow-x: hidden;
       padding: 2px 6px;
       scrollbar-width: thin;
-      scrollbar-color: var(--border-card) transparent;
+      scrollbar-color: rgba(255,255,255,0.12) transparent;
       position: relative;
     }
     .browse-vtabs-list::-webkit-scrollbar { width: 4px; }
-    .browse-vtabs-list::-webkit-scrollbar-thumb { background: var(--border-card); border-radius: 2px; }
+    .browse-vtabs-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
     .browse-vtabs-list::-webkit-scrollbar-track { background: transparent; }
     .browse-vtabs-actions {
       display: flex;
       align-items: center;
       padding: 4px 6px 6px;
-      border-top: 1px solid var(--border-sidebar);
+      border-top: 1px solid rgba(255,255,255,0.06);
       flex-shrink: 0;
     }
     .browse-vtab-action-btn {
       width: 100%; height: 28px;
       display: flex; align-items: center; justify-content: center; gap: 4px;
       border: none; background: transparent;
-      color: var(--text-dimmer); cursor: pointer; border-radius: 6px;
+      color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 6px;
       font-size: 0.72rem; transition: background 0.15s, color 0.15s;
     }
     .browse-vtab-action-btn:hover {
-      background: var(--bg-hover); color: var(--text-primary);
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
     }
     .browse-vtab {
       display: flex;
@@ -1313,7 +1374,7 @@
       padding: 5px 8px;
       margin: 1px 0;
       font-size: 0.73rem;
-      color: var(--text-muted);
+      color: rgba(255,255,255,0.55);
       background: transparent;
       border: none;
       border-radius: 6px;
@@ -1325,13 +1386,13 @@
       position: relative;
     }
     .browse-vtab:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.85);
     }
     .browse-vtab:hover .browse-vtab-close { opacity: 1; }
     .browse-vtab.active {
-      background: var(--bg-hover);
-      color: var(--text-primary);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
       border-left: 2px solid var(--accent);
       padding-left: 6px;
     }
@@ -1348,7 +1409,7 @@
       flex-shrink: 0;
       width: 16px; height: 16px;
       border: none; background: transparent;
-      color: var(--text-dimmest);
+      color: rgba(255,255,255,0.3);
       font-size: 0.8rem; line-height: 1;
       border-radius: 4px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
@@ -1357,7 +1418,7 @@
     }
     .browse-vtab.active .browse-vtab-close { opacity: 1; }
     .browse-vtab-close:hover {
-      background: var(--bg-hover); color: var(--text-primary);
+      background: rgba(255,255,255,0.1); color: #fff;
     }
     .browse-vtab-pinned {
       padding: 4px 8px;
@@ -1380,7 +1441,7 @@
       background: color-mix(in srgb, var(--group-color) 30%, transparent);
     }
     .browse-vtab-pin-separator {
-      height: 1px; background: var(--border-card); margin: 4px 4px; flex-shrink: 0;
+      height: 1px; background: rgba(255,255,255,0.08); margin: 4px 4px; flex-shrink: 0;
     }
     .browse-vtab-insert-indicator {
       position: absolute;

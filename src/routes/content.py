@@ -218,6 +218,9 @@ def doc_chat():
                         tool_result = execute_chat_tool(tool_name, tool_args, stream_callback=stream_cb, google_id=_chat_google_id)
                         for ev, d in actions:
                             yield sse_event(ev, d)
+                        # Surface web search URLs to frontend for sources pill
+                        if tool_name == 'web_search' and isinstance(tool_result, dict) and tool_result.get('results'):
+                            yield sse_event('web_sources', tool_result['results'])
                         ollama_messages.append({"role": "tool", "content": json.dumps(tool_result)})
                 else:
                     # Exhausted iterations -- do final call without tools

@@ -559,6 +559,22 @@ function _updateContextBar(popup) {
   fill.parentElement.title = label;
 }
 
+function _buildSourcesPill(results) {
+  const domains = [];
+  const seen = new Set();
+  for (const r of results) {
+    try {
+      const d = new URL(r.url).hostname.replace(/^www\./, '');
+      if (!seen.has(d)) { seen.add(d); domains.push(d); }
+    } catch {}
+  }
+  const maxIcons = 5;
+  const favicons = domains.slice(0, maxIcons).map((d, i) =>
+    `<img class="doc-sources-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=32" alt="" style="z-index:${maxIcons - i}" onerror="this.style.display='none'" />`
+  ).join('');
+  return `<div class="doc-sources-pill"><div class="doc-sources-favicons">${favicons}</div><span class="doc-sources-label">${results.length} source${results.length !== 1 ? 's' : ''}</span></div>`;
+}
+
 function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
@@ -582,8 +598,9 @@ function _renderPopupChat(popup, final) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}</div>`;
     }
-    // Search results
+    // Search results — render as sources pill
     if (m._searchResults && m._searchResults.length) {
+      const pill = _buildSourcesPill(m._searchResults);
       const resultsHtml = m._searchResults.map(r =>
         `<div class="doc-search-result" data-href="${escapeAttr(r.url)}">` +
         `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
@@ -591,7 +608,7 @@ function _renderPopupChat(popup, final) {
         `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
         `</div>`
       ).join('');
-      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
+      return `<div class="doc-msg-ai doc-msg-search-bubble">${pill}<div class="doc-sources-expanded">${resultsHtml}</div></div>`;
     }
     // Paper search results
     if (m._paperResults && m._paperResults.length) {
@@ -649,6 +666,7 @@ function _renderPopupChat(popup, final) {
     const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
     return `<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${speakBtn}${copyBtn}${redoBtn}</div></div>`;
   }).join('');
+  container.querySelectorAll('.doc-msg-ai').forEach(el => renderLatexInEl(el));
   // Render vault-chat sources above the scrollable messages area
   let sourcesWrap = popup.querySelector('.vault-chat-sources-wrap');
   const allSources = _popupChatMessages.filter(m => m._sources && m._sources.length).flatMap(m => m._sources);

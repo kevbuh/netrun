@@ -2166,6 +2166,32 @@ function stripHtml(html) {
   return tmp.textContent || tmp.innerText || '';
 }
 
+function renderLatexInEl(el) {
+  if (!el) return;
+  if (typeof katex === 'undefined') return;
+  function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
+  let html = el.innerHTML;
+  // Display math: $$ ... $$ and \[ ... \]
+  html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
+    try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); }
+    catch (e) { return _; }
+  });
+  html = html.replace(/\\\[(.+?)\\\]/gs, (_, tex) => {
+    try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); }
+    catch (e) { return _; }
+  });
+  // Inline math: $ ... $ and \( ... \)
+  html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
+    try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); }
+    catch (e) { return _; }
+  });
+  html = html.replace(/\\\((.+?)\\\)/g, (_, tex) => {
+    try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); }
+    catch (e) { return _; }
+  });
+  el.innerHTML = html;
+}
+
 function renderLatexIn(elementId) {
   const el = document.getElementById(elementId);
   if (!el) return;
@@ -2173,17 +2199,7 @@ function renderLatexIn(elementId) {
     setTimeout(() => renderLatexIn(elementId), 200);
     return;
   }
-  function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
-  let html = el.innerHTML;
-  html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
-    try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); }
-    catch (e) { return _; }
-  });
-  html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
-    try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); }
-    catch (e) { return _; }
-  });
-  el.innerHTML = html;
+  renderLatexInEl(el);
 }
 
 function formatFirstAuthor(authors) {

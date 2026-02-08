@@ -1100,8 +1100,12 @@ function setBrowseTabLayout(layout) {
   // Apply immediately if browse view is open
   const browseView = document.getElementById('browse-view');
   if (browseView && browseView.style.display !== 'none') {
-    if (_pillBrowseMode) _setPillBrowseMode(true);
-    else _applyBrowseTabLayout();
+    if (layout === 'vertical') {
+      _setPillBrowseMode(false);
+      _applyBrowseTabLayout();
+    } else {
+      _setPillBrowseMode(true);
+    }
   }
   renderSettingsView();
 }
