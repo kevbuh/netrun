@@ -1093,10 +1093,10 @@ function renderPaperNoteEditor() {
         function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
         let html = rendered.innerHTML;
         html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
-          try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); } catch { return _; }
+          try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); } catch { return _; }
         });
         html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
-          try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); } catch { return _; }
+          try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); } catch { return _; }
         });
         rendered.innerHTML = html;
       }

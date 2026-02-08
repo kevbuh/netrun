@@ -34,18 +34,16 @@ let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs a
 let _aetherDragging = false;
 let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
+let _aetherPinned = false;
 
-// Restore cursor when the aether panel is removed from DOM
-new MutationObserver(function(mutations) {
-  for (const m of mutations) {
-    for (const node of m.removedNodes) {
-      if (node.id === 'doc-chat-ask-float') {
-        document.body.classList.remove('aether-hide-cursor');
-        return;
-      }
-    }
-  }
-}).observe(document.body, { childList: true });
+function _aetherHideCursorOverlay() {
+  document.body.classList.add('aether-hide-cursor');
+}
+function _aetherShowCursor() {
+  document.body.classList.remove('aether-hide-cursor');
+  // Force browser to recalculate cursor via synthetic mouse move (Electron only)
+  if (window.electronAPI?.nudgeCursor) window.electronAPI.nudgeCursor();
+}
 
 function _isAetherEligible(text) {
   if (!text || text.length > 80) return false;
@@ -1365,9 +1363,7 @@ document.addEventListener('mousedown', function(e) {
   if (existing && existing.contains(e.target)) {
     return;
   }
-  // Skip if clicking inside a sticky pinned panel
-  if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
-  // In track mode with captureScreen available: pin panel and start screenshot drag
+  // In track mode with captureScreen available: start screenshot drag
   if (existing && _aetherTrackMode && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
     e.preventDefault(); // prevent text selection during drag
     e.stopImmediatePropagation(); // prevent other mousedown handlers from running
@@ -1383,8 +1379,8 @@ document.addEventListener('mousedown', function(e) {
     document.body.appendChild(_screenshotSelection);
     return;
   }
-  // If NOT in track mode, remove existing panel
-  if (existing && !_aetherTrackMode && !_screenshotCapturing) {
+  // If NOT in track mode and not pinned, remove existing panel
+  if (existing && !_aetherTrackMode && !_screenshotCapturing && !_aetherPinned) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
     existing.remove();
@@ -1470,11 +1466,11 @@ document.addEventListener('mouseup', async function(e) {
     return;
   }
 
-  // Single click, no selection → dismiss existing panel if not pinned
+  // Single click, no selection → dismiss existing panel
   if (_screenshotCapturing) return;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing && existing.contains(e.target)) return; // click was inside the panel
-  if (existing) { existing.remove(); _aetherTrackMode = false; }
+  if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
 });
 
 function _postQuoteText(text) {
@@ -1539,18 +1535,17 @@ async function _showWordAether(word, x, y) {
   }
 }
 
-// Dismiss popup on outside click (only when NOT in track mode)
+// Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
 document.addEventListener('mousedown', function(e) {
-  if (_aetherTrackMode) return;
-  if (_screenshotDragStart || _screenshotCapturing) return; // screenshot in progress, keep panel open
+  if (e.button !== 0) return;
+  if (_screenshotDragStart || _screenshotCapturing) return;
   const btn = document.getElementById('doc-chat-ask-float');
-  if (btn && !btn.contains(e.target)) {
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    _savePopupChatToHighlight(btn);
-    btn.remove();
-    document.body.classList.remove('aether-hide-cursor');
-  }
-});
+  if (!btn) return;
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+  _savePopupChatToHighlight(btn);
+  btn.remove();
+  _aetherShowCursor();
+}, true);
 
 // Aether panel: tracks cursor + screenshot drag
 document.addEventListener('mousemove', function(e) {
@@ -1592,7 +1587,6 @@ document.addEventListener('mousemove', function(e) {
   }
 
   if (!_aetherTrackMode) return;
-  if (e.shiftKey) { _aetherTrackMode = false; return; } // Shift freezes panel in place
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) { _aetherTrackMode = false; return; }
 
@@ -1657,10 +1651,19 @@ document.addEventListener('keydown', function(e) {
     if (popup) {
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _aetherTrackMode = false;
+      _aetherPinned = false;
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
       popup.remove();
+    }
+  }
+  // Shift pins the aether panel in place (stops tracking, survives click-away)
+  if (e.key === 'Shift') {
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (popup && _aetherTrackMode) {
+      _aetherTrackMode = false;
+      _aetherPinned = true;
     }
   }
 });
@@ -1671,7 +1674,7 @@ document.addEventListener('keydown', function(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
     e.preventDefault();
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) { if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _aetherTrackMode = false; return; }
+    if (popup) { if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _aetherTrackMode = false; _aetherPinned = false; return; }
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
     _showPanel({ anchor: { x: _lastMouseX, y: _lastMouseY } });
@@ -1701,8 +1704,6 @@ function _handleContextMenuChat(e) {
   // Skip if right-clicking inside an existing popup
   const popup = document.getElementById('doc-chat-ask-float');
   if (popup && popup.contains(e.target)) return;
-  // Skip if clicking inside a sticky pinned panel
-  if (e.target.closest('[id^="doc-chat-pinned-"]')) return;
   // Skip if clicking inside the browse URL bar
   if (e.target.id === 'browse-url-input' || e.target.closest('#browse-bar')) return;
   // For inputs/textareas, show panel with paste support instead of native context menu
@@ -1732,7 +1733,6 @@ function _handleContextMenuChat(e) {
   // Capture the previously focused editable element before panel steals focus
   const active = document.activeElement;
   const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
-  // _showPanel handles retiring pinned panels
   if (popup) { popup.remove(); _aetherTrackMode = false; }
   _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: true });
 }
@@ -1824,7 +1824,7 @@ function _injectIframeChatHandler(iframe) {
           return;
         }
         const existing = document.getElementById('doc-chat-ask-float');
-        if (existing) { existing.remove(); _aetherTrackMode = false; }
+        if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
       });
 
       // Cmd+click → open link in new tab
@@ -3508,7 +3508,7 @@ function _openProfilePanel() {
   if (!avatar) return;
   // Close existing panel
   const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) { existing.remove(); _aetherTrackMode = false; }
+  if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
   // Close old popover if visible
   const pop = document.getElementById('user-menu-popover');
   if (pop) pop.style.display = 'none';
@@ -4034,29 +4034,6 @@ function _panelBuildTopBar(popup) {
   });
   topRightGroup.appendChild(openSidebarBtn);
 
-  // Pin button
-  const pinBtn = document.createElement('button');
-  pinBtn.className = 'aether-pin-btn aether-topbar-icon';
-  pinBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
-  pinBtn.title = 'Pin panel';
-  pinBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  pinBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    if (popup._isStickyNote) {
-      popup.remove();
-      return;
-    }
-    popup._isStickyNote = true;
-    popup.id = 'doc-chat-pinned-' + Date.now();
-    popup.classList.add('aether-pinned');
-    _aetherTrackMode = false;
-    const svg = pinBtn.querySelector('svg');
-    if (svg) svg.setAttribute('fill', 'currentColor');
-    pinBtn.style.opacity = '1';
-    pinBtn.title = 'Unpin (close)';
-  });
-  pinBtn.style.opacity = '0.5';
-  topRightGroup.appendChild(pinBtn);
   topBar.appendChild(topRightGroup);
 
   // Drag to move
@@ -4320,7 +4297,6 @@ function _panelBuildChatInput(popup, config) {
       if (modelDropdown) { _aetherHideModelDropdown(popup); return; }
       if (noteDropdown) { _aetherHideNoteDropdown(popup); return; }
       if (dropdown) { _aetherHideCmdDropdown(popup); return; }
-      if (popup._isStickyNote) return;
       _aetherTrackMode = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
@@ -4638,15 +4614,14 @@ function _showPanel(config) {
   }
 
   popup.addEventListener('mousedown', (ev) => {
-    ev.stopPropagation();
-    document.body.classList.remove('aether-hide-cursor');
+    // Don't stop propagation — let clicks dismiss the panel
   });
 
   document.body.appendChild(popup);
 
   // Hide cursor while panel is open
   if (isCursorAnchor && finalized) {
-    document.body.classList.add('aether-hide-cursor');
+    _aetherHideCursorOverlay();
   }
 
   // ── Cmd+C handler + positioning ──

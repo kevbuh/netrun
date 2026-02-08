@@ -740,9 +740,16 @@ function renderMdCell(i) {
   if (typeof renderMathInElement === 'function') {
     renderMathInElement(renderedEl, {delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
   } else if (typeof katex !== 'undefined') {
-    renderedEl.querySelectorAll('code.language-math').forEach(el => {
-      try { katex.render(el.textContent, el, {throwOnError:false}); } catch(e) {}
+    // Regex-based fallback with shared macros
+    let html = renderedEl.innerHTML;
+    function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
+    html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
+      try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); } catch(e) { return _; }
     });
+    html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
+      try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); } catch(e) { return _; }
+    });
+    renderedEl.innerHTML = html;
   }
   editorEl.classList.add('hidden');
   renderedEl.classList.remove('hidden');

@@ -457,6 +457,16 @@ app.whenReady().then(() => {
     });
   });
 
+  ipcMain.handle('nudge-cursor', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    const pos = require('electron').screen.getCursorScreenPoint();
+    const bounds = win.getBounds();
+    const x = pos.x - bounds.x;
+    const y = pos.y - bounds.y;
+    win.webContents.sendInputEvent({ type: 'mouseMove', x, y });
+  });
+
   ipcMain.handle('capture-screen', async (event, rect) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return null;

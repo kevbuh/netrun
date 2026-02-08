@@ -3402,12 +3402,6 @@
       color: var(--accent);
       background: rgba(255,255,255,0.06);
     }
-    .aether-pin-btn {
-      background: none !important;
-      border: none !important;
-      cursor: pointer;
-      line-height: 1;
-    }
     .doc-popup-chat-actions button {
       background: none;
       border: none;

@@ -237,6 +237,17 @@ function _initSlidesCanvas(_retries) {
   _slidesCanvas.on('mouse:up', _slidesMouseUp);
   _slidesCanvas.on('mouse:dblclick', _slidesMouseDblClick);
 
+  // Auto-convert text to LaTeX when it contains LaTeX commands
+  _slidesCanvas.on('text:editing:exited', function(opt) {
+    const obj = opt.target;
+    if (!obj || obj._latexSrc) return;
+    const txt = (obj.text || '').trim();
+    if (!txt || !/\\[a-zA-Z]/.test(txt)) return;
+    const x = obj.left, y = obj.top;
+    _slidesCanvas.remove(obj);
+    _slidesInsertLatex(txt, x, y, null);
+  });
+
   // Keyboard shortcuts
   _slidesKeyHandler = function(e) {
     // Present mode keys
@@ -1051,7 +1062,7 @@ function _slidesShowLatexInput(x, y, existingObj) {
     const error = document.getElementById('slides-latex-error');
     if (!val) { preview.innerHTML = ''; error.style.display = 'none'; return; }
     try {
-      preview.innerHTML = katex.renderToString(val, { throwOnError: true, displayMode: true });
+      preview.innerHTML = katex.renderToString(val, { throwOnError: true, displayMode: true, macros: KATEX_MACROS });
       error.style.display = 'none';
     } catch (e) {
       error.textContent = e.message.replace(/^KaTeX parse error:\s*/i, '');
@@ -1070,7 +1081,7 @@ function _slidesShowLatexInput(x, y, existingObj) {
       const val = input.value.trim();
       if (!val) { closePopup(); return; }
       try {
-        katex.renderToString(val, { throwOnError: true });
+        katex.renderToString(val, { throwOnError: true, macros: KATEX_MACROS });
       } catch { return; }
       _slidesInsertLatex(val, x, y, existingObj);
       closePopup();

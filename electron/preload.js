@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Screen capture
   captureScreen: (rect) => ipcRenderer.invoke('capture-screen', rect),
+  // Force cursor refresh
+  nudgeCursor: () => ipcRenderer.invoke('nudge-cursor'),
   // Native print dialog
   print: (options) => ipcRenderer.invoke('print', options),
   // File handling

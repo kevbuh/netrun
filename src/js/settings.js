@@ -643,23 +643,53 @@ function _urlBarSectionDragSetup() {
   list.addEventListener('pointercancel', endDrag);
 }
 
+function _loadSettingsModels() {
+  fetch('/api/models').then(r => r.json()).then(data => {
+    const models = data.models || [];
+    document.querySelectorAll('.settings-model-select').forEach(sel => {
+      const key = sel.dataset.key;
+      const fallback = sel.dataset.fallback;
+      const current = localStorage.getItem(key) || fallback;
+      sel.innerHTML = models.map(m =>
+        `<option value="${escapeAttr(m)}" ${m === current ? 'selected' : ''}>${escapeHtml(m)}</option>`
+      ).join('');
+      if (current && !models.includes(current)) {
+        sel.insertAdjacentHTML('afterbegin',
+          `<option value="${escapeAttr(current)}" selected>${escapeHtml(current)}</option>`);
+      }
+    });
+  }).catch(() => {
+    document.querySelectorAll('.settings-model-select').forEach(sel => {
+      const key = sel.dataset.key;
+      const fallback = sel.dataset.fallback;
+      const current = localStorage.getItem(key) || fallback;
+      sel.innerHTML = `<option value="${escapeAttr(current)}" selected>${escapeHtml(current)}</option>`;
+    });
+  });
+}
+
 function _renderPanelSettings() {
   const chatModel = localStorage.getItem('chatModel') || 'qwen2.5:3b';
   const visionModel = localStorage.getItem('visionModel') || 'qwen3-vl:8b';
   const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
   const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
   const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
+  setTimeout(_loadSettingsModels, 0);
   return `
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-1">Default Chat Model</h3>
       <p class="text-dim text-[0.8rem] mb-3">The model used for aether panel chat and document Q&A.</p>
-      <input type="text" value="${escapeAttr(chatModel)}" onchange="localStorage.setItem('chatModel', this.value.trim() || 'qwen2.5:3b'); renderSettingsView()" class="w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent" placeholder="qwen2.5:3b" />
+      <select data-key="chatModel" data-fallback="qwen2.5:3b" onchange="localStorage.setItem('chatModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
+        <option value="${escapeAttr(chatModel)}" selected>${escapeHtml(chatModel)}</option>
+      </select>
       <p class="text-dimmer text-[0.68rem] mt-1">You can also change this inline via <code class="text-muted">/model</code> in the panel.</p>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Default Vision Model</h3>
       <p class="text-dim text-[0.8rem] mb-3">The model used when chatting with screenshots (drag-to-capture).</p>
-      <input type="text" value="${escapeAttr(visionModel)}" onchange="localStorage.setItem('visionModel', this.value.trim() || 'qwen3-vl:8b'); renderSettingsView()" class="w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent" placeholder="qwen3-vl:8b" />
+      <select data-key="visionModel" data-fallback="qwen3-vl:8b" onchange="localStorage.setItem('visionModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
+        <option value="${escapeAttr(visionModel)}" selected>${escapeHtml(visionModel)}</option>
+      </select>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between">

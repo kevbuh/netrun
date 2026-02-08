@@ -1993,15 +1993,37 @@ function decodeHtml(str) {
   return el.value;
 }
 
+// Shared KaTeX macros — \mathcal shortcuts (\gA–\gZ) and \mathbb shortcuts (\sA–\sZ)
+// from the standard ICLR/NeurIPS math_commands.tex template
+const KATEX_MACROS = (() => {
+  const m = {};
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (const L of letters) {
+    m['\\g' + L] = '{\\mathcal{' + L + '}}';
+    m['\\s' + L] = '{\\mathbb{' + L + '}}';
+  }
+  m['\\R'] = '\\mathbb{R}';
+  m['\\E'] = '\\mathbb{E}';
+  m['\\Ls'] = '\\mathcal{L}';
+  m['\\train'] = '\\mathcal{D}';
+  m['\\valid'] = '\\mathcal{D_{\\mathrm{valid}}}';
+  m['\\test'] = '\\mathcal{D_{\\mathrm{test}}}';
+  return m;
+})();
+
+function _katexOpts(display) {
+  return { displayMode: display, throwOnError: false, macros: KATEX_MACROS };
+}
+
 function renderTitle(rawTitle) {
   const decoded = decodeHtml(rawTitle);
   let html = escapeHtml(decoded);
   if (typeof katex !== 'undefined') {
     html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
-      try { return katex.renderToString(tex, { displayMode: true, throwOnError: false }); } catch { return _; }
+      try { return katex.renderToString(tex, _katexOpts(true)); } catch { return _; }
     });
     html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
-      try { return katex.renderToString(tex, { displayMode: false, throwOnError: false }); } catch { return _; }
+      try { return katex.renderToString(tex, _katexOpts(false)); } catch { return _; }
     });
   }
   return html;
@@ -2094,11 +2116,11 @@ function renderLatexIn(elementId) {
   function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
   let html = el.innerHTML;
   html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
-    try { return katex.renderToString(decodeTex(tex), { displayMode: true, throwOnError: false }); }
+    try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); }
     catch (e) { return _; }
   });
   html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
-    try { return katex.renderToString(decodeTex(tex), { displayMode: false, throwOnError: false }); }
+    try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); }
     catch (e) { return _; }
   });
   el.innerHTML = html;
