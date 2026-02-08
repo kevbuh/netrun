@@ -57,10 +57,6 @@ function _renderSidebarHTML(paper) {
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        <div class="insight-section" id="insight-drop-contents">
-          <div class="insight-section-title">Contents</div>
-          <div class="insight-section-body" id="insight-pane-contents"></div>
-        </div>
         <div class="insight-section" id="insight-drop-authors">
           <div class="insight-section-title">Authors</div>
           <div class="insight-section-body" id="insight-pane-authors"></div>
@@ -1289,7 +1285,6 @@ function _renderBrowsePanes(container) {
   container.innerHTML =
     '<div data-pane-id="insights" id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">' +
       '<div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">' +
-        '<div class="insight-section" id="insight-drop-contents"><div class="insight-section-title">Contents</div><div class="insight-section-body" id="insight-pane-contents"></div></div>' +
         '<div class="insight-section" id="insight-drop-authors"><div class="insight-section-title">Authors</div><div class="insight-section-body" id="insight-pane-authors"></div></div>' +
         '<div class="insight-section" id="insight-drop-ai"><div class="insight-section-title">AI</div><div class="insight-section-body" id="insight-pane-ai"></div></div>' +
         '<div class="insight-section" id="insight-drop-references"><div class="insight-section-title">References</div><div class="insight-section-body" id="insight-pane-references"></div></div>' +

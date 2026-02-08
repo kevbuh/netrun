@@ -304,10 +304,9 @@ function initPdfViewer(container, url, arxivId) {
     // Render sidebar panel for existing highlights
     renderHighlightsPanel();
 
-    // Fetch PDF outline for table of contents
+    // Fetch PDF outline for left panel
     pdf.getOutline().then(outline => {
       _pdfOutline = outline;
-      _renderPdfToc();
     }).catch(() => {});
   }).catch(err => {
     console.error('PDF load error', err);
@@ -2308,16 +2307,6 @@ function _navigateToPdfDest(destRaw) {
 }
 
 // ── Table of Contents ──
-
-function _renderPdfToc() {
-  const pane = document.getElementById('insight-pane-contents');
-  if (!pane) return;
-  if (!_pdfOutline || _pdfOutline.length === 0) {
-    pane.innerHTML = '<div class="text-[0.75rem] text-dimmer py-1">No table of contents available</div>';
-    return;
-  }
-  pane.innerHTML = _buildTocTree(_pdfOutline, 0);
-}
 
 function _buildTocTree(items, depth) {
   if (!items || items.length === 0) return '';

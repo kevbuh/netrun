@@ -1833,8 +1833,7 @@
       position: fixed;
       inset: 0;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       background: var(--aether-bg);
       z-index: 9998;
       opacity: 0;
@@ -1847,7 +1846,8 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      height: 100%;
+      flex: 1;
+      min-height: 0;
       padding: 32px max(16px, calc((100vw - min(70vw, 900px)) / 2));
       overflow-x: auto;
       overflow-y: hidden;
@@ -2141,8 +2141,9 @@
       color: var(--text-primary);
     }
 
-    /* Hide strip when in grid mode */
-    .browse-tab-overview.wov-browse-grid-mode .wov-cards-strip { display: none; }
+    /* Hide strip and pills when in grid mode */
+    .browse-tab-overview.wov-browse-grid-mode .wov-cards-strip,
+    .browse-tab-overview.wov-browse-grid-mode .wov-pills { display: none; }
 
     /* ── Light theme overrides for overview ── */
     [data-theme="light"] .wov-card,
