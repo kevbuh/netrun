@@ -41,6 +41,15 @@ let _pdfExtractedLinks = new Set();
 // ── PDF outline / table of contents ──
 let _pdfOutline = null;
 
+// ── Thumbnail strip state ──
+let _pdfThumbStripVisible = false;
+let _pdfThumbContainer = null;
+let _pdfThumbRendered = new Set();
+let _pdfThumbObserver = null;
+let _pdfThumbActivePage = 0;
+let _pdfThumbScale = 0.15;
+let _pdfThumbSyncRaf = null;
+
 // ── Storage ──
 
 function loadPdfHighlights(arxivId) {
@@ -100,6 +109,10 @@ function initPdfViewer(container, url, arxivId) {
   const toolbar = document.createElement('div');
   toolbar.className = 'pdf-toolbar';
   toolbar.innerHTML = `
+    <button class="pdf-tb-btn" id="pdf-thumb-toggle" onclick="togglePdfThumbs()" title="Thumbnails (T)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z"/></svg>
+    </button>
+    <span class="pdf-tb-sep"></span>
     <div style="display:flex;align-items:center;gap:0;">
       <button class="pdf-tb-btn" onclick="pdfScrollToPage(-1)" title="Previous page">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -183,10 +196,15 @@ function initPdfViewer(container, url, arxivId) {
     });
   }
 
+  // Body wrapper (flex row: optional thumbs + pages)
+  const bodyWrapper = document.createElement('div');
+  bodyWrapper.className = 'pdf-body-wrapper';
+  container.appendChild(bodyWrapper);
+
   // Pages container
   const pages = document.createElement('div');
   pages.className = 'pdf-pages-container';
-  container.appendChild(pages);
+  bodyWrapper.appendChild(pages);
   _pdfPagesContainer = pages;
   pages.classList.add('pdf-hl-mode');
 
@@ -238,6 +256,7 @@ function initPdfViewer(container, url, arxivId) {
 
     // Track current page on scroll
     pages.addEventListener('scroll', updatePdfPageIndicator);
+    pages.addEventListener('scroll', _syncThumbHighlight);
 
     // Render sidebar panel for existing highlights
     renderHighlightsPanel();
@@ -647,6 +666,7 @@ function pdfZoom(delta) {
     for (const w of _pdfPagesContainer.children) {
       _pdfObserver.observe(w);
     }
+    setTimeout(_syncThumbHighlight, 300);
   });
 }
 
@@ -676,6 +696,164 @@ function getCurrentPdfPage() {
 function updatePdfPageIndicator() {
   const el = document.getElementById('pdf-page-indicator');
   if (el) el.textContent = `${getCurrentPdfPage()} / ${_pdfTotalPages}`;
+}
+
+// ── Thumbnail strip ──
+
+function togglePdfThumbs() {
+  _pdfThumbStripVisible = !_pdfThumbStripVisible;
+  const btn = document.getElementById('pdf-thumb-toggle');
+  if (btn) btn.classList.toggle('active', _pdfThumbStripVisible);
+
+  if (_pdfThumbStripVisible) {
+    if (!_pdfThumbContainer) _initPdfThumbs();
+    _pdfThumbContainer.style.display = '';
+    _syncThumbHighlight();
+  } else if (_pdfThumbContainer) {
+    _pdfThumbContainer.style.display = 'none';
+  }
+}
+
+function _initPdfThumbs() {
+  if (!_pdfDoc || !_pdfPagesContainer) return;
+  const wrapper = _pdfPagesContainer.parentElement; // .pdf-body-wrapper
+
+  const strip = document.createElement('div');
+  strip.className = 'pdf-thumb-strip';
+  const scroll = document.createElement('div');
+  scroll.className = 'pdf-thumb-scroll';
+  strip.appendChild(scroll);
+  wrapper.insertBefore(strip, _pdfPagesContainer);
+  _pdfThumbContainer = strip;
+
+  // Compute scale from page 1
+  _pdfDoc.getPage(1).then(page => {
+    const vp = page.getViewport({ scale: 1.0 });
+    _pdfThumbScale = 120 / vp.width;
+
+    for (let i = 1; i <= _pdfTotalPages; i++) {
+      const item = document.createElement('div');
+      item.className = 'pdf-thumb-item';
+      item.dataset.page = i;
+      item.tabIndex = 0;
+      const thumbVp = page.getViewport({ scale: _pdfThumbScale });
+      item.style.width = '120px';
+      item.style.height = Math.round(thumbVp.height) + 'px';
+      item.style.position = 'relative';
+
+      const label = document.createElement('div');
+      label.className = 'pdf-thumb-label';
+      label.textContent = i;
+      item.appendChild(label);
+
+      item.addEventListener('click', () => _pdfThumbGoToPage(i));
+      item.addEventListener('keydown', e => _pdfThumbKeyHandler(e, i));
+      scroll.appendChild(item);
+    }
+
+    // Lazy-render thumbnails with IntersectionObserver
+    _pdfThumbObserver = new IntersectionObserver(entries => {
+      const toRender = [];
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const pn = parseInt(entry.target.dataset.page);
+          if (!_pdfThumbRendered.has(pn)) toRender.push(pn);
+        }
+      });
+      if (toRender.length) _renderThumbBatch(toRender);
+    }, { root: scroll, rootMargin: '200px' });
+
+    for (const item of scroll.children) {
+      _pdfThumbObserver.observe(item);
+    }
+  });
+}
+
+function _renderThumbBatch(pageNums) {
+  const batch = pageNums.slice(0, 3);
+  const rest = pageNums.slice(3);
+  batch.forEach(pn => _renderSingleThumb(pn));
+  if (rest.length) {
+    const cb = typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 16);
+    cb(() => _renderThumbBatch(rest));
+  }
+}
+
+function _renderSingleThumb(pageNum) {
+  if (_pdfThumbRendered.has(pageNum) || !_pdfDoc) return;
+  _pdfThumbRendered.add(pageNum);
+
+  _pdfDoc.getPage(pageNum).then(page => {
+    const vp = page.getViewport({ scale: _pdfThumbScale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    page.render({ canvasContext: ctx, viewport: vp }).promise.then(() => {
+      if (!_pdfThumbContainer) return;
+      const scroll = _pdfThumbContainer.querySelector('.pdf-thumb-scroll');
+      if (!scroll) return;
+      const item = scroll.querySelector(`.pdf-thumb-item[data-page="${pageNum}"]`);
+      if (item) item.insertBefore(canvas, item.firstChild);
+    });
+  });
+}
+
+function _pdfThumbGoToPage(pageNum) {
+  const target = document.getElementById(`pdf-page-${pageNum}`);
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _syncThumbHighlight() {
+  if (!_pdfThumbStripVisible || !_pdfThumbContainer) return;
+  if (_pdfThumbSyncRaf) cancelAnimationFrame(_pdfThumbSyncRaf);
+  _pdfThumbSyncRaf = requestAnimationFrame(() => {
+    const current = getCurrentPdfPage();
+    if (current === _pdfThumbActivePage) return;
+    _pdfThumbActivePage = current;
+
+    const scroll = _pdfThumbContainer.querySelector('.pdf-thumb-scroll');
+    if (!scroll) return;
+    const prev = scroll.querySelector('.pdf-thumb-item.active');
+    if (prev) prev.classList.remove('active');
+    const active = scroll.querySelector(`.pdf-thumb-item[data-page="${current}"]`);
+    if (active) {
+      active.classList.add('active');
+      // Auto-scroll thumbnail into view if needed
+      const sr = scroll.getBoundingClientRect();
+      const ar = active.getBoundingClientRect();
+      if (ar.top < sr.top || ar.bottom > sr.bottom) {
+        active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  });
+}
+
+function _pdfThumbKeyHandler(e, pageNum) {
+  const scroll = _pdfThumbContainer?.querySelector('.pdf-thumb-scroll');
+  if (!scroll) return;
+  const items = scroll.querySelectorAll('.pdf-thumb-item');
+  const idx = pageNum - 1;
+
+  if (e.key === 'ArrowDown' && idx < items.length - 1) {
+    e.preventDefault();
+    items[idx + 1].focus();
+  } else if (e.key === 'ArrowUp' && idx > 0) {
+    e.preventDefault();
+    items[idx - 1].focus();
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    _pdfThumbGoToPage(pageNum);
+  } else if (e.key === 'Home') {
+    e.preventDefault();
+    items[0].focus();
+  } else if (e.key === 'End') {
+    e.preventDefault();
+    items[items.length - 1].focus();
+  }
 }
 
 function dismissHighlightPopup() {
@@ -969,6 +1147,13 @@ document.addEventListener('keydown', function(e) {
   const tag = e.target.tagName.toLowerCase();
   if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
 
+  // Thumbnail strip toggle
+  if (e.key === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    togglePdfThumbs();
+    return;
+  }
+
   // Arrow key navigation for PDF pages
   if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey && !e.altKey) {
     e.preventDefault();
@@ -1222,8 +1407,14 @@ function pdfDrawRedo() {
 
 function cleanupPdfViewer() {
   if (_pdfObserver) { _pdfObserver.disconnect(); _pdfObserver = null; }
+  if (_pdfThumbObserver) { _pdfThumbObserver.disconnect(); _pdfThumbObserver = null; }
+  if (_pdfThumbSyncRaf) { cancelAnimationFrame(_pdfThumbSyncRaf); _pdfThumbSyncRaf = null; }
   if (_pdfDoc) { _pdfDoc.destroy(); _pdfDoc = null; }
   _pdfRenderedPages.clear();
+  _pdfThumbRendered.clear();
+  _pdfThumbStripVisible = false;
+  _pdfThumbContainer = null;
+  _pdfThumbActivePage = 0;
   _pdfTotalPages = 0;
   _pdfHighlights = [];
   _pdfArxivId = '';

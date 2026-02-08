@@ -55,9 +55,6 @@ let _nlImplicitLastFlush = 0;
 
 // Auto-refine (continuous passive learning)
 let _nlAutoRefineEnabled = true;
-let _nlAutoRefineInterval = null;
-let _nlAutoRefineMinSamples = 30;
-let _nlAutoRefineCooldownMs = 5 * 60000; // 5 min between auto-refines
 let _nlLastAutoRefineTime = 0;
 let _nlAutoRefineInProgress = false;
 let _nlRefinementHistory = [];
@@ -952,6 +949,7 @@ function _nlTrainETA(epoch, maxEpochs) {
 function _nlStopTraining() {
   if (_nlTrainAbort) { _nlTrainAbort.abort(); _nlTrainAbort = null; }
   _nlTraining = false;
+  _nlAutoRefineInProgress = false;
   _nlUpdatePillIndicator();
   _nlTrainPhase = 'error';
   _nlTrainResult = { error: 'Stopped by user' };
@@ -1020,7 +1018,12 @@ function _nlDismissTrainPill() {
 }
 
 async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
-  const body = { eyeData: Array.from(eyeData), headPose, irisFeatures: irisFeatures || [0.5, 0.5, 0.5, 0.5, 0.3, 0.3], method: _nlModelType };
+  const body = {
+    eyeData: Array.from(eyeData), headPose,
+    irisFeatures: irisFeatures || [0.5, 0.5, 0.5, 0.5, 0.3, 0.3],
+    method: _nlModelType,
+    screenW: window.innerWidth, screenH: window.innerHeight
+  };
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: _authHeaders(),
@@ -1504,10 +1507,9 @@ async function _nlStartTracking() {
   _nlGazeBuffer = [];
   _nlCreateDot();
   _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
-  // Start collecting implicit click samples
+  // Start collecting implicit click samples (each click triggers flush + refine)
   document.addEventListener('click', _nlHandleImplicitClick, true);
-  // Start auto-refine check (60s) and timed buffer flush (30s)
-  _nlAutoRefineInterval = setInterval(_nlCheckAutoRefine, 60000);
+  // Safety-net timed buffer flush (30s) in case clicks don't trigger flush
   _nlTimedFlushInterval = setInterval(() => {
     if (_nlImplicitBuffer.length > 0) _nlFlushImplicitSamples();
   }, 30000);
@@ -1521,8 +1523,7 @@ function _nlStopTracking() {
   _nlUpdatePillIndicator();
   if (_nlTrackingRAF) { cancelAnimationFrame(_nlTrackingRAF); _nlTrackingRAF = null; }
   document.removeEventListener('click', _nlHandleImplicitClick, true);
-  // Clear auto-refine and timed flush intervals
-  if (_nlAutoRefineInterval) { clearInterval(_nlAutoRefineInterval); _nlAutoRefineInterval = null; }
+  // Clear timed flush interval
   if (_nlTimedFlushInterval) { clearInterval(_nlTimedFlushInterval); _nlTimedFlushInterval = null; }
   // Flush remaining implicit samples
   if (_nlImplicitBuffer.length > 0) _nlFlushImplicitSamples();
@@ -1554,7 +1555,8 @@ function _nlHandleImplicitClick(e) {
     screenX: e.clientX,
     screenY: e.clientY
   });
-  if (_nlImplicitBuffer.length >= 50) _nlFlushImplicitSamples();
+  // Flush and trigger refine immediately on every click
+  _nlFlushImplicitSamples().then(() => _nlCheckAutoRefine());
 }
 
 // Handle clicks relayed from webview iframes (screenX/Y already translated to parent coords)
@@ -1575,14 +1577,14 @@ function _nlHandleIframeClick(clientX, clientY) {
     screenX: clientX,
     screenY: clientY
   });
-  if (_nlImplicitBuffer.length >= 50) _nlFlushImplicitSamples();
+  _nlFlushImplicitSamples().then(() => _nlCheckAutoRefine());
 }
 
 function _nlFlushImplicitSamples() {
-  if (_nlImplicitBuffer.length === 0) return;
+  if (_nlImplicitBuffer.length === 0) return Promise.resolve();
   const samples = _nlImplicitBuffer.splice(0);
   _nlImplicitLastFlush = Date.now();
-  fetch('/api/neuralook/implicit-samples', {
+  return fetch('/api/neuralook/implicit-samples', {
     method: 'POST',
     headers: _authHeaders(),
     body: JSON.stringify({ samples })
@@ -1657,15 +1659,12 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
 
 function _nlCheckAutoRefine() {
   if (!_nlTracking || !_nlModelTrained || _nlTraining || _nlAutoRefineInProgress || !_nlAutoRefineEnabled) return;
-  if (_nlImplicitCount < _nlAutoRefineMinSamples) return;
-  if (Date.now() - _nlLastAutoRefineTime < _nlAutoRefineCooldownMs) return;
   _nlStartAutoRefine();
 }
 
 async function _nlStartAutoRefine() {
   _nlAutoRefineInProgress = true;
   _nlRefreshStats();
-  _nlShowAutoRefineProgressPill();
   // Flush pending buffer first
   if (_nlImplicitBuffer.length > 0) {
     const samples = _nlImplicitBuffer.splice(0);
@@ -1679,49 +1678,84 @@ async function _nlStartAutoRefine() {
       if (data.count != null) _nlImplicitCount = data.count;
     } catch (_) {}
   }
-  // Request auto-refine
+  // Use the full SSE training flow with refine=true (shows training detail view)
+  _nlTraining = true;
+  _nlUpdatePillIndicator();
+  _nlTrainPhase = 'training';
+  _nlTrainProgress = null;
+  _nlTrainResult = null;
+  _nlTrainLossHistory = [];
+  _nlTrainLogs = [];
+  _nlTrainStartTime = Date.now();
+  _nlShowTrainView = true;
+  _nlShowTrainPill();
+  if (window.location.hash === '#neuralook') renderNeuralookView();
+
   try {
-    const resp = await fetch('/api/neuralook/auto-refine', {
-      method: 'POST', headers: _authHeaders(),
-      body: JSON.stringify({
-        screenW: window.innerWidth, screenH: window.innerHeight,
-        eyeW: _NL_EYE_W, eyeH: _NL_EYE_H,
-        baseline_val_error: _nlBaselineValError,
-        method: _nlModelType
-      })
-    });
-    const result = await resp.json();
+    const result = await _nlTrainOnServerSSE((prog) => {
+      _nlTrainProgress = prog;
+      _nlTrainPhase = prog.phase || 'training';
+      if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
+      if (prog.phase === 'evaluating') {
+        _nlUpdateTrainPill('Refining ' + _nlModelLabel() + ' v' + (_nlModelVersion + 1), 'Evaluating...');
+      } else {
+        const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
+        const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+        const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
+        _nlUpdateTrainPill('Refining ' + _nlModelLabel() + ' v' + (_nlModelVersion + 1), `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+      }
+      _nlRefreshTrainView();
+      _nlRefreshBanner();
+    }, (logLine) => {
+      _nlTrainLogs.push(logLine);
+      _nlAppendTrainLog(logLine);
+    }, true);
+
+    _nlTrainResult = result;
+    _nlTrainPhase = 'done';
+    _nlTraining = false;
+    _nlUpdatePillIndicator();
+    _nlReady = true;
+    _nlModelVersion++;
     _nlLastAutoRefineTime = Date.now();
-    _nlDismissAutoRefineProgressPill();
-    if (result.improved) {
-      _nlModelVersion++;
-      _nlBaselineValError = result.val_error_px;
-      _nlValError = result.val_error_px;
-      _nlTrainError = result.train_error_px;
-      _nlImplicitCount = 0;
-      _nlUpdateAdaptiveRadius(result.val_error_px);
-      _nlRefinementHistory.push({
-        timestamp: Date.now(), val_error_px: result.val_error_px,
-        train_error_px: result.train_error_px, samples: result.samples, improved: true
-      });
-      _nlSaveRefinementHistory();
-      _nlShowAutoRefinePill(result.val_error_px);
-      _nlShowModelUpdatedPill(_nlModelVersion, result.val_error_px);
-      console.log(`[neuralook] auto-refine improved: v${_nlModelVersion}, val=${result.val_error_px}px, radius=${_nlAdaptiveRadius}px`);
-    } else {
-      _nlRefinementHistory.push({
-        timestamp: Date.now(), val_error_px: result.val_error_px,
-        train_error_px: result.train_error_px, samples: result.samples || 0, improved: false
-      });
-      _nlSaveRefinementHistory();
-      console.log(`[neuralook] auto-refine rejected: ${result.reason || 'no improvement'}`);
-    }
-    _nlRefreshStats();
+
+    const valPx = result.val_error_px;
+    _nlBaselineValError = valPx;
+    _nlValError = valPx;
+    _nlTrainError = result.train_error_px;
+    _nlImplicitCount = 0;
+    _nlUpdateAdaptiveRadius(valPx);
+    _nlRefinementHistory.push({
+      timestamp: Date.now(), val_error_px: valPx,
+      train_error_px: result.train_error_px, samples: result.samples, improved: true
+    });
+    _nlSaveRefinementHistory();
+
+    const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
+    const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
+    _nlFinishTrainPill('Refine Done — v' + _nlModelVersion, `Val ${valPx}px — ${label}`, color);
+    _nlShowModelUpdatedPill(_nlModelVersion, valPx);
+    _nlRefreshTrainView();
+    if (window.location.hash === '#neuralook') renderNeuralookView();
+    console.log(`[neuralook] auto-refine improved: v${_nlModelVersion}, val=${valPx}px, radius=${_nlAdaptiveRadius}px`);
   } catch (e) {
+    _nlTrainPhase = 'error';
+    _nlTraining = false;
+    _nlUpdatePillIndicator();
+    _nlTrainResult = { error: e.message || String(e) };
+    _nlErrorTrainPill(e.message || String(e));
+    _nlLastAutoRefineTime = Date.now();
+    _nlRefinementHistory.push({
+      timestamp: Date.now(), val_error_px: null,
+      train_error_px: null, samples: 0, improved: false
+    });
+    _nlSaveRefinementHistory();
+    _nlRefreshTrainView();
+    if (window.location.hash === '#neuralook') renderNeuralookView();
     console.warn('[neuralook] auto-refine error:', e);
-    _nlDismissAutoRefineProgressPill();
   } finally {
     _nlAutoRefineInProgress = false;
+    _nlRefreshStats();
   }
 }
 
@@ -1729,84 +1763,6 @@ function _nlUpdateAdaptiveRadius(valErrorPx) {
   _nlAdaptiveRadius = Math.max(350, Math.min(600, Math.round(valErrorPx * 4)));
 }
 
-function _nlShowAutoRefineProgressPill() {
-  _nlDismissAutoRefineProgressPill();
-  const pill = document.createElement('div');
-  pill.id = 'nl-autorefine-progress-pill';
-  Object.assign(pill.style, {
-    position: 'fixed', right: '20px', zIndex: '99999',
-    background: 'var(--bg-card, #23232a)', border: '1px solid var(--border-card, #2a2a2f)',
-    borderRadius: '14px', padding: '10px 16px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', fontFamily: 'inherit', fontSize: '0.78rem',
-    color: 'var(--text-primary, #e5e5e5)', transition: 'opacity 0.3s, transform 0.3s',
-    opacity: '0', transform: 'translateY(10px)', display: 'flex', alignItems: 'center', gap: '10px',
-    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
-  });
-  pill.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite;flex-shrink:0;">
-      <circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/>
-    </svg>
-    <div style="line-height:1.4;">
-      <div style="font-weight:600;font-size:0.8rem;">Refining ${_nlModelLabel()}...</div>
-      <div style="font-size:0.7rem;color:var(--text-secondary,#888);">${_nlImplicitCount} clicks · v${_nlModelVersion}</div>
-    </div>
-  `;
-  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); };
-  document.body.appendChild(pill);
-  pillStackAdd('nl-autorefine-progress-pill');
-  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
-}
-
-function _nlDismissAutoRefineProgressPill() {
-  const pill = document.getElementById('nl-autorefine-progress-pill');
-  if (!pill) return;
-  pillStackRemove('nl-autorefine-progress-pill');
-  pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
-  setTimeout(() => pill.remove(), 300);
-}
-
-function _nlShowAutoRefinePill(valErrorPx) {
-  if (window.location.hash === '#neuralook') {
-    // Just refresh stats, no pill needed
-    _nlRefreshStats();
-    return;
-  }
-  // Reuse pill infrastructure but lighter
-  const existing = document.getElementById('nl-autorefine-pill');
-  if (existing) { pillStackRemove('nl-autorefine-pill'); existing.remove(); }
-  const pill = document.createElement('div');
-  pill.id = 'nl-autorefine-pill';
-  Object.assign(pill.style, {
-    position: 'fixed', right: '20px', zIndex: '99999',
-    background: 'var(--bg-card, #23232a)', border: '1px solid #4ade80',
-    borderRadius: '14px', padding: '10px 16px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(74,222,128,0.15)',
-    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
-    transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
-    display: 'flex', alignItems: 'center', gap: '10px',
-    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
-  });
-  pill.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#4ade80"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div style="line-height:1.4;">
-      <div style="font-weight:600;font-size:0.8rem;">Model improved</div>
-      <div style="font-size:0.7rem;color:var(--text-secondary,#888);">Val error: ${valErrorPx}px</div>
-    </div>
-  `;
-  pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-autorefine-pill'); pill.remove(); };
-  document.body.appendChild(pill);
-  pillStackAdd('nl-autorefine-pill');
-  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
-  pill.animate([
-    { boxShadow: '0 0 0 0 rgba(74,222,128,0.4)', transform: 'translateY(0) scale(1)' },
-    { boxShadow: '0 0 20px 8px rgba(74,222,128,0.25)', transform: 'translateY(-2px) scale(1.03)' },
-    { boxShadow: '0 0 0 0 rgba(74,222,128,0)', transform: 'translateY(0) scale(1)' }
-  ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
-  setTimeout(() => {
-    pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
-    setTimeout(() => { pillStackRemove('nl-autorefine-pill'); pill.remove(); }, 300);
-  }, 4000);
-}
 
 function _nlSaveRefinementHistory() {
   try {

@@ -1031,7 +1031,10 @@ def neuralook_predict(google_id):
         raw = body.get('eyeData', [])
         hp_raw = body.get('headPose', [0.0, 0.0, 0.0])
         iris_raw = body.get('irisFeatures', [0.5, 0.5, 0.5, 0.5, 0.3, 0.3])
-        screen_w, screen_h, eye_w, eye_h = _neuralook_screen
+        _train_screen_w, _train_screen_h, eye_w, eye_h = _neuralook_screen
+        # Use client's current screen dims for scaling (adapts to window resize)
+        screen_w = body.get('screenW', _train_screen_w)
+        screen_h = body.get('screenH', _train_screen_h)
         eye_size = eye_w * eye_h
         if len(raw) != eye_size * 2:
             return jsonify({'error': f'Expected {eye_size * 2} values, got {len(raw)}'}), 400

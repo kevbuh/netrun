@@ -3,7 +3,6 @@
 // Global state
 let _terminals = [];
 let _activeTerminalId = null;
-let _terminalIdCounter = 0;
 let _terminalLayout = null;
 let _termSearchTimeout = null;
 
@@ -170,8 +169,15 @@ function openTerminal() {
   _applyTerminalSettingsUI();
 }
 
+function _nextTerminalId() {
+  const used = new Set(_terminals.map(t => t.id));
+  let n = 1;
+  while (used.has(n)) n++;
+  return n;
+}
+
 function createTerminal(name, skipLayoutUpdate = false) {
-  const id = ++_terminalIdCounter;
+  const id = _nextTerminalId();
   const termName = name || `Terminal ${id}`;
 
   const container = document.createElement('div');
@@ -754,7 +760,6 @@ function _saveTerminalState() {
     tabs: _terminals.map(t => ({ id: t.id, name: t.name })),
     activeId: _activeTerminalId,
     layout: _terminalLayout,
-    idCounter: _terminalIdCounter,
   };
   try {
     localStorage.setItem('terminalState', JSON.stringify(state));
@@ -769,9 +774,6 @@ function _loadTerminalState() {
     const state = JSON.parse(raw);
     if (state.settings) {
       _termSettings = { ..._termSettings, ...state.settings };
-    }
-    if (state.idCounter) {
-      _terminalIdCounter = state.idCounter;
     }
     // Note: We don't restore tabs/layout on load because WebSocket sessions don't persist
     // User will need to create new terminals after page reload

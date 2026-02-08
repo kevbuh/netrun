@@ -784,9 +784,6 @@ function hideAllViews() {
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
 let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
-let _wmNiriVisible = false;
-let _wmNiriHandler = null;
-let _wmNiriSelectedIdx = 0;
 
 // Capture a preview screenshot of the current view (below the pill bar)
 async function _wmCapturePreview() {
@@ -827,8 +824,7 @@ let _wmWindows = _wmDefaultOrder.map(key => ({
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
-  // Dismiss overlays if open
-  if (_wmNiriVisible) _wmHideNiri();
+  // Dismiss overview if open
   if (typeof _browseTabOverviewVisible !== 'undefined' && _browseTabOverviewVisible && typeof hideBrowseTabOverview === 'function') hideBrowseTabOverview();
   // If already on this view, wiggle the sidebar icon
   const existIdx = _wmWindows.findIndex(w => w.key === key);
@@ -865,120 +861,11 @@ function _wmCloseWindow(index) {
   if (_wmWindows.length <= 1) return;
   _wmWindows.splice(index, 1);
   if (_wmFocusIndex >= _wmWindows.length) _wmFocusIndex = _wmWindows.length - 1;
-  if (_wmNiriVisible) _wmRenderNiri();
-  else if (_browseTabOverviewVisible) _renderWindowOverview();
+  if (_browseTabOverviewVisible) _renderWindowOverview();
 }
 
 function _wmToggleTiling() {
-  if (_wmNiriVisible) _wmHideNiri();
-  else _wmShowNiri();
-}
-
-function _wmShowNiri() {
-  _wmCapturePreview();
-  var overlay = document.getElementById('wm-niri-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'wm-niri-overlay';
-    overlay.addEventListener('mousedown', function(e) {
-      if (e.target === overlay) _wmHideNiri();
-    });
-    overlay.addEventListener('click', function(e) {
-      var col = e.target.closest('.wm-niri-col');
-      if (col) {
-        var idx = parseInt(col.dataset.idx);
-        if (!isNaN(idx)) { _wmActivateWindow(idx); _wmHideNiri(); }
-      }
-    });
-    document.body.appendChild(overlay);
-  }
-  _wmNiriVisible = true;
-  _wmNiriSelectedIdx = _wmFocusIndex;
-  _wmRenderNiri();
-  overlay.style.display = 'flex';
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-  });
-
-  _wmNiriHandler = function(e) {
-    if (!_wmNiriVisible) return;
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      if (_wmNiriSelectedIdx > 0) { _wmNiriSelectedIdx--; _wmUpdateNiriHighlight(); }
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      if (_wmNiriSelectedIdx < _wmWindows.length - 1) { _wmNiriSelectedIdx++; _wmUpdateNiriHighlight(); }
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      _wmActivateWindow(_wmNiriSelectedIdx);
-      _wmHideNiri();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      _wmHideNiri();
-    } else if ((e.key === 'Backspace' || e.key === 'Delete') && _wmWindows.length > 1) {
-      e.preventDefault();
-      _wmCloseWindow(_wmNiriSelectedIdx);
-      if (_wmNiriSelectedIdx >= _wmWindows.length) _wmNiriSelectedIdx = _wmWindows.length - 1;
-    }
-  };
-  document.addEventListener('keydown', _wmNiriHandler, true);
-}
-
-function _wmHideNiri() {
-  _wmNiriVisible = false;
-  if (_wmNiriHandler) {
-    document.removeEventListener('keydown', _wmNiriHandler, true);
-    _wmNiriHandler = null;
-  }
-  var overlay = document.getElementById('wm-niri-overlay');
-  if (overlay) {
-    overlay.classList.remove('visible');
-    setTimeout(() => { if (!_wmNiriVisible) overlay.style.display = 'none'; }, 200);
-  }
-}
-
-function _wmRenderNiri() {
-  var overlay = document.getElementById('wm-niri-overlay');
-  if (!overlay) return;
-
-  var html = '<div class="wm-niri-strip">';
-  for (var i = 0; i < _wmWindows.length; i++) {
-    var w = _wmWindows[i];
-    var focused = i === _wmNiriSelectedIdx;
-    var isActive = i === _wmFocusIndex;
-    var preview = _wmPreviews[w.key];
-    var iconHtml = '';
-    var sbBtn = document.getElementById(w.sidebarId);
-    if (sbBtn) {
-      var svg = sbBtn.querySelector('svg');
-      if (svg) iconHtml = svg.outerHTML;
-    }
-
-    html += '<div class="wm-niri-col' + (focused ? ' focused' : '') + (isActive ? ' active' : '') + '" data-idx="' + i + '">';
-    if (preview) {
-      html += '<div class="wm-niri-preview" style="background-image:url(' + preview + ')"></div>';
-    } else {
-      html += '<div class="wm-niri-preview wm-niri-empty">' + iconHtml + '</div>';
-    }
-    html += '<div class="wm-niri-label">' + escapeHtml(w.label) + '</div>';
-    html += '</div>';
-  }
-  html += '</div>';
-  html += '<div class="wm-niri-hint">\u2190 \u2192 navigate \u00b7 Enter open \u00b7 Esc dismiss</div>';
-  overlay.innerHTML = html;
-
-  var sel = overlay.querySelector('.wm-niri-col.focused');
-  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-}
-
-function _wmUpdateNiriHighlight() {
-  var overlay = document.getElementById('wm-niri-overlay');
-  if (!overlay) return;
-  overlay.querySelectorAll('.wm-niri-col').forEach(function(col, i) {
-    col.classList.toggle('focused', i === _wmNiriSelectedIdx);
-  });
-  var sel = overlay.querySelector('.wm-niri-col.focused');
-  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  if (typeof toggleBrowseTabOverview === 'function') toggleBrowseTabOverview();
 }
 
 /* ── Drag pill — horizontal drag to switch windows ── */
