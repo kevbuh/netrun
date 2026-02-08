@@ -2838,6 +2838,59 @@ let _overviewBrowseExpanded = false;
 let _overviewBrowseWinIdx = 0;  // selected window in expanded view
 let _overviewBrowseTabIdx = -1; // -1 = window row selected, >=0 = tab within window
 let _overviewWasBrowseMode = false; // pill bar was in browse-mode before overview opened
+let _overviewCaptureTimer = null;
+let _overviewCapturing = false;
+
+function _overviewScheduleCapture() {
+  if (_overviewCaptureTimer) clearTimeout(_overviewCaptureTimer);
+  _overviewCaptureTimer = setTimeout(_overviewDoCapture, 250);
+}
+
+async function _overviewDoCapture() {
+  if (_overviewCapturing || !_browseTabOverviewVisible) return;
+  if (!window.electronAPI?.captureScreen) return;
+  var idx = _overviewSelectedIdx;
+  var key = _wmWindows[idx]?.key;
+  if (!key) return;
+  var overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  _overviewCapturing = true;
+  try {
+    await new Promise(function(r) { setTimeout(r, 150); });
+    if (!_browseTabOverviewVisible) { _overviewCapturing = false; return; }
+    overlay.style.transition = 'none';
+    overlay.style.display = 'none';
+    await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
+    await new Promise(function(r) { setTimeout(r, 50); });
+    var pill = document.getElementById('sidebar-nav');
+    var top = pill ? pill.offsetTop + pill.offsetHeight : 0;
+    var base64 = await window.electronAPI.captureScreen({
+      x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
+    });
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    overlay.offsetHeight;
+    overlay.style.transition = '';
+    if (base64 && _browseTabOverviewVisible) {
+      _wmPreviews[key] = 'data:image/png;base64,' + base64;
+      var cards = overlay.querySelectorAll('.wov-card');
+      var card = cards[idx];
+      if (card) {
+        var prev = card.querySelector('.wov-card-preview');
+        if (prev) {
+          prev.style.backgroundImage = 'url(' + _wmPreviews[key] + ')';
+          prev.classList.remove('wov-card-preview-empty');
+          prev.innerHTML = '';
+        }
+      }
+    }
+  } catch (e) {
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    overlay.style.transition = '';
+  }
+  _overviewCapturing = false;
+}
 
 // SVG icons for app window cards
 const _wovAppIcons = {
@@ -2896,6 +2949,7 @@ function _browseRestoreTabsLite() {
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
+  _wmCapturePreview();
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
   // The current view stays visible behind the translucent overlay
@@ -2927,6 +2981,7 @@ function hideBrowseTabOverview() {
   if (!overlay) return;
   _browseTabOverviewVisible = false;
   _overviewBrowseExpanded = false;
+  if (_overviewCaptureTimer) { clearTimeout(_overviewCaptureTimer); _overviewCaptureTimer = null; }
   _removeOverviewKeyHandler();
   // Restore browse mode on the pill bar if it was active before
   if (_overviewWasBrowseMode) {
@@ -3009,13 +3064,13 @@ function _installOverviewKeyHandler() {
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
       _updateOverviewHighlight();
       var wL = _wmWindows[_overviewSelectedIdx];
-      if (wL) { _wmFocusIndex = _overviewSelectedIdx; var mL = _wmViewMeta[wL.key]; if (mL) mL.openFn(); }
+      if (wL) { _wmFocusIndex = _overviewSelectedIdx; var mL = _wmViewMeta[wL.key]; if (mL) mL.openFn(); _overviewScheduleCapture(); }
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
       var wR = _wmWindows[_overviewSelectedIdx];
-      if (wR) { _wmFocusIndex = _overviewSelectedIdx; var mR = _wmViewMeta[wR.key]; if (mR) mR.openFn(); }
+      if (wR) { _wmFocusIndex = _overviewSelectedIdx; var mR = _wmViewMeta[wR.key]; if (mR) mR.openFn(); _overviewScheduleCapture(); }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];
@@ -3069,7 +3124,12 @@ function _renderWindowOverview() {
     var isBrowseOpen = _overviewBrowseExpanded && w.key === 'browse';
     var icon = _wovAppIcons[w.key] || '';
     appHtml += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active ' : '') + (isSelected ? 'wov-selected ' : '') + (isBrowseOpen ? 'wov-expanded ' : '') + '">';
-    appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
+    var preview = _wmPreviews[w.key];
+    if (preview) {
+      appHtml += '<div class="wov-card-preview" style="background-image:url(' + preview + ')"></div>';
+    } else {
+      appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
+    }
     appHtml += '<div class="wov-card-info">'
       + '<div class="wov-card-icon">' + icon + '</div>'
       + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'

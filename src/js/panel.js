@@ -4739,6 +4739,8 @@ function _showPanel(config) {
     if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
+  // Stop any ongoing speech when panel is recreated
+  if (speechSynthesis.speaking) speechSynthesis.cancel();
   // Remove any open note editor or help panel
   const existingEditor = document.getElementById('aether-note-editor');
   if (existingEditor) existingEditor.remove();
@@ -4748,6 +4750,8 @@ function _showPanel(config) {
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
+  const _origRemove = popup.remove.bind(popup);
+  popup.remove = function() { if (speechSynthesis.speaking) speechSynthesis.cancel(); _origRemove(); };
 
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;
