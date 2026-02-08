@@ -35,6 +35,7 @@ let _aetherDragging = false;
 let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
 let _aetherPinned = false;
+let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
 
 function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -43,6 +44,17 @@ function _aetherShowCursor() {
   document.body.classList.remove('aether-hide-cursor');
   // Force browser to recalculate cursor via synthetic mouse move (Electron only)
   if (window.electronAPI?.nudgeCursor) window.electronAPI.nudgeCursor();
+}
+
+function _aetherRestoreFocus() {
+  if (!_aetherPrevFocus) return;
+  const { el, selStart, selEnd } = _aetherPrevFocus;
+  _aetherPrevFocus = null;
+  if (!el || !document.body.contains(el)) return;
+  el.focus();
+  if (selStart != null && typeof el.setSelectionRange === 'function') {
+    try { el.setSelectionRange(selStart, selEnd); } catch (_) {}
+  }
 }
 
 function _isAetherEligible(text) {
@@ -928,8 +940,11 @@ function _showChatHighlightPopup(e, hl) {
     if (ev.key === 'Escape') {
       ev.preventDefault();
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _aetherPinned = false;
       _savePopupChatToHighlight(popup);
       popup.remove();
+      _aetherShowCursor();
+      _aetherRestoreFocus();
     }
   });
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1091,7 +1106,10 @@ function _showReferencePopup(refNum, anchorEl) {
     if (ev.key === 'Escape') {
       ev.preventDefault();
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _aetherPinned = false;
       popup.remove();
+      _aetherShowCursor();
+      _aetherRestoreFocus();
     }
   });
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1541,6 +1559,8 @@ document.addEventListener('mousedown', function(e) {
   if (_screenshotDragStart || _screenshotCapturing) return;
   const btn = document.getElementById('doc-chat-ask-float');
   if (!btn) return;
+  // Pinned panels survive click-away
+  if (_aetherPinned && !btn.contains(e.target)) return;
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
   _savePopupChatToHighlight(btn);
   btn.remove();
@@ -1656,14 +1676,23 @@ document.addEventListener('keydown', function(e) {
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
       popup.remove();
+      _aetherShowCursor();
+      _aetherRestoreFocus();
     }
   }
-  // Shift pins the aether panel in place (stops tracking, survives click-away)
+  // Shift clicks the element under cursor and dismisses the panel
   if (e.key === 'Shift') {
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup && _aetherTrackMode) {
       _aetherTrackMode = false;
-      _aetherPinned = true;
+      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
+      if (el && !popup.contains(el)) el.click();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _pendingScreenshots = [];
+      _pendingNoteContexts = [];
+      _pendingTabContexts = [];
+      popup.remove();
+      _aetherShowCursor();
     }
   }
 });
@@ -1674,7 +1703,7 @@ document.addEventListener('keydown', function(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
     e.preventDefault();
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) { if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _aetherTrackMode = false; _aetherPinned = false; return; }
+    if (popup) { if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _aetherTrackMode = false; _aetherPinned = false; _aetherShowCursor(); _aetherRestoreFocus(); return; }
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
     _showPanel({ anchor: { x: _lastMouseX, y: _lastMouseY } });
@@ -4298,12 +4327,27 @@ function _panelBuildChatInput(popup, config) {
       if (noteDropdown) { _aetherHideNoteDropdown(popup); return; }
       if (dropdown) { _aetherHideCmdDropdown(popup); return; }
       _aetherTrackMode = false;
+      _aetherPinned = false;
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
       _savePopupChatToHighlight(popup);
       popup.remove();
+      _aetherShowCursor();
+      _aetherRestoreFocus();
+    }
+    // Shift clicks the element under cursor and dismisses the panel
+    if (ev.key === 'Shift' && _aetherTrackMode) {
+      _aetherTrackMode = false;
+      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
+      if (el && !popup.contains(el)) el.click();
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _pendingScreenshots = [];
+      _pendingNoteContexts = [];
+      _pendingTabContexts = [];
+      popup.remove();
+      _aetherShowCursor();
     }
   });
   askInput.addEventListener('input', () => {
@@ -4546,6 +4590,12 @@ function _showPanel(config) {
   const editableTarget = config.editableTarget || null;
   const finalized = config.finalized !== false; // default true
 
+  // Save the currently focused element so Escape can restore it
+  const ae = document.activeElement;
+  if (ae && ae !== document.body && !ae.closest('#doc-chat-ask-float')) {
+    _aetherPrevFocus = { el: ae, selStart: ae.selectionStart, selEnd: ae.selectionEnd };
+  }
+
   // Remove any existing active panel
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) {
@@ -4572,6 +4622,7 @@ function _showPanel(config) {
   if (!finalized) popup.style.visibility = 'hidden';
 
   const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
+  _aetherPinned = false;
   if (isCursorAnchor) {
     _aetherTrackMode = config.trackCursor !== undefined ? config.trackCursor : false;
   } else {

@@ -225,8 +225,149 @@ async function renderDashboard() {
   _dashStatusProfile = profile;
   const mergedSaved = getSavedPosts();
 
-  // ── Activity heatmap (full year, GitHub-style) ──
+  // ── Daily overview — all today's interactions ──
   const now = new Date();
+  const _todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const _todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const _isToday = (ts) => ts && ts >= _todayStart;
+
+  // Gather all today's interactions into a unified timeline
+  const _todayActivity = [];
+
+  // Calendar events today
+  events.filter(ev => ev.date === _todayKey).forEach(ev => {
+    _todayActivity.push({ type: 'event', title: ev.title || 'Calendar event', time: _todayStart, icon: 'cal' });
+  });
+
+  // Papers saved today
+  Object.values(mergedSaved).forEach(entry => {
+    if (_isToday(entry.savedAt)) {
+      _todayActivity.push({ type: 'saved', title: entry.paper?.title || 'Untitled', time: entry.savedAt, link: entry.paper?.link, icon: 'bookmark' });
+    }
+  });
+
+  // Comments made today
+  myComments.filter(c => _isToday(c.timestamp)).forEach(c => {
+    _todayActivity.push({ type: 'comment', title: (c.content || '').slice(0, 80) + ((c.content || '').length > 80 ? '...' : ''), time: c.timestamp, link: c.paperLink, icon: 'comment' });
+  });
+
+  // Reposts today
+  myReposts.filter(r => _isToday(r.timestamp)).forEach(r => {
+    _todayActivity.push({ type: 'repost', title: r.paperTitle || r.paperLink, time: r.timestamp, link: r.paperLink, icon: 'repost' });
+  });
+
+  // Tasks created today
+  myTasks.filter(t => _isToday(t.timestamp)).forEach(t => {
+    _todayActivity.push({ type: 'task', title: t.title, time: t.timestamp, icon: 'task' });
+  });
+
+  // Feed searches today
+  const _searchHist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+  _searchHist.filter(s => s.ts && _isToday(s.ts)).forEach(s => {
+    _todayActivity.push({ type: 'search', title: s.q || s, time: s.ts, icon: 'search' });
+  });
+
+  // Web searches today
+  const _webSearchHist = JSON.parse(localStorage.getItem('webSearchHistory') || '[]');
+  _webSearchHist.filter(s => s.ts && _isToday(s.ts)).forEach(s => {
+    _todayActivity.push({ type: 'web-search', title: s.q, time: s.ts, icon: 'globe' });
+  });
+
+  // Feed notifications (new posts discovered) today
+  const _feedNotifs = JSON.parse(localStorage.getItem('feedNotifications') || '[]');
+  _feedNotifs.filter(n => n.seenAt && _isToday(n.seenAt)).forEach(n => {
+    _todayActivity.push({ type: 'notif', title: n.title, time: n.seenAt, link: n.link, icon: 'bell' });
+  });
+
+  // Sort by time descending (most recent first)
+  _todayActivity.sort((a, b) => (b.time || 0) - (a.time || 0));
+
+  // Open tasks (not time-filtered — these are ongoing)
+  const _openTaskCount = myTasks.length;
+  const _unreadSavedCount = Object.values(mergedSaved).filter(e => !e.read).length;
+
+  const _todayDateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const _ovIcons = {
+    cal:      `<svg class="w-3.5 h-3.5" style="color:#60a5fa" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+    bookmark: `<svg class="w-3.5 h-3.5" style="color:#34d399" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>`,
+    comment:  `<svg class="w-3.5 h-3.5" style="color:#a78bfa" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
+    repost:   `<svg class="w-3.5 h-3.5" style="color:#4ade80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
+    task:     `<svg class="w-3.5 h-3.5" style="color:#fbbf24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
+    search:   `<svg class="w-3.5 h-3.5" style="color:#f97316" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+    globe:    `<svg class="w-3.5 h-3.5" style="color:#38bdf8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`,
+    bell:     `<svg class="w-3.5 h-3.5" style="color:#fb923c" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>`,
+  };
+
+  const _ovLabels = { event: 'Event', saved: 'Saved', comment: 'Commented', repost: 'Reposted', task: 'New task', search: 'Searched', 'web-search': 'Web search', notif: 'New post' };
+
+  const _fmtTime = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const h = d.getHours(), m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  let overviewHtml = '';
+  // Summary chips
+  const _chips = [];
+  const _todayEvtCount = events.filter(ev => ev.date === _todayKey).length;
+  if (_todayEvtCount) _chips.push(`${_todayEvtCount} event${_todayEvtCount > 1 ? 's' : ''}`);
+  if (_openTaskCount) _chips.push(`${_openTaskCount} open task${_openTaskCount > 1 ? 's' : ''}`);
+  if (_unreadSavedCount) _chips.push(`${_unreadSavedCount} unread`);
+  const _todaySavedCount = _todayActivity.filter(a => a.type === 'saved').length;
+  if (_todaySavedCount) _chips.push(`${_todaySavedCount} saved`);
+  const _todayCommentCount = _todayActivity.filter(a => a.type === 'comment').length;
+  if (_todayCommentCount) _chips.push(`${_todayCommentCount} comment${_todayCommentCount > 1 ? 's' : ''}`);
+  const _todaySearchCount = _todayActivity.filter(a => a.type === 'search' || a.type === 'web-search').length;
+  if (_todaySearchCount) _chips.push(`${_todaySearchCount} search${_todaySearchCount > 1 ? 'es' : ''}`);
+
+  // Build LLM prompt data (used after render)
+  const _llmActivityData = _todayActivity.slice(0, 20).map(a => `${_fmtTime(a.time)} ${_ovLabels[a.type] || a.type}: ${a.title}`);
+
+  if (_todayActivity.length) {
+    const maxItems = 8;
+    const shown = _todayActivity.slice(0, maxItems);
+    const remaining = _todayActivity.length - maxItems;
+    overviewHtml = `<div class="mb-5 p-4 rounded-xl border border-border-card bg-card">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
+        <span class="text-[0.7rem] text-dimmer">${_todayActivity.length} interaction${_todayActivity.length > 1 ? 's' : ''} today</span>
+      </div>
+      <div id="dash-day-summary" class="text-[0.8rem] text-dim leading-relaxed mb-3" style="min-height:1.2em"><span class="text-dimmest text-[0.75rem]">Summarizing your day...</span></div>
+      ${_chips.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${_chips.map(c => `<span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-accent/10 text-accent">${c}</span>`).join('')}</div>` : ''}
+      <div class="flex flex-col gap-1">
+        ${shown.map(a => {
+          const onclick = a.link ? ` onclick="window.location.hash='view/'+encodeURIComponent('${escapeAttr(a.link)}')" style="cursor:pointer"` : '';
+          return `<div class="flex items-center gap-2.5 px-1.5 py-1 rounded-md hover:bg-hover transition-colors"${onclick}>
+            <span class="shrink-0">${_ovIcons[a.icon] || ''}</span>
+            <span class="text-[0.7rem] text-dimmest w-12 shrink-0">${_fmtTime(a.time)}</span>
+            <span class="text-[0.65rem] text-dimmer w-16 shrink-0">${_ovLabels[a.type] || a.type}</span>
+            <span class="text-[0.78rem] text-primary truncate">${escapeHtml(a.title)}</span>
+          </div>`;
+        }).join('')}
+        ${remaining > 0 ? `<div class="text-[0.72rem] text-dimmest px-1.5 mt-1">+ ${remaining} more</div>` : ''}
+      </div>
+    </div>`;
+  } else if (_openTaskCount || _unreadSavedCount) {
+    overviewHtml = `<div class="mb-5 p-4 rounded-xl border border-border-card bg-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
+      </div>
+      <div id="dash-day-summary" class="text-[0.8rem] text-dim leading-relaxed mb-2" style="min-height:1.2em"><span class="text-dimmest text-[0.75rem]">Summarizing your day...</span></div>
+      <div class="flex flex-wrap gap-1.5">${_chips.map(c => `<span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-accent/10 text-accent">${c}</span>`).join('')}</div>
+    </div>`;
+  } else {
+    overviewHtml = `<div class="mb-5 p-4 rounded-xl border border-border-card bg-card">
+      <div class="flex items-center gap-2">
+        <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
+        <span class="text-[0.78rem] text-dimmest ml-1">— A clear day to explore.</span>
+      </div>
+    </div>`;
+  }
+
+  // ── Activity heatmap (full year, GitHub-style) ──
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const heatYear = now.getFullYear();
 
@@ -558,6 +699,8 @@ async function renderDashboard() {
   container.innerHTML = `
     ${profileHeaderHtml}
 
+    ${overviewHtml}
+
     <!-- Search bar -->
     <div class="mb-5">
       <div class="relative" id="dashboard-search-wrapper">
@@ -691,6 +834,84 @@ async function renderDashboard() {
         ctx.drawImage(thumb, 0, 0);
       }
     }
+  }
+
+  // ── LLM daily summary (async, streamed) ──
+  const summaryEl = document.getElementById('dash-day-summary');
+  if (summaryEl) {
+    _streamDaySummary(summaryEl, _llmActivityData, _openTaskCount, _unreadSavedCount, _todayDateStr);
+  }
+}
+
+// ── LLM Day Summary ──
+
+let _dashSummaryAbort = null;
+
+async function _streamDaySummary(el, activityLines, openTasks, unreadCount, dateStr) {
+  // Abort any in-flight summary
+  if (_dashSummaryAbort) { try { _dashSummaryAbort.abort(); } catch(e) {} }
+  _dashSummaryAbort = new AbortController();
+
+  const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || localStorage.getItem('userName') || 'there';
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+
+  let activityBlock = '';
+  if (activityLines.length) {
+    activityBlock = 'Here is what they did today:\n' + activityLines.join('\n');
+  } else {
+    activityBlock = 'They have no logged activity yet today.';
+  }
+
+  const extras = [];
+  if (openTasks) extras.push(`${openTasks} open task${openTasks > 1 ? 's' : ''}`);
+  if (unreadCount) extras.push(`${unreadCount} unread saved paper${unreadCount > 1 ? 's' : ''}`);
+  const extrasBlock = extras.length ? '\nThey also have: ' + extras.join(', ') + '.' : '';
+
+  const prompt = `It is ${timeOfDay} on ${dateStr}. The user's name is ${name}. ${activityBlock}${extrasBlock}
+
+Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and concise. Reference specific things they did (papers, searches, comments). If they have no activity, give a short encouraging note about the day ahead. Do not use emoji. Do not greet them.`;
+
+  try {
+    const resp = await fetch('/api/doc-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'qwen2.5:1.5b'
+      }),
+      signal: _dashSummaryAbort.signal
+    });
+    if (!resp.ok) { el.textContent = ''; return; }
+
+    let text = '';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ') && currentEvent === 'token') {
+          try {
+            text += JSON.parse(line.slice(6));
+            el.textContent = text;
+          } catch (e) {}
+        } else if (line.startsWith('data: ') && currentEvent === 'done') {
+          break;
+        }
+      }
+    }
+    if (!text.trim()) el.textContent = '';
+  } catch (e) {
+    if (e.name !== 'AbortError') el.textContent = '';
   }
 }
 
