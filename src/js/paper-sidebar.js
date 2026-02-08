@@ -57,25 +57,25 @@ function _renderSidebarHTML(paper) {
     <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
     <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
       <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        <div class="insight-dropdown" id="insight-drop-contents">
-          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('contents')"><span>Contents</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div class="insight-dropdown-body" id="insight-pane-contents" style="display:none"></div>
+        <div class="insight-section" id="insight-drop-contents">
+          <div class="insight-section-title">Contents</div>
+          <div class="insight-section-body" id="insight-pane-contents"></div>
         </div>
-        <div class="insight-dropdown" id="insight-drop-authors">
-          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('authors')"><span>Authors</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div class="insight-dropdown-body" id="insight-pane-authors"></div>
+        <div class="insight-section" id="insight-drop-authors">
+          <div class="insight-section-title">Authors</div>
+          <div class="insight-section-body" id="insight-pane-authors"></div>
         </div>
-        <div class="insight-dropdown" id="insight-drop-ai">
-          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('ai')"><span>AI</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div class="insight-dropdown-body" id="insight-pane-ai" style="display:none"></div>
+        <div class="insight-section" id="insight-drop-ai">
+          <div class="insight-section-title">AI</div>
+          <div class="insight-section-body" id="insight-pane-ai"></div>
         </div>
-        <div class="insight-dropdown" id="insight-drop-references">
-          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('references')"><span>References</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div class="insight-dropdown-body" id="insight-pane-references" style="display:none"></div>
+        <div class="insight-section" id="insight-drop-references">
+          <div class="insight-section-title">References</div>
+          <div class="insight-section-body" id="insight-pane-references"></div>
         </div>
-        <div class="insight-dropdown" id="insight-drop-links">
-          <button class="insight-dropdown-toggle" onclick="toggleInsightDropdown('links')"><span>Links</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div class="insight-dropdown-body" id="insight-pane-links" style="display:none">
+        <div class="insight-section" id="insight-drop-links">
+          <div class="insight-section-title">Links</div>
+          <div class="insight-section-body" id="insight-pane-links">
             <div id="pdf-links-section"></div>
           </div>
         </div>
@@ -332,10 +332,13 @@ async function fetchPaperInsights(url) {
   _paperInsightsLoaded = true;
   _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false };
 
-  // Restore saved subtab or default to authors
-  const savedSubtab = localStorage.getItem('insightSubtab');
-  const activeSubtab = (savedSubtab && ['authors', 'ai', 'references', 'links'].includes(savedSubtab)) ? savedSubtab : 'authors';
-  setTimeout(() => switchInsightSubtab(activeSubtab), 0);
+  // Load all sections immediately
+  setTimeout(() => {
+    _loadInsightSubtab('contents');
+    _loadInsightSubtab('authors');
+    _loadInsightSubtab('references');
+    _loadInsightSubtab('links');
+  }, 0);
 }
 
 function _loadInsightSubtab(subtab) {
@@ -1286,11 +1289,11 @@ function _renderBrowsePanes(container) {
   container.innerHTML =
     '<div data-pane-id="insights" id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">' +
       '<div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">' +
-        '<div class="insight-dropdown" id="insight-drop-contents"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'contents\')"><span>Contents</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-contents" style="display:none"></div></div>' +
-        '<div class="insight-dropdown" id="insight-drop-authors"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'authors\')"><span>Authors</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-authors"></div></div>' +
-        '<div class="insight-dropdown" id="insight-drop-ai"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'ai\')"><span>AI</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-ai" style="display:none"></div></div>' +
-        '<div class="insight-dropdown" id="insight-drop-references"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'references\')"><span>References</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-references" style="display:none"></div></div>' +
-        '<div class="insight-dropdown" id="insight-drop-links"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'links\')"><span>Links</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-links" style="display:none"><div id="pdf-links-section"></div></div></div>' +
+        '<div class="insight-section" id="insight-drop-contents"><div class="insight-section-title">Contents</div><div class="insight-section-body" id="insight-pane-contents"></div></div>' +
+        '<div class="insight-section" id="insight-drop-authors"><div class="insight-section-title">Authors</div><div class="insight-section-body" id="insight-pane-authors"></div></div>' +
+        '<div class="insight-section" id="insight-drop-ai"><div class="insight-section-title">AI</div><div class="insight-section-body" id="insight-pane-ai"></div></div>' +
+        '<div class="insight-section" id="insight-drop-references"><div class="insight-section-title">References</div><div class="insight-section-body" id="insight-pane-references"></div></div>' +
+        '<div class="insight-section" id="insight-drop-links"><div class="insight-section-title">Links</div><div class="insight-section-body" id="insight-pane-links"><div id="pdf-links-section"></div></div></div>' +
       '</div>' +
     '</div>' +
     '<div data-pane-id="notes" id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">' +

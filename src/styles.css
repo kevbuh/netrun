@@ -4868,42 +4868,22 @@
       color: var(--accent);
     }
 
-    /* Insight dropdowns */
-    .insight-dropdown {
+    /* Insight sections */
+    .insight-section {
       border-bottom: 1px solid var(--border-card);
     }
-    .insight-dropdown:last-child {
+    .insight-section:last-child {
       border-bottom: none;
     }
-    .insight-dropdown-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding: 8px 0;
-      border: none;
-      background: transparent;
+    .insight-section-title {
+      padding: 8px 0 4px;
       color: var(--text-muted);
       font-size: 0.72rem;
       font-weight: 600;
-      cursor: pointer;
-      transition: color 0.15s;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .insight-dropdown-toggle:hover {
-      color: var(--text-primary);
-    }
-    .insight-dropdown.open .insight-dropdown-toggle {
-      color: var(--text-primary);
-    }
-    .insight-dropdown-chevron {
-      transition: transform 0.2s;
-    }
-    .insight-dropdown.open .insight-dropdown-chevron {
-      transform: rotate(180deg);
-    }
-    .insight-dropdown-body {
+    .insight-section-body {
       padding-bottom: 12px;
     }
 
@@ -7222,6 +7202,136 @@
       body.printing-pdf .pdf-page-wrapper .pdf-search-highlight { visibility: hidden; }
       body.printing-pdf .pdf-toolbar { display: none !important; }
       @page { margin: 0.5cm; }
+    }
+
+    /* ── Niri-style Window Manager Overlay ── */
+    #wm-niri-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 8, 12, 0.78);
+      backdrop-filter: blur(32px);
+      -webkit-backdrop-filter: blur(32px);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    #wm-niri-overlay.visible { opacity: 1; }
+
+    .wm-niri-strip {
+      display: flex;
+      align-items: stretch;
+      gap: 20px;
+      padding: 0 60px;
+      overflow-x: auto;
+      max-width: 100vw;
+      scroll-behavior: smooth;
+      scroll-snap-type: x proximity;
+    }
+    .wm-niri-strip::-webkit-scrollbar { display: none; }
+
+    .wm-niri-col {
+      flex-shrink: 0;
+      width: min(320px, 38vw);
+      cursor: pointer;
+      scroll-snap-align: center;
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      opacity: 0.55;
+    }
+    .wm-niri-col:hover { opacity: 0.85; transform: translateY(-2px); }
+    .wm-niri-col.focused { opacity: 1; transform: translateY(-4px) scale(1.03); }
+
+    .wm-niri-preview {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 12px;
+      border: 2.5px solid rgba(255, 255, 255, 0.06);
+      background-size: cover;
+      background-position: center top;
+      background-color: rgba(24, 24, 30, 0.9);
+      transition: border-color 0.22s, box-shadow 0.22s;
+      overflow: hidden;
+    }
+    .wm-niri-col.focused .wm-niri-preview {
+      border-color: var(--accent);
+      box-shadow: 0 0 28px -6px var(--accent), 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .wm-niri-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.12);
+    }
+    .wm-niri-empty svg { width: 48px; height: 48px; }
+
+    .wm-niri-label {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.3);
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .wm-niri-col.focused .wm-niri-label { color: rgba(255, 255, 255, 0.92); }
+    .wm-niri-col.active .wm-niri-label::after {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      background: var(--accent);
+      border-radius: 50%;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .wm-niri-hint {
+      margin-top: 28px;
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.12);
+      letter-spacing: 0.04em;
+    }
+
+    /* Light theme overrides */
+    [data-theme="light"] #wm-niri-overlay,
+    [data-theme="daylight"] #wm-niri-overlay,
+    [data-theme="sepia"] #wm-niri-overlay {
+      background: rgba(190, 190, 200, 0.72);
+    }
+    [data-theme="light"] .wm-niri-preview,
+    [data-theme="daylight"] .wm-niri-preview,
+    [data-theme="sepia"] .wm-niri-preview {
+      border-color: rgba(0, 0, 0, 0.08);
+      background-color: rgba(245, 245, 248, 0.95);
+    }
+    [data-theme="light"] .wm-niri-col.focused .wm-niri-preview,
+    [data-theme="daylight"] .wm-niri-col.focused .wm-niri-preview,
+    [data-theme="sepia"] .wm-niri-col.focused .wm-niri-preview {
+      border-color: var(--accent);
+      box-shadow: 0 0 28px -6px var(--accent), 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+    [data-theme="light"] .wm-niri-empty,
+    [data-theme="daylight"] .wm-niri-empty,
+    [data-theme="sepia"] .wm-niri-empty {
+      color: rgba(0, 0, 0, 0.1);
+    }
+    [data-theme="light"] .wm-niri-label,
+    [data-theme="daylight"] .wm-niri-label,
+    [data-theme="sepia"] .wm-niri-label {
+      color: rgba(0, 0, 0, 0.35);
+    }
+    [data-theme="light"] .wm-niri-col.focused .wm-niri-label,
+    [data-theme="daylight"] .wm-niri-col.focused .wm-niri-label,
+    [data-theme="sepia"] .wm-niri-col.focused .wm-niri-label {
+      color: rgba(0, 0, 0, 0.85);
+    }
+    [data-theme="light"] .wm-niri-hint,
+    [data-theme="daylight"] .wm-niri-hint,
+    [data-theme="sepia"] .wm-niri-hint {
+      color: rgba(0, 0, 0, 0.2);
     }
 
     /* Vault Chat */

@@ -113,29 +113,5 @@ function _initSidebarTerminal() {
   observer.observe(container);
 }
 
-function toggleInsightDropdown(subtab) {
-  const drop = document.getElementById(`insight-drop-${subtab}`);
-  const body = document.getElementById(`insight-pane-${subtab}`);
-  if (!drop || !body) return;
-  const isOpen = body.style.display !== 'none';
-  if (isOpen) {
-    body.style.display = 'none';
-    drop.classList.remove('open');
-  } else {
-    body.style.display = '';
-    drop.classList.add('open');
-    _loadInsightSubtab(subtab);
-  }
-}
-
-function switchInsightSubtab(subtab) {
-  // Open the requested dropdown (used on initial load)
-  const drop = document.getElementById(`insight-drop-${subtab}`);
-  const body = document.getElementById(`insight-pane-${subtab}`);
-  if (drop && body) {
-    body.style.display = '';
-    drop.classList.add('open');
-  }
-  localStorage.setItem('insightSubtab', subtab);
-  _loadInsightSubtab(subtab);
-}
+function toggleInsightDropdown(subtab) { /* no-op — sections always visible */ }
+function switchInsightSubtab(subtab) { /* no-op — sections always visible */ }

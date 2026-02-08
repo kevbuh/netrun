@@ -4375,7 +4375,6 @@ document.addEventListener('keydown', function(e) {
       if (inp) { inp.focus(); inp.select(); }
     } else { _browseToggleFindBar(); }
   }
-  else if (e.key === ']') { e.preventDefault(); if (typeof toggleBrowseSidebar === 'function') toggleBrowseSidebar(); }
 });
 
 // Cmd+W / Cmd+T work when the parent document has focus (clicking tab bar, URL bar,
