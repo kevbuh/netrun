@@ -1830,7 +1830,6 @@
     }
     .browse-tab-overview::-webkit-scrollbar { display: none; }
     .browse-tab-overview.visible { opacity: 1; }
-    .browse-tab-overview.visible * { pointer-events: none; }
     .wov-cards-strip {
       display: flex;
       align-items: stretch;

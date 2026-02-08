@@ -980,6 +980,7 @@ function _browseHandleNavigation(tab, frame) {
   frame.addEventListener('media-paused', () => {
     _browseAudioTabs.delete(tab.id);
     _ccPillDismissed = false;
+    if (_ccTabId === tab.id) stopCaptions();
     _browseRenderTabs();
     _updateAudioIndicator();
   });
@@ -3687,6 +3688,37 @@ function _renderWindowOverview() {
   }
 
   overlay.innerHTML = '<div class="wov-cards-strip">' + appHtml + '</div>' + detailHtml;
+
+  // Wire up click handlers for mouse interaction
+  overlay.querySelectorAll('.wov-card-app').forEach(function(card, idx) {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function() { _overviewClickApp(_wmWindows[idx].key); });
+  });
+  if (_overviewBrowseExpanded) {
+    overlay.querySelectorAll('.wov-win-card').forEach(function(winCard, wi) {
+      var bw = _browseWindows[wi];
+      if (!bw) return;
+      var header = winCard.querySelector('.wov-win-header');
+      if (header) {
+        header.style.cursor = 'pointer';
+        header.addEventListener('click', function(e) {
+          if (e.target.closest('.wov-win-close')) return;
+          _overviewClickBrowseWin(bw.id);
+        });
+        var closeBtn = header.querySelector('.wov-win-close');
+        if (closeBtn) {
+          closeBtn.style.cursor = 'pointer';
+          closeBtn.addEventListener('click', function(e) { e.stopPropagation(); _overviewCloseBrowseWin(bw.id); });
+        }
+      }
+      winCard.querySelectorAll('.wov-bt').forEach(function(tabEl, ti) {
+        var tab = bw.tabs[ti];
+        if (!tab) return;
+        tabEl.style.cursor = 'pointer';
+        tabEl.addEventListener('click', function() { _overviewClickBrowseTab(bw.id, tab.id); });
+      });
+    });
+  }
 
   // Scroll selected item into view (instant — smooth scroll handled by _updateOverviewHighlight for arrow keys)
   var selTab = overlay.querySelector('.wov-bt.wov-selected') || overlay.querySelector('.wov-win-header.wov-selected');

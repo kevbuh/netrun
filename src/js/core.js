@@ -802,6 +802,8 @@ let _wmWindows = _wmDefaultOrder.map(key => ({
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
+  // Dismiss tab overview if open
+  if (typeof _browseTabOverviewVisible !== 'undefined' && _browseTabOverviewVisible && typeof hideBrowseTabOverview === 'function') hideBrowseTabOverview();
   // If already on this view, wiggle the sidebar icon
   const existIdx = _wmWindows.findIndex(w => w.key === key);
   if (existIdx >= 0 && existIdx === _wmFocusIndex && _wmMode === 'fullscreen') {
@@ -909,7 +911,7 @@ function _wmExitTiling(index) {
     _wmTilingHandler = null;
   }
   if (_wmTilingClickHandler) {
-    document.removeEventListener('click', _wmTilingClickHandler, true);
+    document.removeEventListener('mousedown', _wmTilingClickHandler, true);
     _wmTilingClickHandler = null;
   }
   var dock = document.getElementById('wm-tiling-dock');
