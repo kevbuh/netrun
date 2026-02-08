@@ -708,7 +708,13 @@ function togglePdfThumbs() {
   if (_pdfThumbStripVisible) {
     if (!_pdfThumbContainer) _initPdfThumbs();
     _pdfThumbContainer.style.display = '';
+    // Force sync and focus active thumbnail for keyboard nav
+    _pdfThumbActivePage = 0;
     _syncThumbHighlight();
+    requestAnimationFrame(() => {
+      const active = _pdfThumbContainer?.querySelector('.pdf-thumb-item.active');
+      if (active) active.focus();
+    });
   } else if (_pdfThumbContainer) {
     _pdfThumbContainer.style.display = 'none';
   }
@@ -791,6 +797,7 @@ function _renderSingleThumb(pageNum) {
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.display = 'block';
+    canvas.style.pointerEvents = 'none';
     const ctx = canvas.getContext('2d');
     page.render({ canvasContext: ctx, viewport: vp }).promise.then(() => {
       if (!_pdfThumbContainer) return;

@@ -3655,14 +3655,10 @@ function _installOverviewKeyHandler() {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
       _updateOverviewHighlight();
-      var wL = _wmWindows[_overviewSelectedIdx];
-      if (wL) { _wmFocusIndex = _overviewSelectedIdx; var mL = _wmViewMeta[wL.key]; if (mL) mL.openFn(); _overviewScheduleCapture(); }
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
-      var wR = _wmWindows[_overviewSelectedIdx];
-      if (wR) { _wmFocusIndex = _overviewSelectedIdx; var mR = _wmViewMeta[wR.key]; if (mR) mR.openFn(); _overviewScheduleCapture(); }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];

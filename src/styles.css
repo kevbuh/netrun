@@ -1835,9 +1835,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(8, 8, 12, 0.78);
-      backdrop-filter: blur(32px);
-      -webkit-backdrop-filter: blur(32px);
+      background: var(--aether-bg);
       z-index: 9998;
       opacity: 0;
       transition: opacity 0.2s ease;
@@ -1850,7 +1848,7 @@
       align-items: center;
       gap: 16px;
       height: 100%;
-      padding: 24px 10vw;
+      padding: 32px max(16px, calc((100vw - min(70vw, 900px)) / 2));
       overflow-x: auto;
       overflow-y: hidden;
       scrollbar-width: none;
@@ -1865,29 +1863,33 @@
       width: min(70vw, 900px);
       height: 85vh;
       flex-shrink: 0;
-      border-radius: 14px;
-      border: 2.5px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
       position: relative;
       overflow: hidden;
       scroll-snap-align: center;
       cursor: pointer;
-      opacity: 0.5;
-      transform: scale(0.92);
-      transition: transform 0.25s ease, opacity 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      opacity: 0.55;
+      transform: scale(0.96);
+      filter: brightness(0.7);
+      transition: transform 0.25s ease, opacity 0.25s ease, filter 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
     }
     .wov-card.wov-active {
-      opacity: 0.6;
+      opacity: 0.65;
     }
     .wov-card.wov-selected {
       opacity: 1;
       transform: scale(1);
-      border-color: var(--accent);
-      box-shadow: 0 0 40px -8px var(--accent), 0 12px 48px rgba(0, 0, 0, 0.5);
+      filter: brightness(1);
+      border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+                  0 8px 32px rgba(0, 0, 0, 0.4);
     }
     .wov-card.wov-expanded {
-      border-color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 60%, transparent);
       opacity: 1;
       transform: scale(1);
+      filter: brightness(1);
     }
 
     /* Preview area fills the card */
@@ -1898,8 +1900,8 @@
       background-size: cover;
       background-position: top center;
       background-repeat: no-repeat;
-      background-color: rgba(24, 24, 30, 0.9);
-      border-radius: 12px 12px 0 0;
+      background-color: var(--bg-primary, #18181e);
+      border-radius: 11px 11px 0 0;
       position: relative;
     }
     .wov-card-preview-empty {
@@ -1908,7 +1910,7 @@
       justify-content: center;
     }
     .wov-card-empty-icon {
-      color: rgba(255, 255, 255, 0.1);
+      color: var(--text-dimmest, rgba(255, 255, 255, 0.08));
     }
     .wov-card-empty-icon svg { width: 56px; height: 56px; }
 
@@ -1917,33 +1919,32 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      padding: 8px 14px;
-      background: rgba(16, 16, 20, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      padding: 7px 14px;
+      background: color-mix(in srgb, var(--bg-primary, #18181e) 92%, transparent);
+      border-top: 1px solid color-mix(in srgb, var(--border-card, rgba(255,255,255,0.06)) 50%, transparent);
     }
     .wov-card-icon {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       flex-shrink: 0;
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--text-dimmest);
     }
-    .wov-card-icon svg { width: 14px; height: 14px; }
-    .wov-card.wov-selected .wov-card-icon { color: rgba(255, 255, 255, 0.9); }
+    .wov-card-icon svg { width: 13px; height: 13px; }
+    .wov-card.wov-selected .wov-card-icon { color: var(--text-muted); }
     .wov-card-name {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 500;
-      color: rgba(255, 255, 255, 0.4);
+      color: var(--text-dimmest);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       flex: 1;
       transition: color 0.25s ease;
     }
-    .wov-card.wov-selected .wov-card-name { color: rgba(255, 255, 255, 0.92); }
+    .wov-card.wov-selected .wov-card-name { color: var(--text-primary); }
     .wov-active-dot {
       width: 5px;
       height: 5px;
@@ -1956,7 +1957,7 @@
     .wov-browse-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(8, 8, 12, 0.88);
+      background: color-mix(in srgb, var(--bg-primary, #0a0a0e) 92%, transparent);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       overflow-y: auto;
@@ -1971,8 +1972,8 @@
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+      border: 1px solid var(--border-card);
       border-radius: 10px;
       overflow: hidden;
       transition: border-color 0.25s ease, box-shadow 0.25s ease;
@@ -1982,14 +1983,14 @@
       box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 10%, transparent);
     }
     .wov-win-card.wov-win-active {
-      border-color: color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.06));
+      border-color: color-mix(in srgb, var(--accent) 20%, var(--border-card));
     }
     .wov-win-header {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--border-card);
       border: 2px solid transparent;
       border-radius: 9px 9px 0 0;
       cursor: pointer;
@@ -2003,22 +2004,22 @@
       flex: 1;
       font-size: 0.72rem;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.85);
+      color: var(--text-primary);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .wov-win-count {
       font-size: 0.6rem;
-      color: rgba(255, 255, 255, 0.35);
-      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dimmer);
+      background: var(--bg-hover);
       padding: 1px 6px;
       border-radius: 5px;
       flex-shrink: 0;
     }
     .wov-win-close {
       width: 18px; height: 18px; border: none; background: transparent;
-      color: rgba(255, 255, 255, 0.25); font-size: 0.85rem; border-radius: 4px;
+      color: var(--text-dimmest); font-size: 0.85rem; border-radius: 4px;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       opacity: 0; transition: opacity 0.1s;
       flex-shrink: 0;
@@ -2035,7 +2036,7 @@
       cursor: pointer;
       transition: background 0.2s ease, border-color 0.2s ease;
     }
-    .wov-bt.wov-bt-active .wov-bt-title { color: rgba(255, 255, 255, 0.9); }
+    .wov-bt.wov-bt-active .wov-bt-title { color: var(--text-primary); }
     .wov-bt.wov-selected {
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
@@ -2043,95 +2044,30 @@
     .wov-bt-fav { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
     .wov-bt-dot {
       width: 4px; height: 4px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.15); flex-shrink: 0;
+      background: var(--text-dimmest); flex-shrink: 0;
       margin: 0 5px;
     }
     .wov-bt-title {
       font-size: 0.68rem;
-      color: rgba(255, 255, 255, 0.45);
+      color: var(--text-muted);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .wov-bt.wov-selected .wov-bt-title { color: rgba(255, 255, 255, 0.92); }
+    .wov-bt.wov-selected .wov-bt-title { color: var(--text-primary); }
 
     /* ── Light theme overrides for overview ── */
-    [data-theme="light"] .browse-tab-overview,
-    [data-theme="daylight"] .browse-tab-overview,
-    [data-theme="sepia"] .browse-tab-overview {
-      background: rgba(200, 200, 210, 0.72);
-    }
     [data-theme="light"] .wov-card,
     [data-theme="daylight"] .wov-card,
     [data-theme="sepia"] .wov-card {
-      border-color: rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.1);
     }
     [data-theme="light"] .wov-card.wov-selected,
     [data-theme="daylight"] .wov-card.wov-selected,
     [data-theme="sepia"] .wov-card.wov-selected {
-      border-color: var(--accent);
-      box-shadow: 0 0 40px -8px var(--accent), 0 12px 48px rgba(0, 0, 0, 0.15);
-    }
-    [data-theme="light"] .wov-card-preview,
-    [data-theme="daylight"] .wov-card-preview,
-    [data-theme="sepia"] .wov-card-preview {
-      background-color: rgba(245, 245, 248, 0.95);
-    }
-    [data-theme="light"] .wov-card-bar,
-    [data-theme="daylight"] .wov-card-bar,
-    [data-theme="sepia"] .wov-card-bar {
-      background: rgba(240, 240, 244, 0.9);
-    }
-    [data-theme="light"] .wov-card-icon,
-    [data-theme="daylight"] .wov-card-icon,
-    [data-theme="sepia"] .wov-card-icon {
-      color: rgba(0, 0, 0, 0.35);
-    }
-    [data-theme="light"] .wov-card.wov-selected .wov-card-icon,
-    [data-theme="daylight"] .wov-card.wov-selected .wov-card-icon,
-    [data-theme="sepia"] .wov-card.wov-selected .wov-card-icon {
-      color: rgba(0, 0, 0, 0.8);
-    }
-    [data-theme="light"] .wov-card-name,
-    [data-theme="daylight"] .wov-card-name,
-    [data-theme="sepia"] .wov-card-name {
-      color: rgba(0, 0, 0, 0.35);
-    }
-    [data-theme="light"] .wov-card.wov-selected .wov-card-name,
-    [data-theme="daylight"] .wov-card.wov-selected .wov-card-name,
-    [data-theme="sepia"] .wov-card.wov-selected .wov-card-name {
-      color: rgba(0, 0, 0, 0.85);
-    }
-    [data-theme="light"] .wov-card-empty-icon,
-    [data-theme="daylight"] .wov-card-empty-icon,
-    [data-theme="sepia"] .wov-card-empty-icon {
-      color: rgba(0, 0, 0, 0.08);
-    }
-    [data-theme="light"] .wov-browse-overlay,
-    [data-theme="daylight"] .wov-browse-overlay,
-    [data-theme="sepia"] .wov-browse-overlay {
-      background: rgba(240, 240, 244, 0.92);
-    }
-    [data-theme="light"] .wov-win-card,
-    [data-theme="daylight"] .wov-win-card,
-    [data-theme="sepia"] .wov-win-card {
-      background: rgba(0, 0, 0, 0.03);
-      border-color: rgba(0, 0, 0, 0.06);
-    }
-    [data-theme="light"] .wov-win-name,
-    [data-theme="daylight"] .wov-win-name,
-    [data-theme="sepia"] .wov-win-name {
-      color: rgba(0, 0, 0, 0.8);
-    }
-    [data-theme="light"] .wov-bt-title,
-    [data-theme="daylight"] .wov-bt-title,
-    [data-theme="sepia"] .wov-bt-title {
-      color: rgba(0, 0, 0, 0.45);
-    }
-    [data-theme="light"] .wov-bt.wov-selected .wov-bt-title,
-    [data-theme="daylight"] .wov-bt.wov-selected .wov-bt-title,
-    [data-theme="sepia"] .wov-bt.wov-selected .wov-bt-title {
-      color: rgba(0, 0, 0, 0.85);
+      border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent),
+                  0 8px 32px rgba(0, 0, 0, 0.2);
     }
 
     /* Window switcher arrows in tab bar */
@@ -5301,6 +5237,10 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 1px var(--accent);
     }
+    .pdf-thumb-item canvas,
+    .pdf-thumb-label {
+      pointer-events: none;
+    }
     .pdf-thumb-label {
       position: absolute;
       bottom: 0;
@@ -5311,7 +5251,6 @@
       color: #fff;
       padding: 1px 0;
       background: linear-gradient(transparent, rgba(0,0,0,0.5));
-      pointer-events: none;
     }
     #pdf-thumb-toggle {
       border: none;
