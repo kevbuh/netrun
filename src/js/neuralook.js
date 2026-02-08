@@ -22,7 +22,7 @@ window.addEventListener('mediapipe-ready', () => {
   if (document.getElementById('neuralook-content')) renderNeuralookView();
 });
 
-// Calibration data: array of { eyeData: [4096], screenX, screenY, headPose: [yaw, pitch, roll] }
+// Calibration data: array of { eyeData: [4096], screenX, screenY, headPose: [yaw, pitch, roll], irisFeatures: [6] }
 let _nlCalibData = [];
 // Model state — server-side, just track if trained
 let _nlModelTrained = false;
@@ -45,6 +45,13 @@ let _nlTrainLogs = []; // raw log lines from server
 let _nlTrainStartTime = 0;
 let _nlShowTrainView = true; // toggle between training detail and normal view
 let _nlTrainAbort = null; // AbortController for in-flight training request
+
+// Implicit calibration (click collection)
+let _nlImplicitBuffer = [];
+let _nlLastCapture = null;   // { eyeData, headPose, irisFeatures, ts }
+let _nlLastPrediction = null; // { x, y, ts }
+let _nlImplicitCount = 0;    // server-side count
+let _nlImplicitLastFlush = 0;
 
 // Smoothing
 let _nlGazeBuffer = [];
@@ -188,6 +195,7 @@ function renderNeuralookView() {
   `;
 
   if (_nlCameraOn) _nlAttachCameraPreview();
+  _nlFetchImplicitCount();
   _nlRefreshStats();
   _nlStartStatsInterval();
 }
@@ -344,7 +352,7 @@ function _nlRefreshTrainDetails() {
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
 
   el.innerHTML =
-    row('Architecture', 'CNN (2ch 64x128 + headPose → 256 → 64 → 2)') +
+    row('Architecture', 'CNN (2ch 64x128 + hp+iris → 256 → 64 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
     row('Calibration', `${_NL_CAL_POSITIONS.length} fixed grid points`) +
@@ -623,17 +631,51 @@ function _nlCaptureEyeCrops() {
   const pitch = faceH > 0.001 ? ((noseY - foreheadY) / faceH - 0.5) * 2 : 0;
   const roll = Math.atan2((rightEyeY - leftEyeY) * vh, (rightEyeX - leftEyeX) * vw);
 
-  return { eyeData: combined, headPose: [yaw, pitch, roll] };
+  // Iris features (6 values): left iris X/Y, right iris X/Y, left/right eye openness
+  let irisFeatures = [0.5, 0.5, 0.5, 0.5, 0.3, 0.3]; // defaults
+  if (lm.length > 477 && lm[468] && lm[473]) {
+    // Left iris center = lm[468], eye corners: outer=33, inner=133, top=159, bottom=145
+    const lIris = lm[468];
+    const lOuter = lm[33], lInner = lm[133], lTop = lm[159], lBot = lm[145];
+    const lEyeW = Math.abs(lInner.x - lOuter.x) || 0.001;
+    const lEyeH = Math.abs(lBot.y - lTop.y) || 0.001;
+    const lIrisX = (lIris.x - lOuter.x) / lEyeW;
+    const lIrisY = (lIris.y - lTop.y) / lEyeH;
+
+    // Right iris center = lm[473], eye corners: outer=263, inner=362, top=386, bottom=374
+    const rIris = lm[473];
+    const rOuter = lm[263], rInner = lm[362], rTop = lm[386], rBot = lm[374];
+    const rEyeW = Math.abs(rInner.x - rOuter.x) || 0.001;
+    const rEyeH = Math.abs(rBot.y - rTop.y) || 0.001;
+    const rIrisX = (rIris.x - rOuter.x) / rEyeW;
+    const rIrisY = (rIris.y - rTop.y) / rEyeH;
+
+    // Eye openness (aspect ratio: vertical / horizontal)
+    const lOpen = lEyeH / lEyeW;
+    const rOpen = rEyeH / rEyeW;
+
+    irisFeatures = [
+      Math.max(0, Math.min(1, lIrisX)),
+      Math.max(0, Math.min(1, lIrisY)),
+      Math.max(0, Math.min(1, rIrisX)),
+      Math.max(0, Math.min(1, rIrisY)),
+      Math.max(0, Math.min(1, lOpen)),
+      Math.max(0, Math.min(1, rOpen))
+    ];
+  }
+
+  return { eyeData: combined, headPose: [yaw, pitch, roll], irisFeatures };
 }
 
 // ── Server Communication ──
 
-function _nlTrainOnServerSSE(onProgress, onLog) {
+function _nlTrainOnServerSSE(onProgress, onLog, refine) {
   return new Promise((resolve, reject) => {
     const useSaved = _nlCalibSaved && _nlCalibData.length > 0;
     const samples = useSaved ? [] : _nlCalibData.map(s => ({
       eyeData: Array.from(s.eyeData),
       headPose: s.headPose,
+      irisFeatures: s.irisFeatures,
       screenX: s.screenX,
       screenY: s.screenY
     }));
@@ -646,6 +688,7 @@ function _nlTrainOnServerSSE(onProgress, onLog) {
       eyeW: _NL_EYE_W,
       eyeH: _NL_EYE_H
     };
+    if (refine) reqBody.refine = true;
 
     _nlTrainAbort = new AbortController();
     fetch('/api/neuralook/train', {
@@ -815,8 +858,8 @@ function _nlDismissTrainPill() {
   setTimeout(() => p.remove(), 300);
 }
 
-async function _nlPredictOnServer(eyeData, headPose) {
-  const body = { eyeData: Array.from(eyeData), headPose: headPose, method: 'cnn' };
+async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
+  const body = { eyeData: Array.from(eyeData), headPose, irisFeatures: irisFeatures || [0.5, 0.5, 0.5, 0.5, 0.3, 0.3], method: 'cnn' };
   const resp = await fetch('/api/neuralook/predict', {
     method: 'POST',
     headers: _authHeaders(),
@@ -1126,7 +1169,7 @@ function _nlShowNextCalibrationDot() {
 
       const capture = _nlCaptureEyeCrops();
       if (capture) {
-        _nlCalibData.push({ eyeData: capture.eyeData, headPose: capture.headPose, screenX, screenY });
+        _nlCalibData.push({ eyeData: capture.eyeData, headPose: capture.headPose, irisFeatures: capture.irisFeatures, screenX, screenY });
       }
       requestAnimationFrame(collect);
     }
@@ -1143,6 +1186,7 @@ async function _nlOnCalibrationComplete() {
       samples: _nlCalibData.map(s => ({
         eyeData: Array.from(s.eyeData),
         headPose: s.headPose,
+        irisFeatures: s.irisFeatures,
         screenX: s.screenX, screenY: s.screenY
       })),
       screenW: window.innerWidth, screenH: window.innerHeight,
@@ -1247,10 +1291,12 @@ function _nlTrackingLoop() {
   if (!_nlInferPending) {
     const capture = _nlCaptureEyeCrops();
     if (capture) {
+      _nlLastCapture = { ...capture, ts: performance.now() };
       _nlInferPending = true;
-      _nlPredictOnServer(capture.eyeData, capture.headPose).then(pred => {
+      _nlPredictOnServer(capture.eyeData, capture.headPose, capture.irisFeatures).then(pred => {
         _nlInferPending = false;
         if (!pred || !_nlTracking) return;
+        _nlLastPrediction = { ...pred, ts: performance.now() };
         _nlPredictionCount++;
         _nlPredictionsThisSec++;
         _nlApplyGazePrediction(pred);
@@ -1276,14 +1322,112 @@ async function _nlStartTracking() {
   _nlGazeBuffer = [];
   _nlCreateDot();
   _nlTrackingRAF = requestAnimationFrame(_nlTrackingLoop);
+  // Start collecting implicit click samples
+  document.addEventListener('click', _nlHandleImplicitClick, true);
   renderNeuralookView();
 }
 
 function _nlStopTracking() {
   _nlTracking = false;
   if (_nlTrackingRAF) { cancelAnimationFrame(_nlTrackingRAF); _nlTrackingRAF = null; }
+  document.removeEventListener('click', _nlHandleImplicitClick, true);
+  // Flush remaining implicit samples
+  if (_nlImplicitBuffer.length > 0) _nlFlushImplicitSamples();
   _nlRemoveDot();
   renderNeuralookView();
+}
+
+function _nlHandleImplicitClick(e) {
+  if (!_nlTracking || !_nlLastCapture || !_nlLastPrediction) return;
+  // Freshness: capture must be < 200ms old
+  const now = performance.now();
+  if (now - _nlLastCapture.ts > 200) return;
+  // Confidence: predicted gaze must be within 300px of click
+  const dx = _nlLastPrediction.x - e.clientX;
+  const dy = _nlLastPrediction.y - e.clientY;
+  if (Math.sqrt(dx * dx + dy * dy) > 300) return;
+  // Build sample
+  _nlImplicitBuffer.push({
+    eyeData: Array.from(_nlLastCapture.eyeData),
+    headPose: _nlLastCapture.headPose,
+    irisFeatures: _nlLastCapture.irisFeatures,
+    screenX: e.clientX,
+    screenY: e.clientY
+  });
+  // Auto-flush at 50 samples
+  if (_nlImplicitBuffer.length >= 50) _nlFlushImplicitSamples();
+}
+
+function _nlFlushImplicitSamples() {
+  if (_nlImplicitBuffer.length === 0) return;
+  const samples = _nlImplicitBuffer.splice(0);
+  _nlImplicitLastFlush = Date.now();
+  fetch('/api/neuralook/implicit-samples', {
+    method: 'POST',
+    headers: _authHeaders(),
+    body: JSON.stringify({ samples })
+  }).then(r => r.json()).then(data => {
+    if (data.count != null) _nlImplicitCount = data.count;
+  }).catch(() => {});
+}
+
+function _nlFetchImplicitCount() {
+  fetch('/api/neuralook/implicit-samples', { headers: _authHeaders() })
+    .then(r => r.json())
+    .then(data => { if (data.count != null) _nlImplicitCount = data.count; })
+    .catch(() => {});
+}
+
+function _nlRefineModel() {
+  if (_nlTraining) return;
+  _nlTraining = true;
+  _nlTrainPhase = 'training';
+  _nlTrainProgress = null;
+  _nlTrainResult = null;
+  _nlTrainLossHistory = [];
+  _nlTrainLogs = [];
+  _nlTrainStartTime = Date.now();
+  _nlShowTrainView = true;
+  _nlShowTrainPill();
+  renderNeuralookView();
+
+  _nlTrainOnServerSSE((prog) => {
+    _nlTrainProgress = prog;
+    _nlTrainPhase = prog.phase || 'training';
+    if (prog.val_loss != null) _nlTrainLossHistory.push({ epoch: prog.epoch, val_loss: prog.val_loss, train_loss: prog.train_loss });
+    if (prog.phase === 'evaluating') {
+      _nlUpdateTrainPill('Refining CNN', 'Evaluating...');
+    } else {
+      const pct = Math.round((prog.epoch / prog.max_epochs) * 100);
+      const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
+      const eta = _nlTrainETA(prog.epoch, prog.max_epochs);
+      _nlUpdateTrainPill('Refining CNN', `Epoch ${prog.epoch}/${prog.max_epochs} (${pct}%)${loss}${eta}`);
+    }
+    _nlRefreshTrainView();
+    _nlRefreshBanner();
+  }, (logLine) => {
+    _nlTrainLogs.push(logLine);
+    _nlAppendTrainLog(logLine);
+  }, true /* refine */).then(result => {
+    _nlTrainResult = result;
+    _nlTrainPhase = 'done';
+    _nlTraining = false;
+    _nlReady = true;
+    _nlImplicitCount = 0; // cleared on server
+    const valPx = result.val_error_px;
+    const label = valPx < 80 ? 'Good' : valPx < 150 ? 'Fair' : 'Poor';
+    const color = valPx < 80 ? '#4ade80' : valPx < 150 ? '#fbbf24' : '#f87171';
+    _nlFinishTrainPill('Refinement Done', `Val ${valPx}px — ${label}`, color);
+    _nlRefreshTrainView();
+    renderNeuralookView();
+  }).catch(e => {
+    _nlTrainPhase = 'error';
+    _nlTraining = false;
+    _nlTrainResult = { error: e.message || String(e) };
+    _nlErrorTrainPill(e.message || String(e));
+    _nlRefreshTrainView();
+    renderNeuralookView();
+  });
 }
 
 // ── Gaze Dot ──
@@ -1375,9 +1519,11 @@ function _nlRefreshStats() {
   const row = (label, value, color) =>
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums" ${color ? `style="color:${color}"` : ''}>${value}</div>`;
 
+  const implicitInfo = _nlImplicitCount > 0 ? `${_nlImplicitCount} clicks` + (_nlImplicitBuffer.length > 0 ? ` (+${_nlImplicitBuffer.length} pending)` : '') : _nlImplicitBuffer.length > 0 ? `${_nlImplicitBuffer.length} pending` : '<span class="text-dimmer">None</span>';
+
   el.innerHTML =
-    row('Model', 'CNN (2ch 64x128 + hp)') +
-    row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2`) +
+    row('Model', 'CNN (2ch 64x128 + hp+iris)') +
+    row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 + aux(9)`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
     row('Status', _nlModelTrained ? '<span style="color:#4ade80">Trained</span>' : '<span class="text-dimmer">Not trained</span>') +
     (_nlTrainError !== null ? row('Train error', `${_nlTrainError}px`) : '') +
@@ -1385,7 +1531,9 @@ function _nlRefreshStats() {
     row('Prediction rate', _nlTracking ? `${_nlPredictionRate} Hz` : '<span class="text-dimmer">Inactive</span>') +
     row('Gaze', _nlTracking ? `${Math.round(_nlGazeX)}, ${Math.round(_nlGazeY)}` : '<span class="text-dimmer">Inactive</span>') +
     row('Jitter', jitter !== null ? `${jitter}px` : '<span class="text-dimmer">Inactive</span>', jitter !== null ? jitterColor : null) +
-    row('Predictions', `${_nlPredictionCount.toLocaleString()}`);
+    row('Predictions', `${_nlPredictionCount.toLocaleString()}`) +
+    row('Implicit clicks', implicitInfo) +
+    (_nlImplicitCount > 0 && !_nlTraining && _nlModelTrained ? `<div class="col-span-2 mt-1"><button onclick="_nlRefineModel()" class="px-3 py-1 rounded-lg border border-border-input bg-card text-primary text-[0.75rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full">Refine Model (${_nlImplicitCount} clicks)</button></div>` : '');
 
   // Update banner detail if training is in progress
   _nlRefreshBanner();

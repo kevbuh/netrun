@@ -33,6 +33,74 @@ _neuralook_models = {}
 _neuralook_screen = None
 _whisper_model = None
 
+# Lazy-initialized GazeCNN class (needs torch)
+_GazeCNN = None
+
+def _get_gaze_cnn_class():
+    global _GazeCNN
+    if _GazeCNN is not None:
+        return _GazeCNN
+    import torch
+    import torch.nn as nn
+
+    class GazeCNN(nn.Module):
+        def __init__(self, aux_dim=9):
+            super().__init__()
+            self.aux_dim = aux_dim
+            self.features = nn.Sequential(
+                nn.Conv2d(2, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+                nn.AdaptiveAvgPool2d((4, 4)),
+            )
+            self.head = nn.Sequential(
+                nn.Linear(128 * 4 * 4 + aux_dim, 256), nn.ReLU(), nn.Dropout(0.3),
+                nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
+                nn.Linear(64, 2)
+            )
+        def forward(self, x, aux):
+            feat = self.features(x)
+            feat = feat.view(feat.size(0), -1)
+            combined = torch.cat([feat, aux], dim=1)
+            return self.head(combined)
+
+    _GazeCNN = GazeCNN
+    return _GazeCNN
+
+
+def _nl_save_model(model, screen_w, screen_h, eye_w, eye_h):
+    """Save model checkpoint and metadata to disk."""
+    import torch
+    model_path = os.path.join(DIR, 'neuralook_model.pt')
+    meta_path = os.path.join(DIR, 'neuralook_model_meta.json')
+    torch.save(model.state_dict(), model_path)
+    with open(meta_path, 'w') as f:
+        json.dump({'aux_dim': model.aux_dim, 'screen_w': screen_w, 'screen_h': screen_h,
+                   'eye_w': eye_w, 'eye_h': eye_h}, f)
+
+
+def _nl_load_model():
+    """Load model from disk checkpoint if available. Returns (model, screen_info) or (None, None)."""
+    import torch
+    model_path = os.path.join(DIR, 'neuralook_model.pt')
+    meta_path = os.path.join(DIR, 'neuralook_model_meta.json')
+    if not os.path.exists(model_path) or not os.path.exists(meta_path):
+        return None, None
+    try:
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        GazeCNN = _get_gaze_cnn_class()
+        model = GazeCNN(aux_dim=meta.get('aux_dim', 9))
+        model.load_state_dict(torch.load(model_path, weights_only=True))
+        model.eval()
+        screen_info = (meta['screen_w'], meta['screen_h'], meta['eye_w'], meta['eye_h'])
+        return model, screen_info
+    except Exception as e:
+        print(f'Neuralook: failed to load model checkpoint: {e}')
+        return None, None
+
 
 @bp.route('/api/settings')
 def settings():
@@ -603,6 +671,7 @@ def neuralook_train(google_id):
             import random
 
             method = body.get('method', 'cnn')
+            refine = body.get('refine', False)
             samples = body.get('samples', [])
             if not samples:
                 calib_path = os.path.join(DIR, 'neuralook_calibration.json')
@@ -615,6 +684,21 @@ def neuralook_train(google_id):
                     body.setdefault('eyeW', calib.get('eyeW', 128))
                     body.setdefault('eyeH', calib.get('eyeH', 64))
 
+            # Load implicit samples for refine mode
+            implicit_samples = []
+            if refine:
+                impl_path = os.path.join(DIR, 'neuralook_implicit.json')
+                if os.path.exists(impl_path):
+                    try:
+                        with open(impl_path, 'r') as f:
+                            implicit_samples = json.load(f)
+                    except Exception:
+                        implicit_samples = []
+                if not implicit_samples:
+                    yield sse_event('error', {'error': 'No implicit samples available for refinement'})
+                    return
+                samples = samples + implicit_samples
+
             screen_w = body.get('screenW', 1920)
             screen_h = body.get('screenH', 1080)
             eye_w = body.get('eyeW', 128)
@@ -623,8 +707,9 @@ def neuralook_train(google_id):
                 yield sse_event('error', {'error': f'Need at least 10 samples, got {len(samples)}'})
                 return
 
+            iris_default = [0.5, 0.5, 0.5, 0.5, 0.3, 0.3]
             eye_size = eye_w * eye_h
-            X_list, HP_list, Y_list = [], [], []
+            X_list, AUX_list, Y_list = [], [], []
             for s in samples:
                 raw = s['eyeData']
                 if len(raw) != eye_size * 2:
@@ -633,7 +718,10 @@ def neuralook_train(google_id):
                 right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
                 X_list.append(torch.cat([left, right], dim=0))
                 hp = s.get('headPose', [0.0, 0.0, 0.0])
-                HP_list.append(hp[:3] if len(hp) >= 3 else hp + [0.0] * (3 - len(hp)))
+                hp = hp[:3] if len(hp) >= 3 else hp + [0.0] * (3 - len(hp))
+                iris = s.get('irisFeatures', iris_default)
+                iris = iris[:6] if len(iris) >= 6 else iris + [0.0] * (6 - len(iris))
+                AUX_list.append(hp + iris)
                 Y_list.append([s['screenX'] / screen_w, s['screenY'] / screen_h])
 
             if len(X_list) < 10:
@@ -641,7 +729,7 @@ def neuralook_train(google_id):
                 return
 
             X = torch.stack(X_list)
-            HP = torch.tensor(HP_list, dtype=torch.float32)
+            AUX = torch.tensor(AUX_list, dtype=torch.float32)
             Y = torch.tensor(Y_list, dtype=torch.float32)
 
             targets_rounded = [(round(s['screenX']), round(s['screenY'])) for s in samples if len(s['eyeData']) == eye_size * 2]
@@ -652,43 +740,18 @@ def neuralook_train(google_id):
             val_mask = torch.tensor([t in val_targets for t in targets_rounded])
             train_mask = ~val_mask
 
-            X_train, HP_train, Y_train = X[train_mask], HP[train_mask], Y[train_mask]
-            X_val, HP_val, Y_val = X[val_mask], HP[val_mask], Y[val_mask]
+            X_train, AUX_train, Y_train = X[train_mask], AUX[train_mask], Y[train_mask]
+            X_val, AUX_val, Y_val = X[val_mask], AUX[val_mask], Y[val_mask]
 
-            class GazeCNN(nn.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.features = nn.Sequential(
-                        nn.Conv2d(2, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
-                        nn.MaxPool2d(2),
-                        nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
-                        nn.MaxPool2d(2),
-                        nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
-                        nn.AdaptiveAvgPool2d((4, 4)),
-                    )
-                    # 128*4*4 = 2048 from conv features + 3 head pose values
-                    self.head = nn.Sequential(
-                        nn.Linear(128 * 4 * 4 + 3, 256), nn.ReLU(), nn.Dropout(0.3),
-                        nn.Linear(256, 64), nn.ReLU(), nn.Dropout(0.3),
-                        nn.Linear(64, 2)
-                    )
-                def forward(self, x, hp):
-                    feat = self.features(x)
-                    feat = feat.view(feat.size(0), -1)
-                    combined = torch.cat([feat, hp], dim=1)
-                    return self.head(combined)
+            GazeCNN = _get_gaze_cnn_class()
 
             def augment_batch(x_batch):
                 B = x_batch.shape[0]
                 aug = x_batch.clone()
-                # Brightness ±20%
                 aug = aug * (1.0 + (torch.rand(B, 1, 1, 1) * 0.4 - 0.2))
-                # Contrast ±15%
                 mean = aug.mean(dim=(-2, -1), keepdim=True)
                 aug = (aug - mean) * (1.0 + (torch.rand(B, 1, 1, 1) * 0.3 - 0.15)) + mean
-                # Gaussian noise σ=0.02
                 aug = aug + torch.randn_like(aug) * 0.02
-                # Horizontal shift ±2px
                 shift = torch.randint(-2, 3, (B,))
                 for i in range(B):
                     s = shift[i].item()
@@ -698,31 +761,52 @@ def neuralook_train(google_id):
                         else: aug[i, :, :, s:] = 0.0
                 return aug.clamp(0.0, 1.0)
 
-            model = GazeCNN()
-            # Register model globally so prediction endpoint can use it during training
+            # Refine: load existing model and freeze conv layers
+            if refine:
+                model = _neuralook_models.get(method)
+                if model is None:
+                    model, screen_info = _nl_load_model()
+                    if model is None:
+                        yield sse_event('error', {'error': 'No existing model to refine'})
+                        return
+                    _neuralook_screen = screen_info
+                # Freeze conv layers
+                for param in model.features.parameters():
+                    param.requires_grad = False
+                trainable_params = [p for p in model.parameters() if p.requires_grad]
+                optimizer = torch.optim.Adam(trainable_params, lr=5e-5, weight_decay=1e-4)
+                max_epochs = 100
+                patience = 30
+                yield sse_event('log', {'text': f'Refine mode: frozen conv layers, lr=5e-5, max_epochs={max_epochs}'})
+                yield sse_event('log', {'text': f'Combining {len(samples) - len(implicit_samples)} calibration + {len(implicit_samples)} implicit samples'})
+            else:
+                model = GazeCNN(aux_dim=9)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+                max_epochs = 300
+                patience = 80
+
             _neuralook_models[method] = model
             _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
-            optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-            max_epochs = 300
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
             n_train = X_train.shape[0]
             batch_size = min(64, n_train)
             best_val_loss = float('inf')
             best_state = None
-            patience = 80
             no_improve = 0
             stopped_epoch = 0
 
             yield sse_event('progress', {'epoch': 0, 'max_epochs': max_epochs, 'phase': 'training', 'val_loss': None})
 
             n_params = sum(p.numel() for p in model.parameters())
-            yield sse_event('log', {'text': f'GazeCNN | params: {n_params:,} | input: [B, 2, {eye_h}, {eye_w}]'})
+            n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            yield sse_event('log', {'text': f'GazeCNN | params: {n_params:,} ({n_trainable:,} trainable) | input: [B, 2, {eye_h}, {eye_w}]'})
             yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
-            yield sse_event('log', {'text': f'  head: Flatten(2048) + headPose(3) → Linear(2051,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
-            yield sse_event('log', {'text': f'Adam(lr=1e-3, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
+            yield sse_event('log', {'text': f'  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+            yield sse_event('log', {'text': f'Adam(lr={optimizer.param_groups[0]["lr"]}, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
             yield sse_event('log', {'text': f'batch_size={batch_size} | patience={patience} | max_epochs={max_epochs}'})
-            yield sse_event('log', {'text': 'augmentation: brightness(±20%), contrast(±15%), noise(σ=0.02), h-shift(±2px)'})
+            if not refine:
+                yield sse_event('log', {'text': 'augmentation: brightness(±20%), contrast(±15%), noise(σ=0.02), h-shift(±2px)'})
             yield sse_event('log', {'text': ''})
             yield sse_event('log', {'text': f'{"epoch":>6}  {"train_loss":>11}  {"val_loss":>11}  {"lr":>10}  {"best":>5}  {"patience":>8}'})
             yield sse_event('log', {'text': '─' * 65})
@@ -735,8 +819,8 @@ def neuralook_train(google_id):
                 n_batches = 0
                 for start in range(0, n_train, batch_size):
                     idx = perm[start:start + batch_size]
-                    x_batch = augment_batch(X_train[idx])
-                    pred = model(x_batch, HP_train[idx])
+                    x_batch = augment_batch(X_train[idx]) if not refine else X_train[idx]
+                    pred = model(x_batch, AUX_train[idx])
                     loss = nn.functional.mse_loss(pred, Y_train[idx])
                     optimizer.zero_grad()
                     loss.backward()
@@ -749,7 +833,7 @@ def neuralook_train(google_id):
                 if epoch % 10 == 0:
                     model.eval()
                     with torch.no_grad():
-                        val_pred = model(X_val, HP_val)
+                        val_pred = model(X_val, AUX_val)
                         val_loss = nn.functional.mse_loss(val_pred, Y_val).item()
                     improved = val_loss < best_val_loss
                     if improved:
@@ -761,7 +845,7 @@ def neuralook_train(google_id):
                     cur_lr = optimizer.param_groups[0]['lr']
                     yield sse_event('log', {'text': f'{epoch:>6}  {last_train_loss:>11.6f}  {val_loss:>11.6f}  {cur_lr:>10.2e}  {"✓" if improved else " ":>5}  {no_improve:>4}/{patience}'})
                     prog_data = {'epoch': epoch, 'max_epochs': max_epochs, 'val_loss': round(val_loss, 6), 'train_loss': round(last_train_loss, 6), 'phase': 'training'}
-                    if epoch == 0:
+                    if epoch == 0 and not refine:
                         prog_data['model_ready'] = True
                     yield sse_event('progress', prog_data)
                     if no_improve >= patience:
@@ -779,11 +863,11 @@ def neuralook_train(google_id):
             yield sse_event('progress', {'epoch': stopped_epoch, 'max_epochs': max_epochs, 'phase': 'evaluating'})
 
             with torch.no_grad():
-                train_pred = model(X_train, HP_train)
+                train_pred = model(X_train, AUX_train)
                 tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
                 yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
                 train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
-                vp = model(X_val, HP_val)
+                vp = model(X_val, AUX_val)
                 vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
                 yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
                 val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
@@ -791,12 +875,22 @@ def neuralook_train(google_id):
             _neuralook_models[method] = model
             _neuralook_screen = (screen_w, screen_h, eye_w, eye_h)
 
+            # Save checkpoint
+            _nl_save_model(model, screen_w, screen_h, eye_w, eye_h)
+
             yield sse_event('log', {'text': f'  train error: {train_err:.1f}px'})
             yield sse_event('log', {'text': f'  val error:   {val_err:.1f}px'})
             qual = 'Good' if val_err < 80 else 'Fair' if val_err < 150 else 'Poor'
             yield sse_event('log', {'text': f'  quality:     {qual}'})
             yield sse_event('log', {'text': ''})
-            yield sse_event('log', {'text': f'Done. Model ready for inference ({n_params:,} params, screen {screen_w}x{screen_h}).'})
+            yield sse_event('log', {'text': f'Model saved to disk. Ready for inference ({n_params:,} params, screen {screen_w}x{screen_h}).'})
+
+            # Clear implicit samples after successful refinement
+            if refine:
+                impl_path = os.path.join(DIR, 'neuralook_implicit.json')
+                if os.path.exists(impl_path):
+                    os.remove(impl_path)
+                yield sse_event('log', {'text': 'Implicit samples cleared after refinement.'})
 
             yield sse_event('done', {
                 'method': method,
@@ -807,7 +901,8 @@ def neuralook_train(google_id):
                 'samples': len(X_list),
                 'train_samples': int(train_mask.sum()),
                 'val_samples': int(val_mask.sum()),
-                'val_points': n_val_points
+                'val_points': n_val_points,
+                'refined': refine
             })
         except ImportError:
             yield sse_event('error', {'error': 'PyTorch not installed on server'})
@@ -824,15 +919,22 @@ def neuralook_train(google_id):
 @bp.route('/api/neuralook/predict', methods=['POST'])
 @require_auth
 def neuralook_predict(google_id):
+    global _neuralook_models, _neuralook_screen
     body = request.get_json(force=True, silent=True) or {}
     try:
         import torch
         method = body.get('method', 'cnn')
         model = _neuralook_models.get(method)
         if model is None:
-            return jsonify({'error': f'Model not trained for method: {method}'}), 400
+            # Try loading from checkpoint
+            model, screen_info = _nl_load_model()
+            if model is None:
+                return jsonify({'error': f'Model not trained for method: {method}'}), 400
+            _neuralook_models[method] = model
+            _neuralook_screen = screen_info
         raw = body.get('eyeData', [])
         hp_raw = body.get('headPose', [0.0, 0.0, 0.0])
+        iris_raw = body.get('irisFeatures', [0.5, 0.5, 0.5, 0.5, 0.3, 0.3])
         screen_w, screen_h, eye_w, eye_h = _neuralook_screen
         eye_size = eye_w * eye_h
         if len(raw) != eye_size * 2:
@@ -840,11 +942,13 @@ def neuralook_predict(google_id):
         left = torch.tensor(raw[:eye_size], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
         right = torch.tensor(raw[eye_size:], dtype=torch.float32).view(1, eye_h, eye_w) / 255.0
         inp = torch.cat([left, right], dim=0).unsqueeze(0)
-        hp = torch.tensor([hp_raw[:3]], dtype=torch.float32)
+        hp = hp_raw[:3] if len(hp_raw) >= 3 else hp_raw + [0.0] * (3 - len(hp_raw))
+        iris = iris_raw[:6] if len(iris_raw) >= 6 else iris_raw + [0.0] * (6 - len(iris_raw))
+        aux = torch.tensor([hp + iris], dtype=torch.float32)
         was_training = model.training
         model.eval()
         with torch.no_grad():
-            pred = model(inp, hp)[0]
+            pred = model(inp, aux)[0]
         if was_training:
             model.train()
         return jsonify({
@@ -853,3 +957,42 @@ def neuralook_predict(google_id):
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/neuralook/implicit-samples', methods=['POST'])
+@require_auth
+def neuralook_implicit_samples_post(google_id):
+    body = request.get_json(force=True, silent=True) or {}
+    samples = body.get('samples', [])
+    if not samples:
+        return jsonify({'error': 'No samples provided'}), 400
+    impl_path = os.path.join(DIR, 'neuralook_implicit.json')
+    existing = []
+    if os.path.exists(impl_path):
+        try:
+            with open(impl_path, 'r') as f:
+                existing = json.load(f)
+        except Exception:
+            existing = []
+    existing.extend(samples)
+    # Cap at 500 samples
+    if len(existing) > 500:
+        existing = existing[-500:]
+    with open(impl_path, 'w') as f:
+        json.dump(existing, f)
+    return jsonify({'ok': True, 'count': len(existing)})
+
+
+@bp.route('/api/neuralook/implicit-samples')
+@require_auth
+def neuralook_implicit_samples_get(google_id):
+    impl_path = os.path.join(DIR, 'neuralook_implicit.json')
+    count = 0
+    if os.path.exists(impl_path):
+        try:
+            with open(impl_path, 'r') as f:
+                data = json.load(f)
+            count = len(data)
+        except Exception:
+            pass
+    return jsonify({'count': count})

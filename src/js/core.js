@@ -437,15 +437,7 @@ if (document.readyState === 'loading') {
 }
 
 // ── View management ──
-const BACK_ARROW = '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>';
-const ARXIV_LOGO = '<img class="absolute top-2.5 right-2.5 h-4 w-auto opacity-30" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
 const ARXIV_LOGO_INLINE = '<img class="h-3.5 w-auto opacity-50 inline-block" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
-const HN_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
-const HN_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f60" width="256" height="256" rx="24"/><text x="128" y="180" text-anchor="middle" fill="#fff" font-size="160" font-weight="bold" font-family="Verdana,sans-serif">Y</text></svg>';
-const VERGE_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#000" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fa4b2a" font-size="180" font-weight="bold" font-family="Georgia,serif">V</text></svg>';
-const VERGE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#000" stroke="#333" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fa4b2a" font-size="180" font-weight="bold" font-family="Georgia,serif">V</text></svg>';
-const NATURE_LOGO = '<svg class="absolute top-2.5 right-2.5 h-4 w-auto opacity-40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
-const NATURE_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#c00" width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="#fff" font-size="170" font-weight="bold" font-family="Georgia,serif">N</text></svg>';
 const RSS_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="#f90" width="256" height="256" rx="24"/><circle cx="68" cy="189" r="28" fill="#fff"/><path d="M40 120a108 108 0 01108 108h-36a72 72 0 00-72-72v-36z" fill="#fff"/><path d="M40 56a172 172 0 01172 172h-36A136 136 0 0076 92V56h-36z" fill="#fff"/></svg>';
 const SUBSTACK_LOGO_INLINE = '<svg class="h-3.5 w-auto inline-block" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.54 6.42H1.46V4.2h21.08v2.22zM1.46 9.26h21.08V7.04H1.46v2.22zM22.54 12.1H1.46v9.52l10.54-5.87 10.54 5.87V12.1z" fill="#FF6719"/></svg>';
 
@@ -769,7 +761,6 @@ function hideAllViews() {
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
 let _wmTilingHandler = null;   // keydown handler installed when tiling
-let _wmSnapshots = {};         // { viewKey: dataUrl } — captured preview images
 
 const _wmViewMeta = {
   dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openDashboard(); } },
@@ -814,54 +805,24 @@ function _wmActivateWindow(index) {
   const w = _wmWindows[index];
   const meta = _wmViewMeta[w.key];
   if (meta) meta.openFn();
-  // Capture a preview in the background after the view renders
-  setTimeout(() => _wmCaptureSnapshot(w.key), 600);
-}
-
-function _wmCaptureSnapshot(key) {
-  if (typeof html2canvas === 'undefined') return;
-  if (_wmMode === 'tiling') return; // don't capture the overlay
-  const bezel = document.getElementById('app-bezel');
-  if (!bezel) return;
-  html2canvas(bezel, {
-    scale: 0.3,
-    logging: false,
-    useCORS: true,
-    allowTaint: true,
-    ignoreElements: function(el) { return el.id === 'wm-tiling-overlay'; },
-  }).then(function(canvas) {
-    _wmSnapshots[key] = canvas.toDataURL('image/jpeg', 0.65);
-  }).catch(function() {});
 }
 
 function _wmEnterTiling() {
   _wmMode = 'tiling';
   if (!_wmWindows.length) return;
-  const overlay = document.getElementById('wm-tiling-overlay');
-  if (!overlay) return;
 
-  // Capture current view before showing overlay (sync-ish: show tiles immediately with cached snapshot)
-  const currentKey = _wmWindows[_wmFocusIndex]?.key;
-  if (currentKey && typeof html2canvas !== 'undefined') {
-    const bezel = document.getElementById('app-bezel');
-    if (bezel) {
-      html2canvas(bezel, { scale: 0.3, logging: false, useCORS: true, allowTaint: true,
-        ignoreElements: function(el) { return el.id === 'wm-tiling-overlay'; },
-      }).then(function(canvas) {
-        _wmSnapshots[currentKey] = canvas.toDataURL('image/jpeg', 0.65);
-        // Update the tile preview if overlay is still showing
-        const tile = overlay.querySelector(`.wm-tile[data-wm-index="${_wmWindows.findIndex(w => w.key === currentKey)}"] .wm-tile-preview`);
-        if (tile) tile.style.backgroundImage = `url(${_wmSnapshots[currentKey]})`;
-      }).catch(function() {});
-    }
-  }
+  // Remove any old dock + kill legacy overlay
+  var old = document.getElementById('wm-tiling-dock');
+  if (old) old.remove();
+  var legacyOverlay = document.getElementById('wm-tiling-overlay');
+  if (legacyOverlay) { legacyOverlay.style.display = 'none'; legacyOverlay.innerHTML = ''; }
 
-  // Build tile cards
-  let html = '<div class="wm-tiles-strip">';
+  // Build floating dock bar
+  var dock = document.createElement('div');
+  dock.id = 'wm-tiling-dock';
+  var html = '<div class="wm-tiles-strip">';
   _wmWindows.forEach((w, i) => {
     const focused = i === _wmFocusIndex ? ' focused' : '';
-    const snap = _wmSnapshots[w.key];
-    // Icon from sidebar
     const sbBtn = document.getElementById(w.sidebarId);
     let iconHtml = '';
     if (sbBtn) {
@@ -870,27 +831,24 @@ function _wmEnterTiling() {
       if (svg) iconHtml = svg.outerHTML;
       else if (pillLabel) iconHtml = `<span class="wm-tile-alpha">${pillLabel.textContent}</span>`;
     }
-    html += `<div class="wm-tile${focused}" data-wm-index="${i}" ondblclick="_wmTileActivate(${i})" onclick="_wmTileClick(${i})">`;
-    // Title bar
-    html += `<div class="wm-tile-titlebar">`;
+    html += `<div class="wm-tile${focused}" data-wm-index="${i}" onclick="_wmExitTiling(${i})">`;
     html += `<span class="wm-tile-titlebar-icon">${iconHtml}</span>`;
     html += `<span class="wm-tile-titlebar-label">${escapeHtml(w.label)}</span>`;
     html += `<button class="wm-tile-close" onclick="event.stopPropagation();_wmCloseWindow(${i})" title="Close">&times;</button>`;
-    html += `</div>`;
-    // Preview area
-    const bgStyle = snap ? `background-image:url(${snap})` : '';
-    html += `<div class="wm-tile-preview" style="${bgStyle}">`;
-    if (!snap) html += `<div class="wm-tile-placeholder">${iconHtml}</div>`;
-    html += `</div>`;
     html += '</div>';
   });
   html += '</div>';
-  html += '<div class="wm-tiling-hint">&larr; &rarr; navigate &middot; Enter to open &middot; &x232b; close</div>';
-  overlay.innerHTML = html;
-  overlay.style.display = '';
+  html += '<div class="wm-tiling-hint">&larr; &rarr; navigate &middot; &darr; tabs &middot; Enter to open &middot; &x232b; close</div>';
+  dock.innerHTML = html;
+  document.body.appendChild(dock);
+
+  // Activate the focused view — it renders normally, dock floats on top
+  _wmShowViewBehind(_wmFocusIndex);
 
   // Install keyboard handler
   _wmTilingHandler = function(e) {
+    // Let the tab overview handle its own keys
+    if (typeof _browseTabOverviewVisible !== 'undefined' && _browseTabOverviewVisible) return;
     if (e.key === 'ArrowLeft') { e.preventDefault(); _wmNavigate(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); _wmNavigate(1); }
     else if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); _wmExitTiling(_wmFocusIndex); }
@@ -900,13 +858,21 @@ function _wmEnterTiling() {
   _wmScrollToFocused();
 }
 
+async function _wmShowViewBehind(index) {
+  const w = _wmWindows[index];
+  if (!w) return;
+  const meta = _wmViewMeta[w.key];
+  if (meta) await meta.openFn();
+}
+
+
 function _wmExitTiling(index) {
   if (_wmTilingHandler) {
     document.removeEventListener('keydown', _wmTilingHandler, true);
     _wmTilingHandler = null;
   }
-  const overlay = document.getElementById('wm-tiling-overlay');
-  if (overlay) overlay.style.display = 'none';
+  var dock = document.getElementById('wm-tiling-dock');
+  if (dock) dock.remove();
   _wmActivateWindow(index);
 }
 
@@ -915,20 +881,21 @@ function _wmNavigate(dir) {
   _wmFocusIndex = (_wmFocusIndex + dir + _wmWindows.length) % _wmWindows.length;
   _wmUpdateFocus();
   _wmScrollToFocused();
+  _wmShowViewBehind(_wmFocusIndex);
 }
 
 function _wmUpdateFocus() {
-  const overlay = document.getElementById('wm-tiling-overlay');
-  if (!overlay) return;
-  overlay.querySelectorAll('.wm-tile').forEach((tile, i) => {
+  const dock = document.getElementById('wm-tiling-dock');
+  if (!dock) return;
+  dock.querySelectorAll('.wm-tile').forEach((tile, i) => {
     tile.classList.toggle('focused', i === _wmFocusIndex);
   });
 }
 
 function _wmScrollToFocused() {
-  const overlay = document.getElementById('wm-tiling-overlay');
-  if (!overlay) return;
-  const tile = overlay.querySelector('.wm-tile.focused');
+  const dock = document.getElementById('wm-tiling-dock');
+  if (!dock) return;
+  const tile = dock.querySelector('.wm-tile.focused');
   if (tile) tile.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 }
 

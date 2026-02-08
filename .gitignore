@@ -6,7 +6,9 @@ src/vault/
 src/alpha.db
 src/lookup.db
 src/aether.db
-src/__pycache__/
+__pycache__/
+*.pyc
 src/feed_cache/
 wandb/
 src/neuralook_calibration.json
+src/neuralook_implicit.json

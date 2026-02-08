@@ -8,7 +8,7 @@ import time
 import urllib.request
 from functools import wraps
 
-from flask import request, jsonify, Response
+from flask import request, jsonify
 
 from persistence import (
     get_session_user, touch_last_seen,

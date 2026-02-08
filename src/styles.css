@@ -445,6 +445,11 @@
       background: transparent;
       border: none;
       box-shadow: none;
+      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.3s ease,
+                  border-radius 0.3s ease,
+                  padding 0.3s ease;
     }
     /* Electron: shift right to avoid macOS traffic lights */
     body.electron-app .pill-bar {
@@ -548,13 +553,6 @@
     }
 
     /* ── Dynamic Island — pill bar browse mode ── */
-    .pill-bar {
-      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  background 0.3s ease,
-                  border-radius 0.3s ease,
-                  padding 0.3s ease;
-    }
     .pill-bar.browse-mode {
       width: calc(100vw - 16px);
       max-width: none;
@@ -1468,20 +1466,30 @@
       position: fixed;
       inset: 0;
       display: flex;
-      align-items: stretch;
+      flex-direction: column;
       gap: 10px;
       padding: 32px 48px;
       background: var(--aether-bg);
       z-index: 9998;
       opacity: 0;
       transition: opacity 0.18s ease;
+      overflow: hidden;
+    }
+    .browse-tab-overview::-webkit-scrollbar { display: none; }
+    .browse-tab-overview.visible { opacity: 1; }
+    .wov-cards-strip {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
       overflow-x: auto;
       overflow-y: hidden;
       scrollbar-width: none;
       scroll-snap-type: x proximity;
+      scroll-behavior: smooth;
     }
-    .browse-tab-overview::-webkit-scrollbar { display: none; }
-    .browse-tab-overview.visible { opacity: 1; }
+    .wov-cards-strip::-webkit-scrollbar { display: none; }
     .wov-card {
       display: flex;
       flex-direction: column;
@@ -1601,7 +1609,13 @@
       align-items: stretch;
       gap: 10px;
       flex-shrink: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-card);
+      max-height: 40vh;
     }
+    .wov-browse-row::-webkit-scrollbar { display: none; }
     .wov-browse-row::-webkit-scrollbar { display: none; }
     .wov-win-card {
       width: 200px;
@@ -6655,104 +6669,102 @@
     }
 
     /* ── Tiling Window Manager Overlay (Niri-style) ── */
-    #wm-tiling-overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 50;
-      background: rgba(8, 8, 10, 0.95);
+    #wm-tiling-overlay { display: none !important; }
+
+    #wm-tiling-dock {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 20px;
+      gap: 6px;
     }
 
     .wm-tiles-strip {
       display: flex;
-      align-items: stretch;
-      gap: 14px;
-      padding: 24px 40px;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
       overflow-x: auto;
-      max-width: 100%;
+      max-width: 90%;
       scroll-behavior: smooth;
+      background: rgba(20, 20, 24, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     }
 
     .wm-tiles-strip::-webkit-scrollbar { height: 0; }
 
     .wm-tile {
       position: relative;
-      width: 280px;
-      min-width: 280px;
-      border-radius: 10px;
-      border: 2px solid rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.03);
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1.5px solid transparent;
+      background: transparent;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
       cursor: pointer;
-      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.2s;
+      transition: background 0.15s, border-color 0.15s;
       user-select: none;
-      overflow: hidden;
+      white-space: nowrap;
     }
 
     .wm-tile:hover {
-      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.08);
     }
 
     .wm-tile.focused {
+      background: rgba(255, 255, 255, 0.1);
       border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent), 0 8px 32px rgba(0, 0, 0, 0.4);
-      transform: scale(1.03);
     }
 
-    /* Title bar */
+    /* Tile internals — icon + label inline, no preview area */
     .wm-tile-titlebar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      flex-shrink: 0;
+      display: contents;
     }
 
     .wm-tile-titlebar-icon {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: rgba(255, 255, 255, 0.45);
+      color: rgba(255, 255, 255, 0.5);
       flex-shrink: 0;
     }
 
     .wm-tile-titlebar-icon svg { width: 14px; height: 14px; }
-    .wm-tile-titlebar-icon .wm-tile-alpha { font-size: 12px; }
+    .wm-tile-titlebar-icon .wm-tile-alpha { font-size: 11px; }
 
     .wm-tile.focused .wm-tile-titlebar-icon { color: var(--accent); }
     .wm-tile.focused .wm-tile-titlebar-icon .wm-tile-alpha { color: var(--accent); }
 
     .wm-tile-titlebar-label {
-      font-size: 0.7rem;
-      color: rgba(255, 255, 255, 0.45);
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.5);
       font-weight: 500;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .wm-tile.focused .wm-tile-titlebar-label {
-      color: rgba(255, 255, 255, 0.8);
+      color: rgba(255, 255, 255, 0.9);
     }
 
     .wm-tile-close {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       border-radius: 4px;
       border: none;
       background: transparent;
       color: rgba(255, 255, 255, 0.2);
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1;
       cursor: pointer;
       display: flex;
@@ -6762,37 +6774,15 @@
       transition: opacity 0.12s, background 0.12s, color 0.12s;
       flex-shrink: 0;
       padding: 0;
+      margin-left: -2px;
     }
 
     .wm-tile:hover .wm-tile-close { opacity: 1; }
     .wm-tile-close:hover { background: rgba(255, 80, 80, 0.25); color: rgba(255, 120, 120, 0.9); }
 
-    /* Preview area */
-    .wm-tile-preview {
-      flex: 1;
-      min-height: 160px;
-      background-size: cover;
-      background-position: top left;
-      background-repeat: no-repeat;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .wm-tile-placeholder {
-      color: rgba(255, 255, 255, 0.08);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .wm-tile-placeholder svg { width: 48px; height: 48px; }
-    .wm-tile-placeholder .wm-tile-alpha {
-      font-family: Georgia, serif;
-      font-weight: bold;
-      font-size: 48px;
-      color: rgba(255, 255, 255, 0.08);
-    }
+    /* Preview area hidden — live view shows behind overlay */
+    .wm-tile-preview { display: none; }
+    .wm-tile-placeholder { display: none; }
 
     .wm-tiling-hint {
       font-size: 0.68rem;
@@ -6801,33 +6791,23 @@
     }
 
     /* Light theme overrides */
-    [data-theme="light"] #wm-tiling-overlay,
-    [data-theme="daylight"] #wm-tiling-overlay,
-    [data-theme="sepia"] #wm-tiling-overlay {
-      background: rgba(235, 235, 238, 0.96);
-    }
-    [data-theme="light"] .wm-tile,
-    [data-theme="daylight"] .wm-tile,
-    [data-theme="sepia"] .wm-tile {
-      border-color: rgba(0, 0, 0, 0.08);
-      background: rgba(255, 255, 255, 0.8);
+    [data-theme="light"] .wm-tiles-strip,
+    [data-theme="daylight"] .wm-tiles-strip,
+    [data-theme="sepia"] .wm-tiles-strip {
+      background: rgba(240, 240, 244, 0.9);
+      border-color: rgba(0, 0, 0, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     }
     [data-theme="light"] .wm-tile:hover,
     [data-theme="daylight"] .wm-tile:hover,
     [data-theme="sepia"] .wm-tile:hover {
-      border-color: rgba(0, 0, 0, 0.16);
+      background: rgba(0, 0, 0, 0.06);
     }
     [data-theme="light"] .wm-tile.focused,
     [data-theme="daylight"] .wm-tile.focused,
     [data-theme="sepia"] .wm-tile.focused {
+      background: rgba(0, 0, 0, 0.08);
       border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent), 0 8px 32px rgba(0, 0, 0, 0.12);
-    }
-    [data-theme="light"] .wm-tile-titlebar,
-    [data-theme="daylight"] .wm-tile-titlebar,
-    [data-theme="sepia"] .wm-tile-titlebar {
-      background: rgba(0, 0, 0, 0.03);
-      border-bottom-color: rgba(0, 0, 0, 0.06);
     }
     [data-theme="light"] .wm-tile-titlebar-icon,
     [data-theme="daylight"] .wm-tile-titlebar-icon,
@@ -6842,12 +6822,12 @@
     [data-theme="light"] .wm-tile-titlebar-label,
     [data-theme="daylight"] .wm-tile-titlebar-label,
     [data-theme="sepia"] .wm-tile-titlebar-label {
-      color: rgba(0, 0, 0, 0.45);
+      color: rgba(0, 0, 0, 0.5);
     }
     [data-theme="light"] .wm-tile.focused .wm-tile-titlebar-label,
     [data-theme="daylight"] .wm-tile.focused .wm-tile-titlebar-label,
     [data-theme="sepia"] .wm-tile.focused .wm-tile-titlebar-label {
-      color: rgba(0, 0, 0, 0.8);
+      color: rgba(0, 0, 0, 0.85);
     }
     [data-theme="light"] .wm-tile-close,
     [data-theme="daylight"] .wm-tile-close,
@@ -6860,24 +6840,10 @@
       background: rgba(255, 60, 60, 0.15);
       color: rgba(220, 50, 50, 0.9);
     }
-    [data-theme="light"] .wm-tile-placeholder,
-    [data-theme="daylight"] .wm-tile-placeholder,
-    [data-theme="sepia"] .wm-tile-placeholder {
-      color: rgba(0, 0, 0, 0.06);
-    }
-    [data-theme="light"] .wm-tile-placeholder svg,
-    [data-theme="daylight"] .wm-tile-placeholder svg,
-    [data-theme="sepia"] .wm-tile-placeholder svg {
-      color: rgba(0, 0, 0, 0.06);
-    }
-    [data-theme="light"] .wm-tile-placeholder .wm-tile-alpha,
-    [data-theme="daylight"] .wm-tile-placeholder .wm-tile-alpha,
-    [data-theme="sepia"] .wm-tile-placeholder .wm-tile-alpha {
-      color: rgba(0, 0, 0, 0.06);
-    }
     [data-theme="light"] .wm-tiling-hint,
     [data-theme="daylight"] .wm-tiling-hint,
     [data-theme="sepia"] .wm-tiling-hint {
-      color: rgba(0, 0, 0, 0.2);
+      color: rgba(0, 0, 0, 0.35);
     }
+
 

@@ -7,6 +7,7 @@ import os
 import re
 import ssl
 import tempfile
+import threading
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -22,7 +23,6 @@ from persistence import (
     get_cached_author, set_cached_author,
     store_embedding, embed_text_ollama, search_embeddings,
 )
-import threading
 
 bp = Blueprint('content', __name__)
 

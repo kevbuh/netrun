@@ -533,16 +533,13 @@ async function fetchPaperReferences(arxivId, containerEl) {
   section.innerHTML = `<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Loading references...</div>`;
 
   try {
-    console.log('[References] Fetching references for:', arxivId);
     const resp = await fetch('/api/paper-references', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ arxivId })
     });
-    console.log('[References] Response status:', resp.status);
     if (!resp.ok) throw new Error('Failed');
     const data = await resp.json();
-    console.log('[References] Data:', data);
     if (data.error) throw new Error(data.error);
 
     let refs = data.references || [];

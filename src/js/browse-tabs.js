@@ -2898,9 +2898,7 @@ function showBrowseTabOverview() {
   if (!overlay) return;
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
-  // Capture a fresh snapshot of the current view before showing the overview
-  var curKey = _wmWindows[_wmFocusIndex] && _wmWindows[_wmFocusIndex].key;
-  if (curKey) _wmCaptureSnapshot(curKey);
+  // The current view stays visible behind the translucent overlay
   // Temporarily exit browse mode on the pill bar so the normal app nav is visible
   var pill = document.getElementById('sidebar-nav');
   if (pill && pill.classList.contains('browse-mode')) {
@@ -2921,49 +2919,8 @@ function showBrowseTabOverview() {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => overlay.classList.add('visible'));
   });
-  // Capture missing snapshots in the background (overlay hides the view switching)
-  _wovCaptureAllMissing();
 }
 
-function _wovCaptureAllMissing() {
-  if (typeof html2canvas === 'undefined') return;
-  var missing = [];
-  for (var i = 0; i < _wmWindows.length; i++) {
-    if (!_wmSnapshots[_wmWindows[i].key]) missing.push(i);
-  }
-  if (!missing.length) return;
-  var originalIdx = _wmFocusIndex;
-  var mi = 0;
-
-  function captureNext() {
-    if (mi >= missing.length || !_browseTabOverviewVisible) {
-      // Restore original view
-      var orig = _wmWindows[originalIdx];
-      if (orig) { var m = _wmViewMeta[orig.key]; if (m) m.openFn(); }
-      _wmFocusIndex = originalIdx;
-      return;
-    }
-    var idx = missing[mi++];
-    var w = _wmWindows[idx];
-    var meta = _wmViewMeta[w.key];
-    if (!meta) { captureNext(); return; }
-    // Activate view so it renders into app-bezel
-    meta.openFn();
-    setTimeout(function() {
-      var bezel = document.getElementById('app-bezel');
-      if (!bezel) { captureNext(); return; }
-      html2canvas(bezel, {
-        scale: 0.3, logging: false, useCORS: true, allowTaint: true,
-        ignoreElements: function(el) { return el.id === 'wm-tiling-overlay' || el.id === 'browse-tab-overview'; }
-      }).then(function(canvas) {
-        _wmSnapshots[w.key] = canvas.toDataURL('image/jpeg', 0.65);
-        if (_browseTabOverviewVisible) _renderWindowOverview();
-        captureNext();
-      }).catch(function() { captureNext(); });
-    }, 300);
-  }
-  captureNext();
-}
 
 function hideBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
@@ -3051,10 +3008,14 @@ function _installOverviewKeyHandler() {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
       _updateOverviewHighlight();
+      var wL = _wmWindows[_overviewSelectedIdx];
+      if (wL) { var mL = _wmViewMeta[wL.key]; if (mL) mL.openFn(); }
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
+      var wR = _wmWindows[_overviewSelectedIdx];
+      if (wR) { var mR = _wmViewMeta[wR.key]; if (mR) mR.openFn(); }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];
@@ -3107,14 +3068,9 @@ function _renderWindowOverview() {
     var isSelected = !_overviewBrowseExpanded && i === _overviewSelectedIdx;
     var isBrowseOpen = _overviewBrowseExpanded && w.key === 'browse';
     var icon = _wovAppIcons[w.key] || '';
-    var snap = _wmSnapshots[w.key];
     appHtml += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active ' : '') + (isSelected ? 'wov-selected ' : '') + (isBrowseOpen ? 'wov-expanded ' : '') + '"'
       + ' onclick="_overviewClickApp(\'' + w.key + '\')">';
-    if (snap) {
-      appHtml += '<div class="wov-card-preview" style="background-image:url(' + snap + ')"></div>';
-    } else {
-      appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
-    }
+    appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
     appHtml += '<div class="wov-card-info">'
       + '<div class="wov-card-icon">' + icon + '</div>'
       + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'
@@ -3160,11 +3116,16 @@ function _renderWindowOverview() {
     detailHtml += '</div>';
   }
 
-  overlay.innerHTML = appHtml + detailHtml;
+  overlay.innerHTML = '<div class="wov-cards-strip">' + appHtml + '</div>' + detailHtml;
 
-  // Scroll selected card into view
-  var sel = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
-  if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  // Scroll selected item into view
+  var selTab = overlay.querySelector('.wov-bt.wov-selected') || overlay.querySelector('.wov-win-header.wov-selected');
+  if (selTab) selTab.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  else {
+    var strip = overlay.querySelector('.wov-cards-strip');
+    var sel = strip && (strip.querySelector('.wov-card.wov-selected') || strip.querySelector('.wov-card.wov-active'));
+    if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 }
 
 function _overviewClickApp(key) {
