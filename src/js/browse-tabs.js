@@ -371,10 +371,40 @@ function _animateWindowSwitch(direction, callback) {
 let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
 
 function _browseGoBack() {
+  // If current tab is in note mode, revert to normal view first
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab && tab._noteModePrev) {
+    browseExitNoteMode();
+    return;
+  }
   const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openCalendar === 'function' ? openCalendar : null, settings: typeof openSettings === 'function' ? openSettings : null };
   const fn = nav[_browseReturnView];
   _browseReturnView = null;
   if (fn) fn(); else goHome();
+}
+
+function browseExitNoteMode() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || !tab._noteModePrev) return;
+  const prev = tab._noteModePrev;
+  // Clean up PDF viewer if we were in PDF note mode
+  if (tab.contentType === 'pdf') cleanupPdfViewer();
+  // Remove the note mode container
+  if (tab.el) tab.el.remove();
+  // Restore original state
+  tab.el = prev.el;
+  tab.contentType = prev.contentType;
+  tab.paper = prev.paper;
+  tab.arxivId = prev.arxivId;
+  tab.pdfUrl = prev.pdfUrl;
+  delete tab._noteModePrev;
+  // Show the restored iframe
+  if (tab.el) tab.el.style.display = '';
+  _currentPaperViewPaper = tab.paper || null;
+  hidePanel();
+  _browseRenderTabs();
+  _browseUpdateBarForTab(tab);
+  _browseSaveTabs();
 }
 
 function openBrowse(url) {
@@ -486,27 +516,35 @@ function browseNewPaperTab(url, paper) {
   const win = _getCurrentWindow();
   if (!win) return false;
   const id = _browseNextTabId++;
-  const isArxiv = paper.source === 'arxiv' || /arxiv\.org\/(abs|pdf)\//.test(url);
-  const arxivId = isArxiv ? (paper.arxivId || (url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
-
-  const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-paper-' + id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
-  if (!arxivId) el.style.display = 'none';
-  container.appendChild(el);
-
   const isUpload = paper.source === 'upload';
-  const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(url) : '';
-  const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
-                paper, contentType: (arxivId || isUpload) ? 'pdf' : 'reader', arxivId: arxivId || null };
-  if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
-  const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
-  if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
-  else win.tabs.push(tab);
-  if (url) _saveBrowseVisit(url, tab.title);
-  browseSelectTab(id);
-  _browseSaveTabs();
+  // Only treat as PDF if it's an explicit /pdf/ URL or a file upload
+  const isPdfUrl = /arxiv\.org\/pdf\//.test(url) || /\.pdf$/i.test(url);
+  const arxivId = isPdfUrl ? (paper.arxivId || (url.match(/arxiv\.org\/pdf\/(\d+\.\d+)/) || [])[1] || '') : '';
+  const usePdfViewer = isPdfUrl || isUpload;
+
+  if (usePdfViewer) {
+    // PDF viewer mode — create container div
+    const container = document.getElementById('browse-content');
+    const el = document.createElement('div');
+    el.id = 'browse-paper-' + id;
+    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
+    container.appendChild(el);
+
+    const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(url) : '';
+    const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
+                  paper, contentType: 'pdf', arxivId: arxivId || null };
+    if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
+    const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
+    if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
+    else win.tabs.push(tab);
+    if (url) _saveBrowseVisit(url, tab.title);
+    browseSelectTab(id);
+    _browseSaveTabs();
+    return true;
+  }
+
+  // Normal iframe tab (arXiv abs pages, other URLs) — open as regular browse tab
+  browseNewTab(url);
   return true;
 }
 
@@ -1280,6 +1318,8 @@ function _browseOpenAsNoteMode(tab) {
   const title = tab.title || url.split('/').pop().replace(/\.pdf$/i, '') || 'PDF';
   const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
   const arxivId = arxivMatch ? arxivMatch[1] : '';
+  // Save previous state so we can revert
+  tab._noteModePrev = { el: tab.el, contentType: tab.contentType || null, paper: tab.paper || null, arxivId: tab.arxivId || null, pdfUrl: tab.pdfUrl || null };
   tab.paper = { title, link: url, source: arxivId ? 'arxiv' : 'web', arxivId };
   tab.contentType = 'pdf';
   tab.arxivId = arxivId || null;
@@ -1287,7 +1327,7 @@ function _browseOpenAsNoteMode(tab) {
     ? '/api/arxiv-pdf?id=' + encodeURIComponent(arxivId)
     : '/api/pdf-proxy?url=' + encodeURIComponent(url);
   // Replace frame with container div
-  if (tab.el) tab.el.remove();
+  if (tab.el) tab.el.style.display = 'none';
   const container = document.getElementById('browse-content');
   const el = document.createElement('div');
   el.id = 'browse-paper-' + tab.id;
@@ -1614,6 +1654,7 @@ function browseSelectTab(id) {
 function _browseUpdateBarForTab(tab) {
   let citeBtn = document.getElementById('browse-cite-btn');
   let bookmarkBtn = document.getElementById('browse-paper-bookmark-btn');
+  let exitNoteBtn = document.getElementById('browse-exit-notemode-btn');
   if (tab && tab.paper) {
     // Cite button
     if (!citeBtn) {
@@ -1645,6 +1686,22 @@ function _browseUpdateBarForTab(tab) {
   } else {
     if (citeBtn) citeBtn.style.display = 'none';
     if (bookmarkBtn) bookmarkBtn.style.display = 'none';
+  }
+  // Exit note mode button — show when tab has _noteModePrev (was converted to note mode)
+  if (tab && tab._noteModePrev) {
+    if (!exitNoteBtn) {
+      const moreBtn = document.getElementById('browse-more-btn');
+      exitNoteBtn = document.createElement('button');
+      exitNoteBtn.id = 'browse-exit-notemode-btn';
+      exitNoteBtn.className = 'shrink-0 h-7 rounded-md bg-transparent border-none text-accent cursor-pointer hover:bg-hover flex items-center gap-0.5 px-1.5';
+      exitNoteBtn.onclick = function() { browseExitNoteMode(); };
+      exitNoteBtn.title = 'Exit note mode';
+      exitNoteBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="text-[0.7rem]">Exit notes</span>';
+      if (moreBtn) moreBtn.parentElement.insertBefore(exitNoteBtn, moreBtn);
+    }
+    exitNoteBtn.style.display = 'flex';
+  } else {
+    if (exitNoteBtn) exitNoteBtn.style.display = 'none';
   }
 }
 
@@ -3864,10 +3921,10 @@ function browseNavigate(input) {
   if (trimmed && url.startsWith('https://www.google.com/search?q=')) {
     _saveWebSearch(trimmed);
   }
-  // arXiv URL → open as paper tab
-  const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
-  if (arxivMatch) {
-    browseNewPaperTab(url, { title: 'arXiv: ' + arxivMatch[1], link: url, source: 'arxiv', arxivId: arxivMatch[1], description: '', authors: '', categories: [] });
+  // arXiv PDF URL → open as paper tab (abs pages load as normal iframe)
+  const arxivPdfMatch = url.match(/arxiv\.org\/pdf\/(\d+\.\d+)/);
+  if (arxivPdfMatch) {
+    browseNewPaperTab(url, { title: 'arXiv: ' + arxivPdfMatch[1], link: url, source: 'arxiv', arxivId: arxivPdfMatch[1], description: '', authors: '', categories: [] });
     return;
   }
   // Local/blob PDF → open in PDF viewer
@@ -5234,6 +5291,9 @@ function browseEnableNoteMode() {
     return;
   }
 
+  // Save previous state so we can revert
+  tab._noteModePrev = { el: tab.el, contentType: tab.contentType || null, paper: tab.paper || null, arxivId: tab.arxivId || null, pdfUrl: tab.pdfUrl || null };
+
   // Convert current iframe tab into a paper tab with reader view
   tab.paper = {
     title: tab.title || _browseTitleFromUrl(tab.url),
@@ -5245,8 +5305,8 @@ function browseEnableNoteMode() {
   };
   tab.contentType = 'reader';
 
-  // Replace iframe with a container div
-  if (tab.el) tab.el.remove();
+  // Hide old frame, create container div
+  if (tab.el) tab.el.style.display = 'none';
   const container = document.getElementById('browse-content');
   const el = document.createElement('div');
   el.id = 'browse-paper-' + tab.id;
@@ -5256,6 +5316,14 @@ function browseEnableNoteMode() {
 
   // Re-select to trigger paper rendering
   browseSelectTab(tab.id);
+  // Show sidebar with notes tab (browseSelectTab hides panel for reader tabs)
+  if (!_panelVisible) {
+    _panelVisible = true;
+    localStorage.setItem('universalPanelVisible', 'true');
+  }
+  _invalidatePanelRender('browse');
+  showPanelForView('browse');
+  if (typeof switchPanelTab === 'function') switchPanelTab('notes');
   _browseSaveTabs();
 }
 

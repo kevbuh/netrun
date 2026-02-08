@@ -783,8 +783,6 @@ function hideAllViews() {
 // ── Niri-style Tiling Window Manager ──
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
-let _wmTilingHandler = null;   // keydown handler installed when tiling
-let _wmTilingClickHandler = null; // click-outside handler to dismiss tiling
 let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
 
 // Capture a preview screenshot of the current view (below the pill bar)
@@ -847,8 +845,7 @@ function wmOpen(key) {
     _wmWindows.push({ key, label: meta.label, sidebarId: meta.sidebarId });
     _wmFocusIndex = _wmWindows.length - 1;
   }
-  if (_wmMode === 'tiling') _wmExitTiling(_wmFocusIndex);
-  else _wmActivateWindow(_wmFocusIndex);
+  _wmActivateWindow(_wmFocusIndex);
 }
 
 function _wmActivateWindow(index) {
@@ -860,135 +857,15 @@ function _wmActivateWindow(index) {
   if (meta) meta.openFn();
 }
 
-function _wmEnterTiling() {
-  _wmMode = 'tiling';
-  if (!_wmWindows.length) return;
-
-  // Remove any old dock + kill legacy overlay
-  var old = document.getElementById('wm-tiling-dock');
-  if (old) old.remove();
-  var legacyOverlay = document.getElementById('wm-tiling-overlay');
-  if (legacyOverlay) { legacyOverlay.style.display = 'none'; legacyOverlay.innerHTML = ''; }
-
-  // Build floating dock bar
-  var dock = document.createElement('div');
-  dock.id = 'wm-tiling-dock';
-  var html = '<div class="wm-tiles-strip">';
-  _wmWindows.forEach((w, i) => {
-    const focused = i === _wmFocusIndex ? ' focused' : '';
-    const sbBtn = document.getElementById(w.sidebarId);
-    let iconHtml = '';
-    if (sbBtn) {
-      const svg = sbBtn.querySelector('svg');
-      const pillLabel = sbBtn.querySelector('.pill-label');
-      if (svg) iconHtml = svg.outerHTML;
-      else if (pillLabel) iconHtml = `<span class="wm-tile-alpha">${pillLabel.textContent}</span>`;
-    }
-    html += `<div class="wm-tile${focused}" data-wm-index="${i}" onclick="_wmExitTiling(${i})">`;
-    html += `<span class="wm-tile-titlebar-icon">${iconHtml}</span>`;
-    html += `<span class="wm-tile-titlebar-label">${escapeHtml(w.label)}</span>`;
-    html += `<button class="wm-tile-close" onclick="event.stopPropagation();_wmCloseWindow(${i})" title="Close">&times;</button>`;
-    html += '</div>';
-  });
-  html += '</div>';
-  html += '<div class="wm-tiling-hint">&larr; &rarr; navigate &middot; &darr; tabs &middot; Enter to open &middot; &x232b; close</div>';
-  dock.innerHTML = html;
-  document.body.appendChild(dock);
-
-  // Activate the focused view — it renders normally, dock floats on top
-  _wmShowViewBehind(_wmFocusIndex);
-
-  // Install keyboard handler
-  _wmTilingHandler = function(e) {
-    // Let the tab overview handle its own keys
-    if (typeof _browseTabOverviewVisible !== 'undefined' && _browseTabOverviewVisible) return;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); _wmNavigate(-1); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); _wmNavigate(1); }
-    else if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); _wmExitTiling(_wmFocusIndex); }
-    else if ((e.key === 'Backspace' || e.key === 'w') && _wmWindows.length > 1) { e.preventDefault(); _wmCloseWindow(_wmFocusIndex); }
-  };
-  document.addEventListener('keydown', _wmTilingHandler, true);
-
-  // Click outside dock → dismiss tiling (let click pass through so user can interact)
-  _wmTilingClickHandler = function(e) {
-    var d = document.getElementById('wm-tiling-dock');
-    if (!d || !d.contains(e.target)) {
-      _wmExitTiling(_wmFocusIndex);
-    }
-  };
-  document.addEventListener('mousedown', _wmTilingClickHandler, true);
-
-  _wmScrollToFocused();
-}
-
-async function _wmShowViewBehind(index) {
-  const w = _wmWindows[index];
-  if (!w) return;
-  const meta = _wmViewMeta[w.key];
-  if (meta) await meta.openFn();
-}
-
-
-function _wmExitTiling(index) {
-  if (_wmTilingHandler) {
-    document.removeEventListener('keydown', _wmTilingHandler, true);
-    _wmTilingHandler = null;
-  }
-  if (_wmTilingClickHandler) {
-    document.removeEventListener('mousedown', _wmTilingClickHandler, true);
-    _wmTilingClickHandler = null;
-  }
-  var dock = document.getElementById('wm-tiling-dock');
-  if (dock) dock.remove();
-  _wmActivateWindow(index);
-}
-
-function _wmNavigate(dir) {
-  if (!_wmWindows.length) return;
-  _wmFocusIndex = (_wmFocusIndex + dir + _wmWindows.length) % _wmWindows.length;
-  _wmUpdateFocus();
-  _wmScrollToFocused();
-  _wmShowViewBehind(_wmFocusIndex);
-}
-
-function _wmUpdateFocus() {
-  const dock = document.getElementById('wm-tiling-dock');
-  if (!dock) return;
-  dock.querySelectorAll('.wm-tile').forEach((tile, i) => {
-    tile.classList.toggle('focused', i === _wmFocusIndex);
-  });
-}
-
-function _wmScrollToFocused() {
-  const dock = document.getElementById('wm-tiling-dock');
-  if (!dock) return;
-  const tile = dock.querySelector('.wm-tile.focused');
-  if (tile) tile.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-}
-
 function _wmCloseWindow(index) {
   if (_wmWindows.length <= 1) return;
-  const removed = _wmWindows.splice(index, 1);
+  _wmWindows.splice(index, 1);
   if (_wmFocusIndex >= _wmWindows.length) _wmFocusIndex = _wmWindows.length - 1;
-  if (_wmMode === 'tiling') _wmEnterTiling();
-}
-
-function _wmTileClick(i) {
-  _wmFocusIndex = i;
-  _wmUpdateFocus();
-}
-
-function _wmTileActivate(i) {
-  _wmExitTiling(i);
+  if (_browseTabOverviewVisible) _renderWindowOverview();
 }
 
 function _wmToggleTiling() {
-  if (_wmMode === 'tiling') {
-    _wmExitTiling(_wmFocusIndex);
-  } else {
-    if (!_wmWindows.length) return;
-    _wmEnterTiling();
-  }
+  toggleBrowseTabOverview();
 }
 
 /* ── Drag pill — horizontal drag to switch windows ── */

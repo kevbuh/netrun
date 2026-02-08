@@ -11,25 +11,6 @@ function _renderSidebarHTML(paper) {
       </div>
     </div>
   `;
-  const chatPanel = `
-    <div class="flex-1 flex flex-col" id="doc-chat-section" style="min-height:0">
-      <div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()">
-        <span id="doc-chat-chevron">▾</span>
-        <span>Chat</span>
-        <span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span>
-        <button class="chat-clear-btn" onclick="event.stopPropagation(); _clearChatThreads(_chatUrl())" title="Clear chat history">🗑</button>
-      </div>
-      <div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1">
-        <div id="doc-chat-thread-nav" class="hidden"></div>
-        <div class="doc-chat-status" id="doc-chat-status"></div>
-        <div class="doc-chat-messages" id="doc-chat-messages"></div>
-        <div class="doc-chat-input-row">
-          <input id="doc-chat-input" placeholder="Ask about this document…" onkeydown="if(event.key==='Enter')sendDocMessage()" />
-          <button onclick="sendDocMessage()" id="doc-chat-send">Send</button>
-        </div>
-      </div>
-    </div>
-  `;
   const commentsPanel = `
     <div class="flex flex-col flex-1 min-h-0">
       <div id="comments-list" class="flex-1 overflow-y-auto"></div>
@@ -69,7 +50,7 @@ function _renderSidebarHTML(paper) {
     <div class="sidebar-tab-toolbar">
       <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-chat" class="sidebar-tab-btn" onclick="switchSidebarTab('chat')" title="Chat"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg></button>
+
       <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg></button>
       <button id="sidebar-tab-terminal" class="sidebar-tab-btn" onclick="switchSidebarTab('terminal')" title="Terminal"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button>
     </div>
@@ -106,9 +87,6 @@ function _renderSidebarHTML(paper) {
       </div>
       ${notesPanel}
     </div>
-    <div id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
-      ${chatPanel}
-    </div>
     <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${commentsPanel}
     </div>
@@ -125,11 +103,8 @@ function _initSidebar() {
 function _initSidebarForUrl(url) {
   _paperNoteLink = url;
   _docChatPaperUrl = url;
-  const saved = _getActiveMessages(url);
-  _docChatMessages = saved.length ? saved : [];
   _docText = '';
   _docTextLoading = false;
-  _docChatExpanded = saved.length > 0;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
   _paperNoteSelected = null;
   _paperInsightsLoaded = false;
@@ -139,9 +114,7 @@ function _initSidebarForUrl(url) {
   fetchPaperNotes();
   fetchPaperComments();
   const savedTab = localStorage.getItem('sidebarTab');
-  if (saved.length) {
-    setTimeout(() => { switchSidebarTab('chat'); _renderThreadNav(); }, 0);
-  } else if (savedTab && ['insights', 'notes', 'chat', 'comments', 'terminal'].includes(savedTab)) {
+  if (savedTab && ['insights', 'notes', 'comments', 'terminal'].includes(savedTab)) {
     setTimeout(() => switchSidebarTab(savedTab), 0);
   }
 }
@@ -1322,12 +1295,6 @@ function _renderBrowsePanes(container) {
       '<div id="pdf-highlights-section"><div id="pdf-highlights-panel"></div></div>' +
       '<div id="paper-notes-section"><div id="paper-note-editor" class="hidden"><div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div><textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note\u2026"></textarea></div></div>' +
     '</div>' +
-    '<div data-pane-id="chat" id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">' +
-      '<div class="flex-1 flex flex-col" id="doc-chat-section" style="min-height:0">' +
-        '<div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()"><span id="doc-chat-chevron">\u25BE</span><span>Chat</span><span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span><button class="chat-clear-btn" onclick="event.stopPropagation(); _clearChatThreads(_chatUrl())" title="Clear chat history">\uD83D\uDDD1</button></div>' +
-        '<div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1"><div id="doc-chat-thread-nav" class="hidden"></div><div class="doc-chat-status" id="doc-chat-status"></div><div class="doc-chat-messages" id="doc-chat-messages"></div><div class="doc-chat-input-row"><input id="doc-chat-input" placeholder="Ask about this document\u2026" onkeydown="if(event.key===\'Enter\')sendDocMessage()" /><button onclick="sendDocMessage()" id="doc-chat-send">Send</button></div></div>' +
-      '</div>' +
-    '</div>' +
     '<div data-pane-id="comments" id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">' +
       '<div class="flex flex-col flex-1 min-h-0"><div id="comments-list" class="flex-1 overflow-y-auto"></div><div class="border-t border-border-card pt-2 mt-2 shrink-0"><div class="flex items-center gap-2 mb-2"><span class="text-[0.72rem] text-dim">Posting as</span><span class="text-[0.78rem] text-primary font-medium">' + username + '</span></div><textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea><button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button></div></div>' +
     '</div>' +
@@ -1336,7 +1303,6 @@ function _renderBrowsePanes(container) {
 }
 
 function _onBrowseTabSwitch(oldTab, newTab) {
-  if (newTab === 'chat' && !_docChatExpanded) toggleDocChat();
   if (newTab === 'comments') fetchPaperComments();
   if (newTab === 'insights' && !_paperInsightsLoaded && _currentPaperViewPaper) {
     fetchPaperInsights(_currentPaperViewPaper.link);
@@ -1352,7 +1318,6 @@ registerPanelTabs('browse', {
   tabs: [
     { id: 'insights',  label: 'Insights',  icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
     { id: 'notes',     label: 'Notes',     icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-    { id: 'chat',      label: 'Chat',      icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg>' },
     { id: 'comments',  label: 'Comments',  icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg>' },
     { id: 'terminal',  label: 'Terminal',  icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>' }
   ],

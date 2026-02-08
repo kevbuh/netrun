@@ -973,10 +973,12 @@ function _updateChatStats(popup, final) {
 }
 
 function _sendPopupChatToSidebar() {
-  // Copy popup messages into sidebar doc chat and persist
+  // Copy popup messages into sidebar doc chat and persist (with full metadata)
   for (const m of _popupChatMessages) {
-    _docChatMessages.push({ role: m.role, content: m.content });
-    _appendToActiveThread(_chatUrl(), { role: m.role, content: m.content, ts: Date.now() });
+    const full = { ...m, ts: m.ts || Date.now() };
+    delete full._thinking;
+    _docChatMessages.push(full);
+    _appendToActiveThread(_chatUrl(), full);
   }
   renderDocChatMessages(true);
   switchSidebarTab('chat');
@@ -1075,13 +1077,6 @@ function _showChatHighlightPopup(e, hl) {
   // Actions
   const chatActions = document.createElement('div');
   chatActions.className = 'doc-popup-chat-actions';
-  const openSidebarBtn = document.createElement('button');
-  openSidebarBtn.textContent = 'Open in sidebar';
-  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openSidebarBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _sendPopupChatToSidebar();
-  });
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = 'Delete';
   deleteBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1091,7 +1086,6 @@ function _showChatHighlightPopup(e, hl) {
     _popupChatMessages = [];
     popup.remove();
   });
-  chatActions.appendChild(openSidebarBtn);
   const statsSpanHl = document.createElement('span');
   statsSpanHl.className = 'doc-chat-stats';
   chatActions.appendChild(statsSpanHl);
@@ -1307,13 +1301,6 @@ function _showReferencePopup(refNum, anchorEl) {
   chatArea.appendChild(chatMsgs);
   const chatActions = document.createElement('div');
   chatActions.className = 'doc-popup-chat-actions';
-  const openSidebarBtn = document.createElement('button');
-  openSidebarBtn.textContent = 'Open in sidebar';
-  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openSidebarBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _sendPopupChatToSidebar();
-  });
   const clearBtn = document.createElement('button');
   clearBtn.textContent = 'Clear';
   clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1326,7 +1313,6 @@ function _showReferencePopup(refNum, anchorEl) {
     popup.classList.remove('has-chat');
     _repositionSelectionPopup();
   });
-  chatActions.appendChild(openSidebarBtn);
   const statsSpan2 = document.createElement('span');
   statsSpan2.className = 'doc-chat-stats';
   chatActions.appendChild(statsSpan2);
