@@ -398,9 +398,20 @@ function _sendPopupChatMessage(popup, capturedText) {
         body.context = ctx;
       }
       _chatStreamStart = Date.now();
-      const resp = await fetch('/api/doc-chat', {
+      // If no context and not vision mode, fall back to vault-chat (RAG over notes)
+      const useVaultChat = !hasVision && !body.context;
+      const chatUrl = useVaultChat ? '/api/vault-chat' : '/api/doc-chat';
+      const chatHeaders = useVaultChat
+        ? { ..._authHeaders(), 'Content-Type': 'application/json' }
+        : { 'Content-Type': 'application/json' };
+      if (useVaultChat) {
+        body.query = q;
+        delete body.context;
+        delete body.tools;
+      }
+      const resp = await fetch(chatUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: chatHeaders,
         body: JSON.stringify(body),
         signal: _popupChatAbort.signal
       });
@@ -435,7 +446,11 @@ function _sendPopupChatMessage(popup, capturedText) {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7);
           } else if (line.startsWith('data: ')) {
-            if (currentEvent === 'token') {
+            if (currentEvent === 'sources') {
+              try {
+                _popupChatMessages[aiIdx]._sources = JSON.parse(line.slice(6));
+              } catch (e) {}
+            } else if (currentEvent === 'token') {
               try {
                 const token = JSON.parse(line.slice(6));
                 aiText += token;
@@ -559,8 +574,8 @@ function _renderPopupChat(popup, final) {
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
       const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
-      const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div><div class="doc-msg-actions-row doc-msg-actions-right">${redoBtn}</div>`;
+      const editBtn = `<button class="doc-msg-action-btn" data-action="edit" data-msg-idx="${i}" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}<div class="doc-msg-actions-row">${editBtn}</div></div>`;
     }
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
@@ -613,14 +628,20 @@ function _renderPopupChat(popup, final) {
       }).join('');
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
+    let sourcesHtml = '';
+    if (m._sources && m._sources.length) {
+      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map(s =>
+        `<span class="vault-chat-source-chip" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)} (${Math.round(s.score * 100)}%)">${escapeHtml(s.title.length > 25 ? s.title.slice(0, 22) + '…' : s.title)}</span>`
+      ).join('') + '</div>';
+    }
     const isLast = i === _popupChatMessages.length - 1;
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     const speakBtn = `<button class="doc-msg-action-btn doc-msg-speak-btn" data-action="speak" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
     const copyBtn = `<button class="doc-msg-action-btn" data-action="copy" data-msg-idx="${i}" title="Copy"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-    const editBtn = `<button class="doc-msg-action-btn" data-action="edit" data-msg-idx="${i}" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
-    return `<div class="doc-msg-ai">${content}</div><div class="doc-msg-actions-row">${speakBtn}${copyBtn}${editBtn}</div>`;
+    const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
+    return `${sourcesHtml}<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${speakBtn}${copyBtn}${redoBtn}</div></div>`;
   }).join('');
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
@@ -666,11 +687,25 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
+  // Attach click handlers for vault-chat source chips
+  container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const noteId = el.getAttribute('data-note-id');
+      window.location.hash = 'vault';
+      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
   // Attach message action button handlers
   container.querySelectorAll('.doc-msg-action-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
+      // Click animation
+      btn.classList.remove('doc-msg-btn-clicked');
+      void btn.offsetWidth;
+      btn.classList.add('doc-msg-btn-clicked');
       const action = btn.getAttribute('data-action');
       const idx = parseInt(btn.getAttribute('data-msg-idx'), 10);
       const actionsRow = btn.closest('.doc-msg-actions-row');
@@ -700,16 +735,7 @@ function _renderPopupChat(popup, final) {
           }).catch(() => {});
         }
       } else if (action === 'redo') {
-        // Resend this user message (idx points to the user message)
-        const userMsg = _popupChatMessages[idx];
-        if (!userMsg || userMsg.role !== 'user') return;
-        _popupChatMessages = _popupChatMessages.slice(0, idx);
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) input.value = userMsg._display || userMsg.content;
-        _sendPopupChatMessage(popup, popup._capturedText || '');
-      } else if (action === 'edit') {
-        // Find the user message before this AI message and put it in the input for editing
+        // Redo is on AI message — find preceding user message and resend
         let userIdx = -1;
         for (let j = idx - 1; j >= 0; j--) {
           if (_popupChatMessages[j].role === 'user') { userIdx = j; break; }
@@ -717,6 +743,15 @@ function _renderPopupChat(popup, final) {
         if (userIdx < 0) return;
         const userMsg = _popupChatMessages[userIdx];
         _popupChatMessages = _popupChatMessages.slice(0, userIdx);
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) input.value = userMsg._display || userMsg.content;
+        _sendPopupChatMessage(popup, popup._capturedText || '');
+      } else if (action === 'edit') {
+        // Edit is on user message — put it back in the input
+        const userMsg = _popupChatMessages[idx];
+        if (!userMsg || userMsg.role !== 'user') return;
+        _popupChatMessages = _popupChatMessages.slice(0, idx);
         if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
         _renderPopupChat(popup, true);
         const input = popup.querySelector('.doc-ask-inline-input');

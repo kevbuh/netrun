@@ -2639,19 +2639,16 @@
     .doc-msg-actions-row {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 4px;
-      align-self: flex-start;
-      padding: 0 2px;
+      margin-top: 4px;
     }
     .doc-msg-action-btn {
-      background: none; border: none; color: var(--text-dimmer); cursor: pointer;
-      padding: 2px; border-radius: 3px; opacity: 0; transition: opacity 0.15s, color 0.15s, transform 0.15s;
+      background: none; border: none; color: var(--text-dim); cursor: pointer;
+      padding: 2px; border-radius: 3px; transition: color 0.15s, transform 0.15s;
       line-height: 1;
     }
-    .doc-msg-actions-row:hover .doc-msg-action-btn,
-    .doc-msg-ai:hover + .doc-msg-actions-row .doc-msg-action-btn,
-    .doc-msg-user:hover + .doc-msg-actions-row .doc-msg-action-btn { opacity: 0.7; }
-    .doc-msg-action-btn:hover { opacity: 1 !important; color: var(--accent); }
+    .doc-msg-action-btn:hover { color: var(--accent); }
     .doc-msg-action-btn:active { transform: scale(0.8); }
     .doc-msg-action-btn.doc-msg-btn-clicked { animation: msg-btn-pop 0.3s ease-out; }
     @keyframes msg-btn-pop {
@@ -2659,7 +2656,6 @@
       50% { transform: scale(1.2); opacity: 1; }
       100% { transform: scale(1); opacity: 0.7; }
     }
-    .doc-msg-actions-right { align-self: flex-end; }
     .doc-msg-speaking { opacity: 1 !important; color: var(--accent); animation: mic-pulse 1s ease-in-out infinite; }
     .doc-msg-ai p { margin: 0.3em 0; }
     .doc-msg-ai code { background: rgba(255,255,255,0.06); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
@@ -6903,6 +6899,16 @@
     .vault-chat-source-chip:hover {
       background: var(--accent);
       color: #fff;
+    }
+
+    .ntp-vault-note-row {
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ntp-vault-note-row:hover {
+      background: var(--bg-hover, rgba(128,128,128,0.12));
     }
 
 

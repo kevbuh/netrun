@@ -2650,6 +2650,205 @@ async function sendVaultChatMessage() {
   }
 }
 
+// ── NTP Vault Panel (lightweight notes + chat for new-tab page) ──
+
+async function renderNtpVaultPanel() {
+  const container = document.getElementById('ntp-vault-container');
+  if (!container) return;
+
+  // Load notes if not already loaded
+  if (!_vaultNotes.length) await loadVaultNotes();
+
+  _loadVaultChatMessages();
+
+  container.innerHTML = `
+    <div style="margin-bottom:10px;">
+      <input type="text" id="ntp-vault-search" placeholder="Search notes…" autocomplete="off"
+        class="w-full pl-3 pr-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.8rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" />
+    </div>
+    <div id="ntp-vault-notes" style="max-height:200px; overflow-y:auto; margin-bottom:12px;"></div>
+    <div style="border-top:1px solid var(--border-color); padding-top:8px;">
+      <div class="doc-chat-messages vault-chat-messages" id="ntp-vault-chat-msgs" style="max-height:200px; overflow-y:auto;"></div>
+      <div style="display:flex; gap:4px; margin-top:6px;">
+        <input class="doc-ask-inline-input" id="ntp-vault-chat-input" type="text" placeholder="Ask about your notes…"
+          style="flex:1; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
+        <button id="ntp-vault-chat-send" style="background:var(--accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
+        <button id="ntp-vault-chat-clear" style="background:transparent; color:var(--text-dimmer); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
+      </div>
+    </div>
+  `;
+
+  // Render note list
+  _renderNtpVaultNotes('');
+
+  // Search filtering
+  const searchInput = document.getElementById('ntp-vault-search');
+  searchInput.addEventListener('input', () => _renderNtpVaultNotes(searchInput.value.trim()));
+
+  // Chat handlers
+  const chatInput = document.getElementById('ntp-vault-chat-input');
+  const sendBtn = document.getElementById('ntp-vault-chat-send');
+  const clearBtn = document.getElementById('ntp-vault-chat-clear');
+  sendBtn.addEventListener('click', () => _sendNtpVaultChat());
+  clearBtn.addEventListener('click', () => { clearVaultChat(); _renderNtpVaultChatMessages(true); });
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendNtpVaultChat(); }
+  });
+
+  _renderNtpVaultChatMessages(true);
+}
+
+function _renderNtpVaultNotes(filter) {
+  const container = document.getElementById('ntp-vault-notes');
+  if (!container) return;
+  const lc = filter.toLowerCase();
+  const filtered = lc ? _vaultNotes.filter(n =>
+    (n.title || '').toLowerCase().includes(lc) ||
+    (n.content || '').toLowerCase().includes(lc)
+  ) : _vaultNotes;
+
+  if (!filtered.length) {
+    container.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-dimmer); font-size:0.75rem;">${lc ? 'No matching notes' : 'No notes yet'}</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.slice(0, 30).map(n => {
+    const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
+    const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
+    return `<div class="ntp-vault-note-row" data-note-id="${escapeAttr(n.id)}">` +
+      `<div style="font-size:0.8rem; color:var(--text-primary); font-weight:500;">${escapeHtml(n.title || 'Untitled')}</div>` +
+      (snippet ? `<div style="font-size:0.7rem; color:var(--text-dimmer); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(snippet)}</div>` : '') +
+      `</div>`;
+  }).join('');
+
+  container.querySelectorAll('.ntp-vault-note-row[data-note-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const noteId = el.getAttribute('data-note-id');
+      window.location.hash = 'vault';
+      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+    });
+  });
+}
+
+function _renderNtpVaultChatMessages(final) {
+  const container = document.getElementById('ntp-vault-chat-msgs');
+  if (!container) return;
+  if (!_vaultChatMessages.length) {
+    container.innerHTML = '<div style="padding:12px; text-align:center; color:var(--text-dimmer); font-size:0.75rem;">Ask a question about your notes</div>';
+    return;
+  }
+  container.innerHTML = _vaultChatMessages.map((m, i) => {
+    if (m.role === 'user') return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
+    if (m._thinking) return '<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>';
+    let sourcesHtml = '';
+    if (m._sources && m._sources.length) {
+      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map(s =>
+        `<span class="vault-chat-source-chip" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)} (${Math.round(s.score * 100)}%)">${escapeHtml(s.title.length > 25 ? s.title.slice(0, 22) + '…' : s.title)}</span>`
+      ).join('') + '</div>';
+    }
+    const isLast = i === _vaultChatMessages.length - 1;
+    const content = (final || !isLast) && typeof marked !== 'undefined'
+      ? marked.parse(m.content) : escapeHtml(m.content);
+    return sourcesHtml + `<div class="doc-msg-ai">${content}</div>`;
+  }).join('');
+
+  container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const noteId = el.getAttribute('data-note-id');
+      window.location.hash = 'vault';
+      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+    });
+  });
+  container.scrollTop = container.scrollHeight;
+}
+
+async function _sendNtpVaultChat() {
+  const input = document.getElementById('ntp-vault-chat-input');
+  if (!input) return;
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  _vaultChatMessages.push({ role: 'user', content: q });
+  _vaultChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  _renderNtpVaultChatMessages(false);
+
+  input.disabled = true;
+  const sendBtn = document.getElementById('ntp-vault-chat-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  _vaultChatAbort = new AbortController();
+
+  try {
+    const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
+      role: m.role, content: m.content
+    }));
+    const resp = await fetch('/api/vault-chat', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: filteredMsgs, query: q }),
+      signal: _vaultChatAbort.signal
+    });
+
+    if (!resp.ok) {
+      _vaultChatMessages[_vaultChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
+      _vaultChatMessages[_vaultChatMessages.length - 1]._thinking = false;
+      _renderNtpVaultChatMessages(true);
+      _saveVaultChatMessages();
+      return;
+    }
+
+    let aiText = '';
+    const aiIdx = _vaultChatMessages.length - 1;
+    _vaultChatMessages[aiIdx]._thinking = false;
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          if (currentEvent === 'sources') {
+            try { _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6)); } catch (e) {}
+          } else if (currentEvent === 'token') {
+            try {
+              aiText += JSON.parse(line.slice(6));
+              _vaultChatMessages[aiIdx].content = aiText;
+              _renderNtpVaultChatMessages(false);
+            } catch (e) {}
+          } else if (currentEvent === 'error') {
+            try { _vaultChatMessages[aiIdx].content = 'Error: ' + JSON.parse(line.slice(6)); } catch (e) {}
+          }
+        }
+      }
+    }
+
+    _vaultChatMessages[aiIdx].content = aiText;
+    _renderNtpVaultChatMessages(true);
+    _saveVaultChatMessages();
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      const last = _vaultChatMessages[_vaultChatMessages.length - 1];
+      if (last && last.role === 'assistant') { last.content = 'Error: ' + e.message; last._thinking = false; }
+      _renderNtpVaultChatMessages(true);
+      _saveVaultChatMessages();
+    }
+  } finally {
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+  }
+}
+
 registerPanelTabs('vault', {
   tabs: [
     {

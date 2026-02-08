@@ -1556,6 +1556,10 @@ function _browseUpdateNewTabPage(tab) {
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
                 Teams
               </button>
+              <button id="research-tab-vault" class="research-tab" onclick="switchResearchTab('vault')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                Notes
+              </button>
             </div>
             <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
               <div class="relative max-w-[680px] mx-auto">
@@ -1582,6 +1586,9 @@ function _browseUpdateNewTabPage(tab) {
                 <button onclick="showCreateTeamPopup('research')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer text-xl leading-none p-0" title="Create team">+</button>
               </div>
               <div id="research-teams-content"></div>
+            </div>
+            <div id="research-panel-vault" class="research-panel" style="display:none;">
+              <div id="ntp-vault-container" class="max-w-[680px] mx-auto"></div>
             </div>
           </div>
           <div id="search-feed-results"></div>
@@ -2831,6 +2838,65 @@ let _overviewBrowseExpanded = false;
 let _overviewBrowseWinIdx = 0;  // selected window in expanded view
 let _overviewBrowseTabIdx = -1; // -1 = window row selected, >=0 = tab within window
 let _overviewWasBrowseMode = false; // pill bar was in browse-mode before overview opened
+let _overviewCaptureTimer = null;
+let _overviewCapturing = false;
+
+// Debounced: briefly hide overlay, capture the view underneath, update the card preview
+function _overviewScheduleCapture() {
+  if (_overviewCaptureTimer) clearTimeout(_overviewCaptureTimer);
+  _overviewCaptureTimer = setTimeout(_overviewDoCapture, 250);
+}
+
+async function _overviewDoCapture() {
+  if (_overviewCapturing || !_browseTabOverviewVisible) return;
+  if (!window.electronAPI?.captureScreen) return;
+  var idx = _overviewSelectedIdx;
+  var key = _wmWindows[idx]?.key;
+  if (!key) return;
+  var overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  _overviewCapturing = true;
+  try {
+    // Wait for the navigated view to finish rendering behind the overlay
+    await new Promise(function(r) { setTimeout(r, 150); });
+    if (!_browseTabOverviewVisible) { _overviewCapturing = false; return; }
+    // Fully remove overlay from rendering so capture sees the actual view
+    overlay.style.transition = 'none';
+    overlay.style.display = 'none';
+    // Double rAF + timeout to ensure the repaint completes before capture
+    await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
+    await new Promise(function(r) { setTimeout(r, 50); });
+    var pill = document.getElementById('sidebar-nav');
+    var top = pill ? pill.offsetTop + pill.offsetHeight : 0;
+    var base64 = await window.electronAPI.captureScreen({
+      x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
+    });
+    // Restore overlay immediately
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    overlay.offsetHeight;
+    overlay.style.transition = '';
+    if (base64 && _browseTabOverviewVisible) {
+      _wmPreviews[key] = 'data:image/png;base64,' + base64;
+      // Update the card preview in-place without full re-render
+      var cards = overlay.querySelectorAll('.wov-card');
+      var card = cards[idx];
+      if (card) {
+        var prev = card.querySelector('.wov-card-preview');
+        if (prev) {
+          prev.style.backgroundImage = 'url(' + _wmPreviews[key] + ')';
+          prev.classList.remove('wov-card-preview-empty');
+          prev.innerHTML = '';
+        }
+      }
+    }
+  } catch (e) {
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    overlay.style.transition = '';
+  }
+  _overviewCapturing = false;
+}
 
 // SVG icons for app window cards
 const _wovAppIcons = {
@@ -2922,6 +2988,7 @@ function hideBrowseTabOverview() {
   if (!overlay) return;
   _browseTabOverviewVisible = false;
   _overviewBrowseExpanded = false;
+  if (_overviewCaptureTimer) { clearTimeout(_overviewCaptureTimer); _overviewCaptureTimer = null; }
   _removeOverviewKeyHandler();
   // Restore browse mode on the pill bar if it was active before
   if (_overviewWasBrowseMode) {
@@ -3003,10 +3070,14 @@ function _installOverviewKeyHandler() {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
       _updateOverviewHighlight();
+      var wL = _wmWindows[_overviewSelectedIdx];
+      if (wL) { _wmFocusIndex = _overviewSelectedIdx; var mL = _wmViewMeta[wL.key]; if (mL) mL.openFn(); _overviewScheduleCapture(); }
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
+      var wR = _wmWindows[_overviewSelectedIdx];
+      if (wR) { _wmFocusIndex = _overviewSelectedIdx; var mR = _wmViewMeta[wR.key]; if (mR) mR.openFn(); _overviewScheduleCapture(); }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];

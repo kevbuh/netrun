@@ -763,14 +763,16 @@ let _wmFocusIndex = 0;
 let _wmTilingHandler = null;   // keydown handler installed when tiling
 let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
 
-// Capture a preview screenshot of the current view
+// Capture a preview screenshot of the current view (below the pill bar)
 async function _wmCapturePreview() {
   if (!window.electronAPI?.captureScreen) return;
   var key = _wmWindows[_wmFocusIndex]?.key;
   if (!key) return;
   try {
+    var pill = document.getElementById('sidebar-nav');
+    var top = pill ? pill.offsetTop + pill.offsetHeight : 0;
     var base64 = await window.electronAPI.captureScreen({
-      x: 0, y: 0, width: window.innerWidth, height: window.innerHeight
+      x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
     });
     if (base64) _wmPreviews[key] = 'data:image/png;base64,' + base64;
   } catch (e) { /* ignore capture failures */ }
@@ -1109,7 +1111,7 @@ function switchResearchTab(tab) {
   } else if (tab === 'teams') {
     renderResearchTeams();
   } else if (tab === 'vault') {
-    if (typeof initVault === 'function') initVault();
+    if (typeof renderNtpVaultPanel === 'function') renderNtpVaultPanel();
   }
 }
 
