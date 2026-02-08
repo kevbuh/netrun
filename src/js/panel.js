@@ -3740,7 +3740,8 @@ function _injectProfileItems(popup) {
 function _openProfilePanel() {
   const avatar = document.getElementById('sb-user-avatar');
   if (!avatar) return;
-  // Close existing panel
+  // Close existing panel and restore cursor
+  _aetherShowCursor();
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
   // Close old popover if visible
@@ -4815,8 +4816,8 @@ function _showPanel(config) {
 
   document.body.appendChild(popup);
 
-  // Hide cursor while panel is open
-  if (isCursorAnchor && finalized) {
+  // Hide cursor while panel is open (only when tracking cursor)
+  if (isCursorAnchor && finalized && _aetherTrackMode) {
     _aetherHideCursorOverlay();
   }
 

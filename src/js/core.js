@@ -1238,8 +1238,9 @@ function showPanelForView(viewKey) {
 
   // Render tab buttons
   tabBar.innerHTML = reg.tabs.map(t =>
-    `<button class="universal-panel-tab-btn${_panelActiveTab === t.id ? ' active' : ''}" data-tab-id="${t.id}" onclick="switchPanelTab('${t.id}')">${t.icon ? t.icon : ''}${t.label}</button>`
+    `<button class="universal-panel-tab-btn${_panelActiveTab === t.id ? ' active' : ''}" data-tab-id="${t.id}" onclick="switchPanelTab('${t.id}')" title="${t.label}">${t.icon ? t.icon : ''}<span class="panel-tab-label">${t.label}</span></button>`
   ).join('');
+  _panelCheckTabOverflow();
 
   // Select default tab
   const defaultTab = reg.tabs.find(t => t.id === _panelActiveTab) ? _panelActiveTab : reg.tabs[0].id;
@@ -1293,6 +1294,16 @@ function switchPanelTab(tabId) {
   }
 }
 
+function _panelCheckTabOverflow() {
+  const tabBar = document.getElementById('universal-panel-tabs');
+  if (!tabBar) return;
+  tabBar.classList.remove('icons-only');
+  // If tabs overflow, collapse to icons only
+  if (tabBar.scrollWidth > tabBar.clientWidth) {
+    tabBar.classList.add('icons-only');
+  }
+}
+
 function _applyPanelMargin() {
   // Set margin-right on the active view element
   const vaultView = document.getElementById('vault-view');
@@ -1325,6 +1336,7 @@ function _initPanelResize() {
     _panelWidth = newW;
     panel.style.width = newW + 'px';
     _applyPanelMargin();
+    _panelCheckTabOverflow();
   }
   function onMouseUp() {
     document.removeEventListener('mousemove', onMouseMove);
