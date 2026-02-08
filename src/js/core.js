@@ -1223,6 +1223,8 @@ let _panelVisible = localStorage.getItem('universalPanelVisible') !== 'false'; /
 let _panelActiveView = null;
 let _panelActiveTab = null;
 let _panelWidth = parseInt(localStorage.getItem('universalPanelWidth') || '280', 10);
+let _panelScrollPositions = {};
+let _panelRenderedViews = {};
 
 function registerPanelTabs(viewKey, config) {
   _panelRegistry[viewKey] = config;
@@ -1231,15 +1233,35 @@ function registerPanelTabs(viewKey, config) {
 function showPanelForView(viewKey) {
   const reg = _panelRegistry[viewKey];
   if (!reg || !reg.tabs || !reg.tabs.length) { hidePanel(); return; }
+  const viewChanged = _panelActiveView !== viewKey;
   _panelActiveView = viewKey;
   const panel = document.getElementById('universal-panel');
   const tabBar = document.getElementById('universal-panel-tabs');
+  const headerEl = document.getElementById('universal-panel-header');
   if (!panel || !tabBar) return;
+
+  // Render header slot
+  if (headerEl) {
+    headerEl.innerHTML = '';
+    if (reg.header) {
+      reg.header(headerEl);
+    }
+  }
 
   // Render tab buttons
   tabBar.innerHTML = reg.tabs.map(t =>
     `<button class="universal-panel-tab-btn${_panelActiveTab === t.id ? ' active' : ''}" data-tab-id="${t.id}" onclick="switchPanelTab('${t.id}')" title="${t.label}">${t.icon ? t.icon : ''}<span class="panel-tab-label">${t.label}</span></button>`
   ).join('');
+
+  // For renderAll mode, render all panes once
+  const container = document.getElementById('universal-panel-content');
+  if (reg.renderAll && container) {
+    if (viewChanged || !_panelRenderedViews[viewKey]) {
+      container.innerHTML = '';
+      reg.renderContent(container);
+      _panelRenderedViews[viewKey] = true;
+    }
+  }
 
   // Select default tab
   const defaultTab = reg.tabs.find(t => t.id === _panelActiveTab) ? _panelActiveTab : reg.tabs[0].id;
@@ -1280,6 +1302,7 @@ function switchPanelTab(tabId) {
   if (!reg) return;
   const tab = reg.tabs.find(t => t.id === tabId);
   if (!tab) return;
+  const oldTab = _panelActiveTab;
   _panelActiveTab = tabId;
 
   // Update tab button active states
@@ -1288,7 +1311,26 @@ function switchPanelTab(tabId) {
   });
 
   const container = document.getElementById('universal-panel-content');
-  if (container) {
+  if (!container) return;
+
+  if (reg.renderAll) {
+    // Save scroll position of outgoing pane
+    if (oldTab && oldTab !== tabId) {
+      const oldPane = container.querySelector('[data-pane-id="' + oldTab + '"]');
+      if (oldPane) _panelScrollPositions[oldTab] = oldPane.scrollTop;
+    }
+    // Show/hide panes by data-pane-id
+    container.querySelectorAll('[data-pane-id]').forEach(pane => {
+      pane.style.display = pane.dataset.paneId === tabId ? '' : 'none';
+    });
+    // Restore scroll position
+    const newPane = container.querySelector('[data-pane-id="' + tabId + '"]');
+    if (newPane && _panelScrollPositions[tabId] !== undefined) {
+      setTimeout(() => { newPane.scrollTop = _panelScrollPositions[tabId]; }, 0);
+    }
+    // Notify tab switch callback
+    if (reg.onTabSwitch) reg.onTabSwitch(oldTab, tabId);
+  } else {
     container.innerHTML = '';
     tab.render(container);
   }
@@ -1315,6 +1357,11 @@ function _applyPanelMargin() {
   if (homeMain && homeMain.style.display !== 'none') {
     homeMain.style.marginRight = _panelWidth + 'px';
   }
+  // browse-content
+  const browseContent = document.getElementById('browse-content');
+  if (browseContent && browseContent.offsetParent) {
+    browseContent.style.marginRight = _panelWidth + 'px';
+  }
 }
 
 function _removePanelMargin() {
@@ -1324,6 +1371,14 @@ function _removePanelMargin() {
   // Also handle vault-view specifically
   const vaultView = document.getElementById('vault-view');
   if (vaultView) vaultView.style.marginRight = '';
+  // browse-content
+  const browseContent = document.getElementById('browse-content');
+  if (browseContent) browseContent.style.marginRight = '';
+}
+
+function _invalidatePanelRender(viewKey) {
+  delete _panelRenderedViews[viewKey];
+  _panelScrollPositions = {};
 }
 
 function _initPanelResize() {
@@ -1332,7 +1387,7 @@ function _initPanelResize() {
   if (!handle || !panel) return;
   let startX, startW;
   function onMouseMove(e) {
-    const newW = Math.max(200, Math.min(500, startW + (startX - e.clientX)));
+    const newW = Math.max(200, Math.min(700, startW + (startX - e.clientX)));
     _panelWidth = newW;
     panel.style.width = newW + 'px';
     _applyPanelMargin();

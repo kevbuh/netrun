@@ -1906,14 +1906,14 @@ function _handleContextMenuChat(e) {
     return;
   }
   // Intercept right-click on browse tabs for tab context menu
-  const browseTab = e.target.closest('.browse-tab');
+  const browseTab = e.target.closest('.browse-tab, .browse-vtab');
   if (browseTab) {
     e.preventDefault();
     _showTabContextMenu(e, browseTab);
     return;
   }
   // Skip browse view chrome — iframe/webview handles its own context menu
-  if (e.target.closest('#browse-bar, #browse-tab-row, #browse-sidebar')) return;
+  if (e.target.closest('#browse-bar, #browse-tab-row, #browse-vtabs, #universal-panel')) return;
   // In browse content, skip only iframes/webviews (they have injected handlers)
   const browseContent = e.target.closest('#browse-content');
   if (browseContent && (e.target.tagName === 'IFRAME' || e.target.tagName === 'WEBVIEW')) return;
@@ -4243,8 +4243,9 @@ function _panelBuildTopBar(popup) {
   openSidebarBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     _aetherTrackMode = false;
-    const sidebar = document.getElementById('browse-sidebar');
-    if (sidebar) sidebar.style.display = '';
+    if (!_panelVisible) { _panelVisible = true; localStorage.setItem('universalPanelVisible', 'true'); }
+    showPanelForView('browse');
+    switchPanelTab('chat');
     _sendPopupChatToSidebar();
   });
   topRightGroup.appendChild(openSidebarBtn);

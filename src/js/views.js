@@ -302,40 +302,9 @@ function togglePaperViewBookmark() {
   }
 }
 
-// ── Sidebar resize ──
-function _initSidebarResize(handle, sidebar) {
-  let startX, startW;
-  function onMouseDown(e) {
-    e.preventDefault();
-    startX = e.clientX;
-    startW = sidebar.offsetWidth;
-    handle.classList.add('dragging');
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }
-  function onMouseMove(e) {
-    const w = Math.max(200, Math.min(700, startW - (e.clientX - startX)));
-    sidebar.style.width = w + 'px';
-  }
-  function onMouseUp() {
-    handle.classList.remove('dragging');
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    localStorage.setItem('paperSidebarWidth', sidebar.offsetWidth);
-  }
-  handle.addEventListener('mousedown', onMouseDown);
-}
-
-// ── Toggle paper sidebar ──
+// ── Toggle paper sidebar (delegates to universal panel) ──
 function togglePaperSidebar() {
-  const sidebar = document.getElementById('browse-sidebar');
-  if (!sidebar) return;
-  const hidden = sidebar.style.display === 'none';
-  sidebar.style.display = hidden ? '' : 'none';
+  togglePanel();
 }
 
 // ── Open URL in the Internet Browser view ──
@@ -345,9 +314,12 @@ function openInBrowser(url) {
 
 // ── Enable notetaking mode ──
 function enableNotetakingMode() {
-  const sidebar = document.getElementById('browse-sidebar');
-  if (sidebar) sidebar.style.display = '';
-  switchSidebarTab('notes');
+  if (!_panelVisible) {
+    _panelVisible = true;
+    localStorage.setItem('universalPanelVisible', 'true');
+  }
+  showPanelForView('browse');
+  switchPanelTab('notes');
   // Hide the notetaking mode button since we're now in notetaking mode
   const notetakingBtn = document.getElementById('notetaking-mode-btn');
   if (notetakingBtn) notetakingBtn.style.display = 'none';
@@ -363,10 +335,7 @@ function enableNotetakingMode() {
 }
 
 function toggleBrowseSidebar() {
-  const sidebar = document.getElementById('browse-sidebar');
-  if (!sidebar) return;
-  const hidden = sidebar.style.display === 'none';
-  sidebar.style.display = hidden ? '' : 'none';
+  togglePanel();
 }
 
 // ── Paper sidebar moved to paper-sidebar.js ──

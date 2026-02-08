@@ -16,6 +16,7 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 // Audio tracking: { tabId: { windowId, muted } }
 let _browseAudioTabs = new Map();
 let _pillBrowseMode = false;
+let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'vertical';
 const _BROWSE_CLOSED_TABS_MAX = 50;
 let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
 
@@ -377,13 +378,8 @@ function openBrowse(url) {
     setSidebarActive('sb-browse');
     _setPillBrowseMode(true);
 
-    // Initialize browse sidebar (hidden by default)
-    const browseSb = document.getElementById('browse-sidebar');
-    if (browseSb) {
-      browseSb.innerHTML = _renderSidebarHTML();
-      _initSidebar(browseSb);
-      browseSb.style.display = 'none';
-    }
+    // Hide panel by default — shown later when a paper tab is selected
+    hidePanel();
   }
   window.location.hash = 'browse';
 
@@ -1269,13 +1265,9 @@ function _browseOpenAsNoteMode(tab) {
   cleanupPdfViewer();
   initPdfViewer(el, tab.pdfUrl, arxivId || ('web-' + tab.id));
   _currentPaperViewPaper = tab.paper;
-  // Sidebar
-  const browseSb = document.getElementById('browse-sidebar');
-  if (browseSb) {
-    browseSb.innerHTML = typeof _renderSidebarHTML === 'function' ? _renderSidebarHTML(tab.paper) : '';
-    if (typeof _initSidebar === 'function') _initSidebar(browseSb);
-    browseSb.style.display = '';
-  }
+  // Show sidebar via universal panel
+  _invalidatePanelRender('browse');
+  showPanelForView('browse');
   if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(url);
   _browseRenderTabs();
   _browseUpdateBarForTab(tab);
@@ -1557,12 +1549,12 @@ function browseSelectTab(id) {
     else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
       _tryRenderSavedContent(tab.el, tab.paper);
     }
-    // Update sidebar with paper metadata (only auto-open for arxiv papers)
-    const browseSb = document.getElementById('browse-sidebar');
-    if (browseSb) {
-      browseSb.innerHTML = _renderSidebarHTML(tab.contentType === 'pdf' ? tab.paper : null);
-      _initSidebar(browseSb);
-      browseSb.style.display = (tab.arxivId || tab.contentType === 'pdf') ? '' : 'none';
+    // Update sidebar via universal panel
+    if (tab.arxivId || tab.contentType === 'pdf') {
+      _invalidatePanelRender('browse');
+      showPanelForView('browse');
+    } else {
+      hidePanel();
     }
     _initSidebarForUrl(tab.url);
     _startScrollTracker(tab.url);
@@ -1570,6 +1562,7 @@ function browseSelectTab(id) {
   } else {
     _currentPaperViewPaper = null;
     _browseUpdateBarForTab(tab);
+    hidePanel();
     // Update sidebar for the selected tab
     if (tab && tab.url && !tab.blank && typeof _initSidebarForUrl === 'function') {
       _initSidebarForUrl(tab.url);
@@ -2309,8 +2302,58 @@ function _browseGetGroupColor(groupId) {
   return group ? (_BROWSE_GROUP_COLOR_MAP[group.color] || group.color) : null;
 }
 
+// ── Vertical tab renderer ──
+
+function _browseRenderVTabHtml(t, activeTab) {
+  const active = t.id === activeTab;
+  const hasAudio = _browseAudioTabs.has(t.id);
+  const audioInfo = _browseAudioTabs.get(t.id);
+  const isMuted = audioInfo?.muted;
+  const title = escapeHtml(t.title);
+  const fav = t.favicon ? `<img class="browse-vtab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+  const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
+    ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
+  const isPinned = !!t.pinned;
+  const groupColor = t.groupId != null ? _browseGetGroupColor(t.groupId) : null;
+  const groupStyle = groupColor ? ` style="--group-color:${groupColor}"` : '';
+  const classes = ['browse-vtab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-vtab-pinned' : '', groupColor ? 'browse-vtab-grouped' : ''].filter(Boolean).join(' ');
+  return `<div class="${classes}" data-tab-id="${t.id}"${groupStyle} onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
+    ${fav}${audioIcon}<span class="browse-vtab-title">${title}</span>
+    <button class="browse-vtab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
+  </div>`;
+}
+
+function toggleBrowseTabLayout() {
+  _browseTabLayout = _browseTabLayout === 'vertical' ? 'horizontal' : 'vertical';
+  localStorage.setItem('browseTabLayout', _browseTabLayout);
+  _applyBrowseTabLayout();
+}
+
+function _applyBrowseTabLayout() {
+  const tabRow = document.getElementById('browse-tab-row');
+  const vtabs = document.getElementById('browse-vtabs');
+  if (_browseTabLayout === 'vertical') {
+    if (tabRow) tabRow.style.display = 'none';
+    if (vtabs) vtabs.style.display = 'flex';
+    // Clear pill tabs when switching to vertical
+    const pillTabs = document.getElementById('pill-browse-tabs');
+    if (pillTabs) pillTabs.innerHTML = '';
+  } else {
+    if (vtabs) vtabs.style.display = 'none';
+    if (_pillBrowseMode) {
+      if (tabRow) tabRow.style.display = 'none';
+    } else {
+      if (tabRow) tabRow.style.display = '';
+    }
+    // Sync pill tabs when switching to horizontal in pill mode
+    if (_pillBrowseMode) _pillSyncTabs();
+  }
+  _browseRenderTabs();
+}
+
 function _browseRenderTabs() {
-  const bar = document.getElementById('browse-tabs');
+  const isVertical = _browseTabLayout === 'vertical';
+  const bar = isVertical ? document.getElementById('browse-vtabs-list') : document.getElementById('browse-tabs');
   if (!bar) return;
   const win = _getCurrentWindow();
   const tabs = win ? win.tabs : [];
@@ -2335,11 +2378,16 @@ function _browseRenderTabs() {
   const pinned = tabs.filter(t => t.pinned);
   const unpinned = tabs.filter(t => !t.pinned);
 
+  // Pick renderer based on layout
+  const renderTab = isVertical ? _browseRenderVTabHtml : _browseRenderTabHtml;
+  const pinSepClass = isVertical ? 'browse-vtab-pin-separator' : 'browse-tab-pin-separator';
+  const groupChipClass = isVertical ? 'browse-vtab-group-chip' : 'browse-tab-group-chip';
+
   // Build pinned section
   let html = windowSelector;
-  html += pinned.map(t => _browseRenderTabHtml(t, activeTab)).join('');
+  html += pinned.map(t => renderTab(t, activeTab)).join('');
   if (pinned.length > 0 && unpinned.length > 0) {
-    html += '<div class="browse-tab-pin-separator"></div>';
+    html += `<div class="${pinSepClass}"></div>`;
   }
 
   // Sort unpinned: grouped tabs contiguous by group, ungrouped at end
@@ -2368,7 +2416,7 @@ function _browseRenderTabs() {
     const gTabs = byGroup.get(gid);
     if (!gTabs || !gTabs.length) continue;
     const gc = _BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
-    html += `<div class="browse-tab-group-chip" style="--group-color:${gc}" data-group-id="${gid}" onclick="_browseToggleGroupCollapse(${gid})" oncontextmenu="event.preventDefault();_browseShowGroupContextMenu(event,${gid})">
+    html += `<div class="${groupChipClass}" style="--group-color:${gc}" data-group-id="${gid}" onclick="_browseToggleGroupCollapse(${gid})" oncontextmenu="event.preventDefault();_browseShowGroupContextMenu(event,${gid})">
       <span class="browse-tab-group-name">${escapeHtml(group.name)}</span>
       <span class="browse-tab-group-count">${gTabs.length}</span>
     </div>`;
@@ -2380,7 +2428,7 @@ function _browseRenderTabs() {
             splitPillInserted = true;
           }
         } else {
-          html += _browseRenderTabHtml(t, activeTab);
+          html += renderTab(t, activeTab);
         }
       }
     }
@@ -2393,7 +2441,7 @@ function _browseRenderTabs() {
       }
       // Skip individual render — it's in the pill
     } else {
-      html += _browseRenderTabHtml(t, activeTab);
+      html += renderTab(t, activeTab);
     }
   }
 
@@ -2410,7 +2458,8 @@ function _browseRenderTabs() {
   }
 
   // Attach tab drag-to-reorder handlers
-  bar.querySelectorAll('.browse-tab').forEach(tabEl => {
+  const tabSelector = isVertical ? '.browse-vtab' : '.browse-tab';
+  bar.querySelectorAll(tabSelector).forEach(tabEl => {
     tabEl.addEventListener('mousedown', _tabDragStart);
   });
   // Attach drag handler on the split pill (handles reorder + unsplit + click-to-focus)
@@ -2764,8 +2813,9 @@ const TAB_DRAG_THRESHOLD = 5;
 
 function _tabDragStart(e) {
   if (e.button !== 0) return;
-  if (e.target.closest('.browse-tab-close, .browse-tab-audio')) return;
+  if (e.target.closest('.browse-tab-close, .browse-vtab-close, .browse-tab-audio')) return;
   const tabEl = e.currentTarget;
+  const isVtab = tabEl.classList.contains('browse-vtab');
   let tabId = parseInt(tabEl.dataset.tabId);
   if (isNaN(tabId)) {
     // Fallback: parse from onclick
@@ -2775,7 +2825,7 @@ function _tabDragStart(e) {
     tabId = parseInt(idMatch[1]);
   }
   e.preventDefault();
-  _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false };
+  _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false, isVertical: isVtab };
   const origOnclick = tabEl.getAttribute('onclick');
   tabEl.removeAttribute('onclick');
   _tabDragState._origOnclick = origOnclick;
@@ -2789,23 +2839,24 @@ function _tabDragMove(e) {
   const dy = e.clientY - _tabDragState.startY;
   if (!_tabDragState.hasMoved && Math.abs(dx) < TAB_DRAG_THRESHOLD && Math.abs(dy) < TAB_DRAG_THRESHOLD) return;
 
+  const isVert = _tabDragState.isVertical;
   if (!_tabDragState.hasMoved) {
     _tabDragState.hasMoved = true;
     // Prevent the onclick from firing
     _tabDragState.tabEl.style.pointerEvents = 'none';
     // Create ghost
     const ghost = _tabDragState.tabEl.cloneNode(true);
-    ghost.className += ' browse-tab-dragging';
+    ghost.className += isVert ? ' browse-vtab-dragging' : ' browse-tab-dragging';
     ghost.style.position = 'fixed';
     ghost.style.pointerEvents = 'none';
     ghost.style.zIndex = '10001';
     ghost.style.width = _tabDragState.tabEl.offsetWidth + 'px';
     document.body.appendChild(ghost);
     _tabDragState.ghostEl = ghost;
-    _tabDragState.tabEl.classList.add('browse-tab-drag-source');
+    _tabDragState.tabEl.classList.add(isVert ? 'browse-vtab-drag-source' : 'browse-tab-drag-source');
     // Create insertion indicator
     const indicator = document.createElement('div');
-    indicator.className = 'browse-tab-insert-indicator';
+    indicator.className = isVert ? 'browse-vtab-insert-indicator' : 'browse-tab-insert-indicator';
     const bar = _getActiveTabBar();
     if (bar) {
       bar.style.position = 'relative';
@@ -2819,50 +2870,84 @@ function _tabDragMove(e) {
   _tabDragState.ghostEl.style.top = (e.clientY - _tabDragState.tabEl.offsetHeight / 2) + 'px';
 
   // Find nearest insertion point
-  _tabDragUpdatePosition(e.clientX);
+  if (isVert) {
+    _tabDragUpdatePosition(e.clientY);
+  } else {
+    _tabDragUpdatePosition(e.clientX);
+  }
 }
 
-function _tabDragUpdatePosition(clientX) {
+function _tabDragUpdatePosition(clientPos) {
   if (!_tabDragState || !_tabDragState.indicator) return;
   const bar = _getActiveTabBar();
   if (!bar) return;
+  const isVert = _tabDragState.isVertical;
   const win = _getCurrentWindow();
   const dragTab = win ? win.tabs.find(t => t.id === _tabDragState.tabId) : null;
   const isDragPinned = dragTab && dragTab.pinned;
 
   // Only allow dragging among same region (pinned <-> pinned, unpinned <-> unpinned)
-  const allTabEls = Array.from(bar.querySelectorAll('.browse-tab'));
+  const tabClass = isVert ? '.browse-vtab' : '.browse-tab';
+  const pinnedClass = isVert ? 'browse-vtab-pinned' : 'browse-tab-pinned';
+  const allTabEls = Array.from(bar.querySelectorAll(tabClass));
   const tabs = allTabEls.filter(t => {
-    const isPinned = t.classList.contains('browse-tab-pinned');
+    const isPinned = t.classList.contains(pinnedClass);
     return isDragPinned ? isPinned : !isPinned;
   });
 
   let insertBeforeId = null;
-  let indicatorLeft = null;
   const barRect = bar.getBoundingClientRect();
 
-  for (const t of tabs) {
-    const rect = t.getBoundingClientRect();
-    const mid = rect.left + rect.width / 2;
-    if (clientX < mid) {
-      const tid = parseInt(t.dataset.tabId);
-      if (!isNaN(tid)) insertBeforeId = tid;
-      indicatorLeft = rect.left - barRect.left - 1;
-      break;
+  if (isVert) {
+    // Vertical mode: use Y axis
+    let indicatorTop = null;
+    for (const t of tabs) {
+      const rect = t.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (clientPos < mid) {
+        const tid = parseInt(t.dataset.tabId);
+        if (!isNaN(tid)) insertBeforeId = tid;
+        indicatorTop = rect.top - barRect.top - 1;
+        break;
+      }
     }
-  }
-
-  if (indicatorLeft === null && tabs.length > 0) {
-    const lastRect = tabs[tabs.length - 1].getBoundingClientRect();
-    indicatorLeft = lastRect.right - barRect.left + 1;
-  }
-
-  _tabDragState.insertBeforeId = insertBeforeId;
-  if (indicatorLeft !== null) {
-    _tabDragState.indicator.style.display = '';
-    _tabDragState.indicator.style.left = indicatorLeft + 'px';
-    _tabDragState.indicator.style.top = '4px';
-    _tabDragState.indicator.style.height = (bar.offsetHeight - 8) + 'px';
+    if (indicatorTop === null && tabs.length > 0) {
+      const lastRect = tabs[tabs.length - 1].getBoundingClientRect();
+      indicatorTop = lastRect.bottom - barRect.top + 1;
+    }
+    _tabDragState.insertBeforeId = insertBeforeId;
+    if (indicatorTop !== null) {
+      _tabDragState.indicator.style.display = '';
+      _tabDragState.indicator.style.top = indicatorTop + 'px';
+      _tabDragState.indicator.style.left = '4px';
+      _tabDragState.indicator.style.right = '4px';
+      _tabDragState.indicator.style.height = '2px';
+      _tabDragState.indicator.style.width = '';
+    }
+  } else {
+    // Horizontal mode: use X axis
+    let indicatorLeft = null;
+    for (const t of tabs) {
+      const rect = t.getBoundingClientRect();
+      const mid = rect.left + rect.width / 2;
+      if (clientPos < mid) {
+        const tid = parseInt(t.dataset.tabId);
+        if (!isNaN(tid)) insertBeforeId = tid;
+        indicatorLeft = rect.left - barRect.left - 1;
+        break;
+      }
+    }
+    if (indicatorLeft === null && tabs.length > 0) {
+      const lastRect = tabs[tabs.length - 1].getBoundingClientRect();
+      indicatorLeft = lastRect.right - barRect.left + 1;
+    }
+    _tabDragState.insertBeforeId = insertBeforeId;
+    if (indicatorLeft !== null) {
+      _tabDragState.indicator.style.display = '';
+      _tabDragState.indicator.style.left = indicatorLeft + 'px';
+      _tabDragState.indicator.style.top = '4px';
+      _tabDragState.indicator.style.height = (bar.offsetHeight - 8) + 'px';
+    }
   }
 }
 
@@ -2871,13 +2956,13 @@ function _tabDragEnd(e) {
   document.removeEventListener('mouseup', _tabDragEnd);
   if (!_tabDragState) return;
 
-  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl, _origOnclick } = _tabDragState;
+  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl, _origOnclick, isVertical: isVert } = _tabDragState;
   _tabDragState = null;
 
   // Clean up visual elements
   if (ghostEl) ghostEl.remove();
   if (indicator) indicator.remove();
-  tabEl.classList.remove('browse-tab-drag-source');
+  tabEl.classList.remove(isVert ? 'browse-vtab-drag-source' : 'browse-tab-drag-source');
   tabEl.style.pointerEvents = '';
   if (_origOnclick) tabEl.setAttribute('onclick', _origOnclick);
 
@@ -3864,19 +3949,32 @@ function _browseInstallKeyGuard() {
     if (!win) return;
 
     // Arrow keys for navigation when tab bar is focused
-    if (e.key === 'ArrowUp' && _browseWindows.length > 1) {
-      e.preventDefault();
-      switchWindowUp();
-    } else if (e.key === 'ArrowDown' && _browseWindows.length > 1) {
-      e.preventDefault();
-      switchWindowDown();
-    } else if (e.key === 'ArrowLeft' && win.tabs.length > 1) {
-      e.preventDefault();
-      _switchTabLeft();
-    } else if (e.key === 'ArrowRight' && win.tabs.length > 1) {
-      e.preventDefault();
-      _switchTabRight();
-    } else if (e.key === 'Escape') {
+    const vtabMode = _browseTabLayout === 'vertical';
+    if (vtabMode) {
+      // Vertical layout: Up/Down switch tabs, no window switching via arrows
+      if (e.key === 'ArrowUp' && win.tabs.length > 1) {
+        e.preventDefault();
+        _switchTabLeft();
+      } else if (e.key === 'ArrowDown' && win.tabs.length > 1) {
+        e.preventDefault();
+        _switchTabRight();
+      }
+    } else {
+      if (e.key === 'ArrowUp' && _browseWindows.length > 1) {
+        e.preventDefault();
+        switchWindowUp();
+      } else if (e.key === 'ArrowDown' && _browseWindows.length > 1) {
+        e.preventDefault();
+        switchWindowDown();
+      } else if (e.key === 'ArrowLeft' && win.tabs.length > 1) {
+        e.preventDefault();
+        _switchTabLeft();
+      } else if (e.key === 'ArrowRight' && win.tabs.length > 1) {
+        e.preventDefault();
+        _switchTabRight();
+      }
+    }
+    if (e.key === 'Escape') {
       e.preventDefault();
       _blurBrowseTabBar();
     }
@@ -4733,28 +4831,38 @@ function browseEnableNoteMode() {
 // ── Dynamic Island pill bar — browse mode ──
 
 function _getActiveTabBar() {
-  return _pillBrowseMode
-    ? document.getElementById('pill-browse-tabs')
-    : document.getElementById('browse-tabs');
+  if (_browseTabLayout === 'vertical') return document.getElementById('browse-vtabs-list');
+  if (_pillBrowseMode) return document.getElementById('pill-browse-tabs');
+  return document.getElementById('browse-tabs');
 }
 
 function _setPillBrowseMode(enabled) {
   _pillBrowseMode = enabled;
   const pill = document.getElementById('sidebar-nav');
   const tabRow = document.getElementById('browse-tab-row');
+  const vtabs = document.getElementById('browse-vtabs');
   const dragPill = document.getElementById('drag-pill');
   if (enabled) {
-    if (pill) pill.classList.add('browse-mode');
-    if (tabRow) tabRow.style.display = 'none';
-    if (dragPill) dragPill.style.display = 'none';
-    _pillSyncTabs();
+    if (_browseTabLayout === 'vertical') {
+      // Vertical tabs sidebar stays visible, pill bar doesn't show tabs
+      if (pill) pill.classList.add('browse-mode');
+      if (tabRow) tabRow.style.display = 'none';
+      if (vtabs) vtabs.style.display = 'flex';
+      if (dragPill) dragPill.style.display = 'none';
+    } else {
+      if (pill) pill.classList.add('browse-mode');
+      if (tabRow) tabRow.style.display = 'none';
+      if (vtabs) vtabs.style.display = 'none';
+      if (dragPill) dragPill.style.display = 'none';
+      _pillSyncTabs();
+    }
   } else {
     if (pill) pill.classList.remove('browse-mode');
-    if (tabRow) tabRow.style.display = '';
     if (dragPill) dragPill.style.display = '';
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
     _closePillMenu();
+    _applyBrowseTabLayout();
   }
 }
 

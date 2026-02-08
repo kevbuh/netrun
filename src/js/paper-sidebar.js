@@ -118,13 +118,8 @@ function _renderSidebarHTML(paper) {
   `;
 }
 
-function _initSidebar(sidebarEl) {
-  const resizeHandle = document.createElement('div');
-  resizeHandle.className = 'sidebar-resize-handle';
-  sidebarEl.appendChild(resizeHandle);
-  _initSidebarResize(resizeHandle, sidebarEl);
-  const savedW = localStorage.getItem('paperSidebarWidth');
-  if (savedW) sidebarEl.style.width = savedW + 'px';
+function _initSidebar() {
+  // No-op — sidebar resize is now handled by universal panel
 }
 
 function _initSidebarForUrl(url) {
@@ -1288,3 +1283,78 @@ function _saveReadProgress(link, progress) {
     savePosts(saved);
   }
 }
+
+// ── Universal panel integration for browse sidebar ──
+
+function _renderPaperInfoHeader(container) {
+  const paper = _currentPaperViewPaper;
+  if (!paper) { container.innerHTML = ''; return; }
+  const sourceName = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[paper.source]) || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
+  let infoMeta = [];
+  if (sourceName) infoMeta.push('<span class="text-meta-value">' + escapeHtml(sourceName) + '</span>');
+  if (paper.authors) infoMeta.push('<span class="text-muted truncate">' + escapeHtml(paper.authors) + '</span>');
+  if (paper.published) infoMeta.push('<span class="text-dim">' + escapeHtml(paper.published) + '</span>');
+  if (paper.categories && paper.categories.length) {
+    paper.categories.slice(0, 3).forEach(function(c) {
+      var fullName = (typeof ARXIV_CAT_NAMES !== 'undefined' && ARXIV_CAT_NAMES[c]) || '';
+      infoMeta.push('<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border shrink-0 cursor-default"' + (fullName ? ' title="' + escapeHtml(fullName) + '"' : '') + '>' + escapeHtml(c) + '</span>');
+    });
+  }
+  container.innerHTML = '<div id="sidebar-paper-info" class="px-4 py-3 border-b border-border-card shrink-0">' +
+    '<div class="text-[0.85rem] font-semibold text-primary leading-snug mb-1.5">' + renderTitle(paper.title) + '</div>' +
+    '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem]">' + infoMeta.join('<span class="text-dimmest">\u00b7</span>') + '</div>' +
+    '</div>';
+}
+
+function _renderBrowsePanes(container) {
+  var username = escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous');
+  container.innerHTML =
+    '<div data-pane-id="insights" id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">' +
+      '<div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">' +
+        '<div class="insight-dropdown" id="insight-drop-contents"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'contents\')"><span>Contents</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-contents" style="display:none"></div></div>' +
+        '<div class="insight-dropdown" id="insight-drop-authors"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'authors\')"><span>Authors</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-authors"></div></div>' +
+        '<div class="insight-dropdown" id="insight-drop-ai"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'ai\')"><span>AI</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-ai" style="display:none"></div></div>' +
+        '<div class="insight-dropdown" id="insight-drop-references"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'references\')"><span>References</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-references" style="display:none"></div></div>' +
+        '<div class="insight-dropdown" id="insight-drop-links"><button class="insight-dropdown-toggle" onclick="toggleInsightDropdown(\'links\')"><span>Links</span><svg class="insight-dropdown-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button><div class="insight-dropdown-body" id="insight-pane-links" style="display:none"><div id="pdf-links-section"></div></div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div data-pane-id="notes" id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">' +
+      '<div id="pdf-highlights-section"><div id="pdf-highlights-panel"></div></div>' +
+      '<div id="paper-notes-section"><div id="paper-note-editor" class="hidden"><div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div><textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note\u2026"></textarea></div></div>' +
+    '</div>' +
+    '<div data-pane-id="chat" id="sidebar-pane-chat" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">' +
+      '<div class="flex-1 flex flex-col" id="doc-chat-section" style="min-height:0">' +
+        '<div class="doc-chat-bar" id="doc-chat-bar" onclick="toggleDocChat()"><span id="doc-chat-chevron">\u25BE</span><span>Chat</span><span class="doc-chat-status-inline text-dim text-[0.72rem] ml-auto" id="doc-chat-status-inline"></span><button class="chat-clear-btn" onclick="event.stopPropagation(); _clearChatThreads(_chatUrl())" title="Clear chat history">\uD83D\uDDD1</button></div>' +
+        '<div class="flex flex-col" id="doc-chat-panel" style="min-height:0;flex:1"><div id="doc-chat-thread-nav" class="hidden"></div><div class="doc-chat-status" id="doc-chat-status"></div><div class="doc-chat-messages" id="doc-chat-messages"></div><div class="doc-chat-input-row"><input id="doc-chat-input" placeholder="Ask about this document\u2026" onkeydown="if(event.key===\'Enter\')sendDocMessage()" /><button onclick="sendDocMessage()" id="doc-chat-send">Send</button></div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div data-pane-id="comments" id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">' +
+      '<div class="flex flex-col flex-1 min-h-0"><div id="comments-list" class="flex-1 overflow-y-auto"></div><div class="border-t border-border-card pt-2 mt-2 shrink-0"><div class="flex items-center gap-2 mb-2"><span class="text-[0.72rem] text-dim">Posting as</span><span class="text-[0.78rem] text-primary font-medium">' + username + '</span></div><textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea><button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button></div></div>' +
+    '</div>' +
+    '<div data-pane-id="terminal" id="sidebar-pane-terminal" class="flex flex-col flex-1 min-h-0" style="display:none"><div id="sidebar-terminal-container" style="flex:1;min-height:0;padding:4px;"></div></div>' +
+    '<div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>';
+}
+
+function _onBrowseTabSwitch(oldTab, newTab) {
+  if (newTab === 'chat' && !_docChatExpanded) toggleDocChat();
+  if (newTab === 'comments') fetchPaperComments();
+  if (newTab === 'insights' && !_paperInsightsLoaded && _currentPaperViewPaper) {
+    fetchPaperInsights(_currentPaperViewPaper.link);
+  }
+  if (newTab === 'terminal') _initSidebarTerminal();
+  localStorage.setItem('sidebarTab', newTab);
+}
+
+registerPanelTabs('browse', {
+  header: _renderPaperInfoHeader,
+  renderAll: true,
+  renderContent: _renderBrowsePanes,
+  tabs: [
+    { id: 'insights',  label: 'Insights',  icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+    { id: 'notes',     label: 'Notes',     icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+    { id: 'chat',      label: 'Chat',      icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg>' },
+    { id: 'comments',  label: 'Comments',  icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg>' },
+    { id: 'terminal',  label: 'Terminal',  icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>' }
+  ],
+  onTabSwitch: _onBrowseTabSwitch
+});

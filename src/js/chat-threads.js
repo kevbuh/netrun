@@ -260,42 +260,7 @@ function branchFromMessage(displayIndex) {
 let _sidebarScrollPositions = {};
 
 function switchSidebarTab(tab) {
-  const panes = ['insights', 'notes', 'chat', 'comments', 'terminal'];
-
-  // Save current tab's scroll position before switching
-  panes.forEach(p => {
-    const pane = document.getElementById('sidebar-pane-' + p);
-    if (pane && pane.style.display !== 'none') {
-      _sidebarScrollPositions[p] = pane.scrollTop;
-    }
-  });
-
-  // Switch tabs
-  panes.forEach(p => {
-    const pane = document.getElementById('sidebar-pane-' + p);
-    const btn = document.getElementById('sidebar-tab-' + p);
-    if (pane) pane.style.display = p === tab ? '' : 'none';
-    if (btn) btn.classList.toggle('active', p === tab);
-  });
-
-  // Restore scroll position for the new tab
-  const newPane = document.getElementById('sidebar-pane-' + tab);
-  if (newPane && _sidebarScrollPositions[tab] !== undefined) {
-    setTimeout(() => { newPane.scrollTop = _sidebarScrollPositions[tab]; }, 0);
-  }
-
-  if (tab === 'chat' && !_docChatExpanded) toggleDocChat();
-  if (tab === 'comments') fetchPaperComments();
-  // Lazy load insights only when tab is opened
-  if (tab === 'insights' && !_paperInsightsLoaded && _currentPaperViewPaper) {
-    fetchPaperInsights(_currentPaperViewPaper.link);
-  }
-  // Initialize sidebar terminal on first open
-  if (tab === 'terminal') {
-    _initSidebarTerminal();
-  }
-  // Remember the active tab
-  localStorage.setItem('sidebarTab', tab);
+  switchPanelTab(tab);
 }
 
 let _sidebarTerminal = null;
@@ -401,20 +366,20 @@ function toggleDocChat() {
   _docChatExpanded = !_docChatExpanded;
   const panel = document.getElementById('doc-chat-panel');
   const chevron = document.getElementById('doc-chat-chevron');
-  const sidebar = document.getElementById('browse-sidebar');
+  const panelContent = document.getElementById('universal-panel-content');
   if (!panel) return;
   if (_docChatExpanded) {
     panel.classList.remove('hidden');
     chevron.textContent = '▾';
-    // Make sidebar non-scrollable so chat fills remaining space
-    if (sidebar) sidebar.style.overflow = 'hidden';
+    // Make panel content non-scrollable so chat fills remaining space
+    if (panelContent) panelContent.style.overflow = 'hidden';
     if (!_docText && !_docTextLoading) {
       extractDocText(_docChatPaperUrl);
     }
   } else {
     panel.classList.add('hidden');
     chevron.textContent = '▸';
-    if (sidebar) sidebar.style.overflow = '';
+    if (panelContent) panelContent.style.overflow = '';
   }
 }
 
