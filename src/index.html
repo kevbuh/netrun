@@ -195,9 +195,6 @@
       </button>
     </div>
     <div id="browse-bar" class="flex items-center gap-1 pl-2 pr-2 py-1 border-b border-border-sidebar bg-sidebar">
-      <button id="browse-vtabs-more-btn" class="browse-vtabs-hamburger" onclick="toggleBrowseMoreMenu()" title="Menu" style="display:none">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
-      </button>
       <button id="browse-return-btn" class="shrink-0 h-7 rounded-md bg-transparent border-none text-accent cursor-pointer hover:bg-hover flex items-center gap-0.5 px-1.5" onclick="_browseGoBack()" title="Back to feed" style="display:none">
         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         <span class="text-[0.7rem]">Back</span>
@@ -487,6 +484,12 @@
       </div>
     </div>
     <div id="pill-menu-separator" class="pill-separator"></div>
+    <div id="pill-browse-url">
+      <button id="pill-browse-hamburger" class="sidebar-icon" onclick="toggleBrowseMoreMenu()" title="Menu">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+      </button>
+      <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…" onkeydown="_pillUrlKeydown(event)" onfocus="this.select()">
+    </div>
     <div id="pill-browse-tabs"></div>
     <button id="pill-newtab-btn" class="sidebar-icon" onclick="browseNewTab()" title="New tab">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>

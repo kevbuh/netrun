@@ -593,7 +593,8 @@
     body.electron-app .pill-bar.browse-mode button,
     body.electron-app .pill-bar.browse-mode .browse-tab,
     body.electron-app .pill-bar.browse-mode .browse-split-pill,
-    body.electron-app .pill-bar.browse-mode .browse-window-switcher {
+    body.electron-app .pill-bar.browse-mode .browse-window-switcher,
+    body.electron-app .pill-bar.browse-mode #pill-browse-url-input {
       -webkit-app-region: no-drag;
     }
 
@@ -613,6 +614,11 @@
       opacity: 0;
       pointer-events: none;
     }
+    .browse-mode.vtab-mode #pill-nav-icons {
+      max-width: 800px;
+      opacity: 1;
+      pointer-events: auto;
+    }
     .browse-mode.menu-expanded #pill-nav-icons {
       max-width: 800px;
       opacity: 1;
@@ -622,6 +628,9 @@
     /* Separator between nav icons and browse tabs — only visible when menu is expanded */
     #pill-menu-separator {
       display: none;
+    }
+    .browse-mode.vtab-mode #pill-menu-separator {
+      display: block;
     }
     .browse-mode.menu-expanded #pill-menu-separator {
       display: block;
@@ -644,6 +653,12 @@
       opacity: 1;
       padding: 0;
       margin-right: 6px;
+    }
+    .browse-mode.vtab-mode #pill-menu-btn {
+      max-width: 0;
+      opacity: 0;
+      padding: 0;
+      margin-right: 0;
     }
 
     /* Pill browse tabs — expands to fill in browse mode */
@@ -1241,25 +1256,36 @@
       border-bottom: 2px solid var(--group-color); border-radius: 8px 8px 0 0;
     }
 
-    /* ── Browse bar in vertical tab mode — hamburger + URL only ── */
-    .browse-bar-vertical > *:not(#browse-url-input):not(#browse-url-history-dd):not(#browse-vtabs-more-btn):not(#browse-more-menu) {
-      display: none !important;
-    }
-    .browse-bar-vertical #browse-url-input {
+    /* ── Pill bar URL input (vertical tab browse mode) ── */
+    #pill-browse-url {
+      display: flex;
+      align-items: center;
       flex: 1;
+      min-width: 0;
+      gap: 2px;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease 0.1s;
     }
-
-    /* ── Hamburger button in browse bar (vertical mode) ── */
-    .browse-vtabs-hamburger {
-      width: 28px; height: 28px;
-      display: flex; align-items: center; justify-content: center;
-      border: none; background: transparent;
-      color: var(--text-dimmer); cursor: pointer; border-radius: 6px;
-      flex-shrink: 0;
-      transition: background 0.15s, color 0.15s;
+    .browse-mode.vtab-mode #pill-browse-url {
+      max-width: 100%;
+      opacity: 1;
     }
-    .browse-vtabs-hamburger:hover {
-      background: var(--bg-hover); color: var(--text-primary);
+    #pill-browse-url-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      color: #fff;
+      outline: none;
+      font-family: inherit;
+    }
+    #pill-browse-url-input::placeholder {
+      color: rgba(255,255,255,0.35);
     }
 
     /* ── Vertical tabs sidebar ── */
@@ -3853,15 +3879,24 @@
     .aether-profile-items {
       padding: 2px 0;
       margin-bottom: 0;
+      border-bottom: none;
     }
     .aether-profile-items .doc-aether-ctx-item {
       font-size: 0.7rem;
       padding: 4px 10px;
       color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      border: none;
+      background: none;
+      text-align: left;
+      font-family: inherit;
     }
     .aether-profile-items .doc-aether-ctx-item:not(.doc-aether-ctx-info):hover {
-      background: rgba(255,255,255,0.06);
-      color: var(--text-primary);
+      background: rgba(255,255,255,0.12);
+      color: #fff;
     }
     .aether-profile-items .doc-aether-ctx-info {
       font-size: 0.65rem;
@@ -3869,11 +3904,13 @@
       gap: 8px;
     }
     .aether-profile-items .doc-aether-ctx-label {
-      font-weight: 500;
-      color: var(--text-primary);
+      font-weight: 600;
+      color: #fff;
     }
     .aether-profile-items .doc-aether-ctx-sub {
       font-size: 0.58rem;
+      opacity: 0.7;
+      color: rgba(255,255,255,0.6);
     }
     .aether-profile-items .doc-aether-ctx-danger {
       color: var(--accent);

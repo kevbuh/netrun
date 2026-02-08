@@ -2348,36 +2348,59 @@ function _applyBrowseTabLayout() {
   const tabRow = document.getElementById('browse-tab-row');
   const vtabs = document.getElementById('browse-vtabs');
   const bar = document.getElementById('browse-bar');
-  const browseView = document.getElementById('browse-view');
+  const pill = document.getElementById('sidebar-nav');
+  const dragPill = document.getElementById('drag-pill');
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
+    if (bar) bar.style.display = 'none';
     if (vtabs) vtabs.style.display = 'flex';
-    // Bar stays at top — just toggle class to hide buttons, show hamburger
-    if (bar) {
-      bar.classList.add('browse-bar-vertical');
-      const hamburger = document.getElementById('browse-vtabs-more-btn');
-      if (hamburger) hamburger.style.display = '';
-    }
-    // Clear pill tabs when switching to vertical
+    // Expand pill bar full-width, keep nav icons visible, show URL input
+    if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
+    if (dragPill) dragPill.style.display = 'none';
+    _pillSyncUrl();
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
   } else {
-    // Restore bar to normal mode
-    if (bar) {
-      bar.classList.remove('browse-bar-vertical');
-      const hamburger = document.getElementById('browse-vtabs-more-btn');
-      if (hamburger) hamburger.style.display = 'none';
-    }
+    // Restore everything
+    if (bar) bar.style.display = '';
     if (vtabs) vtabs.style.display = 'none';
     if (_pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
     } else {
+      if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }
       if (tabRow) tabRow.style.display = '';
+      if (dragPill) dragPill.style.display = '';
     }
-    // Sync pill tabs when switching to horizontal in pill mode
     if (_pillBrowseMode) _pillSyncTabs();
   }
   _browseRenderTabs();
+}
+
+/* Sync the pill URL input with the active tab */
+function _pillSyncUrl() {
+  const input = document.getElementById('pill-browse-url-input');
+  if (!input) return;
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  input.value = (tab && !tab.blank && tab.url) ? tab.url : '';
+}
+
+/* Keydown for pill URL input */
+function _pillUrlKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = document.getElementById('pill-browse-url-input');
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) return;
+    const mainInput = document.getElementById('browse-url-input');
+    if (mainInput) {
+      mainInput.value = val;
+      _browseUrlKeydown({ key: 'Enter', preventDefault() {} });
+    }
+    input.blur();
+  } else if (e.key === 'Escape') {
+    e.target.blur();
+  }
 }
 
 function _browseRenderTabs() {
@@ -2498,6 +2521,9 @@ function _browseRenderTabs() {
 
   // Mirror tabs into the pill bar if in browse mode (horizontal only)
   if (_pillBrowseMode && _browseTabLayout !== 'vertical') _pillSyncTabs();
+
+  // Sync pill URL input in vertical mode
+  if (_browseTabLayout === 'vertical') _pillSyncUrl();
 }
 
 // ── Split pill drag (reorder + unsplit) ──
@@ -4663,7 +4689,7 @@ function toggleBrowseMoreMenu() {
     </button>`;
 
   const anchorBtn = (isVertical
-    ? document.getElementById('browse-vtabs-more-btn')
+    ? document.getElementById('pill-browse-hamburger')
     : document.getElementById('browse-more-btn')) || document.getElementById('browse-more-btn');
   const btnRect = anchorBtn.getBoundingClientRect();
   const menuPos = `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
@@ -4898,13 +4924,16 @@ function _setPillBrowseMode(enabled) {
   const vtabs = document.getElementById('browse-vtabs');
   const dragPill = document.getElementById('drag-pill');
   if (enabled) {
-    if (pill) pill.classList.add('browse-mode');
+    if (pill) { pill.classList.add('browse-mode'); pill.classList.remove('vtab-mode'); }
     if (tabRow) tabRow.style.display = 'none';
     if (vtabs) vtabs.style.display = 'none';
     if (dragPill) dragPill.style.display = 'none';
+    // Clean up vertical mode state
+    const bar = document.getElementById('browse-bar');
+    if (bar) bar.style.display = '';
     _pillSyncTabs();
   } else {
-    if (pill) pill.classList.remove('browse-mode');
+    if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }
     if (dragPill) dragPill.style.display = '';
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
