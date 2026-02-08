@@ -2816,7 +2816,7 @@ const SYNC_KEYS = [
   'qualityThreshold', 'qualityCache', 'hiddenPosts', 'savedPosts',
   'readPosts', 'qualityTestTitles', 'paperRatings', 'theme',
   'accentColor', 'spinner', 'userName', 'sidebarOrder',
-  'clickSound', 'clickSoundType', 'rainNoiseType', 'rainVolume',
+  'clickSound', 'clickSoundType', 'clickAether', 'rainNoiseType', 'rainVolume',
   'editorTheme', 'rainSidebarVisible',
   'pixelPet', 'pixelPetType', 'pixelPetMode',
   'feedNotifications', 'seenPostLinks',
@@ -2824,7 +2824,11 @@ const SYNC_KEYS = [
   'browseHistory', 'webSearchHistory', 'chatThreads',
   'aetherColor',
   'interestProfile',
-  'urlBarSections'
+  'urlBarSections',
+  'blockedWords', 'qualityBypass', 'searchHistory', 'userQuotes', 'repostedLinks',
+  'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
+  'pdfHighlights', 'pdfDrawings',
+  'chatModel', 'chatTools', 'insightsAllowHeuristics'
 ];
 
 // Default ad blocker to enabled

@@ -1339,13 +1339,13 @@ function _nlStopTracking() {
 
 function _nlHandleImplicitClick(e) {
   if (!_nlTracking || !_nlLastCapture || !_nlLastPrediction) return;
-  // Freshness: capture must be < 200ms old
+  // Freshness: prediction must be < 500ms old
   const now = performance.now();
-  if (now - _nlLastCapture.ts > 200) return;
-  // Confidence: predicted gaze must be within 300px of click
+  if (now - _nlLastPrediction.ts > 500) return;
+  // Confidence: predicted gaze must be within 400px of click
   const dx = _nlLastPrediction.x - e.clientX;
   const dy = _nlLastPrediction.y - e.clientY;
-  if (Math.sqrt(dx * dx + dy * dy) > 300) return;
+  if (Math.sqrt(dx * dx + dy * dy) > 400) return;
   // Build sample
   _nlImplicitBuffer.push({
     eyeData: Array.from(_nlLastCapture.eyeData),
