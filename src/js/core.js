@@ -761,6 +761,20 @@ function hideAllViews() {
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
 let _wmTilingHandler = null;   // keydown handler installed when tiling
+let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
+
+// Capture a preview screenshot of the current view
+async function _wmCapturePreview() {
+  if (!window.electronAPI?.captureScreen) return;
+  var key = _wmWindows[_wmFocusIndex]?.key;
+  if (!key) return;
+  try {
+    var base64 = await window.electronAPI.captureScreen({
+      x: 0, y: 0, width: window.innerWidth, height: window.innerHeight
+    });
+    if (base64) _wmPreviews[key] = 'data:image/png;base64,' + base64;
+  } catch (e) { /* ignore capture failures */ }
+}
 
 const _wmViewMeta = {
   dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openDashboard(); } },
@@ -787,6 +801,8 @@ let _wmWindows = _wmDefaultOrder.map(key => ({
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
+  // Capture preview of current view before switching
+  _wmCapturePreview();
   const existIdx = _wmWindows.findIndex(w => w.key === key);
   if (existIdx >= 0) {
     _wmFocusIndex = existIdx;

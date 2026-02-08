@@ -2315,16 +2315,9 @@ function _browseRenderTabs() {
     _renderToolbarSessions();
   }
 
-  // Attach tab drag-to-reorder handlers + hover tooltips
+  // Attach tab drag-to-reorder handlers
   bar.querySelectorAll('.browse-tab').forEach(tabEl => {
     tabEl.addEventListener('mousedown', _tabDragStart);
-    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
-    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
-  });
-  // Attach hover tooltips to split pill inner tabs
-  bar.querySelectorAll('.browse-split-pill-tab').forEach(tabEl => {
-    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
-    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
   });
   // Attach drag handler on the split pill (handles reorder + unsplit + click-to-focus)
   bar.querySelectorAll('.browse-split-pill').forEach(pillEl => {
@@ -2896,6 +2889,8 @@ function _browseRestoreTabsLite() {
 function showBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
+  // Capture preview of current view before showing overlay
+  _wmCapturePreview();
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
   // The current view stays visible behind the translucent overlay
@@ -3008,14 +3003,10 @@ function _installOverviewKeyHandler() {
       e.preventDefault();
       if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
       _updateOverviewHighlight();
-      var wL = _wmWindows[_overviewSelectedIdx];
-      if (wL) { var mL = _wmViewMeta[wL.key]; if (mL) mL.openFn(); }
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
       _updateOverviewHighlight();
-      var wR = _wmWindows[_overviewSelectedIdx];
-      if (wR) { var mR = _wmViewMeta[wR.key]; if (mR) mR.openFn(); }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       var wDown = _wmWindows[_overviewSelectedIdx];
@@ -3068,9 +3059,13 @@ function _renderWindowOverview() {
     var isSelected = !_overviewBrowseExpanded && i === _overviewSelectedIdx;
     var isBrowseOpen = _overviewBrowseExpanded && w.key === 'browse';
     var icon = _wovAppIcons[w.key] || '';
-    appHtml += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active ' : '') + (isSelected ? 'wov-selected ' : '') + (isBrowseOpen ? 'wov-expanded ' : '') + '"'
-      + ' onclick="_overviewClickApp(\'' + w.key + '\')">';
-    appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
+    appHtml += '<div class="wov-card wov-card-app ' + (isActive ? 'wov-active ' : '') + (isSelected ? 'wov-selected ' : '') + (isBrowseOpen ? 'wov-expanded ' : '') + '">';
+    var preview = _wmPreviews[w.key];
+    if (preview) {
+      appHtml += '<div class="wov-card-preview" style="background-image:url(' + preview + ')"></div>';
+    } else {
+      appHtml += '<div class="wov-card-preview wov-card-preview-empty">' + icon + '</div>';
+    }
     appHtml += '<div class="wov-card-info">'
       + '<div class="wov-card-icon">' + icon + '</div>'
       + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'
@@ -3089,11 +3084,10 @@ function _renderWindowOverview() {
       detailHtml += '<div class="wov-win-card ' + (bwActive ? 'wov-win-active ' : '') + (isCurWin ? 'wov-win-focus ' : '') + '">';
 
       // Window header
-      detailHtml += '<div class="wov-win-header ' + (isCurWin && _overviewBrowseTabIdx === -1 ? 'wov-selected ' : '') + '"'
-        + ' onclick="_overviewClickBrowseWin(' + bw.id + ')">'
+      detailHtml += '<div class="wov-win-header ' + (isCurWin && _overviewBrowseTabIdx === -1 ? 'wov-selected ' : '') + '">'
         + '<span class="wov-win-name">' + escapeHtml(bw.name) + '</span>'
         + '<span class="wov-win-count">' + bw.tabs.length + '</span>'
-        + (_browseWindows.length > 1 ? '<button class="wov-win-close" onclick="event.stopPropagation();_overviewCloseBrowseWin(' + bw.id + ')">&times;</button>' : '')
+        + (_browseWindows.length > 1 ? '<button class="wov-win-close">&times;</button>' : '')
         + '</div>';
 
       // Tabs
@@ -3104,8 +3098,7 @@ function _renderWindowOverview() {
         var fav = tab.favicon
           ? '<img src="' + escapeHtml(tab.favicon) + '" class="wov-bt-fav" onerror="this.style.display=\'none\'">'
           : '<span class="wov-bt-dot"></span>';
-        detailHtml += '<div class="wov-bt ' + (tabSelected ? 'wov-selected ' : '') + (tabIsActive ? 'wov-bt-active ' : '') + '"'
-          + ' onclick="_overviewClickBrowseTab(' + bw.id + ',' + tab.id + ')">'
+        detailHtml += '<div class="wov-bt ' + (tabSelected ? 'wov-selected ' : '') + (tabIsActive ? 'wov-bt-active ' : '') + '">'
           + fav
           + '<span class="wov-bt-title">' + escapeHtml(tab.title || 'New Tab') + '</span>'
           + '</div>';
@@ -3118,13 +3111,13 @@ function _renderWindowOverview() {
 
   overlay.innerHTML = '<div class="wov-cards-strip">' + appHtml + '</div>' + detailHtml;
 
-  // Scroll selected item into view
+  // Scroll selected item into view (instant — smooth scroll handled by _updateOverviewHighlight for arrow keys)
   var selTab = overlay.querySelector('.wov-bt.wov-selected') || overlay.querySelector('.wov-win-header.wov-selected');
-  if (selTab) selTab.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (selTab) selTab.scrollIntoView({ behavior: 'instant', block: 'nearest' });
   else {
     var strip = overlay.querySelector('.wov-cards-strip');
     var sel = strip && (strip.querySelector('.wov-card.wov-selected') || strip.querySelector('.wov-card.wov-active'));
-    if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    if (sel) sel.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
   }
 }
 
@@ -4682,12 +4675,6 @@ function _pillSyncTabs() {
   // Attach event listeners
   pillTabs.querySelectorAll('.browse-tab').forEach(tabEl => {
     tabEl.addEventListener('mousedown', _tabDragStart);
-    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
-    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
-  });
-  pillTabs.querySelectorAll('.browse-split-pill-tab').forEach(tabEl => {
-    tabEl.addEventListener('mouseenter', _browseTabHoverIn);
-    tabEl.addEventListener('mouseleave', _browseTabHoverOut);
   });
   pillTabs.querySelectorAll('.browse-split-pill').forEach(pillEl => {
     pillEl.addEventListener('mousedown', _splitPillDragStart);

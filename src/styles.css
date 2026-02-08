@@ -1477,6 +1477,7 @@
     }
     .browse-tab-overview::-webkit-scrollbar { display: none; }
     .browse-tab-overview.visible { opacity: 1; }
+    .browse-tab-overview.visible * { pointer-events: none; }
     .wov-cards-strip {
       display: flex;
       align-items: stretch;
@@ -1500,23 +1501,22 @@
       flex-shrink: 0;
       border-radius: 12px;
       border: 2px solid transparent;
-      cursor: pointer;
-      transition: background 0.12s, border-color 0.12s, transform 0.12s;
+      transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
       color: var(--text-muted);
       position: relative;
       overflow: hidden;
       scroll-snap-align: center;
+      opacity: 0.5;
+      transform: scale(0.95);
     }
-    .wov-card:hover { background: var(--bg-hover); }
     .wov-card.wov-active {
-      background: color-mix(in srgb, var(--accent) 6%, transparent);
-      color: var(--text-primary);
+      opacity: 0.65;
     }
     .wov-card.wov-selected {
       border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
       color: var(--text-primary);
-      transform: translateY(-2px);
+      transform: scale(1);
+      opacity: 1;
     }
     .wov-card-preview {
       width: 100%;
@@ -1578,19 +1578,13 @@
       color: var(--text-dimmest);
       font-size: 0.8rem;
       border-radius: 4px;
-      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
-      transition: opacity 0.1s, background 0.12s, color 0.12s;
+      transition: opacity 0.1s;
     }
-    .wov-card:hover .wov-card-close,
     .wov-card.wov-selected .wov-card-close { opacity: 1; }
-    .wov-card-close:hover {
-      background: rgba(220,50,50,0.15);
-      color: #dc3232;
-    }
     .wov-card-subtitle {
       font-size: 0.55rem;
       color: var(--text-dimmer);
@@ -1631,7 +1625,7 @@
       overflow-x: hidden;
       overflow-y: auto;
       scrollbar-width: thin;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .wov-win-card.wov-win-focus {
       border-color: color-mix(in srgb, var(--accent) 40%, transparent);
@@ -1645,13 +1639,12 @@
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
-      cursor: pointer;
       border-bottom: 1px solid var(--border-card);
       border: 2px solid transparent;
       border-radius: 13px 13px 0 0;
-      transition: background 0.12s, border-color 0.12s;
+      transition: background 0.3s ease, border-color 0.3s ease;
     }
-    .wov-win-header:hover { background: var(--bg-hover); }
+    /* hover disabled — overview is keyboard-only */
     .wov-win-header.wov-selected {
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
@@ -1680,20 +1673,17 @@
       opacity: 0; transition: opacity 0.1s;
       flex-shrink: 0;
     }
-    .wov-win-header:hover .wov-win-close,
     .wov-win-header.wov-selected .wov-win-close { opacity: 1; }
-    .wov-win-close:hover { background: rgba(220,50,50,0.15); color: #dc3232; }
     /* Tabs inside window card */
     .wov-bt {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 6px 12px;
-      cursor: pointer;
       border: 2px solid transparent;
-      transition: background 0.12s, border-color 0.12s;
+      transition: background 0.3s ease, border-color 0.3s ease;
     }
-    .wov-bt:hover { background: var(--bg-hover); }
+    /* hover disabled — overview is keyboard-only */
     .wov-bt.wov-bt-active .wov-bt-title { color: var(--text-primary); }
     .wov-bt.wov-selected {
       border-color: var(--accent);
@@ -2843,7 +2833,7 @@
       background: transparent;
       border: none;
       outline: none;
-      color: var(--text-primary);
+      color: var(--text-dimmer);
       font-size: 0.75rem;
       font-family: inherit;
       width: 100%;
@@ -3368,6 +3358,13 @@
       background: var(--accent);
       transition: width 0.3s ease, background 0.3s ease;
       border-radius: 8px 8px 0 0;
+    }
+    .aether-stats-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px 2px;
+      min-height: 0;
     }
     .aether-info-row { display: none; }
     .aether-top-actions {

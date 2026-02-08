@@ -1341,11 +1341,20 @@ function _nlHandleImplicitClick(e) {
   if (!_nlTracking || !_nlLastCapture || !_nlLastPrediction) return;
   // Freshness: prediction must be < 500ms old
   const now = performance.now();
-  if (now - _nlLastPrediction.ts > 500) return;
+  const age = Math.round(now - _nlLastPrediction.ts);
+  if (age > 500) {
+    console.log(`[neuralook] click rejected: prediction too old (${age}ms)`);
+    return;
+  }
   // Confidence: predicted gaze must be within 400px of click
   const dx = _nlLastPrediction.x - e.clientX;
   const dy = _nlLastPrediction.y - e.clientY;
-  if (Math.sqrt(dx * dx + dy * dy) > 400) return;
+  const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
+  if (dist > 400) {
+    console.log(`[neuralook] click rejected: gaze too far (${dist}px) — predicted (${Math.round(_nlLastPrediction.x)},${Math.round(_nlLastPrediction.y)}) vs click (${e.clientX},${e.clientY})`);
+    return;
+  }
+  console.log(`[neuralook] implicit click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
   // Build sample
   _nlImplicitBuffer.push({
     eyeData: Array.from(_nlLastCapture.eyeData),

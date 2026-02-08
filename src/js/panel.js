@@ -766,7 +766,13 @@ function _updateChatStats(popup, final) {
   const statsEl = popup.querySelector('.doc-chat-stats');
   if (!statsEl) return;
   _updateContextUsage(popup);
-  if (_popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
+  const statsRow = popup.querySelector('.aether-stats-row');
+  if (_popupChatMessages.length === 0) {
+    statsEl.textContent = '';
+    if (statsRow) statsRow.style.display = 'none';
+    return;
+  }
+  if (statsRow) statsRow.style.display = '';
   const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
   if (!lastAi) { statsEl.textContent = ''; return; }
   const parts = [];
@@ -3945,15 +3951,7 @@ function _panelBuildTopBar(popup) {
   topBar.className = 'doc-popup-chat-actions aether-top-actions';
   topBar.style.cursor = 'grab';
 
-  // Model label
-  const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-model-label';
-  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  modelLabel.textContent = cm;
-  modelLabel.title = 'Current model';
-  topBar.appendChild(modelLabel);
-
-  // Spacer
+  // Spacer (pushes buttons to the right)
   const spacer = document.createElement('span');
   spacer.style.flex = '1';
   topBar.appendChild(spacer);
@@ -3971,14 +3969,23 @@ function _panelBuildTopBar(popup) {
   topBar.appendChild(saveChatBtn);
   popup._saveChatBtn = saveChatBtn;
 
-  // Stats + context usage — inline in the top bar after model label
+  // Stats row — model label + stats + context usage (hidden until chat starts)
+  const statsRow = document.createElement('div');
+  statsRow.className = 'aether-stats-row';
+  statsRow.style.display = 'none';
+  const modelLabel = document.createElement('span');
+  modelLabel.className = 'aether-model-label';
+  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  modelLabel.textContent = cm;
+  modelLabel.title = 'Current model';
+  statsRow.appendChild(modelLabel);
   const statsSpan = document.createElement('span');
   statsSpan.className = 'doc-chat-stats';
-  topBar.insertBefore(statsSpan, spacer.nextSibling);
+  statsRow.appendChild(statsSpan);
   const ctxSpan = document.createElement('span');
   ctxSpan.className = 'aether-context-usage';
   ctxSpan.textContent = '';
-  topBar.insertBefore(ctxSpan, statsSpan.nextSibling);
+  statsRow.appendChild(ctxSpan);
 
   // Clear button
   const clearBtn = document.createElement('button');
@@ -3996,6 +4003,7 @@ function _panelBuildTopBar(popup) {
     if (ca) ca.classList.remove('visible');
     popup.classList.remove('has-chat');
     statsSpan.textContent = '';
+    statsRow.style.display = 'none';
     _repositionSelectionPopup();
   });
   topBar.appendChild(clearBtn);
@@ -4084,6 +4092,7 @@ function _panelBuildTopBar(popup) {
   });
 
   popup.appendChild(topBar);
+  popup.appendChild(statsRow);
 }
 
 // ── Helper: build chat input area (textarea, model selector, send button, mic, dropdowns) ──
