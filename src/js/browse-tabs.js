@@ -2326,7 +2326,8 @@ function _browseRenderVTabHtml(t, activeTab) {
 function toggleBrowseTabLayout() {
   _browseTabLayout = _browseTabLayout === 'vertical' ? 'horizontal' : 'vertical';
   localStorage.setItem('browseTabLayout', _browseTabLayout);
-  _applyBrowseTabLayout();
+  if (_pillBrowseMode) _setPillBrowseMode(true);
+  else _applyBrowseTabLayout();
 }
 
 function _applyBrowseTabLayout() {
@@ -2467,8 +2468,8 @@ function _browseRenderTabs() {
     pillEl.addEventListener('mousedown', _splitPillDragStart);
   });
 
-  // Mirror tabs into the pill bar if in browse mode
-  if (_pillBrowseMode) _pillSyncTabs();
+  // Mirror tabs into the pill bar if in browse mode (horizontal only)
+  if (_pillBrowseMode && _browseTabLayout !== 'vertical') _pillSyncTabs();
 }
 
 // ── Split pill drag (reorder + unsplit) ──

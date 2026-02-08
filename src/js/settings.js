@@ -142,6 +142,16 @@ function _renderAppearanceSettings() {
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">
+        <span class="text-primary text-sm">Browse Tabs</span>
+        <div class="flex gap-1.5">
+          ${['vertical','horizontal'].map(t => {
+            const cur = localStorage.getItem('browseTabLayout') || 'vertical';
+            const label = t.charAt(0).toUpperCase() + t.slice(1);
+            return '<button onclick="setBrowseTabLayout(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
+          }).join('')}
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Icon Size</span>
         <div class="flex gap-1.5">
           ${['small','medium','large'].map(s => {
@@ -1082,6 +1092,18 @@ function setEditorTheme(theme) {
     const btn = document.getElementById('editor-theme-btn-' + t);
     if (btn) btn.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
   });
+}
+
+function setBrowseTabLayout(layout) {
+  _browseTabLayout = layout;
+  localStorage.setItem('browseTabLayout', layout);
+  // Apply immediately if browse view is open
+  const browseView = document.getElementById('browse-view');
+  if (browseView && browseView.style.display !== 'none') {
+    if (_pillBrowseMode) _setPillBrowseMode(true);
+    else _applyBrowseTabLayout();
+  }
+  renderSettingsView();
 }
 
 function setIconSize(size) {
