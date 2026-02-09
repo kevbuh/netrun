@@ -23,6 +23,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   nudgeCursor: () => ipcRenderer.invoke('nudge-cursor'),
   // Native print dialog
   print: (options) => ipcRenderer.invoke('print', options),
+  // Secure auth token (macOS Keychain via safeStorage)
+  getAuthToken: () => ipcRenderer.invoke('get-auth-token'),
+  saveAuthToken: (token) => ipcRenderer.invoke('save-auth-token', token),
+  deleteAuthToken: () => ipcRenderer.invoke('delete-auth-token'),
+  // Password manager
+  pwGet: (origin) => ipcRenderer.invoke('pw-get', origin),
+  pwFill: (id) => ipcRenderer.invoke('pw-fill', id),
+  pwSave: (data) => ipcRenderer.invoke('pw-save', data),
+  pwDelete: (id) => ipcRenderer.invoke('pw-delete', id),
+  pwList: () => ipcRenderer.invoke('pw-list'),
   // File handling
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path)

@@ -31,6 +31,11 @@ let _vtabsPanelCollapsed = localStorage.getItem('vtabsPanelCollapsed') === 'true
 const _BROWSE_CLOSED_TABS_MAX = 50;
 let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
 
+// ── Password manager state ──
+let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
+let _pwSaveDismissed = new Map(); // 'origin|username' → true
+let _pwLastSubmit = null; // { origin, username, ts } dedup
+
 // ── Split pane state ──
 let _browseNextPaneId = 1;
 
@@ -974,6 +979,8 @@ function _browseHandleNavigation(tab, frame) {
     tab.title = _browseTitleFromUrl(e.url);
     tab.favicon = _browseFaviconUrl(e.url);
     tab.blank = false;
+    _pwAutofillOffered.delete(tab.id);
+    _pwHideSavePrompt();
     _saveBrowseVisit(e.url, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
@@ -1164,6 +1171,51 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // Password field detection + form submit interception
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherPwInjected)return;
+        window.__aetherPwInjected=true;
+        function findPwFields(){return Array.from(document.querySelectorAll('input[type="password"]'));}
+        function findUsernameField(pwField){
+          var form=pwField.closest('form');
+          var scope=form||document;
+          var candidates=scope.querySelectorAll('input[type="text"],input[type="email"],input:not([type])');
+          for(var i=candidates.length-1;i>=0;i--){
+            var c=candidates[i];
+            var n=(c.name||'').toLowerCase()+(c.id||'').toLowerCase()+(c.autocomplete||'').toLowerCase()+(c.placeholder||'').toLowerCase();
+            if(n.match(/user|email|login|account|name/)) return c;
+          }
+          return candidates.length?candidates[candidates.length-1]:null;
+        }
+        function notifyFields(){
+          if(findPwFields().length>0) console.log('__AETHER_PW_FIELDS__');
+        }
+        notifyFields();
+        var obs=new MutationObserver(function(){notifyFields();});
+        obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
+        function captureSubmit(e){
+          var pwFields=findPwFields();
+          if(!pwFields.length) return;
+          var pw=null,un=null;
+          for(var i=0;i<pwFields.length;i++){
+            if(pwFields[i].value){pw=pwFields[i].value;var uf=findUsernameField(pwFields[i]);if(uf)un=uf.value;break;}
+          }
+          if(!pw) return;
+          console.log('__AETHER_PW_SUBMIT__'+JSON.stringify({origin:location.origin,username:un||'',password:pw}));
+        }
+        document.addEventListener('submit',function(e){
+          if(e.target.querySelector('input[type="password"]')) captureSubmit(e);
+        },true);
+        document.addEventListener('click',function(e){
+          var btn=e.target.closest('button,input[type="submit"],a[role="button"]');
+          if(!btn) return;
+          var form=btn.closest('form');
+          if(form&&form.querySelector('input[type="password"]')) setTimeout(function(){captureSubmit();},100);
+        },true);
+      })();
+    `).catch(()=>{});
+
   });
 
   // Listen for context menu via console message
@@ -1270,6 +1322,13 @@ function _browseInjectContentScripts(tab, frame) {
         const y = parseInt(parts[1]) - window.screenY;
         _nlHandleIframeClick(x, y);
       }
+    } else if (e.message === '__AETHER_PW_FIELDS__') {
+      _pwCheckAutofill(tab, frame);
+    } else if (e.message && e.message.startsWith('__AETHER_PW_SUBMIT__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__AETHER_PW_SUBMIT__'.length));
+        _pwShowSavePrompt(tab, data);
+      } catch (err) {}
     }
   });
 }
@@ -1281,6 +1340,122 @@ function _browseBindFrame(tab) {
 
   _browseHandleNavigation(tab, el);
   _browseInjectContentScripts(tab, el);
+}
+
+// ── Password Manager ──
+
+function _pwCheckAutofill(tab, frame) {
+  if (!_browseIsElectron || !window.electronAPI || !window.electronAPI.pwGet) return;
+  if (_pwAutofillOffered.has(tab.id)) return;
+  _pwAutofillOffered.add(tab.id);
+  try {
+    const origin = new URL(tab.url).origin;
+    window.electronAPI.pwGet(origin).then(entries => {
+      if (!entries || !entries.length) return;
+      if (entries.length === 1) {
+        _pwDoAutofill(tab, frame, entries[0].id);
+      } else {
+        _pwShowAutofillPicker(tab, frame, entries);
+      }
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+function _pwDoAutofill(tab, frame, entryId) {
+  if (!window.electronAPI || !window.electronAPI.pwFill) return;
+  window.electronAPI.pwFill(entryId).then(cred => {
+    if (!cred) return;
+    const un = cred.username.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const pw = cred.password.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    frame.executeJavaScript(`
+      (function(){
+        var pwFields=document.querySelectorAll('input[type="password"]');
+        if(!pwFields.length) return;
+        var pwField=pwFields[0];
+        var form=pwField.closest('form');
+        var scope=form||document;
+        var candidates=scope.querySelectorAll('input[type="text"],input[type="email"],input:not([type])');
+        var unField=null;
+        for(var i=candidates.length-1;i>=0;i--){
+          var c=candidates[i];
+          var n=(c.name||'').toLowerCase()+(c.id||'').toLowerCase()+(c.autocomplete||'').toLowerCase()+(c.placeholder||'').toLowerCase();
+          if(n.match(/user|email|login|account|name/)){unField=c;break;}
+        }
+        if(!unField&&candidates.length) unField=candidates[candidates.length-1];
+        function setVal(el,val){
+          var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+          nativeSetter.call(el,val);
+          el.dispatchEvent(new Event('input',{bubbles:true}));
+          el.dispatchEvent(new Event('change',{bubbles:true}));
+        }
+        if(unField) setVal(unField,'${un}');
+        setVal(pwField,'${pw}');
+      })();
+    `).catch(() => {});
+  }).catch(() => {});
+}
+
+function _pwShowAutofillPicker(tab, frame, entries) {
+  _pwHideSavePrompt();
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+  const bar = document.createElement('div');
+  bar.className = 'browse-pw-save-bar';
+  bar.id = 'browse-pw-bar';
+  let pills = entries.map(e =>
+    `<button onclick="_pwDoAutofill(_browseTabs.find(t=>t.id===${tab.id}), document.querySelector('#browse-content webview'), '${e.id}'); _pwHideSavePrompt();" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.78rem;cursor:pointer;">${escapeHtml(e.username || 'No username')}</button>`
+  ).join('');
+  bar.innerHTML = `<span style="font-size:0.8rem;color:var(--text-dim);">Choose account:</span> ${pills}
+    <button onclick="_pwHideSavePrompt()" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dimmer);font-size:0.72rem;cursor:pointer;">Dismiss</button>`;
+  container.prepend(bar);
+}
+
+function _pwShowSavePrompt(tab, data) {
+  if (!_browseIsElectron || !window.electronAPI || !window.electronAPI.pwSave) return;
+  if (!data.password) return;
+  // Dedup rapid submits
+  const now = Date.now();
+  if (_pwLastSubmit && _pwLastSubmit.origin === data.origin && _pwLastSubmit.username === data.username && now - _pwLastSubmit.ts < 2000) return;
+  _pwLastSubmit = { origin: data.origin, username: data.username, ts: now };
+  // Check if dismissed
+  const key = data.origin + '|' + data.username;
+  if (_pwSaveDismissed.has(key)) return;
+  _pwHideSavePrompt();
+  const container = document.getElementById('browse-content');
+  if (!container) return;
+  const bar = document.createElement('div');
+  bar.className = 'browse-pw-save-bar';
+  bar.id = 'browse-pw-bar';
+  const displayUser = data.username || 'this site';
+  bar.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <span style="font-size:0.8rem;color:var(--text-primary);">Save password for <strong>${escapeHtml(displayUser)}</strong>?</span>
+    <button id="pw-save-btn" style="padding:3px 12px;border-radius:4px;border:none;background:var(--accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;">Save</button>
+    <button id="pw-never-btn" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.78rem;cursor:pointer;">Never</button>
+    <button onclick="_pwHideSavePrompt()" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dimmer);font-size:0.72rem;cursor:pointer;">&times;</button>
+  `;
+  container.prepend(bar);
+  // Keep password in closure, not DOM
+  const password = data.password;
+  bar.querySelector('#pw-save-btn').addEventListener('click', () => {
+    window.electronAPI.pwSave({ origin: data.origin, username: data.username, password }).catch(() => {});
+    _pwHideSavePrompt();
+  });
+  bar.querySelector('#pw-never-btn').addEventListener('click', () => {
+    _pwSaveDismissed.set(key, true);
+    _pwHideSavePrompt();
+  });
+  // Auto-dismiss after 15s
+  const timer = setTimeout(() => _pwHideSavePrompt(), 15000);
+  bar._pwDismissTimer = timer;
+}
+
+function _pwHideSavePrompt() {
+  const bar = document.getElementById('browse-pw-bar');
+  if (bar) {
+    if (bar._pwDismissTimer) clearTimeout(bar._pwDismissTimer);
+    bar.remove();
+  }
 }
 
 // ── PDF Detection Pill ──
@@ -1834,6 +2009,7 @@ function browseCloseTab(id) {
   if (tab.contentType === 'pdf') cleanupPdfViewer();
   // Stop captions if this is the captured tab
   if (_ccTabId === id) stopCaptions();
+  _pwAutofillOffered.delete(id);
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, session, desktopCapturer, safeStorage } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -503,6 +503,109 @@ app.whenReady().then(() => {
       width: Math.round(rect.width), height: Math.round(rect.height)
     });
     return image.toPNG().toString('base64');
+  });
+
+  // Secure auth token via macOS Keychain (safeStorage)
+  const fs = require('fs');
+  const secureAuthPath = path.join(app.getPath('userData'), 'secure-auth.enc');
+
+  ipcMain.handle('get-auth-token', async () => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      if (!fs.existsSync(secureAuthPath)) return null;
+      const encrypted = fs.readFileSync(secureAuthPath);
+      return safeStorage.decryptString(encrypted);
+    } catch (e) {
+      return null;
+    }
+  });
+
+  ipcMain.handle('save-auth-token', async (event, token) => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return;
+      const encrypted = safeStorage.encryptString(token);
+      fs.writeFileSync(secureAuthPath, encrypted);
+    } catch (e) { /* no-op */ }
+  });
+
+  ipcMain.handle('delete-auth-token', async () => {
+    try {
+      if (fs.existsSync(secureAuthPath)) fs.unlinkSync(secureAuthPath);
+    } catch (e) { /* no-op */ }
+  });
+
+  // ── Password Manager (encrypted via safeStorage) ──
+  const crypto = require('crypto');
+  const pwPath = path.join(app.getPath('userData'), 'passwords.enc');
+
+  function _pwRead() {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return { version: 1, entries: [] };
+      if (!fs.existsSync(pwPath)) return { version: 1, entries: [] };
+      const encrypted = fs.readFileSync(pwPath);
+      const json = safeStorage.decryptString(encrypted);
+      return JSON.parse(json);
+    } catch (e) {
+      return { version: 1, entries: [] };
+    }
+  }
+
+  function _pwWrite(data) {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return;
+      const encrypted = safeStorage.encryptString(JSON.stringify(data));
+      fs.writeFileSync(pwPath, encrypted);
+    } catch (e) { /* no-op */ }
+  }
+
+  function _pwGenId() {
+    return crypto.randomBytes(4).toString('hex');
+  }
+
+  ipcMain.handle('pw-get', async (event, origin) => {
+    const data = _pwRead();
+    return data.entries
+      .filter(e => e.origin === origin)
+      .map(e => ({ id: e.id, origin: e.origin, username: e.username }));
+  });
+
+  ipcMain.handle('pw-fill', async (event, id) => {
+    const data = _pwRead();
+    const entry = data.entries.find(e => e.id === id);
+    if (!entry) return null;
+    return { username: entry.username, password: entry.password };
+  });
+
+  ipcMain.handle('pw-save', async (event, { origin, username, password }) => {
+    const data = _pwRead();
+    const existing = data.entries.find(e => e.origin === origin && e.username === username);
+    if (existing) {
+      existing.password = password;
+      existing.updatedAt = new Date().toISOString();
+      _pwWrite(data);
+      return { id: existing.id };
+    }
+    const id = _pwGenId();
+    data.entries.push({
+      id, origin, username, password,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    _pwWrite(data);
+    return { id };
+  });
+
+  ipcMain.handle('pw-delete', async (event, id) => {
+    const data = _pwRead();
+    data.entries = data.entries.filter(e => e.id !== id);
+    _pwWrite(data);
+  });
+
+  ipcMain.handle('pw-list', async () => {
+    const data = _pwRead();
+    return data.entries.map(e => ({
+      id: e.id, origin: e.origin, username: e.username, createdAt: e.createdAt
+    }));
   });
 
   createWindow();

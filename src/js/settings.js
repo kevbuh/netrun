@@ -507,6 +507,11 @@ function _renderBrowserSettings() {
       <p class="text-dim text-[0.8rem] mb-3">Reorder and toggle sections in the URL bar dropdown. Drag to reorder.</p>
       <div id="settings-urlbar-sections">${_renderUrlBarSectionsSettings()}</div>
     </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <h3 class="text-white_ text-sm font-semibold mb-1">Saved Passwords</h3>
+      <p class="text-dim text-[0.8rem] mb-3">Passwords are encrypted via your system keychain.</p>
+      <div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>
+    </div>
   `;
 }
 
@@ -651,6 +656,70 @@ function _urlBarSectionDragSetup() {
 
   list.addEventListener('pointerup', endDrag);
   list.addEventListener('pointercancel', endDrag);
+}
+
+let _expandedPwDomain = null;
+
+function _loadSettingsPasswords() {
+  const container = document.getElementById('settings-passwords');
+  if (!container) return;
+  if (!window.electronAPI || !window.electronAPI.pwList) {
+    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Password storage requires the desktop app.</div>';
+    return;
+  }
+  window.electronAPI.pwList().then(entries => {
+    _renderPasswordsList(container, entries || []);
+  }).catch(() => {
+    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Failed to load passwords.</div>';
+  });
+}
+
+function _renderPasswordsList(container, entries) {
+  if (!entries.length) {
+    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">No saved passwords.</div>';
+    return;
+  }
+  // Group by origin
+  const grouped = {};
+  for (const e of entries) {
+    if (!grouped[e.origin]) grouped[e.origin] = [];
+    grouped[e.origin].push(e);
+  }
+  let html = '';
+  for (const origin of Object.keys(grouped).sort()) {
+    const items = grouped[origin];
+    const isExpanded = _expandedPwDomain === origin;
+    const safeOrigin = escapeHtml(origin).replace(/'/g, "\\'");
+    html += '<div style="border:1px solid var(--border-input);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPwDomain=(_expandedPwDomain===\'' + safeOrigin + '\'?null:\'' + safeOrigin + '\');_loadSettingsPasswords();">';
+    html += '<svg style="width:12px;height:12px;color:var(--text-dimmer);transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') + '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+    html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);font-weight:500;">' + escapeHtml(origin) + '</span>';
+    html += '<span style="font-size:0.68rem;color:var(--text-dimmer);">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>';
+    html += '</div>';
+    if (isExpanded) {
+      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--border-subtle);">';
+      for (const entry of items) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
+        html += '<svg style="width:14px;height:14px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+        html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + escapeHtml(entry.username || '(no username)') + '</span>';
+        if (entry.createdAt) {
+          html += '<span style="font-size:0.65rem;color:var(--text-dimmer);">' + new Date(entry.createdAt).toLocaleDateString() + '</span>';
+        }
+        html += '<button onclick="_pwDeleteEntry(\'' + entry.id + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.7rem;cursor:pointer;">Delete</button>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function _pwDeleteEntry(id) {
+  if (!window.electronAPI || !window.electronAPI.pwDelete) return;
+  window.electronAPI.pwDelete(id).then(() => {
+    _loadSettingsPasswords();
+  }).catch(() => {});
 }
 
 function _loadSettingsModels() {
@@ -881,6 +950,7 @@ function renderSettingsView() {
     loadVaultPath();
   } else if (_settingsSection === 'browser') {
     _urlBarSectionDragSetup();
+    _loadSettingsPasswords();
     fetch('/api/adblock-rules').then(r => r.json()).then(stats => {
       const el = document.getElementById('adblock-rules-info');
       if (!el) return;

@@ -2846,6 +2846,12 @@ if (localStorage.getItem('rainOn') === '1') {
 
 const GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
 let _authToken = localStorage.getItem('authToken') || null;
+// Hydrate token from secure storage (macOS Keychain) if available
+if (!_authToken && window.electronAPI?.getAuthToken) {
+  window.electronAPI.getAuthToken().then(t => {
+    if (t && !_authToken) { _authToken = t; localStorage.setItem('authToken', t); }
+  });
+}
 let _authUser = localStorage.getItem('authUser') || null;  // email or name
 let _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null');  // { google_id, email, name, username }
 let _syncInterval = null;
@@ -2975,6 +2981,7 @@ async function _handleGoogleCredential(response) {
     _authUser = (data.name || data.email || '').split(' ')[0];
     _authUserInfo = { email: data.email, name: data.name, username: data.username || null, picture: data.picture || null };
     localStorage.setItem('authToken', _authToken);
+    window.electronAPI?.saveAuthToken?.(_authToken);
     localStorage.setItem('authUser', _authUser);
     localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
     // Clear any stale user data before pulling new user's data
@@ -3129,6 +3136,7 @@ async function authLogout() {
   // Clear all user-specific data from localStorage
   for (const key of SYNC_KEYS) localStorage.removeItem(key);
   localStorage.removeItem('authToken');
+  window.electronAPI?.deleteAuthToken?.();
   localStorage.removeItem('authUser');
   localStorage.removeItem('authUserInfo');
   _updateAccountUI();
@@ -3320,6 +3328,7 @@ async function _doDeleteAccount() {
   _authUserInfo = null;
   _authReady = false;
   localStorage.clear();
+  window.electronAPI?.deleteAuthToken?.();
   _updateAccountUI();
   _stopSyncInterval();
   _showLoginGate();
@@ -3353,6 +3362,7 @@ async function _doDeleteAccount() {
         _authUser = null;
         _authUserInfo = null;
         localStorage.removeItem('authToken');
+        window.electronAPI?.deleteAuthToken?.();
         localStorage.removeItem('authUser');
         localStorage.removeItem('authUserInfo');
         _updateAccountUI();
