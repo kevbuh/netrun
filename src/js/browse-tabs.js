@@ -6199,9 +6199,9 @@ function _showAnnotationTooltip(data, frame) {
   const cy = data.y + fRect.top;
   const tipW = tip.offsetWidth || 320;
   const tipH = tip.offsetHeight || 60;
-  const left = Math.min(cx + 8, window.innerWidth - tipW - 8);
-  let top = cy - tipH - 4;
-  if (top < 4) top = cy + 16;
+  const left = Math.min(cx + 12, window.innerWidth - tipW - 8);
+  let top = cy - tipH - 12;
+  if (top < 4) top = cy + 20;
   tip.style.left = left + 'px';
   tip.style.top = top + 'px';
 }

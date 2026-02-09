@@ -4067,7 +4067,7 @@ function _panelBuildChatInput(popup, config) {
               askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
               askInput.focus();
               if (localStorage.getItem('voiceAutoSend') === 'on') {
-                askInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
               }
             }
           })
