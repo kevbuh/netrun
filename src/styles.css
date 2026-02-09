@@ -804,6 +804,8 @@
     .browse-mode.ntp-active #pill-browse-url-input,
     .browse-mode.ntp-active #pill-browse-reload,
     .browse-mode.ntp-active #pill-browse-tabs,
+    .browse-mode.ntp-active #pill-mic-btn,
+    .browse-mode.ntp-active #pill-readaloud-btn,
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active #pill-newwin-btn {
@@ -1828,58 +1830,37 @@
       color: var(--aether-placeholder);
     }
     #pill-mic-btn {
-      display: none;
-      background: none;
-      border: none;
-      color: var(--aether-text-muted);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 50%;
-      transition: color 0.2s ease, background 0.2s ease, opacity 0.25s ease;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease,
+                  padding 0.3s ease;
     }
-    #pill-mic-btn:hover {
-      color: var(--aether-text);
-      background: var(--aether-hover);
-    }
-    .browse-mode.island-mode #pill-mic-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: absolute;
-      left: calc(50% + 175px);
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 1;
-    }
-    body.electron-app .browse-mode.island-mode #pill-mic-btn {
-      left: calc(50vw - 80px + 175px);
+    .browse-mode #pill-mic-btn {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
+      margin-left: auto;
     }
     #pill-readaloud-btn {
-      display: none;
-      background: none;
-      border: none;
-      color: var(--aether-text-muted);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 50%;
-      transition: color 0.2s ease, background 0.2s ease, opacity 0.25s ease;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease,
+                  padding 0.3s ease;
     }
-    #pill-readaloud-btn:hover {
-      color: var(--aether-text);
-      background: var(--aether-hover);
-    }
-    .browse-mode.island-mode #pill-readaloud-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: absolute;
-      left: calc(50% + 150px);
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 1;
-    }
-    body.electron-app .browse-mode.island-mode #pill-readaloud-btn {
-      left: calc(50vw - 80px + 150px);
+    .browse-mode #pill-readaloud-btn {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
     }
     #pill-readaloud-btn.pill-readaloud-active {
       color: var(--accent);
@@ -1908,7 +1889,6 @@
       max-width: 28px;
       opacity: 1;
       padding: 0;
-      margin-left: auto;
     }
     /* ── Island tab tray ── */
     .pill-island[data-island-id="rss"] { cursor: pointer; }

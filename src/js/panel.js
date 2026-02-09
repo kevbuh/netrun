@@ -94,6 +94,8 @@ function _ttsStopAll() {
 }
 
 function _ttsChunkText(text) {
+  // Rejoin line-break hyphens common in PDFs (e.g. "regular-\nities" → "regularities")
+  text = text.replace(/(\w)-\s+(\w)/g, function(_, a, b) { return a + b; });
   // Split on double-newlines (paragraphs), then break long paragraphs on sentences
   var maxChunk = 1000;
   var paras = text.split(/\n\s*\n/).filter(function(p) { return p.trim().length > 0; });
