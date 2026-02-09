@@ -2595,44 +2595,25 @@ function _updateCCButton() {
     ccBtn.style.color = _ccActive ? 'var(--accent)' : '';
   }
 
-  // CC suggestion pill — bottom-right, shown when audio detected on active tab
-  let pill = document.getElementById('browse-cc-pill');
-  if (hasAudio && isOnBrowse && !_ccActive && !_ccPillDismissed) {
-    // Only show if audio is on the active tab
-    const win = _getCurrentWindow();
-    const activeHasAudio = win && _browseAudioTabs.has(win.activeTab);
-    if (activeHasAudio) {
-      if (!pill) {
-        pill = document.createElement('div');
-        pill.id = 'browse-cc-pill';
-        pill.className = 'browse-cc-pill';
-        pill.innerHTML = `
-          <button class="browse-cc-pill-btn" onclick="toggleCaptions()">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none">CC</text></svg>
-            Turn on captions
-          </button>
-          <button class="browse-cc-pill-dismiss" onclick="_dismissCCPill()" title="Dismiss">&times;</button>
-        `;
-        document.body.appendChild(pill);
-        pillStackAdd('browse-cc-pill');
+  // Dynamic Island: show CC suggestion when audio detected on active tab
+  if (typeof islandUpdate === 'function') {
+    if (hasAudio && isOnBrowse && !_ccActive && !_ccPillDismissed) {
+      const win = _getCurrentWindow();
+      const activeHasAudio = win && _browseAudioTabs.has(win.activeTab);
+      if (activeHasAudio) {
+        islandUpdate('cc', { type: 'cc', label: 'CC available', detail: 'Click to enable captions', action: toggleCaptions });
+      } else {
+        islandRemove('cc');
       }
-      pill.style.display = 'flex';
-      _pillStackReflow();
-    } else if (pill) {
-      pill.style.display = 'none';
-      _pillStackReflow();
+    } else if (!_ccActive) {
+      islandRemove('cc');
     }
-  } else if (pill) {
-    pill.style.display = 'none';
-    _pillStackReflow();
   }
 }
 
 function _dismissCCPill() {
   _ccPillDismissed = true;
-  pillStackRemove('browse-cc-pill');
-  const pill = document.getElementById('browse-cc-pill');
-  if (pill) pill.style.display = 'none';
+  if (typeof islandRemove === 'function') islandRemove('cc');
 }
 
 async function toggleCaptions() {
@@ -2657,9 +2638,8 @@ async function toggleCaptions() {
   _ccActive = true;
   _ccCaptionLines = [];
 
-  // Hide pill and highlight CC button
-  const pill = document.getElementById('browse-cc-pill');
-  if (pill) { pill.style.display = 'none'; _pillStackReflow(); }
+  // Update island and highlight CC button
+  if (typeof islandUpdate === 'function') islandUpdate('cc', { type: 'cc', label: 'CC Live', detail: 'Listening…', action: stopCaptions });
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.style.color = 'var(--accent)';
 
@@ -2787,9 +2767,10 @@ function stopCaptions() {
   _ccCaptionLines = [];
   _ccTabId = null;
 
-  // Reset CC button
+  // Reset CC button and island
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.style.color = '';
+  if (typeof islandRemove === 'function') islandRemove('cc');
 }
 
 function _showCaption(text) {
@@ -2808,6 +2789,12 @@ function _showCaption(text) {
 
   overlay.textContent = _ccCaptionLines.join(' ');
   overlay.classList.remove('fade-out');
+
+  // Update island with latest caption snippet
+  if (typeof islandUpdate === 'function') {
+    const snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
+    islandUpdate('cc', { type: 'cc', label: 'CC Live', detail: snippet, action: stopCaptions });
+  }
 
   // Reset fade timer
   if (_ccFadeTimer) clearTimeout(_ccFadeTimer);
@@ -2900,9 +2887,7 @@ function toggleVtabsPanel() {
   _vtabsPanelCollapsed = !_vtabsPanelCollapsed;
   localStorage.setItem('vtabsPanelCollapsed', _vtabsPanelCollapsed);
   const vtabs = document.getElementById('browse-vtabs');
-  if (vtabs) vtabs.style.display = _vtabsPanelCollapsed ? 'none' : 'flex';
-  const btn = document.getElementById('pill-vtabs-toggle');
-  if (btn) btn.style.opacity = _vtabsPanelCollapsed ? '0.5' : '';
+  if (vtabs) vtabs.classList.toggle('vtabs-collapsed', _vtabsPanelCollapsed);
 }
 
 function _applyBrowseTabLayout() {
@@ -2918,10 +2903,8 @@ function _applyBrowseTabLayout() {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
     if (browseOpen) {
-      if (vtabs) vtabs.style.display = _vtabsPanelCollapsed ? 'none' : 'flex';
+      if (vtabs) { vtabs.style.display = 'flex'; vtabs.classList.toggle('vtabs-collapsed', _vtabsPanelCollapsed); }
       if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
-      const vtBtn = document.getElementById('pill-vtabs-toggle');
-      if (vtBtn) vtBtn.style.opacity = _vtabsPanelCollapsed ? '0.5' : '';
       if (dragPill) dragPill.style.display = 'none';
       _pillSyncUrl();
       const pillTabs = document.getElementById('pill-browse-tabs');

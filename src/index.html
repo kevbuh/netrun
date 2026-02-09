@@ -255,12 +255,15 @@
     </div>
     <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
       <div id="browse-vtabs" class="browse-vtabs" style="display:none;">
-        <div id="browse-vtabs-list" class="browse-vtabs-list"></div>
-        <div class="browse-vtabs-actions">
+        <div class="vtabs-collapse-header">
+          <button id="vtabs-collapse-btn" class="vtabs-collapse-btn" onclick="toggleVtabsPanel()" title="Toggle tabs panel">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>
+          </button>
           <button class="browse-vtab-action-btn" onclick="browseNewTab()" title="New tab">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
           </button>
         </div>
+        <div id="browse-vtabs-list" class="browse-vtabs-list"></div>
       </div>
       <div id="browse-content" style="flex:1;overflow:hidden;position:relative;touch-action:none;"></div>
     </div>
@@ -445,6 +448,10 @@
 
   <!-- Top Pill Bar (outside bezel so it's not trapped by transform) -->
   <nav id="sidebar-nav" class="pill-bar">
+    <div id="pill-island" class="pill-island">
+      <div id="pill-island-compact" class="pill-island-content"></div>
+      <div id="pill-island-expanded" class="pill-island-content pill-island-expanded"></div>
+    </div>
     <button id="pill-menu-btn" class="sidebar-icon" onclick="_togglePillMenu()" title="Menu">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
@@ -488,22 +495,15 @@
         <div id="user-menu-popover" style="display:none;position:absolute;top:48px;left:50%;transform:translateX(-50%);min-width:200px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:10px;padding:6px 0;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.25);"></div>
       </div>
     </div>
-    <div id="pill-island" class="pill-island">
-      <div id="pill-island-compact" class="pill-island-content"></div>
-      <div id="pill-island-expanded" class="pill-island-content pill-island-expanded"></div>
-    </div>
+    <button id="pill-browse-hamburger" class="sidebar-icon" onclick="_togglePillMenu()" title="Menu">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+    </button>
     <div id="pill-browse-url">
       <button id="pill-browse-back" class="sidebar-icon pill-vtab-nav" onclick="browseBack()" title="Back">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
       </button>
       <button id="pill-browse-fwd" class="sidebar-icon pill-vtab-nav" onclick="browseForward()" title="Forward">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
-      </button>
-      <button id="pill-vtabs-toggle" class="sidebar-icon" onclick="toggleVtabsPanel()" title="Toggle tabs panel">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>
-      </button>
-      <button id="pill-browse-hamburger" class="sidebar-icon" onclick="_togglePillMenu()" title="Menu">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
       </button>
     </div>
     <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…" onkeydown="_pillUrlKeydown(event)" onfocus="this.select()">

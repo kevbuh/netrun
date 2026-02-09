@@ -106,7 +106,7 @@ function _islandRender() {
 
   // Pick highest-priority active activity
   // Priority: download > qf > feed > others
-  var priority = { download: 3, qf: 2, feed: 1 };
+  var priority = { download: 4, cc: 3, qf: 2, feed: 1 };
   var best = null;
   var bestP = -1;
   for (var id in _islandActivities) {
@@ -135,6 +135,10 @@ function _islandRender() {
   }
 
   el.classList.add('island-active');
+
+  // Click handler
+  el.onclick = best.action || null;
+  el.style.cursor = best.action ? 'pointer' : 'default';
 
   // Render compact content
   if (best.done) {

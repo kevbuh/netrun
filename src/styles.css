@@ -721,12 +721,27 @@
       padding: 0;
       margin-right: 6px;
     }
+    /* Hamburger — hidden by default, shown in vtab browse mode, hidden when menu expanded */
+    #pill-browse-hamburger {
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease;
+      flex-shrink: 0;
+    }
+    .browse-mode.vtab-mode #pill-browse-hamburger {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
+    }
     .browse-mode.vtab-mode.menu-expanded #pill-browse-hamburger {
-      display: none;
+      max-width: 0;
+      opacity: 0;
+      padding: 0;
     }
-    .browse-mode.vtab-mode.menu-expanded #pill-browse-url {
-      order: -1;
-    }
+    /* pill-browse-url follows naturally after pill-menu-btn in source order */
 
     /* Pill browse tabs — expands to fill in browse mode */
     #pill-browse-tabs {
@@ -854,19 +869,25 @@
       padding: 0;
       height: 24px;
       border-radius: 12px;
-      background: var(--bg-hover, rgba(255,255,255,0.06));
+      background: var(--aether-hover);
       cursor: default;
       flex-shrink: 0;
       position: relative;
     }
+    [data-aether-theme="default"] .pill-island {
+      background: rgba(255,255,255,0.12);
+    }
+    [data-aether-theme="aether"] .pill-island {
+      background: rgba(0,0,0,0.08);
+    }
     .pill-island.island-active {
-      max-width: 180px;
+      max-width: 240px;
       opacity: 1;
       padding: 0 10px;
       margin: 0 2px;
     }
     .pill-island.island-active:hover {
-      max-width: 300px;
+      max-width: 360px;
     }
     .pill-island-content {
       display: flex;
@@ -935,10 +956,10 @@
       animation: island-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .browse-mode .pill-island.island-active {
-      max-width: 140px;
+      max-width: 200px;
     }
     .browse-mode .pill-island.island-active:hover {
-      max-width: 240px;
+      max-width: 300px;
     }
 
     /* ── Research view tabs ── */
@@ -1460,16 +1481,36 @@
       flex-shrink: 0;
       -webkit-app-region: no-drag;
     }
-    #pill-vtabs-toggle {
-      display: none;
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-    }
-    #pill-vtabs-toggle:hover {
-      transform: none;
-    }
-    .browse-mode.vtab-mode #pill-vtabs-toggle {
+    /* ── Vertical tabs collapse button (inside vtabs panel) ── */
+    .vtabs-collapse-header {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px;
+      flex-shrink: 0;
+    }
+    .vtabs-collapse-btn {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--aether-text-dimmer);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .vtabs-collapse-btn:hover {
+      background: var(--aether-hover);
+      color: var(--aether-text);
+    }
+    .browse-vtabs.vtabs-collapsed .vtabs-collapse-header {
+      justify-content: center;
+      padding: 6px 0 0;
     }
 
     /* ── Pill bar vtab nav buttons (back/forward/refresh) ── */
@@ -1506,6 +1547,26 @@
       flex-shrink: 0;
       overflow: hidden;
       color: var(--aether-text-secondary);
+      transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  min-width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .browse-vtabs.vtabs-collapsed {
+      width: 36px;
+      min-width: 36px;
+      max-width: 36px;
+    }
+    .browse-vtabs.vtabs-collapsed .browse-vtabs-list {
+      display: none;
+    }
+    .browse-vtabs.vtabs-collapsed .vtabs-collapse-header {
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 0;
+      align-items: center;
+    }
+    .browse-vtabs.vtabs-collapsed .browse-vtab-action-btn {
+      width: 28px;
+      padding: 0;
     }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
@@ -1536,13 +1597,7 @@
     .browse-vtabs-list::-webkit-scrollbar { width: 4px; }
     .browse-vtabs-list::-webkit-scrollbar-thumb { background: var(--aether-scrollbar); border-radius: 2px; }
     .browse-vtabs-list::-webkit-scrollbar-track { background: transparent; }
-    .browse-vtabs-actions {
-      display: flex;
-      align-items: center;
-      padding: 4px 6px 6px;
-      border-top: 1px solid var(--aether-border);
-      flex-shrink: 0;
-    }
+    /* vtabs-actions moved into vtabs-collapse-header */
     .browse-vtab-action-btn {
       width: 100%; height: 28px;
       display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -2816,57 +2871,7 @@
     #browse-cc-overlay.fade-out {
       opacity: 0;
     }
-    /* ── CC suggestion pill ── */
-    .browse-cc-pill {
-      position: fixed;
-      right: 20px;
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      background: var(--bg-popup);
-      border: 1px solid var(--border-card);
-      border-radius: 12px;
-      padding: 4px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      z-index: 9999;
-      animation: audio-indicator-in 0.3s ease;
-    }
-    .browse-cc-pill-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: transparent;
-      border: none;
-      border-radius: 8px;
-      color: var(--text-primary);
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.15s;
-      white-space: nowrap;
-    }
-    .browse-cc-pill-btn:hover {
-      background: var(--bg-hover);
-    }
-    .browse-cc-pill-dismiss {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-      flex-shrink: 0;
-    }
-    .browse-cc-pill-dismiss:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
-    }
+    /* CC suggestion pill removed — now uses Dynamic Island */
     /* ── Finder pagination column span ── */
     .finder-pagination {
       column-span: all;
