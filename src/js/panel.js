@@ -673,6 +673,7 @@ function _renderPopupChat(popup, final) {
       const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
       if (!text) return;
       btn.classList.add('doc-msg-speaking');
+      islandUpdate('tts', { type: 'tts', label: 'Generating…', detail: 'Generating speech audio' });
       fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
@@ -681,13 +682,14 @@ function _renderPopupChat(popup, final) {
         if (!r.ok) throw new Error('TTS failed');
         return r.blob();
       }).then(blob => {
+        islandRemove('tts');
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         _ttsAudio = audio;
         audio.onended = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; };
         audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; };
         audio.play();
-      }).catch(() => { btn.classList.remove('doc-msg-speaking'); });
+      }).catch(() => { btn.classList.remove('doc-msg-speaking'); islandRemove('tts'); });
     });
   });
   // Update send/stop button state

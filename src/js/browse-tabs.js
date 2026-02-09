@@ -3014,9 +3014,29 @@ function _browseRenderTabs() {
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
 
-  // Window switcher (if multiple windows)
+  // Window switcher in header (between collapse btn and + btn)
+  if (isVertical) {
+    const headerSwitcher = document.getElementById('vtabs-header-window-switcher');
+    if (headerSwitcher) {
+      if (_browseWindows.length > 1) {
+        const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+        headerSwitcher.innerHTML = `<div class="browse-window-switcher vtabs-header-ws" data-window-idx="${winIdx}" onclick="toggleBrowseTabOverview()">
+          <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
+          </button>
+          <button class="browse-window-arrow down ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowDown()" title="Next window">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+          </button>
+        </div>`;
+      } else {
+        headerSwitcher.innerHTML = '';
+      }
+    }
+  }
+
+  // Window switcher for horizontal layout (inline in tab bar)
   let windowSelector = '';
-  if (_browseWindows.length > 1) {
+  if (!isVertical && _browseWindows.length > 1) {
     const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
     windowSelector = `<div class="browse-window-switcher" data-window-idx="${winIdx}" onclick="toggleBrowseTabOverview()">
       <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
@@ -3131,19 +3151,44 @@ function _browseRenderTabs() {
   if (isVertical) {
     const strip = document.getElementById('browse-vtabs-collapsed-strip');
     if (strip) {
-      // Measure how many mini-tabs fit (each 28px + 2px gap, reserve space for window switcher + overflow badge)
-      const stripH = strip.clientHeight;
+      // Measure how many mini-tabs fit using parent container height
+      const vtabsEl = document.getElementById('browse-vtabs');
+      const headerEl = vtabsEl ? vtabsEl.querySelector('.vtabs-collapse-header') : null;
+      const containerH = vtabsEl ? vtabsEl.clientHeight : 600;
+      const headerH = headerEl ? headerEl.offsetHeight : 60;
+      const stripH = containerH - headerH - 8; // 8px padding
       const itemSize = 30; // 28px tab + 2px gap
-      const switcherH = _browseWindows.length > 1 ? 52 : 0; // up + label + down
-      const available = Math.max(0, stripH - switcherH);
-      const maxVisible = Math.max(1, Math.floor(available / itemSize));
+      const switcherH = _browseWindows.length > 1 ? 52 : 0;
+      const overflowBadgeH = 30;
+      const reserveH = switcherH + overflowBadgeH;
+      const availableForTabs = Math.max(0, stripH - reserveH);
+      const maxVisible = Math.max(1, Math.floor(availableForTabs / itemSize));
       const overflow = tabs.length - maxVisible;
       const visibleTabs = overflow > 0 ? tabs.slice(0, maxVisible) : tabs;
 
-      // column-reverse: first in HTML → bottom, last → top
-      // We want: tabs at top, window switcher at bottom
-      // So: window switcher first, then overflow badge, then tabs
+      // Normal column order: tabs at top, spacer pushes bottom items down
       let miniHtml = '';
+
+      // Visible tabs (top)
+      for (const t of visibleTabs) {
+        const isActive = t.id === activeTab;
+        const cls = 'vtabs-mini-tab' + (isActive ? ' active' : '');
+        let domain = '';
+        try { domain = new URL(t.url || '').hostname.replace(/^www\./, ''); } catch {}
+        const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}</span>`;
+        const fav = t.favicon
+          ? `<img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'">`
+          : `<span class="vtabs-mini-letter">${escapeHtml((t.title || '?')[0].toUpperCase())}</span>`;
+        miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})">${fav}${tip}</button>`;
+      }
+
+      // Spacer pushes bottom items to the end
+      miniHtml += '<div style="flex:1"></div>';
+
+      // Overflow badge
+      if (overflow > 0) {
+        miniHtml += `<button class="vtabs-mini-overflow" onclick="toggleVtabsPanel()" title="${overflow} more tab${overflow > 1 ? 's' : ''}">+${overflow}</button>`;
+      }
 
       // Window switcher at bottom
       if (_browseWindows.length > 1) {
@@ -3157,24 +3202,6 @@ function _browseRenderTabs() {
             <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
           </button>
         </div>`;
-      }
-
-      // Overflow badge (above window switcher, below tabs)
-      if (overflow > 0) {
-        miniHtml += `<button class="vtabs-mini-overflow" onclick="toggleVtabsPanel()" title="${overflow} more tab${overflow > 1 ? 's' : ''}">+${overflow}</button>`;
-      }
-
-      // Visible tabs (top)
-      for (const t of visibleTabs) {
-        const isActive = t.id === activeTab;
-        const cls = 'vtabs-mini-tab' + (isActive ? ' active' : '');
-        let domain = '';
-        try { domain = new URL(t.url || '').hostname.replace(/^www\./, ''); } catch {}
-        const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}</span>`;
-        const fav = t.favicon
-          ? `<img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'">`
-          : `<span class="vtabs-mini-letter">${escapeHtml((t.title || '?')[0].toUpperCase())}</span>`;
-        miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})">${fav}${tip}</button>`;
       }
 
       strip.innerHTML = miniHtml;
