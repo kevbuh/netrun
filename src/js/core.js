@@ -187,8 +187,11 @@ function _islandRenderPillExpanded(a) {
       return annPenIcon2 + '<span style="color:var(--aether-text)">' + _escHtml(a.label || 'Annotate') + '</span>';
     }
     if (a.loading) {
-      var annStopBtn = '<span class="island-dismiss" data-island-dismiss="annotate" style="cursor:pointer;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg><span style="color:#ef5350;font-weight:600">Stop</span></span>';
-      return annStopBtn;
+      if (a.showCancel) {
+        var annStopBtn = '<span class="island-dismiss" data-island-dismiss="annotate" style="cursor:pointer;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg><span style="color:#ef5350;font-weight:600">Cancel</span></span>';
+        return annStopBtn;
+      }
+      return annPenIcon2 + '<span style="color:var(--aether-text)">' + _escHtml(a.label || 'Annotating…') + '</span>';
     }
     var _annModeColors2 = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor2 = _annModeColors2[a.modeType] || '#4caf50';

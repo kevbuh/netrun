@@ -1827,6 +1827,41 @@
     #pill-browse-url-input::placeholder {
       color: var(--aether-placeholder);
     }
+    #pill-mic-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--aether-text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 50%;
+      transition: color 0.2s ease, background 0.2s ease, opacity 0.25s ease;
+    }
+    #pill-mic-btn:hover {
+      color: var(--aether-text);
+      background: var(--aether-hover);
+    }
+    .browse-mode.island-mode #pill-mic-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      left: calc(50% + 175px);
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1;
+    }
+    body.electron-app .browse-mode.island-mode #pill-mic-btn {
+      left: calc(50vw - 80px + 175px);
+    }
+    #pill-mic-btn.pill-mic-active {
+      color: #ef4444;
+      animation: pill-mic-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pill-mic-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
     #pill-browse-more {
       max-width: 0;
       opacity: 0;
@@ -3619,6 +3654,11 @@
     .doc-chat-thinking .dot:nth-child(2) { animation-delay: 0.2s; }
     .doc-chat-thinking .dot:nth-child(3) { animation-delay: 0.4s; }
     .doc-thinking-label { font-size: 0.7rem; color: var(--text-dimmer); margin-left: 6px; font-style: italic; }
+    .doc-thinking-preview { font-size: 0.7rem; color: var(--text-dimmer); margin-top: 4px; font-style: italic; white-space: pre-wrap; line-height: 1.4; max-height: 60px; overflow: hidden; mask-image: linear-gradient(to bottom, black 40%, transparent); -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent); }
+    .doc-thinking-block { margin-bottom: 6px; font-size: 0.75rem; }
+    .doc-thinking-block summary { color: var(--text-dimmer); cursor: pointer; font-style: italic; user-select: none; }
+    .doc-thinking-block summary:hover { color: var(--text-dim); }
+    .doc-thinking-content { color: var(--text-dimmer); margin-top: 4px; padding: 6px 8px; background: var(--aether-hover-subtle); border-radius: 4px; white-space: pre-wrap; line-height: 1.4; max-height: 200px; overflow-y: auto; }
     @keyframes chat-dots {
       0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
       40% { opacity: 1; transform: scale(1); }

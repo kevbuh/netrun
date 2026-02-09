@@ -219,6 +219,20 @@ CHAT_TOOLS = [
                 "required": ["title", "date"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_tab",
+            "description": "Open a URL in a new browser tab within the app.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The URL to open"}
+                },
+                "required": ["url"]
+            }
+        }
     }
 ]
 
@@ -388,6 +402,10 @@ def execute_chat_tool(name, args, stream_callback=None, google_id=None):
             if stream_callback:
                 stream_callback('action', {"type": "navigate", "view": args.get("view", "home")})
             return {"status": "ok", "message": f"Navigated to {args.get('view', 'home')}"}
+        elif name == 'open_tab':
+            if stream_callback:
+                stream_callback('action', {"type": "open_tab", "url": args.get("url", "")})
+            return {"status": "ok", "message": f"Opened {args.get('url', '')} in a new tab"}
         elif name == 'create_experiment':
             return tool_create_experiment(args.get('title', ''), args.get('description', ''), google_id=google_id)
         elif name == 'create_calendar_event':

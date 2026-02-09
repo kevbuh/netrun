@@ -478,9 +478,19 @@ function _sendPopupChatMessage(popup, capturedText) {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7);
           } else if (line.startsWith('data: ')) {
-            if (currentEvent === 'token') {
+            if (currentEvent === 'thinking') {
               try {
                 const token = JSON.parse(line.slice(6));
+                if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                _popupChatMessages[aiIdx]._thinkingText += token;
+                _popupChatMessages[aiIdx]._thinking = true;
+                _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+                _renderPopupChatLive(false);
+              } catch (e) {}
+            } else if (currentEvent === 'token') {
+              try {
+                const token = JSON.parse(line.slice(6));
+                _popupChatMessages[aiIdx]._thinking = false;
                 aiText += token;
                 _popupChatMessages[aiIdx].content = aiText;
                 _renderPopupChatLive(false);
@@ -488,7 +498,7 @@ function _sendPopupChatMessage(popup, capturedText) {
             } else if (currentEvent === 'tool_call') {
               try {
                 const tc = JSON.parse(line.slice(6));
-                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…' };
+                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…', open_tab: 'Opening tab…' };
                 _popupChatMessages[aiIdx].content = '';
                 _popupChatMessages[aiIdx]._thinking = true;
                 _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
@@ -506,6 +516,11 @@ function _sendPopupChatMessage(popup, capturedText) {
                 } else if (act.type === 'navigate' && act.view) {
                   const routes = { home: '#', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
                   location.hash = routes[act.view] || '#';
+                } else if (act.type === 'open_tab' && act.url) {
+                  if (typeof browseNewTab === 'function') {
+                    location.hash = '#browse';
+                    setTimeout(() => browseNewTab(act.url), 100);
+                  }
                 }
               } catch (e) {}
             } else if (currentEvent === 'usage') {
@@ -529,6 +544,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         }
       }
 
+      _popupChatMessages[aiIdx]._thinking = false;
       _popupChatMessages[aiIdx].content = aiText;
       _renderPopupChatLive(true);
     } catch (e) {
@@ -675,7 +691,8 @@ function _renderPopupChat(popup, final) {
     }
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
-      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}</div>`;
+      const preview = m._thinkingText ? `<div class="doc-thinking-preview">${escapeHtml(m._thinkingText.length > 200 ? '…' + m._thinkingText.slice(-200) : m._thinkingText)}</div>` : '';
+      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}${preview}</div>`;
     }
     // Search results
     if (m._searchResults && m._searchResults.length) {
@@ -728,8 +745,9 @@ function _renderPopupChat(popup, final) {
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
+    const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
     const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
-    return `<div class="doc-msg-ai">${content}${speakBtn}</div>`;
+    return `<div class="doc-msg-ai">${thinkingBlock}${content}${speakBtn}</div>`;
   }).join('');
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {

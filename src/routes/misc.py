@@ -765,6 +765,7 @@ def transcribe(google_id):
         os.remove(tmp_wav)
         return jsonify({'text': text})
     except Exception as e:
+        import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 

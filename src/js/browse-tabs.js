@@ -3017,6 +3017,43 @@ function _pillUrlKeydown(e) {
   }
 }
 
+/* Pill mic button — record audio, transcribe, open panel with result */
+let _pillMicRecorder = null;
+function _pillMicClick() {
+  const micBtn = document.getElementById('pill-mic-btn');
+  if (!micBtn) return;
+  if (_pillMicRecorder) {
+    _pillMicRecorder.stop();
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    const chunks = [];
+    _pillMicRecorder = recorder;
+    micBtn.classList.add('pill-mic-active');
+    islandUpdate('pill-mic', { type: 'ai', label: 'Listening…' });
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      _pillMicRecorder = null;
+      micBtn.classList.remove('pill-mic-active');
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      islandUpdate('pill-mic', { type: 'ai', label: 'Transcribing…' });
+      fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }, body: blob })
+        .then(r => r.json())
+        .then(data => {
+          islandRemove('pill-mic');
+          if (data.text) {
+            const rect = micBtn.getBoundingClientRect();
+            _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
+          }
+        })
+        .catch(() => { islandRemove('pill-mic'); });
+    };
+    recorder.start();
+  }).catch(() => {});
+}
+
 function _browseRenderTabs() {
   const isIsland = _browseTabLayout === 'island';
   const bar = isIsland ? null : document.getElementById('browse-tabs');
@@ -5986,17 +6023,24 @@ async function annotateCurrentPage(tab) {
   const abortCtrl = new AbortController();
   _annotationAbort = abortCtrl;
 
-  // Show island with yellow dot + cancel on hover
+  // Show island with yellow dot; delay before showing cancel button
   if (typeof islandUpdate === 'function') {
+    const dismissFn = () => {
+      abortCtrl.abort();
+      _annotationsEnabled.delete(tab.id);
+      _updateAnnotateButtonState();
+      islandRemove('annotate');
+    };
     islandUpdate('annotate', {
       type: 'annotate', label: 'Annotating…', loading: true, offer: false, action: null,
-      dismiss: () => {
-        abortCtrl.abort();
-        _annotationsEnabled.delete(tab.id);
-        _updateAnnotateButtonState();
-        islandRemove('annotate');
-      }
+      showCancel: false, dismiss: dismissFn
     });
+    setTimeout(() => {
+      const act = typeof _islandActivities !== 'undefined' ? _islandActivities['annotate'] : null;
+      if (act && act.loading) {
+        islandUpdate('annotate', Object.assign({}, act, { showCancel: true }));
+      }
+    }, 1500);
   }
 
   try {

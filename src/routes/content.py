@@ -285,7 +285,8 @@ def doc_chat():
         else:
             system_msg = (
                 "You are a helpful assistant with tools to search the web, find papers, "
-                "fetch page content, bookmark posts, navigate the app, and create experiments. "
+                "fetch page content, bookmark posts, navigate the app, create experiments, "
+                "create calendar events, and open URLs in new browser tabs. "
                 "Use tools when they would help answer the user's question." + page_ctx
             ) if tools_enabled else "You are a helpful assistant."
         ollama_messages = [{"role": "system", "content": system_msg}] + messages
@@ -359,7 +360,11 @@ def doc_chat():
                 final_chunk = None
                 for line in resp:
                     chunk = json.loads(line)
-                    token = chunk.get("message", {}).get("content", "")
+                    msg = chunk.get("message", {})
+                    thinking = msg.get("thinking", "")
+                    if thinking:
+                        yield sse_event('thinking', thinking)
+                    token = msg.get("content", "")
                     if token:
                         yield sse_event('token', token)
                     if chunk.get("done"):
