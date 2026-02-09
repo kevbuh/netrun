@@ -3914,14 +3914,79 @@ function _tabDragEnd(e) {
 // ── Window Overview ──
 
 let _browseTabOverviewVisible = false;
-let _overviewSelectedIdx = 0;
+let _overviewSelectedIdx = 0;       // selected browse window index
 let _overviewKeyHandler = null;
-let _overviewBrowseExpanded = false;
-let _overviewBrowseWinIdx = 0;  // selected window in expanded view
-let _overviewBrowseTabIdx = -1; // -1 = window row selected, >=0 = tab within window
-let _overviewWasBrowseMode = false; // pill bar was in browse-mode before overview opened
+let _overviewBrowseWinIdx = 0;      // selected window in expanded tab view
+let _overviewBrowseTabIdx = -1;     // -1 = window card level, >=0 = tab within window
+let _overviewTabsExpanded = false;   // true when showing tab list inside a window card
 let _overviewCaptureTimer = null;
 let _overviewCapturing = false;
+let _browseWindowPreviews = {};     // { windowId: 'data:image/png;base64,...' }
+let _overviewMovedFrames = [];      // frames temporarily reparented into overview cards
+
+// Move each window's active tab frame into its overview card preview (non-interactive).
+// Uses moveBefore() to avoid iframe reload where supported, falls back to appendChild.
+// Frames fill the preview area at its natural size (page re-renders at preview dimensions).
+function _overviewEmbedFrames() {
+  _overviewRestoreFrames();
+  var overlay = document.getElementById('browse-tab-overview');
+  if (!overlay) return;
+  var cards = overlay.querySelectorAll('.wov-card:not(.wov-card-new)');
+
+  for (var i = 0; i < _browseWindows.length && i < cards.length; i++) {
+    var bw = _browseWindows[i];
+    var activeTab = bw.tabs.find(function(t) { return t.id === bw.activeTab; });
+    if (!activeTab || !activeTab.el) continue;
+
+    var previewDiv = cards[i].querySelector('.wov-card-preview');
+    if (!previewDiv) continue;
+    if (!previewDiv.offsetWidth || !previewDiv.offsetHeight) continue;
+
+    var frame = activeTab.el;
+    var origParent = frame.parentNode;
+    var origCss = frame.style.cssText;
+
+    _overviewMovedFrames.push({ frame: frame, origParent: origParent, origCss: origCss });
+
+    // Fill the preview area — the page re-renders at preview dimensions (like a small browser window)
+    frame.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;pointer-events:none;display:block;z-index:0;background:#fff;';
+
+    // Clear the preview placeholder and insert frame
+    previewDiv.innerHTML = '';
+    previewDiv.classList.remove('wov-card-preview-empty');
+    previewDiv.style.position = 'relative';
+    previewDiv.style.overflow = 'hidden';
+
+    if (typeof previewDiv.moveBefore === 'function') {
+      previewDiv.moveBefore(frame, null);
+    } else {
+      previewDiv.appendChild(frame);
+    }
+
+    // Glass overlay blocks all interaction until the user clicks/enters the card
+    var glass = document.createElement('div');
+    glass.className = 'wov-frame-glass';
+    previewDiv.appendChild(glass);
+  }
+}
+
+// Restore all reparented frames back to #browse-content with their original styles
+function _overviewRestoreFrames() {
+  if (!_overviewMovedFrames.length) return;
+  var container = document.getElementById('browse-content');
+  for (var i = 0; i < _overviewMovedFrames.length; i++) {
+    var entry = _overviewMovedFrames[i];
+    entry.frame.style.cssText = entry.origCss;
+    var target = (entry.origParent && entry.origParent.isConnected) ? entry.origParent : container;
+    if (!target) continue;
+    if (typeof target.moveBefore === 'function') {
+      target.moveBefore(entry.frame, null);
+    } else {
+      target.appendChild(entry.frame);
+    }
+  }
+  _overviewMovedFrames = [];
+}
 
 function _overviewScheduleCapture() {
   if (_overviewCaptureTimer) clearTimeout(_overviewCaptureTimer);
@@ -3931,9 +3996,8 @@ function _overviewScheduleCapture() {
 async function _overviewDoCapture() {
   if (_overviewCapturing || !_browseTabOverviewVisible) return;
   if (!window.electronAPI?.captureScreen) return;
-  var idx = _overviewSelectedIdx;
-  var key = _wmWindows[idx]?.key;
-  if (!key) return;
+  var winId = _browseActiveWindow;
+  if (!winId) return;
   var overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _overviewCapturing = true;
@@ -3955,13 +4019,14 @@ async function _overviewDoCapture() {
     overlay.offsetHeight;
     overlay.style.transition = '';
     if (base64 && _browseTabOverviewVisible) {
-      _wmPreviews[key] = 'data:image/png;base64,' + base64;
+      _browseWindowPreviews[winId] = 'data:image/png;base64,' + base64;
       var cards = overlay.querySelectorAll('.wov-card');
+      var idx = _browseWindows.findIndex(function(bw) { return bw.id === winId; });
       var card = cards[idx];
       if (card) {
         var prev = card.querySelector('.wov-card-preview');
         if (prev) {
-          prev.style.backgroundImage = 'url(' + _wmPreviews[key] + ')';
+          prev.style.backgroundImage = 'url(' + _browseWindowPreviews[winId] + ')';
           prev.classList.remove('wov-card-preview-empty');
           prev.innerHTML = '';
         }
@@ -4037,20 +4102,15 @@ function showBrowseTabOverview() {
   _wmCapturePreview();
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
-  // The current view stays visible behind the translucent overlay
-  // Temporarily exit browse mode on the pill bar so the normal app nav is visible
-  var pill = document.getElementById('sidebar-nav');
-  if (pill && pill.classList.contains('browse-mode')) {
-    pill.classList.remove('browse-mode');
-    _overviewWasBrowseMode = true;
-  } else {
-    _overviewWasBrowseMode = false;
-  }
   _browseTabOverviewVisible = true;
-  _overviewBrowseExpanded = false;
-  _overviewSelectedIdx = Math.max(0, Math.min(_wmFocusIndex, _wmWindows.length - 1));
+  _overviewTabsExpanded = false;
+  _overviewBrowseTabIdx = -1;
+  // Select the active browse window
+  var activeIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+  _overviewSelectedIdx = activeIdx;
+  _overviewBrowseWinIdx = activeIdx;
+  overlay.style.display = 'flex'; // display before render so embed can measure dimensions
   _renderWindowOverview();
-  overlay.style.display = 'flex';
   // Instantly scroll to the active card before the fade-in
   var activeCard = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
   if (activeCard) activeCard.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
@@ -4065,15 +4125,10 @@ function hideBrowseTabOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
   _browseTabOverviewVisible = false;
-  _overviewBrowseExpanded = false;
+  _overviewTabsExpanded = false;
   if (_overviewCaptureTimer) { clearTimeout(_overviewCaptureTimer); _overviewCaptureTimer = null; }
+  _overviewRestoreFrames(); // move embedded frames back to #browse-content
   _removeOverviewKeyHandler();
-  // Restore browse mode on the pill bar if it was active before
-  if (_overviewWasBrowseMode) {
-    var pill = document.getElementById('sidebar-nav');
-    if (pill && _pillBrowseMode) pill.classList.add('browse-mode');
-    _overviewWasBrowseMode = false;
-  }
   overlay.classList.remove('visible');
   overlay.style.opacity = '';
   setTimeout(() => { if (!_browseTabOverviewVisible) overlay.style.display = 'none'; }, 180);
@@ -4083,20 +4138,23 @@ function _installOverviewKeyHandler() {
   if (_overviewKeyHandler) return;
   _overviewKeyHandler = (e) => {
     if (!_browseTabOverviewVisible) return;
+    var total = _browseWindows.length;
+    // Total cards = windows + 1 (the "+ New Window" card)
+    var totalCards = total + 1;
 
-    if (_overviewBrowseExpanded) {
-      // ── Browse detail mode ──
-      var winCount = _browseWindows.length;
+    if (_overviewTabsExpanded) {
+      // ── Tab drill-down within a window card ──
       var curWin = _browseWindows[_overviewBrowseWinIdx];
       var tabCount = curWin ? curWin.tabs.length : 0;
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (_overviewBrowseTabIdx >= 0) {
+        if (_overviewBrowseTabIdx > 0) {
           _overviewBrowseTabIdx--;
-        } else {
-          // Already at window header — collapse back to app strip
-          _overviewBrowseExpanded = false;
+        } else if (_overviewBrowseTabIdx === 0) {
+          // Collapse back to window card level
+          _overviewTabsExpanded = false;
+          _overviewBrowseTabIdx = -1;
         }
         _renderWindowOverview();
       } else if (e.key === 'ArrowDown') {
@@ -4107,18 +4165,20 @@ function _installOverviewKeyHandler() {
         _renderWindowOverview();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (_overviewBrowseWinIdx > 0) {
-          _overviewBrowseWinIdx--;
-          _overviewBrowseTabIdx = -1;
-          _renderWindowOverview();
-        }
+        // Collapse and move to previous window
+        _overviewTabsExpanded = false;
+        _overviewBrowseTabIdx = -1;
+        if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
+        _overviewBrowseWinIdx = _overviewSelectedIdx;
+        _renderWindowOverview();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (_overviewBrowseWinIdx < winCount - 1) {
-          _overviewBrowseWinIdx++;
-          _overviewBrowseTabIdx = -1;
-          _renderWindowOverview();
-        }
+        // Collapse and move to next window
+        _overviewTabsExpanded = false;
+        _overviewBrowseTabIdx = -1;
+        if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
+        _overviewBrowseWinIdx = _overviewSelectedIdx;
+        _renderWindowOverview();
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (curWin) {
@@ -4128,53 +4188,66 @@ function _installOverviewKeyHandler() {
           } else {
             browseSelectWindow(curWin.id);
           }
+          wmOpen('browse');
           hideBrowseTabOverview();
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        _overviewBrowseExpanded = false;
-        _renderWindowOverview();
-      } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewBrowseTabIdx === -1 && winCount > 1) {
-        e.preventDefault();
-        if (curWin) browseCloseWindow(curWin.id);
-        if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
+        _overviewTabsExpanded = false;
+        _overviewBrowseTabIdx = -1;
         _renderWindowOverview();
       }
       return;
     }
 
-    // ── Top-level app strip mode (horizontal row) ──
-    var total = _wmWindows.length;
+    // ── Window card level (horizontal row) ──
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      if (_overviewSelectedIdx > 0) _overviewSelectedIdx--;
+      if (_overviewSelectedIdx > 0) {
+        _overviewSelectedIdx--;
+        _overviewBrowseWinIdx = _overviewSelectedIdx;
+      }
       _updateOverviewHighlight();
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      if (_overviewSelectedIdx < total - 1) _overviewSelectedIdx++;
+      if (_overviewSelectedIdx < totalCards - 1) {
+        _overviewSelectedIdx++;
+        _overviewBrowseWinIdx = Math.min(_overviewSelectedIdx, total - 1);
+      }
       _updateOverviewHighlight();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      var wDown = _wmWindows[_overviewSelectedIdx];
-      if (wDown && wDown.key === 'browse') {
-        _overviewBrowseExpanded = true;
-        _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
-        _overviewBrowseTabIdx = -1;
+      // Expand tab list for the selected window
+      if (_overviewSelectedIdx < total) {
+        _overviewTabsExpanded = true;
+        _overviewBrowseWinIdx = _overviewSelectedIdx;
+        _overviewBrowseTabIdx = 0;
         _renderWindowOverview();
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      var w = _wmWindows[_overviewSelectedIdx];
-      if (!w) return;
-      wmOpen(w.key);
-      hideBrowseTabOverview();
+      if (_overviewSelectedIdx >= total) {
+        // "+ New Window" card
+        wmOpen('browse');
+        browseCreateWindow();
+        hideBrowseTabOverview();
+      } else {
+        var bw = _browseWindows[_overviewSelectedIdx];
+        if (bw) {
+          browseSelectWindow(bw.id);
+          wmOpen('browse');
+          hideBrowseTabOverview();
+        }
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       hideBrowseTabOverview();
-    } else if ((e.key === 'Backspace' || e.key === 'Delete') && total > 1) {
+    } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewSelectedIdx < total && total > 1) {
       e.preventDefault();
-      _wmCloseWindow(_overviewSelectedIdx);
-      if (_overviewSelectedIdx >= _wmWindows.length) _overviewSelectedIdx = _wmWindows.length - 1;
+      var delWin = _browseWindows[_overviewSelectedIdx];
+      if (delWin) browseCloseWindow(delWin.id);
+      if (_overviewSelectedIdx >= _browseWindows.length) _overviewSelectedIdx = _browseWindows.length - 1;
+      _overviewBrowseWinIdx = _overviewSelectedIdx;
       _renderWindowOverview();
     }
   };
@@ -4194,23 +4267,6 @@ function _updateOverviewHighlight() {
   overlay.querySelectorAll('.wov-card').forEach((card, i) => {
     card.classList.toggle('wov-selected', i === _overviewSelectedIdx);
   });
-  overlay.querySelectorAll('.wov-pill-wrap').forEach((wrap, i) => {
-    var pill = wrap.querySelector('.wov-pill');
-    var active = i === _overviewSelectedIdx;
-    if (pill) pill.classList.toggle('wov-pill-active', active);
-    var isBrowse = _wmWindows[i] && _wmWindows[i].key === 'browse';
-    var showArrow = isBrowse && active;
-    wrap.classList.toggle('wov-pill-has-arrow', showArrow);
-    var arrow = wrap.querySelector('.wov-pill-arrow');
-    if (showArrow && !arrow) {
-      arrow = document.createElement('span');
-      arrow.className = 'wov-pill-arrow';
-      arrow.innerHTML = '&#9662;';
-      wrap.appendChild(arrow);
-    } else if (!showArrow && arrow) {
-      arrow.remove();
-    }
-  });
   const sel = overlay.querySelector('.wov-card.wov-selected');
   if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
@@ -4218,144 +4274,125 @@ function _updateOverviewHighlight() {
 function _renderWindowOverview() {
   const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
-
-  // ── Browse grid mode (full-screen grid of browse windows) ──
-  if (_overviewBrowseExpanded) {
-    overlay.classList.add('wov-browse-grid-mode');
-    var gridHtml = '<div class="wov-browse-grid">';
-    for (var wi = 0; wi < _browseWindows.length; wi++) {
-      var bw = _browseWindows[wi];
-      var bwActive = bw.id === _browseActiveWindow;
-      var isCurWin = wi === _overviewBrowseWinIdx;
-
-      gridHtml += '<div class="wov-grid-cell' + (bwActive ? ' wov-win-active' : '') + (isCurWin ? ' wov-win-focus' : '') + '" data-win-idx="' + wi + '">';
-      gridHtml += '<div class="wov-grid-cell-header' + (isCurWin && _overviewBrowseTabIdx === -1 ? ' wov-selected' : '') + '">'
-        + '<span class="wov-win-name">' + escapeHtml(bw.name) + '</span>'
-        + '<span class="wov-win-count">' + bw.tabs.length + '</span>'
-        + (_browseWindows.length > 1 ? '<button class="wov-win-close">&times;</button>' : '')
-        + '</div>';
-
-      gridHtml += '<div class="wov-grid-cell-tabs">';
-      for (var ti = 0; ti < bw.tabs.length; ti++) {
-        var tab = bw.tabs[ti];
-        var tabSelected = isCurWin && ti === _overviewBrowseTabIdx;
-        var tabIsActive = bwActive && tab.id === bw.activeTab;
-        var fav = tab.favicon
-          ? '<img src="' + escapeHtml(tab.favicon) + '" class="wov-bt-fav" onerror="this.style.display=\'none\'">'
-          : '<span class="wov-bt-dot"></span>';
-        gridHtml += '<div class="wov-bt' + (tabSelected ? ' wov-selected' : '') + (tabIsActive ? ' wov-bt-active' : '') + '" data-tab-idx="' + ti + '">'
-          + fav
-          + '<span class="wov-bt-title">' + escapeHtml(tab.title || 'New Tab') + '</span>'
-          + '</div>';
-      }
-      gridHtml += '</div></div>';
-    }
-    gridHtml += '</div>';
-    gridHtml += '<button class="wov-grid-new-win">+ New Window</button>';
-    overlay.innerHTML = gridHtml;
-
-    // Wire up grid click handlers
-    overlay.querySelectorAll('.wov-grid-cell').forEach(function(cell, wi) {
-      var bw = _browseWindows[wi];
-      if (!bw) return;
-      var header = cell.querySelector('.wov-grid-cell-header');
-      if (header) {
-        header.addEventListener('click', function(e) {
-          if (e.target.closest('.wov-win-close')) return;
-          _overviewClickBrowseWin(bw.id);
-        });
-        var closeBtn = header.querySelector('.wov-win-close');
-        if (closeBtn) {
-          closeBtn.addEventListener('click', function(e) { e.stopPropagation(); _overviewCloseBrowseWin(bw.id); });
-        }
-      }
-      cell.querySelectorAll('.wov-bt').forEach(function(tabEl, ti) {
-        var tab = bw.tabs[ti];
-        if (!tab) return;
-        tabEl.addEventListener('click', function() { _overviewClickBrowseTab(bw.id, tab.id); });
-      });
-    });
-
-    // Wire up new window button
-    var newWinBtn = overlay.querySelector('.wov-grid-new-win');
-    if (newWinBtn) {
-      newWinBtn.addEventListener('click', function() {
-        wmOpen('browse');
-        browseCreateWindow();
-      });
-    }
-
-    // Scroll focused tab into view
-    var selTab = overlay.querySelector('.wov-bt.wov-selected') || overlay.querySelector('.wov-grid-cell-header.wov-selected');
-    if (selTab) selTab.scrollIntoView({ behavior: 'instant', block: 'nearest' });
-    return;
-  }
-
-  // ── App strip mode (horizontal niri strip) ──
+  _overviewRestoreFrames(); // move any embedded frames back before rebuilding HTML
   overlay.classList.remove('wov-browse-grid-mode');
+
+  var browseIcon = _wovAppIcons.browse || '';
   var html = '<div class="wov-cards-strip">';
-  for (var i = 0; i < _wmWindows.length; i++) {
-    var w = _wmWindows[i];
-    var isActive = i === _wmFocusIndex;
+
+  for (var i = 0; i < _browseWindows.length; i++) {
+    var bw = _browseWindows[i];
+    var isActive = bw.id === _browseActiveWindow;
     var isSelected = i === _overviewSelectedIdx;
-    var icon = _wovAppIcons[w.key] || '';
-    var preview = _wmPreviews[w.key];
+    var isExpanded = _overviewTabsExpanded && i === _overviewBrowseWinIdx;
+    var preview = _browseWindowPreviews[bw.id];
 
-    html += '<div class="wov-card' + (isActive ? ' wov-active' : '') + (isSelected ? ' wov-selected' : '') + '" data-idx="' + i + '">';
+    html += '<div class="wov-card' + (isActive ? ' wov-active' : '') + (isSelected ? ' wov-selected' : '') + (isExpanded ? ' wov-expanded' : '') + '" data-idx="' + i + '">';
 
+    // Preview area
     if (preview) {
       html += '<div class="wov-card-preview" style="background-image:url(' + preview + ')">';
     } else {
       html += '<div class="wov-card-preview wov-card-preview-empty">';
-      html += '<div class="wov-card-empty-icon">' + icon + '</div>';
-    }
-    html += '</div>'; // close preview
-
-    html += '<div class="wov-card-bar">'
-      + '<div class="wov-card-icon">' + icon + '</div>'
-      + '<span class="wov-card-name">' + escapeHtml(w.label) + '</span>'
-      + (isActive ? '<span class="wov-active-dot"></span>' : '');
-    if (w.key === 'browse') {
-      var bTabCount = 0;
-      _browseWindows.forEach(function(bw) { bTabCount += bw.tabs.length; });
-      html += '<span class="wov-browse-hint">' + bTabCount + ' tabs &#9662;</span>';
+      html += '<div class="wov-card-empty-icon">' + browseIcon + '</div>';
     }
     html += '</div>';
 
+    // Bottom bar: window name + tab count + active dot
+    html += '<div class="wov-card-bar">'
+      + '<div class="wov-card-icon">' + browseIcon + '</div>'
+      + '<span class="wov-card-name">' + escapeHtml(bw.name) + '</span>'
+      + '<span class="wov-win-count">' + bw.tabs.length + '</span>'
+      + (isActive ? '<span class="wov-active-dot"></span>' : '');
+    // Close button (only if >1 window)
+    if (_browseWindows.length > 1) {
+      html += '<button class="wov-card-close" data-win-id="' + bw.id + '">&times;</button>';
+    }
+    html += '</div>';
+
+    // Favicon strip (show top favicons as secondary info)
+    var favHtml = '';
+    var shownFavs = 0;
+    for (var fi = 0; fi < bw.tabs.length && shownFavs < 6; fi++) {
+      var ft = bw.tabs[fi];
+      if (ft.favicon) {
+        favHtml += '<img src="' + escapeHtml(ft.favicon) + '" class="wov-card-fav" onerror="this.style.display=\'none\'">';
+        shownFavs++;
+      }
+    }
+    if (favHtml) {
+      html += '<div class="wov-card-favstrip">' + favHtml + '</div>';
+    }
+
+    // Expanded tab list (inline under card when drilled down)
+    if (isExpanded) {
+      html += '<div class="wov-card-tabs">';
+      for (var ti = 0; ti < bw.tabs.length; ti++) {
+        var tab = bw.tabs[ti];
+        var tabSelected = ti === _overviewBrowseTabIdx;
+        var tabIsActive = tab.id === bw.activeTab;
+        var fav = tab.favicon
+          ? '<img src="' + escapeHtml(tab.favicon) + '" class="wov-bt-fav" onerror="this.style.display=\'none\'">'
+          : '<span class="wov-bt-dot"></span>';
+        html += '<div class="wov-bt' + (tabSelected ? ' wov-selected' : '') + (tabIsActive ? ' wov-bt-active' : '') + '" data-tab-idx="' + ti + '" data-win-id="' + bw.id + '">'
+          + fav
+          + '<span class="wov-bt-title">' + escapeHtml(tab.title || 'New Tab') + '</span>'
+          + '</div>';
+      }
+      html += '</div>';
+    }
+
     html += '</div>'; // close card
   }
+
+  // "+ New Window" card
+  var isNewSelected = _overviewSelectedIdx === _browseWindows.length;
+  html += '<div class="wov-card wov-card-new' + (isNewSelected ? ' wov-selected' : '') + '" data-idx="' + _browseWindows.length + '">';
+  html += '<div class="wov-card-preview wov-card-preview-empty">';
+  html += '<div class="wov-card-new-icon">+</div>';
+  html += '</div>';
+  html += '<div class="wov-card-bar"><span class="wov-card-name">New Window</span></div>';
   html += '</div>';
 
-  // Pills bar
-  html += '<div class="wov-pills">';
-  for (var pi = 0; pi < _wmWindows.length; pi++) {
-    var isBrowsePill = _wmWindows[pi].key === 'browse';
-    var pillActive = pi === _overviewSelectedIdx;
-    html += '<div class="wov-pill-wrap' + (isBrowsePill && pillActive ? ' wov-pill-has-arrow' : '') + '">'
-      + '<button class="wov-pill' + (pillActive ? ' wov-pill-active' : '') + '" data-idx="' + pi + '">'
-      + '<span class="wov-pill-label">' + escapeHtml(_wmWindows[pi].label) + '</span>'
-      + '</button>'
-      + (isBrowsePill && pillActive ? '<span class="wov-pill-arrow">&#9662;</span>' : '')
-      + '</div>';
-  }
-  html += '</div>';
+  html += '</div>'; // close strip
 
   overlay.innerHTML = html;
 
-  // Wire up click handlers
-  overlay.querySelectorAll('.wov-card').forEach(function(card, idx) {
-    card.addEventListener('click', function() {
-      _overviewClickApp(_wmWindows[idx].key);
+  // Wire up click handlers on window cards
+  overlay.querySelectorAll('.wov-card').forEach(function(card) {
+    var idx = parseInt(card.dataset.idx);
+    if (isNaN(idx)) return;
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('.wov-card-close') || e.target.closest('.wov-bt')) return;
+      if (idx >= _browseWindows.length) {
+        // New window card
+        wmOpen('browse');
+        browseCreateWindow();
+        hideBrowseTabOverview();
+      } else {
+        _overviewClickBrowseWin(_browseWindows[idx].id);
+      }
     });
   });
 
-  // Wire up pill clicks
-  overlay.querySelectorAll('.wov-pill').forEach(function(pill) {
-    pill.addEventListener('click', function() {
-      var idx = parseInt(pill.dataset.idx);
-      if (!isNaN(idx) && idx >= 0 && idx < _wmWindows.length) {
-        _overviewSelectedIdx = idx;
-        _updateOverviewHighlight();
+  // Wire up close buttons
+  overlay.querySelectorAll('.wov-card-close').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var winId = parseInt(btn.dataset.winId);
+      if (!isNaN(winId)) _overviewCloseBrowseWin(winId);
+    });
+  });
+
+  // Wire up tab clicks in expanded view
+  overlay.querySelectorAll('.wov-bt').forEach(function(tabEl) {
+    tabEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var winId = parseInt(tabEl.dataset.winId);
+      var tabIdx = parseInt(tabEl.dataset.tabIdx);
+      var bw = _browseWindows.find(function(w) { return w.id === winId; });
+      if (bw && bw.tabs[tabIdx]) {
+        _overviewClickBrowseTab(bw.id, bw.tabs[tabIdx].id);
       }
     });
   });
@@ -4377,49 +4414,42 @@ function _renderWindowOverview() {
     if (e.target === overlay) hideBrowseTabOverview();
   });
 
-  // Scroll selected card into view
-  var sel = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
-  if (sel) sel.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
-}
-
-function _overviewClickApp(key) {
-  if (key === 'browse') {
-    _overviewBrowseExpanded = !_overviewBrowseExpanded;
-    if (_overviewBrowseExpanded) {
-      _overviewBrowseWinIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
-      _overviewBrowseTabIdx = -1;
-    }
-    // Update selected index to browse
-    for (var i = 0; i < _wmWindows.length; i++) {
-      if (_wmWindows[i].key === 'browse') { _overviewSelectedIdx = i; break; }
-    }
-    _renderWindowOverview();
-    return;
+  // Scroll selected into view
+  var selTab = overlay.querySelector('.wov-bt.wov-selected');
+  if (selTab) {
+    selTab.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+  } else {
+    var sel = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
+    if (sel) sel.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
   }
-  wmOpen(key);
-  hideBrowseTabOverview();
+
+  // Embed live iframe/webview previews into each card
+  _overviewEmbedFrames();
 }
 
 function _overviewClickBrowseWin(windowId) {
   browseSelectWindow(windowId);
+  wmOpen('browse');
   hideBrowseTabOverview();
 }
 
 function _overviewClickBrowseTab(windowId, tabId) {
   browseSelectWindow(windowId);
   browseSelectTab(tabId);
+  wmOpen('browse');
   hideBrowseTabOverview();
 }
 
 function _overviewCloseBrowseWin(windowId) {
   browseCloseWindow(windowId);
   if (_browseWindows.length === 0) {
-    _overviewBrowseExpanded = false;
-    _renderWindowOverview();
+    hideBrowseTabOverview();
     return;
   }
-  if (_overviewBrowseWinIdx >= _browseWindows.length) _overviewBrowseWinIdx = _browseWindows.length - 1;
+  if (_overviewSelectedIdx >= _browseWindows.length) _overviewSelectedIdx = _browseWindows.length - 1;
+  _overviewBrowseWinIdx = _overviewSelectedIdx;
   _overviewBrowseTabIdx = -1;
+  _overviewTabsExpanded = false;
   _renderWindowOverview();
 }
 

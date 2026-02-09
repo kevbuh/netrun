@@ -2478,6 +2478,8 @@
       opacity: 1;
       transform: scale(1);
       filter: brightness(1);
+      height: auto;
+      max-height: 90vh;
     }
 
     /* Preview area fills the card */
@@ -2540,145 +2542,66 @@
       background: var(--accent);
       flex-shrink: 0;
     }
-    .wov-browse-hint {
-      font-size: 0.6rem;
-      color: var(--text-dimmest);
-      flex-shrink: 0;
-      opacity: 0;
-      transition: opacity 0.2s ease;
+    /* Card close button */
+    .wov-card-close {
+      width: 20px; height: 20px; border: none; background: transparent;
+      color: var(--text-dimmest); font-size: 0.9rem; border-radius: 4px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.1s, background 0.1s;
+      flex-shrink: 0; margin-left: 2px;
     }
-    .wov-card.wov-selected .wov-browse-hint {
-      opacity: 1;
-    }
+    .wov-card:hover .wov-card-close,
+    .wov-card.wov-selected .wov-card-close { opacity: 1; }
+    .wov-card-close:hover { background: var(--bg-hover); color: var(--text-primary); }
 
-    /* Pills indicator bar */
-    .wov-pills {
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 4px;
-      padding: 12px 0 20px;
-      flex-shrink: 0;
-    }
-    .wov-pill-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-    .wov-pill-arrow {
-      font-size: 1.4rem;
-      color: var(--accent);
-      line-height: 1;
-      animation: wov-bounce 1.2s ease-in-out infinite;
-    }
-    @keyframes wov-bounce {
-      0%, 100% { transform: translateY(0); opacity: 0.5; }
-      50% { transform: translateY(5px); opacity: 1; }
-    }
-    .wov-pill {
-      border: none;
-      border-radius: 20px;
-      padding: 4px 8px;
-      background: color-mix(in srgb, var(--text-dimmest) 20%, transparent);
-      color: var(--text-dimmest);
-      font-size: 0;
-      cursor: pointer;
-      width: 8px;
-      height: 8px;
-      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  background 0.3s ease,
-                  color 0.3s ease,
-                  font-size 0.3s ease;
-    }
-    .wov-pill:hover {
-      background: color-mix(in srgb, var(--text-dimmest) 35%, transparent);
-    }
-    .wov-pill-active {
-      width: auto;
-      height: auto;
-      padding: 4px 14px;
-      background: var(--accent);
-      color: #fff;
-      font-size: 0.65rem;
-      font-weight: 600;
-    }
-    .wov-pill-active:hover {
-      background: var(--accent);
-    }
-    .wov-pill-label {
-      overflow: hidden;
-      white-space: nowrap;
-      display: block;
-      line-height: 1.2;
-    }
-
-    /* ── Browse grid mode (full-screen tiling grid) ── */
-    .browse-tab-overview.wov-browse-grid-mode {
-      display: flex;
-      flex-direction: column;
-      padding: 48px 16px 16px;
-      box-sizing: border-box;
-    }
-    .wov-browse-grid {
-      display: flex;
-      gap: 10px;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-    .wov-grid-cell {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-      border: 1px solid var(--border-card);
-      border-radius: 14px;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-      background: color-mix(in srgb, var(--bg-card, #1a1a22) 80%, transparent);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    .wov-grid-cell.wov-win-focus {
-      border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
-    }
-    .wov-grid-cell.wov-win-active {
-      border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-    }
-    .wov-grid-cell-header {
+    /* Favicon strip under card bar */
+    .wov-card-favstrip {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border-card);
-      flex-shrink: 0;
-      cursor: pointer;
-      transition: background 0.15s ease;
-      border-radius: 13px 13px 0 0;
+      gap: 3px;
+      padding: 4px 14px 6px;
+      background: color-mix(in srgb, var(--bg-primary, #18181e) 92%, transparent);
+      border-top: 1px solid color-mix(in srgb, var(--border-card, rgba(255,255,255,0.06)) 30%, transparent);
     }
-    .wov-grid-cell-header.wov-selected {
-      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    .wov-card-fav {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
     }
-    .wov-grid-cell-tabs {
-      flex: 1;
-      min-height: 0;
+
+    /* Expanded tab list inside a card */
+    .wov-card-tabs {
+      max-height: 200px;
       overflow-y: auto;
       scrollbar-width: thin;
       padding: 4px 0;
+      background: color-mix(in srgb, var(--bg-primary, #18181e) 95%, transparent);
+      border-top: 1px solid color-mix(in srgb, var(--border-card, rgba(255,255,255,0.06)) 30%, transparent);
     }
-    .wov-win-name {
-      flex: 1;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+
+    /* "+ New Window" card */
+    .wov-card-new .wov-card-preview-empty {
+      cursor: pointer;
     }
+    .wov-card-new-icon {
+      font-size: 2.5rem;
+      color: var(--text-dimmest);
+      font-weight: 200;
+      line-height: 1;
+      transition: color 0.2s ease;
+    }
+    .wov-card-new.wov-selected .wov-card-new-icon,
+    .wov-card-new:hover .wov-card-new-icon {
+      color: var(--accent);
+    }
+
+    /* Glass overlay — blocks iframe interaction until card is clicked/entered */
+    .wov-frame-glass {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      cursor: pointer;
+      border-radius: 11px 11px 0 0;
+    }
+
     .wov-win-count {
       font-size: 0.55rem;
       color: var(--text-dimmer);
@@ -2689,15 +2612,6 @@
       min-width: 16px;
       text-align: center;
     }
-    .wov-win-close {
-      width: 18px; height: 18px; border: none; background: transparent;
-      color: var(--text-dimmest); font-size: 0.85rem; border-radius: 4px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      opacity: 0; transition: opacity 0.1s;
-      flex-shrink: 0;
-    }
-    .wov-grid-cell:hover .wov-win-close,
-    .wov-grid-cell-header.wov-selected .wov-win-close { opacity: 1; }
 
     /* Tabs inside grid cell */
     .wov-bt {
@@ -2733,31 +2647,7 @@
     }
     .wov-bt.wov-selected .wov-bt-title { color: var(--text-primary); }
 
-    /* New window button */
-    .wov-grid-new-win {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 8px;
-      padding: 6px 16px;
-      align-self: center;
-      border: none;
-      border-radius: 8px;
-      background: var(--bg-hover);
-      color: var(--text-muted);
-      font-size: 0.68rem;
-      cursor: pointer;
-      transition: background 0.15s ease, color 0.15s ease;
-      flex-shrink: 0;
-    }
-    .wov-grid-new-win:hover {
-      background: color-mix(in srgb, var(--accent) 15%, var(--bg-hover));
-      color: var(--text-primary);
-    }
 
-    /* Hide strip and pills when in grid mode */
-    .browse-tab-overview.wov-browse-grid-mode .wov-cards-strip,
-    .browse-tab-overview.wov-browse-grid-mode .wov-pills { display: none; }
 
     /* ── Light theme overrides for overview ── */
     [data-theme="light"] .wov-card,
