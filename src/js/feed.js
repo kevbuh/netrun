@@ -251,15 +251,18 @@ async function findSimilarPosts(index) {
   const input = document.getElementById('search-query');
   if (input) { input.value = '~' + p.title; input.blur(); }
   try {
+    islandUpdate('ai-similar', { type: 'ai', label: 'nomic-embed-text', detail: 'Finding similar \u00B7 nomic-embed-text' });
     const resp = await fetch('/api/find-similar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: p.title, link: p.link, description: p.description || '', limit: 20 })
     });
+    islandRemove('ai-similar');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     _renderSemanticResults(container, data.results || [], `Similar to "${p.title}"`);
   } catch (err) {
+    islandRemove('ai-similar');
     if (container) container.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">${err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)}</div>`;
   }
 }

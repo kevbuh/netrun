@@ -137,6 +137,7 @@ function _browseUrlFeelingLucky() {
   _feelingLuckyQuery = '';
   _browseUrlRenderLuckyRow(dd);
   const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  islandUpdate('ai-lucky', { type: 'ai', label: model, detail: 'Feeling Lucky \u00B7 ' + model });
   fetch('/api/doc-chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -150,6 +151,7 @@ function _browseUrlFeelingLucky() {
     function read() {
       reader.read().then(({ done, value }) => {
         if (done) {
+          islandRemove('ai-lucky');
           _feelingLuckyLoading = false;
           _feelingLuckyQuery = _feelingLuckyQuery.replace(/^["']|["']$/g, '').trim();
           _browseUrlRenderLuckyRow(dd);

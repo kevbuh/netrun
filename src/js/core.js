@@ -309,6 +309,7 @@ function _islandRender() {
         pill._islandHoverBound = true;
         pill.addEventListener('mouseenter', function() {
           if (pill._islandLeaveTimer) { clearTimeout(pill._islandLeaveTimer); pill._islandLeaveTimer = null; }
+          if (pill._islandAutoClose) { clearTimeout(pill._islandAutoClose); pill._islandAutoClose = null; }
           pill.classList.add('island-tray-open');
         });
         pill.addEventListener('mouseleave', function() {
@@ -321,6 +322,14 @@ function _islandRender() {
     if (isNew) {
       pill.classList.add('island-active');
       pill.classList.add('island-bounce');
+      // Achievement: auto-expand tray then collapse after delay
+      if (a.type === 'achievement') {
+        pill.classList.add('island-tray-open');
+        pill._islandAutoClose = setTimeout(function() {
+          pill.classList.remove('island-tray-open');
+          pill._islandAutoClose = null;
+        }, 4000);
+      }
     } else {
       pill.classList.add('island-active');
     }

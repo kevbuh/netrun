@@ -417,15 +417,18 @@ async function doSemanticSearch(query) {
   if (feedContainer) feedContainer.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Semantic search...</div></div>';
   if (arxivContainer) arxivContainer.innerHTML = '';
   try {
+    islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
     const resp = await fetch('/api/semantic-search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, limit: 20 })
     });
+    islandRemove('ai-semantic');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     _renderSemanticResults(feedContainer, data.results || [], `Semantic results for "${query}"`);
   } catch (err) {
+    islandRemove('ai-semantic');
     if (feedContainer) feedContainer.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">${err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)}</div>`;
   }
 }

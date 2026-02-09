@@ -1028,6 +1028,7 @@ async function _streamDaySummary(el, activityLines, openTasks, unreadCount, date
 Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and concise. Reference specific things they did (papers, searches, comments). If they have no activity, give a short encouraging note about the day ahead. Do not use emoji. Do not greet them.`;
 
   try {
+    islandUpdate('ai-summary', { type: 'ai', label: model || 'default', detail: 'Day summary \u00B7 ' + (model || 'default') });
     const resp = await fetch('/api/doc-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1037,7 +1038,7 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
       }),
       signal: _dashSummaryAbort.signal
     });
-    if (!resp.ok) { el.textContent = ''; return; }
+    if (!resp.ok) { islandRemove('ai-summary'); el.textContent = ''; return; }
 
     let text = '';
     const reader = resp.body.getReader();
@@ -1064,12 +1065,14 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
         }
       }
     }
+    islandRemove('ai-summary');
     if (!text.trim()) {
       el.textContent = '';
     } else if (cacheKey) {
       localStorage.setItem('daySummaryCache', JSON.stringify({ key: cacheKey, text: text.trim() }));
     }
   } catch (e) {
+    islandRemove('ai-summary');
     if (e.name !== 'AbortError') el.textContent = '';
   }
 }

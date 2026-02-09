@@ -2633,6 +2633,8 @@ async function sendVaultChatMessage() {
   if (sendBtn) sendBtn.disabled = true;
 
   _vaultChatAbort = new AbortController();
+  var _vcModel = localStorage.getItem('chatModel') || 'default';
+  islandUpdate('ai-vault', { type: 'ai', label: _vcModel, detail: 'Vault chat \u00B7 ' + _vcModel });
 
   try {
     const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
@@ -2646,6 +2648,7 @@ async function sendVaultChatMessage() {
     });
 
     if (!resp.ok) {
+      islandRemove('ai-vault');
       _vaultChatMessages[_vaultChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
       _vaultChatMessages[_vaultChatMessages.length - 1]._thinking = false;
       _renderVaultChatMessages(true);
@@ -2709,6 +2712,7 @@ async function sendVaultChatMessage() {
       _saveVaultChatMessages();
     }
   } finally {
+    islandRemove('ai-vault');
     if (input) input.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
     input.focus();
@@ -2843,6 +2847,8 @@ async function _sendNtpVaultChat() {
   if (sendBtn) sendBtn.disabled = true;
 
   _vaultChatAbort = new AbortController();
+  var _vcModel2 = localStorage.getItem('chatModel') || 'default';
+  islandUpdate('ai-vault', { type: 'ai', label: _vcModel2, detail: 'Vault chat \u00B7 ' + _vcModel2 });
 
   try {
     const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
@@ -2908,6 +2914,7 @@ async function _sendNtpVaultChat() {
       _saveVaultChatMessages();
     }
   } finally {
+    islandRemove('ai-vault');
     if (input) input.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
     if (input) input.focus();

@@ -836,6 +836,8 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
     if (refine) reqBody.refine = true;
 
     _nlTrainAbort = new AbortController();
+    var _nlModelLabel = (_nlModelType || 'cnn').toUpperCase();
+    islandUpdate('ai-train', { type: 'ai', label: _nlModelLabel, detail: 'Training \u00B7 ' + _nlModelLabel });
     fetch('/api/neuralook/train', {
       method: 'POST',
       headers: _authHeaders(),
@@ -873,9 +875,11 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
                   _nlTrainError = data.train_error_px;
                   _nlValError = data.val_error_px || null;
                   _nlModelTrained = true;
+                  islandRemove('ai-train');
                   resolve(data);
                   return;
                 } else if (currentEvent === 'error') {
+                  islandRemove('ai-train');
                   reject(new Error(data.error));
                   return;
                 }

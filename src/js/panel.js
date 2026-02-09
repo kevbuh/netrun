@@ -236,11 +236,13 @@ async function _fetchSemanticPreview(text, containerDiv) {
   if (localStorage.getItem('panelSemanticSearch') === 'off') { containerDiv.style.display = 'none'; return; }
   const minScore = (parseInt(localStorage.getItem('panelSemanticMin') || '80', 10)) / 100;
   try {
+    islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
     const resp = await fetch('/api/semantic-search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: text.trim().slice(0, 200), limit: 5 })
     });
+    islandRemove('ai-semantic');
     if (!resp.ok) { containerDiv.style.display = 'none'; return; }
     const data = await resp.json();
     const results = (data.results || []).filter(r => r.score >= minScore);
@@ -534,6 +536,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         _renderPopupChat(popup, true);
       }
     }
+    islandRemove('ai-chat');
     _popupChatAbort = null;
     if (input) input.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
@@ -4447,16 +4450,18 @@ function _panelBuildChatInput(popup, config) {
         // Show transcribing state
         const prevPlaceholder = askInput.placeholder;
         askInput.placeholder = 'Transcribing…';
+        islandUpdate('ai-transcribe', { type: 'ai', label: 'whisper', detail: 'Transcribing \u00B7 whisper' });
         fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob })
           .then(r => r.json())
           .then(data => {
+            islandRemove('ai-transcribe');
             askInput.placeholder = prevPlaceholder;
             if (data.text) {
               askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
               askInput.focus();
             }
           })
-          .catch(() => { askInput.placeholder = prevPlaceholder; });
+          .catch(() => { islandRemove('ai-transcribe'); askInput.placeholder = prevPlaceholder; });
       };
       recorder.start();
     }).catch(() => {});

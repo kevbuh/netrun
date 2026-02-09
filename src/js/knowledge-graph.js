@@ -661,11 +661,13 @@ async function _kgSearch(query) {
     const headers = { 'Content-Type': 'application/json' };
     const token = localStorage.getItem('authToken');
     if (token) headers['Authorization'] = 'Bearer ' + token;
+    islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
     const resp = await fetch('/api/semantic-search', {
       method: 'POST',
       headers,
       body: JSON.stringify({ query, limit: 30 }),
     });
+    islandRemove('ai-semantic');
     if (!resp.ok) { _kgClearHighlight(); return; }
     const data = await resp.json();
     const matchedLinks = new Set((data.results || []).map(r => r.link));

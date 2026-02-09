@@ -1333,6 +1333,8 @@ async function _generateSmartHighlights(url) {
   if (!pane) return;
 
   pane.innerHTML = '<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Extracting highlights...</div>';
+  var _hlModel = localStorage.getItem('chatModel') || 'default';
+  islandUpdate('ai-highlights', { type: 'ai', label: _hlModel, detail: 'Highlights \u00B7 ' + _hlModel });
 
   try {
     const resp = await fetch('/api/paper-insights', {
@@ -1340,6 +1342,7 @@ async function _generateSmartHighlights(url) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, mode: 'highlights', model: localStorage.getItem('chatModel') || '' })
     });
+    islandRemove('ai-highlights');
     if (!resp.ok) throw new Error('Failed');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
@@ -1360,6 +1363,7 @@ async function _generateSmartHighlights(url) {
       renderSmartHighlightsInPdf(pdfItems);
     }
   } catch (e) {
+    islandRemove('ai-highlights');
     console.error('[Smart Highlights] Error:', e);
     pane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to extract highlights</div>';
   }
