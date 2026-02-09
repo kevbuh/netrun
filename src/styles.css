@@ -974,6 +974,7 @@
     }
     .pill-island.island-active:hover .pill-island-expanded {
       opacity: 1;
+      pointer-events: auto;
     }
     .pill-island .island-dot {
       width: 6px;
@@ -1049,6 +1050,9 @@
     .browse-mode .pill-island.island-active:hover {
       max-width: 300px;
     }
+    .browse-mode .pill-island.island-active[data-island-id="annotate"] {
+      max-width: 300px;
+    }
     /* Tray pills (context & download) — tray drops below as one connected surface */
     .pill-island.island-has-items {
       overflow: visible;
@@ -1062,6 +1066,9 @@
     }
     .pill-island.island-has-items .pill-island-expanded {
       display: none;
+    }
+    .pill-island.island-has-items.island-active:hover .pill-island-content:not(.pill-island-expanded) {
+      opacity: 1;
     }
     /* On hover: pill becomes the top of a connected card */
     .pill-island.island-has-items.island-active.island-tray-open {
