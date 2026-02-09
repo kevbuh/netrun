@@ -208,7 +208,12 @@ function _browseUrlShowHistory() {
     const u = (h.url || '').toLowerCase();
     return t.includes(filter) || u.includes(filter);
   }) : browseHist;
-  let showBrowse = filteredBrowse.slice(0, filter ? 6 : 4);
+  // Deduplicate by hostname — show only one entry per unique site
+  const _seenHosts = new Set();
+  const dedupedBrowse = filteredBrowse.filter(h => {
+    try { const host = new URL(h.url).hostname.replace('www.', ''); if (_seenHosts.has(host)) return false; _seenHosts.add(host); return true; } catch { return true; }
+  });
+  let showBrowse = dedupedBrowse.slice(0, filter ? 6 : 4);
   // Don't show if exact URL match
   if (showBrowse.length === 1 && showBrowse[0].url.toLowerCase() === filter) showBrowse = [];
 

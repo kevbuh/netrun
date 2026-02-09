@@ -1845,6 +1845,20 @@ function browseSelectTab(id) {
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
 
+  // Auto-close blank new tabs when navigating away, keeping only the most recent one
+  const blankTabs = win.tabs.filter(t => t.blank && t.id !== id);
+  if (blankTabs.length > 1) {
+    // Keep only the last blank tab (most recently created), close the rest
+    const toClose = blankTabs.slice(0, -1);
+    for (const bt of toClose) {
+      const bi = win.tabs.indexOf(bt);
+      if (bi !== -1) {
+        if (bt.el) bt.el.remove();
+        win.tabs.splice(bi, 1);
+      }
+    }
+  }
+
   // Load deferred tab if needed (lazy loading for YouTube etc.)
   if (tab && tab.deferred && !tab.el && tab.url) {
     const container = document.getElementById('browse-content');
