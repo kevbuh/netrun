@@ -3126,6 +3126,25 @@ function _browseRenderTabs() {
 
   // Sync pill URL input in vertical mode
   if (_browseTabLayout === 'vertical') _pillSyncUrl();
+
+  // Render collapsed favicon strip
+  if (isVertical) {
+    const strip = document.getElementById('browse-vtabs-collapsed-strip');
+    if (strip) {
+      let miniHtml = '';
+      for (const t of tabs) {
+        const isActive = t.id === activeTab;
+        const cls = 'vtabs-mini-tab' + (isActive ? ' active' : '');
+        if (t.favicon) {
+          miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}"><img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'"></button>`;
+        } else {
+          const letter = (t.title || '?')[0].toUpperCase();
+          miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}"><span class="vtabs-mini-letter">${escapeHtml(letter)}</span></button>`;
+        }
+      }
+      strip.innerHTML = miniHtml;
+    }
+  }
 }
 
 // ── Split pill drag (reorder + unsplit) ──

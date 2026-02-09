@@ -36,6 +36,7 @@ let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
 let _aetherPinned = false;
 let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
+let _ttsAudio = null; // current Kokoro TTS audio element
 
 function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');

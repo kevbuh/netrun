@@ -11,7 +11,7 @@ import tempfile
 import time
 import uuid
 
-from flask import Blueprint, request, jsonify, Response, stream_with_context
+from flask import Blueprint, request, jsonify, Response, stream_with_context, send_file
 
 from helpers import require_auth, sse_event
 from persistence import (
@@ -33,6 +33,7 @@ _neuralook_models = {}
 _neuralook_screen = None
 _neuralook_hidden = {}  # per-method LSTM hidden state for temporal models
 _whisper_model = None
+_kokoro_pipeline = None
 
 # Lazy-initialized GazeCNN class (needs torch)
 _GazeCNN = None
@@ -802,6 +803,40 @@ def transcribe(google_id):
         os.remove(tmp_webm)
         os.remove(tmp_wav)
         return jsonify({'text': text})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/tts', methods=['POST'])
+@require_auth
+def tts(google_id):
+    body = request.get_json(force=True, silent=True) or {}
+    text = (body.get('text') or '').strip()
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    voice = body.get('voice', 'af_heart')
+    try:
+        from kokoro import KPipeline
+        global _kokoro_pipeline
+        if _kokoro_pipeline is None:
+            _kokoro_pipeline = KPipeline(lang_code='a')
+        import soundfile as sf
+        samples = []
+        for _, _, audio in _kokoro_pipeline(text, voice=voice):
+            samples.append(audio)
+        if not samples:
+            return jsonify({'error': 'No audio generated'}), 500
+        import numpy as np
+        combined = np.concatenate(samples)
+        uid = uuid.uuid4().hex
+        tmp_wav = os.path.join(tempfile.gettempdir(), f'tts_{uid}.wav')
+        sf.write(tmp_wav, combined, 24000)
+        resp = send_file(tmp_wav, mimetype='audio/wav')
+        @resp.call_on_close
+        def _cleanup():
+            try: os.remove(tmp_wav)
+            except: pass
+        return resp
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

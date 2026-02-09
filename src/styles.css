@@ -1568,6 +1568,62 @@
       width: 28px;
       padding: 0;
     }
+    /* ── Collapsed tab favicon strip ── */
+    .browse-vtabs-collapsed-strip {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 4px 0;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .browse-vtabs-collapsed-strip::-webkit-scrollbar { display: none; }
+    .browse-vtabs.vtabs-collapsed .browse-vtabs-collapsed-strip {
+      display: flex;
+    }
+    .vtabs-mini-tab {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      padding: 0;
+      transition: background 0.12s;
+      position: relative;
+    }
+    .vtabs-mini-tab:hover {
+      background: var(--aether-hover);
+    }
+    .vtabs-mini-tab.active {
+      background: var(--aether-hover);
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .vtabs-mini-tab img {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+    .vtabs-mini-tab .vtabs-mini-letter {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      background: var(--aether-text-dimmest);
+      color: var(--aether-bg);
+      font-size: 0.55rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
       display: flex; align-items: center; justify-content: center;
