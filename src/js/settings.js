@@ -846,6 +846,21 @@ function _renderAgentSettings() {
       <p class="text-dimmer text-[0.68rem]">Toggle in-panel via the wrench icon in the top bar. Default model with tools: <code class="text-muted">qwen3:8b</code>. Without tools: <code class="text-muted">qwen2.5:3b</code>.</p>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Auto Annotate</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Automatically annotate pages when you navigate in the browser. Highlights key findings, contradictions, and claims to verify.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('autoAnnotate') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('autoAnnotate', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <p class="text-dimmer text-[0.68rem]">When enabled, every page you visit in Browse will be annotated after a short delay. Cached annotations are reused for 5 minutes.</p>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>
       <p class="text-dim text-[0.8rem] mb-3">When chat tools are enabled, the AI can call these functions automatically based on your message.</p>
       <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">

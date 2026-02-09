@@ -1090,6 +1090,9 @@ function _browseHandleNavigation(tab, frame) {
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(navUrl);
     }
+    // Clear RSS feeds on navigation
+    tab.rssFeeds = null;
+    _browseUpdateRssPill(tab);
     // Clear any existing annotation state for this tab on navigation
     _annotationsEnabled.delete(tab.id);
     _updateAnnotateButtonState();
@@ -1265,6 +1268,22 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // RSS feed detection
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherRssDetected)return;
+        window.__aetherRssDetected=true;
+        var links=document.querySelectorAll('link[type="application/rss+xml"],link[type="application/atom+xml"],link[type="application/feed+json"]');
+        if(links.length){
+          var feeds=[];
+          for(var i=0;i<links.length;i++){
+            feeds.push({url:links[i].href||links[i].getAttribute('href'),title:links[i].title||''});
+          }
+          console.log('__AETHER_RSS_FEEDS__'+JSON.stringify(feeds));
+        }
+      })();
+    `).catch(()=>{});
+
     // Password field detection + form submit interception
     frame.executeJavaScript(`
       (function(){
@@ -1416,6 +1435,16 @@ function _browseInjectContentScripts(tab, frame) {
         const y = parseInt(parts[1]) - window.screenY;
         _nlHandleIframeClick(x, y);
       }
+    } else if (e.message && e.message.startsWith('__AETHER_RSS_FEEDS__')) {
+      try {
+        const feeds = JSON.parse(e.message.slice('__AETHER_RSS_FEEDS__'.length));
+        // Resolve relative URLs against tab.url
+        tab.rssFeeds = feeds.map(f => {
+          try { return { url: new URL(f.url, tab.url).href, title: f.title }; }
+          catch { return f; }
+        });
+        _browseUpdateRssPill(tab);
+      } catch (err) {}
     } else if (e.message === '__AETHER_PW_FIELDS__') {
       _pwCheckAutofill(tab, frame);
     } else if (e.message && e.message.startsWith('__AETHER_PW_SUBMIT__')) {
@@ -1424,6 +1453,47 @@ function _browseInjectContentScripts(tab, frame) {
         _pwPendingPrompt = { tab, data, ts: Date.now() };
         _pwShowSavePrompt(tab, data);
       } catch (err) {}
+    }
+  });
+}
+
+function _browseUpdateRssPill(tab) {
+  if (tab.id !== _browseActiveTab || !tab.rssFeeds || !tab.rssFeeds.length) {
+    islandRemove('rss');
+    return;
+  }
+  var feed = tab.rssFeeds[0];
+  var feedUrl = feed.url;
+  // Check if already subscribed (custom feeds or catalog)
+  var customFeeds = [];
+  try { customFeeds = JSON.parse(localStorage.getItem('customFeeds')) || []; } catch {}
+  var isSubscribed = customFeeds.some(function(f) { return f.url === feedUrl; });
+  if (!isSubscribed) {
+    // Also check FEED_CATALOG urls
+    isSubscribed = (typeof FEED_CATALOG !== 'undefined') && FEED_CATALOG.some(function(c) { return c.url === feedUrl; });
+  }
+  var label = feed.title || (tab.rssFeeds.length > 1 ? tab.rssFeeds.length + ' feeds' : 'RSS Feed');
+  if (label.length > 24) label = label.slice(0, 22) + '\u2026';
+  islandUpdate('rss', {
+    type: 'rss',
+    label: isSubscribed ? 'Subscribed' : label,
+    detail: isSubscribed ? label : 'Subscribe',
+    subscribed: isSubscribed,
+    feedUrl: feedUrl,
+    feedTitle: feed.title || '',
+    action: isSubscribed ? null : function() {
+      // Subscribe to feed
+      var feeds = [];
+      try { feeds = JSON.parse(localStorage.getItem('customFeeds')) || []; } catch {}
+      if (feeds.some(function(f) { return f.url === feedUrl; })) return;
+      var name = feed.title || feedUrl;
+      try { name = name || new URL(feedUrl).hostname.replace(/^www\./, ''); } catch {}
+      feeds.push({ url: feedUrl, name: name, enabled: true });
+      localStorage.setItem('customFeeds', JSON.stringify(feeds));
+      // Refresh pill to show subscribed state
+      _browseUpdateRssPill(tab);
+      // Reload feeds if available
+      if (typeof loadAllFeeds === 'function') { allPapers = []; loadAllFeeds(); }
     }
   });
 }
