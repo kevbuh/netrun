@@ -130,8 +130,7 @@ function _islandRenderPill(a) {
   } else if (a.type === 'notemode') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.label || 'PDF Viewer') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tabs') {
-    var favHtml = a.favicon ? '<img class="island-tab-favicon" src="' + _escHtml(a.favicon) + '" onerror="this.style.display=\'none\'">' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
-    return favHtml + '<span>' + _escHtml(a.label || '') + '</span>';
+    return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.label || '') + '</span>';
   }
@@ -221,13 +220,19 @@ function _islandRender() {
     // Fill items tray for context / download pills
     if (tray) {
       if (a.type === 'context' && a.items && a.items.length) {
+        var isBrowse = (typeof _browseTabLayout !== 'undefined') && ((_currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
         var trayHtml = '';
+        if (isBrowse) {
+          trayHtml += '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div>';
+          trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+        }
         for (var ti = 0; ti < a.items.length; ti++) {
           var item = a.items[ti];
           var t = item.title || 'New Tab';
           if (t.length > 36) t = t.slice(0, 34) + '\u2026';
-          var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="12" height="12" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-          trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span>' + _escHtml(t) + '</span></div>';
+          var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+          var closeBtn = isBrowse ? '<button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button>' : '';
+          trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span>' + closeBtn + '</div>';
         }
         tray.innerHTML = trayHtml;
       } else if (a.type === 'download' && a.items && a.items.length) {
@@ -318,7 +323,7 @@ function _islandRender() {
         e.stopPropagation();
         var tabId = +tabItem.getAttribute('data-island-tab');
         if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
-        if (a.type === 'tabs') pill.classList.remove('island-tray-open');
+        pill.classList.remove('island-tray-open');
         return;
       }
       var dlClear = e.target.closest('[data-island-dl-clear]');

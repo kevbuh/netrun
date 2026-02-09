@@ -26,7 +26,7 @@ let _ccActive = false;
 let _ccTabId = null;
 let _ccCaptionLines = [];
 let _ccFadeTimer = null;
-let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'vertical';
+let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'island';
 
 // NTP uploaded files: { name, content, file, blobUrl }
 let _ntpUploadedFiles = [];
@@ -79,7 +79,14 @@ function _browseSaveTabsNow() {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
       if (t._historyPage) saved._historyPage = true;
       if (t._helpPage) saved._helpPage = true;
-      if (t.paper) { saved.paper = t.paper; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null; }
+      if (t.paper) {
+        const p = Object.assign({}, t.paper);
+        if (p.pdfUrl && p.pdfUrl.startsWith('blob:')) delete p.pdfUrl;
+        if (p.link && p.link.startsWith('blob:')) delete p.link;
+        saved.paper = p; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null;
+        if (t.localPath) saved.localPath = t.localPath;
+        if (saved.url && saved.url.startsWith('blob:')) saved.url = t.localPath ? ('file://' + t.localPath) : '';
+      }
       if (t.pinned) saved.pinned = true;
       if (t.groupId != null) saved.groupId = t.groupId;
       return saved;
@@ -153,6 +160,9 @@ function _browseRestoreTabs() {
             container.appendChild(el);
             const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false,
                           paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null };
+            if (saved.localPath) { tab.localPath = saved.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.localPath); }
+            else if (saved.paper && saved.paper.localPath) { tab.localPath = saved.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.paper.localPath); }
+            else if (saved.paper && saved.paper.pdfUrl && !saved.paper.pdfUrl.startsWith('blob:')) { tab.pdfUrl = saved.paper.pdfUrl; }
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -433,8 +443,8 @@ function openBrowse(url) {
     view.style.display = 'flex';
     view.style.flexDirection = 'column';
     setSidebarActive('sb-browse');
-    if (_browseTabLayout === 'vertical') {
-      // Vertical tabs: normal sidebar, full browse bar, no pill mode
+    if (_browseTabLayout === 'island') {
+      // Island mode: normal sidebar, full browse bar, no pill mode
       _setPillBrowseMode(false);
       _applyBrowseTabLayout();
     } else {
@@ -506,8 +516,8 @@ function browseNewTab(url) {
   }
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
-  // Vertical tabs grow upward (new at top); horizontal tabs insert after active
-  if (_browseTabLayout === 'vertical') {
+  // Island mode: new tabs at top; horizontal: insert after active
+  if (_browseTabLayout === 'island') {
     const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
     if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
     else win.tabs.push(tab);
@@ -553,7 +563,8 @@ function browseNewPaperTab(url, paper) {
     const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
                   paper, contentType: 'pdf', arxivId: arxivId || null };
     if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
-    if (_browseTabLayout === 'vertical') {
+    if (paper.localPath) tab.localPath = paper.localPath;
+    if (_browseTabLayout === 'island') {
       const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
       if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
       else win.tabs.push(tab);
@@ -574,18 +585,36 @@ function browseNewPaperTab(url, paper) {
 }
 
 function openLocalPdf(file) {
-  const blobUrl = URL.createObjectURL(file);
+  const isElectron = typeof electronAPI !== 'undefined';
+  const localPath = isElectron && file.path ? file.path : null;
+  const pdfUrl = localPath
+    ? '/api/local-file?path=' + encodeURIComponent(localPath)
+    : URL.createObjectURL(file);
+  const url = localPath ? 'file://' + localPath : pdfUrl;
+
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-    const paper = { title: file.name, link: blobUrl, source: 'upload', pdfUrl: blobUrl };
-    browseNewPaperTab(blobUrl, paper);
+    const paper = { title: file.name, link: url, source: 'upload', pdfUrl };
+    if (localPath) paper.localPath = localPath;
+    browseNewPaperTab(url, paper);
   } else {
-    browseNewTab(blobUrl);
-    // Update title after tab is created
+    browseNewTab(pdfUrl);
     const win = _getCurrentWindow();
     if (win) {
-      const tab = win.tabs.find(t => t.url === blobUrl);
+      const tab = win.tabs.find(t => t.url === pdfUrl);
       if (tab) { tab.title = file.name; _browseRenderTabs(); }
     }
+  }
+}
+
+async function openLocalPdfDialog() {
+  if (typeof electronAPI === 'undefined' || !electronAPI.openFileDialog) return;
+  const paths = await electronAPI.openFileDialog();
+  for (const filePath of paths) {
+    const name = filePath.split('/').pop();
+    const pdfUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
+    const url = 'file://' + filePath;
+    const paper = { title: name, link: url, source: 'upload', pdfUrl, localPath: filePath };
+    browseNewPaperTab(url, paper);
   }
 }
 
@@ -1845,7 +1874,7 @@ function browseSelectTab(id) {
       _currentPaperViewPaper = tab.paper;
       if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
         cleanupPdfViewer();
-        const pdfUrl = tab.pdfUrl || ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId));
+        const pdfUrl = tab.pdfUrl || (tab.localPath ? '/api/local-file?path=' + encodeURIComponent(tab.localPath) : ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId)));
         initPdfViewer(tab.el, pdfUrl, tab.arxivId || ('upload-' + tab.id));
       } else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
         _tryRenderSavedContent(tab.el, tab.paper);
@@ -1925,7 +1954,7 @@ function browseSelectTab(id) {
     // Render PDF if not yet rendered
     if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
       cleanupPdfViewer();
-      const pdfUrl = tab.pdfUrl || ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId));
+      const pdfUrl = tab.pdfUrl || (tab.localPath ? '/api/local-file?path=' + encodeURIComponent(tab.localPath) : ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId)));
       initPdfViewer(tab.el, pdfUrl, tab.arxivId || ('upload-' + tab.id));
     }
     // Render reader/iframe if not yet rendered
@@ -2018,7 +2047,7 @@ function _browseUpdateNewTabPage(tab) {
   const container = document.getElementById('browse-content');
   if (!container) return;
   const bar = document.getElementById('browse-bar');
-  if (bar) bar.style.display = (tab && tab.blank) || _browseTabLayout === 'vertical' ? 'none' : '';
+  if (bar) bar.style.display = (tab && tab.blank) || _browseTabLayout === 'island' ? 'none' : '';
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
@@ -2114,7 +2143,7 @@ function _browseUpdateNewTabPage(tab) {
   } else if (ntp) {
     ntp.style.display = 'none';
   }
-  if (_browseTabLayout === 'vertical') _pillSyncUrl();
+  if (_browseTabLayout === 'island') _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');
   if (pinchOverlay) pinchOverlay.style.pointerEvents = (tab && tab.blank) ? 'none' : 'auto';
 }
@@ -2939,15 +2968,15 @@ function _browseGetGroupColor(groupId) {
   return group ? (_BROWSE_GROUP_COLOR_MAP[group.color] || group.color) : null;
 }
 
-// ── Vertical tab renderer ──
+// ── Island mode tab renderer ──
 
 function toggleBrowseTabLayout() {
-  _browseTabLayout = _browseTabLayout === 'vertical' ? 'horizontal' : 'vertical';
+  _browseTabLayout = _browseTabLayout === 'island' ? 'horizontal' : 'island';
   localStorage.setItem('browseTabLayout', _browseTabLayout);
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display !== 'none';
   if (browseOpen) {
-    if (_browseTabLayout === 'vertical') {
+    if (_browseTabLayout === 'island') {
       _setPillBrowseMode(false);
       _applyBrowseTabLayout();
     } else {
@@ -2963,18 +2992,18 @@ function _applyBrowseTabLayout() {
   const dragPill = document.getElementById('drag-pill');
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display === 'flex';
-  if (_browseTabLayout === 'vertical') {
+  if (_browseTabLayout === 'island') {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
     if (browseOpen) {
-      if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
+      if (pill) { pill.classList.add('browse-mode'); pill.classList.add('island-mode'); }
       if (dragPill) dragPill.style.display = 'none';
       _pillSyncUrl();
       const pillTabs = document.getElementById('pill-browse-tabs');
       if (pillTabs) pillTabs.innerHTML = '';
       _islandSyncTabs();
     } else {
-      if (pill) { pill.classList.remove('browse-mode', 'vtab-mode', 'ntp-active'); }
+      if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
       if (dragPill) dragPill.style.display = '';
       islandRemove('tabs');
     }
@@ -2985,7 +3014,7 @@ function _applyBrowseTabLayout() {
     if (_pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
     } else {
-      if (pill) { pill.classList.remove('browse-mode', 'vtab-mode', 'ntp-active'); }
+      if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
       if (tabRow) tabRow.style.display = '';
       if (dragPill) dragPill.style.display = '';
     }
@@ -3001,8 +3030,8 @@ function _pillSyncUrl() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const isBlankNtp = tab && tab.blank;
   input.value = (!isBlankNtp && tab && tab.url) ? tab.url : '';
-  // Hide URL input + reload in vertical mode on new tab page; show nav icons
-  if (_browseTabLayout === 'vertical') {
+  // Hide URL input + reload in island mode on new tab page; show nav icons
+  if (_browseTabLayout === 'island') {
     input.style.visibility = isBlankNtp ? 'hidden' : '';
     input.style.pointerEvents = isBlankNtp ? 'none' : '';
     const reload = document.getElementById('pill-browse-reload');
@@ -3010,18 +3039,18 @@ function _pillSyncUrl() {
     const pill = document.getElementById('sidebar-nav');
     if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
   }
-  // Safety net: ensure NTP is hidden when a non-blank tab is active in vertical mode
+  // Safety net: ensure NTP is hidden when a non-blank tab is active in island mode
   if (!isBlankNtp) {
     const ntp = document.getElementById('browse-content')?.querySelector('.browse-ntp');
     if (ntp) ntp.style.display = 'none';
   }
-  _updateVtabNavButtons();
+  _updateIslandNavButtons();
 }
 
-const _vtabNavBackArrow = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>';
-const _vtabNavFeedIcon = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>';
+const _islandNavBackArrow = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>';
+const _islandNavFeedIcon = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>';
 
-function _updateVtabNavButtons() {
+function _updateIslandNavButtons() {
   try {
     const backBtn = document.getElementById('pill-browse-back');
     const fwdBtn = document.getElementById('pill-browse-fwd');
@@ -3038,11 +3067,11 @@ function _updateVtabNavButtons() {
         backBtn.style.display = 'none';
       } else if (!hasBackHistory && !hasElBack && _browseReturnView === 'feed') {
         backBtn.style.display = '';
-        backBtn.innerHTML = _vtabNavFeedIcon;
+        backBtn.innerHTML = _islandNavFeedIcon;
         backBtn.title = 'Back to Feed';
       } else {
         backBtn.style.display = '';
-        backBtn.innerHTML = _vtabNavBackArrow;
+        backBtn.innerHTML = _islandNavBackArrow;
         backBtn.title = 'Back';
       }
     }
@@ -3072,17 +3101,17 @@ function _pillUrlKeydown(e) {
 }
 
 function _browseRenderTabs() {
-  const isVertical = _browseTabLayout === 'vertical';
-  const bar = isVertical ? null : document.getElementById('browse-tabs');
+  const isIsland = _browseTabLayout === 'island';
+  const bar = isIsland ? null : document.getElementById('browse-tabs');
   const win = _getCurrentWindow();
   const tabs = win ? win.tabs : [];
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
 
-  // In vertical mode, only sync island — no DOM tab bar to render
-  if (isVertical) {
+  // In island mode, only sync island — no DOM tab bar to render
+  if (isIsland) {
     _islandSyncTabs();
-    // Sync pill URL input in vertical mode
+    // Sync pill URL input in island mode
     _pillSyncUrl();
     // Mirror tabs into pill bar if in browse mode (horizontal only)
     return;
@@ -3552,7 +3581,7 @@ function _tabDragStart(e) {
     tabId = parseInt(idMatch[1]);
   }
   e.preventDefault();
-  _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false, isVertical: isVtab };
+  _tabDragState = { tabId, startX: e.clientX, startY: e.clientY, tabEl, ghostEl: null, indicator: null, insertBeforeId: null, hasMoved: false, isIsland: isVtab };
   const origOnclick = tabEl.getAttribute('onclick');
   tabEl.removeAttribute('onclick');
   _tabDragState._origOnclick = origOnclick;
@@ -3566,7 +3595,7 @@ function _tabDragMove(e) {
   const dy = e.clientY - _tabDragState.startY;
   if (!_tabDragState.hasMoved && Math.abs(dx) < TAB_DRAG_THRESHOLD && Math.abs(dy) < TAB_DRAG_THRESHOLD) return;
 
-  const isVert = _tabDragState.isVertical;
+  const isVert = _tabDragState.isIsland;
   if (!_tabDragState.hasMoved) {
     _tabDragState.hasMoved = true;
     // Prevent the onclick from firing
@@ -3608,7 +3637,7 @@ function _tabDragUpdatePosition(clientPos) {
   if (!_tabDragState || !_tabDragState.indicator) return;
   const bar = _getActiveTabBar();
   if (!bar) return;
-  const isVert = _tabDragState.isVertical;
+  const isVert = _tabDragState.isIsland;
   const win = _getCurrentWindow();
   const dragTab = win ? win.tabs.find(t => t.id === _tabDragState.tabId) : null;
   const isDragPinned = dragTab && dragTab.pinned;
@@ -3683,7 +3712,7 @@ function _tabDragEnd(e) {
   document.removeEventListener('mouseup', _tabDragEnd);
   if (!_tabDragState) return;
 
-  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl, _origOnclick, isVertical: isVert } = _tabDragState;
+  const { tabId, hasMoved, insertBeforeId, ghostEl, indicator, tabEl, _origOnclick, isIsland: isVert } = _tabDragState;
   _tabDragState = null;
 
   // Clean up visual elements
@@ -3906,7 +3935,12 @@ function _browseRestoreTabsLite() {
         var tab = { id: st.id, url: st.url || '', title: st.title || 'New Tab', favicon: st.url ? _browseFaviconUrl(st.url) : '', el: null, blank: !!st.blank };
         if (st.pinned) tab.pinned = true;
         if (st.groupId != null) tab.groupId = st.groupId;
-        if (st.paper) { tab.paper = st.paper; tab.contentType = st.contentType; }
+        if (st.paper) {
+          tab.paper = st.paper; tab.contentType = st.contentType;
+          if (st.localPath) { tab.localPath = st.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(st.localPath); }
+          else if (st.paper.localPath) { tab.localPath = st.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(st.paper.localPath); }
+          else if (st.paper.pdfUrl && !st.paper.pdfUrl.startsWith('blob:')) { tab.pdfUrl = st.paper.pdfUrl; }
+        }
         if (st._historyPage) { tab.url = 'aether://history'; tab.title = 'History'; tab._historyPage = true; }
         if (st._helpPage) { tab.url = 'aether://help'; tab.title = 'Help'; tab._helpPage = true; }
         win.tabs.push(tab);
@@ -4856,9 +4890,9 @@ function _browseInstallKeyGuard() {
     if (!win) return;
 
     // Arrow keys for navigation when tab bar is focused
-    const vtabMode = _browseTabLayout === 'vertical';
-    if (vtabMode) {
-      // Vertical layout: Up/Down switch tabs, no window switching via arrows
+    const islandMode = _browseTabLayout === 'island';
+    if (islandMode) {
+      // Island layout: Up/Down switch tabs, no window switching via arrows
       if (e.key === 'ArrowUp' && win.tabs.length > 1) {
         e.preventDefault();
         _switchTabLeft();
@@ -5478,15 +5512,15 @@ function toggleBrowseMoreMenu() {
 
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const hasTab = tab && !tab.blank && tab.url;
-  const isVertical = _browseTabLayout === 'vertical';
+  const isIsland = _browseTabLayout === 'island';
 
   // Build overflow rows for buttons hidden in the bar
   let overflowRows = '';
   const btnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;`;
   const navBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
 
-  // In vertical mode, all bar buttons are hidden — add nav + toolbar buttons to menu
-  if (isVertical) {
+  // In island mode, all bar buttons are hidden — add nav + toolbar buttons to menu
+  if (isIsland) {
     overflowRows += `<button onclick="browseBack();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg> Back</button>`;
     overflowRows += `<button onclick="browseForward();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg> Forward</button>`;
     overflowRows += `<button onclick="browseReload();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Reload</button>`;
@@ -5533,20 +5567,20 @@ function toggleBrowseMoreMenu() {
       Print page
     </button>
     <button onclick="toggleBrowseTabLayout();document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      ${_browseTabLayout === 'vertical'
+      ${_browseTabLayout === 'island'
         ? '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h16v5H4V3zM4 3h16v18H4V3z"/></svg> Horizontal Tabs'
-        : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg> Vertical Tabs'}
+        : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg> Island Mode'}
     </button>
     <button onclick="location.hash='#settings';document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       Settings
     </button>`;
 
-  const anchorBtn = (isVertical
+  const anchorBtn = (isIsland
     ? (document.getElementById('pill-browse-more') || document.getElementById('pill-browse-hamburger'))
     : document.getElementById('browse-more-btn')) || document.getElementById('browse-more-btn');
   const btnRect = anchorBtn.getBoundingClientRect();
-  const menuPos = isVertical
+  const menuPos = isIsland
     ? `right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px`
     : `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
   dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
@@ -5779,6 +5813,12 @@ function browseEnableNoteMode() {
 // ── Dynamic Island pill bar — browse mode ──
 
 function _islandSyncTabs() {
+  // In island mode, the nowplaying context pill handles tab display
+  if (_browseTabLayout === 'island') {
+    islandRemove('tabs');
+    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+    return;
+  }
   var win = _getCurrentWindow();
   var tabs = win ? win.tabs : [];
   var activeTab = win ? win.activeTab : null;
@@ -5786,7 +5826,7 @@ function _islandSyncTabs() {
   if (!tabs.length) { islandRemove('tabs'); return; }
   islandUpdate('tabs', {
     type: 'tabs',
-    label: tabs.length + '',
+    label: tabs.length + ' tab' + (tabs.length !== 1 ? 's' : ''),
     detail: active ? active.title : 'Browse',
     favicon: active ? active.favicon : null,
     items: tabs.map(function(t) {
@@ -5812,7 +5852,7 @@ function _setPillBrowseMode(enabled) {
   const tabRow = document.getElementById('browse-tab-row');
   const dragPill = document.getElementById('drag-pill');
   if (enabled) {
-    if (pill) { pill.classList.add('browse-mode'); pill.classList.remove('vtab-mode'); }
+    if (pill) { pill.classList.add('browse-mode'); pill.classList.remove('island-mode'); }
     if (tabRow) tabRow.style.display = 'none';
     if (dragPill) dragPill.style.display = 'none';
     const bar = document.getElementById('browse-bar');
@@ -5820,7 +5860,7 @@ function _setPillBrowseMode(enabled) {
     islandRemove('tabs');
     _pillSyncTabs();
   } else {
-    if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }
+    if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }
     if (dragPill) dragPill.style.display = '';
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';

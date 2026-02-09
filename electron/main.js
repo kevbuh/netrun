@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, session, desktopCapturer, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, session, desktopCapturer, safeStorage, dialog } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -240,6 +240,9 @@ async function createWindow() {
       } else if (input.key.toLowerCase() === 'w') {
         event.preventDefault();
         mainWindow.webContents.send('browse-command', 'close-tab');
+      } else if (input.key.toLowerCase() === 'o') {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'open-file');
       } else if (input.key.toLowerCase() === 'p') {
         event.preventDefault();
         mainWindow.webContents.send('browse-command', 'print');
@@ -288,6 +291,12 @@ app.on('web-contents-created', (event, contents) => {
           const parent = contents.getOwnerBrowserWindow();
           if (parent) {
             parent.webContents.send('browse-command', 'close-tab');
+          }
+        } else if (key === 'o') {
+          event.preventDefault();
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'open-file');
           }
         } else if (key === 'p') {
           event.preventDefault();
@@ -392,6 +401,13 @@ function createMenu() {
           label: 'New Window',
           accelerator: 'CmdOrCtrl+N',
           click: () => createWindow()
+        },
+        {
+          label: 'Open File...',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('browse-command', 'open-file');
+          }
         }
       ]
     },
@@ -562,6 +578,15 @@ app.whenReady().then(() => {
     const filePath = path.join(dir, name);
     fs.writeFileSync(filePath, Buffer.from(buffer));
     return shell.openPath(filePath);
+  });
+
+  ipcMain.handle('open-file-dialog', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    });
+    if (result.canceled) return [];
+    return result.filePaths;
   });
 
   ipcMain.handle('pw-get', (_, origin) => pwStore.get(origin));

@@ -724,19 +724,19 @@
       padding: 0;
       margin-right: 6px;
     }
-    .browse-mode.vtab-mode #pill-menu-btn {
+    .browse-mode.island-mode #pill-menu-btn {
       max-width: 0;
       opacity: 0;
       padding: 0;
       margin-right: 0;
     }
-    .browse-mode.vtab-mode.menu-expanded #pill-menu-btn {
+    .browse-mode.island-mode.menu-expanded #pill-menu-btn {
       max-width: 28px;
       opacity: 1;
       padding: 0;
       margin-right: 6px;
     }
-    /* Hamburger — hidden by default, shown in vtab browse mode, hidden when menu expanded */
+    /* Hamburger — hidden by default, shown in island browse mode, hidden when menu expanded */
     #pill-browse-hamburger {
       max-width: 0;
       opacity: 0;
@@ -746,17 +746,17 @@
                   opacity 0.25s ease;
       flex-shrink: 0;
     }
-    .browse-mode.vtab-mode #pill-browse-hamburger {
+    .browse-mode.island-mode #pill-browse-hamburger {
       max-width: 28px;
       opacity: 1;
       padding: 0;
     }
-    .browse-mode.vtab-mode.ntp-active #pill-browse-hamburger {
+    .browse-mode.island-mode.ntp-active #pill-browse-hamburger {
       max-width: 0;
       opacity: 0;
       padding: 0;
     }
-    .browse-mode.vtab-mode.menu-expanded #pill-browse-hamburger {
+    .browse-mode.island-mode.menu-expanded #pill-browse-hamburger {
       max-width: 0;
       opacity: 0;
       padding: 0;
@@ -809,7 +809,9 @@
       opacity: 1;
       overflow-x: auto;
     }
-    .browse-mode.vtab-mode #pill-browse-tabs {
+    .browse-mode.island-mode #pill-browse-tabs,
+    .browse-mode.island-mode #pill-browse-more,
+    .browse-mode.island-mode #pill-newtab-btn {
       display: none;
     }
     #pill-browse-tabs::-webkit-scrollbar { display: none; }
@@ -1075,9 +1077,9 @@
                   box-shadow 0.25s ease;
     }
     .pill-island.island-has-items.island-active.island-tray-open .island-ctx-tray {
-      max-height: 340px;
+      max-height: 400px;
       opacity: 1;
-      padding: 2px 4px 4px;
+      padding: 6px;
       pointer-events: auto;
       overflow-y: auto;
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
@@ -1085,10 +1087,10 @@
     .island-ctx-item {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 5px 6px;
-      border-radius: 6px;
-      font-size: 0.65rem;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
       color: var(--aether-text-dim);
       white-space: nowrap;
       overflow: hidden;
@@ -1096,6 +1098,8 @@
       cursor: pointer;
       transition: background 0.15s ease, color 0.15s ease;
     }
+    .island-ctx-item:hover .island-tab-item-close,
+    .island-ctx-item.active .island-tab-item-close { opacity: 1; }
     .island-ctx-item:hover {
       background: var(--aether-hover);
       color: var(--aether-text);
@@ -1110,6 +1114,9 @@
       border-radius: 50%;
       background: var(--accent, #b4451a);
       flex-shrink: 0;
+    }
+    .pill-island[data-island-id="nowplaying"] .island-ctx-tray {
+      min-width: 300px; max-width: 380px;
     }
     /* Download tray items */
     .island-dl-header {
@@ -1688,7 +1695,7 @@
       border-bottom: 2px solid var(--group-color); border-radius: 8px 8px 0 0;
     }
 
-    /* ── Pill bar URL input (vertical tab browse mode) ── */
+    /* ── Pill bar URL input (island browse mode) ── */
     #pill-browse-url {
       display: flex;
       align-items: center;
@@ -1701,7 +1708,7 @@
       transition: max-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
                   opacity 0.25s ease 0.1s;
     }
-    .browse-mode.vtab-mode #pill-browse-url {
+    .browse-mode.island-mode #pill-browse-url {
       max-width: none;
       flex: 0 0 auto;
       opacity: 1;
@@ -1722,7 +1729,7 @@
       transition: max-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
                   opacity 0.25s ease 0.1s;
     }
-    .browse-mode.vtab-mode #pill-browse-url-input {
+    .browse-mode.island-mode #pill-browse-url-input {
       max-width: none;
       opacity: 1;
       padding: 4px 8px;
@@ -1753,12 +1760,12 @@
       width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0;
     }
     .pill-island.island-tabs-pill .island-ctx-tray {
-      min-width: 240px; max-width: 300px;
+      min-width: 300px; max-width: 380px;
     }
     .island-tab-item {
       display: flex; align-items: center; gap: 8px;
-      padding: 6px 8px; border-radius: 6px;
-      font-size: 0.75rem; color: var(--aether-text-dim);
+      padding: 7px 10px; border-radius: 6px;
+      font-size: 0.8rem; color: var(--aether-text-dim);
       cursor: pointer; transition: background 0.12s;
     }
     .island-tab-item:hover { background: var(--aether-hover-subtle); color: var(--aether-text); }
@@ -1781,22 +1788,22 @@
       background: var(--aether-hover); color: var(--aether-text);
     }
     .island-tab-newtab {
-      padding: 6px 8px; border-radius: 6px; font-size: 0.72rem;
+      padding: 9px 12px; border-radius: 8px; font-size: 0.82rem;
       color: var(--aether-text-dimmer); cursor: pointer;
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 8px;
       transition: background 0.12s, color 0.12s;
     }
     .island-tab-newtab:hover {
       background: var(--aether-hover-subtle); color: var(--aether-text);
     }
 
-    /* ── Pill bar vtab nav buttons (back/forward/refresh) ── */
-    .pill-vtab-nav {
+    /* ── Pill bar island nav buttons (back/forward/refresh) ── */
+    .pill-island-nav {
       display: none;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
     }
-    .browse-mode.vtab-mode .pill-vtab-nav {
+    .browse-mode.island-mode .pill-island-nav {
       display: flex;
     }
     #pill-window-switcher {
@@ -1812,7 +1819,7 @@
     #pill-window-switcher .sidebar-icon:hover { opacity: 1; }
     #pill-window-switcher .sidebar-icon.disabled { opacity: 0.2; pointer-events: none; }
 
-    /* (vtabs sidebar removed — tabs now in island tray) */
+    /* (island mode sidebar removed — tabs now in island tray) */
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
       display: flex; align-items: center; justify-content: center;
@@ -1830,7 +1837,7 @@
     #browse-tab-row .browse-tab-layout-toggle:hover {
       background: var(--bg-hover); color: var(--text-primary);
     }
-    /* (vtab list/items removed — tabs now in island tray) */
+    /* (island tab list/items removed — tabs now in island tray) */
 
     /* Tab & group context menu */
     .browse-ctx-menu {

@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pwDelete: (id) => ipcRenderer.invoke('pw-delete', id),
   pwList: () => ipcRenderer.invoke('pw-list'),
   // File handling
+  openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path),
   saveAndOpenTemp: (name, buffer) => ipcRenderer.invoke('save-and-open-temp', name, buffer)

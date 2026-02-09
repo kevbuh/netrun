@@ -1699,8 +1699,18 @@ if (typeof document !== 'undefined') {
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.onBrowseCommand) {
   window.electronAPI.onBrowseCommand((event, command) => {
     const browseView = document.getElementById('browse-view');
-    if (!browseView || browseView.style.display === 'none') return;
-    
+    const browseHidden = !browseView || browseView.style.display === 'none';
+    // open-file works even when browse isn't open
+    if (command === 'open-file') {
+      if (browseHidden && typeof openBrowse === 'function') openBrowse();
+      if (typeof openLocalPdfDialog === 'function') {
+        if (browseHidden) setTimeout(openLocalPdfDialog, 50);
+        else openLocalPdfDialog();
+      }
+      return;
+    }
+    if (browseHidden) return;
+
     if (command === 'new-tab') {
       browseNewTab();
     } else if (command === 'close-tab') {

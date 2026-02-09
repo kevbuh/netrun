@@ -134,9 +134,9 @@ function _renderAppearanceSettings() {
       <div class="flex items-center justify-between mt-4">
         <span class="text-primary text-sm">Browse Tabs</span>
         <div class="flex gap-1.5">
-          ${['vertical','horizontal'].map(t => {
-            const cur = localStorage.getItem('browseTabLayout') || 'vertical';
-            const label = t.charAt(0).toUpperCase() + t.slice(1);
+          ${['island','horizontal'].map(t => {
+            const cur = localStorage.getItem('browseTabLayout') || 'island';
+            const label = t === 'island' ? 'Island' : 'Horizontal';
             return '<button onclick="setBrowseTabLayout(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
           }).join('')}
         </div>
