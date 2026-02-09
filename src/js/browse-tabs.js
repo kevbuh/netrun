@@ -27,7 +27,6 @@ let _ccTabId = null;
 let _ccCaptionLines = [];
 let _ccFadeTimer = null;
 let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'vertical';
-let _vtabsPanelCollapsed = localStorage.getItem('vtabsPanelCollapsed') === 'true';
 
 // NTP uploaded files: { name, content, file, blobUrl }
 let _ntpUploadedFiles = [];
@@ -388,7 +387,7 @@ function _animateWindowSwitch(direction, callback) {
 let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
 
 function _browseGoBack() {
-  // If current tab is in note mode, revert to normal view first
+  // If current tab is in PDF viewer, revert to normal view first
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab._noteModePrev) {
     browseExitNoteMode();
@@ -404,9 +403,9 @@ function browseExitNoteMode() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab._noteModePrev) return;
   const prev = tab._noteModePrev;
-  // Clean up PDF viewer if we were in PDF note mode
+  // Clean up PDF viewer if we were in PDF viewer mode
   if (tab.contentType === 'pdf') cleanupPdfViewer();
-  // Remove the note mode container
+  // Remove the PDF viewer container
   if (tab.el) tab.el.remove();
   // Restore original state
   tab.el = prev.el;
@@ -1599,8 +1598,8 @@ function _browseShowPdfPill(tab) {
   if (typeof islandUpdate === 'function') {
     islandUpdate('notemode', {
       type: 'notemode',
-      label: 'Note Mode',
-      detail: 'Open in Note Mode',
+      label: 'PDF Viewer',
+      detail: 'Open in PDF Viewer',
       action: () => {
         _browseOpenAsNoteMode(tab);
       },
@@ -1997,7 +1996,7 @@ function _browseUpdateBarForTab(tab) {
     if (citeBtn) citeBtn.style.display = 'none';
     if (bookmarkBtn) bookmarkBtn.style.display = 'none';
   }
-  // Exit note mode button — show when tab has _noteModePrev (was converted to note mode)
+  // Exit PDF viewer button — show when tab has _noteModePrev (was converted to PDF viewer)
   if (tab && tab._noteModePrev) {
     if (!exitNoteBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
@@ -2005,8 +2004,8 @@ function _browseUpdateBarForTab(tab) {
       exitNoteBtn.id = 'browse-exit-notemode-btn';
       exitNoteBtn.className = 'shrink-0 h-7 rounded-md bg-transparent border-none text-accent cursor-pointer hover:bg-hover flex items-center gap-0.5 px-1.5';
       exitNoteBtn.onclick = function() { browseExitNoteMode(); };
-      exitNoteBtn.title = 'Exit note mode';
-      exitNoteBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="text-[0.7rem]">Exit notes</span>';
+      exitNoteBtn.title = 'Exit PDF viewer';
+      exitNoteBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="text-[0.7rem]">Exit PDF</span>';
       if (moreBtn) moreBtn.parentElement.insertBefore(exitNoteBtn, moreBtn);
     }
     exitNoteBtn.style.display = 'flex';
@@ -2942,25 +2941,6 @@ function _browseGetGroupColor(groupId) {
 
 // ── Vertical tab renderer ──
 
-function _browseRenderVTabHtml(t, activeTab) {
-  const active = t.id === activeTab;
-  const hasAudio = _browseAudioTabs.has(t.id);
-  const audioInfo = _browseAudioTabs.get(t.id);
-  const isMuted = audioInfo?.muted;
-  const title = escapeHtml(t.title);
-  const fav = t.favicon ? `<img class="browse-vtab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
-  const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
-    ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
-  const isPinned = !!t.pinned;
-  const groupColor = t.groupId != null ? _browseGetGroupColor(t.groupId) : null;
-  const groupStyle = groupColor ? ` style="--group-color:${groupColor}"` : '';
-  const classes = ['browse-vtab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-vtab-pinned' : '', groupColor ? 'browse-vtab-grouped' : ''].filter(Boolean).join(' ');
-  return `<div class="${classes}" data-tab-id="${t.id}"${groupStyle} onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
-    ${fav}${audioIcon}<span class="browse-vtab-title">${title}</span>
-    <button class="browse-vtab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
-  </div>`;
-}
-
 function toggleBrowseTabLayout() {
   _browseTabLayout = _browseTabLayout === 'vertical' ? 'horizontal' : 'vertical';
   localStorage.setItem('browseTabLayout', _browseTabLayout);
@@ -2976,41 +2956,32 @@ function toggleBrowseTabLayout() {
   }
 }
 
-function toggleVtabsPanel() {
-  _vtabsPanelCollapsed = !_vtabsPanelCollapsed;
-  localStorage.setItem('vtabsPanelCollapsed', _vtabsPanelCollapsed);
-  const vtabs = document.getElementById('browse-vtabs');
-  if (vtabs) vtabs.classList.toggle('vtabs-collapsed', _vtabsPanelCollapsed);
-}
-
 function _applyBrowseTabLayout() {
   const tabRow = document.getElementById('browse-tab-row');
-  const vtabs = document.getElementById('browse-vtabs');
   const bar = document.getElementById('browse-bar');
   const pill = document.getElementById('sidebar-nav');
   const dragPill = document.getElementById('drag-pill');
-  // Only apply browse-mode pill styling if browse view is actually open
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display === 'flex';
   if (_browseTabLayout === 'vertical') {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
     if (browseOpen) {
-      if (vtabs) { vtabs.style.display = 'flex'; vtabs.classList.toggle('vtabs-collapsed', _vtabsPanelCollapsed); }
       if (pill) { pill.classList.add('browse-mode'); pill.classList.add('vtab-mode'); }
       if (dragPill) dragPill.style.display = 'none';
       _pillSyncUrl();
       const pillTabs = document.getElementById('pill-browse-tabs');
       if (pillTabs) pillTabs.innerHTML = '';
+      _islandSyncTabs();
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'vtab-mode', 'ntp-active'); }
-      if (vtabs) vtabs.style.display = 'none';
       if (dragPill) dragPill.style.display = '';
+      islandRemove('tabs');
     }
   } else {
     // Restore everything
     if (bar) bar.style.display = '';
-    if (vtabs) vtabs.style.display = 'none';
+    islandRemove('tabs');
     if (_pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
     } else {
@@ -3102,30 +3073,21 @@ function _pillUrlKeydown(e) {
 
 function _browseRenderTabs() {
   const isVertical = _browseTabLayout === 'vertical';
-  const bar = isVertical ? document.getElementById('browse-vtabs-list') : document.getElementById('browse-tabs');
-  if (!bar) return;
+  const bar = isVertical ? null : document.getElementById('browse-tabs');
   const win = _getCurrentWindow();
   const tabs = win ? win.tabs : [];
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
 
-  // Window switcher in header (between collapse btn and + btn)
+  // In vertical mode, only sync island — no DOM tab bar to render
   if (isVertical) {
-    const headerSwitcher = document.getElementById('vtabs-header-window-switcher');
-    if (headerSwitcher) {
-      if (_browseWindows.length > 1) {
-        const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-        headerSwitcher.innerHTML = `<button class="browse-vtab-action-btn vtabs-win-nav ${winIdx === 0 ? 'disabled' : ''}" onclick="switchWindowUp()" title="Previous window">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
-          </button>
-          <button class="browse-vtab-action-btn vtabs-win-nav ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="switchWindowDown()" title="Next window">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
-          </button>`;
-      } else {
-        headerSwitcher.innerHTML = '';
-      }
-    }
+    _islandSyncTabs();
+    // Sync pill URL input in vertical mode
+    _pillSyncUrl();
+    // Mirror tabs into pill bar if in browse mode (horizontal only)
+    return;
   }
+  if (!bar) return;
 
   // Window switcher for horizontal layout (inline in tab bar)
   let windowSelector = '';
@@ -3235,175 +3197,7 @@ function _browseRenderTabs() {
   });
 
   // Mirror tabs into the pill bar if in browse mode (horizontal only)
-  if (_pillBrowseMode && _browseTabLayout !== 'vertical') _pillSyncTabs();
-
-  // Sync pill URL input in vertical mode
-  if (_browseTabLayout === 'vertical') _pillSyncUrl();
-
-  // Render collapsed favicon strip
-  if (isVertical) {
-    const strip = document.getElementById('browse-vtabs-collapsed-strip');
-    if (strip) {
-      // Measure how many mini-tabs fit using parent container height
-      const vtabsEl = document.getElementById('browse-vtabs');
-      const headerEl = vtabsEl ? vtabsEl.querySelector('.vtabs-collapse-header') : null;
-      const containerH = vtabsEl ? vtabsEl.clientHeight : 600;
-      const headerH = headerEl ? headerEl.offsetHeight : 60;
-      const stripH = containerH - headerH - 8; // 8px padding
-      const itemSize = 30; // 28px tab + 2px gap
-      const overflowBadgeH = 30;
-      const availableForTabs = Math.max(0, stripH - overflowBadgeH);
-      const maxVisible = Math.max(1, Math.floor(availableForTabs / itemSize));
-      const overflow = tabs.length - maxVisible;
-      const visibleTabs = overflow > 0 ? tabs.slice(0, maxVisible) : tabs;
-
-      // Normal column order: tabs at top, spacer pushes bottom items down
-      let miniHtml = '';
-
-      // Visible tabs (top)
-      for (const t of visibleTabs) {
-        const isActive = t.id === activeTab;
-        const hasAudio = _browseAudioTabs.has(t.id);
-        const isMuted = hasAudio && _browseAudioTabs.get(t.id)?.muted;
-        const cls = 'vtabs-mini-tab' + (isActive ? ' active' : '') + (hasAudio ? ' has-audio' : '') + (hasAudio && isMuted ? ' muted' : '');
-        let domain = '';
-        try { domain = new URL(t.url || '').hostname.replace(/^www\./, ''); } catch {}
-        const audioLabel = hasAudio ? `<span class="vtabs-mini-tip-audio">${isMuted ? 'Audio muted' : 'Playing audio'}</span>` : '';
-        const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-text"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}${audioLabel}</span><span class="vtabs-mini-tip-close" onclick="event.stopPropagation();browseCloseTab(${t.id})">&times;</span></span>`;
-        const musicBars = `<span class="vtabs-mini-music" onclick="event.stopPropagation();toggleTabMute(${t.id})"><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span></span>`;
-        const fav = isActive
-          ? `<span class="vtabs-mini-close" onclick="event.stopPropagation();browseCloseTab(${t.id})">&times;</span>`
-          : hasAudio
-          ? musicBars
-          : t.favicon
-            ? `<img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'">`
-            : `<span class="vtabs-mini-letter">${escapeHtml((t.title || '?')[0].toUpperCase())}</span>`;
-        miniHtml += `<button class="${cls}" data-tab-id="${t.id}" onclick="browseSelectTab(${t.id})">${fav}${tip}</button>`;
-      }
-
-      // Overflow badge
-      if (overflow > 0) {
-        miniHtml += `<button class="vtabs-mini-overflow" onclick="toggleVtabsPanel()" title="${overflow} more tab${overflow > 1 ? 's' : ''}">+${overflow}</button>`;
-      }
-
-      strip.innerHTML = miniHtml;
-      strip.querySelectorAll('.vtabs-mini-tab').forEach(el => {
-        el.addEventListener('mousedown', _miniTabDragStart);
-      });
-    }
-  }
-}
-
-// ── Mini tab drag (collapsed vertical strip) ──
-
-let _miniDragState = null;
-
-function _miniTabDragStart(e) {
-  if (e.button !== 0) return;
-  if (e.target.closest('.vtabs-mini-audio, .vtabs-mini-tip-close, .vtabs-mini-music')) return;
-  const el = e.currentTarget;
-  const tabId = parseInt(el.dataset.tabId);
-  if (isNaN(tabId)) return;
-  e.preventDefault();
-  _miniDragState = { tabId, startY: e.clientY, el, ghost: null, indicator: null, insertBeforeId: null, hasMoved: false };
-  const origOnclick = el.getAttribute('onclick');
-  el.removeAttribute('onclick');
-  _miniDragState._origOnclick = origOnclick;
-  document.addEventListener('mousemove', _miniTabDragMove);
-  document.addEventListener('mouseup', _miniTabDragEnd);
-}
-
-function _miniTabDragMove(e) {
-  if (!_miniDragState) return;
-  const dy = e.clientY - _miniDragState.startY;
-  if (!_miniDragState.hasMoved && Math.abs(dy) < TAB_DRAG_THRESHOLD) return;
-
-  const strip = document.getElementById('browse-vtabs-collapsed-strip');
-  if (!strip) return;
-
-  if (!_miniDragState.hasMoved) {
-    _miniDragState.hasMoved = true;
-    _miniDragState.el.style.pointerEvents = 'none';
-    // Create ghost
-    const ghost = _miniDragState.el.cloneNode(true);
-    ghost.style.position = 'fixed';
-    ghost.style.pointerEvents = 'none';
-    ghost.style.zIndex = '10001';
-    ghost.style.opacity = '0.8';
-    ghost.style.width = _miniDragState.el.offsetWidth + 'px';
-    ghost.style.height = _miniDragState.el.offsetHeight + 'px';
-    document.body.appendChild(ghost);
-    _miniDragState.ghost = ghost;
-    _miniDragState.el.style.opacity = '0.3';
-    // Create indicator
-    const indicator = document.createElement('div');
-    indicator.style.cssText = 'position:absolute;left:2px;right:2px;height:2px;background:var(--accent);border-radius:1px;pointer-events:none;z-index:10;';
-    strip.style.position = 'relative';
-    strip.appendChild(indicator);
-    _miniDragState.indicator = indicator;
-  }
-
-  // Move ghost
-  _miniDragState.ghost.style.left = (e.clientX - _miniDragState.el.offsetWidth / 2) + 'px';
-  _miniDragState.ghost.style.top = (e.clientY - _miniDragState.el.offsetHeight / 2) + 'px';
-
-  // Find insertion point
-  const miniTabs = Array.from(strip.querySelectorAll('.vtabs-mini-tab'));
-  const stripRect = strip.getBoundingClientRect();
-  let insertBeforeId = null;
-  let indicatorTop = null;
-  for (const t of miniTabs) {
-    const rect = t.getBoundingClientRect();
-    const mid = rect.top + rect.height / 2;
-    if (e.clientY < mid) {
-      const tid = parseInt(t.dataset.tabId);
-      if (!isNaN(tid)) insertBeforeId = tid;
-      indicatorTop = rect.top - stripRect.top - 1;
-      break;
-    }
-  }
-  if (indicatorTop === null && miniTabs.length > 0) {
-    const lastRect = miniTabs[miniTabs.length - 1].getBoundingClientRect();
-    indicatorTop = lastRect.bottom - stripRect.top + 1;
-  }
-  _miniDragState.insertBeforeId = insertBeforeId;
-  if (_miniDragState.indicator && indicatorTop !== null) {
-    _miniDragState.indicator.style.top = indicatorTop + 'px';
-  }
-}
-
-function _miniTabDragEnd(e) {
-  document.removeEventListener('mousemove', _miniTabDragMove);
-  document.removeEventListener('mouseup', _miniTabDragEnd);
-  if (!_miniDragState) return;
-
-  const { tabId, hasMoved, insertBeforeId, ghost, indicator, el, _origOnclick } = _miniDragState;
-  _miniDragState = null;
-
-  if (ghost) ghost.remove();
-  if (indicator) indicator.remove();
-  el.style.opacity = '';
-  el.style.pointerEvents = '';
-  if (_origOnclick) el.setAttribute('onclick', _origOnclick);
-
-  if (hasMoved) {
-    const win = _getCurrentWindow();
-    if (!win) return;
-    const fromIdx = win.tabs.findIndex(t => t.id === tabId);
-    if (fromIdx === -1) return;
-    const [movedTab] = win.tabs.splice(fromIdx, 1);
-    if (insertBeforeId !== null) {
-      const toIdx = win.tabs.findIndex(t => t.id === insertBeforeId);
-      if (toIdx !== -1) win.tabs.splice(toIdx, 0, movedTab);
-      else win.tabs.push(movedTab);
-    } else {
-      win.tabs.push(movedTab);
-    }
-    _browseRenderTabs();
-    _browseSaveTabs();
-  } else {
-    browseSelectTab(tabId);
-  }
+  if (_pillBrowseMode) _pillSyncTabs();
 }
 
 // ── Split pill drag (reorder + unsplit) ──
