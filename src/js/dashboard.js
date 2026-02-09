@@ -1255,17 +1255,62 @@ async function renderDevStats() {
   if (gitLogEl && log.length) {
     gitLogEl.innerHTML = `
       <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:4px">Recent Commits</div>
-      <div class="dev-git-log-list">${log.map(c => {
-        const d = new Date(c.date);
-        const relative = _devRelativeTime(d);
-        const diffStr = (c.ins || c.del) ? `<span class="dev-git-log-diff"><span style="color:#3fb950">+${c.ins}</span> <span style="color:#f85149">-${c.del}</span></span>` : '';
-        return `<div class="dev-git-log-item">
-          <span class="dev-git-log-sha">${c.sha}</span>
-          <span class="dev-git-log-msg">${escapeHtml(c.message)}</span>
-          ${diffStr}
-          <span class="dev-git-log-meta">${relative}</span>
-        </div>`;
-      }).join('')}</div>`;
+      <div class="dev-git-log-list" id="dev-git-log-list">${_devRenderCommitRows(log)}</div>`;
+    _devGitLogOffset = log.length;
+    if (log.length >= 20) _devAppendLoadMoreBtn();
+  }
+}
+
+var _devGitLogOffset = 0;
+
+function _devRenderCommitRows(log) {
+  return log.map(c => {
+    const d = new Date(c.date);
+    const relative = _devRelativeTime(d);
+    const diffStr = (c.ins || c.del) ? `<span class="dev-git-log-diff"><span style="color:#3fb950">+${c.ins}</span> <span style="color:#f85149">-${c.del}</span></span>` : '';
+    return `<div class="dev-git-log-item">
+      <span class="dev-git-log-sha">${c.sha}</span>
+      <span class="dev-git-log-msg">${escapeHtml(c.message)}</span>
+      ${diffStr}
+      <span class="dev-git-log-meta">${relative}</span>
+    </div>`;
+  }).join('');
+}
+
+function _devAppendLoadMoreBtn() {
+  const list = document.getElementById('dev-git-log-list');
+  if (!list) return;
+  const old = document.getElementById('dev-git-load-more');
+  if (old) old.remove();
+  const btn = document.createElement('button');
+  btn.id = 'dev-git-load-more';
+  btn.className = 'dev-git-load-more-btn';
+  btn.textContent = 'Load more commits';
+  btn.onclick = () => _devLoadMoreCommits(btn);
+  list.after(btn);
+}
+
+async function _devLoadMoreCommits(btn) {
+  btn.textContent = 'Loading…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/dev-git-log?offset=${_devGitLogOffset}&limit=20`);
+    const data = await res.json();
+    const log = data.git_log || [];
+    if (log.length) {
+      const list = document.getElementById('dev-git-log-list');
+      if (list) list.insertAdjacentHTML('beforeend', _devRenderCommitRows(log));
+      _devGitLogOffset += log.length;
+    }
+    if (!data.has_more || !log.length) {
+      btn.remove();
+    } else {
+      btn.textContent = 'Load more commits';
+      btn.disabled = false;
+    }
+  } catch {
+    btn.textContent = 'Load more commits';
+    btn.disabled = false;
   }
 }
 

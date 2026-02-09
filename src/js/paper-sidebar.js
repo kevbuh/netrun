@@ -364,7 +364,7 @@ async function _fetchAuthorsAndAI(url, requestedTab) {
   // Both authors and AI come from the same endpoint; cache the result
   if (_insightsDataCache) {
     if (requestedTab === 'authors') _renderAuthorsPane(_insightsDataCache);
-    if (requestedTab === 'ai') _renderAIPane(_insightsDataCache);
+    if (requestedTab === 'ai') { _renderAIPane(_insightsDataCache); _renderSmartHighlightsPane(url); }
     return;
   }
 
@@ -395,6 +395,8 @@ async function _fetchAuthorsAndAI(url, requestedTab) {
     // Mark AI as loaded too since we have the data
     _insightSubLoaded.ai = true;
     _renderAIPane(data);
+    // Render smart highlights pane (on-demand generation)
+    _renderSmartHighlightsPane(url);
   } catch (e) {
     console.error('[Insights] Error:', e);
     if (pane) pane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to load</div>';
@@ -1261,6 +1263,7 @@ function _renderBrowsePanes(container) {
     '<div data-pane-id="insights" id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">' +
       '<div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">' +
         '<div class="insight-section" id="insight-drop-ai"><div class="insight-section-title">AI</div><div class="insight-section-body" id="insight-pane-ai"></div></div>' +
+        '<div class="insight-section" id="insight-drop-smart"><div class="insight-section-title" style="display:flex;align-items:center;gap:6px">Smart Highlights<span style="flex:1"></span><button id="smart-hl-toggle" class="pdf-tb-btn" title="Toggle highlights in PDF" onclick="toggleSmartHighlightsVisibility()" style="padding:2px 4px;font-size:0.7rem;opacity:1"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button></div><div class="insight-section-body" id="insight-pane-smart"></div></div>' +
         '<div class="insight-section" id="insight-drop-references"><div class="insight-section-title">References</div><div class="insight-section-body" id="insight-pane-references"></div></div>' +
         '<div class="insight-section" id="insight-drop-links"><div class="insight-section-title">Links</div><div class="insight-section-body" id="insight-pane-links"><div id="pdf-links-section"></div></div></div>' +
       '</div>' +
@@ -1283,6 +1286,113 @@ function _onBrowseTabSwitch(oldTab, newTab) {
   }
   if (newTab === 'terminal') _initSidebarTerminal();
   localStorage.setItem('sidebarTab', newTab);
+}
+
+// ── Smart Highlights ──
+
+function _renderSmartHighlightsPane(url) {
+  const pane = document.getElementById('insight-pane-smart');
+  if (!pane) return;
+
+  // Derive cache key (arXiv ID or URL)
+  const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
+  const cacheKey = arxivMatch ? arxivMatch[1] : url;
+
+  // Check localStorage cache for instant render
+  const cached = typeof loadSmartHighlights === 'function' ? loadSmartHighlights(cacheKey) : null;
+  if (cached && cached.length) {
+    _renderSmartHighlightsList(pane, cached);
+    if (typeof renderSmartHighlightsInPdf === 'function' && typeof pdfTextExists === 'function') {
+      var pdfItems = cached.filter(function(h) { return pdfTextExists(h.text.replace(/\.\.\.$/, '')); });
+      renderSmartHighlightsInPdf(pdfItems);
+    }
+    return;
+  }
+
+  // Auto-generate
+  _generateSmartHighlights(url);
+}
+
+async function _generateSmartHighlights(url) {
+  const pane = document.getElementById('insight-pane-smart');
+  if (!pane) return;
+
+  pane.innerHTML = '<div class="flex items-center gap-2 text-[0.75rem] text-dim py-1"><span class="spinner"></span>Extracting highlights...</div>';
+
+  try {
+    const resp = await fetch('/api/paper-insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, mode: 'highlights' })
+    });
+    if (!resp.ok) throw new Error('Failed');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    var items = data.highlights || [];
+
+    // Cache all items (sidebar always shows everything)
+    const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
+    const cacheKey = arxivMatch ? arxivMatch[1] : url;
+    if (typeof saveSmartHighlights === 'function') saveSmartHighlights(cacheKey, items);
+
+    // Render all items in sidebar
+    _renderSmartHighlightsList(pane, items);
+
+    // Only render PDF overlays for quotes that exist in the text layer
+    if (typeof renderSmartHighlightsInPdf === 'function' && typeof pdfTextExists === 'function') {
+      var pdfItems = items.filter(h => pdfTextExists(h.text.replace(/\.\.\.$/, '')));
+      renderSmartHighlightsInPdf(pdfItems);
+    }
+  } catch (e) {
+    console.error('[Smart Highlights] Error:', e);
+    pane.innerHTML = '<div class="text-[0.75rem] text-dimmer">Failed to extract highlights</div>';
+  }
+}
+
+function _renderSmartHighlightsList(pane, items) {
+  if (!pane || !items.length) {
+    if (pane) pane.innerHTML = '<div class="text-[0.75rem] text-dimmer">No highlights found</div>';
+    return;
+  }
+
+  const catColors = {
+    Claim:  { border: '#42a5f5', text: 'text-blue-400' },
+    Method: { border: '#ab47bc', text: 'text-purple-400' },
+    Result: { border: '#4caf50', text: 'text-green-400' },
+  };
+  const catOrder = ['Claim', 'Method', 'Result'];
+  const grouped = {};
+  for (const item of items) {
+    if (!grouped[item.category]) grouped[item.category] = [];
+    grouped[item.category].push(item);
+  }
+
+  let html = '<div class="space-y-3">';
+  for (const cat of catOrder) {
+    const group = grouped[cat];
+    if (!group || !group.length) continue;
+    const colors = catColors[cat] || catColors.Claim;
+    html += `<div>
+      <div class="text-[0.68rem] font-semibold ${colors.text} uppercase tracking-wide mb-1">${escapeHtml(cat)}s</div>
+      <div class="space-y-1.5">`;
+    for (const item of group) {
+      const searchSnippet = item.text.replace(/\.\.\.$/, '');
+      html += `<div class="smart-hl-item cursor-pointer transition-colors hover:bg-white/5 rounded p-1.5 -mx-1.5" data-q="${escapeHtml(searchSnippet)}" style="border-left:2px solid ${colors.border};padding-left:8px">
+        <div class="text-[0.75rem] text-muted leading-relaxed">${escapeHtml(item.summary || item.text)}</div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  pane.innerHTML = html;
+
+  // Bind hover/click interactions
+  pane.querySelectorAll('.smart-hl-item').forEach(card => {
+    card.addEventListener('mouseenter', () => { if (typeof pdfSearchHighlight === 'function') pdfSearchHighlight(card.dataset.q, true); });
+    card.addEventListener('mouseleave', () => { if (typeof pdfClearSearchHighlights === 'function') pdfClearSearchHighlights(); });
+    card.addEventListener('click', () => { if (typeof pdfSearchHighlight === 'function') pdfSearchHighlight(card.dataset.q, false); });
+  });
 }
 
 registerPanelTabs('browse', {

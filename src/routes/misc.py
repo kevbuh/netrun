@@ -230,6 +230,40 @@ def version():
         return jsonify({'version': '0.0', 'sha': ''})
 
 
+@bp.route('/api/dev-git-log')
+def dev_git_log():
+    try:
+        offset = int(request.args.get('offset', 0))
+        limit = int(request.args.get('limit', 20))
+        limit = min(limit, 100)
+        git_root = os.path.dirname(DIR)
+        sep = '\x1f'
+        r = subprocess.run(
+            ['git', 'log', f'--skip={offset}', f'-{limit}', f'--format=COMMIT{sep}%H{sep}%an{sep}%ad{sep}%s', '--date=iso', '--shortstat'],
+            capture_output=True, text=True, cwd=git_root, timeout=10)
+        git_log = []
+        if r.returncode == 0:
+            current = None
+            for line in r.stdout.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith('COMMIT' + sep):
+                    parts = line.split(sep, 4)
+                    if len(parts) == 5:
+                        current = {'sha': parts[1][:8], 'author': parts[2], 'date': parts[3], 'message': parts[4], 'ins': 0, 'del': 0}
+                        git_log.append(current)
+                elif current and 'changed' in line:
+                    m_ins = re.search(r'(\d+) insertion', line)
+                    m_del = re.search(r'(\d+) deletion', line)
+                    current['ins'] = int(m_ins.group(1)) if m_ins else 0
+                    current['del'] = int(m_del.group(1)) if m_del else 0
+                    current = None
+        return jsonify({'git_log': git_log, 'has_more': len(git_log) == limit})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @bp.route('/api/dev-stats')
 def dev_stats():
     try:

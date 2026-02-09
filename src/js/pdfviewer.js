@@ -315,6 +315,9 @@ function initPdfViewer(container, url, arxivId) {
     // Render sidebar panel for existing highlights
     renderHighlightsPanel();
 
+    // Open thumbnail strip by default
+    if (!_pdfThumbStripVisible) togglePdfThumbs();
+
     // Fetch PDF outline for left panel
     pdf.getOutline().then(outline => {
       _pdfOutline = outline;

@@ -22,6 +22,7 @@ from persistence import (
     cached_fetch, get_cached_references, set_cached_references,
     get_cached_author, set_cached_author,
     store_embedding, embed_text_ollama, search_embeddings,
+    pairwise_similarities,
     smart_highlights_get, smart_highlights_set,
 )
 
@@ -1057,3 +1058,14 @@ def find_similar():
     limit = min(body.get('limit', 20), 50)
     results = search_embeddings(query_vec, limit=limit, exclude_link=link)
     return jsonify({'results': results})
+
+
+@bp.route('/api/knowledge-graph/similarities', methods=['POST'])
+def knowledge_graph_similarities():
+    body = request.get_json(force=True, silent=True) or {}
+    links = body.get('links', [])
+    if not links or not isinstance(links, list):
+        return jsonify({'edges': []})
+    threshold = float(body.get('threshold', 0.65))
+    edges = pairwise_similarities(links, threshold=threshold)
+    return jsonify({'edges': edges})

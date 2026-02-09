@@ -1634,6 +1634,10 @@ function browseSelectTab(id) {
     }
     // Update sidebar via universal panel
     if (tab.arxivId || tab.contentType === 'pdf') {
+      if (!_panelVisible) {
+        _panelVisible = true;
+        localStorage.setItem('universalPanelVisible', 'true');
+      }
       _invalidatePanelRender('browse');
       showPanelForView('browse');
     } else {

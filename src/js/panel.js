@@ -575,6 +575,24 @@ function _buildSourcesPill(results) {
 function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
+
+  // ── Fast path: during streaming, only update the last AI message text ──
+  const streamMsg = _popupChatMessages[_popupChatMessages.length - 1];
+  const lastEl = container.lastElementChild;
+  if (!final && streamMsg && streamMsg.role === 'assistant' && !streamMsg._thinking
+      && !streamMsg._searchResults && !streamMsg._paperResults && !streamMsg._userResults && !streamMsg._noteResults
+      && lastEl && lastEl.classList.contains('doc-msg-ai') && lastEl.dataset.streaming === '1') {
+    // Incremental: just update the text node in the existing element
+    const textNode = lastEl.querySelector('.doc-stream-text');
+    if (textNode) {
+      textNode.textContent = streamMsg.content;
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+  }
+
+  // ── Full rebuild: on final render, new messages, or structure change ──
+  popup._cachedW = 0; popup._cachedH = 0; // invalidate size cache after content change
   container.innerHTML = _popupChatMessages.map((m, i) => {
     if (m.role === 'user') {
       const display = m._display || m.content;
@@ -644,7 +662,11 @@ function _renderPopupChat(popup, final) {
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
     const isLast = i === _popupChatMessages.length - 1;
-    let content = (final || !isLast) && typeof marked !== 'undefined'
+    // During streaming (not final, last message): use plain text in a span for fast incremental updates
+    if (!final && isLast) {
+      return `<div class="doc-msg-ai" data-streaming="1"><span class="doc-stream-text">${escapeHtml(m.content)}</span></div>`;
+    }
+    let content = typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     // Replace [1], [2], etc. with clickable inline source badges
@@ -1132,8 +1154,8 @@ function _showChatHighlightPopup(e, hl) {
   let left = hlLeft;
   if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
   if (left < 4) left = 4;
-  popup.style.top = top + 'px';
-  popup.style.left = left + 'px';
+  popup.style.transform = `translate3d(${left}px,${top}px,0)`;
+  popup._lastLeft = left;
   popup._anchorTop = hlTop;
   popup._anchorBottom = hlBottom;
   popup._anchorLeft = hlLeft;
@@ -1271,8 +1293,8 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   let left = anchorRect.left;
   if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
   if (left < 4) left = 4;
-  popup.style.top = top + 'px';
-  popup.style.left = left + 'px';
+  popup.style.transform = `translate3d(${left}px,${top}px,0)`;
+  popup._lastLeft = left;
   popup.style.visibility = '';
   popup._anchorTop = anchorRect.top;
   popup._anchorBottom = anchorRect.bottom;
@@ -1440,7 +1462,15 @@ function _positionAtCursor(cx, cy, w, h, preferLeft) {
   return { left, top };
 }
 
+let _repositionRAF = 0;
 function _repositionSelectionPopup() {
+  if (_repositionRAF) return; // already scheduled
+  _repositionRAF = requestAnimationFrame(() => {
+    _repositionRAF = 0;
+    _repositionSelectionPopupNow();
+  });
+}
+function _repositionSelectionPopupNow() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
@@ -1449,8 +1479,7 @@ function _repositionSelectionPopup() {
   if (popup._tabContextAnchor) {
     let left = popup._tabContextAnchor.left;
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    popup.style.top = popup._tabContextAnchor.top + 'px';
-    popup.style.left = left + 'px';
+    popup.style.transform = `translate3d(${left}px,${popup._tabContextAnchor.top}px,0)`;
     return;
   }
 
@@ -1458,10 +1487,9 @@ function _repositionSelectionPopup() {
   if (popup._isAetherPanel) {
     const anchorX = popup._aetherAnchorX ?? _lastMouseX;
     const anchorY = popup._aetherAnchorY ?? _lastMouseY;
-    const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
+    const preferLeft = _aetherPanelSide === 'left';
     const pos = _positionAtCursor(anchorX, anchorY, rect.width, rect.height, preferLeft);
-    popup.style.top = pos.top + 'px';
-    popup.style.left = pos.left + 'px';
+    popup.style.transform = `translate3d(${pos.left}px,${pos.top}px,0)`;
     return;
   }
 
@@ -1482,12 +1510,12 @@ function _repositionSelectionPopup() {
   }
   if (top < bounds.top) top = bounds.top;
 
-  let left = popup._anchorLeft || parseFloat(popup.style.left);
+  let left = popup._anchorLeft || popup._lastLeft || 0;
   if (left + rect.width > bounds.right - 8) left = bounds.right - rect.width - 8;
   if (left < bounds.left) left = bounds.left;
 
-  popup.style.top = top + 'px';
-  popup.style.left = left + 'px';
+  popup._lastLeft = left;
+  popup.style.transform = `translate3d(${left}px,${top}px,0)`;
 }
 
 // Text selection → floating popup; drag-to-screenshot when aether panel is open
@@ -1688,9 +1716,22 @@ document.addEventListener('mousedown', function(e) {
 }, true);
 
 // Aether panel: tracks cursor + screenshot drag
+// RAF-throttled mousemove: batch all position updates into a single frame
+let _mmRAF = 0;
+let _mmEvent = null;
+let _aetherPanelSide = localStorage.getItem('aetherPanelSide') || 'left';
+// Keep cached preference in sync
+window.addEventListener('storage', () => { _aetherPanelSide = localStorage.getItem('aetherPanelSide') || 'left'; });
 document.addEventListener('mousemove', function(e) {
   _lastMouseX = e.clientX;
   _lastMouseY = e.clientY;
+  _mmEvent = e;
+  if (!_mmRAF) _mmRAF = requestAnimationFrame(_processMouseMove);
+});
+function _processMouseMove() {
+  _mmRAF = 0;
+  const e = _mmEvent;
+  if (!e) return;
 
   // Screenshot drag in progress
   if (_screenshotDragStart && _screenshotSelection && _screenshotDim) {
@@ -1713,16 +1754,17 @@ document.addEventListener('mousemove', function(e) {
     const popup = _aetherDragPopup || document.getElementById('doc-chat-ask-float');
     if (!popup) { _aetherDragging = false; _aetherDragPopup = null; return; }
     const bounds = _popupSafeBounds();
+    const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
+    const ph = popup._cachedH || (popup._cachedH = popup.offsetHeight);
     let left = e.clientX - _aetherDragOffset.x;
     let top = e.clientY - _aetherDragOffset.y;
     if (left < bounds.left) left = bounds.left;
     if (top < bounds.top) top = bounds.top;
-    if (left + popup.offsetWidth > bounds.right) left = bounds.right - popup.offsetWidth;
-    if (top + popup.offsetHeight > bounds.bottom) top = bounds.bottom - popup.offsetHeight;
-    popup.style.left = left + 'px';
-    popup.style.top = top + 'px';
+    if (left + pw > bounds.right) left = bounds.right - pw;
+    if (top + ph > bounds.bottom) top = bounds.bottom - ph;
+    popup.style.transform = `translate3d(${left}px,${top}px,0)`;
     popup._aetherAnchorX = left;
-    popup._aetherAnchorY = top + popup.offsetHeight;
+    popup._aetherAnchorY = top + ph;
     return;
   }
 
@@ -1738,9 +1780,9 @@ document.addEventListener('mousemove', function(e) {
     const cy = rect.bottom + 6;
     popup._aetherAnchorX = cx;
     popup._aetherAnchorY = cy;
-    const pw = popup.offsetWidth;
-    popup.style.left = Math.max(4, cx - pw / 2) + 'px';
-    popup.style.top = cy + 'px';
+    const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
+    const sl = Math.max(4, cx - pw / 2);
+    popup.style.transform = `translate3d(${sl}px,${cy}px,0)`;
     // Inject/remove profile items when hovering the profile icon
     const isProfile = hovered.id === 'sb-settings';
     const hasProfileItems = !!popup.querySelector('.aether-profile-items');
@@ -1760,11 +1802,12 @@ document.addEventListener('mousemove', function(e) {
 
   popup._aetherAnchorX = e.clientX;
   popup._aetherAnchorY = e.clientY;
-  const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
-  const pos = _positionAtCursor(e.clientX, e.clientY, popup.offsetWidth, popup.offsetHeight, preferLeft);
-  popup.style.left = pos.left + 'px';
-  popup.style.top = pos.top + 'px';
-});
+  const preferLeft = _aetherPanelSide === 'left';
+  const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
+  const ph = popup._cachedH || (popup._cachedH = popup.offsetHeight);
+  const pos = _positionAtCursor(e.clientX, e.clientY, pw, ph, preferLeft);
+  popup.style.transform = `translate3d(${pos.left}px,${pos.top}px,0)`;
+}
 
 // End drag-to-move
 document.addEventListener('mouseup', function(e) {
@@ -4623,8 +4666,8 @@ function _panelPositionAndFocus(popup, config) {
     let left = tabRect.left;
     const rect = popup.getBoundingClientRect();
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    popup.style.left = left + 'px';
-    popup.style.top = tabRect.bottom + 'px';
+    popup.style.transform = `translate3d(${left}px,${tabRect.bottom}px,0)`;
+    popup._lastLeft = left;
     popup.style.visibility = '';
     popup._aetherAnchorX = left;
     popup._aetherAnchorY = tabRect.bottom + rect.height;
@@ -4645,8 +4688,8 @@ function _panelPositionAndFocus(popup, config) {
     let left = selRect.left;
     if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
     if (left < 4) left = 4;
-    popup.style.top = top + 'px';
-    popup.style.left = left + 'px';
+    popup.style.transform = `translate3d(${left}px,${top}px,0)`;
+    popup._lastLeft = left;
     popup.style.visibility = '';
   } else {
     // Cursor anchor: position so the input caret is at the click point
@@ -4675,8 +4718,8 @@ function _panelPositionAndFocus(popup, config) {
     if (left < bounds.left) left = bounds.left;
     if (top + rect.height > bounds.bottom) top = bounds.bottom - rect.height;
     if (top < bounds.top) top = bounds.top;
-    popup.style.left = left + 'px';
-    popup.style.top = top + 'px';
+    popup.style.transform = `translate3d(${left}px,${top}px,0)`;
+    popup._lastLeft = left;
     popup.style.visibility = '';
   }
 
@@ -4709,7 +4752,8 @@ function _panelPositionAndFocus(popup, config) {
           const r2 = popup.getBoundingClientRect();
           let t2 = ay - r2.height;
           if (t2 < 0) t2 = 0;
-          popup.style.top = t2 + 'px';
+          const curLeft = popup._lastLeft || 0;
+          popup.style.transform = `translate3d(${curLeft}px,${t2}px,0)`;
         });
       }
     }

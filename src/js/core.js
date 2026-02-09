@@ -85,12 +85,16 @@ function _pillStackReflow() {
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the tab row, URL bar, and macOS traffic lights.
+let _boundsCache = null;
+let _boundsCacheTs = 0;
 function _popupSafeBounds() {
+  // Cache for 32ms (~2 frames) to avoid repeated layout queries during mousemove/drag
+  const now = performance.now();
+  if (_boundsCache && now - _boundsCacheTs < 32) return _boundsCache;
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const pillBar = document.getElementById('sidebar-nav');
   let left = 0, top = 0;
-  // Top pill bar
   if (pillBar && pillBar.offsetParent !== null) {
     top = Math.max(top, pillBar.getBoundingClientRect().bottom + 4);
   }
@@ -100,12 +104,13 @@ function _popupSafeBounds() {
   if (bar && bar.offsetParent !== null) {
     top = Math.max(top, bar.getBoundingClientRect().bottom);
   }
-  // macOS traffic lights
   if (window.electronAPI && window.electronAPI.isElectron) {
     top = Math.max(top, 42);
     if (left < 80 && top <= 42) left = Math.max(left, 80);
   }
-  return { top, left, right: window.innerWidth, bottom: window.innerHeight };
+  _boundsCache = { top, left, right: window.innerWidth, bottom: window.innerHeight };
+  _boundsCacheTs = now;
+  return _boundsCache;
 }
 
 // ── Cmd/Ctrl+click → open in new browse tab ──
@@ -2877,7 +2882,7 @@ const SYNC_KEYS = [
   'urlBarSections',
   'blockedWords', 'qualityBypass', 'searchHistory', 'userQuotes', 'repostedLinks',
   'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
-  'pdfHighlights', 'pdfDrawings',
+  'pdfHighlights', 'pdfDrawings', 'smartHighlights',
   'chatModel', 'chatTools', 'insightsAllowHeuristics',
   'iconSize'
 ];

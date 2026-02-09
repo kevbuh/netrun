@@ -3360,6 +3360,8 @@
     body.aether-hide-cursor, body.aether-hide-cursor * { cursor: none !important; }
     .doc-selection-popup {
       position: fixed;
+      left: 0;
+      top: 0;
       display: flex;
       flex-direction: column;
       gap: 0;
@@ -3373,6 +3375,7 @@
       z-index: 10002;
       box-shadow: 0 8px 24px var(--aether-shadow);
       max-width: 340px;
+      will-change: transform;
     }
     .doc-selection-popup-btns {
       display: flex;
@@ -4826,6 +4829,13 @@
     }
     .pdf-search-highlight {
       pointer-events: none;
+    }
+    .pdf-smart-highlight {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 1px;
+      transition: opacity 0.2s;
+      z-index: 2;
     }
     /* In highlight mode, highlight rects become interactive */
     .pdf-hl-mode .pdf-highlight-rect {
@@ -7387,6 +7397,9 @@
     .dev-git-log-msg { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
     .dev-git-log-diff { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
     .dev-git-log-meta { color: var(--text-dimmer); font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
+    .dev-git-load-more-btn { display:block; width:100%; padding:6px 0; margin-top:4px; background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); font-size:0.7rem; border-radius:6px; cursor:pointer; transition:background 0.15s; }
+    .dev-git-load-more-btn:hover { background:var(--bg-secondary); }
+    .dev-git-load-more-btn:disabled { opacity:0.5; cursor:default; }
 
     /* Git Dashboard (lazygit-style, embedded in Vault) */
     .vault-git-dashboard { display: flex; flex-direction: column; overflow: hidden; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.78rem; padding: 12px 3px 3px 3px; gap: 0; flex: 1; }

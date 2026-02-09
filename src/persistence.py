@@ -693,6 +693,30 @@ def search_embeddings(query_vec, content_type=None, limit=20, exclude_link=None)
     return results[:limit]
 
 
+def pairwise_similarities(links, threshold=0.65):
+    """Compute pairwise cosine similarities for a set of links that have embeddings.
+    Returns list of { source, target, score } for pairs above threshold. Cap at 300 links."""
+    links = links[:300]
+    conn = _get_db()
+    placeholders = ','.join('?' for _ in links)
+    rows = conn.execute(
+        f"SELECT link, embedding, dim FROM embeddings WHERE link IN ({placeholders})",
+        links
+    ).fetchall()
+    conn.close()
+    vecs = {}
+    for row in rows:
+        vecs[row['link']] = _unpack_embedding(row['embedding'], row['dim'])
+    keys = list(vecs.keys())
+    edges = []
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            score = _cosine_similarity(vecs[keys[i]], vecs[keys[j]])
+            if score >= threshold:
+                edges.append({'source': keys[i], 'target': keys[j], 'score': round(score, 4)})
+    return edges
+
+
 def get_usage_history(days=30):
     conn = _get_db()
     since = time.time() - days * 86400
