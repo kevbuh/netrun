@@ -98,6 +98,7 @@ function islandRemove(id) {
 }
 
 var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
+var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 
 function _islandRenderPill(a) {
   if (a.done) {
@@ -109,6 +110,8 @@ function _islandRenderPill(a) {
     return '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(a.label || pct + '%') + '</span>';
   } else if (a.type === 'tts') {
     return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
+  } else if (a.type === 'audio') {
+    return _islandAudioBars + '<span>' + _escHtml(a.label || '') + '</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
 }
@@ -123,6 +126,8 @@ function _islandRenderPillExpanded(a) {
     return '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(a.detail || a.label || 'Downloading') + '</span>';
   } else if (a.type === 'tts') {
     return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+  } else if (a.type === 'audio') {
+    return _islandAudioBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
 }
@@ -138,7 +143,7 @@ function _islandRender() {
   }
 
   // Sort by priority desc, then by timestamp
-  var priority = { download: 4, cc: 3, tts: 3, qf: 2, feed: 1 };
+  var priority = { download: 4, cc: 3, tts: 3, audio: 2, qf: 2, feed: 1 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;

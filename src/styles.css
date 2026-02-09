@@ -887,12 +887,12 @@
       background: rgba(0,0,0,0.08);
     }
     .pill-island.island-active {
-      max-width: 240px;
+      max-width: 300px;
       opacity: 1;
       padding: 0 10px;
     }
     .pill-island.island-active:hover {
-      max-width: 360px;
+      max-width: 400px;
     }
     .pill-island-content {
       display: flex;
@@ -980,6 +980,18 @@
       border-radius: 1px;
       background: var(--accent);
       transition: height 0.08s ease-out;
+    }
+    .island-waveform-anim .island-waveform-bar {
+      animation: island-audio-bar 1.2s ease-in-out infinite;
+    }
+    .island-waveform-anim .island-waveform-bar:nth-child(1) { animation-delay: 0s; }
+    .island-waveform-anim .island-waveform-bar:nth-child(2) { animation-delay: 0.15s; }
+    .island-waveform-anim .island-waveform-bar:nth-child(3) { animation-delay: 0.3s; }
+    .island-waveform-anim .island-waveform-bar:nth-child(4) { animation-delay: 0.45s; }
+    .island-waveform-anim .island-waveform-bar:nth-child(5) { animation-delay: 0.6s; }
+    @keyframes island-audio-bar {
+      0%, 100% { height: 2px; }
+      50% { height: 12px; }
     }
 
     /* ── Research view tabs ── */
@@ -1667,6 +1679,26 @@
     .vtabs-mini-tab.active {
       background: var(--aether-hover);
       box-shadow: inset 2px 0 0 var(--accent);
+    }
+    /* Audio indicator on collapsed mini-tab */
+    .vtabs-mini-audio {
+      position: absolute;
+      bottom: 1px;
+      right: 1px;
+      width: 12px;
+      height: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      z-index: 1;
+      box-shadow: 0 0 0 1.5px var(--aether-bg);
+    }
+    .vtabs-mini-audio.muted {
+      background: var(--aether-text-dimmest);
     }
     .vtabs-mini-tab img {
       width: 16px;
