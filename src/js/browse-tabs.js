@@ -448,7 +448,7 @@ function openBrowse(url) {
     const tab = win?.tabs.find(t => t.id === win.activeTab);
     if (tab && tab.url && !tab.blank) {
       _initSidebarForUrl(tab.url);
-      _offerAnnotation(tab);
+      if (!_restoreAnnotationPill(tab)) _offerAnnotation(tab);
     }
   }
   _browseInstallPinchOverlay();
@@ -1092,7 +1092,6 @@ function _browseHandleNavigation(tab, frame) {
     }
     // Clear any existing annotation state for this tab on navigation
     _annotationsEnabled.delete(tab.id);
-    _annotationsCache.delete(tab.id);
     _updateAnnotateButtonState();
     // Offer to annotate the new page
     if (_browseActiveTab === tab.id) _offerAnnotation(tab);
@@ -1749,7 +1748,7 @@ function browseSelectTab(id) {
       }
       _browseUpdateBarForTab(tab);
     }
-    if (tab && !tab.blank && tab.url && !_annotationsEnabled.get(tab.id)) _offerAnnotation(tab);
+    if (tab && !tab.blank && tab.url && !_restoreAnnotationPill(tab) && !_annotationsEnabled.get(tab.id)) _offerAnnotation(tab);
     return;
   }
 
@@ -1842,14 +1841,15 @@ function browseSelectTab(id) {
   }
   if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
   _updateAnnotateButtonState();
-  // Offer annotation for non-blank tabs
-  if (tab && !tab.blank && tab.url && !_annotationsEnabled.get(tab.id)) {
-    _offerAnnotation(tab);
+  // Restore annotation pill or offer for non-blank tabs
+  if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
+  if (tab && !tab.blank && tab.url) {
+    if (!_restoreAnnotationPill(tab)) {
+      if (!_annotationsEnabled.get(tab.id)) _offerAnnotation(tab);
+    }
   } else {
-    // Clear any pending offer if switching to blank tab
-    if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
     const act = typeof _islandActivities !== 'undefined' ? _islandActivities['annotate'] : null;
-    if (act && act.offer) islandRemove('annotate');
+    if (act) islandRemove('annotate');
   }
 }
 
@@ -2015,7 +2015,6 @@ function browseCloseTab(id) {
   if (_ccTabId === id) stopCaptions();
   _pwAutofillOffered.delete(id);
   _annotationsEnabled.delete(id);
-  _annotationsCache.delete(id);
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);
@@ -4266,7 +4265,6 @@ function browseNavigate(input) {
   // Clear annotations on navigation
   if (_annotationsEnabled.get(tab.id)) {
     _annotationsEnabled.set(tab.id, false);
-    _annotationsCache.delete(tab.id);
     _updateAnnotateButtonState();
   }
   tab.url = url;
@@ -5768,7 +5766,25 @@ function _closePillMenu() {
 // ── Live Annotations ──
 
 const _annotationsEnabled = new Map(); // tabId → bool
-const _annotationsCache = new Map();   // tabId → { annotations, ts }
+const _annotationsCache = new Map();   // url → { annotations, ts }
+
+// Restore annotation cache from localStorage on load
+try {
+  const _savedAnnCache = JSON.parse(localStorage.getItem('annotationsCache') || '{}');
+  const _annNow = Date.now();
+  for (const [url, entry] of Object.entries(_savedAnnCache)) {
+    if (_annNow - entry.ts < 300000) _annotationsCache.set(url, entry);
+  }
+} catch {}
+
+function _persistAnnotationsCache() {
+  const obj = {};
+  const now = Date.now();
+  for (const [url, entry] of _annotationsCache) {
+    if (now - entry.ts < 300000) obj[url] = entry;
+  }
+  localStorage.setItem('annotationsCache', JSON.stringify(obj));
+}
 let _annotationOfferTimer = null;
 let _annotationAbort = null; // AbortController for in-flight annotation
 
@@ -5781,6 +5797,8 @@ function _offerAnnotation(tab) {
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
   // Don't offer if annotations already enabled for this tab
   if (_annotationsEnabled.get(tab.id)) return;
+  // If we have a cached result for this URL, restore it directly
+  if (_restoreAnnotationPill(tab)) return;
   // Remove any existing annotate pill
   if (typeof islandRemove === 'function') islandRemove('annotate');
   // Show offer after a short delay (let page settle)
@@ -5810,6 +5828,28 @@ function _offerAnnotation(tab) {
   }, 1500);
 }
 
+function _restoreAnnotationPill(tab) {
+  if (!tab || !tab.url) return false;
+  const cached = _annotationsCache.get(tab.url);
+  if (!cached || Date.now() - cached.ts > 300000) return false;
+  const annotations = cached.annotations || [];
+  const typeCounts = {};
+  for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
+  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'KEY_FINDING';
+  if (typeof islandUpdate === 'function') {
+    islandUpdate('annotate', {
+      type: 'annotate',
+      label: `${annotations.length} annotations`,
+      detail: `${annotations.length} annotations on this page`,
+      items: annotations,
+      modeType,
+      loading: false,
+      offer: false
+    });
+  }
+  return true;
+}
+
 function toggleAnnotations() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank) return;
@@ -5830,9 +5870,10 @@ async function annotateCurrentPage(tab) {
   const url = tab.url || '';
 
   // Check cache (5 min)
-  const cached = _annotationsCache.get(tab.id);
+  const cached = _annotationsCache.get(url);
   if (cached && Date.now() - cached.ts < 300000) {
     injectAnnotations(tab, cached.annotations);
+    _restoreAnnotationPill(tab);
     return;
   }
 
@@ -5878,7 +5919,8 @@ async function annotateCurrentPage(tab) {
     const annotations = data.annotations || [];
 
     // Cache
-    _annotationsCache.set(tab.id, { annotations, ts: Date.now() });
+    _annotationsCache.set(url, { annotations, ts: Date.now() });
+    _persistAnnotationsCache();
 
     // Only inject if still enabled
     if (_annotationsEnabled.get(tab.id)) {
