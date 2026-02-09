@@ -170,10 +170,13 @@ def doc_chat():
         # Build page context string for tools
         page_ctx = ''
         if tools_enabled:
+            from datetime import datetime
+            now = datetime.now()
+            page_ctx = f'\n\nToday is {now.strftime("%A, %Y-%m-%d")}. The current time is {now.strftime("%I:%M %p")}.'
             page_url = body.get('pageUrl', '')
             page_title = body.get('pageTitle', '')
             if page_url:
-                page_ctx = f'\n\nThe user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
+                page_ctx += f' The user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
         if truncated_ctx:
             system_msg = (
                 "You are a helpful research assistant. The user is reading a document. "

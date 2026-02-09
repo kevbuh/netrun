@@ -81,11 +81,8 @@ function _browseSaveTabsNow() {
       if (t._helpPage) saved._helpPage = true;
       if (t.paper) {
         const p = Object.assign({}, t.paper);
-        if (p.pdfUrl && p.pdfUrl.startsWith('blob:')) delete p.pdfUrl;
-        if (p.link && p.link.startsWith('blob:')) delete p.link;
         saved.paper = p; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null;
         if (t.localPath) saved.localPath = t.localPath;
-        if (saved.url && saved.url.startsWith('blob:')) saved.url = t.localPath ? ('file://' + t.localPath) : '';
       }
       if (t.pinned) saved.pinned = true;
       if (t.groupId != null) saved.groupId = t.groupId;
@@ -162,7 +159,7 @@ function _browseRestoreTabs() {
                           paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null };
             if (saved.localPath) { tab.localPath = saved.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.localPath); }
             else if (saved.paper && saved.paper.localPath) { tab.localPath = saved.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.paper.localPath); }
-            else if (saved.paper && saved.paper.pdfUrl && !saved.paper.pdfUrl.startsWith('blob:')) { tab.pdfUrl = saved.paper.pdfUrl; }
+            else if (saved.paper && saved.paper.pdfUrl) { tab.pdfUrl = saved.paper.pdfUrl; }
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -683,8 +680,8 @@ function openBrowseWithPaper(url, paper) {
 
 
 function _browseProxyUrl(url) {
-  // Never proxy blob: or data: URLs
-  if (url && (url.startsWith('blob:') || url.startsWith('data:'))) return url;
+  // Never proxy data: URLs
+  if (url && url.startsWith('data:')) return url;
   // Serve file:// URLs through the local server
   if (url && url.startsWith('file://')) return '/api/local-file?path=' + encodeURIComponent(url.replace(/^file:\/\//, ''));
   // Always proxy in browser mode (not Electron) to enable link context menu and ad blocking
@@ -3787,7 +3784,7 @@ function _browseRestoreTabsLite() {
           tab.paper = st.paper; tab.contentType = st.contentType;
           if (st.localPath) { tab.localPath = st.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(st.localPath); }
           else if (st.paper.localPath) { tab.localPath = st.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(st.paper.localPath); }
-          else if (st.paper.pdfUrl && !st.paper.pdfUrl.startsWith('blob:')) { tab.pdfUrl = st.paper.pdfUrl; }
+          else if (st.paper.pdfUrl) { tab.pdfUrl = st.paper.pdfUrl; }
         }
         if (st._historyPage) { tab.url = 'aether://history'; tab.title = 'History'; tab._historyPage = true; }
         if (st._helpPage) { tab.url = 'aether://help'; tab.title = 'Help'; tab._helpPage = true; }
@@ -5589,10 +5586,7 @@ function browsePrintPage() {
     el.printToPDF({ printBackground: true }).then(buf => {
       const blob = new Blob([buf], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
-      const paper = { title, link: blobUrl, source: 'upload', pdfUrl: blobUrl };
-      browseNewPaperTab(blobUrl, paper);
-      // After the PDF tab loads, show print preview
-      setTimeout(() => { if (typeof showPrintPreview === 'function' && _pdfDoc) showPrintPreview(); }, 1500);
+      browseNewTab(blobUrl);
     }).catch(() => { el.print(); });
   } else {
     try { el.contentWindow.print(); } catch (e) {
