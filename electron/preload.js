@@ -35,5 +35,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pwList: () => ipcRenderer.invoke('pw-list'),
   // File handling
   openPath: (path) => shell.openPath(path),
-  showItemInFolder: (path) => shell.showItemInFolder(path)
+  showItemInFolder: (path) => shell.showItemInFolder(path),
+  saveAndOpenTemp: (name, buffer) => ipcRenderer.invoke('save-and-open-temp', name, buffer)
 });

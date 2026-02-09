@@ -542,6 +542,17 @@ app.whenReady().then(() => {
     filePath: path.join(app.getPath('userData'), 'passwords.enc'),
     crypto: require('crypto')
   });
+  ipcMain.handle('save-and-open-temp', async (_, name, buffer) => {
+    const os = require('os');
+    const fs = require('fs');
+    const { shell } = require('electron');
+    const dir = path.join(os.tmpdir(), 'aether-uploads');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, name);
+    fs.writeFileSync(filePath, Buffer.from(buffer));
+    return shell.openPath(filePath);
+  });
+
   ipcMain.handle('pw-get', (_, origin) => pwStore.get(origin));
   ipcMain.handle('pw-fill', (_, id) => pwStore.fill(id));
   ipcMain.handle('pw-save', (_, data) => pwStore.save(data));

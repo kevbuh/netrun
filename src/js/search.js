@@ -35,6 +35,30 @@ function submitSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query) return;
 
+  // If files are uploaded on NTP, open Aether panel with file context
+  if (typeof _ntpUploadedFiles !== 'undefined' && _ntpUploadedFiles.length > 0) {
+    const fileEntries = _ntpUploadedFiles.map(f => ({ name: f.name, content: f.content || '' }));
+    _ntpUploadedFiles = [];
+    _renderNtpFileChips();
+    if (typeof _showPanel === 'function') {
+      _showPanel({ anchor: { x: window.innerWidth / 2 - 200, y: 120 }, initialValue: query, finalized: true });
+      // Set file contexts AFTER _showPanel (which clears them during reset)
+      if (typeof _pendingFileContexts !== 'undefined') {
+        for (const f of fileEntries) _pendingFileContexts.push(f);
+      }
+      // Auto-send the query
+      setTimeout(() => {
+        const popup = document.getElementById('doc-chat-ask-float');
+        if (popup) {
+          const input = popup.querySelector('.doc-ask-inline-input');
+          if (input) { input.value = query; }
+          if (typeof _sendPopupChatMessage === 'function') _sendPopupChatMessage(popup);
+        }
+      }, 50);
+    }
+    return;
+  }
+
   // Default: navigate via browseNavigate (Google search or URL)
   // Paper search only when Papers tab is explicitly active
   if (_researchActiveTab !== 'search') {

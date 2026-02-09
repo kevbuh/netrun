@@ -31,6 +31,7 @@ let _lastMouseY = 0;
 let _pendingScreenshots = [];
 let _pendingNoteContexts = []; // {id, title, content} — vault notes attached to chat
 let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
+let _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
 let _aetherDragging = false;
 let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
@@ -350,6 +351,8 @@ function _sendPopupChatMessage(popup, capturedText) {
   _pendingNoteContexts = [];
   const tabContexts = _pendingTabContexts.slice();
   _pendingTabContexts = [];
+  const fileContexts = _pendingFileContexts.slice();
+  _pendingFileContexts = [];
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
 
@@ -423,6 +426,12 @@ function _sendPopupChatMessage(popup, capturedText) {
             `--- Tab: ${t.title} (${t.url}) ---\n${t.content}`
           ).join('\n\n');
           ctx = ctx ? ctx + '\n\n' + tabCtx : tabCtx;
+        }
+        if (fileContexts.length) {
+          const fileCtx = fileContexts.map(f =>
+            `--- File: ${f.name} ---\n${f.content}`
+          ).join('\n\n');
+          ctx = ctx ? ctx + '\n\n' + fileCtx : fileCtx;
         }
         body.context = ctx;
       }
@@ -542,6 +551,8 @@ function _updateContextBar(popup) {
   for (const n of _pendingNoteContexts) chars += (n.content || '').length;
   // Tab contexts
   for (const t of _pendingTabContexts) chars += (t.content || '').length;
+  // File contexts
+  for (const f of _pendingFileContexts) chars += (f.content || '').length;
   // All messages
   for (const m of _popupChatMessages) chars += (m.content || '').length;
   // Screenshots count as ~1k tokens each
@@ -852,6 +863,7 @@ function _sendPopupChatToSidebar() {
   _pendingScreenshots = [];
   _pendingNoteContexts = [];
   _pendingTabContexts = [];
+  _pendingFileContexts = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 }
 
@@ -1687,6 +1699,7 @@ document.addEventListener('keydown', function(e) {
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
+      _pendingFileContexts = [];
       popup.remove();
       _aetherShowCursor();
       _aetherRestoreFocus();
@@ -1703,6 +1716,7 @@ document.addEventListener('keydown', function(e) {
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
+      _pendingFileContexts = [];
       popup.remove();
       _aetherShowCursor();
     }
@@ -4345,6 +4359,7 @@ function _panelBuildChatInput(popup, config) {
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
+      _pendingFileContexts = [];
       _savePopupChatToHighlight(popup);
       popup.remove();
       _aetherShowCursor();
@@ -4359,6 +4374,7 @@ function _panelBuildChatInput(popup, config) {
       _pendingScreenshots = [];
       _pendingNoteContexts = [];
       _pendingTabContexts = [];
+      _pendingFileContexts = [];
       popup.remove();
       _aetherShowCursor();
     }
@@ -4655,6 +4671,7 @@ function _showPanel(config) {
     _pendingScreenshots = [];
     _pendingNoteContexts = [];
     _pendingTabContexts = [];
+    _pendingFileContexts = [];
     _aetherDragging = false;
     _aetherDragPopup = null;
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }

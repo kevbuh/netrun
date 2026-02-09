@@ -1667,7 +1667,17 @@
     }
     .vtabs-mini-tab.active {
       background: var(--aether-hover);
-      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .vtabs-mini-tab.active::before {
+      content: '';
+      position: absolute;
+      left: -2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 16px;
+      border-radius: 2px;
+      background: var(--accent);
     }
     /* Audio indicator on collapsed mini-tab */
     .vtabs-mini-audio {
@@ -1688,6 +1698,33 @@
     }
     .vtabs-mini-audio.muted {
       background: var(--aether-text-dimmest);
+    }
+    .vtabs-mini-music {
+      display: flex;
+      align-items: flex-end;
+      gap: 1px;
+      width: 16px;
+      height: 16px;
+      padding: 2px 1px;
+    }
+    .vtabs-mini-music-bar {
+      flex: 1;
+      background: var(--accent);
+      border-radius: 1px;
+      animation: vtabs-music-bounce 0.8s ease-in-out infinite alternate;
+    }
+    .vtabs-mini-music-bar:nth-child(1) { height: 40%; animation-delay: 0s; }
+    .vtabs-mini-music-bar:nth-child(2) { height: 70%; animation-delay: 0.15s; }
+    .vtabs-mini-music-bar:nth-child(3) { height: 50%; animation-delay: 0.3s; }
+    .vtabs-mini-music-bar:nth-child(4) { height: 80%; animation-delay: 0.1s; }
+    .vtabs-mini-tab.has-audio.muted .vtabs-mini-music-bar {
+      animation: none;
+      height: 30%;
+      background: var(--aether-text-dimmest);
+    }
+    @keyframes vtabs-music-bounce {
+      0% { transform: scaleY(0.3); }
+      100% { transform: scaleY(1); }
     }
     .vtabs-mini-tab img {
       width: 16px;
@@ -1744,6 +1781,10 @@
     .vtabs-mini-tip-url {
       font-size: 0.62rem;
       color: var(--aether-text-dimmer);
+    }
+    .vtabs-mini-tip-audio {
+      font-size: 0.62rem;
+      color: var(--accent);
     }
     .vtabs-mini-overflow {
       width: 28px;
@@ -2148,6 +2189,49 @@
     .ntp-action-submit:hover {
       background: var(--accent);
       transform: scale(1.08);
+    }
+
+    /* ── NTP File Chips ── */
+    .ntp-file-chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-width: 680px;
+      margin: 10px auto 0;
+    }
+    .ntp-file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border-input);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      max-width: 220px;
+    }
+    .ntp-file-chip:hover {
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--text-primary);
+      border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    .ntp-file-chip-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ntp-file-chip-remove {
+      font-size: 1rem;
+      line-height: 1;
+      opacity: 0.5;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .ntp-file-chip-remove:hover {
+      opacity: 1;
     }
 
     /* ── Download Indicator ── */
