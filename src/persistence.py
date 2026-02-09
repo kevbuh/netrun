@@ -310,18 +310,6 @@ def init_db():
             description TEXT,
             color TEXT
         );
-        CREATE TABLE IF NOT EXISTS todos (
-            id TEXT PRIMARY KEY,
-            google_id TEXT NOT NULL REFERENCES users(google_id),
-            title TEXT NOT NULL,
-            done INTEGER DEFAULT 0,
-            date TEXT,
-            description TEXT,
-            content TEXT,
-            color TEXT,
-            experiment_id TEXT,
-            paper_link TEXT
-        );
         CREATE TABLE IF NOT EXISTS comments (
             id TEXT PRIMARY KEY,
             paper_link TEXT NOT NULL,
@@ -786,7 +774,6 @@ def delete_user(google_id):
     # Delete per-user data
     conn.execute("DELETE FROM message_reactions WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM calendar_events WHERE google_id = ?", (google_id,))
-    conn.execute("DELETE FROM todos WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM comments WHERE google_id = ?", (google_id,))
     conn.execute("DELETE FROM experiment_owners WHERE google_id = ?", (google_id,))
     # Delete owned teams and their related data
@@ -1182,91 +1169,6 @@ def delete_calendar_event(google_id, eid):
 
 # ── Todos (per-user) ──
 
-def get_user_todos(google_id, paper_link=None):
-    conn = _get_db()
-    if paper_link:
-        rows = conn.execute(
-            "SELECT * FROM todos WHERE google_id = ? AND paper_link = ?",
-            (google_id, paper_link)
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM todos WHERE google_id = ?",
-            (google_id,)
-        ).fetchall()
-    conn.close()
-    return [_todo_row_to_dict(r) for r in rows]
-
-
-def _todo_row_to_dict(r):
-    return {
-        'id': r['id'], 'title': r['title'], 'done': bool(r['done']),
-        'date': r['date'] or '', 'description': r['description'] or '',
-        'content': r['content'] or '', 'color': r['color'] or '#b4451a',
-        'experimentId': r['experiment_id'], 'paperLink': r['paper_link']
-    }
-
-
-def create_todo(google_id, data):
-    import uuid
-    tid = str(uuid.uuid4())
-    conn = _get_db()
-    conn.execute(
-        "INSERT INTO todos (id, google_id, title, done, date, description, content, color, experiment_id, paper_link) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (tid, google_id, data['title'], 0, data.get('date', ''), data.get('description', ''),
-         data.get('content', ''), data.get('color', '#b4451a'),
-         data.get('experimentId'), data.get('paperLink'))
-    )
-    conn.commit()
-    conn.close()
-    return {
-        'id': tid, 'title': data['title'], 'done': False,
-        'date': data.get('date', ''), 'description': data.get('description', ''),
-        'content': data.get('content', ''), 'color': data.get('color', '#b4451a'),
-        'experimentId': data.get('experimentId'), 'paperLink': data.get('paperLink')
-    }
-
-
-def update_todo(google_id, tid, updates):
-    conn = _get_db()
-    row = conn.execute(
-        "SELECT id FROM todos WHERE id = ? AND google_id = ?",
-        (tid, google_id)
-    ).fetchone()
-    if not row:
-        conn.close()
-        return None
-    allowed = {'title': 'title', 'done': 'done', 'date': 'date', 'description': 'description',
-               'content': 'content', 'color': 'color', 'experimentId': 'experiment_id', 'paperLink': 'paper_link'}
-    sets = []
-    vals = []
-    for js_key, db_col in allowed.items():
-        if js_key in updates:
-            sets.append(f"{db_col} = ?")
-            val = updates[js_key]
-            if db_col == 'done':
-                val = 1 if val else 0
-            vals.append(val)
-    if sets:
-        vals.append(tid)
-        conn.execute(f"UPDATE todos SET {', '.join(sets)} WHERE id = ?", vals)
-        conn.commit()
-    result = conn.execute("SELECT * FROM todos WHERE id = ?", (tid,)).fetchone()
-    conn.close()
-    return _todo_row_to_dict(result) if result else None
-
-
-def delete_todo(google_id, tid):
-    conn = _get_db()
-    cur = conn.execute(
-        "DELETE FROM todos WHERE id = ? AND google_id = ?",
-        (tid, google_id)
-    )
-    conn.commit()
-    deleted = cur.rowcount > 0
-    conn.close()
-    return deleted
 
 
 # ── Comments (shared, but auth for write/delete) ──

@@ -322,15 +322,6 @@ function enableNotetakingMode() {
   // Hide the notetaking mode button since we're now in notetaking mode
   const notetakingBtn = document.getElementById('notetaking-mode-btn');
   if (notetakingBtn) notetakingBtn.style.display = 'none';
-  // Focus on note textarea if empty
-  setTimeout(() => {
-    const textarea = document.getElementById('paper-note-textarea');
-    const rendered = document.getElementById('paper-note-rendered');
-    if (textarea && rendered && rendered.classList.contains('hidden')) {
-      textarea.classList.remove('hidden');
-      textarea.focus();
-    }
-  }, 100);
 }
 
 function toggleBrowseSidebar() {

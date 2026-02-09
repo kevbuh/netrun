@@ -3,14 +3,6 @@
 // ── Shared sidebar rendering ──
 function _renderSidebarHTML(paper) {
   const username = escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous');
-  const notesPanel = `
-    <div id="paper-notes-section">
-      <div id="paper-note-editor" class="hidden">
-        <div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div>
-        <textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note…"></textarea>
-      </div>
-    </div>
-  `;
   const commentsPanel = `
     <div class="flex flex-col flex-1 min-h-0">
       <div id="comments-list" class="flex-1 overflow-y-auto"></div>
@@ -85,7 +77,6 @@ function _renderSidebarHTML(paper) {
       <div id="pdf-highlights-section">
         <div id="pdf-highlights-panel"></div>
       </div>
-      ${notesPanel}
     </div>
     <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
       ${commentsPanel}
@@ -101,17 +92,15 @@ function _initSidebar() {
 }
 
 function _initSidebarForUrl(url) {
-  _paperNoteLink = url;
+  _paperLink = url;
   _docChatPaperUrl = url;
   _docText = '';
   _docTextLoading = false;
   if (_docChatAbort) { _docChatAbort.abort(); _docChatAbort = null; }
-  _paperNoteSelected = null;
   _paperInsightsLoaded = false;
   _insightsDataCache = null;
   _insightSubLoaded = { contents: false, authors: false, ai: false, references: false, links: false, smart: false };
   _sidebarScrollPositions = {};
-  fetchPaperNotes();
   fetchPaperComments();
   // Extract doc text in background so popup chat has context
   extractDocText(url);
@@ -696,26 +685,10 @@ async function toggleShareToTeamDropdown() {
     return;
   }
 
-  // Check if paper has highlights or notes
-  const paper = _currentPaperViewPaper;
-  const arxivId = paper ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
-  const note = _paperNotes.find(n => n.id === _paperNoteSelected);
-  const noteContent = note && note.content ? note.content.trim() : '';
-  const hasAnnotations = noteContent.length > 0;
-
   dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
     _cachedTeams.map(t => {
       const teamRow = `<div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div><span>${escapeHtml(t.name)}</span></div>`;
-      if (!hasAnnotations) {
-        return `<div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary)" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this)">${teamRow}</div>`;
-      }
-      return `<div class="share-team-row" style="padding:6px 12px;color:var(--text-primary)">
-        ${teamRow}
-        <div style="display:flex;gap:6px;margin-top:6px;margin-left:32px">
-          <button onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this.closest('.share-team-row'))" style="font-size:0.68rem;padding:3px 8px;border-radius:4px;border:1px solid var(--border-input);background:transparent;color:var(--text-muted);cursor:pointer">Link only</button>
-          <button onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', true, this.closest('.share-team-row'))" style="font-size:0.68rem;padding:3px 8px;border-radius:4px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent);color:var(--accent);cursor:pointer">With notes</button>
-        </div>
-      </div>`;
+      return `<div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary)" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this)">${teamRow}</div>`;
     }).join('');
 }
 
@@ -724,18 +697,7 @@ async function sharePaperToTeam(teamId, teamName, withNotes, el) {
   if (!paper) return;
   if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
 
-  let content = paper.link;
-  if (withNotes) {
-    const arxivId = paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '';
-    const note = _paperNotes.find(n => n.id === _paperNoteSelected);
-    const noteContent = note && note.content ? note.content.trim() : '';
-    const parts = [paper.link];
-    if (noteContent) {
-      parts.push('\n--- Notes ---');
-      parts.push(noteContent.length > 500 ? noteContent.slice(0, 500) + '...' : noteContent);
-    }
-    content = parts.join('\n');
-  }
+  const content = paper.link;
 
   try {
     const resp = await fetch(`/api/teams/${teamId}/messages`, {
@@ -930,106 +892,7 @@ function closePdfFindBar() {
   if (input) { input.value = ''; input.blur(); }
 }
 
-// ── Paper Notes ──
-let _paperNoteSelected = null;
-let _paperNoteLink = '';
-let _paperNotes = [];
-let _paperNoteSaveTimer = null;
-
-async function fetchPaperNotes() {
-  try {
-    const resp = await fetch('/api/todos', { headers: _authHeaders() });
-    const all = await resp.json();
-    let note = (all || []).find(n => n.paperLink === _paperNoteLink);
-    if (!note) {
-      // Auto-create a note for this paper
-      note = await _createPaperNote();
-    }
-    if (note) {
-      _paperNotes = [note];
-      _paperNoteSelected = note.id;
-      renderPaperNoteEditor();
-    }
-  } catch (e) {
-    _paperNotes = [];
-  }
-}
-
-async function _createPaperNote() {
-  const resp = await fetch('/api/todos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-    body: JSON.stringify({ title: 'Untitled', content: '', paperLink: _paperNoteLink })
-  });
-  return await resp.json();
-}
-
-let _paperNoteEditing = false;
-
-function renderPaperNoteEditor() {
-  const editor = document.getElementById('paper-note-editor');
-  const rendered = document.getElementById('paper-note-rendered');
-  const textarea = document.getElementById('paper-note-textarea');
-  if (!editor || !rendered || !textarea) return;
-  const note = _paperNotes.find(n => n.id === _paperNoteSelected);
-  if (!note) { editor.classList.add('hidden'); return; }
-  editor.classList.remove('hidden');
-  if (_paperNoteEditing) {
-    rendered.classList.add('hidden');
-    textarea.classList.remove('hidden');
-    textarea.value = note.content || '';
-    textarea.focus();
-    textarea.oninput = () => {
-      if (_paperNoteSaveTimer) clearTimeout(_paperNoteSaveTimer);
-      _paperNoteSaveTimer = setTimeout(() => savePaperNote(note.id, textarea.value), 600);
-    };
-    textarea.onblur = () => {
-      setTimeout(() => {
-        _paperNoteEditing = false;
-        savePaperNote(note.id, textarea.value);
-        renderPaperNoteEditor();
-      }, 150);
-    };
-  } else {
-    textarea.classList.add('hidden');
-    rendered.classList.remove('hidden');
-    const content = note.content || '';
-    if (content.trim()) {
-      rendered.innerHTML = typeof marked !== 'undefined' ? marked.parse(content) : escapeHtml(content).replace(/\n/g, '<br>');
-      // Render LaTeX
-      if (typeof katex !== 'undefined') {
-        function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
-        let html = rendered.innerHTML;
-        html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
-          try { return katex.renderToString(decodeTex(tex), _katexOpts(true)); } catch { return _; }
-        });
-        html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
-          try { return katex.renderToString(decodeTex(tex), _katexOpts(false)); } catch { return _; }
-        });
-        rendered.innerHTML = html;
-      }
-    } else {
-      rendered.innerHTML = '<span class="text-dimmer">Start taking notes...</span>';
-    }
-  }
-}
-
-function startPaperNoteEdit() {
-  _paperNoteEditing = true;
-  renderPaperNoteEditor();
-}
-
-async function savePaperNote(id, content) {
-  try {
-    await fetch(`/api/todos/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ content })
-    });
-    const note = _paperNotes.find(n => n.id === id);
-    if (note) note.content = content;
-  } catch (e) { /* silent */ }
-}
+let _paperLink = '';
 
 // ── Paper Comments ──
 let _commentsCache = [];
@@ -1038,7 +901,7 @@ async function fetchPaperComments() {
   const list = document.getElementById('comments-list');
   if (!list) return;
   try {
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(_paperNoteLink), { headers: _authHeaders() });
+    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(_paperLink), { headers: _authHeaders() });
     _commentsCache = await resp.json();
   } catch (e) {
     _commentsCache = [];
@@ -1112,7 +975,7 @@ async function postComment(parentId) {
     await fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ paperLink: _paperNoteLink, author, content, parentId: parentId || null })
+      body: JSON.stringify({ paperLink: _paperLink, author, content, parentId: parentId || null })
     });
     contentInput.value = '';
     fetchPaperComments();
@@ -1129,7 +992,7 @@ async function postReply(parentId) {
     await fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ paperLink: _paperNoteLink, author, content, parentId })
+      body: JSON.stringify({ paperLink: _paperLink, author, content, parentId })
     });
     fetchPaperComments();
   } catch (e) { /* silent */ }
@@ -1236,7 +1099,6 @@ function _renderBrowsePanes(container) {
     '</div>' +
     '<div data-pane-id="notes" id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">' +
       '<div id="pdf-highlights-section"><div id="pdf-highlights-panel"></div></div>' +
-      '<div id="paper-notes-section"><div id="paper-note-editor" class="hidden"><div id="paper-note-rendered" class="hidden text-[0.82rem] text-primary leading-relaxed nb-rendered-md cursor-text" data-latex onclick="startPaperNoteEdit()"></div><textarea id="paper-note-textarea" class="hidden w-full bg-transparent border-none text-[0.82rem] text-primary p-0 resize-none focus:outline-none" rows="6" placeholder="Write your note\u2026"></textarea></div></div>' +
     '</div>' +
     '<div data-pane-id="comments" id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">' +
       '<div class="flex flex-col flex-1 min-h-0"><div id="comments-list" class="flex-1 overflow-y-auto"></div><div class="border-t border-border-card pt-2 mt-2 shrink-0"><div class="flex items-center gap-2 mb-2"><span class="text-[0.72rem] text-dim">Posting as</span><span class="text-[0.78rem] text-primary font-medium">' + username + '</span></div><textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea><button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button></div></div>' +

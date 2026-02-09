@@ -18,7 +18,6 @@ from persistence import (
     DIR,
     read_saved_content, write_saved_content,
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
-    get_user_todos, create_todo, update_todo, delete_todo,
     get_all_user_data, set_user_data,
 )
 from vault_helpers import _get_user_vault_path, _vibe_run_git
@@ -462,43 +461,6 @@ def dev_stats():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/api/todos')
-@require_auth
-def list_todos(google_id):
-    return jsonify(get_user_todos(google_id))
-
-
-@bp.route('/api/todos', methods=['POST'])
-@require_auth
-def create_todo_route(google_id):
-    body = request.get_json(force=True, silent=True) or {}
-    title = body.get('title', '').strip()
-    if not title:
-        return jsonify({'error': 'title required'}), 400
-    todo = create_todo(google_id, body)
-    return jsonify(todo), 201
-
-
-@bp.route('/api/todos/<tid>', methods=['PUT'])
-@require_auth
-def update_todo_route(google_id, tid):
-    body = request.get_json(force=True, silent=True) or {}
-    result = update_todo(google_id, tid, body)
-    if result:
-        return jsonify(result)
-    else:
-        return jsonify({'error': 'Not found'}), 404
-
-
-@bp.route('/api/todos/<tid>', methods=['DELETE'])
-@require_auth
-def delete_todo_route(google_id, tid):
-    if delete_todo(google_id, tid):
-        return jsonify({'ok': True})
-    else:
-        return jsonify({'error': 'Not found'}), 404
 
 
 @bp.route('/api/calendar')
