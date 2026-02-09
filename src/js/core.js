@@ -210,16 +210,16 @@ function _islandRender() {
     return;
   }
 
-  // Tabs pill always first (far left): remove by ID, sort rest, prepend
-  var hasTabsPill = ids.indexOf('tabs') !== -1;
-  if (hasTabsPill) ids.splice(ids.indexOf('tabs'), 1);
+  // Tabs/nowplaying pill always first (far left): remove by ID, sort rest, prepend
+  var firstPillId = ids.indexOf('tabs') !== -1 ? 'tabs' : (ids.indexOf('nowplaying') !== -1 ? 'nowplaying' : null);
+  if (firstPillId) ids.splice(ids.indexOf(firstPillId), 1);
   var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, annotate: 2.5, rss: 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
     return pb - pa || _islandActivities[b]._ts - _islandActivities[a]._ts;
   });
-  if (hasTabsPill) ids.unshift('tabs');
+  if (firstPillId) ids.unshift(firstPillId);
 
   // Build pills — reuse existing DOM elements where possible
   var existingEls = {};
