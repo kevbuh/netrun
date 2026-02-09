@@ -4210,6 +4210,7 @@ function _browseTitleFromUrl(url) {
       const q = u.searchParams.get('q');
       return q ? q + ' - Google' : 'Google';
     }
+    if (u.protocol === 'file:') return u.pathname.split('/').pop() || 'Local File';
     return u.hostname.replace(/^www\./, '');
   } catch { return url; }
 }
