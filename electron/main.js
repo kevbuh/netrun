@@ -583,7 +583,6 @@ app.whenReady().then(() => {
   ipcMain.handle('open-file-dialog', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
     });
     if (result.canceled) return [];
     return result.filePaths;

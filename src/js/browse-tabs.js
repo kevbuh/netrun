@@ -28,7 +28,7 @@ let _ccCaptionLines = [];
 let _ccFadeTimer = null;
 let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'island';
 
-// NTP uploaded files: { name, content, file, blobUrl }
+// NTP uploaded files: { name, content, file }
 let _ntpUploadedFiles = [];
 const _BROWSE_CLOSED_TABS_MAX = 50;
 let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]'); // stack of { url, title } for Cmd+Shift+T reopen
@@ -518,22 +518,20 @@ function browseNewPaperTab(url, paper) {
 }
 
 function openLocalPdf(file) {
-  const isElectron = typeof electronAPI !== 'undefined';
-  const localPath = isElectron && file.path ? file.path : null;
-  const pdfUrl = localPath
-    ? '/api/local-file?path=' + encodeURIComponent(localPath)
-    : URL.createObjectURL(file);
-  const url = localPath ? 'file://' + localPath : pdfUrl;
+  let localPath = null;
+  try { if (typeof electronAPI !== 'undefined' && electronAPI.getPathForFile) localPath = electronAPI.getPathForFile(file); } catch {}
+  const url = localPath ? 'file://' + localPath : URL.createObjectURL(file);
 
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    const pdfUrl = localPath ? '/api/local-file?path=' + encodeURIComponent(localPath) : url;
     const paper = { title: file.name, link: url, source: 'upload', pdfUrl };
     if (localPath) paper.localPath = localPath;
     browseNewPaperTab(url, paper);
   } else {
-    browseNewTab(pdfUrl);
+    browseNewTab(url);
     const win = _getCurrentWindow();
     if (win) {
-      const tab = win.tabs.find(t => t.url === pdfUrl);
+      const tab = win.tabs.find(t => t.url === url);
       if (tab) { tab.title = file.name; _browseRenderTabs(); }
     }
   }
@@ -560,8 +558,9 @@ function handleNtpFileInput(input) {
 }
 
 async function handleNtpFileUpload(file) {
-  const blobUrl = URL.createObjectURL(file);
-  const entry = { name: file.name, content: '', file, blobUrl };
+  let localPath = null;
+  try { if (typeof electronAPI !== 'undefined' && electronAPI.getPathForFile) localPath = electronAPI.getPathForFile(file); } catch {}
+  const entry = { name: file.name, content: '', file, localPath };
   _ntpUploadedFiles.push(entry);
   _renderNtpFileChips();
 
@@ -609,7 +608,6 @@ function _renderNtpFileChips() {
 
 function removeNtpFile(idx) {
   const f = _ntpUploadedFiles[idx];
-  if (f && f.blobUrl) URL.revokeObjectURL(f.blobUrl);
   _ntpUploadedFiles.splice(idx, 1);
   _renderNtpFileChips();
 }
@@ -617,7 +615,17 @@ function removeNtpFile(idx) {
 function openNtpFile(idx) {
   const f = _ntpUploadedFiles[idx];
   if (!f) return;
-  openLocalPdf(f.file);
+  if (f.localPath) {
+    const url = 'file://' + f.localPath;
+    browseNewTab(url);
+    const win = _getCurrentWindow();
+    if (win) {
+      const tab = win.tabs.find(t => t.url === url);
+      if (tab) { tab.title = f.name; _browseRenderTabs(); }
+    }
+  } else {
+    openLocalPdf(f.file);
+  }
 }
 
 function openBrowseWithPaper(url, paper) {
@@ -1054,9 +1062,12 @@ if (document.readyState === 'loading') {
 
 function _browseHandleNavigation(tab, frame) {
   frame.addEventListener('did-navigate', (e) => {
-    tab.url = e.url;
-    tab.title = _browseTitleFromUrl(e.url);
-    tab.favicon = _browseFaviconUrl(e.url);
+    // Restore original file:// URL when navigating through the local-file proxy
+    const navUrl = (e.url.includes('/api/local-file?path=') && frame.dataset.originalUrl)
+      ? frame.dataset.originalUrl : e.url;
+    tab.url = navUrl;
+    tab.title = _browseTitleFromUrl(navUrl);
+    tab.favicon = _browseFaviconUrl(navUrl);
     tab.blank = false;
     _pwAutofillOffered.delete(tab.id);
     // Re-show save prompt after navigation if credentials were just captured
@@ -1067,14 +1078,14 @@ function _browseHandleNavigation(tab, frame) {
     } else {
       _pwHideSavePrompt();
     }
-    _saveBrowseVisit(e.url, tab.title);
+    _saveBrowseVisit(navUrl, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
-      if (urlInput) urlInput.value = e.url;
+      if (urlInput) urlInput.value = navUrl;
       _browseUpdateSaveBtn();
-      if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
+      if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(navUrl);
     }
   });
   frame.addEventListener('did-navigate-in-page', (e) => {

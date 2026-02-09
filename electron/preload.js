@@ -1,7 +1,8 @@
-const { contextBridge, ipcRenderer, shell } = require('electron');
+const { contextBridge, ipcRenderer, shell, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
+  getPathForFile: (file) => webUtils.getPathForFile(file),
   onBrowseCommand: (callback) => ipcRenderer.on('browse-command', callback),
   removeBrowseCommandListener: (callback) => ipcRenderer.removeListener('browse-command', callback),
   onOpenInBrowse: (callback) => ipcRenderer.on('open-in-browse', callback),

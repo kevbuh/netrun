@@ -42,7 +42,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 
 ### Frontend — `src/index.html` + `js/` + `styles.css`
 
-26 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
+25 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
 
 | Route | View |
 |-------|------|
@@ -50,7 +50,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 | `#feed` | Multi-source feed (masonry, sorting, trends, infinite scroll) |
 | `#saved` | Dashboard (heatmap, reading list, experiments, quotes) |
 | `#research` | Browse with blank tab + search tabs |
-| `#view/`, `#paper/` | Paper viewer (PDF or iframe + sidebar) |
+| `#view/`, `#paper/` | Paper viewer (iframe + sidebar) |
 | `#browse` | Built-in browser (tabs, URL bar, ad blocker) |
 | `#experiment/{id}` | Experiment detail (editors, kernel, venv) |
 | `#calendar` | Calendar (month grid, event CRUD) |
@@ -64,7 +64,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 | `#blog/{id}`, `#profile/{username}`, `#author/{id}`, `#dev` | Content views |
 | `#vibe`, `#experiments`, `#search` | Legacy redirects → vault/research |
 
-**Script load order** (order matters — all global): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `pdfviewer.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`
+**Script load order** (order matters — all global): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`
 
 **Electron:** `electron/main.js` (main process, IPC, Python server lifecycle), `electron/preload.js` (context bridge), `electron/password-store.js` (encrypted passwords via safeStorage). Tests: `tests/password-store.test.js` (node:test + node:assert).
 
@@ -121,7 +121,7 @@ Right-click interaction surface. Opens at cursor in track mode (`_aetherTrackMod
 
 Features: context-aware actions (links/images), inline chat (Enter → `/api/doc-chat` SSE), web search (Shift+Enter → `/api/web-search`), slash commands with keyboard-navigable dropdowns (Arrow/Enter/Escape).
 
-**Text selection:** replaces panel with Quote/Aether/highlight popup.
+**Text selection:** replaces panel with Quote/Aether popup.
 
 **Drag-to-screenshot (Electron):** left-click-drag while panel tracks → `electronAPI.captureScreen()` → thumbnail attachment → sent with `vision: true`.
 
@@ -171,7 +171,7 @@ State in `neuralook.js`: `_nlModelType`, `_nlModelState`, `_nlAutoRefineEnabled`
 **Sound:** `clickSound`, `clickSoundType`, `clickAether`, `rainOn`, `rainVolume`, `rainNoiseType`, `rainSidebarVisible`
 **Browse:** `browseHistory`, `browseClosedTabs`, `browseDownloads`, `browseDownloadsLastSeen`, `browseBarOrder/Overflow`, `browseTabLayout/Sessions`, `vtabsPanelCollapsed`, `urlBarSections`, `webSearchHistory`, `adBlockEnabled`, `sitePermissions`, `aetherPanelSide`
 **Chat & AI:** `chatModel`, `visionModel`, `summaryModel`, `chatThreads`, `chatTools`, `panelTabComplete`, `panelSemanticSearch/Min`, `vaultChatMinSimilarity`, `vaultChatMessages`
-**Other:** `insightsAllowHeuristics`, `insightSubtab`, `feedNotifications`, `feedNotifSources`, `pdfHighlights`, `pdfDrawings`, `nlRefinementHistory`, `daySummaryCache`, `terminalState`, `vaultLastNote`, `vaultWelcomeCreated`, `whiteboardBoards/LastId`
+**Other:** `insightsAllowHeuristics`, `insightSubtab`, `feedNotifications`, `feedNotifSources`, `nlRefinementHistory`, `daySummaryCache`, `terminalState`, `vaultLastNote`, `vaultWelcomeCreated`, `whiteboardBoards/LastId`
 
 ### Authentication
 
@@ -179,7 +179,7 @@ Login gate blocks app until authenticated. Auth endpoints: `/api/auth/register`,
 
 Flow: check `authToken` → show gate if missing/expired → on login pull settings + start 60s sync → on register push defaults.
 
-**Synced settings (52 keys):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, clickAether, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile, urlBarSections, blockedWords, qualityBypass, searchHistory, userQuotes, repostedLinks, fyWeightBase, fyWeightAffinity, fyWeightRecency, maxPerCategoryRun, pdfHighlights, pdfDrawings, chatModel, chatTools, insightsAllowHeuristics, iconSize
+**Synced settings (50 keys):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, clickAether, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile, urlBarSections, blockedWords, qualityBypass, searchHistory, userQuotes, repostedLinks, fyWeightBase, fyWeightAffinity, fyWeightRecency, maxPerCategoryRun, chatModel, chatTools, insightsAllowHeuristics, iconSize
 
 ### External APIs
 
