@@ -1845,6 +1845,8 @@
       margin-left: auto;
     }
     /* ── Island tab tray ── */
+    .pill-island[data-island-id="rss"] { cursor: pointer; }
+
     .pill-island.island-tabs-pill { cursor: pointer; order: -1; }
     .pill-island.island-tabs-pill .island-tab-favicon {
       width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0;

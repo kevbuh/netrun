@@ -5891,6 +5891,15 @@ function _offerAnnotation(tab) {
   if (_restoreAnnotationPill(tab)) return;
   // Remove any existing annotate pill
   if (typeof islandRemove === 'function') islandRemove('annotate');
+  // Auto-annotate: skip the offer and annotate immediately
+  if (localStorage.getItem('autoAnnotate') === 'on') {
+    _annotationOfferTimer = setTimeout(() => {
+      if (_browseActiveTab !== tab.id) return;
+      if (_annotationsEnabled.get(tab.id)) return;
+      toggleAnnotations();
+    }, 1500);
+    return;
+  }
   // Show offer after a short delay (let page settle)
   _annotationOfferTimer = setTimeout(() => {
     // Re-check tab is still active
