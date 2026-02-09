@@ -5817,7 +5817,8 @@ async function annotateCurrentPage(tab) {
         label: `${annotations.length} annotations`,
         detail: `${annotations.length} annotations on this page`,
         items: annotations,
-        modeType
+        modeType,
+        loading: false
       });
     }
   } catch (err) {

@@ -272,7 +272,7 @@ function _islandRender() {
       } else if (a.type === 'annotate' && a.items && a.items.length) {
         var annColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
         var annLabels = { KEY_FINDING: 'Key Finding', CONTRADICTION: 'Contradiction', VERIFY: 'Verify' };
-        var trayHtml = '<div style="padding:6px 10px;font-size:11px;font-weight:600;color:var(--text-dimmer);text-transform:uppercase;letter-spacing:0.5px">' + a.items.length + ' Annotations</div>';
+        var trayHtml = '';
         for (var ai = 0; ai < a.items.length; ai++) {
           var ann = a.items[ai];
           var ac = annColors[ann.type] || '#888';
@@ -404,8 +404,14 @@ function _islandRender() {
             if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-ann], [data-island-dismiss]')) return;
             pill.classList.toggle('island-tray-open');
           });
-          // Close on outside click
+          // Close on outside click or focus loss (webview clicks don't bubble)
           document.addEventListener('click', function(e) {
+            if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
+          });
+          window.addEventListener('blur', function() {
+            pill.classList.remove('island-tray-open');
+          });
+          document.addEventListener('mousedown', function(e) {
             if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
           });
         }
