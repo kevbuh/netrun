@@ -1562,6 +1562,7 @@ async function loadAllFeeds() {
 
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('home-feed-section').style.display = '';
+  if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: 'Fetching feed sources…' });
   const sources = getFeedSources();
   if (allPapers.length > 0) {
     _previousPostLinks = new Set(allPapers.map(p => p.link));
@@ -1647,11 +1648,13 @@ async function loadAllFeeds() {
     renderTrends();
     if (typeof computeInterestProfile === 'function') computeInterestProfile();
     renderPapers();
+    if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Feeds loaded', detail: 'Feed refresh complete', done: true });
     if (isQualityFilterOn()) qualityFilterPapers();
     _detectNewPosts();
     startRefreshTimer();
   } catch (e) {
     if (abort.signal.aborted) return;
+    if (typeof islandRemove === 'function') islandRemove('feed');
     // Fallback: show error
     container.innerHTML = `<div class="text-center py-20 text-red-400"><p>Failed to load feed: ${e.message}</p>
        <p class="mt-2 text-[0.85rem] text-muted">Try refreshing or check your connection.</p></div>`;

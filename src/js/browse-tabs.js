@@ -768,6 +768,21 @@ function _browseUpdateDownloadBadge() {
     const hasNewActive = newDownloads > 0 && _browseDownloads.some(d => d.state === 'progressing');
     ring.style.display = hasNewActive ? 'block' : 'none';
   }
+
+  // Dynamic Island: show download progress
+  if (typeof islandUpdate === 'function') {
+    const active = _browseDownloads.filter(d => d.state === 'progressing');
+    if (active.length > 0) {
+      const dl = active[0];
+      const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
+      const name = dl.filename || 'Download';
+      islandUpdate('download', { type: 'download', label: pct + '%', detail: name + ' · ' + pct + '%', progress: pct });
+    } else if (_browseDownloads.length > 0 && _browseDownloads[0].state === 'completed') {
+      islandUpdate('download', { type: 'download', label: 'Downloaded', detail: 'Download complete', done: true });
+    } else {
+      islandRemove('download');
+    }
+  }
 }
 
 function _browseRenderDownloads() {

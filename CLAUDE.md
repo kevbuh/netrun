@@ -285,6 +285,32 @@ compositeScore = llmScore * (base + sourceAffinity * affinityWeight) + recencyBo
 - `resetPersonalization()` — clear and recompute profile
 - `_renderPersonalizationPanel()` — render the personalization UI in quality view
 
+### Dynamic Island (Pill Bar Live Activities)
+
+The pill bar contains a live activity capsule (`#pill-island`) that shows background task status inline. It sits between `#pill-nav-icons` and `#pill-browse-url` in the pill bar.
+
+**Behavior:** The island morphs from `max-width: 0` to `180px` with spring easing when an activity is active. On hover it expands to `300px`, crossfading from compact to expanded content. A bounce animation plays when switching between activities. Activities with `done: true` auto-dismiss after 2.5s.
+
+**Activity types (priority order):**
+- `download` (highest) — SVG progress ring with percentage, filename on hover
+- `qf` — pulsing accent dot + "Filtering N" / "Scoring N", phase detail on hover
+- `feed` — pulsing dot + "Loading feeds", dismisses on completion
+
+**API (global functions in `core.js`):**
+- `islandUpdate(id, data)` — upsert activity `{type, label, detail, progress, done}`
+- `islandRemove(id)` — remove an activity
+- `_islandRender()` — internal: picks highest-priority activity, renders compact/expanded, manages animations
+
+**Wiring:**
+- `quality.js` → `_updateQfProgress()` calls `islandUpdate('qf', ...)` during evaluation, flashes done on completion
+- `browse-tabs.js` → `_browseUpdateDownloadBadge()` calls `islandUpdate('download', ...)` for active downloads
+- `feed.js` → `loadAllFeeds()` calls `islandUpdate('feed', ...)` at start, done/remove on finish
+
+**State variables (in `core.js`):**
+- `_islandActivities` — `{ id: { type, label, detail, progress, done, _ts } }`
+- `_islandCurrent` — ID of the currently displayed activity
+- `_islandDismissTimer` — auto-dismiss timeout handle
+
 ### Aether Panel
 
 The aether panel is the unified right-click interaction surface across the app. It opens on right-click (`contextmenu`) anywhere and provides an inline chat input, context-aware actions, and drag-to-screenshot capture.

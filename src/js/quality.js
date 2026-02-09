@@ -341,6 +341,7 @@ async function _qualityFilterPapersInner() {
   _qfPhase = '';
   _qfRemaining = 0;
   _updateQfProgress();
+  if (typeof islandUpdate === 'function') islandUpdate('qf', { type: 'qf', label: 'Filtered', detail: 'Quality filter complete', done: true });
 }
 
 function _updateQfProgress() {
@@ -350,8 +351,10 @@ function _updateQfProgress() {
   if (_qfRunning && _qfRemaining > 0) {
     const label = _qfPhase === 'verdict' ? 'Filtering' : 'Scoring';
     el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-accent text-[0.65rem]"><span class="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>${label} ${_qfRemaining}</span>`;
+    if (typeof islandUpdate === 'function') islandUpdate('qf', { type: 'qf', label: label + ' ' + _qfRemaining, detail: label + ' ' + _qfRemaining + ' posts…' });
   } else {
     el.innerHTML = '';
+    if (!_qfRunning && typeof islandRemove === 'function') islandRemove('qf');
   }
 }
 

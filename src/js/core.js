@@ -82,6 +82,86 @@ function _pillStackReflow() {
   }
 }
 
+// ── Dynamic Island — live activity capsule ──
+var _islandActivities = {};  // { id: { type, label, detail, progress, done, _ts } }
+var _islandCurrent = null;
+var _islandDismissTimer = null;
+
+function islandUpdate(id, data) {
+  _islandActivities[id] = Object.assign(_islandActivities[id] || {}, data, { _ts: Date.now() });
+  _islandRender();
+}
+
+function islandRemove(id) {
+  delete _islandActivities[id];
+  if (_islandCurrent === id) _islandCurrent = null;
+  _islandRender();
+}
+
+function _islandRender() {
+  var el = document.getElementById('pill-island');
+  var compact = document.getElementById('pill-island-compact');
+  var expanded = document.getElementById('pill-island-expanded');
+  if (!el || !compact || !expanded) return;
+
+  // Pick highest-priority active activity
+  // Priority: download > qf > feed > others
+  var priority = { download: 3, qf: 2, feed: 1 };
+  var best = null;
+  var bestP = -1;
+  for (var id in _islandActivities) {
+    var a = _islandActivities[id];
+    var p = priority[a.type] || 0;
+    if (p > bestP || (p === bestP && a._ts > (best ? best._ts : 0))) {
+      best = a;
+      bestP = p;
+      best._id = id;
+    }
+  }
+
+  if (!best) {
+    el.classList.remove('island-active');
+    _islandCurrent = null;
+    if (_islandDismissTimer) { clearTimeout(_islandDismissTimer); _islandDismissTimer = null; }
+    return;
+  }
+
+  // Bounce animation on activity switch
+  if (_islandCurrent !== best._id) {
+    _islandCurrent = best._id;
+    el.classList.remove('island-bounce');
+    void el.offsetWidth;
+    el.classList.add('island-bounce');
+  }
+
+  el.classList.add('island-active');
+
+  // Render compact content
+  if (best.done) {
+    compact.innerHTML = '<span class="island-dot-done"></span><span style="color:#22c55e">Done</span>';
+    expanded.innerHTML = '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(best.label || 'Done') + '</span>';
+  } else if (best.type === 'download') {
+    var pct = best.progress || 0;
+    var circ = 2 * Math.PI * 6;
+    var offset = circ * (1 - pct / 100);
+    compact.innerHTML = '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(best.label || pct + '%') + '</span>';
+    expanded.innerHTML = '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(best.detail || best.label || 'Downloading') + '</span>';
+  } else {
+    compact.innerHTML = '<span class="island-dot"></span><span>' + _escHtml(best.label || '') + '</span>';
+    expanded.innerHTML = '<span class="island-dot"></span><span>' + _escHtml(best.detail || best.label || '') + '</span>';
+  }
+
+  // Auto-dismiss on done
+  if (_islandDismissTimer) { clearTimeout(_islandDismissTimer); _islandDismissTimer = null; }
+  if (best.done) {
+    _islandDismissTimer = setTimeout(function() {
+      delete _islandActivities[best._id];
+      if (_islandCurrent === best._id) _islandCurrent = null;
+      _islandRender();
+    }, 2500);
+  }
+}
+
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the tab row, URL bar, and macOS traffic lights.
