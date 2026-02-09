@@ -199,7 +199,7 @@ function _islandRender() {
   }
 
   // Sort by priority desc, then by timestamp
-  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, annotate: 2.5, audio: 2, qf: 2, tabs: 1.5, feed: 1, context: 0 };
+  var priority = { tabs: 6, achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, annotate: 2.5, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
