@@ -446,7 +446,10 @@ function openBrowse(url) {
     _browseRenderTabs();
     const win = _getCurrentWindow();
     const tab = win?.tabs.find(t => t.id === win.activeTab);
-    if (tab && tab.url && !tab.blank) _initSidebarForUrl(tab.url);
+    if (tab && tab.url && !tab.blank) {
+      _initSidebarForUrl(tab.url);
+      _offerAnnotation(tab);
+    }
   }
   _browseInstallPinchOverlay();
   _browseInstallKeyGuard();
@@ -1087,6 +1090,12 @@ function _browseHandleNavigation(tab, frame) {
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(navUrl);
     }
+    // Clear any existing annotation state for this tab on navigation
+    _annotationsEnabled.delete(tab.id);
+    _annotationsCache.delete(tab.id);
+    _updateAnnotateButtonState();
+    // Offer to annotate the new page
+    if (_browseActiveTab === tab.id) _offerAnnotation(tab);
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -1740,6 +1749,7 @@ function browseSelectTab(id) {
       }
       _browseUpdateBarForTab(tab);
     }
+    if (tab && !tab.blank && tab.url && !_annotationsEnabled.get(tab.id)) _offerAnnotation(tab);
     return;
   }
 
@@ -1832,6 +1842,15 @@ function browseSelectTab(id) {
   }
   if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
   _updateAnnotateButtonState();
+  // Offer annotation for non-blank tabs
+  if (tab && !tab.blank && tab.url && !_annotationsEnabled.get(tab.id)) {
+    _offerAnnotation(tab);
+  } else {
+    // Clear any pending offer if switching to blank tab
+    if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
+    const act = typeof _islandActivities !== 'undefined' ? _islandActivities['annotate'] : null;
+    if (act && act.offer) islandRemove('annotate');
+  }
 }
 
 function _browseUpdateBarForTab(tab) {
@@ -5750,10 +5769,52 @@ function _closePillMenu() {
 
 const _annotationsEnabled = new Map(); // tabId → bool
 const _annotationsCache = new Map();   // tabId → { annotations, ts }
+let _annotationOfferTimer = null;
+let _annotationAbort = null; // AbortController for in-flight annotation
+
+function _offerAnnotation(tab) {
+  // Clear any previous offer timer
+  if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
+  // Don't offer if already annotating or on blank/internal pages
+  if (!tab || tab.blank) return;
+  const url = tab.url || '';
+  if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
+  // Don't offer if annotations already enabled for this tab
+  if (_annotationsEnabled.get(tab.id)) return;
+  // Remove any existing annotate pill
+  if (typeof islandRemove === 'function') islandRemove('annotate');
+  // Show offer after a short delay (let page settle)
+  _annotationOfferTimer = setTimeout(() => {
+    // Re-check tab is still active
+    if (_browseActiveTab !== tab.id) return;
+    if (_annotationsEnabled.get(tab.id)) return;
+    if (typeof islandUpdate === 'function') {
+      islandUpdate('annotate', {
+        type: 'annotate',
+        label: 'Annotate',
+        detail: 'Annotate this page',
+        loading: false,
+        offer: true,
+        action: () => {
+          toggleAnnotations();
+        }
+      });
+    }
+    // Auto-dismiss offer after 15s if not clicked
+    _annotationOfferTimer = setTimeout(() => {
+      const act = typeof _islandActivities !== 'undefined' ? _islandActivities['annotate'] : null;
+      if (act && act.offer) {
+        if (typeof islandRemove === 'function') islandRemove('annotate');
+      }
+    }, 15000);
+  }, 1500);
+}
 
 function toggleAnnotations() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank) return;
+  // Clear any pending offer timer
+  if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
   const enabled = !_annotationsEnabled.get(tab.id);
   _annotationsEnabled.set(tab.id, enabled);
   _updateAnnotateButtonState();
@@ -5775,16 +5836,32 @@ async function annotateCurrentPage(tab) {
     return;
   }
 
-  // Show island with accent flashing dot
+  // Abort any previous in-flight annotation
+  if (_annotationAbort) { _annotationAbort.abort(); _annotationAbort = null; }
+  const abortCtrl = new AbortController();
+  _annotationAbort = abortCtrl;
+
+  // Show island with yellow dot + cancel on hover
   if (typeof islandUpdate === 'function') {
-    islandUpdate('annotate', { type: 'annotate', label: 'Annotating…', loading: true });
+    islandUpdate('annotate', {
+      type: 'annotate', label: 'Annotating…', loading: true, offer: false, action: null,
+      dismiss: () => {
+        abortCtrl.abort();
+        _annotationsEnabled.delete(tab.id);
+        _updateAnnotateButtonState();
+        islandRemove('annotate');
+      }
+    });
   }
 
   try {
     // Extract text directly from the webview/iframe (already loaded)
     const pageText = await _extractTextFromFrame(tab);
+    if (abortCtrl.signal.aborted) return;
     if (!pageText) {
-      if (typeof islandRemove === 'function') islandRemove('annotate');
+      if (typeof islandUpdate === 'function') {
+        islandUpdate('annotate', { type: 'annotate', label: 'No text found', loading: false, done: true });
+      }
       return;
     }
 
@@ -5793,9 +5870,11 @@ async function annotateCurrentPage(tab) {
     const resp = await fetch('/api/annotate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, text: pageText, otherTabs: [], model })
+      body: JSON.stringify({ url, text: pageText, otherTabs: [], model }),
+      signal: abortCtrl.signal
     });
     const data = await resp.json();
+    if (abortCtrl.signal.aborted) return;
     const annotations = data.annotations || [];
 
     // Cache
@@ -5822,8 +5901,11 @@ async function annotateCurrentPage(tab) {
       });
     }
   } catch (err) {
+    if (abortCtrl.signal.aborted) return; // cancelled by user
     console.error('[annotate] Error:', err);
-    if (typeof islandRemove === 'function') islandRemove('annotate');
+    if (typeof islandUpdate === 'function') {
+      islandUpdate('annotate', { type: 'annotate', label: 'Failed', loading: false, done: true });
+    }
   }
 }
 

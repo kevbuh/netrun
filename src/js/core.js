@@ -130,8 +130,12 @@ function _islandRenderPill(a) {
   } else if (a.type === 'tabs') {
     return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'annotate') {
+    var annPenIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (a.offer) {
+      return annPenIcon + '<span>' + _escHtml(a.label || 'Annotate') + '</span>';
+    }
     if (a.loading) {
-      return '<span class="island-accent-dot"></span><span>' + _escHtml(a.label || 'Annotating…') + '</span>';
+      return '<span class="island-annotate-dot"></span><span>' + _escHtml(a.label || 'Annotating…') + '</span>';
     }
     var _annModeColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
@@ -166,8 +170,13 @@ function _islandRenderPillExpanded(a) {
     if (titleText.length > 30) titleText = titleText.slice(0, 28) + '\u2026';
     return favHtml + '<span>' + _escHtml(titleText) + '</span>';
   } else if (a.type === 'annotate') {
+    var annPenIcon2 = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (a.offer) {
+      return annPenIcon2 + '<span style="color:var(--aether-text)">' + _escHtml(a.detail || 'Annotate this page') + '</span>';
+    }
     if (a.loading) {
-      return '<span class="island-accent-dot"></span><span>' + _escHtml(a.detail || a.label || 'Annotating…') + '</span>';
+      var annCancelIcon = '<span class="island-dismiss" data-island-dismiss="annotate" style="margin-left:4px;cursor:pointer;display:flex;align-items:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></span>';
+      return '<span class="island-annotate-dot"></span><span style="color:var(--aether-text)">' + _escHtml(a.detail || a.label || 'Annotating…') + '</span>' + annCancelIcon;
     }
     var _annModeColors2 = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor2 = _annModeColors2[a.modeType] || '#4caf50';
