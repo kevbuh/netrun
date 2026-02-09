@@ -435,14 +435,17 @@ function _renderAuthorsPane(data) {
   const plainAuthors = document.querySelector('#sidebar-paper-info .sidebar-paper-authors');
   if (plainAuthors) plainAuthors.style.display = 'none';
 
+  const AUTHOR_LIMIT = 5;
+  const total = data.authors.length;
   let html = '<div class="space-y-1" id="paper-authors-list">';
-  for (let i = 0; i < data.authors.length; i++) {
+  for (let i = 0; i < total; i++) {
     const author = data.authors[i];
     const stats = [];
     if (author.paperCount) stats.push(`${fmtNum(author.paperCount)} papers`);
     if (author.hIndex) stats.push(`h-index ${author.hIndex}`);
     if (author.citationCount) stats.push(`${fmtNum(author.citationCount)} citations`);
-    html += `<div class="author-card" data-idx="${i}">
+    const hidden = i >= AUTHOR_LIMIT ? ' style="display:none" data-extra-author' : '';
+    html += `<div class="author-card" data-idx="${i}"${hidden}>
       <div class="author-card-avatar">${escapeHtml((author.name || '?')[0].toUpperCase())}</div>
       <div class="author-card-info">
         <div class="author-card-name">${escapeHtml(author.name)}</div>
@@ -450,6 +453,9 @@ function _renderAuthorsPane(data) {
         ${stats.length ? `<div class="author-card-stats">${stats.join(' · ')}</div>` : ''}
       </div>
     </div>`;
+  }
+  if (total > AUTHOR_LIMIT) {
+    html += `<button id="authors-show-more" class="w-full text-[0.72rem] text-dim hover:text-primary py-1 cursor-pointer bg-transparent border-none transition-colors" onclick="_toggleExtraAuthors()">Show ${total - AUTHOR_LIMIT} more authors</button>`;
   }
   html += '</div>';
   container.innerHTML = html;
@@ -473,6 +479,15 @@ function _renderAuthorsPane(data) {
       card.style.cursor = 'pointer';
     });
   }
+}
+
+function _toggleExtraAuthors() {
+  const btn = document.getElementById('authors-show-more');
+  const extras = document.querySelectorAll('[data-extra-author]');
+  if (!extras.length) return;
+  const showing = extras[0].style.display !== 'none';
+  extras.forEach(el => el.style.display = showing ? 'none' : '');
+  if (btn) btn.textContent = showing ? `Show ${extras.length} more authors` : 'Show fewer';
 }
 
 async function _renderAIPane(data) {
@@ -1323,7 +1338,7 @@ async function _generateSmartHighlights(url) {
     const resp = await fetch('/api/paper-insights', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, mode: 'highlights' })
+      body: JSON.stringify({ url, mode: 'highlights', model: localStorage.getItem('chatModel') || '' })
     });
     if (!resp.ok) throw new Error('Failed');
     const data = await resp.json();
@@ -1331,10 +1346,10 @@ async function _generateSmartHighlights(url) {
 
     var items = data.highlights || [];
 
-    // Cache all items (sidebar always shows everything)
+    // Cache non-empty results only
     const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
     const cacheKey = arxivMatch ? arxivMatch[1] : url;
-    if (typeof saveSmartHighlights === 'function') saveSmartHighlights(cacheKey, items);
+    if (items.length && typeof saveSmartHighlights === 'function') saveSmartHighlights(cacheKey, items);
 
     // Render all items in sidebar
     _renderSmartHighlightsList(pane, items);

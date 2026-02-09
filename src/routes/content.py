@@ -389,10 +389,12 @@ def _extract_smart_highlights(body):
     truncated_text = text[:15000]
 
     highlights = []
+    model = body.get('model') or "qwen2.5:3b"
+    print(f"[smart-highlights] Extracting from {url[:80]} using model={model}, text_len={len(truncated_text)}")
     try:
         prompt = SMART_HIGHLIGHTS_PROMPT + truncated_text + "\n--- END ---"
         llm_payload = json.dumps({
-            "model": "qwen2.5:3b",
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
             "options": {"temperature": 0, "num_predict": 3000}
@@ -421,12 +423,14 @@ def _extract_smart_highlights(body):
                         'text': item['text'][:500],
                         'summary': (item.get('summary') or '')[:300],
                     })
+        print(f"[smart-highlights] Extracted {len(highlights)} highlights")
     except Exception as e:
         print(f"[smart-highlights] LLM extraction failed: {e}")
 
-    # Cache results
-    _smart_hl_cache[url] = highlights
-    smart_highlights_set(url, highlights)
+    # Only cache non-empty results
+    if highlights:
+        _smart_hl_cache[url] = highlights
+        smart_highlights_set(url, highlights)
     return jsonify({'highlights': highlights})
 
 

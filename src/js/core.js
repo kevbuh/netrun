@@ -86,11 +86,10 @@ function _pillStackReflow() {
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the tab row, URL bar, and macOS traffic lights.
 let _boundsCache = null;
-let _boundsCacheTs = 0;
+function _invalidateBoundsCache() { _boundsCache = null; }
+window.addEventListener('resize', _invalidateBoundsCache);
 function _popupSafeBounds() {
-  // Cache for 32ms (~2 frames) to avoid repeated layout queries during mousemove/drag
-  const now = performance.now();
-  if (_boundsCache && now - _boundsCacheTs < 32) return _boundsCache;
+  if (_boundsCache) return _boundsCache;
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const pillBar = document.getElementById('sidebar-nav');
@@ -109,7 +108,6 @@ function _popupSafeBounds() {
     if (left < 80 && top <= 42) left = Math.max(left, 80);
   }
   _boundsCache = { top, left, right: window.innerWidth, bottom: window.innerHeight };
-  _boundsCacheTs = now;
   return _boundsCache;
 }
 
@@ -261,7 +259,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-terminal': 'terminal', 'sb-neuralook': 'neuralook', 'sb-graph': 'graph' };
 
 // Research view tab state
 let _researchActiveTab = null;
@@ -730,6 +728,7 @@ const VIEW_REGISTRY = {
   'teams-view':          { template: '/views/teams.html',     tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
+  'knowledge-graph-view': { template: '/views/knowledge-graph.html', tier: 2 },
 };
 
 async function ensureView(viewId) {
@@ -745,7 +744,7 @@ async function ensureView(viewId) {
   div.id = viewId;
   div.className = 'hidden view';
   // Preserve extra styles for specific views
-  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100%';
+  if (viewId === 'vault-view' || viewId === 'blog-view' || viewId === 'knowledge-graph-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
@@ -818,6 +817,7 @@ const _wmViewMeta = {
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
   calendar:   { sidebarId: 'sb-calendar',  label: 'Calendar',   openFn() { openCalendar(); } },
+  graph:      { sidebarId: 'sb-graph',    label: 'Graph',      openFn() { openKnowledgeGraph(); } },
 };
 
 // Pre-populate all views (pill bar order)
@@ -857,6 +857,7 @@ function wmOpen(key) {
     _wmFocusIndex = _wmWindows.length - 1;
   }
   _wmLastNavTime = Date.now();
+  _invalidateBoundsCache(); // view switch may show/hide tab bars
   _wmActivateWindow(_wmFocusIndex);
 }
 
@@ -1390,6 +1391,7 @@ function routeFromHash() {
   else if (hash === '#terminal') wmOpen('terminal');
   else if (hash === '#neuralook') wmOpen('neuralook');
   else if (hash === '#dev') wmOpen('dev');
+  else if (hash === '#graph') wmOpen('graph');
   else if (hash === '#vibe') wmOpen('vault'); // legacy redirect
   else if (hash === '#feed') wmOpen('feed');
   else if (hash.startsWith('#experiment/')) {

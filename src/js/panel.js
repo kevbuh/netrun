@@ -23,6 +23,7 @@ Object.defineProperty(window, '_aetherTrackMode', {
           delete f.dataset.peTrack;
         }
       });
+      _aetherPopupRef = null;
     }
   }
 });
@@ -36,6 +37,10 @@ let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
 let _aetherPinned = false;
 let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
+let _aetherPopupRef = null; // cached ref to active popup — avoids getElementById in hot path
+let _aetherHoveredIcon = null;     // sidebar icon element under cursor
+let _aetherHoveredIconRect = null; // cached getBoundingClientRect of hovered icon
+let _aetherHoveredIsProfile = false; // whether hovered icon is the profile/settings icon
 
 function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -1722,6 +1727,32 @@ let _mmEvent = null;
 let _aetherPanelSide = localStorage.getItem('aetherPanelSide') || 'left';
 // Keep cached preference in sync
 window.addEventListener('storage', () => { _aetherPanelSide = localStorage.getItem('aetherPanelSide') || 'left'; });
+// Sidebar icon hover detection — event-driven instead of per-frame DOM walk
+document.addEventListener('DOMContentLoaded', function() {
+  const nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+  nav.addEventListener('mouseenter', function(ev) {
+    const icon = ev.target.closest('.sidebar-icon');
+    if (icon) {
+      _aetherHoveredIcon = icon;
+      _aetherHoveredIconRect = icon.getBoundingClientRect();
+      _aetherHoveredIsProfile = icon.id === 'sb-settings';
+    }
+  }, true); // capture phase to catch enters on child elements
+  nav.addEventListener('mouseleave', function(ev) {
+    const icon = ev.target.closest('.sidebar-icon');
+    if (icon && icon === _aetherHoveredIcon) {
+      _aetherHoveredIcon = null;
+      _aetherHoveredIconRect = null;
+      _aetherHoveredIsProfile = false;
+    }
+  }, true);
+  nav.addEventListener('mouseleave', function() {
+    _aetherHoveredIcon = null;
+    _aetherHoveredIconRect = null;
+    _aetherHoveredIsProfile = false;
+  });
+});
 document.addEventListener('mousemove', function(e) {
   _lastMouseX = e.clientX;
   _lastMouseY = e.clientY;
@@ -1751,7 +1782,7 @@ function _processMouseMove() {
 
   // Drag-to-move the aether panel
   if (_aetherDragging) {
-    const popup = _aetherDragPopup || document.getElementById('doc-chat-ask-float');
+    const popup = _aetherDragPopup || _aetherPopupRef || document.getElementById('doc-chat-ask-float');
     if (!popup) { _aetherDragging = false; _aetherDragPopup = null; return; }
     const bounds = _popupSafeBounds();
     const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
@@ -1769,43 +1800,33 @@ function _processMouseMove() {
   }
 
   if (!_aetherTrackMode) return;
-  const popup = document.getElementById('doc-chat-ask-float');
+  const popup = _aetherPopupRef;                    // cached ref — no getElementById
   if (!popup) { _aetherTrackMode = false; return; }
 
-  // Snap to sidebar icon if hovering over one
-  const hovered = e.target.closest && e.target.closest('.sidebar-icon');
-  if (hovered) {
-    const rect = hovered.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.bottom + 6;
+  // Snap to sidebar icon if hovering over one (variable check, no DOM walk)
+  if (_aetherHoveredIcon) {
+    const r = _aetherHoveredIconRect;
+    const cx = r.left + r.width / 2;
+    const cy = r.bottom + 6;
     popup._aetherAnchorX = cx;
     popup._aetherAnchorY = cy;
     const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
-    const sl = Math.max(4, cx - pw / 2);
-    popup.style.transform = `translate3d(${sl}px,${cy}px,0)`;
-    // Inject/remove profile items when hovering the profile icon
-    const isProfile = hovered.id === 'sb-settings';
-    const hasProfileItems = !!popup.querySelector('.aether-profile-items');
-    if (isProfile && !hasProfileItems) {
-      _injectProfileItems(popup);
-    } else if (!isProfile && hasProfileItems) {
-      const pi = popup.querySelector('.aether-profile-items');
-      if (pi) pi.remove();
-    }
+    popup.style.transform = `translate3d(${Math.max(4, cx - pw / 2)}px,${cy}px,0)`;
+    // Toggle pre-built profile items visibility
+    if (popup._profileItemsEl)
+      popup._profileItemsEl.style.display = _aetherHoveredIsProfile ? '' : 'none';
     return;
   }
   // If cursor is inside the popup (e.g. hovering profile items), keep it pinned
   if (popup.contains(e.target)) return;
-  // Remove profile items when cursor leaves sidebar icons and popup
-  const pi = popup.querySelector('.aether-profile-items');
-  if (pi) pi.remove();
+  // Hide profile items when cursor leaves sidebar icons and popup
+  if (popup._profileItemsEl) popup._profileItemsEl.style.display = 'none';
 
   popup._aetherAnchorX = e.clientX;
   popup._aetherAnchorY = e.clientY;
-  const preferLeft = _aetherPanelSide === 'left';
   const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
   const ph = popup._cachedH || (popup._cachedH = popup.offsetHeight);
-  const pos = _positionAtCursor(e.clientX, e.clientY, pw, ph, preferLeft);
+  const pos = _positionAtCursor(e.clientX, e.clientY, pw, ph, _aetherPanelSide === 'left');
   popup.style.transform = `translate3d(${pos.left}px,${pos.top}px,0)`;
 }
 
@@ -3740,9 +3761,8 @@ function _profileMenuAction(action) {
   else if (action === 'logout') _doLogout();
 }
 
-// ── Helper: inject profile menu items into the aether panel ──
-function _injectProfileItems(popup) {
-  if (popup.querySelector('.aether-profile-items')) return;
+// ── Helper: build profile menu items DOM (without appending) ──
+function _buildProfileItems() {
   const email = (typeof _authUserInfo !== 'undefined' && _authUserInfo?.email) || '';
   const username = (typeof _authUserInfo !== 'undefined' && (_authUserInfo?.username || _authUserInfo?.name)) || '';
   const ctxDiv = document.createElement('div');
@@ -3779,6 +3799,13 @@ function _injectProfileItems(popup) {
     ctxDiv.appendChild(btn);
   }
 
+  return ctxDiv;
+}
+
+// ── Helper: inject profile menu items into the aether panel ──
+function _injectProfileItems(popup) {
+  if (popup.querySelector('.aether-profile-items')) return;
+  const ctxDiv = _buildProfileItems();
   // Insert before the chat input wrap (or at end)
   const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
   if (inputWrap) popup.insertBefore(ctxDiv, inputWrap);
@@ -4775,6 +4802,7 @@ function _showPanel(config) {
   }
 
   // Remove any existing active panel
+  _aetherPopupRef = null;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -4841,6 +4869,16 @@ function _showPanel(config) {
   if (finalized) _panelBuildTopBar(popup);
   _panelBuildChatInput(popup, config);
 
+  // Pre-build profile items (hidden) so the hot path only toggles display
+  if (isCursorAnchor) {
+    const profileEl = _buildProfileItems();
+    profileEl.style.display = 'none';
+    const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (inputWrap) popup.insertBefore(profileEl, inputWrap);
+    else popup.appendChild(profileEl);
+    popup._profileItemsEl = profileEl;
+  }
+
   // Show "Save chat" button if in PDF text layer
   if (popup._inTextLayer && popup._saveChatBtn) {
     popup._saveChatBtn.style.display = '';
@@ -4851,6 +4889,7 @@ function _showPanel(config) {
   });
 
   document.body.appendChild(popup);
+  _aetherPopupRef = popup;
 
   // Hide cursor while panel is open (only when tracking cursor)
   if (isCursorAnchor && finalized && _aetherTrackMode) {
