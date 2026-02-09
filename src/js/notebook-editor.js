@@ -689,6 +689,10 @@ async function runNbCell(i) {
       _execAbort = null;
       _swapToRun(document.querySelector(`[data-cell="${i}"]`), i);
       scheduleNbSave();
+      if (!localStorage.getItem('ach_its_alive')) {
+        localStorage.setItem('ach_its_alive', '1');
+        if (typeof showAchievement === 'function') showAchievement("It's Alive!", 'Ran an experiment kernel for the first time');
+      }
     },
     (e) => {
       if (outEl) outEl.innerHTML = `<span class="text-red-400">${escapeHtml(e.message)}</span>`;

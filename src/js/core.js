@@ -97,25 +97,14 @@ function islandRemove(id) {
   _islandRender();
 }
 
-// Global achievement helper — island pill + toast
+// Global achievement helper — persistent island pill, click to dismiss
 function showAchievement(name, description) {
-  islandUpdate('achievement', { type: 'achievement', label: name || 'Unlocked!', detail: description || 'Achievement Unlocked!', done: true });
-  // Toast
-  var toast = document.createElement('div');
-  toast.className = 'achievement-toast';
-  toast.innerHTML = '<div class="achievement-toast-icon">' +
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg>' +
-    '</div><div class="achievement-toast-content">' +
-    '<div class="achievement-toast-title">Achievement Unlocked!</div>' +
-    '<div class="achievement-toast-name">' + _escHtml(name || 'Achievement') + '</div>' +
-    '<div class="achievement-toast-desc">' + _escHtml(description || '') + '</div>' +
-    '</div>';
-  document.body.appendChild(toast);
-  requestAnimationFrame(function() { toast.classList.add('show'); });
-  setTimeout(function() {
-    toast.classList.remove('show');
-    setTimeout(function() { toast.remove(); }, 400);
-  }, 5000);
+  islandUpdate('achievement', {
+    type: 'achievement',
+    label: name || 'Unlocked!',
+    detail: description || 'Achievement Unlocked!',
+    action: function() { islandRemove('achievement'); }
+  });
 }
 
 var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
@@ -134,8 +123,10 @@ function _islandRenderPill(a) {
     return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.label || '') + '</span>';
+  } else if (a.type === 'ai') {
+    return '<span class="island-ai-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#eab308">' + _escHtml(a.label || 'Unlocked!') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg>';
   } else if (a.type === 'notemode') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.label || 'Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'context') {
@@ -157,8 +148,10 @@ function _islandRenderPillExpanded(a) {
     return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+  } else if (a.type === 'ai') {
+    return '<span class="island-ai-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#eab308">' + _escHtml(a.detail || a.label || 'Achievement Unlocked!') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#ffd700;font-weight:600">' + _escHtml(a.label || 'Unlocked!') + '</span><span style="color:#c9991a;margin-left:2px">' + _escHtml(a.detail || '') + '</span>';
   } else if (a.type === 'notemode') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.detail || a.label || 'Open in Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'context') {
@@ -178,7 +171,7 @@ function _islandRender() {
   }
 
   // Sort by priority desc, then by timestamp
-  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, notemode: 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, notemode: 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -251,6 +244,14 @@ function _islandRender() {
             + '</div>';
         }
         tray.innerHTML = trayHtml;
+      } else if (a.type === 'achievement') {
+        tray.innerHTML = '<div class="island-ach-tray-content">'
+          + '<div class="island-ach-tray-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg></div>'
+          + '<div class="island-ach-tray-info">'
+          + '<div class="island-ach-tray-subtitle">Achievement Unlocked</div>'
+          + '<div class="island-ach-tray-name">' + _escHtml(a.label || 'Unlocked!') + '</div>'
+          + '<div class="island-ach-tray-desc">' + _escHtml(a.detail || '') + '</div>'
+          + '</div></div>';
       } else {
         tray.innerHTML = '';
       }
@@ -297,9 +298,24 @@ function _islandRender() {
     };
     pill.style.cursor = a.action ? 'pointer' : 'default';
     var hasItems = !!(a.items && a.items.length);
+    var hasTray = (hasItems && (a.type === 'context' || a.type === 'download')) || a.type === 'achievement';
     pill.classList.toggle('island-context', a.type === 'context');
     pill.classList.toggle('island-download-pill', a.type === 'download');
-    pill.classList.toggle('island-has-items', hasItems && (a.type === 'context' || a.type === 'download'));
+    pill.classList.toggle('island-has-items', hasTray);
+
+    // Hover management for tray — use JS class so DOM reattach doesn't break it
+    if (hasTray) {
+      if (!pill._islandHoverBound) {
+        pill._islandHoverBound = true;
+        pill.addEventListener('mouseenter', function() {
+          if (pill._islandLeaveTimer) { clearTimeout(pill._islandLeaveTimer); pill._islandLeaveTimer = null; }
+          pill.classList.add('island-tray-open');
+        });
+        pill.addEventListener('mouseleave', function() {
+          pill._islandLeaveTimer = setTimeout(function() { pill.classList.remove('island-tray-open'); }, 120);
+        });
+      }
+    }
 
     // Animate in
     if (isNew) {
@@ -2383,6 +2399,10 @@ function setPaperRating(link, rating) {
   if (key !== link && r[link]) delete r[link];
   if (rating <= 0) delete r[key]; else r[key] = rating;
   localStorage.setItem('paperRatings', JSON.stringify(r));
+  if (rating > 0 && !localStorage.getItem('ach_critic')) {
+    localStorage.setItem('ach_critic', '1');
+    showAchievement('Critic', 'Rated your first paper');
+  }
 }
 
 function renderStarRating(link, opts) {

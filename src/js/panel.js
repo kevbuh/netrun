@@ -393,6 +393,8 @@ function _sendPopupChatMessage(popup, capturedText) {
       const body = { messages: filteredMsgs };
       const chatModel = localStorage.getItem('chatModel');
       if (chatModel) body.model = chatModel;
+      var _aiModelName = hasVision ? (localStorage.getItem('visionModel') || chatModel || 'default') : (chatModel || 'default');
+      islandUpdate('ai-chat', { type: 'ai', label: _aiModelName, detail: 'Chatting \u00B7 ' + _aiModelName });
       const toolsOn = localStorage.getItem('chatTools') !== 'off';
       // Include current page info for tool context
       if (toolsOn) {

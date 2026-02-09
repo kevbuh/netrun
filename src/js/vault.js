@@ -1944,17 +1944,8 @@ async function vaultTogglePublish() {
 
       // Check for achievement unlock
       if (note.achievement) {
-        // Trigger pixel pet celebration
         if (typeof petCelebrate === 'function') petCelebrate();
-        // Show achievement toast
-        vaultShowAchievementToast(note.achievement);
-        // Show in dynamic island
-        islandUpdate('achievement', {
-          type: 'achievement',
-          label: note.achievement.name || 'Unlocked!',
-          detail: note.achievement.description || 'Achievement Unlocked!',
-          done: true
-        });
+        showAchievement(note.achievement.name, note.achievement.description);
       }
     }
   } catch (e) {

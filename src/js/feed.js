@@ -195,6 +195,10 @@ function hidePost(link, title, event) {
   if (!hidden.includes(link)) hidden.push(link);
   localStorage.setItem('hiddenPosts', JSON.stringify(hidden));
   if (title) addTestTitle(title);
+  if (!localStorage.getItem('ach_curator')) {
+    localStorage.setItem('ach_curator', '1');
+    if (typeof showAchievement === 'function') showAchievement('Curator', 'Curated your feed by hiding a post');
+  }
   renderPapers();
 }
 function getTestTitles() {
@@ -397,6 +401,10 @@ function toggleSavePost(paper, event) {
   if (wasAdding) {
     _embedPost(paper.link);
     if (event) _showBookmarkToast(event);
+    if (!localStorage.getItem('ach_bookworm')) {
+      localStorage.setItem('ach_bookworm', '1');
+      if (typeof showAchievement === 'function') showAchievement('Bookworm', 'Saved your first post');
+    }
   }
 }
 
@@ -1509,6 +1517,10 @@ function toggleFeedSource(key, value) {
   const sources = getFeedSources();
   sources[key] = value;
   localStorage.setItem('feedSources', JSON.stringify(sources));
+  if (value && !localStorage.getItem('ach_explorer')) {
+    localStorage.setItem('ach_explorer', '1');
+    if (typeof showAchievement === 'function') showAchievement('Explorer', 'Enabled a new feed source');
+  }
   allPapers = [];
   loadAllFeeds();
 }

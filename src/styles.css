@@ -985,6 +985,14 @@
       background: #22c55e;
       flex-shrink: 0;
     }
+    .pill-island .island-ai-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #a78bfa;
+      animation: island-pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
     @keyframes island-pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.4; transform: scale(0.8); }
@@ -1035,12 +1043,12 @@
       display: none;
     }
     /* On hover: pill becomes the top of a connected card */
-    .pill-island.island-has-items.island-active:hover {
+    .pill-island.island-has-items.island-active.island-tray-open {
       border-radius: 12px 12px 0 0;
       background: var(--aether-bg);
       box-shadow: 0 2px 12px rgba(0,0,0,0.15);
     }
-    .pill-island.island-has-items.island-active:hover .pill-island-content:not(.pill-island-expanded) {
+    .pill-island.island-has-items.island-active.island-tray-open .pill-island-content:not(.pill-island-expanded) {
       opacity: 1;
     }
     /* Tray — absolutely positioned below pill, same surface */
@@ -1066,7 +1074,7 @@
                   padding 0.25s ease,
                   box-shadow 0.25s ease;
     }
-    .pill-island.island-has-items.island-active:hover .island-ctx-tray {
+    .pill-island.island-has-items.island-active.island-tray-open .island-ctx-tray {
       max-height: 340px;
       opacity: 1;
       padding: 2px 4px 4px;
@@ -7128,26 +7136,16 @@
       color: var(--text-primary);
     }
 
-    /* ── Achievement Toast ── */
-    .achievement-toast {
-      position: fixed;
-      top: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-120px);
-      background: linear-gradient(135deg, #1a1400 0%, #2a1f00 50%, #1a1400 100%);
-      border: 1px solid #c9991a;
-      border-radius: 16px;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 0 24px rgba(234,179,8,0.2), 0 8px 32px rgba(0,0,0,0.4);
-      z-index: 10001;
-      opacity: 0;
-      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+    /* ── Achievement pill in Dynamic Island ── */
+    .pill-island[data-island-id="achievement"] {
+      background: linear-gradient(135deg, #2a1f00, #1a1400) !important;
+      border: 1px solid rgba(255,215,0,0.3) !important;
+      box-shadow: 0 0 12px rgba(255,215,0,0.15);
+      animation: achievement-pill-glow 1.5s ease-in-out 3, island-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
       overflow: hidden;
     }
-    .achievement-toast::before {
+    .pill-island[data-island-id="achievement"]::before {
       content: '';
       position: absolute;
       inset: 0;
@@ -7157,26 +7155,12 @@
       pointer-events: none;
       border-radius: inherit;
     }
-    .achievement-toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-    .achievement-toast-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+    .pill-island[data-island-id="achievement"] svg {
       animation: achievement-bounce 0.6s ease 3;
-      box-shadow: 0 0 16px rgba(255,215,0,0.3);
     }
-    .achievement-toast-icon svg {
-      width: 28px;
-      height: 28px;
-      color: #1a1400;
+    @keyframes achievement-pill-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.15); }
+      50% { box-shadow: 0 0 20px rgba(255,215,0,0.35), 0 0 40px rgba(255,215,0,0.1); }
     }
     @keyframes achievement-bounce {
       0%, 100% { transform: scale(1) rotate(0deg); }
@@ -7187,40 +7171,6 @@
     @keyframes achievement-shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -100% 0; }
-    }
-    .achievement-toast-content {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      position: relative;
-    }
-    .achievement-toast-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #ffd700;
-    }
-    .achievement-toast-name {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #f5e6b8;
-    }
-    .achievement-toast-desc {
-      font-size: 0.85rem;
-      color: #c9991a;
-    }
-
-    /* Achievement pill in Dynamic Island */
-    .pill-island[data-island-id="achievement"] {
-      background: linear-gradient(135deg, #2a1f00, #1a1400) !important;
-      border: 1px solid rgba(255,215,0,0.3) !important;
-      box-shadow: 0 0 12px rgba(255,215,0,0.15);
-      animation: achievement-pill-glow 1.5s ease-in-out 3;
-    }
-    @keyframes achievement-pill-glow {
-      0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.15); }
-      50% { box-shadow: 0 0 20px rgba(255,215,0,0.35), 0 0 40px rgba(255,215,0,0.1); }
     }
 
     /* ── Profile Achievement Icon ── */

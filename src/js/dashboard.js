@@ -1138,7 +1138,7 @@ async function _saveStatus() {
     var data = await res.json();
     if (data.achievement) {
       if (typeof petCelebrate === 'function') petCelebrate();
-      islandUpdate('achievement', { type: 'achievement', label: data.achievement.name || 'Unlocked!', detail: data.achievement.description || 'Achievement Unlocked!', done: true });
+      showAchievement(data.achievement.name, data.achievement.description);
     }
     document.getElementById('dash-status-picker')?.classList.add('hidden');
     renderDashboard();

@@ -964,16 +964,11 @@
     localStorage.setItem('pixelPet', on ? 'on' : 'off');
     if (on) {
       startPixelPet();
-      fetch('/api/achievements/grant', {
-        method: 'POST',
-        headers: Object.assign({}, typeof _authHeaders === 'function' ? _authHeaders() : {}, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ achievement_id: 'pet_adopter' })
-      }).then(function(r) { return r.json(); }).then(function(data) {
-        if (data.achievement) {
-          petCelebrate();
-          islandUpdate('achievement', { type: 'achievement', label: data.achievement.name || 'Unlocked!', detail: data.achievement.description || 'Achievement Unlocked!', done: true });
-        }
-      }).catch(function() {});
+      if (!localStorage.getItem('ach_pixel_parent')) {
+        localStorage.setItem('ach_pixel_parent', '1');
+        petCelebrate();
+        if (typeof showAchievement === 'function') showAchievement('Pixel Parent', 'Adopted your pixel pet');
+      }
     } else stopPixelPet();
   };
 
