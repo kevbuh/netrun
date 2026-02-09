@@ -212,7 +212,7 @@ function _islandRender() {
     existingEls[el.getAttribute('data-island-id')] = el;
   });
 
-  var fragment = document.createDocumentFragment();
+  var prevPill = null; // track insertion order
   ids.forEach(function(id) {
     var a = _islandActivities[id];
     var pill = existingEls[id];
@@ -441,6 +441,7 @@ function _islandRender() {
     if (isNew) {
       pill.classList.add('island-active');
       pill.classList.add('island-bounce');
+      pill.addEventListener('animationend', function() { pill.classList.remove('island-bounce'); }, { once: true });
       // Achievement: auto-expand tray then collapse after delay
       if (a.type === 'achievement') {
         pill.classList.add('island-tray-open');
@@ -453,7 +454,24 @@ function _islandRender() {
       pill.classList.add('island-active');
     }
 
-    fragment.appendChild(pill);
+    // Insert/reorder pill in place — no detach/reattach for existing pills
+    if (isNew) {
+      if (prevPill && prevPill.nextSibling) {
+        container.insertBefore(pill, prevPill.nextSibling);
+      } else if (prevPill) {
+        container.appendChild(pill);
+      } else {
+        container.insertBefore(pill, container.firstChild);
+      }
+    } else if (prevPill && prevPill.nextSibling !== pill) {
+      // Reorder if needed (priority changed)
+      if (prevPill.nextSibling) {
+        container.insertBefore(pill, prevPill.nextSibling);
+      } else {
+        container.appendChild(pill);
+      }
+    }
+    prevPill = pill;
 
     // Auto-dismiss on done
     if (a.done && !_islandDismissTimers[id]) {
@@ -467,9 +485,6 @@ function _islandRender() {
 
   // Remove stale pills
   Object.keys(existingEls).forEach(function(id) { existingEls[id].remove(); });
-
-  container.innerHTML = '';
-  container.appendChild(fragment);
 }
 
 // ── Now Playing context pill ──

@@ -5853,9 +5853,14 @@ function _restoreAnnotationPill(tab) {
   const cached = _annotationsCache.get(tab.url);
   if (!cached || Date.now() - cached.ts > 300000) return false;
   const annotations = cached.annotations || [];
+  if (!annotations.length) return false;
   const typeCounts = {};
   for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
   const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'KEY_FINDING';
+  // Auto-enable and inject cached annotations into the page
+  _annotationsEnabled.set(tab.id, true);
+  injectAnnotations(tab, annotations);
+  _updateAnnotateButtonState();
   if (typeof islandUpdate === 'function') {
     islandUpdate('annotate', {
       type: 'annotate',
