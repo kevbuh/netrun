@@ -1070,6 +1070,9 @@
     .pill-island.island-has-items.island-active:hover .pill-island-content:not(.pill-island-expanded) {
       opacity: 1;
     }
+    .pill-island[data-island-id="annotate"] {
+      cursor: pointer;
+    }
     /* On hover: pill becomes the top of a connected card */
     .pill-island.island-has-items.island-active.island-tray-open {
       border-radius: 12px 12px 0 0;

@@ -394,7 +394,7 @@ function _islandRender() {
       }
       if (a.action) a.action();
     };
-    pill.style.cursor = a.action ? 'pointer' : 'default';
+    pill.style.cursor = (a.action || a.type === 'annotate') ? 'pointer' : 'default';
     var hasItems = !!(a.items && a.items.length);
     var hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'annotate')) || a.type === 'achievement';
     pill.classList.toggle('island-context', a.type === 'context');
@@ -404,13 +404,13 @@ function _islandRender() {
 
     // Hover/click management for tray
     if (hasTray) {
-      if (a.type === 'tabs' || a.type === 'annotate') {
+      if (a.type === 'tabs') {
         // Tabs/annotate uses click-to-toggle instead of hover
         if (!pill._islandClickBound) {
           pill._islandClickBound = true;
           pill.style.cursor = 'pointer';
           pill.addEventListener('click', function(e) {
-            if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-ann], [data-island-dismiss]')) return;
+            if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss]')) return;
             pill.classList.toggle('island-tray-open');
           });
           // Close on outside click or focus loss (webview clicks don't bubble)
