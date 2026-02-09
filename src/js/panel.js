@@ -4066,6 +4066,9 @@ function _panelBuildChatInput(popup, config) {
             if (data.text) {
               askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
               askInput.focus();
+              if (localStorage.getItem('voiceAutoSend') === 'on') {
+                askInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+              }
             }
           })
           .catch(() => { islandRemove('ai-transcribe'); askInput.placeholder = prevPlaceholder; });

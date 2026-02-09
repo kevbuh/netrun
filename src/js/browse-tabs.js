@@ -1445,9 +1445,9 @@ function _browseInjectContentScripts(tab, frame) {
         });
         _browseUpdateRssPill(tab);
       } catch (err) {}
-    } else if (e.message && e.message.startsWith('__AETHER_ANN_HOVER__')) {
+    } else if (e.message && e.message.startsWith('__AETHER_ANN_MOVE__')) {
       try {
-        const data = JSON.parse(e.message.slice('__AETHER_ANN_HOVER__'.length));
+        const data = JSON.parse(e.message.slice('__AETHER_ANN_MOVE__'.length));
         _showAnnotationTooltip(data, frame);
       } catch (err) {}
     } else if (e.message === '__AETHER_ANN_LEAVE__') {
@@ -6195,12 +6195,15 @@ function _showAnnotationTooltip(data, frame) {
   tip.innerHTML = labelEl + explEl + conflictEl;
   tip.style.opacity = '1';
   const fRect = frame.getBoundingClientRect();
-  const left = Math.min(data.left + fRect.left, window.innerWidth - 340);
+  const cx = data.x + fRect.left;
+  const cy = data.y + fRect.top;
+  const tipW = tip.offsetWidth || 320;
+  const tipH = tip.offsetHeight || 60;
+  const left = Math.min(cx + 8, window.innerWidth - tipW - 8);
+  let top = cy - tipH - 4;
+  if (top < 4) top = cy + 16;
   tip.style.left = left + 'px';
-  tip.style.top = (data.top + fRect.top - tip.offsetHeight - 6) + 'px';
-  if (parseInt(tip.style.top) < 4) {
-    tip.style.top = (data.bottom + fRect.top + 6) + 'px';
-  }
+  tip.style.top = top + 'px';
 }
 
 function _hideAnnotationTooltip() {
@@ -6228,15 +6231,21 @@ function injectAnnotations(tab, annotations) {
       const annotations = JSON.parse('${annotationsJSON}');
       const colorMap = JSON.parse('${colorMapJSON}');
 
+      var _hoveredAnn = null;
       function showTooltip(mark, ann) {
-        const c = colorMap[ann.type] || colorMap.KEY_FINDING;
-        const rect = mark.getBoundingClientRect();
-        console.log('__AETHER_ANN_HOVER__' + JSON.stringify({ type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }));
+        var c = colorMap[ann.type] || colorMap.KEY_FINDING;
+        _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '' };
       }
 
       function hideTooltip() {
+        _hoveredAnn = null;
         console.log('__AETHER_ANN_LEAVE__');
       }
+
+      document.addEventListener('mousemove', function(e) {
+        if (!_hoveredAnn) return;
+        console.log('__AETHER_ANN_MOVE__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: _hoveredAnn.type, label: _hoveredAnn.label, labelColor: _hoveredAnn.labelColor, explanation: _hoveredAnn.explanation, conflictsWith: _hoveredAnn.conflictsWith }));
+      });
 
       // Build concatenated text from all text nodes with position mapping
       const skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);

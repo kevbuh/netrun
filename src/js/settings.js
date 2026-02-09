@@ -862,6 +862,20 @@ function _renderAgentSettings() {
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between mb-3">
         <div>
+          <h3 class="text-white_ text-sm font-semibold">Voice Auto-Send</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Automatically send the message after voice transcription completes, without waiting for Enter.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('voiceAutoSend') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('voiceAutoSend', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-3">
+        <div>
           <h3 class="text-white_ text-sm font-semibold">Auto Annotate</h3>
           <p class="text-dim text-[0.8rem] mt-0.5">Automatically annotate pages when you navigate in the browser. Highlights key findings, contradictions, and claims to verify.</p>
         </div>

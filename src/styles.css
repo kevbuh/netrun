@@ -806,7 +806,9 @@
     .browse-mode.ntp-active #pill-browse-tabs,
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
-    .browse-mode.ntp-active #pill-newwin-btn {
+    .browse-mode.ntp-active #pill-newwin-btn,
+    .browse-mode.ntp-active #pill-mic-btn,
+    .browse-mode.ntp-active #pill-readaloud-btn {
       display: none !important;
     }
     .browse-mode.ntp-active #pill-nav-icons {
