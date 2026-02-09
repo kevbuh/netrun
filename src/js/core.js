@@ -127,8 +127,6 @@ function _islandRenderPill(a) {
     return '<span class="island-ai-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg>';
-  } else if (a.type === 'notemode') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.label || 'PDF Viewer') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tabs') {
     return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'context') {
@@ -154,8 +152,6 @@ function _islandRenderPillExpanded(a) {
     return '<span class="island-ai-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#e8d5a0;font-weight:600">' + _escHtml(a.label || 'Unlocked!') + '</span><span style="color:rgba(202,161,42,0.55);margin-left:2px">' + _escHtml(a.detail || '') + '</span>';
-  } else if (a.type === 'notemode') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.detail || a.label || 'Open in PDF Viewer') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tabs') {
     var favHtml = a.favicon ? '<img class="island-tab-favicon" src="' + _escHtml(a.favicon) + '" onerror="this.style.display=\'none\'">' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
     var titleText = a.detail || 'Browse';
@@ -178,7 +174,7 @@ function _islandRender() {
   }
 
   // Sort by priority desc, then by timestamp
-  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, notemode: 2, audio: 2, qf: 2, tabs: 1.5, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, audio: 2, qf: 2, tabs: 1.5, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -2598,9 +2594,7 @@ window.addEventListener('keydown', e => {
     const browseOpen = browseView && browseView.style.display !== 'none' && browseView.style.display !== '';
     if (browseOpen && typeof _browseActiveTab !== 'undefined' && _browseActiveTab !== null) {
       const tab = typeof _browseTabs !== 'undefined' && _browseTabs.find(t => t.id === _browseActiveTab);
-      if (tab && tab.contentType === 'pdf' && typeof showPrintPreview === 'function') {
-        showPrintPreview();
-      } else if (typeof browsePrintPage === 'function') {
+      if (typeof browsePrintPage === 'function') {
         browsePrintPage();
       }
     }
@@ -2754,7 +2748,7 @@ window.addEventListener('keydown', e => {
     saveBrowseBarOrder();
   }
 
-  const DEFAULT_OVERFLOW = ['browse-search-history-btn', 'browse-notemode-btn'];
+  const DEFAULT_OVERFLOW = ['browse-search-history-btn'];
 
   function restoreBrowseBarOrder() {
     // Ensure default overflow buttons are hidden if user hasn't explicitly moved them

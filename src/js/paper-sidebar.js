@@ -66,9 +66,6 @@ function _renderSidebarHTML(paper) {
           <div class="insight-section-title" style="display:flex;align-items:center;gap:6px">
             Smart Highlights
             <span style="flex:1"></span>
-            <button id="smart-hl-toggle" class="pdf-tb-btn" title="Toggle highlights in PDF" onclick="toggleSmartHighlightsVisibility()" style="padding:2px 4px;font-size:0.7rem;opacity:1">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            </button>
           </div>
           <div class="insight-section-body" id="insight-pane-smart"></div>
         </div>
@@ -311,20 +308,6 @@ function postQuoteFromViewer() {
 
 // ── Paper Insights ──
 async function _verifyInsightsInPdf(insights) {
-  // Skip verification for non-PDF views (e.g. iframe websites) — no text layers to check
-  const pdfContainer = document.querySelector('.pdf-pages-container');
-  if (!pdfContainer) return insights;
-  // Wait for at least some PDF text layers to render (up to 8s, checking every 500ms)
-  if (typeof pdfTextExists === 'function') {
-    for (let attempt = 0; attempt < 16; attempt++) {
-      if (pdfContainer.querySelector('.textLayer span')) break;
-      await new Promise(r => setTimeout(r, 500));
-    }
-    return insights.filter(insight => {
-      const q = insight.text.replace(/\.\.\.$/, '');
-      return pdfTextExists(q);
-    });
-  }
   return insights;
 }
 
@@ -384,12 +367,6 @@ async function _fetchAuthorsAndAI(url, requestedTab) {
 
     // Update header with real title and authors from API
     _updatePaperHeader(data);
-
-    // Merge repo links
-    if (data.repos?.length) {
-      for (const repo of data.repos) _pdfExtractedLinks.add(repo.url);
-      _renderPdfLinks();
-    }
 
     _renderAuthorsPane(data);
     // Mark AI as loaded too since we have the data
@@ -467,13 +444,9 @@ function _renderAuthorsPane(data) {
       const idx = parseInt(card.dataset.idx);
       const author = window._insightAuthors[idx];
       if (!author) return;
-      card.addEventListener('mouseenter', () => { if (author.name) pdfSearchHighlight(author.name, true); });
-      card.addEventListener('mouseleave', pdfClearSearchHighlights);
       card.addEventListener('click', () => {
         if (author.authorId) {
           openAuthorProfile(author.authorId);
-        } else if (author.name) {
-          pdfSearchHighlight(author.name, false);
         }
       });
       card.style.cursor = 'pointer';
@@ -516,16 +489,6 @@ async function _renderAIPane(data) {
   html += '</div>';
   aiPane.innerHTML = verified.length ? html : '<div class="text-[0.75rem] text-dimmer">No insights found</div>';
 
-  aiPane.querySelectorAll('.insight-card').forEach(card => {
-    const isClickOnly = card.dataset.clickOnly === 'true';
-    if (isClickOnly) {
-      card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
-    } else {
-      card.addEventListener('mouseenter', () => pdfSearchHighlight(card.dataset.q, true));
-      card.addEventListener('mouseleave', pdfClearSearchHighlights);
-      card.addEventListener('click', () => pdfSearchHighlight(card.dataset.q, false));
-    }
-  });
 }
 
 function _fetchReferences(url) {
@@ -736,10 +699,9 @@ async function toggleShareToTeamDropdown() {
   // Check if paper has highlights or notes
   const paper = _currentPaperViewPaper;
   const arxivId = paper ? (paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '') : '';
-  const highlights = arxivId && typeof loadPdfHighlights === 'function' ? loadPdfHighlights(arxivId) : [];
   const note = _paperNotes.find(n => n.id === _paperNoteSelected);
   const noteContent = note && note.content ? note.content.trim() : '';
-  const hasAnnotations = highlights.length > 0 || noteContent.length > 0;
+  const hasAnnotations = noteContent.length > 0;
 
   dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
     _cachedTeams.map(t => {
@@ -765,19 +727,9 @@ async function sharePaperToTeam(teamId, teamName, withNotes, el) {
   let content = paper.link;
   if (withNotes) {
     const arxivId = paper.arxivId || (paper.link.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/) || [])[1] || '';
-    const highlights = arxivId && typeof loadPdfHighlights === 'function' ? loadPdfHighlights(arxivId) : [];
     const note = _paperNotes.find(n => n.id === _paperNoteSelected);
     const noteContent = note && note.content ? note.content.trim() : '';
     const parts = [paper.link];
-    if (highlights.length) {
-      parts.push('\n--- Highlights ---');
-      highlights.forEach(h => {
-        const quote = h.text.length > 200 ? h.text.slice(0, 200) + '...' : h.text;
-        let line = `> ${quote}`;
-        if (h.note) line += `\n  Note: ${h.note}`;
-        parts.push(line);
-      });
-    }
     if (noteContent) {
       parts.push('\n--- Notes ---');
       parts.push(noteContent.length > 500 ? noteContent.slice(0, 500) + '...' : noteContent);
@@ -974,7 +926,6 @@ function showPdfFindBar() {
 }
 
 function closePdfFindBar() {
-  if (typeof pdfClearSearchHighlights === 'function') pdfClearSearchHighlights();
   const input = document.getElementById('pdf-search-input');
   if (input) { input.value = ''; input.blur(); }
 }
@@ -1278,7 +1229,7 @@ function _renderBrowsePanes(container) {
     '<div data-pane-id="insights" id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">' +
       '<div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">' +
         '<div class="insight-section" id="insight-drop-ai"><div class="insight-section-title">AI</div><div class="insight-section-body" id="insight-pane-ai"></div></div>' +
-        '<div class="insight-section" id="insight-drop-smart"><div class="insight-section-title" style="display:flex;align-items:center;gap:6px">Smart Highlights<span style="flex:1"></span><button id="smart-hl-toggle" class="pdf-tb-btn" title="Toggle highlights in PDF" onclick="toggleSmartHighlightsVisibility()" style="padding:2px 4px;font-size:0.7rem;opacity:1"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button></div><div class="insight-section-body" id="insight-pane-smart"></div></div>' +
+        '<div class="insight-section" id="insight-drop-smart"><div class="insight-section-title" style="display:flex;align-items:center;gap:6px">Smart Highlights</div><div class="insight-section-body" id="insight-pane-smart"></div></div>' +
         '<div class="insight-section" id="insight-drop-references"><div class="insight-section-title">References</div><div class="insight-section-body" id="insight-pane-references"></div></div>' +
         '<div class="insight-section" id="insight-drop-links"><div class="insight-section-title">Links</div><div class="insight-section-body" id="insight-pane-links"><div id="pdf-links-section"></div></div></div>' +
       '</div>' +
@@ -1314,13 +1265,9 @@ function _renderSmartHighlightsPane(url) {
   const cacheKey = arxivMatch ? arxivMatch[1] : url;
 
   // Check localStorage cache for instant render
-  const cached = typeof loadSmartHighlights === 'function' ? loadSmartHighlights(cacheKey) : null;
+  const cached = null;
   if (cached && cached.length) {
     _renderSmartHighlightsList(pane, cached);
-    if (typeof renderSmartHighlightsInPdf === 'function' && typeof pdfTextExists === 'function') {
-      var pdfItems = cached.filter(function(h) { return pdfTextExists(h.text.replace(/\.\.\.$/, '')); });
-      renderSmartHighlightsInPdf(pdfItems);
-    }
     return;
   }
 
@@ -1349,19 +1296,8 @@ async function _generateSmartHighlights(url) {
 
     var items = data.highlights || [];
 
-    // Cache non-empty results only
-    const arxivMatch = url.match(/(\d{4}\.\d{4,5})/);
-    const cacheKey = arxivMatch ? arxivMatch[1] : url;
-    if (items.length && typeof saveSmartHighlights === 'function') saveSmartHighlights(cacheKey, items);
-
     // Render all items in sidebar
     _renderSmartHighlightsList(pane, items);
-
-    // Only render PDF overlays for quotes that exist in the text layer
-    if (typeof renderSmartHighlightsInPdf === 'function' && typeof pdfTextExists === 'function') {
-      var pdfItems = items.filter(h => pdfTextExists(h.text.replace(/\.\.\.$/, '')));
-      renderSmartHighlightsInPdf(pdfItems);
-    }
   } catch (e) {
     islandRemove('ai-highlights');
     console.error('[Smart Highlights] Error:', e);
@@ -1405,13 +1341,6 @@ function _renderSmartHighlightsList(pane, items) {
   }
   html += '</div>';
   pane.innerHTML = html;
-
-  // Bind hover/click interactions
-  pane.querySelectorAll('.smart-hl-item').forEach(card => {
-    card.addEventListener('mouseenter', () => { if (typeof pdfSearchHighlight === 'function') pdfSearchHighlight(card.dataset.q, true); });
-    card.addEventListener('mouseleave', () => { if (typeof pdfClearSearchHighlights === 'function') pdfClearSearchHighlights(); });
-    card.addEventListener('click', () => { if (typeof pdfSearchHighlight === 'function') pdfSearchHighlight(card.dataset.q, false); });
-  });
 }
 
 registerPanelTabs('browse', {

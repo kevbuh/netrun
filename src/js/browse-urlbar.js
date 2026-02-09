@@ -1721,10 +1721,7 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
     } else if (command === 'reopen-tab') {
       browseReopenTab();
     } else if (command === 'print') {
-      const tab = typeof _browseTabs !== 'undefined' && _browseTabs.find(t => t.id === _browseActiveTab);
-      if (tab && tab.contentType === 'pdf' && typeof showPrintPreview === 'function') {
-        showPrintPreview();
-      } else if (typeof browsePrintPage === 'function') {
+      if (typeof browsePrintPage === 'function') {
         browsePrintPage();
       }
     }

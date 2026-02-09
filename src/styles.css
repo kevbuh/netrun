@@ -809,9 +809,7 @@
       opacity: 1;
       overflow-x: auto;
     }
-    .browse-mode.island-mode #pill-browse-tabs,
-    .browse-mode.island-mode #pill-browse-more,
-    .browse-mode.island-mode #pill-newtab-btn {
+    .browse-mode.island-mode #pill-browse-tabs {
       display: none;
     }
     #pill-browse-tabs::-webkit-scrollbar { display: none; }

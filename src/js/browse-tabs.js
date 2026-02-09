@@ -400,25 +400,6 @@ function _browseGoBack() {
   if (fn) fn(); else goHome();
 }
 
-function browseExitNoteMode() {
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  if (!tab || !tab._noteModePrev) return;
-  const prev = tab._noteModePrev;
-  if (tab.el) tab.el.remove();
-  tab.el = prev.el;
-  tab.contentType = prev.contentType;
-  tab.paper = prev.paper;
-  tab.arxivId = prev.arxivId;
-  tab.pdfUrl = prev.pdfUrl;
-  delete tab._noteModePrev;
-  if (tab.el) tab.el.style.display = '';
-  _currentPaperViewPaper = tab.paper || null;
-  hidePanel();
-  _browseRenderTabs();
-  _browseUpdateBarForTab(tab);
-  _browseSaveTabs();
-}
-
 function openBrowse(url) {
   const view = document.getElementById('browse-view');
   const alreadyVisible = view && view.style.display === 'flex';
@@ -1144,15 +1125,6 @@ function _browseHandleNavigation(tab, frame) {
     _updateAudioIndicator();
   });
 
-  // Detect built-in PDF viewer after page loads
-  frame.addEventListener('did-finish-load', () => {
-    frame.executeJavaScript('document.contentType').then(ct => {
-      const isPdf = ct === 'application/pdf';
-      if (isPdf !== !!tab._detectedPdf) {
-        tab._detectedPdf = isPdf;
-      }
-    }).catch(() => {});
-  });
 }
 
 function _browseInjectContentScripts(tab, frame) {
@@ -1438,7 +1410,7 @@ function _browseInjectContentScripts(tab, frame) {
 }
 
 function _browseBindFrame(tab) {
-  if (tab.contentType === 'pdf' || tab.contentType === 'reader') return;
+  if (tab.contentType === 'reader') return;
   const el = tab.el;
   if (!el || !_browseIsElectron) return;
 
@@ -1825,7 +1797,7 @@ function browseSelectTab(id) {
       _tryRenderSavedContent(tab.el, tab.paper);
     }
     // Update sidebar via universal panel
-    if (tab.arxivId || tab.contentType === 'pdf') {
+    if (tab.arxivId) {
       if (!_panelVisible) {
         _panelVisible = true;
         localStorage.setItem('universalPanelVisible', 'true');
@@ -1853,7 +1825,6 @@ function browseSelectTab(id) {
 function _browseUpdateBarForTab(tab) {
   let citeBtn = document.getElementById('browse-cite-btn');
   let bookmarkBtn = document.getElementById('browse-paper-bookmark-btn');
-  let exitNoteBtn = document.getElementById('browse-exit-notemode-btn');
   if (tab && tab.paper) {
     // Cite button
     if (!citeBtn) {
@@ -1886,7 +1857,6 @@ function _browseUpdateBarForTab(tab) {
     if (citeBtn) citeBtn.style.display = 'none';
     if (bookmarkBtn) bookmarkBtn.style.display = 'none';
   }
-  if (exitNoteBtn) exitNoteBtn.style.display = 'none';
 }
 
 function _browseUpdateNewTabPage(tab) {
@@ -4245,20 +4215,6 @@ function browseNavigate(input) {
   if (trimmed && url.startsWith('https://www.google.com/search?q=')) {
     _saveWebSearch(trimmed);
   }
-  // arXiv PDF URL → open as paper tab (abs pages load as normal iframe)
-  const arxivPdfMatch = url.match(/arxiv\.org\/pdf\/(\d+\.\d+)/);
-  if (arxivPdfMatch) {
-    browseNewPaperTab(url, { title: 'arXiv: ' + arxivPdfMatch[1], link: url, source: 'arxiv', arxivId: arxivPdfMatch[1], description: '', authors: '', categories: [] });
-    return;
-  }
-  // Local/blob PDF → open in PDF viewer
-  if (/\.pdf$/i.test(url) && /^(file|blob):/.test(url)) {
-    const name = url.split('/').pop().replace(/\.pdf$/i, '') || 'Local PDF';
-    const pdfUrl = url.startsWith('file://') ? '/api/local-file?path=' + encodeURIComponent(url.replace(/^file:\/\//, '')) : url;
-    const paper = { title: decodeURIComponent(name), link: url, source: 'upload', pdfUrl };
-    browseNewPaperTab(url, paper);
-    return;
-  }
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
   // Tear down special pages if this tab was showing one
@@ -5374,7 +5330,6 @@ function toggleBrowseMoreMenu() {
     overflowRows += `<button onclick="browseShare();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg> Share</button>`;
     overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker</button>`;
     overflowRows += `<button onclick="openSearchHistoryPage();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg> Search History</button>`;
-    overflowRows += `<button onclick="browseEnableNoteMode();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg> Note Mode</button>`;
     overflowRows += `<button onclick="toggleBrowseSidebar();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg> Toggle Sidebar</button>`;
   } else {
   const overflowIds = typeof getBarOverflowIds === 'function' ? getBarOverflowIds() : [];
@@ -5572,12 +5527,6 @@ function browsePrintPage() {
 
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
 
-  // PDF tabs — use print preview directly
-  if (tab && tab.contentType === 'pdf' && typeof showPrintPreview === 'function' && _pdfDoc) {
-    showPrintPreview();
-    return;
-  }
-
   const el = _browseActiveEl();
   if (!el) return;
 
@@ -5594,56 +5543,6 @@ function browsePrintPage() {
       if (tab && tab.url) window.open(tab.url, '_blank');
     }
   }
-}
-
-function browseEnableNoteMode() {
-  // Close the menu
-  const dd = document.getElementById('browse-more-menu');
-  if (dd) dd.style.display = 'none';
-
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  if (!tab || tab.blank || !tab.url) return;
-
-  // Already a paper tab — just show sidebar
-  if (tab.contentType) {
-    togglePaperSidebar();
-    return;
-  }
-
-  // Save previous state so we can revert
-  tab._noteModePrev = { el: tab.el, contentType: tab.contentType || null, paper: tab.paper || null, arxivId: tab.arxivId || null, pdfUrl: tab.pdfUrl || null };
-
-  // Convert current iframe tab into a paper tab with reader view
-  tab.paper = {
-    title: tab.title || _browseTitleFromUrl(tab.url),
-    link: tab.url,
-    description: '',
-    authors: '',
-    categories: [],
-    source: 'browse'
-  };
-  tab.contentType = 'reader';
-
-  // Hide old frame, create container div
-  if (tab.el) tab.el.style.display = 'none';
-  const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-paper-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow:hidden;';
-  container.appendChild(el);
-  tab.el = el;
-
-  // Re-select to trigger paper rendering
-  browseSelectTab(tab.id);
-  // Show sidebar with notes tab (browseSelectTab hides panel for reader tabs)
-  if (!_panelVisible) {
-    _panelVisible = true;
-    localStorage.setItem('universalPanelVisible', 'true');
-  }
-  _invalidatePanelRender('browse');
-  showPanelForView('browse');
-  if (typeof switchPanelTab === 'function') switchPanelTab('notes');
-  _browseSaveTabs();
 }
 
 // ── Dynamic Island pill bar — browse mode ──
