@@ -63,6 +63,13 @@ let _nlAdaptiveRadius = 500;
 let _nlTimedFlushInterval = null;
 let _nlModelVersion = 0; // increments on each successful train/refine
 
+function _nlCheckGazeMasterAchievement() {
+  if (_nlModelVersion >= 5 && !localStorage.getItem('ach_gaze_master')) {
+    localStorage.setItem('ach_gaze_master', '1');
+    if (typeof showAchievement === 'function') showAchievement('Gaze Master', 'Trained your eye-tracking model 5 times');
+  }
+}
+
 // Model type selection
 let _nlModelType = 'cnn'; // 'cnn' | 'mobilenet'
 let _nlModelState = {
@@ -867,6 +874,7 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
                   _nlModelTrained = true;
                   _nlReady = true;
                   _nlModelVersion++;
+                  _nlCheckGazeMasterAchievement();
                   _nlBaselineValError = data.val_error_px;
                   _nlShowModelUpdatedPill(_nlModelVersion, data.val_error_px);
                   if (onLog) onLog(`► Model updated to v${_nlModelVersion} — val ${data.val_error_px}px (epoch ${data.epoch})`);
@@ -1420,6 +1428,7 @@ async function _nlOnCalibrationComplete() {
     _nlUpdatePillIndicator();
     _nlReady = true;
     _nlModelVersion++;
+    _nlCheckGazeMasterAchievement();
 
     const valPx = result.val_error_px;
     _nlBaselineValError = valPx;
@@ -1726,6 +1735,7 @@ async function _nlStartAutoRefine() {
     _nlUpdatePillIndicator();
     _nlReady = true;
     _nlModelVersion++;
+    _nlCheckGazeMasterAchievement();
     _nlLastAutoRefineTime = Date.now();
 
     const valPx = result.val_error_px;
@@ -1835,6 +1845,7 @@ function _nlRefineModel() {
     _nlUpdatePillIndicator();
     _nlReady = true;
     _nlModelVersion++;
+    _nlCheckGazeMasterAchievement();
     _nlImplicitCount = 0; // cleared on server
     const valPx = result.val_error_px;
     _nlBaselineValError = valPx;

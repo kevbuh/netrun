@@ -1554,6 +1554,12 @@ ACHIEVEMENTS = {
         'description': 'Adopted a pixel pet',
         'icon': '🐾',
     },
+    'gaze_master': {
+        'id': 'gaze_master',
+        'name': 'Gaze Master',
+        'description': 'Trained your eye-tracking model 5 times',
+        'icon': '👁️',
+    },
 }
 
 

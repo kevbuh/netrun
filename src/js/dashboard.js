@@ -1414,6 +1414,32 @@ async function renderDevStats() {
   }
 }
 
+var _devAchievements = {
+  bookworm:     { name: 'Bookworm',      desc: 'Saved your first post' },
+  curator:      { name: 'Curator',       desc: 'Curated your feed by hiding a post' },
+  critic:       { name: 'Critic',        desc: 'Rated your first paper' },
+  explorer:     { name: 'Explorer',      desc: 'Enabled a new feed source' },
+  model_switch: { name: 'Model Swapper', desc: 'Switched your AI model for the first time' },
+  its_alive:    { name: "It's Alive!",   desc: 'Ran an experiment kernel for the first time' },
+  pixel_parent: { name: 'Pixel Parent',  desc: 'Adopted your pixel pet' },
+  gaze_master:  { name: 'Gaze Master',  desc: 'Trained your eye-tracking model 5 times' }
+};
+
+function _devTestAchievement() {
+  var sel = document.getElementById('dev-ach-select');
+  if (!sel) return;
+  var ach = _devAchievements[sel.value];
+  if (!ach) return;
+  islandRemove('achievement');
+  setTimeout(function() { showAchievement(ach.name, ach.desc); }, 50);
+}
+
+function _devResetAchievements() {
+  var keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_its_alive', 'ach_pixel_parent', 'ach_gaze_master'];
+  keys.forEach(function(k) { localStorage.removeItem(k); });
+  islandRemove('achievement');
+}
+
 var _devGitLogOffset = 0;
 
 function _devRenderCommitRows(log) {
