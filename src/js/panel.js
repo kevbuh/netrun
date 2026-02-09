@@ -23,7 +23,6 @@ Object.defineProperty(window, '_aetherTrackMode', {
           delete f.dataset.peTrack;
         }
       });
-      _aetherPopupRef = null;
     }
   }
 });
@@ -37,10 +36,6 @@ let _aetherDragOffset = { x: 0, y: 0 };
 let _aetherDragPopup = null;
 let _aetherPinned = false;
 let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
-let _aetherPopupRef = null; // cached ref to active popup — avoids getElementById in hot path
-let _aetherHoveredIcon = null;     // sidebar icon element under cursor
-let _aetherHoveredIconRect = null; // cached getBoundingClientRect of hovered icon
-let _aetherHoveredIsProfile = false; // whether hovered icon is the profile/settings icon
 
 function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -396,21 +391,9 @@ function _sendPopupChatMessage(popup, capturedText) {
         body.context = ctx;
       }
       _chatStreamStart = Date.now();
-      // If no context and not vision mode, fall back to vault-chat (RAG over notes)
-      const useVaultChat = !hasVision && !body.context;
-      const chatUrl = useVaultChat ? '/api/vault-chat' : '/api/doc-chat';
-      const chatHeaders = useVaultChat
-        ? { ..._authHeaders(), 'Content-Type': 'application/json' }
-        : { 'Content-Type': 'application/json' };
-      if (useVaultChat) {
-        body.query = q;
-        body.min_similarity = (parseInt(localStorage.getItem('vaultChatMinSimilarity') || '70', 10)) / 100;
-        delete body.context;
-        delete body.tools;
-      }
-      const resp = await fetch(chatUrl, {
+      const resp = await fetch('/api/doc-chat', {
         method: 'POST',
-        headers: chatHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal: _popupChatAbort.signal
       });
@@ -445,11 +428,7 @@ function _sendPopupChatMessage(popup, capturedText) {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7);
           } else if (line.startsWith('data: ')) {
-            if (currentEvent === 'sources') {
-              try {
-                _popupChatMessages[aiIdx]._sources = JSON.parse(line.slice(6));
-              } catch (e) {}
-            } else if (currentEvent === 'token') {
+            if (currentEvent === 'token') {
               try {
                 const token = JSON.parse(line.slice(6));
                 aiText += token;
@@ -464,10 +443,6 @@ function _sendPopupChatMessage(popup, capturedText) {
                 _popupChatMessages[aiIdx]._thinking = true;
                 _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
                 _renderPopupChat(popup, false);
-              } catch (e) {}
-            } else if (currentEvent === 'web_sources') {
-              try {
-                _popupChatMessages[aiIdx]._webSources = JSON.parse(line.slice(6));
               } catch (e) {}
             } else if (currentEvent === 'action') {
               try {
@@ -561,43 +536,9 @@ function _updateContextBar(popup) {
   fill.parentElement.title = label;
 }
 
-function _buildSourcesPill(results) {
-  const domains = [];
-  const seen = new Set();
-  for (const r of results) {
-    try {
-      const d = new URL(r.url).hostname.replace(/^www\./, '');
-      if (!seen.has(d)) { seen.add(d); domains.push(d); }
-    } catch {}
-  }
-  const maxIcons = 5;
-  const favicons = domains.slice(0, maxIcons).map((d, i) =>
-    `<img class="doc-sources-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=32" alt="" style="z-index:${maxIcons - i}" onerror="this.style.display='none'" />`
-  ).join('');
-  return `<div class="doc-sources-pill"><div class="doc-sources-favicons">${favicons}</div><span class="doc-sources-label">${results.length} source${results.length !== 1 ? 's' : ''}</span></div>`;
-}
-
 function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
-
-  // ── Fast path: during streaming, only update the last AI message text ──
-  const streamMsg = _popupChatMessages[_popupChatMessages.length - 1];
-  const lastEl = container.lastElementChild;
-  if (!final && streamMsg && streamMsg.role === 'assistant' && !streamMsg._thinking
-      && !streamMsg._searchResults && !streamMsg._paperResults && !streamMsg._userResults && !streamMsg._noteResults
-      && lastEl && lastEl.classList.contains('doc-msg-ai') && lastEl.dataset.streaming === '1') {
-    // Incremental: just update the text node in the existing element
-    const textNode = lastEl.querySelector('.doc-stream-text');
-    if (textNode) {
-      textNode.textContent = streamMsg.content;
-      container.scrollTop = container.scrollHeight;
-      return;
-    }
-  }
-
-  // ── Full rebuild: on final render, new messages, or structure change ──
-  popup._cachedW = 0; popup._cachedH = 0; // invalidate size cache after content change
   container.innerHTML = _popupChatMessages.map((m, i) => {
     if (m.role === 'user') {
       const display = m._display || m.content;
@@ -611,16 +552,14 @@ function _renderPopupChat(popup, final) {
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
       const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
-      const editBtn = `<button class="doc-msg-action-btn" data-action="edit" data-msg-idx="${i}" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}<div class="doc-msg-actions-row">${editBtn}</div></div>`;
+      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div>`;
     }
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
       return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}</div>`;
     }
-    // Search results — render as sources pill
+    // Search results
     if (m._searchResults && m._searchResults.length) {
-      const pill = _buildSourcesPill(m._searchResults);
       const resultsHtml = m._searchResults.map(r =>
         `<div class="doc-search-result" data-href="${escapeAttr(r.url)}">` +
         `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
@@ -628,7 +567,7 @@ function _renderPopupChat(popup, final) {
         `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
         `</div>`
       ).join('');
-      return `<div class="doc-msg-ai doc-msg-search-bubble">${pill}<div class="doc-sources-expanded">${resultsHtml}</div></div>`;
+      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
     // Paper search results
     if (m._paperResults && m._paperResults.length) {
@@ -667,68 +606,12 @@ function _renderPopupChat(popup, final) {
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
     const isLast = i === _popupChatMessages.length - 1;
-    // During streaming (not final, last message): use plain text in a span for fast incremental updates
-    if (!final && isLast) {
-      return `<div class="doc-msg-ai" data-streaming="1"><span class="doc-stream-text">${escapeHtml(m.content)}</span></div>`;
-    }
-    let content = typeof marked !== 'undefined'
+    const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content)
       : escapeHtml(m.content);
-    // Replace [1], [2], etc. with clickable inline source badges
-    if (m._sources && m._sources.length) {
-      content = content.replace(/\[(\d+)\]/g, (match, num) => {
-        const idx = parseInt(num, 10) - 1;
-        if (idx >= 0 && idx < m._sources.length) {
-          const s = m._sources[idx];
-          return `<span class="vault-source-ref" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">${num}</span>`;
-        }
-        return match;
-      });
-    }
-    // Sources pill (vault notes or web sources) — inline in actions row
-    let sourcesPillHtml = '';
-    if (m._sources && m._sources.length) {
-      const icons = m._sources.slice(0, 3).map((s, si) =>
-        `<span class="doc-sources-favicon doc-sources-favicon-num" style="z-index:${3 - si}">${si + 1}</span>`
-      ).join('');
-      const cardsHtml = m._sources.map((s, si) =>
-        `<div class="vault-chat-source-card" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)}">` +
-        `<span class="vault-source-num">${si + 1}</span>` +
-        `<span class="vault-source-title">${escapeHtml(s.title.length > 20 ? s.title.slice(0, 18) + '…' : s.title)}</span>` +
-        `<span class="vault-source-score">${Math.round(s.score * 100)}%</span>` +
-        `</div>`
-      ).join('');
-      sourcesPillHtml = `<div class="doc-msg-search-bubble"><div class="doc-sources-pill"><div class="doc-sources-favicons">${icons}</div><span class="doc-sources-label">${m._sources.length} source${m._sources.length !== 1 ? 's' : ''}</span></div><div class="doc-sources-expanded"><div class="doc-sources-cards">${cardsHtml}</div></div></div>`;
-    }
-    if (m._webSources && m._webSources.length) {
-      const pill = _buildSourcesPill(m._webSources);
-      const expandedHtml = m._webSources.map(r =>
-        `<div class="doc-search-result" data-href="${escapeAttr(r.url)}">` +
-        `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
-        (r.snippet ? `<div class="doc-search-result-snippet">${escapeHtml(r.snippet)}</div>` : '') +
-        `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
-        `</div>`
-      ).join('');
-      sourcesPillHtml += `<div class="doc-msg-search-bubble">${pill}<div class="doc-sources-expanded">${expandedHtml}</div></div>`;
-    }
-    const speakBtn = `<button class="doc-msg-action-btn doc-msg-speak-btn" data-action="speak" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
-    const copyBtn = `<button class="doc-msg-action-btn" data-action="copy" data-msg-idx="${i}" title="Copy"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-    const redoBtn = `<button class="doc-msg-action-btn" data-action="redo" data-msg-idx="${i}" title="Redo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
-    return `<div class="doc-msg-ai">${content}<div class="doc-msg-actions-row">${sourcesPillHtml}${speakBtn}${copyBtn}${redoBtn}</div></div>`;
+    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
+    return `<div class="doc-msg-ai">${content}${speakBtn}</div>`;
   }).join('');
-  container.querySelectorAll('.doc-msg-ai').forEach(el => renderLatexInEl(el));
-  // Remove old vault-chat sources dropdown if present
-  const oldSourcesWrap = popup.querySelector('.vault-chat-sources-wrap');
-  if (oldSourcesWrap) oldSourcesWrap.remove();
-  // Attach click handlers for sources pill toggle
-  container.querySelectorAll('.doc-sources-pill').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const bubble = el.closest('.doc-msg-search-bubble');
-      if (bubble) bubble.classList.toggle('expanded');
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
     el.addEventListener('click', (ev) => {
@@ -773,114 +656,26 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
-  // Attach click handlers for vault source cards (inside pill expanded area)
-  container.querySelectorAll('.vault-chat-source-card[data-note-id]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const noteId = el.getAttribute('data-note-id');
-      window.location.hash = 'vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
-  // Attach click handlers for inline source references [1], [2], etc.
-  container.querySelectorAll('.vault-source-ref[data-note-id]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const noteId = el.getAttribute('data-note-id');
-      window.location.hash = 'vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
-  // Attach message action button handlers
-  container.querySelectorAll('.doc-msg-action-btn').forEach(btn => {
+  // Attach speak button handlers
+  container.querySelectorAll('.doc-msg-speak-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      // Click animation
-      btn.classList.remove('doc-msg-btn-clicked');
-      void btn.offsetWidth;
-      btn.classList.add('doc-msg-btn-clicked');
-      const action = btn.getAttribute('data-action');
-      const idx = parseInt(btn.getAttribute('data-msg-idx'), 10);
-      const actionsRow = btn.closest('.doc-msg-actions-row');
-      const aiEl = actionsRow ? actionsRow.previousElementSibling : null;
-
-      if (action === 'speak') {
-        const wasSpeaking = btn.classList.contains('doc-msg-speaking');
-        if (speechSynthesis.speaking) {
-          speechSynthesis.cancel();
-          container.querySelectorAll('[data-action="speak"]').forEach(b => b.classList.remove('doc-msg-speaking'));
-        }
-        if (wasSpeaking) return; // was toggling off
-        const bubble = btn.closest('.doc-msg-ai');
-        if (!bubble) return;
-        // Get text excluding the actions row
-        const clone = bubble.cloneNode(true);
-        const actRow = clone.querySelector('.doc-msg-actions-row');
-        if (actRow) actRow.remove();
-        const text = clone.textContent.replace(/\s+/g, ' ').trim();
-        if (!text) return;
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.rate = 1.1;
-        btn.classList.add('doc-msg-speaking');
-        utter.onend = () => { if (btn.isConnected) btn.classList.remove('doc-msg-speaking'); };
-        utter.onerror = () => { if (btn.isConnected) btn.classList.remove('doc-msg-speaking'); };
-        speechSynthesis.speak(utter);
-      } else if (action === 'copy') {
-        const msg = _popupChatMessages[idx];
-        if (msg && msg.content) {
-          navigator.clipboard.writeText(msg.content).then(() => {
-            btn.title = 'Copied';
-            setTimeout(() => { if (btn.isConnected) btn.title = 'Copy'; }, 1200);
-          }).catch(() => {});
-        }
-      } else if (action === 'redo') {
-        // Redo is on AI message — find preceding user message and resend
-        let userIdx = -1;
-        for (let j = idx - 1; j >= 0; j--) {
-          if (_popupChatMessages[j].role === 'user') { userIdx = j; break; }
-        }
-        if (userIdx < 0) return;
-        const userMsg = _popupChatMessages[userIdx];
-        _popupChatMessages = _popupChatMessages.slice(0, userIdx);
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) input.value = userMsg._display || userMsg.content;
-        _sendPopupChatMessage(popup, popup._capturedText || '');
-      } else if (action === 'edit') {
-        // Edit is on user message — turn bubble into inline textbox
-        const userMsg = _popupChatMessages[idx];
-        if (!userMsg || userMsg.role !== 'user') return;
-        const bubble = btn.closest('.doc-msg-user');
-        if (!bubble) return;
-        const origText = userMsg._display || userMsg.content;
-        const editInput = document.createElement('input');
-        editInput.type = 'text';
-        editInput.className = 'doc-msg-edit-input';
-        editInput.value = origText;
-        bubble.innerHTML = '';
-        bubble.appendChild(editInput);
-        bubble.classList.add('doc-msg-editing');
-        editInput.focus();
-        editInput.setSelectionRange(origText.length, origText.length);
-        const submitEdit = () => {
-          const val = editInput.value.trim();
-          if (!val) return;
-          _popupChatMessages = _popupChatMessages.slice(0, idx);
-          if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-          const mainInput = popup.querySelector('.doc-ask-inline-input');
-          if (mainInput) mainInput.value = val;
-          _sendPopupChatMessage(popup, popup._capturedText || '');
-        };
-        editInput.addEventListener('keydown', (ev) => {
-          ev.stopPropagation();
-          if (ev.key === 'Enter') { ev.preventDefault(); submitEdit(); }
-          if (ev.key === 'Escape') { ev.preventDefault(); _renderPopupChat(popup, true); }
-        });
-        editInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+        container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
+        if (btn.classList.contains('doc-msg-speaking')) return; // was toggling off
       }
+      const msgEl = btn.closest('.doc-msg-ai');
+      if (!msgEl) return;
+      const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.1;
+      btn.classList.add('doc-msg-speaking');
+      utter.onend = () => btn.classList.remove('doc-msg-speaking');
+      utter.onerror = () => btn.classList.remove('doc-msg-speaking');
+      speechSynthesis.speak(utter);
     });
   });
   // Update send/stop button state
@@ -910,6 +705,10 @@ function _renderPopupChat(popup, final) {
   }
   _updateContextBar(popup);
   _updateChatStats(popup, final);
+  // Show/hide redo + copy buttons
+  const hasAiMsg = _popupChatMessages.some(m => m.role === 'assistant' && !m._thinking && m.content);
+  if (popup._redoBtn) popup._redoBtn.style.display = hasAiMsg ? '' : 'none';
+  if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
 }
 
 const _modelContextSizes = {
@@ -960,13 +759,7 @@ function _updateChatStats(popup, final) {
   const statsEl = popup.querySelector('.doc-chat-stats');
   if (!statsEl) return;
   _updateContextUsage(popup);
-  const statsRow = popup.querySelector('.aether-stats-row');
-  if (_popupChatMessages.length === 0) {
-    statsEl.textContent = '';
-    if (statsRow) statsRow.style.display = 'none';
-    return;
-  }
-  if (statsRow) statsRow.style.display = '';
+  if (_popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
   const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
   if (!lastAi) { statsEl.textContent = ''; return; }
   const parts = [];
@@ -992,6 +785,23 @@ function _updateChatStats(popup, final) {
   statsEl.textContent = parts.join(' \u00B7 ');
 }
 
+function _sendPopupChatToSidebar() {
+  // Copy popup messages into sidebar doc chat and persist
+  for (const m of _popupChatMessages) {
+    _docChatMessages.push({ role: m.role, content: m.content });
+    _appendToActiveThread(_chatUrl(), { role: m.role, content: m.content, ts: Date.now() });
+  }
+  renderDocChatMessages(true);
+  switchSidebarTab('chat');
+  // Dismiss popup
+  const popup = document.getElementById('doc-chat-ask-float');
+  if (popup) popup.remove();
+  _popupChatMessages = [];
+  _pendingScreenshots = [];
+  _pendingNoteContexts = [];
+  _pendingTabContexts = [];
+  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+}
 
 function _saveChatAsHighlight(popup) {
   if (!_popupChatMessages.length) return;
@@ -1078,6 +888,13 @@ function _showChatHighlightPopup(e, hl) {
   // Actions
   const chatActions = document.createElement('div');
   chatActions.className = 'doc-popup-chat-actions';
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.textContent = 'Open in sidebar';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatToSidebar();
+  });
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = 'Delete';
   deleteBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1087,6 +904,7 @@ function _showChatHighlightPopup(e, hl) {
     _popupChatMessages = [];
     popup.remove();
   });
+  chatActions.appendChild(openSidebarBtn);
   const statsSpanHl = document.createElement('span');
   statsSpanHl.className = 'doc-chat-stats';
   chatActions.appendChild(statsSpanHl);
@@ -1159,8 +977,8 @@ function _showChatHighlightPopup(e, hl) {
   let left = hlLeft;
   if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
   if (left < 4) left = 4;
-  popup.style.transform = `translate3d(${left}px,${top}px,0)`;
-  popup._lastLeft = left;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
   popup._anchorTop = hlTop;
   popup._anchorBottom = hlBottom;
   popup._anchorLeft = hlLeft;
@@ -1182,6 +1000,7 @@ async function _findReferenceTextAsync(refNum) {
   // Extract text from the last pages of the PDF to find the reference
   if (typeof _pdfDoc === 'undefined' || !_pdfDoc) return null;
   const total = _pdfDoc.numPages;
+  // Search last 5 pages (references are usually at the end)
   const startPage = Math.max(1, total - 4);
 
   let allText = '';
@@ -1189,6 +1008,7 @@ async function _findReferenceTextAsync(refNum) {
     try {
       const page = await _pdfDoc.getPage(p);
       const content = await page.getTextContent();
+      // Join items without extra spaces — PDF.js items already include trailing spaces
       const pageText = content.items.map(item => item.str + (item.hasEOL ? '\n' : '')).join('');
       allText += pageText + '\n';
     } catch (e) { /* skip */ }
@@ -1198,9 +1018,8 @@ async function _findReferenceTextAsync(refNum) {
   return _extractRefFromText(refNum, allText) || _extractRefGlobal(refNum, allText);
 }
 
-// Shared popup scaffolding for reference and title-based lookups.
-// Returns { popup, refInfo, askInput, sendBtn, setContext(text) }.
-function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
+function _showReferencePopup(refNum, anchorEl) {
+  // Remove any existing popup
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) existing.remove();
   if (typeof dismissCitationPopup === 'function') dismissCitationPopup();
@@ -1213,39 +1032,41 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   popup.className = 'doc-selection-popup';
   popup.style.visibility = 'hidden';
 
+  // -- Reference info area (loading initially) --
   const refInfo = document.createElement('div');
   refInfo.className = 'doc-ref-info';
-  refInfo.innerHTML = loadingHtml;
+  refInfo.innerHTML = `<div class="doc-ref-loading"><span class="spinner"></span> Looking up [${refNum}]…</div>`;
   popup.appendChild(refInfo);
 
+  // -- Ask input + send button --
   const askWrap = document.createElement('div');
   askWrap.className = 'doc-ask-inline-wrap';
   const askInput = document.createElement('input');
   askInput.type = 'text';
-  askInput.placeholder = placeholder;
+  askInput.placeholder = 'Ask about this reference…';
   askInput.className = 'doc-ask-inline-input';
-  askInput.disabled = true;
+  askInput.disabled = true; // Enabled once reference loads
   const sendBtn = document.createElement('button');
   sendBtn.className = 'doc-ask-inline-send';
   sendBtn.innerHTML = '↑';
   sendBtn.title = 'Send';
   sendBtn.disabled = true;
 
-  let _ctx = '';
-  const ctx = {
-    get text() { return _ctx; },
-    set text(v) { _ctx = v; }
-  };
+  // We'll store the context text for chat once the reference loads
+  let refContextText = `Reference [${refNum}]`;
 
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   sendBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
-    _sendPopupChatMessage(popup, ctx.text);
+    _sendPopupChatMessage(popup, refContextText);
   });
   askInput.addEventListener('keydown', (ev) => {
     ev.stopPropagation();
-    if (ev.key === 'Enter') { ev.preventDefault(); _sendPopupChatMessage(popup, ctx.text); }
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      _sendPopupChatMessage(popup, refContextText);
+    }
     if (ev.key === 'Escape') {
       ev.preventDefault();
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -1257,6 +1078,7 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   });
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
 
+  // -- Inline chat area (hidden until first message) --
   const chatArea = document.createElement('div');
   chatArea.className = 'doc-popup-chat-area';
   const chatMsgs = document.createElement('div');
@@ -1264,6 +1086,13 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   chatArea.appendChild(chatMsgs);
   const chatActions = document.createElement('div');
   chatActions.className = 'doc-popup-chat-actions';
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.textContent = 'Open in sidebar';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _sendPopupChatToSidebar();
+  });
   const clearBtn = document.createElement('button');
   clearBtn.textContent = 'Clear';
   clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1276,13 +1105,15 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
     popup.classList.remove('has-chat');
     _repositionSelectionPopup();
   });
-  const statsSpan = document.createElement('span');
-  statsSpan.className = 'doc-chat-stats';
-  chatActions.appendChild(statsSpan);
+  chatActions.appendChild(openSidebarBtn);
+  const statsSpan2 = document.createElement('span');
+  statsSpan2.className = 'doc-chat-stats';
+  chatActions.appendChild(statsSpan2);
   chatActions.appendChild(clearBtn);
   chatArea.appendChild(chatActions);
   popup.appendChild(chatArea);
 
+  // Ask input always at the bottom
   askWrap.appendChild(askInput);
   askWrap.appendChild(sendBtn);
   popup.appendChild(askWrap);
@@ -1290,6 +1121,7 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   popup.addEventListener('mousedown', (ev) => ev.stopPropagation());
   document.body.appendChild(popup);
 
+  // Position above the anchor element
   const anchorRect = anchorEl.getBoundingClientRect();
   const popupRect = popup.getBoundingClientRect();
   let top = anchorRect.top - popupRect.height - 8;
@@ -1298,35 +1130,28 @@ function _buildLookupPopup(anchorEl, placeholder, loadingHtml) {
   let left = anchorRect.left;
   if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
   if (left < 4) left = 4;
-  popup.style.transform = `translate3d(${left}px,${top}px,0)`;
-  popup._lastLeft = left;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
   popup.style.visibility = '';
   popup._anchorTop = anchorRect.top;
   popup._anchorBottom = anchorRect.bottom;
   popup._anchorLeft = anchorRect.left;
   popup._aboveSelection = fitsAbove;
 
-  const enableInput = () => { askInput.disabled = false; sendBtn.disabled = false; _repositionSelectionPopup(); setTimeout(() => askInput.focus(), 10); };
-
-  return { popup, refInfo, askInput, sendBtn, ctx, enableInput };
-}
-
-function _showReferencePopup(refNum, anchorEl) {
-  const { popup, refInfo, ctx, enableInput } = _buildLookupPopup(
-    anchorEl,
-    'Ask about this reference…',
-    `<div class="doc-ref-loading"><span class="spinner"></span> Looking up [${refNum}]…</div>`
-  );
-  ctx.text = `Reference [${refNum}]`;
-
-  // Check cache
+  // Fetch reference data
   const cacheKey = `${_pdfArxivId}:ref:${refNum}`;
   if (_citationCache[cacheKey]) {
     _renderRefInfo(refInfo, _citationCache[cacheKey], refNum, popup);
-    ctx.text = _buildRefContext(_citationCache[cacheKey], refNum);
-    enableInput();
+    refContextText = _buildRefContext(_citationCache[cacheKey], refNum);
+    askInput.disabled = false;
+    sendBtn.disabled = false;
+    _repositionSelectionPopup();
+    setTimeout(() => askInput.focus(), 10);
     return;
   }
+
+  // Try sync search first (rendered pages), then async (extract from PDF directly)
+  const refText = typeof findReferenceText === 'function' ? findReferenceText(refNum) : null;
 
   const doLookup = (query) => {
     fetch('/api/citation-lookup', {
@@ -1334,33 +1159,48 @@ function _showReferencePopup(refNum, anchorEl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query })
     })
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(r => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
       .then(data => {
         if (data.error) throw new Error(data.error);
         _citationCache[cacheKey] = data;
         _renderRefInfo(refInfo, data, refNum, popup);
-        ctx.text = _buildRefContext(data, refNum);
-        enableInput();
+        refContextText = _buildRefContext(data, refNum);
+        askInput.disabled = false;
+        sendBtn.disabled = false;
+        _repositionSelectionPopup();
+        setTimeout(() => askInput.focus(), 10);
       })
       .catch(() => {
+        // Show the extracted reference text even if the API is down
         refInfo.innerHTML = `<div class="doc-ref-badge">[${refNum}]</div><div class="doc-ref-title" style="font-weight:400">${escapeHtml(query)}</div><div class="doc-ref-meta" style="color:var(--text-dimmer)">Semantic Scholar unavailable</div>`;
-        ctx.text = `Reference [${refNum}]: ${query}`;
-        enableInput();
+        refContextText = `Reference [${refNum}]: ${query}`;
+        askInput.disabled = false;
+        sendBtn.disabled = false;
+        _repositionSelectionPopup();
+        setTimeout(() => askInput.focus(), 10);
       });
   };
 
   const showNotFound = () => {
     refInfo.innerHTML = `<div class="doc-ref-error">Could not find [${refNum}]</div>`;
-    enableInput();
+    askInput.disabled = false;
+    sendBtn.disabled = false;
+    _repositionSelectionPopup();
   };
 
-  const refText = typeof findReferenceText === 'function' ? findReferenceText(refNum) : null;
   if (refText) {
     doLookup(refText);
   } else {
+    // Async fallback: extract text from last pages of PDF to find reference
     _findReferenceTextAsync(refNum).then(asyncRefText => {
-      if (asyncRefText) doLookup(asyncRefText);
-      else showNotFound();
+      if (asyncRefText) {
+        doLookup(asyncRefText);
+      } else {
+        showNotFound();
+      }
     }).catch(() => showNotFound());
   }
 }
@@ -1417,33 +1257,6 @@ function _buildRefContext(data, refNum) {
   return ctx;
 }
 
-// Title-based lookup popup — used by paper-sidebar references tab.
-function _showTitleLookupPopup(title, anchorEl) {
-  const { refInfo, ctx, enableInput } = _buildLookupPopup(
-    anchorEl,
-    'Ask about this paper…',
-    `<div class="doc-ref-loading"><span class="spinner"></span> Looking up paper…</div>`
-  );
-  ctx.text = title;
-
-  fetch('/api/citation-lookup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: title })
-  })
-    .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
-    .then(data => {
-      if (data.error) throw new Error(data.error);
-      _renderRefInfo(refInfo, data, null, null);
-      ctx.text = _buildRefContext(data, null);
-      enableInput();
-    })
-    .catch(() => {
-      refInfo.innerHTML = `<div class="doc-ref-error">Could not find paper info</div>`;
-      enableInput();
-    });
-}
-
 // Position a popup so one of its four corners is at (cx, cy), picking the best
 // corner that keeps it within bounds. preferLeft = bottom-right corner at cursor.
 function _positionAtCursor(cx, cy, w, h, preferLeft) {
@@ -1467,15 +1280,7 @@ function _positionAtCursor(cx, cy, w, h, preferLeft) {
   return { left, top };
 }
 
-let _repositionRAF = 0;
 function _repositionSelectionPopup() {
-  if (_repositionRAF) return; // already scheduled
-  _repositionRAF = requestAnimationFrame(() => {
-    _repositionRAF = 0;
-    _repositionSelectionPopupNow();
-  });
-}
-function _repositionSelectionPopupNow() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
@@ -1484,7 +1289,8 @@ function _repositionSelectionPopupNow() {
   if (popup._tabContextAnchor) {
     let left = popup._tabContextAnchor.left;
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    popup.style.transform = `translate3d(${left}px,${popup._tabContextAnchor.top}px,0)`;
+    popup.style.top = popup._tabContextAnchor.top + 'px';
+    popup.style.left = left + 'px';
     return;
   }
 
@@ -1492,9 +1298,10 @@ function _repositionSelectionPopupNow() {
   if (popup._isAetherPanel) {
     const anchorX = popup._aetherAnchorX ?? _lastMouseX;
     const anchorY = popup._aetherAnchorY ?? _lastMouseY;
-    const preferLeft = _aetherPanelSide === 'left';
+    const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
     const pos = _positionAtCursor(anchorX, anchorY, rect.width, rect.height, preferLeft);
-    popup.style.transform = `translate3d(${pos.left}px,${pos.top}px,0)`;
+    popup.style.top = pos.top + 'px';
+    popup.style.left = pos.left + 'px';
     return;
   }
 
@@ -1515,12 +1322,12 @@ function _repositionSelectionPopupNow() {
   }
   if (top < bounds.top) top = bounds.top;
 
-  let left = popup._anchorLeft || popup._lastLeft || 0;
+  let left = popup._anchorLeft || parseFloat(popup.style.left);
   if (left + rect.width > bounds.right - 8) left = bounds.right - rect.width - 8;
   if (left < bounds.left) left = bounds.left;
 
-  popup._lastLeft = left;
-  popup.style.transform = `translate3d(${left}px,${top}px,0)`;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
 }
 
 // Text selection → floating popup; drag-to-screenshot when aether panel is open
@@ -1704,7 +1511,7 @@ async function _showWordAether(word, x, y) {
   }
 }
 
-// Any left-click outside the aether panel dismisses it (capture phase to bypass stopPropagation)
+// Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
 document.addEventListener('mousedown', function(e) {
   if (e.button !== 0) return;
   if (_screenshotDragStart || _screenshotCapturing) return;
@@ -1721,48 +1528,9 @@ document.addEventListener('mousedown', function(e) {
 }, true);
 
 // Aether panel: tracks cursor + screenshot drag
-// RAF-throttled mousemove: batch all position updates into a single frame
-let _mmRAF = 0;
-let _mmEvent = null;
-let _aetherPanelSide = localStorage.getItem('aetherPanelSide') || 'left';
-// Keep cached preference in sync
-window.addEventListener('storage', () => { _aetherPanelSide = localStorage.getItem('aetherPanelSide') || 'left'; });
-// Sidebar icon hover detection — event-driven instead of per-frame DOM walk
-document.addEventListener('DOMContentLoaded', function() {
-  const nav = document.getElementById('sidebar-nav');
-  if (!nav) return;
-  nav.addEventListener('mouseenter', function(ev) {
-    const icon = ev.target.closest('.sidebar-icon');
-    if (icon) {
-      _aetherHoveredIcon = icon;
-      _aetherHoveredIconRect = icon.getBoundingClientRect();
-      _aetherHoveredIsProfile = icon.id === 'sb-settings';
-    }
-  }, true); // capture phase to catch enters on child elements
-  nav.addEventListener('mouseleave', function(ev) {
-    const icon = ev.target.closest('.sidebar-icon');
-    if (icon && icon === _aetherHoveredIcon) {
-      _aetherHoveredIcon = null;
-      _aetherHoveredIconRect = null;
-      _aetherHoveredIsProfile = false;
-    }
-  }, true);
-  nav.addEventListener('mouseleave', function() {
-    _aetherHoveredIcon = null;
-    _aetherHoveredIconRect = null;
-    _aetherHoveredIsProfile = false;
-  });
-});
 document.addEventListener('mousemove', function(e) {
   _lastMouseX = e.clientX;
   _lastMouseY = e.clientY;
-  _mmEvent = e;
-  if (!_mmRAF) _mmRAF = requestAnimationFrame(_processMouseMove);
-});
-function _processMouseMove() {
-  _mmRAF = 0;
-  const e = _mmEvent;
-  if (!e) return;
 
   // Screenshot drag in progress
   if (_screenshotDragStart && _screenshotSelection && _screenshotDim) {
@@ -1782,53 +1550,59 @@ function _processMouseMove() {
 
   // Drag-to-move the aether panel
   if (_aetherDragging) {
-    const popup = _aetherDragPopup || _aetherPopupRef || document.getElementById('doc-chat-ask-float');
+    const popup = _aetherDragPopup || document.getElementById('doc-chat-ask-float');
     if (!popup) { _aetherDragging = false; _aetherDragPopup = null; return; }
     const bounds = _popupSafeBounds();
-    const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
-    const ph = popup._cachedH || (popup._cachedH = popup.offsetHeight);
     let left = e.clientX - _aetherDragOffset.x;
     let top = e.clientY - _aetherDragOffset.y;
     if (left < bounds.left) left = bounds.left;
     if (top < bounds.top) top = bounds.top;
-    if (left + pw > bounds.right) left = bounds.right - pw;
-    if (top + ph > bounds.bottom) top = bounds.bottom - ph;
-    popup.style.transform = `translate3d(${left}px,${top}px,0)`;
+    if (left + popup.offsetWidth > bounds.right) left = bounds.right - popup.offsetWidth;
+    if (top + popup.offsetHeight > bounds.bottom) top = bounds.bottom - popup.offsetHeight;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
     popup._aetherAnchorX = left;
-    popup._aetherAnchorY = top + ph;
+    popup._aetherAnchorY = top + popup.offsetHeight;
     return;
   }
 
   if (!_aetherTrackMode) return;
-  const popup = _aetherPopupRef;                    // cached ref — no getElementById
+  const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) { _aetherTrackMode = false; return; }
 
-  // Snap to sidebar icon if hovering over one (variable check, no DOM walk)
-  if (_aetherHoveredIcon) {
-    const r = _aetherHoveredIconRect;
-    const cx = r.left + r.width / 2;
-    const cy = r.bottom + 6;
+  // Snap to sidebar icon if hovering over one
+  const hovered = e.target.closest && e.target.closest('.sidebar-icon');
+  if (hovered) {
+    const rect = hovered.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.bottom + 6;
     popup._aetherAnchorX = cx;
     popup._aetherAnchorY = cy;
-    const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
-    popup.style.transform = `translate3d(${Math.max(4, cx - pw / 2)}px,${cy}px,0)`;
-    // Toggle pre-built profile items visibility
-    if (popup._profileItemsEl)
-      popup._profileItemsEl.style.display = _aetherHoveredIsProfile ? '' : 'none';
+    const pw = popup.offsetWidth;
+    popup.style.left = Math.max(4, cx - pw / 2) + 'px';
+    popup.style.top = cy + 'px';
+    // Inject/remove profile items when hovering the profile icon
+    const isProfile = hovered.id === 'sb-user-avatar';
+    const hasProfileItems = !!popup.querySelector('.aether-profile-items');
+    if (isProfile && !hasProfileItems) {
+      _injectProfileItems(popup);
+    } else if (!isProfile && hasProfileItems) {
+      const pi = popup.querySelector('.aether-profile-items');
+      if (pi) pi.remove();
+    }
     return;
   }
-  // If cursor is inside the popup (e.g. hovering profile items), keep it pinned
-  if (popup.contains(e.target)) return;
-  // Hide profile items when cursor leaves sidebar icons and popup
-  if (popup._profileItemsEl) popup._profileItemsEl.style.display = 'none';
+  // Remove profile items when cursor leaves sidebar icons
+  const pi = popup.querySelector('.aether-profile-items');
+  if (pi) pi.remove();
 
   popup._aetherAnchorX = e.clientX;
   popup._aetherAnchorY = e.clientY;
-  const pw = popup._cachedW || (popup._cachedW = popup.offsetWidth);
-  const ph = popup._cachedH || (popup._cachedH = popup.offsetHeight);
-  const pos = _positionAtCursor(e.clientX, e.clientY, pw, ph, _aetherPanelSide === 'left');
-  popup.style.transform = `translate3d(${pos.left}px,${pos.top}px,0)`;
-}
+  const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
+  const pos = _positionAtCursor(e.clientX, e.clientY, popup.offsetWidth, popup.offsetHeight, preferLeft);
+  popup.style.left = pos.left + 'px';
+  popup.style.top = pos.top + 'px';
+});
 
 // End drag-to-move
 document.addEventListener('mouseup', function(e) {
@@ -2400,7 +2174,6 @@ const _aetherCommands = [
   { name: 'links', desc: 'List all links on page', _special: true },
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'tabs', desc: 'Switch to an open tab', _special: true },
-  { name: 'vault', desc: 'Ask about your notes', hasArgs: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
   { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
@@ -2939,8 +2712,16 @@ function _aetherRenderModelDropdown(popup) {
     el.addEventListener('click', ev => {
       ev.stopPropagation(); ev.preventDefault();
       const idx = parseInt(el.dataset.idx);
-      _aetherModelIdx = idx;
-      _aetherSelectModel(popup);
+      const model = _aetherModelList[idx];
+      if (model) {
+        _aetherModelIdx = idx;
+        localStorage.setItem('chatModel', model);
+        _aetherRenderModelDropdown(popup);
+        const label = popup.querySelector('.aether-model-label');
+        if (label) label.textContent = model;
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) { input.value = ''; input.focus(); }
+      }
     });
   });
   _repositionSelectionPopup();
@@ -3258,7 +3039,6 @@ Type in the browser URL bar:
 | \`/paper query\` | Search arXiv papers |
 | \`/user query\` | Search for users |
 | \`/notes\` | Browse your notes |
-| \`/vault query\` | Ask about your notes |
 | \`/links\` | List links on page |
 | \`/tab\` | Add tab to context |
 | \`/model\` | Change chat model |
@@ -3409,96 +3189,6 @@ async function _doAetherDefine(popup, word) {
   _repositionSelectionPopup();
 }
 
-async function _doAetherVaultChat(popup, query) {
-  _aetherTrackMode = false;
-  _aetherPinned = true;
-  _aetherShowCursor();
-
-  const input = popup.querySelector('.doc-ask-inline-input');
-  if (input) input.value = '';
-
-  _popupChatMessages.push({ role: 'user', content: query, _display: query });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
-
-  popup.classList.add('has-chat');
-  const chatArea = popup.querySelector('.doc-popup-chat-area');
-  if (chatArea) chatArea.classList.add('visible');
-  _renderPopupChat(popup, false);
-
-  if (input) input.disabled = true;
-  const sendBtn = popup.querySelector('.doc-ask-inline-send');
-  if (sendBtn) sendBtn.disabled = true;
-
-  _popupChatAbort = new AbortController();
-
-  try {
-    const filteredMsgs = _popupChatMessages.filter(m => !m._thinking).map(m => ({
-      role: m.role, content: m.content
-    }));
-    const resp = await fetch('/api/vault-chat', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: filteredMsgs, query }),
-      signal: _popupChatAbort.signal
-    });
-
-    const aiIdx = _popupChatMessages.length - 1;
-    if (!resp.ok) {
-      _popupChatMessages[aiIdx].content = 'Error: server returned ' + resp.status;
-      _popupChatMessages[aiIdx]._thinking = false;
-      _renderPopupChat(popup, true);
-      return;
-    }
-
-    let aiText = '';
-    _popupChatMessages[aiIdx]._thinking = false;
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7);
-        } else if (line.startsWith('data: ')) {
-          if (currentEvent === 'sources') {
-            try { _popupChatMessages[aiIdx]._sources = JSON.parse(line.slice(6)); } catch (e) {}
-          } else if (currentEvent === 'token') {
-            try {
-              aiText += JSON.parse(line.slice(6));
-              _popupChatMessages[aiIdx].content = aiText;
-              _renderPopupChat(popup, false);
-            } catch (e) {}
-          } else if (currentEvent === 'error') {
-            try { _popupChatMessages[aiIdx].content = 'Error: ' + JSON.parse(line.slice(6)); } catch (e) {}
-          }
-        }
-      }
-    }
-
-    _popupChatMessages[aiIdx].content = aiText;
-    _renderPopupChat(popup, true);
-  } catch (e) {
-    if (e.name !== 'AbortError') {
-      const last = _popupChatMessages[_popupChatMessages.length - 1];
-      if (last && last.role === 'assistant') { last.content = 'Error: ' + e.message; last._thinking = false; }
-      _renderPopupChat(popup, true);
-    }
-  }
-  _popupChatAbort = null;
-  if (input) input.disabled = false;
-  if (sendBtn) sendBtn.disabled = false;
-  if (input) input.focus();
-  _repositionSelectionPopup();
-}
-
 function _aetherExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
@@ -3512,7 +3202,6 @@ function _aetherExecCommand(popup, text) {
       if (cmdName === 'paper') { _doAetherPaperSearch(popup, args); return true; }
       if (cmdName === 'user') { _doAetherUserSearch(popup, args); return true; }
       if (cmdName === 'notes') { _doAetherNoteSearch(popup, args); return true; }
-      if (cmdName === 'vault') { _doAetherVaultChat(popup, args); return true; }
       if (cmdName === 'search') { _doAetherSearchNewTab(popup, args); return true; }
       if (cmdName === 'define') { _doAetherDefine(popup, args); return true; }
     }
@@ -3737,7 +3426,9 @@ function _pasteIntoElement(el, text) {
 }
 
 function _flashCopyBtn(popup) {
-  const btn = popup.querySelector('.doc-selection-copy-btn');
+  // Find the right copy button: selection copy or chat copy
+  const btn = popup.querySelector('.doc-selection-copy-btn')
+    || (popup._copyChatBtn && popup._copyChatBtn.style.display !== 'none' ? popup._copyChatBtn : null);
   if (!btn) return;
   btn.textContent = 'Copied';
   btn.classList.remove('doc-copy-flash');
@@ -3749,20 +3440,9 @@ function _flashCopyBtn(popup) {
   }, 1200);
 }
 
-// ── Helper: profile menu action (called from onclick) ──
-function _profileMenuAction(action) {
-  const popup = document.getElementById('doc-chat-ask-float');
-  _aetherTrackMode = false;
-  if (popup) popup.remove();
-  const username = (typeof _authUserInfo !== 'undefined' && (_authUserInfo?.username || _authUserInfo?.name)) || '';
-  if (action === 'profile') openUserProfile(username);
-  else if (action === 'settings') openSettings();
-  else if (action === 'help') { openBrowse(); setTimeout(() => openHelpPage(), 50); }
-  else if (action === 'logout') _doLogout();
-}
-
-// ── Helper: build profile menu items DOM (without appending) ──
-function _buildProfileItems() {
+// ── Helper: inject profile menu items into the aether panel ──
+function _injectProfileItems(popup) {
+  if (popup.querySelector('.aether-profile-items')) return;
   const email = (typeof _authUserInfo !== 'undefined' && _authUserInfo?.email) || '';
   const username = (typeof _authUserInfo !== 'undefined' && (_authUserInfo?.username || _authUserInfo?.name)) || '';
   const ctxDiv = document.createElement('div');
@@ -3778,11 +3458,11 @@ function _buildProfileItems() {
   }
 
   const items = [
-    { label: 'View Profile', action: 'profile', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z"/></svg>' },
-    { label: 'Settings', action: 'settings', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>' },
-    { label: 'Help', action: 'help', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>' },
+    { label: 'View Profile', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z"/></svg>', fn: () => openUserProfile(username) },
+    { label: 'Settings', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>', fn: () => openSettings() },
+    { label: 'Help', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>', fn: () => { openBrowse(); setTimeout(() => openHelpPage(), 50); } },
     { sep: true },
-    { label: 'Sign Out', action: 'logout', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3h-9m9 0l-3-3m3 3l-3 3"/></svg>', danger: true },
+    { label: 'Sign Out', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3h-9m9 0l-3-3m3 3l-3 3"/></svg>', danger: true, fn: () => _doLogout() },
   ];
 
   for (const entry of items) {
@@ -3792,20 +3472,19 @@ function _buildProfileItems() {
       ctxDiv.appendChild(sep);
       continue;
     }
-    const btn = document.createElement('button');
-    btn.className = 'doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : '');
-    btn.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
-    btn.onclick = function(ev) { ev.stopPropagation(); _profileMenuAction(entry.action); };
-    ctxDiv.appendChild(btn);
+    const item = document.createElement('div');
+    item.className = 'doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : '');
+    item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
+    item.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    item.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _aetherTrackMode = false;
+      popup.remove();
+      entry.fn();
+    });
+    ctxDiv.appendChild(item);
   }
 
-  return ctxDiv;
-}
-
-// ── Helper: inject profile menu items into the aether panel ──
-function _injectProfileItems(popup) {
-  if (popup.querySelector('.aether-profile-items')) return;
-  const ctxDiv = _buildProfileItems();
   // Insert before the chat input wrap (or at end)
   const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
   if (inputWrap) popup.insertBefore(ctxDiv, inputWrap);
@@ -4222,16 +3901,15 @@ function _panelBuildTopBar(popup) {
   topBar.className = 'doc-popup-chat-actions aether-top-actions';
   topBar.style.cursor = 'grab';
 
-  // Model label (always visible)
+  // Model label
   const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-topbar-btn aether-model-label';
-  modelLabel.style.cursor = 'default';
+  modelLabel.className = 'aether-model-label';
   const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
   modelLabel.textContent = cm;
   modelLabel.title = 'Current model';
   topBar.appendChild(modelLabel);
 
-  // Spacer (pushes buttons to the right)
+  // Spacer
   const spacer = document.createElement('span');
   spacer.style.flex = '1';
   topBar.appendChild(spacer);
@@ -4249,22 +3927,102 @@ function _panelBuildTopBar(popup) {
   topBar.appendChild(saveChatBtn);
   popup._saveChatBtn = saveChatBtn;
 
-  // Stats row — stats + context usage (hidden until chat starts)
-  const statsRow = document.createElement('div');
-  statsRow.className = 'aether-stats-row';
-  statsRow.style.display = 'none';
+  // Stats + context usage — inline in the top bar after model label
   const statsSpan = document.createElement('span');
   statsSpan.className = 'doc-chat-stats';
-  statsRow.appendChild(statsSpan);
+  topBar.insertBefore(statsSpan, spacer.nextSibling);
   const ctxSpan = document.createElement('span');
   ctxSpan.className = 'aether-context-usage';
   ctxSpan.textContent = '';
-  statsRow.appendChild(ctxSpan);
+  topBar.insertBefore(ctxSpan, statsSpan.nextSibling);
 
+  // Clear button
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'aether-topbar-btn';
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  clearBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _popupChatMessages = [];
+    _chatStreamStart = 0;
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    const cm = popup.querySelector('.doc-popup-chat-messages');
+    if (cm) cm.innerHTML = '';
+    const ca = popup.querySelector('.doc-popup-chat-area');
+    if (ca) ca.classList.remove('visible');
+    popup.classList.remove('has-chat');
+    statsSpan.textContent = '';
+    _repositionSelectionPopup();
+  });
+  topBar.appendChild(clearBtn);
+
+  // Redo button — resend last user message
+  const redoBtn = document.createElement('button');
+  redoBtn.className = 'aether-topbar-btn';
+  redoBtn.textContent = 'Redo';
+  redoBtn.style.display = 'none';
+  redoBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  redoBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    // Find last user message
+    let lastUserIdx = -1;
+    for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
+      if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx < 0) return;
+    // Remove the last user message and everything after it
+    const lastUserMsg = _popupChatMessages[lastUserIdx];
+    _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    // Re-insert user message and re-send
+    const input = popup.querySelector('.doc-ask-inline-input');
+    if (input) input.value = lastUserMsg._display || lastUserMsg.content;
+    _sendPopupChatMessage(popup, popup._capturedText || '');
+  });
+  topBar.appendChild(redoBtn);
+  popup._redoBtn = redoBtn;
+
+  // Copy chat button — copy last AI response
+  const copyChatBtn = document.createElement('button');
+  copyChatBtn.className = 'aether-topbar-btn';
+  copyChatBtn.style.display = 'none';
+  copyChatBtn.textContent = 'Copy';
+  copyChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  copyChatBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    // Find last assistant message
+    let lastAi = '';
+    for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
+      if (_popupChatMessages[i].role === 'assistant' && !_popupChatMessages[i]._thinking) {
+        lastAi = _popupChatMessages[i].content; break;
+      }
+    }
+    if (!lastAi) return;
+    navigator.clipboard.writeText(lastAi).then(() => {
+      copyChatBtn.textContent = 'Copied';
+      setTimeout(() => { if (copyChatBtn.isConnected) copyChatBtn.textContent = 'Copy'; }, 1200);
+    }).catch(() => {});
+  });
+  topBar.appendChild(copyChatBtn);
+  popup._copyChatBtn = copyChatBtn;
 
   // Right-side icon group (aligns with mic + send below)
   const topRightGroup = document.createElement('span');
   topRightGroup.className = 'aether-topbar-right';
+
+  const openSidebarBtn = document.createElement('button');
+  openSidebarBtn.className = 'aether-topbar-icon';
+  openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
+  openSidebarBtn.title = 'Open in sidebar';
+  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openSidebarBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _aetherTrackMode = false;
+    const sidebar = document.getElementById('browse-sidebar');
+    if (sidebar) sidebar.style.display = '';
+    _sendPopupChatToSidebar();
+  });
+  topRightGroup.appendChild(openSidebarBtn);
 
   topBar.appendChild(topRightGroup);
 
@@ -4282,7 +4040,6 @@ function _panelBuildTopBar(popup) {
   });
 
   popup.appendChild(topBar);
-  popup.appendChild(statsRow);
 }
 
 // ── Helper: build chat input area (textarea, model selector, send button, mic, dropdowns) ──
@@ -4693,8 +4450,8 @@ function _panelPositionAndFocus(popup, config) {
     let left = tabRect.left;
     const rect = popup.getBoundingClientRect();
     if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width;
-    popup.style.transform = `translate3d(${left}px,${tabRect.bottom}px,0)`;
-    popup._lastLeft = left;
+    popup.style.left = left + 'px';
+    popup.style.top = tabRect.bottom + 'px';
     popup.style.visibility = '';
     popup._aetherAnchorX = left;
     popup._aetherAnchorY = tabRect.bottom + rect.height;
@@ -4715,8 +4472,8 @@ function _panelPositionAndFocus(popup, config) {
     let left = selRect.left;
     if (left + popupRect.width > window.innerWidth - 8) left = window.innerWidth - popupRect.width - 8;
     if (left < 4) left = 4;
-    popup.style.transform = `translate3d(${left}px,${top}px,0)`;
-    popup._lastLeft = left;
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
     popup.style.visibility = '';
   } else {
     // Cursor anchor: position so the input caret is at the click point
@@ -4745,8 +4502,8 @@ function _panelPositionAndFocus(popup, config) {
     if (left < bounds.left) left = bounds.left;
     if (top + rect.height > bounds.bottom) top = bounds.bottom - rect.height;
     if (top < bounds.top) top = bounds.top;
-    popup.style.transform = `translate3d(${left}px,${top}px,0)`;
-    popup._lastLeft = left;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
     popup.style.visibility = '';
   }
 
@@ -4779,8 +4536,7 @@ function _panelPositionAndFocus(popup, config) {
           const r2 = popup.getBoundingClientRect();
           let t2 = ay - r2.height;
           if (t2 < 0) t2 = 0;
-          const curLeft = popup._lastLeft || 0;
-          popup.style.transform = `translate3d(${curLeft}px,${t2}px,0)`;
+          popup.style.top = t2 + 'px';
         });
       }
     }
@@ -4802,7 +4558,6 @@ function _showPanel(config) {
   }
 
   // Remove any existing active panel
-  _aetherPopupRef = null;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) {
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
@@ -4869,16 +4624,6 @@ function _showPanel(config) {
   if (finalized) _panelBuildTopBar(popup);
   _panelBuildChatInput(popup, config);
 
-  // Pre-build profile items (hidden) so the hot path only toggles display
-  if (isCursorAnchor) {
-    const profileEl = _buildProfileItems();
-    profileEl.style.display = 'none';
-    const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
-    if (inputWrap) popup.insertBefore(profileEl, inputWrap);
-    else popup.appendChild(profileEl);
-    popup._profileItemsEl = profileEl;
-  }
-
   // Show "Save chat" button if in PDF text layer
   if (popup._inTextLayer && popup._saveChatBtn) {
     popup._saveChatBtn.style.display = '';
@@ -4889,9 +4634,8 @@ function _showPanel(config) {
   });
 
   document.body.appendChild(popup);
-  _aetherPopupRef = popup;
 
-  // Hide cursor while panel is open (only when tracking cursor)
+  // Hide cursor while panel is open
   if (isCursorAnchor && finalized && _aetherTrackMode) {
     _aetherHideCursorOverlay();
   }
