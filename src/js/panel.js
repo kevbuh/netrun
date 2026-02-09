@@ -515,7 +515,7 @@ function _sendPopupChatMessage(popup, capturedText) {
                     if (!saved[act.url]) toggleSavePost(paper);
                   }
                 } else if (act.type === 'navigate' && act.view) {
-                  const routes = { home: '#', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+                  const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
                   location.hash = routes[act.view] || '#';
                 } else if (act.type === 'open_tab' && act.url) {
                   if (typeof browseNewTab === 'function') {

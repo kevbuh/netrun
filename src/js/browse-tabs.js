@@ -6127,29 +6127,31 @@ async function _extractTextFromFrame(tab) {
 
 
 async function _readPageAloud() {
+  var btn = document.getElementById('pill-readaloud-btn');
   // Toggle off if already speaking
   if (_ttsAudio) {
     _ttsAudio.pause();
     _ttsAudio = null;
     _ttsStopWaveform();
     islandRemove('tts');
-    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+    if (btn) btn.classList.remove('pill-readaloud-active');
     return;
   }
   var win = _getCurrentWindow();
   if (!win) return;
   var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
   if (!tab) return;
+  if (btn) btn.classList.add('pill-readaloud-active');
   islandUpdate('tts', { type: 'tts', label: 'Extracting\u2026', detail: 'Extracting page text' });
   var text = await _extractTextFromFrame(tab);
   if (!text || text.length < 10) {
     islandUpdate('tts', { type: 'tts', label: 'No text', detail: 'No readable text found', done: true });
+    if (btn) btn.classList.remove('pill-readaloud-active');
     return;
   }
   // Truncate to ~5000 chars to keep TTS request reasonable
   if (text.length > 5000) text = text.slice(0, 5000);
   islandUpdate('tts', { type: 'tts', label: 'Generating\u2026', detail: 'Generating speech audio' });
-  if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
   try {
     var r = await fetch('/api/tts', {
       method: 'POST',
@@ -6162,14 +6164,13 @@ async function _readPageAloud() {
     var audio = new Audio(url);
     _ttsAudio = audio;
     islandUpdate('tts', { type: 'tts', label: 'Reading', detail: 'Reading page aloud' });
-    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
     _ttsStartWaveform(audio);
-    audio.onended = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext(); };
-    audio.onerror = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext(); };
+    audio.onended = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (btn) btn.classList.remove('pill-readaloud-active'); };
+    audio.onerror = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (btn) btn.classList.remove('pill-readaloud-active'); };
     audio.play();
   } catch (e) {
     islandUpdate('tts', { type: 'tts', label: 'Failed', detail: 'TTS generation failed', done: true });
-    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+    if (btn) btn.classList.remove('pill-readaloud-active');
   }
 }
 

@@ -272,10 +272,12 @@ def doc_chat():
                 page_ctx += f' The user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
         if truncated_ctx:
             system_msg = (
-                "You are a helpful research assistant. The user is reading a document. "
-                "Answer their questions based on the document text below when relevant. "
-                "You also have tools available to search the web, find papers, fetch pages, "
-                "bookmark posts, navigate the app, and create experiments." + page_ctx + "\n\n"
+                "You are the AI assistant inside Aether, a desktop research app with a built-in "
+                "browser, feed reader, calendar, and experiment workspace. The user is reading a "
+                "document. Answer their questions based on the document text below when relevant. "
+                "You have tools that perform real actions in the app — always use them when "
+                "relevant instead of explaining how to do something manually. Never say you "
+                "cannot open tabs or navigate — you can, using your tools." + page_ctx + "\n\n"
                 "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
             ) if tools_enabled else (
                 "You are a helpful research assistant. The user is reading a document. "
@@ -285,10 +287,13 @@ def doc_chat():
             )
         else:
             system_msg = (
-                "You are a helpful assistant with tools to search the web, find papers, "
-                "fetch page content, bookmark posts, navigate the app, create experiments, "
-                "create calendar events, and open URLs in new browser tabs. "
-                "Use tools when they would help answer the user's question." + page_ctx
+                "You are the AI assistant inside Aether, a desktop research app with a built-in "
+                "browser, feed reader, calendar, and experiment workspace. You have tools that "
+                "perform real actions in the app — always use them when relevant instead of "
+                "explaining how to do something manually. Never say you cannot open tabs or "
+                "navigate — you can, using your tools. Available tools: web_search, search_papers, "
+                "fetch_page, save_to_reading_list, navigate, create_experiment, "
+                "create_calendar_event, open_tab." + page_ctx
             ) if tools_enabled else "You are a helpful assistant."
         ollama_messages = [{"role": "system", "content": system_msg}] + messages
 
