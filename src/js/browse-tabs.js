@@ -5733,6 +5733,8 @@ function _pillSyncTabs() {
   });
 }
 
+let _pillMenuLeaveTimer = null;
+
 function _togglePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (!pill) return;
@@ -5743,6 +5745,23 @@ function _togglePillMenu() {
   } else {
     document.removeEventListener('mousedown', _pillMenuOutsideClick);
   }
+}
+
+function _openPillMenuHover() {
+  if (_pillMenuLeaveTimer) { clearTimeout(_pillMenuLeaveTimer); _pillMenuLeaveTimer = null; }
+  const pill = document.getElementById('sidebar-nav');
+  if (!pill || pill.classList.contains('menu-expanded')) return;
+  pill.classList.add('menu-expanded');
+}
+
+function _closePillMenuHover() {
+  _pillMenuLeaveTimer = setTimeout(() => {
+    _closePillMenu();
+  }, 200);
+}
+
+function _cancelPillMenuClose() {
+  if (_pillMenuLeaveTimer) { clearTimeout(_pillMenuLeaveTimer); _pillMenuLeaveTimer = null; }
 }
 
 function _pillMenuOutsideClick(e) {

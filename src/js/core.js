@@ -2619,6 +2619,24 @@ function formatFirstAuthor(authors) {
   return parts[0] + ' et al.';
 }
 
+// Double-tap Cmd/Ctrl → toggle window overview
+let _dblCmdLast = 0;
+let _dblCmdArmed = false;
+window.addEventListener('keydown', e => {
+  if (e.key === 'Meta' || e.key === 'Control') {
+    const now = Date.now();
+    if (_dblCmdArmed && now - _dblCmdLast < 400) {
+      _dblCmdArmed = false;
+      _wmToggleTiling();
+    } else {
+      _dblCmdArmed = true;
+      _dblCmdLast = now;
+    }
+  } else {
+    _dblCmdArmed = false;
+  }
+});
+
 // Close settings on Escape + WM tiling toggle
 window.addEventListener('keydown', e => {
   // Cmd+Esc → toggle tiling WM
