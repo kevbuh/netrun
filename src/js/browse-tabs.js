@@ -2090,19 +2090,6 @@ function _browseUpdateNewTabPage(tab) {
       });
     }
     ntp.style.display = '';
-    // Clone sidebar nav icons into NTP
-    var ntpIcons = ntp.querySelector('#ntp-nav-icons');
-    var srcIcons = document.getElementById('pill-nav-icons');
-    if (ntpIcons && srcIcons) {
-      ntpIcons.innerHTML = '';
-      srcIcons.querySelectorAll('.sidebar-icon').forEach(function(btn) {
-        var clone = btn.cloneNode(true);
-        clone.classList.remove('active', 'sidebar-kbd-selected');
-        clone.removeAttribute('id');
-        clone.className = 'ntp-nav-icon';
-        ntpIcons.appendChild(clone);
-      });
-    }
     // Clear search input and reset to default state
     const ntpInput = ntp.querySelector('#search-query');
     if (ntpInput) ntpInput.value = '';
@@ -2999,7 +2986,7 @@ function _applyBrowseTabLayout() {
       const pillTabs = document.getElementById('pill-browse-tabs');
       if (pillTabs) pillTabs.innerHTML = '';
     } else {
-      if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }
+      if (pill) { pill.classList.remove('browse-mode', 'vtab-mode', 'ntp-active'); }
       if (vtabs) vtabs.style.display = 'none';
       if (dragPill) dragPill.style.display = '';
     }
@@ -3010,7 +2997,7 @@ function _applyBrowseTabLayout() {
     if (_pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
     } else {
-      if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }
+      if (pill) { pill.classList.remove('browse-mode', 'vtab-mode', 'ntp-active'); }
       if (tabRow) tabRow.style.display = '';
       if (dragPill) dragPill.style.display = '';
     }
@@ -3026,12 +3013,14 @@ function _pillSyncUrl() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const isBlankNtp = tab && tab.blank;
   input.value = (!isBlankNtp && tab && tab.url) ? tab.url : '';
-  // Hide URL input + reload in vertical mode on new tab page
+  // Hide URL input + reload in vertical mode on new tab page; show nav icons
   if (_browseTabLayout === 'vertical') {
     input.style.visibility = isBlankNtp ? 'hidden' : '';
     input.style.pointerEvents = isBlankNtp ? 'none' : '';
     const reload = document.getElementById('pill-browse-reload');
     if (reload) reload.style.display = isBlankNtp ? 'none' : '';
+    const pill = document.getElementById('sidebar-nav');
+    if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
   }
   // Safety net: ensure NTP is hidden when a non-blank tab is active in vertical mode
   if (!isBlankNtp) {

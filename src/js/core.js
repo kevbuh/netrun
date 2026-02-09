@@ -139,18 +139,6 @@ function _islandRenderPillExpanded(a) {
   } else if (a.type === 'notemode') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.detail || a.label || 'Open in Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'context') {
-    if (a.items && a.items.length) {
-      var html = '<div class="island-ctx-list">';
-      for (var ci = 0; ci < a.items.length; ci++) {
-        var item = a.items[ci];
-        var title = item.title || 'New Tab';
-        if (title.length > 32) title = title.slice(0, 30) + '\u2026';
-        var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="12" height="12" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-        html += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span>' + _escHtml(title) + '</span></div>';
-      }
-      html += '</div>';
-      return html;
-    }
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
@@ -195,12 +183,33 @@ function _islandRender() {
       expandedDiv.className = 'pill-island-content pill-island-expanded';
       pill.appendChild(compactDiv);
       pill.appendChild(expandedDiv);
+      // Items tray for context pills (morphs inside the pill)
+      var itemsTray = document.createElement('div');
+      itemsTray.className = 'island-ctx-tray';
+      pill.appendChild(itemsTray);
     }
     delete existingEls[id];
     var compact = pill.querySelector('.pill-island-content:not(.pill-island-expanded)');
     var expanded = pill.querySelector('.pill-island-expanded');
+    var tray = pill.querySelector('.island-ctx-tray');
     compact.innerHTML = _islandRenderPill(a);
     expanded.innerHTML = _islandRenderPillExpanded(a);
+    // Fill items tray for context pills
+    if (tray) {
+      if (a.type === 'context' && a.items && a.items.length) {
+        var trayHtml = '';
+        for (var ti = 0; ti < a.items.length; ti++) {
+          var item = a.items[ti];
+          var t = item.title || 'New Tab';
+          if (t.length > 36) t = t.slice(0, 34) + '\u2026';
+          var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="12" height="12" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+          trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span>' + _escHtml(t) + '</span></div>';
+        }
+        tray.innerHTML = trayHtml;
+      } else {
+        tray.innerHTML = '';
+      }
+    }
     pill.onclick = function(e) {
       var dismissEl = e.target.closest('[data-island-dismiss]');
       if (dismissEl) {
