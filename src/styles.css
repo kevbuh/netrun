@@ -2593,14 +2593,6 @@
       color: var(--accent);
     }
 
-    /* Glass overlay — blocks iframe interaction until card is clicked/entered */
-    .wov-frame-glass {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      cursor: pointer;
-      border-radius: 11px 11px 0 0;
-    }
 
     .wov-win-count {
       font-size: 0.55rem;

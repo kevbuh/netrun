@@ -505,6 +505,17 @@ app.whenReady().then(() => {
     return image.toPNG().toString('base64');
   });
 
+  ipcMain.handle('capture-webview', async (event, webContentsId) => {
+    try {
+      const { webContents } = require('electron');
+      const wc = webContents.fromId(webContentsId);
+      if (!wc) return null;
+      const image = await wc.capturePage();
+      if (image.isEmpty()) return null;
+      return image.toPNG().toString('base64');
+    } catch (e) { return null; }
+  });
+
   // Secure auth token via macOS Keychain (safeStorage)
   const fs = require('fs');
   const secureAuthPath = path.join(app.getPath('userData'), 'secure-auth.enc');
