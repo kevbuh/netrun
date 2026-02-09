@@ -31,6 +31,14 @@ Launches the Electron app, which spawns the Flask server (`src/app.py`) as a chi
 npm run server
 ```
 
+### 3. Run tests
+
+```bash
+npm test
+```
+
+Runs unit tests via Node's built-in `node:test` runner. No extra dependencies needed.
+
 ## Architecture
 
 Self-contained feed reader, paper browser, and experiment tracker — vanilla JavaScript frontend, Flask backend, Electron shell with a built-in custom browser. This is a **desktop app**, not a web app — Electron is the primary runtime. Memory efficiency matters because the user runs multiple local LLMs (via Ollama) alongside the app. Minimize RAM usage in both the Python server and the renderer process.
@@ -166,6 +174,12 @@ src/
     vault.js            — vault (notes) management
     vibe.js             — vibe coding assistant
     neuralook.js        — eye-tracking: calibration, dual-model training (CNN/MobileNet), gaze prediction, continuous passive learning
+electron/
+  main.js               — Electron main process, IPC handlers, window management, Python server lifecycle
+  preload.js            — context bridge exposing electronAPI to renderer
+  password-store.js     — password CRUD module (encrypted via safeStorage), dependency-injected for testability
+tests/
+  password-store.test.js — unit tests for password store (node:test + node:assert, mock fs/safeStorage)
 ```
 
 **Script load order** (bottom of `<body>`): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `pdfviewer.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`. Order matters: core first (globals/utils), feed second (`renderPapers` used by quality), quality third, then settings/dashboard, then views → paper-sidebar → chat-threads → panel (popup system depends on views), then browse-tabs → browse-urlbar → search (browse depends on panel), then remaining views. All functions are global (no modules).
@@ -307,6 +321,7 @@ The aether panel is the unified right-click interaction surface across the app. 
 **Electron IPC (`electron/main.js` + `electron/preload.js`):**
 - `ipcMain.handle('capture-screen', ...)` — captures a rectangular region of the window
 - `electronAPI.captureScreen(rect)` — exposed to renderer via preload
+- Password manager IPC (`pw-get`, `pw-fill`, `pw-save`, `pw-delete`, `pw-list`) — delegates to `createPasswordStore()` from `electron/password-store.js`
 
 ### Post Actions
 
@@ -532,7 +547,7 @@ Users must sign in before accessing the app. A full-screen login gate blocks all
 - UI uses a dark theme (and light theme) with accent color `#b4451a`
 - Tailwind CSS loaded via CDN (`https://cdn.tailwindcss.com`) with custom theme colors mapped to CSS variables
 - No frameworks, bundlers, or package managers — all vanilla
-- No tests or linting configured; use `node -c file.js` to check syntax
+- Unit tests use `node:test` + `node:assert` (zero dependencies); run with `npm test`. Use `node -c file.js` to check syntax for untested files
 - Experiment slugs are generated via `slugify()` in `persistence.py`
 - All feed-related rendering is data-driven from `FEED_CATALOG`
 - `getSourceChip(source, arxivId)` resolves any source key to its inline logo + name

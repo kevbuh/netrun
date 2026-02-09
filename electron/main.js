@@ -535,78 +535,18 @@ app.whenReady().then(() => {
   });
 
   // ── Password Manager (encrypted via safeStorage) ──
-  const crypto = require('crypto');
-  const pwPath = path.join(app.getPath('userData'), 'passwords.enc');
-
-  function _pwRead() {
-    try {
-      if (!safeStorage.isEncryptionAvailable()) return { version: 1, entries: [] };
-      if (!fs.existsSync(pwPath)) return { version: 1, entries: [] };
-      const encrypted = fs.readFileSync(pwPath);
-      const json = safeStorage.decryptString(encrypted);
-      return JSON.parse(json);
-    } catch (e) {
-      return { version: 1, entries: [] };
-    }
-  }
-
-  function _pwWrite(data) {
-    try {
-      if (!safeStorage.isEncryptionAvailable()) return;
-      const encrypted = safeStorage.encryptString(JSON.stringify(data));
-      fs.writeFileSync(pwPath, encrypted);
-    } catch (e) { /* no-op */ }
-  }
-
-  function _pwGenId() {
-    return crypto.randomBytes(4).toString('hex');
-  }
-
-  ipcMain.handle('pw-get', async (event, origin) => {
-    const data = _pwRead();
-    return data.entries
-      .filter(e => e.origin === origin)
-      .map(e => ({ id: e.id, origin: e.origin, username: e.username }));
+  const { createPasswordStore } = require('./password-store');
+  const pwStore = createPasswordStore({
+    fs,
+    safeStorage,
+    filePath: path.join(app.getPath('userData'), 'passwords.enc'),
+    crypto: require('crypto')
   });
-
-  ipcMain.handle('pw-fill', async (event, id) => {
-    const data = _pwRead();
-    const entry = data.entries.find(e => e.id === id);
-    if (!entry) return null;
-    return { username: entry.username, password: entry.password };
-  });
-
-  ipcMain.handle('pw-save', async (event, { origin, username, password }) => {
-    const data = _pwRead();
-    const existing = data.entries.find(e => e.origin === origin && e.username === username);
-    if (existing) {
-      existing.password = password;
-      existing.updatedAt = new Date().toISOString();
-      _pwWrite(data);
-      return { id: existing.id };
-    }
-    const id = _pwGenId();
-    data.entries.push({
-      id, origin, username, password,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-    _pwWrite(data);
-    return { id };
-  });
-
-  ipcMain.handle('pw-delete', async (event, id) => {
-    const data = _pwRead();
-    data.entries = data.entries.filter(e => e.id !== id);
-    _pwWrite(data);
-  });
-
-  ipcMain.handle('pw-list', async () => {
-    const data = _pwRead();
-    return data.entries.map(e => ({
-      id: e.id, origin: e.origin, username: e.username, createdAt: e.createdAt
-    }));
-  });
+  ipcMain.handle('pw-get', (_, origin) => pwStore.get(origin));
+  ipcMain.handle('pw-fill', (_, id) => pwStore.fill(id));
+  ipcMain.handle('pw-save', (_, data) => pwStore.save(data));
+  ipcMain.handle('pw-delete', (_, id) => pwStore.remove(id));
+  ipcMain.handle('pw-list', () => pwStore.list());
 
   createWindow();
 });

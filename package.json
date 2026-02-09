@@ -6,7 +6,8 @@
   "scripts": {
     "postinstall": "node scripts/rename-electron.js",
     "start": "electron .",
-    "server": "python3 src/app.py"
+    "server": "python3 src/app.py",
+    "test": "node --test 'tests/**/*.test.js'"
   },
   "devDependencies": {
     "electron": "^33.0.0",
