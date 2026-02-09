@@ -3135,12 +3135,13 @@ function _browseRenderTabs() {
       for (const t of tabs) {
         const isActive = t.id === activeTab;
         const cls = 'vtabs-mini-tab' + (isActive ? ' active' : '');
-        if (t.favicon) {
-          miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}"><img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'"></button>`;
-        } else {
-          const letter = (t.title || '?')[0].toUpperCase();
-          miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})" title="${escapeHtml(t.title)}"><span class="vtabs-mini-letter">${escapeHtml(letter)}</span></button>`;
-        }
+        let domain = '';
+        try { domain = new URL(t.url || '').hostname.replace(/^www\./, ''); } catch {}
+        const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}</span>`;
+        const fav = t.favicon
+          ? `<img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'">`
+          : `<span class="vtabs-mini-letter">${escapeHtml((t.title || '?')[0].toUpperCase())}</span>`;
+        miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})">${fav}${tip}</button>`;
       }
       strip.innerHTML = miniHtml;
     }

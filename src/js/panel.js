@@ -657,13 +657,14 @@ function _renderPopupChat(popup, final) {
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
-  // Attach speak button handlers
+  // Attach speak button handlers (Kokoro TTS)
   container.querySelectorAll('.doc-msg-speak-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
+      if (_ttsAudio) {
+        _ttsAudio.pause();
+        _ttsAudio = null;
         container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
         if (btn.classList.contains('doc-msg-speaking')) return; // was toggling off
       }
@@ -671,12 +672,22 @@ function _renderPopupChat(popup, final) {
       if (!msgEl) return;
       const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
       if (!text) return;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 1.1;
       btn.classList.add('doc-msg-speaking');
-      utter.onend = () => btn.classList.remove('doc-msg-speaking');
-      utter.onerror = () => btn.classList.remove('doc-msg-speaking');
-      speechSynthesis.speak(utter);
+      fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+        body: JSON.stringify({ text })
+      }).then(r => {
+        if (!r.ok) throw new Error('TTS failed');
+        return r.blob();
+      }).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _ttsAudio = audio;
+        audio.onended = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; };
+        audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; };
+        audio.play();
+      }).catch(() => { btn.classList.remove('doc-msg-speaking'); });
     });
   });
   // Update send/stop button state
@@ -4565,8 +4576,8 @@ function _showPanel(config) {
     if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
-  // Stop any ongoing speech when panel is recreated
-  if (speechSynthesis.speaking) speechSynthesis.cancel();
+  // Stop any ongoing TTS when panel is recreated
+  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; }
   // Remove any open note editor or help panel
   const existingEditor = document.getElementById('aether-note-editor');
   if (existingEditor) existingEditor.remove();
@@ -4577,7 +4588,7 @@ function _showPanel(config) {
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
   const _origRemove = popup.remove.bind(popup);
-  popup.remove = function() { if (speechSynthesis.speaking) speechSynthesis.cancel(); _origRemove(); };
+  popup.remove = function() { if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; } _origRemove(); };
 
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;

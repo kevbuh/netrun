@@ -1554,6 +1554,7 @@
       width: 36px;
       min-width: 36px;
       max-width: 36px;
+      overflow: visible;
     }
     .browse-vtabs.vtabs-collapsed .browse-vtabs-list {
       display: none;
@@ -1576,11 +1577,8 @@
       gap: 2px;
       padding: 4px 0;
       flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: none;
+      overflow: visible;
     }
-    .browse-vtabs-collapsed-strip::-webkit-scrollbar { display: none; }
     .browse-vtabs.vtabs-collapsed .browse-vtabs-collapsed-strip {
       display: flex;
     }
@@ -1623,6 +1621,44 @@
       align-items: center;
       justify-content: center;
       line-height: 1;
+    }
+    .vtabs-mini-tip {
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 8px;
+      background: var(--aether-bg);
+      border: 1px solid var(--aether-border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      transform: translateY(-50%) translateX(-4px);
+      box-shadow: 0 4px 12px var(--aether-shadow);
+      z-index: 10;
+    }
+    .vtabs-mini-tab:hover .vtabs-mini-tip {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+      pointer-events: auto;
+    }
+    .vtabs-mini-tip-title {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--aether-text);
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .vtabs-mini-tip-url {
+      font-size: 0.62rem;
+      color: var(--aether-text-dimmer);
     }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
