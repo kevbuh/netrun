@@ -35,6 +35,7 @@ let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '
 let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
 let _pwSaveDismissed = new Map(); // 'origin|username' → true
 let _pwLastSubmit = null; // { origin, username, ts } dedup
+let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 
 // ── Split pane state ──
 let _browseNextPaneId = 1;
@@ -980,7 +981,14 @@ function _browseHandleNavigation(tab, frame) {
     tab.favicon = _browseFaviconUrl(e.url);
     tab.blank = false;
     _pwAutofillOffered.delete(tab.id);
-    _pwHideSavePrompt();
+    // Re-show save prompt after navigation if credentials were just captured
+    if (_pwPendingPrompt && _pwPendingPrompt.tab.id === tab.id && Date.now() - _pwPendingPrompt.ts < 15000) {
+      const pending = _pwPendingPrompt;
+      _pwHideSavePrompt();
+      setTimeout(() => _pwShowSavePrompt(pending.tab, pending.data), 100);
+    } else {
+      _pwHideSavePrompt();
+    }
     _saveBrowseVisit(e.url, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
@@ -1327,6 +1335,7 @@ function _browseInjectContentScripts(tab, frame) {
     } else if (e.message && e.message.startsWith('__AETHER_PW_SUBMIT__')) {
       try {
         const data = JSON.parse(e.message.slice('__AETHER_PW_SUBMIT__'.length));
+        _pwPendingPrompt = { tab, data, ts: Date.now() };
         _pwShowSavePrompt(tab, data);
       } catch (err) {}
     }
@@ -1432,25 +1441,26 @@ function _pwShowSavePrompt(tab, data) {
     <span style="font-size:0.8rem;color:var(--text-primary);">Save password for <strong>${escapeHtml(displayUser)}</strong>?</span>
     <button id="pw-save-btn" style="padding:3px 12px;border-radius:4px;border:none;background:var(--accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;">Save</button>
     <button id="pw-never-btn" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.78rem;cursor:pointer;">Never</button>
-    <button onclick="_pwHideSavePrompt()" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dimmer);font-size:0.72rem;cursor:pointer;">&times;</button>
+    <button onclick="_pwHideSavePrompt(true)" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dimmer);font-size:0.72rem;cursor:pointer;">&times;</button>
   `;
   container.prepend(bar);
   // Keep password in closure, not DOM
   const password = data.password;
   bar.querySelector('#pw-save-btn').addEventListener('click', () => {
     window.electronAPI.pwSave({ origin: data.origin, username: data.username, password }).catch(() => {});
-    _pwHideSavePrompt();
+    _pwHideSavePrompt(true);
   });
   bar.querySelector('#pw-never-btn').addEventListener('click', () => {
     _pwSaveDismissed.set(key, true);
-    _pwHideSavePrompt();
+    _pwHideSavePrompt(true);
   });
   // Auto-dismiss after 15s
-  const timer = setTimeout(() => _pwHideSavePrompt(), 15000);
+  const timer = setTimeout(() => _pwHideSavePrompt(true), 15000);
   bar._pwDismissTimer = timer;
 }
 
-function _pwHideSavePrompt() {
+function _pwHideSavePrompt(clearPending) {
+  if (clearPending) _pwPendingPrompt = null;
   const bar = document.getElementById('browse-pw-bar');
   if (bar) {
     if (bar._pwDismissTimer) clearTimeout(bar._pwDismissTimer);
