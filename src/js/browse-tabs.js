@@ -1831,6 +1831,7 @@ function browseSelectTab(id) {
     }
   }
   if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+  _updateAnnotateButtonState();
 }
 
 function _browseUpdateBarForTab(tab) {
@@ -1994,6 +1995,8 @@ function browseCloseTab(id) {
   // Stop captions if this is the captured tab
   if (_ccTabId === id) stopCaptions();
   _pwAutofillOffered.delete(id);
+  _annotationsEnabled.delete(id);
+  _annotationsCache.delete(id);
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   _browseAudioTabs.delete(id);
@@ -4241,6 +4244,12 @@ function browseNavigate(input) {
     tab.backStack.push(tab.url);
     tab.forwardStack = [];
   }
+  // Clear annotations on navigation
+  if (_annotationsEnabled.get(tab.id)) {
+    _annotationsEnabled.set(tab.id, false);
+    _annotationsCache.delete(tab.id);
+    _updateAnnotateButtonState();
+  }
   tab.url = url;
   tab.title = _browseTitleFromUrl(url);
   tab.favicon = _browseFaviconUrl(url);
@@ -5340,6 +5349,8 @@ function toggleBrowseMoreMenu() {
     overflowRows += `<button onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
     overflowRows += `<button onclick="browseShare();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg> Share</button>`;
     overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker</button>`;
+    const _annEnabled = tab && _annotationsEnabled.get(tab.id);
+    overflowRows += `<button onclick="toggleAnnotations();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_annEnabled ? 'color:var(--accent);' : ''}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg> ${_annEnabled ? 'Remove Annotations' : 'Annotate Page'}</button>`;
     overflowRows += `<button onclick="openSearchHistoryPage();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg> Search History</button>`;
     overflowRows += `<button onclick="toggleBrowseSidebar();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg> Toggle Sidebar</button>`;
   } else {
@@ -5732,5 +5743,272 @@ function _closePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.remove('menu-expanded');
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
+}
+
+
+// ── Live Annotations ──
+
+const _annotationsEnabled = new Map(); // tabId → bool
+const _annotationsCache = new Map();   // tabId → { annotations, ts }
+
+function toggleAnnotations() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || tab.blank) return;
+  const enabled = !_annotationsEnabled.get(tab.id);
+  _annotationsEnabled.set(tab.id, enabled);
+  _updateAnnotateButtonState();
+  if (enabled) {
+    annotateCurrentPage(tab);
+  } else {
+    clearAnnotations(tab);
+  }
+}
+
+async function annotateCurrentPage(tab) {
+  if (!tab || !tab.el) return;
+  const url = tab.url || '';
+
+  // Check cache (5 min)
+  const cached = _annotationsCache.get(tab.id);
+  if (cached && Date.now() - cached.ts < 300000) {
+    injectAnnotations(tab, cached.annotations);
+    return;
+  }
+
+  // Show island with accent flashing dot
+  if (typeof islandUpdate === 'function') {
+    islandUpdate('annotate', { type: 'annotate', label: 'Annotating…', loading: true });
+  }
+
+  try {
+    // Extract text directly from the webview/iframe (already loaded)
+    const pageText = await _extractTextFromFrame(tab);
+    if (!pageText) {
+      if (typeof islandRemove === 'function') islandRemove('annotate');
+      return;
+    }
+
+    // Call annotate API (current tab only — no cross-tab context)
+    const model = localStorage.getItem('summaryModel') || '';
+    const resp = await fetch('/api/annotate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, text: pageText, otherTabs: [], model })
+    });
+    const data = await resp.json();
+    const annotations = data.annotations || [];
+
+    // Cache
+    _annotationsCache.set(tab.id, { annotations, ts: Date.now() });
+
+    // Only inject if still enabled
+    if (_annotationsEnabled.get(tab.id)) {
+      injectAnnotations(tab, annotations);
+    }
+
+    // Keep pill persistent with annotation items (clickable list)
+    // Icon color = mode (most frequent type)
+    const typeCounts = {};
+    for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
+    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'KEY_FINDING';
+    if (typeof islandUpdate === 'function') {
+      islandUpdate('annotate', {
+        type: 'annotate',
+        label: `${annotations.length} annotations`,
+        detail: `${annotations.length} annotations on this page`,
+        items: annotations,
+        modeType
+      });
+    }
+  } catch (err) {
+    console.error('[annotate] Error:', err);
+    if (typeof islandRemove === 'function') islandRemove('annotate');
+  }
+}
+
+async function _extractTextFromFrame(tab) {
+  if (!tab || !tab.el) return '';
+  const frame = tab.el;
+  const script = `(function() {
+    const skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
+    function getText(el) {
+      if (skip.has(el.tagName)) return '';
+      let t = '';
+      for (const c of el.childNodes) {
+        if (c.nodeType === 3) t += c.textContent;
+        else if (c.nodeType === 1) t += getText(c);
+      }
+      return t;
+    }
+    return getText(document.body || document.documentElement).replace(/\\s+/g, ' ').trim();
+  })()`;
+  try {
+    if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+      return await frame.executeJavaScript(script);
+    } else if (frame.tagName === 'IFRAME') {
+      return frame.contentDocument.body.innerText || '';
+    }
+  } catch { /* cross-origin */ }
+  return '';
+}
+
+
+function injectAnnotations(tab, annotations) {
+  if (!tab || !tab.el || !annotations.length) return;
+  const frame = tab.el;
+
+  const colorMap = {
+    KEY_FINDING: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Key Finding', labelColor: '#4caf50' },
+    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
+    VERIFY: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Verify', labelColor: '#ffc107' }
+  };
+
+  const annotationsJSON = JSON.stringify(annotations).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const colorMapJSON = JSON.stringify(colorMap).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+  const script = `
+    (function() {
+      if (window.__aetherAnnotationsActive) return;
+      window.__aetherAnnotationsActive = true;
+      const annotations = JSON.parse('${annotationsJSON}');
+      const colorMap = JSON.parse('${colorMapJSON}');
+
+      // Tooltip element
+      let tooltip = document.createElement('div');
+      tooltip.id = '__aether-annotation-tooltip';
+      tooltip.style.cssText = 'position:fixed;z-index:999999;padding:8px 12px;background:#1a1a2e;color:#e0e0e0;border-radius:6px;font-size:13px;line-height:1.4;max-width:320px;pointer-events:none;opacity:0;transition:opacity 0.15s;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+      document.body.appendChild(tooltip);
+
+      function showTooltip(mark, ann) {
+        const c = colorMap[ann.type] || colorMap.KEY_FINDING;
+        let html = '<div style="font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;color:' + c.labelColor + ';margin-bottom:4px;">' + c.label + '</div>';
+        html += '<div>' + ann.explanation + '</div>';
+        if (ann.conflictsWith) {
+          html += '<div style="margin-top:4px;font-size:12px;color:#aaa;">Conflicts with: ' + ann.conflictsWith + '</div>';
+        }
+        tooltip.innerHTML = html;
+        tooltip.style.opacity = '1';
+        const rect = mark.getBoundingClientRect();
+        tooltip.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
+        tooltip.style.top = (rect.top - tooltip.offsetHeight - 6) + 'px';
+        if (parseInt(tooltip.style.top) < 4) {
+          tooltip.style.top = (rect.bottom + 6) + 'px';
+        }
+      }
+
+      function hideTooltip() {
+        tooltip.style.opacity = '0';
+      }
+
+      // Walk text nodes and find matches
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+      for (const ann of annotations) {
+        const quote = ann.quote;
+        if (!quote) continue;
+        const quoteLower = quote.toLowerCase();
+        let found = false;
+
+        for (let i = 0; i < textNodes.length && !found; i++) {
+          const node = textNodes[i];
+          if (!node.parentNode || node.parentNode.closest && node.parentNode.closest('.aether-annotation')) continue;
+          const nodeText = node.textContent;
+          const idx = nodeText.toLowerCase().indexOf(quoteLower);
+          if (idx === -1) continue;
+
+          const c = colorMap[ann.type] || colorMap.KEY_FINDING;
+          const before = nodeText.substring(0, idx);
+          const match = nodeText.substring(idx, idx + quote.length);
+          const after = nodeText.substring(idx + quote.length);
+
+          const mark = document.createElement('mark');
+          mark.className = 'aether-annotation';
+          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;';
+          mark.textContent = match;
+          mark.addEventListener('mouseover', function() { showTooltip(mark, ann); });
+          mark.addEventListener('mouseout', hideTooltip);
+
+          const parent = node.parentNode;
+          if (before) parent.insertBefore(document.createTextNode(before), node);
+          parent.insertBefore(mark, node);
+          if (after) {
+            const afterNode = document.createTextNode(after);
+            parent.insertBefore(afterNode, node);
+            // Update textNodes array to include the new after node
+            textNodes.splice(i + 1, 0, afterNode);
+          }
+          parent.removeChild(node);
+          found = true;
+        }
+      }
+    })();
+  `;
+
+  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+    frame.executeJavaScript(script).catch(() => {});
+  } else if (frame.tagName === 'IFRAME') {
+    try {
+      frame.contentWindow.eval(script);
+    } catch { /* cross-origin */ }
+  }
+}
+
+function clearAnnotations(tab) {
+  if (!tab || !tab.el) return;
+  if (typeof islandRemove === 'function') islandRemove('annotate');
+  const frame = tab.el;
+  const script = `
+    (function() {
+      window.__aetherAnnotationsActive = false;
+      const tooltip = document.getElementById('__aether-annotation-tooltip');
+      if (tooltip) tooltip.remove();
+      document.querySelectorAll('mark.aether-annotation').forEach(function(mark) {
+        const parent = mark.parentNode;
+        if (!parent) return;
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+      });
+      document.body.normalize();
+    })();
+  `;
+  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+    frame.executeJavaScript(script).catch(() => {});
+  } else if (frame.tagName === 'IFRAME') {
+    try {
+      frame.contentWindow.eval(script);
+    } catch { /* cross-origin */ }
+  }
+}
+
+function scrollToAnnotation(idx) {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || !tab.el) return;
+  const frame = tab.el;
+  const script = `(function() {
+    var marks = document.querySelectorAll('mark.aether-annotation');
+    var mark = marks[${idx}];
+    if (!mark) return;
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash effect
+    var orig = mark.style.outline;
+    mark.style.outline = '2px solid #fff';
+    mark.style.outlineOffset = '2px';
+    setTimeout(function() { mark.style.outline = orig; mark.style.outlineOffset = ''; }, 1500);
+  })()`;
+  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+    frame.executeJavaScript(script).catch(() => {});
+  } else if (frame.tagName === 'IFRAME') {
+    try { frame.contentWindow.eval(script); } catch {}
+  }
+}
+
+function _updateAnnotateButtonState() {
+  const btn = document.getElementById('browse-annotate-btn');
+  if (!btn) return;
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const enabled = tab && _annotationsEnabled.get(tab.id);
+  btn.classList.toggle('text-accent', !!enabled);
+  btn.classList.toggle('text-dimmer', !enabled);
 }
 

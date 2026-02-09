@@ -41,6 +41,9 @@ _insights_cache = {}
 # In-memory cache for smart highlights: url -> [items]
 _smart_hl_cache = {}
 
+# In-memory cache for page annotations: 'annotate:{url}' -> { data, ts }
+_annotate_cache = {}
+
 SMART_HIGHLIGHTS_PROMPT = (
     "You are a research paper analyzer. Read the document text below and extract "
     "8-15 important passages grouped into three categories:\n"
@@ -1095,6 +1098,116 @@ def find_similar():
     limit = min(body.get('limit', 20), 50)
     results = search_embeddings(query_vec, limit=limit, exclude_link=link)
     return jsonify({'results': results})
+
+
+@bp.route('/api/annotate', methods=['POST'])
+def annotate_page():
+    """Annotate page text with key findings, contradictions, and claims to verify."""
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        text = (body.get('text') or '').strip()
+        url = (body.get('url') or '').strip()
+        other_tabs = body.get('otherTabs') or []
+        if not text:
+            return jsonify({'error': 'text required'}), 400
+
+        # Check in-memory cache (5 min TTL)
+        now = time.time()
+        cache_key = f'annotate:{url}' if url else None
+        if cache_key and cache_key in _annotate_cache:
+            entry = _annotate_cache[cache_key]
+            if now - entry['ts'] < 300:
+                return jsonify({'annotations': entry['data']})
+
+        # Truncate inputs
+        main_text = text[:12000]
+        tab_context = ''
+        for tab in other_tabs[:3]:
+            t_title = (tab.get('title') or '')[:100]
+            t_text = (tab.get('text') or '')[:3000]
+            if t_text:
+                tab_context += f'\n\n--- OTHER TAB: "{t_title}" ---\n{t_text}\n--- END TAB ---'
+
+        prompt = (
+            "You are a critical reading assistant. Analyze the following web page text and find 5-12 passages that are:\n"
+            "1. KEY_FINDING — important facts, conclusions, or data worth highlighting\n"
+            "2. CONTRADICTION — statements that conflict with content from the other open tabs listed below\n"
+            "3. VERIFY — claims that are unsubstantiated, surprising, or need fact-checking\n\n"
+            "For each annotation provide a JSON object with:\n"
+            "- \"type\": one of \"KEY_FINDING\", \"CONTRADICTION\", \"VERIFY\"\n"
+            "- \"quote\": the EXACT text from the page (copy verbatim, 5-40 words)\n"
+            "- \"explanation\": a short reason (1 sentence)\n"
+            "- \"conflictsWith\": (only for CONTRADICTION) the title of the other tab it conflicts with\n\n"
+            "Rules:\n"
+            "- Each quote MUST appear word-for-word in the main page text\n"
+            "- Only use CONTRADICTION if there is an actual conflict with another tab\n"
+            "- If no other tabs are provided, do not use CONTRADICTION type\n"
+            "- Respond ONLY with a JSON array, no other text\n\n"
+            "--- MAIN PAGE TEXT ---\n" + main_text + "\n--- END PAGE TEXT ---"
+        )
+        if tab_context:
+            prompt += tab_context
+
+        model = body.get('model') or 'qwen2.5:3b'
+        print(f"[annotate] url={url[:80]} model={model} text_len={len(main_text)} tabs={len(other_tabs[:3])}")
+        llm_payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "think": False,
+            "options": {"temperature": 0, "num_predict": 4000}
+        }).encode()
+        llm_req = urllib.request.Request(
+            "http://localhost:11434/api/chat",
+            data=llm_payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(llm_req, timeout=120) as llm_resp:
+            llm_data = json.loads(llm_resp.read())
+        raw_content = llm_data.get("message", {}).get("content", "").strip()
+
+        # Parse JSON from response — strip thinking tags, code fences
+        json_str = raw_content
+        json_str = re.sub(r'<think>.*?</think>', '', json_str, flags=re.DOTALL)
+        if '```' in json_str:
+            json_str = re.sub(r'```(?:json)?\s*', '', json_str)
+            json_str = json_str.replace('```', '')
+        json_str = json_str.strip()
+        # Extract first JSON array if there's surrounding text
+        arr_match = re.search(r'\[.*\]', json_str, re.DOTALL)
+        if arr_match:
+            json_str = arr_match.group()
+        parsed = json.loads(json_str)
+
+        valid_types = {'KEY_FINDING', 'CONTRADICTION', 'VERIFY'}
+        annotations = []
+        if isinstance(parsed, list):
+            for item in parsed[:15]:
+                if not isinstance(item, dict):
+                    continue
+                atype = item.get('type', '')
+                quote = (item.get('quote') or '').strip()
+                explanation = (item.get('explanation') or '').strip()
+                if atype not in valid_types or not quote:
+                    continue
+                # Validate quote exists in source text (case-insensitive fuzzy)
+                if quote.lower() not in text.lower():
+                    # Try finding a close substring match (first 30 chars)
+                    snippet = quote[:30].lower()
+                    if snippet not in text.lower():
+                        continue
+                ann = {'type': atype, 'quote': quote[:500], 'explanation': explanation[:300]}
+                if atype == 'CONTRADICTION' and item.get('conflictsWith'):
+                    ann['conflictsWith'] = item['conflictsWith'][:200]
+                annotations.append(ann)
+
+        # Cache result
+        if cache_key:
+            _annotate_cache[cache_key] = {'data': annotations, 'ts': now}
+
+        return jsonify({'annotations': annotations})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 502
 
 
 @bp.route('/api/knowledge-graph/similarities', methods=['POST'])
