@@ -3091,7 +3091,7 @@ function _browseRenderTabs() {
 
   // Window switcher for horizontal layout (inline in tab bar)
   let windowSelector = '';
-  if (!isVertical && _browseWindows.length > 1) {
+  if (_browseWindows.length > 1) {
     const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
     windowSelector = `<div class="browse-window-switcher" data-window-idx="${winIdx}" onclick="toggleBrowseTabOverview()">
       <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
@@ -3107,10 +3107,9 @@ function _browseRenderTabs() {
   const pinned = tabs.filter(t => t.pinned);
   const unpinned = tabs.filter(t => !t.pinned);
 
-  // Pick renderer based on layout
-  const renderTab = isVertical ? _browseRenderVTabHtml : _browseRenderTabHtml;
-  const pinSepClass = isVertical ? 'browse-vtab-pin-separator' : 'browse-tab-pin-separator';
-  const groupChipClass = isVertical ? 'browse-vtab-group-chip' : 'browse-tab-group-chip';
+  const renderTab = _browseRenderTabHtml;
+  const pinSepClass = 'browse-tab-pin-separator';
+  const groupChipClass = 'browse-tab-group-chip';
 
   // Build pinned section
   let html = windowSelector;
@@ -3187,8 +3186,7 @@ function _browseRenderTabs() {
   }
 
   // Attach tab drag-to-reorder handlers
-  const tabSelector = isVertical ? '.browse-vtab' : '.browse-tab';
-  bar.querySelectorAll(tabSelector).forEach(tabEl => {
+  bar.querySelectorAll('.browse-tab').forEach(tabEl => {
     tabEl.addEventListener('mousedown', _tabDragStart);
   });
   // Attach drag handler on the split pill (handles reorder + unsplit + click-to-focus)
@@ -3542,9 +3540,9 @@ const TAB_DRAG_THRESHOLD = 5;
 
 function _tabDragStart(e) {
   if (e.button !== 0) return;
-  if (e.target.closest('.browse-tab-close, .browse-vtab-close, .browse-tab-audio')) return;
+  if (e.target.closest('.browse-tab-close, .browse-tab-audio')) return;
   const tabEl = e.currentTarget;
-  const isVtab = tabEl.classList.contains('browse-vtab');
+  const isVtab = false;
   let tabId = parseInt(tabEl.dataset.tabId);
   if (isNaN(tabId)) {
     // Fallback: parse from onclick
@@ -5780,8 +5778,30 @@ function browseEnableNoteMode() {
 
 // ── Dynamic Island pill bar — browse mode ──
 
+function _islandSyncTabs() {
+  var win = _getCurrentWindow();
+  var tabs = win ? win.tabs : [];
+  var activeTab = win ? win.activeTab : null;
+  var active = tabs.find(function(t) { return t.id === activeTab; });
+  if (!tabs.length) { islandRemove('tabs'); return; }
+  islandUpdate('tabs', {
+    type: 'tabs',
+    label: tabs.length + '',
+    detail: active ? active.title : 'Browse',
+    favicon: active ? active.favicon : null,
+    items: tabs.map(function(t) {
+      return {
+        id: t.id, title: t.title || 'New Tab',
+        favicon: t.favicon, active: t.id === activeTab,
+        pinned: t.pinned, groupId: t.groupId,
+        hasAudio: _browseAudioTabs.has(t.id),
+        muted: _browseAudioTabs.get(t.id) && _browseAudioTabs.get(t.id).muted
+      };
+    })
+  });
+}
+
 function _getActiveTabBar() {
-  if (_browseTabLayout === 'vertical') return document.getElementById('browse-vtabs-list');
   if (_pillBrowseMode) return document.getElementById('pill-browse-tabs');
   return document.getElementById('browse-tabs');
 }
@@ -5790,16 +5810,14 @@ function _setPillBrowseMode(enabled) {
   _pillBrowseMode = enabled;
   const pill = document.getElementById('sidebar-nav');
   const tabRow = document.getElementById('browse-tab-row');
-  const vtabs = document.getElementById('browse-vtabs');
   const dragPill = document.getElementById('drag-pill');
   if (enabled) {
     if (pill) { pill.classList.add('browse-mode'); pill.classList.remove('vtab-mode'); }
     if (tabRow) tabRow.style.display = 'none';
-    if (vtabs) vtabs.style.display = 'none';
     if (dragPill) dragPill.style.display = 'none';
-    // Clean up vertical mode state
     const bar = document.getElementById('browse-bar');
     if (bar) bar.style.display = '';
+    islandRemove('tabs');
     _pillSyncTabs();
   } else {
     if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('vtab-mode'); }

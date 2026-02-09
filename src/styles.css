@@ -1747,47 +1747,47 @@
       opacity: 1;
       padding: 0;
     }
-    /* ── Vertical tabs collapse button (inside vtabs panel) ── */
-    .vtabs-collapse-header {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      padding: 4px 6px;
-      flex-shrink: 0;
+    /* ── Island tab tray ── */
+    .pill-island.island-tabs-pill { cursor: pointer; }
+    .pill-island.island-tabs-pill .island-tab-favicon {
+      width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0;
     }
-    /* Equal width for all header buttons */
-    .vtabs-collapse-header > button,
-    #vtabs-header-window-switcher > button {
-      flex: 1;
-      min-width: 0;
+    .pill-island.island-tabs-pill .island-ctx-tray {
+      min-width: 240px; max-width: 300px;
     }
-    #vtabs-header-window-switcher {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      flex: 2;
+    .island-tab-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 6px;
+      font-size: 0.75rem; color: var(--aether-text-dim);
+      cursor: pointer; transition: background 0.12s;
     }
-    #vtabs-header-window-switcher:empty { display: none; }
-    .vtabs-collapse-btn {
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: transparent;
-      color: var(--aether-text-dimmer);
-      cursor: pointer;
-      border-radius: 6px;
-      transition: background 0.15s, color 0.15s;
-      padding: 0;
+    .island-tab-item:hover { background: var(--aether-hover-subtle); color: var(--aether-text); }
+    .island-tab-item.active {
+      background: var(--aether-hover); color: var(--aether-text);
+      border-left: 2px solid var(--accent); padding-left: 6px;
     }
-    .vtabs-collapse-btn:hover {
-      background: var(--aether-hover);
-      color: var(--aether-text);
+    .island-tab-item-close {
+      flex-shrink: 0; width: 16px; height: 16px;
+      border: none; background: transparent;
+      color: var(--aether-text-dimmest); font-size: 0.8rem; line-height: 1;
+      border-radius: 4px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; opacity: 0;
+      transition: background 0.1s, color 0.1s, opacity 0.1s;
     }
-    .browse-vtabs.vtabs-collapsed .vtabs-collapse-header {
-      justify-content: center;
-      padding: 6px 0 0;
+    .island-tab-item:hover .island-tab-item-close,
+    .island-tab-item.active .island-tab-item-close { opacity: 1; }
+    .island-tab-item-close:hover {
+      background: var(--aether-hover); color: var(--aether-text);
+    }
+    .island-tab-newtab {
+      padding: 6px 8px; border-radius: 6px; font-size: 0.72rem;
+      color: var(--aether-text-dimmer); cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .island-tab-newtab:hover {
+      background: var(--aether-hover-subtle); color: var(--aether-text);
     }
 
     /* ── Pill bar vtab nav buttons (back/forward/refresh) ── */
@@ -1812,260 +1812,7 @@
     #pill-window-switcher .sidebar-icon:hover { opacity: 1; }
     #pill-window-switcher .sidebar-icon.disabled { opacity: 0.2; pointer-events: none; }
 
-    /* ── Vertical tabs sidebar ── */
-    .browse-vtabs {
-      width: 220px;
-      min-width: 180px;
-      max-width: 300px;
-      display: flex;
-      flex-direction: column;
-      background: var(--aether-bg);
-      border-right: 1px solid var(--aether-border);
-      flex-shrink: 0;
-      overflow: hidden;
-      color: var(--aether-text-secondary);
-      position: relative;
-      transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  min-width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .browse-vtabs {
-      border-radius: 0;
-    }
-    .browse-vtabs.vtabs-collapsed {
-      width: 36px;
-      min-width: 36px;
-      max-width: 36px;
-      overflow: visible;
-    }
-    .browse-vtabs.vtabs-collapsed .browse-vtabs-list {
-      display: none;
-    }
-    .browse-vtabs.vtabs-collapsed .vtabs-collapse-header {
-      flex-direction: column;
-      gap: 4px;
-      padding: 6px 0;
-      align-items: center;
-    }
-    .browse-vtabs.vtabs-collapsed .vtabs-collapse-btn,
-    .browse-vtabs.vtabs-collapsed .browse-vtab-action-btn,
-    .browse-vtabs.vtabs-collapsed .vtabs-win-nav {
-      width: 28px;
-      flex: none;
-      padding: 0;
-    }
-    /* Window nav buttons in vtabs header */
-    .vtabs-win-nav {
-      width: auto;
-    }
-    .vtabs-win-nav.disabled {
-      opacity: 0.25;
-      pointer-events: none;
-    }
-    .browse-vtabs.vtabs-collapsed #vtabs-header-window-switcher {
-      flex-direction: column;
-    }
-    .browse-vtabs.vtabs-collapsed .vtabs-win-nav {
-      width: 28px;
-      padding: 0;
-    }
-    /* ── Collapsed tab favicon strip ── */
-    .browse-vtabs-collapsed-strip {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      padding: 4px 0;
-      flex: 1;
-      overflow: visible;
-    }
-    .browse-vtabs.vtabs-collapsed .browse-vtabs-collapsed-strip {
-      display: flex;
-    }
-    .vtabs-mini-tab {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      cursor: pointer;
-      flex-shrink: 0;
-      border: none;
-      background: transparent;
-      padding: 0;
-      transition: background 0.12s;
-      position: relative;
-      z-index: 0;
-    }
-    .vtabs-mini-tab:hover {
-      background: var(--aether-hover);
-      z-index: 10;
-    }
-    .vtabs-mini-tab.active {
-      background: var(--aether-hover);
-    }
-    .vtabs-mini-tab.active::before {
-      content: '';
-      position: absolute;
-      left: -2px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 3px;
-      height: 16px;
-      border-radius: 2px;
-      background: var(--accent);
-    }
-    /* Audio indicator on collapsed mini-tab */
-    .vtabs-mini-audio {
-      position: absolute;
-      bottom: 1px;
-      right: 1px;
-      width: 12px;
-      height: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #fff;
-      cursor: pointer;
-      z-index: 1;
-      box-shadow: 0 0 0 1.5px var(--aether-bg);
-    }
-    .vtabs-mini-audio.muted {
-      background: var(--aether-text-dimmest);
-    }
-    .vtabs-mini-music {
-      display: flex;
-      align-items: flex-end;
-      gap: 1px;
-      width: 16px;
-      height: 16px;
-      padding: 2px 1px;
-    }
-    .vtabs-mini-music-bar {
-      flex: 1;
-      background: var(--accent);
-      border-radius: 1px;
-      animation: vtabs-music-bounce 0.8s ease-in-out infinite alternate;
-    }
-    .vtabs-mini-music-bar:nth-child(1) { height: 40%; animation-delay: 0s; }
-    .vtabs-mini-music-bar:nth-child(2) { height: 70%; animation-delay: 0.15s; }
-    .vtabs-mini-music-bar:nth-child(3) { height: 50%; animation-delay: 0.3s; }
-    .vtabs-mini-music-bar:nth-child(4) { height: 80%; animation-delay: 0.1s; }
-    .vtabs-mini-tab.has-audio.muted .vtabs-mini-music-bar {
-      animation: none;
-      height: 30%;
-      background: var(--aether-text-dimmest);
-    }
-    @keyframes vtabs-music-bounce {
-      0% { transform: scaleY(0.3); }
-      100% { transform: scaleY(1); }
-    }
-    .vtabs-mini-tab img {
-      width: 16px;
-      height: 16px;
-      border-radius: 2px;
-    }
-    .vtabs-mini-tab .vtabs-mini-letter {
-      width: 16px;
-      height: 16px;
-      border-radius: 3px;
-      background: var(--aether-text-dimmest);
-      color: var(--aether-bg);
-      font-size: 0.55rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-    }
-    .vtabs-mini-tip {
-      position: absolute;
-      left: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      background: var(--aether-bg);
-      border-radius: 8px;
-      padding: 6px 12px 6px 36px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      clip-path: inset(0 100% 0 0 round 8px);
-      transition: clip-path 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
-      z-index: -1;
-    }
-    .vtabs-mini-tab:hover .vtabs-mini-tip {
-      opacity: 1;
-      clip-path: inset(0 0 0 0 round 8px);
-      pointer-events: auto;
-    }
-    .vtabs-mini-tip-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .vtabs-mini-tip-close {
-      flex-shrink: 0;
-      width: 16px;
-      height: 16px;
-      border: none;
-      background: none;
-      color: var(--aether-text-dimmer);
-      font-size: 14px;
-      line-height: 1;
-      cursor: pointer;
-      padding: 0;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .vtabs-mini-tip-close:hover {
-      background: var(--aether-hover);
-      color: var(--aether-text);
-    }
-    .vtabs-mini-tip-title {
-      font-size: 0.72rem;
-      font-weight: 500;
-      color: var(--aether-text);
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .vtabs-mini-tip-url {
-      font-size: 0.62rem;
-      color: var(--aether-text-dimmer);
-    }
-    .vtabs-mini-tip-audio {
-      font-size: 0.62rem;
-      color: var(--accent);
-    }
-    .vtabs-mini-overflow {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      border: none;
-      background: transparent;
-      color: var(--aether-text-dimmer);
-      font-size: 0.6rem;
-      font-weight: 700;
-      cursor: pointer;
-      flex-shrink: 0;
-      padding: 0;
-      transition: background 0.12s, color 0.15s;
-    }
-    .vtabs-mini-overflow:hover {
-      background: var(--aether-hover);
-      color: var(--aether-text);
-    }
+    /* (vtabs sidebar removed — tabs now in island tray) */
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;
       display: flex; align-items: center; justify-content: center;
@@ -2083,125 +1830,7 @@
     #browse-tab-row .browse-tab-layout-toggle:hover {
       background: var(--bg-hover); color: var(--text-primary);
     }
-    .browse-vtabs-list {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 2px 6px;
-      scrollbar-width: thin;
-      scrollbar-color: var(--aether-scrollbar) transparent;
-      position: relative;
-    }
-    .browse-vtabs-list::-webkit-scrollbar { width: 4px; }
-    .browse-vtabs-list::-webkit-scrollbar-thumb { background: var(--aether-scrollbar); border-radius: 2px; }
-    .browse-vtabs-list::-webkit-scrollbar-track { background: transparent; }
-    /* vtabs-actions moved into vtabs-collapse-header */
-    .browse-vtab-action-btn {
-      width: 100%; height: 28px;
-      display: flex; align-items: center; justify-content: center; gap: 4px;
-      border: none; background: transparent;
-      color: var(--aether-text-dimmer); cursor: pointer; border-radius: 6px;
-      font-size: 0.72rem; transition: background 0.15s, color 0.15s;
-    }
-    .browse-vtab-action-btn:hover {
-      background: var(--aether-hover); color: var(--aether-text);
-    }
-    .browse-vtab {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 8px;
-      margin: 1px 0;
-      font-size: 0.73rem;
-      color: var(--aether-text-dim);
-      background: transparent;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      width: 100%;
-      transition: background 0.12s, color 0.12s;
-      position: relative;
-    }
-    .browse-vtab:hover {
-      background: var(--aether-hover-subtle);
-      color: var(--aether-text);
-    }
-    .browse-vtab:hover .browse-vtab-close { opacity: 1; }
-    .browse-vtab.active {
-      background: var(--aether-hover);
-      color: var(--aether-text);
-      border-left: 2px solid var(--accent);
-      padding-left: 6px;
-    }
-    .browse-vtab-favicon {
-      width: 14px; height: 14px; flex-shrink: 0; border-radius: 2px;
-    }
-    .browse-vtab-title {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex: 1;
-      min-width: 0;
-    }
-    .browse-vtab-close {
-      flex-shrink: 0;
-      width: 16px; height: 16px;
-      border: none; background: transparent;
-      color: var(--aether-text-dimmest);
-      font-size: 0.8rem; line-height: 1;
-      border-radius: 4px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      padding: 0; opacity: 0;
-      transition: background 0.1s, color 0.1s, opacity 0.1s;
-    }
-    .browse-vtab.active .browse-vtab-close { opacity: 1; }
-    .browse-vtab-close:hover {
-      background: var(--aether-hover); color: var(--aether-text);
-    }
-    .browse-vtab-pinned {
-      padding: 4px 8px;
-    }
-    .browse-vtab-pinned .browse-vtab-title { display: none; }
-    .browse-vtab-pinned .browse-vtab-close { display: none !important; }
-    .browse-vtab-grouped {
-      border-left: 2px solid var(--group-color); border-radius: 0 6px 6px 0;
-    }
-    .browse-vtab-grouped.active {
-      border-left: 2px solid var(--accent);
-    }
-    .browse-vtab-group-chip {
-      padding: 3px 8px; margin: 4px 0 1px; border-radius: 4px; font-size: 0.63rem; font-weight: 600;
-      background: color-mix(in srgb, var(--group-color) 20%, transparent);
-      color: var(--group-color); cursor: pointer; white-space: nowrap;
-      display: flex; align-items: center; gap: 4px; user-select: none;
-    }
-    .browse-vtab-group-chip:hover {
-      background: color-mix(in srgb, var(--group-color) 30%, transparent);
-    }
-    .browse-vtab-pin-separator {
-      height: 1px; background: var(--aether-border); margin: 4px 4px; flex-shrink: 0;
-    }
-    .browse-vtab-insert-indicator {
-      position: absolute;
-      left: 4px; right: 4px;
-      height: 2px;
-      background: var(--accent);
-      pointer-events: none;
-      z-index: 1000;
-      border-radius: 1px;
-    }
-    .browse-vtab-drag-source { opacity: 0.3; }
-    .browse-vtab-dragging {
-      opacity: 0.85;
-      cursor: grabbing !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      border-radius: 6px;
-    }
-    .browse-vtab.has-audio .browse-tab-audio { display: flex; }
-    .browse-vtabs-list.tab-bar-focused .browse-vtab.active {
-      box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.15);
-    }
+    /* (vtab list/items removed — tabs now in island tray) */
 
     /* Tab & group context menu */
     .browse-ctx-menu {
