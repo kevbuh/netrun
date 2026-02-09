@@ -1931,7 +1931,7 @@ function _browseUpdateNewTabPage(tab) {
                 <div id="search-history-dropdown-view" class="ntp-dropdown" style="display:none;"></div>
                 <div id="ntp-file-chips" class="ntp-file-chips-container"></div>
                 <div class="ntp-search-actions">
-                  <button type="button" class="ntp-action-pill" onclick="document.getElementById('browse-pdf-file-input').click()">+ Add tabs or files</button>
+                  <button type="button" class="ntp-action-pill" onmousedown="event.preventDefault()" onclick="_browseUrlCancelHide(); document.getElementById('browse-pdf-file-input').click()">+ Add tabs or files</button>
                   <button type="button" class="ntp-action-dots" title="More options">&middot;&middot;&middot;</button>
                   <div style="flex:1"></div>
                   <button type="submit" class="ntp-action-submit" title="Search"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg></button>
@@ -6045,47 +6045,102 @@ function injectAnnotations(tab, annotations) {
         tooltip.style.opacity = '0';
       }
 
-      // Walk text nodes and find matches
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-      const textNodes = [];
-      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      // Build concatenated text from all text nodes with position mapping
+      const skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
+      function collectTextNodes(el) {
+        const result = [];
+        if (skip.has(el.tagName)) return result;
+        for (const child of el.childNodes) {
+          if (child.nodeType === 3) result.push(child);
+          else if (child.nodeType === 1) result.push(...collectTextNodes(child));
+        }
+        return result;
+      }
+      const textNodes = collectTextNodes(document.body);
+      let fullText = '';
+      const nodeMap = []; // { node, start, end }
+      for (const node of textNodes) {
+        const start = fullText.length;
+        fullText += node.textContent;
+        nodeMap.push({ node, start, end: fullText.length });
+      }
+      const fullLower = fullText.toLowerCase();
 
       for (const ann of annotations) {
         const quote = ann.quote;
         if (!quote) continue;
         const quoteLower = quote.toLowerCase();
-        let found = false;
+        const matchIdx = fullLower.indexOf(quoteLower);
+        if (matchIdx === -1) continue;
+        const matchEnd = matchIdx + quote.length;
+        const c = colorMap[ann.type] || colorMap.KEY_FINDING;
 
-        for (let i = 0; i < textNodes.length && !found; i++) {
-          const node = textNodes[i];
-          if (!node.parentNode || node.parentNode.closest && node.parentNode.closest('.aether-annotation')) continue;
+        // Find all text nodes that overlap with this match range
+        const affectedNodes = [];
+        for (const nm of nodeMap) {
+          if (nm.end <= matchIdx || nm.start >= matchEnd) continue;
+          affectedNodes.push(nm);
+        }
+        if (!affectedNodes.length) continue;
+
+        // Single-node match (most common)
+        if (affectedNodes.length === 1) {
+          const nm = affectedNodes[0];
+          const node = nm.node;
+          if (!node.parentNode) continue;
+          if (node.parentNode.closest && node.parentNode.closest('.aether-annotation')) continue;
+          const localIdx = matchIdx - nm.start;
           const nodeText = node.textContent;
-          const idx = nodeText.toLowerCase().indexOf(quoteLower);
-          if (idx === -1) continue;
-
-          const c = colorMap[ann.type] || colorMap.KEY_FINDING;
-          const before = nodeText.substring(0, idx);
-          const match = nodeText.substring(idx, idx + quote.length);
-          const after = nodeText.substring(idx + quote.length);
+          const before = nodeText.substring(0, localIdx);
+          const matchText = nodeText.substring(localIdx, localIdx + quote.length);
+          const after = nodeText.substring(localIdx + quote.length);
 
           const mark = document.createElement('mark');
           mark.className = 'aether-annotation';
           mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;';
-          mark.textContent = match;
+          mark.textContent = matchText;
           mark.addEventListener('mouseover', function() { showTooltip(mark, ann); });
           mark.addEventListener('mouseout', hideTooltip);
 
           const parent = node.parentNode;
           if (before) parent.insertBefore(document.createTextNode(before), node);
           parent.insertBefore(mark, node);
-          if (after) {
-            const afterNode = document.createTextNode(after);
-            parent.insertBefore(afterNode, node);
-            // Update textNodes array to include the new after node
-            textNodes.splice(i + 1, 0, afterNode);
-          }
+          if (after) parent.insertBefore(document.createTextNode(after), node);
           parent.removeChild(node);
-          found = true;
+          // Update nodeMap for subsequent annotations
+          const nmIdx = nodeMap.indexOf(nm);
+          if (nmIdx !== -1) nodeMap.splice(nmIdx, 1);
+          continue;
+        }
+
+        // Cross-node match: wrap the matching portion of each node in a mark
+        let isFirst = true;
+        let wrapMark = null;
+        for (const nm of affectedNodes) {
+          const node = nm.node;
+          if (!node.parentNode) continue;
+          const overlapStart = Math.max(matchIdx, nm.start) - nm.start;
+          const overlapEnd = Math.min(matchEnd, nm.end) - nm.start;
+          const nodeText = node.textContent;
+          const before = nodeText.substring(0, overlapStart);
+          const matchText = nodeText.substring(overlapStart, overlapEnd);
+          const after = nodeText.substring(overlapEnd);
+
+          const mark = document.createElement('mark');
+          mark.className = 'aether-annotation';
+          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;';
+          mark.textContent = matchText;
+          if (isFirst) { wrapMark = mark; isFirst = false; }
+          mark.addEventListener('mouseover', function() { showTooltip(wrapMark || mark, ann); });
+          mark.addEventListener('mouseout', hideTooltip);
+
+          const parent = node.parentNode;
+          if (before) parent.insertBefore(document.createTextNode(before), node);
+          parent.insertBefore(mark, node);
+          if (after) parent.insertBefore(document.createTextNode(after), node);
+          parent.removeChild(node);
+          const nmIdx = nodeMap.indexOf(nm);
+          if (nmIdx !== -1) nodeMap.splice(nmIdx, 1);
         }
       }
     })();

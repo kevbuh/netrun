@@ -1712,7 +1712,14 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
     if (browseHidden) return;
 
     if (command === 'new-tab') {
-      browseNewTab();
+      const win = _getCurrentWindow();
+      const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);
+      if (active && active.blank) {
+        const inp = document.querySelector('.browse-ntp #search-query');
+        if (inp) { inp.focus(); inp.select(); }
+      } else {
+        browseNewTab();
+      }
     } else if (command === 'close-tab') {
       const win = _getCurrentWindow();
       if (win && win.activeTab) {

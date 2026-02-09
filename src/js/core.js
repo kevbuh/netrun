@@ -2655,8 +2655,18 @@ window.addEventListener('keydown', e => {
     const isOpen = browseView && browseView.style.display !== 'none' && browseView.style.display !== '';
     if (!isOpen && typeof openBrowse === 'function') openBrowse();
     if (typeof browseNewTab === 'function') {
-      if (!isOpen) setTimeout(browseNewTab, 50);
-      else browseNewTab();
+      if (!isOpen) { setTimeout(browseNewTab, 50); }
+      else {
+        // If current tab is already NTP, just focus the search input
+        const win = typeof _getCurrentWindow === 'function' && _getCurrentWindow();
+        const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);
+        if (active && active.blank) {
+          const inp = browseView.querySelector('.browse-ntp #search-query');
+          if (inp) { inp.focus(); inp.select(); }
+        } else {
+          browseNewTab();
+        }
+      }
     }
   }
   // Cmd+P: In Electron, handled via IPC (before-input-event → browse-command 'print').

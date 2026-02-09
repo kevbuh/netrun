@@ -44,6 +44,95 @@ _smart_hl_cache = {}
 # In-memory cache for page annotations: 'annotate:{url}' -> { data, ts }
 _annotate_cache = {}
 
+
+def _snap_quote_to_text(quote, text, text_lower=None):
+    """Find the best matching substring in text for a (possibly imprecise) LLM quote.
+    Returns the actual substring from text, or None if no good match found."""
+    if not quote or not text:
+        return None
+    if text_lower is None:
+        text_lower = text.lower()
+    quote_lower = quote.lower()
+
+    # Exact match — return actual text at that position
+    idx = text_lower.find(quote_lower)
+    if idx != -1:
+        return text[idx:idx + len(quote)]
+
+    # Sliding window fuzzy match: find the substring of similar length
+    # with the best character overlap (Jaccard on character bigrams)
+    quote_words = quote_lower.split()
+    if len(quote_words) < 3:
+        return None
+
+    # Try matching with progressively shorter prefixes of the quote
+    # (LLMs often start correctly then drift)
+    for trim in range(0, min(len(quote_words) // 2, 8)):
+        end = len(quote_words) - trim
+        partial = ' '.join(quote_words[:end])
+        idx = text_lower.find(partial)
+        if idx != -1:
+            # Found a prefix match — extend to the original quote length
+            # by grabbing same char count from the source
+            grab_len = min(len(quote) + 20, len(text) - idx)
+            candidate = text[idx:idx + grab_len]
+            # Trim to word boundary near original quote length
+            words = candidate.split()
+            target_words = len(quote.split())
+            snapped = ' '.join(words[:target_words])
+            if len(snapped) >= 15:
+                return snapped
+            return None
+
+    # Bigram sliding window as last resort
+    def bigrams(s):
+        return set(s[i:i+2] for i in range(len(s) - 1)) if len(s) > 1 else set()
+
+    q_bigrams = bigrams(quote_lower)
+    if not q_bigrams:
+        return None
+
+    best_score = 0
+    best_start = -1
+    window = len(quote)
+    step = max(1, window // 4)
+    for start in range(0, len(text_lower) - window + 1, step):
+        candidate = text_lower[start:start + window]
+        c_bigrams = bigrams(candidate)
+        intersection = len(q_bigrams & c_bigrams)
+        union = len(q_bigrams | c_bigrams)
+        score = intersection / union if union else 0
+        if score > best_score:
+            best_score = score
+            best_start = start
+
+    # Refine around best position with step=1
+    if best_start >= 0 and best_score > 0.4:
+        search_start = max(0, best_start - step)
+        search_end = min(len(text_lower) - window + 1, best_start + step + 1)
+        for start in range(search_start, search_end):
+            candidate = text_lower[start:start + window]
+            c_bigrams = bigrams(candidate)
+            intersection = len(q_bigrams & c_bigrams)
+            union = len(q_bigrams | c_bigrams)
+            score = intersection / union if union else 0
+            if score > best_score:
+                best_score = score
+                best_start = start
+
+    if best_score >= 0.55 and best_start >= 0:
+        # Snap to word boundaries
+        while best_start > 0 and text[best_start - 1] not in ' \t\n':
+            best_start -= 1
+        end = best_start + window
+        while end < len(text) and text[end] not in ' \t\n':
+            end += 1
+        snapped = text[best_start:end].strip()
+        if len(snapped) >= 15:
+            return snapped
+
+    return None
+
 SMART_HIGHLIGHTS_PROMPT = (
     "You are a research paper analyzer. Read the document text below and extract "
     "8-15 important passages grouped into three categories:\n"
@@ -1135,11 +1224,11 @@ def annotate_page():
             "3. VERIFY — claims that are unsubstantiated, surprising, or need fact-checking\n\n"
             "For each annotation provide a JSON object with:\n"
             "- \"type\": one of \"KEY_FINDING\", \"CONTRADICTION\", \"VERIFY\"\n"
-            "- \"quote\": the EXACT text from the page (copy verbatim, 5-40 words)\n"
+            "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase, reword, or summarize. Copy-paste the exact characters.\n"
             "- \"explanation\": a short reason (1 sentence)\n"
             "- \"conflictsWith\": (only for CONTRADICTION) the title of the other tab it conflicts with\n\n"
             "Rules:\n"
-            "- Each quote MUST appear word-for-word in the main page text\n"
+            "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change any words, punctuation, or capitalization.\n"
             "- Only use CONTRADICTION if there is an actual conflict with another tab\n"
             "- If no other tabs are provided, do not use CONTRADICTION type\n"
             "- Respond ONLY with a JSON array, no other text\n\n"
@@ -1180,6 +1269,7 @@ def annotate_page():
         parsed = json.loads(json_str)
 
         valid_types = {'KEY_FINDING', 'CONTRADICTION', 'VERIFY'}
+        text_lower = text.lower()
         annotations = []
         if isinstance(parsed, list):
             for item in parsed[:15]:
@@ -1190,13 +1280,11 @@ def annotate_page():
                 explanation = (item.get('explanation') or '').strip()
                 if atype not in valid_types or not quote:
                     continue
-                # Validate quote exists in source text (case-insensitive fuzzy)
-                if quote.lower() not in text.lower():
-                    # Try finding a close substring match (first 30 chars)
-                    snippet = quote[:30].lower()
-                    if snippet not in text.lower():
-                        continue
-                ann = {'type': atype, 'quote': quote[:500], 'explanation': explanation[:300]}
+                # Snap quote to actual source text via fuzzy matching
+                snapped = _snap_quote_to_text(quote, text, text_lower)
+                if not snapped:
+                    continue
+                ann = {'type': atype, 'quote': snapped[:500], 'explanation': explanation[:300]}
                 if atype == 'CONTRADICTION' and item.get('conflictsWith'):
                     ann['conflictsWith'] = item['conflictsWith'][:200]
                 annotations.append(ann)
