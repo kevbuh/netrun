@@ -3053,6 +3053,12 @@ function _pillMicClick() {
           if (data.text) {
             const rect = micBtn.getBoundingClientRect();
             _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
+            if (localStorage.getItem('voiceAutoSend') === 'on') {
+              setTimeout(() => {
+                const popup = document.getElementById('doc-chat-ask-float');
+                if (popup) _sendPopupChatMessage(popup, '');
+              }, 50);
+            }
           }
         })
         .catch(() => { islandRemove('pill-mic'); });
@@ -6134,20 +6140,16 @@ async function _extractTextFromFrame(tab) {
 
 
 async function _readPageAloud() {
-  var btn = document.getElementById('pill-readaloud-btn');
-  // Toggle off if already speaking
-  if (_ttsAudio) {
-    _ttsAudio.pause();
-    _ttsAudio = null;
-    _ttsStopWaveform();
-    islandRemove('tts');
-    if (btn) btn.classList.remove('pill-readaloud-active');
+  // Toggle off if already speaking/queued
+  if (_ttsAudio || _ttsChunks.length > 0) {
+    _ttsStopAll();
     return;
   }
   var win = _getCurrentWindow();
   if (!win) return;
   var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
   if (!tab) return;
+  var btn = document.getElementById('pill-readaloud-btn');
   if (btn) btn.classList.add('pill-readaloud-active');
   islandUpdate('tts', { type: 'tts', label: 'Extracting\u2026', detail: 'Extracting page text' });
   var text = await _extractTextFromFrame(tab);
@@ -6156,29 +6158,12 @@ async function _readPageAloud() {
     if (btn) btn.classList.remove('pill-readaloud-active');
     return;
   }
-  // Truncate to ~5000 chars to keep TTS request reasonable
-  if (text.length > 5000) text = text.slice(0, 5000);
-  islandUpdate('tts', { type: 'tts', label: 'Generating\u2026', detail: 'Generating speech audio' });
-  try {
-    var r = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
-      body: JSON.stringify({ text: text })
-    });
-    if (!r.ok) throw new Error('TTS failed');
-    var blob = await r.blob();
-    var url = URL.createObjectURL(blob);
-    var audio = new Audio(url);
-    _ttsAudio = audio;
-    islandUpdate('tts', { type: 'tts', label: 'Reading', detail: 'Reading page aloud' });
-    _ttsStartWaveform(audio);
-    audio.onended = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (btn) btn.classList.remove('pill-readaloud-active'); };
-    audio.onerror = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (btn) btn.classList.remove('pill-readaloud-active'); };
-    audio.play();
-  } catch (e) {
-    islandUpdate('tts', { type: 'tts', label: 'Failed', detail: 'TTS generation failed', done: true });
-    if (btn) btn.classList.remove('pill-readaloud-active');
-  }
+  // Chunk text and queue for playback
+  _ttsStopped = false;
+  _ttsChunks = _ttsChunkText(text);
+  _ttsChunkIdx = 0;
+  _ttsQueue = [];
+  _ttsFetchAndQueue();
 }
 
 function _showAnnotationTooltip(data, frame) {

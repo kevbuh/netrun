@@ -42,6 +42,10 @@ let _ttsAudio = null; // current Kokoro TTS audio element
 let _ttsAudioCtx = null;
 let _ttsAnalyser = null;
 let _ttsRafId = null;
+let _ttsQueue = []; // queued audio blobs for chunked playback
+let _ttsChunks = []; // text chunks pending TTS
+let _ttsChunkIdx = 0; // next chunk to fetch
+let _ttsStopped = false; // cancellation flag
 
 function _ttsStartWaveform(audio) {
   if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
@@ -73,6 +77,113 @@ function _ttsStopWaveform() {
   if (_ttsRafId) { cancelAnimationFrame(_ttsRafId); _ttsRafId = null; }
   _ttsAnalyser = null;
   // Don't close AudioContext — reuse it (creating new ones is expensive)
+}
+
+function _ttsStopAll() {
+  _ttsStopped = true;
+  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; }
+  _ttsStopWaveform();
+  _ttsQueue.forEach(function(u) { URL.revokeObjectURL(u); });
+  _ttsQueue = [];
+  _ttsChunks = [];
+  _ttsChunkIdx = 0;
+  islandRemove('tts');
+  var btn = document.getElementById('pill-readaloud-btn');
+  if (btn) btn.classList.remove('pill-readaloud-active');
+  document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
+}
+
+function _ttsChunkText(text) {
+  // Split on double-newlines (paragraphs), then break long paragraphs on sentences
+  var maxChunk = 1000;
+  var paras = text.split(/\n\s*\n/).filter(function(p) { return p.trim().length > 0; });
+  var chunks = [];
+  for (var i = 0; i < paras.length; i++) {
+    var p = paras[i].trim();
+    if (p.length <= maxChunk) { chunks.push(p); continue; }
+    // Split on sentence boundaries
+    var sentences = p.match(/[^.!?]+[.!?]+[\s]*/g) || [p];
+    var cur = '';
+    for (var j = 0; j < sentences.length; j++) {
+      if (cur.length + sentences[j].length > maxChunk && cur.length > 0) {
+        chunks.push(cur.trim());
+        cur = '';
+      }
+      cur += sentences[j];
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+  }
+  // Merge tiny chunks with next
+  var merged = [];
+  for (var k = 0; k < chunks.length; k++) {
+    if (merged.length > 0 && merged[merged.length - 1].length < 100) {
+      merged[merged.length - 1] += ' ' + chunks[k];
+    } else {
+      merged.push(chunks[k]);
+    }
+  }
+  return merged;
+}
+
+async function _ttsFetchChunk(text) {
+  var r = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+    body: JSON.stringify({ text: text })
+  });
+  if (!r.ok) throw new Error('TTS failed');
+  return await r.blob();
+}
+
+function _ttsPlayNext() {
+  if (_ttsStopped || _ttsQueue.length === 0) return;
+  var url = _ttsQueue.shift();
+  var audio = new Audio(url);
+  _ttsAudio = audio;
+  var total = _ttsChunks.length;
+  var playing = total - _ttsQueue.length - (_ttsChunkIdx < total ? (total - _ttsChunkIdx) : 0);
+  islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: 'Reading page aloud' });
+  _ttsStartWaveform(audio);
+  audio.onended = function() {
+    URL.revokeObjectURL(url);
+    _ttsAudio = null;
+    _ttsStopWaveform();
+    if (_ttsQueue.length > 0) {
+      _ttsPlayNext();
+    } else if (_ttsChunkIdx >= _ttsChunks.length) {
+      // All done
+      islandRemove('tts');
+      var btn = document.getElementById('pill-readaloud-btn');
+      if (btn) btn.classList.remove('pill-readaloud-active');
+    }
+    // else: still fetching, will play when ready
+  };
+  audio.onerror = function() {
+    URL.revokeObjectURL(url);
+    _ttsAudio = null;
+    _ttsStopWaveform();
+    _ttsStopAll();
+  };
+  audio.play();
+}
+
+async function _ttsFetchAndQueue() {
+  while (_ttsChunkIdx < _ttsChunks.length && !_ttsStopped) {
+    var idx = _ttsChunkIdx++;
+    var total = _ttsChunks.length;
+    if (!_ttsAudio) islandUpdate('tts', { type: 'tts', label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
+    try {
+      var blob = await _ttsFetchChunk(_ttsChunks[idx]);
+      if (_ttsStopped) return;
+      var url = URL.createObjectURL(blob);
+      _ttsQueue.push(url);
+      // Start playing as soon as first chunk is ready
+      if (!_ttsAudio) _ttsPlayNext();
+    } catch (e) {
+      if (!_ttsAudio) _ttsStopAll();
+      return;
+    }
+  }
 }
 
 function _aetherHideCursorOverlay() {
@@ -4256,7 +4367,7 @@ function _showPanel(config) {
     existing.remove();
   }
   // Stop any ongoing TTS when panel is recreated
-  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); }
+  _ttsStopAll();
   // Remove any open note editor or help panel
   const existingEditor = document.getElementById('aether-note-editor');
   if (existingEditor) existingEditor.remove();
