@@ -1581,6 +1581,7 @@
     }
     .browse-vtabs.vtabs-collapsed .browse-vtabs-collapsed-strip {
       display: flex;
+      flex-direction: column-reverse;
     }
     .vtabs-mini-tab {
       width: 28px;
