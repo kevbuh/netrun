@@ -3275,7 +3275,7 @@ let _miniDragState = null;
 
 function _miniTabDragStart(e) {
   if (e.button !== 0) return;
-  if (e.target.closest('.vtabs-mini-audio')) return;
+  if (e.target.closest('.vtabs-mini-audio, .vtabs-mini-tip-close, .vtabs-mini-music')) return;
   const el = e.currentTarget;
   const tabId = parseInt(el.dataset.tabId);
   if (isNaN(tabId)) return;
