@@ -683,8 +683,7 @@ def vibe_git(google_id):
 
 
 @bp.route('/api/local-file')
-@require_auth
-def local_file(google_id):
+def local_file():
     from urllib.parse import unquote
     import mimetypes
     file_path = unquote(request.args.get('path', '')).strip()

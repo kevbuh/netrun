@@ -203,6 +203,22 @@ CHAT_TOOLS = [
                 "required": ["title"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_calendar_event",
+            "description": "Add an event to the user's calendar. Use when the user asks to schedule, remind, or add something to their calendar.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Event title"},
+                    "date": {"type": "string", "description": "Event date in YYYY-MM-DD format"},
+                    "description": {"type": "string", "description": "Optional event description"}
+                },
+                "required": ["title", "date"]
+            }
+        }
     }
 ]
 
@@ -341,6 +357,19 @@ def tool_create_experiment(title, desc='', google_id=None):
     return {"id": slug, "title": title, "message": f"Project '{title}' created"}
 
 
+def tool_create_calendar_event(title, date, description='', google_id=None, stream_callback=None):
+    """Add an event to the user's calendar."""
+    if not title or not date:
+        return {"error": "Title and date are required"}
+    if not google_id:
+        return {"error": "Not authenticated"}
+    from persistence import create_calendar_event
+    event = create_calendar_event(google_id, {"title": title, "date": date, "description": description})
+    if stream_callback:
+        stream_callback('action', {"type": "navigate", "view": "calendar"})
+    return {"status": "ok", "event": event, "message": f"Event '{title}' added to calendar on {date}"}
+
+
 def execute_chat_tool(name, args, stream_callback=None, google_id=None):
     """Execute a chat tool and return the result dict.
     stream_callback(event, data) is called for action-type tools (bookmark, navigate)."""
@@ -361,6 +390,8 @@ def execute_chat_tool(name, args, stream_callback=None, google_id=None):
             return {"status": "ok", "message": f"Navigated to {args.get('view', 'home')}"}
         elif name == 'create_experiment':
             return tool_create_experiment(args.get('title', ''), args.get('description', ''), google_id=google_id)
+        elif name == 'create_calendar_event':
+            return tool_create_calendar_event(args.get('title', ''), args.get('date', ''), args.get('description', ''), google_id=google_id, stream_callback=stream_callback)
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:

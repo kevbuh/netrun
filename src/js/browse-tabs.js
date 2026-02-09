@@ -397,12 +397,6 @@ function _animateWindowSwitch(direction, callback) {
 let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
 
 function _browseGoBack() {
-  // If current tab is in PDF viewer, revert to normal view first
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  if (tab && tab._noteModePrev) {
-    browseExitNoteMode();
-    return;
-  }
   const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openCalendar === 'function' ? openCalendar : null, settings: typeof openSettings === 'function' ? openSettings : null };
   const fn = nav[_browseReturnView];
   _browseReturnView = null;
@@ -413,18 +407,13 @@ function browseExitNoteMode() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab._noteModePrev) return;
   const prev = tab._noteModePrev;
-  // Clean up PDF viewer if we were in PDF viewer mode
-  if (tab.contentType === 'pdf') cleanupPdfViewer();
-  // Remove the PDF viewer container
   if (tab.el) tab.el.remove();
-  // Restore original state
   tab.el = prev.el;
   tab.contentType = prev.contentType;
   tab.paper = prev.paper;
   tab.arxivId = prev.arxivId;
   tab.pdfUrl = prev.pdfUrl;
   delete tab._noteModePrev;
-  // Show the restored iframe
   if (tab.el) tab.el.style.display = '';
   _currentPaperViewPaper = tab.paper || null;
   hidePanel();
@@ -545,41 +534,7 @@ function browseNewPaperTab(url, paper) {
   const win = _getCurrentWindow();
   if (!win) return false;
   const id = _browseNextTabId++;
-  const isUpload = paper.source === 'upload';
-  // Only treat as PDF if it's an explicit /pdf/ URL or a file upload
-  const isPdfUrl = /arxiv\.org\/pdf\//.test(url) || /\.pdf$/i.test(url);
-  const arxivId = isPdfUrl ? (paper.arxivId || (url.match(/arxiv\.org\/pdf\/(\d+\.\d+)/) || [])[1] || '') : '';
-  const usePdfViewer = isPdfUrl || isUpload;
-
-  if (usePdfViewer) {
-    // PDF viewer mode — create container div
-    const container = document.getElementById('browse-content');
-    const el = document.createElement('div');
-    el.id = 'browse-paper-' + id;
-    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
-    container.appendChild(el);
-
-    const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(url) : '';
-    const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
-                  paper, contentType: 'pdf', arxivId: arxivId || null };
-    if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
-    if (paper.localPath) tab.localPath = paper.localPath;
-    if (_browseTabLayout === 'island') {
-      const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
-      if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
-      else win.tabs.push(tab);
-    } else {
-      const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
-      if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
-      else win.tabs.push(tab);
-    }
-    if (url) _saveBrowseVisit(url, tab.title);
-    browseSelectTab(id);
-    _browseSaveTabs();
-    return true;
-  }
-
-  // Normal iframe tab (arXiv abs pages, other URLs) — open as regular browse tab
+  // Open as regular browse tab (iframe)
   browseNewTab(url);
   return true;
 }
@@ -1198,8 +1153,6 @@ function _browseHandleNavigation(tab, frame) {
       const isPdf = ct === 'application/pdf';
       if (isPdf !== !!tab._detectedPdf) {
         tab._detectedPdf = isPdf;
-        if (!isPdf) tab._pdfPillDismissed = false;
-        if (_browseActiveTab === tab.id) _browseCheckPdfPill(tab);
       }
     }).catch(() => {});
   });
@@ -1613,76 +1566,6 @@ function _pwHideSavePrompt(clearPending) {
   }
 }
 
-// ── PDF Detection Pill ──
-
-function _browseCheckPdfPill(tab) {
-  _browseHidePdfPill();
-  if (!tab || tab.paper || tab.contentType === 'pdf' || tab.blank) return;
-  if (tab._pdfPillDismissed) return;
-  if (tab._detectedPdf) _browseShowPdfPill(tab);
-}
-
-function _browseShowPdfPill(tab) {
-  _browseHidePdfPill();
-  if (typeof islandUpdate === 'function') {
-    islandUpdate('notemode', {
-      type: 'notemode',
-      label: 'PDF Viewer',
-      detail: 'Open in PDF Viewer',
-      action: () => {
-        _browseOpenAsNoteMode(tab);
-      },
-      dismiss: () => {
-        tab._pdfPillDismissed = true;
-        islandRemove('notemode');
-      }
-    });
-  }
-}
-
-function _browseHidePdfPill() {
-  if (typeof islandRemove === 'function') islandRemove('notemode');
-}
-
-function _browseOpenAsNoteMode(tab) {
-  if (!tab) return;
-  _browseHidePdfPill();
-  const url = tab.url;
-  const title = tab.title || url.split('/').pop().replace(/\.pdf$/i, '') || 'PDF';
-  const arxivMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
-  const arxivId = arxivMatch ? arxivMatch[1] : '';
-  // Save previous state so we can revert
-  tab._noteModePrev = { el: tab.el, contentType: tab.contentType || null, paper: tab.paper || null, arxivId: tab.arxivId || null, pdfUrl: tab.pdfUrl || null };
-  tab.paper = { title, link: url, source: arxivId ? 'arxiv' : 'web', arxivId };
-  tab.contentType = 'pdf';
-  tab.arxivId = arxivId || null;
-  tab.pdfUrl = arxivId
-    ? '/api/arxiv-pdf?id=' + encodeURIComponent(arxivId)
-    : '/api/pdf-proxy?url=' + encodeURIComponent(url);
-  // Replace frame with container div
-  if (tab.el) tab.el.style.display = 'none';
-  const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-paper-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow:hidden;';
-  container.appendChild(el);
-  tab.el = el;
-  // Hide other tabs
-  const win = _getCurrentWindow();
-  if (win) win.tabs.forEach(t => { if (t.el && t.id !== tab.id) t.el.style.display = 'none'; });
-  // Init PDF viewer directly
-  cleanupPdfViewer();
-  initPdfViewer(el, tab.pdfUrl, arxivId || ('web-' + tab.id));
-  _currentPaperViewPaper = tab.paper;
-  // Show sidebar via universal panel
-  _invalidatePanelRender('browse');
-  showPanelForView('browse');
-  if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(url);
-  _browseRenderTabs();
-  _browseUpdateBarForTab(tab);
-  _browseSaveTabs();
-}
-
 // Context menu for Browse view (links and images)
 let _browseContextMenu = null;
 let _browseContextData = null;
@@ -1872,11 +1755,7 @@ function browseSelectTab(id) {
     // Handle paper tab in split mode
     if (tab && tab.paper) {
       _currentPaperViewPaper = tab.paper;
-      if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
-        cleanupPdfViewer();
-        const pdfUrl = tab.pdfUrl || (tab.localPath ? '/api/local-file?path=' + encodeURIComponent(tab.localPath) : ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId)));
-        initPdfViewer(tab.el, pdfUrl, tab.arxivId || ('upload-' + tab.id));
-      } else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
+      if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
         _tryRenderSavedContent(tab.el, tab.paper);
       }
       _browseUpdateBarForTab(tab);
@@ -1896,12 +1775,6 @@ function browseSelectTab(id) {
 
   // Stop captions when switching away from captured tab
   if (_ccTabId && _ccTabId !== id) stopCaptions();
-
-  // Clean up PDF viewer when switching away from a PDF tab
-  const prevTab = win.tabs.find(t => t.id === win.activeTab);
-  if (prevTab && prevTab.contentType === 'pdf' && prevTab.id !== id) {
-    cleanupPdfViewer();
-  }
 
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
@@ -1951,14 +1824,7 @@ function browseSelectTab(id) {
   // Paper tab handling
   if (tab && tab.paper) {
     _currentPaperViewPaper = tab.paper;
-    // Render PDF if not yet rendered
-    if (tab.contentType === 'pdf' && tab.el && !tab.el.querySelector('.pdf-toolbar')) {
-      cleanupPdfViewer();
-      const pdfUrl = tab.pdfUrl || (tab.localPath ? '/api/local-file?path=' + encodeURIComponent(tab.localPath) : ('/api/arxiv-pdf?id=' + encodeURIComponent(tab.arxivId)));
-      initPdfViewer(tab.el, pdfUrl, tab.arxivId || ('upload-' + tab.id));
-    }
-    // Render reader/iframe if not yet rendered
-    else if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
+    if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
       _tryRenderSavedContent(tab.el, tab.paper);
     }
     // Update sidebar via universal panel
@@ -1984,8 +1850,6 @@ function browseSelectTab(id) {
       _initSidebarForUrl(tab.url);
     }
   }
-  // Show/hide PDF pill for current tab
-  _browseCheckPdfPill(tab);
   if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
 }
 
@@ -2025,22 +1889,7 @@ function _browseUpdateBarForTab(tab) {
     if (citeBtn) citeBtn.style.display = 'none';
     if (bookmarkBtn) bookmarkBtn.style.display = 'none';
   }
-  // Exit PDF viewer button — show when tab has _noteModePrev (was converted to PDF viewer)
-  if (tab && tab._noteModePrev) {
-    if (!exitNoteBtn) {
-      const moreBtn = document.getElementById('browse-more-btn');
-      exitNoteBtn = document.createElement('button');
-      exitNoteBtn.id = 'browse-exit-notemode-btn';
-      exitNoteBtn.className = 'shrink-0 h-7 rounded-md bg-transparent border-none text-accent cursor-pointer hover:bg-hover flex items-center gap-0.5 px-1.5';
-      exitNoteBtn.onclick = function() { browseExitNoteMode(); };
-      exitNoteBtn.title = 'Exit PDF viewer';
-      exitNoteBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="text-[0.7rem]">Exit PDF</span>';
-      if (moreBtn) moreBtn.parentElement.insertBefore(exitNoteBtn, moreBtn);
-    }
-    exitNoteBtn.style.display = 'flex';
-  } else {
-    if (exitNoteBtn) exitNoteBtn.style.display = 'none';
-  }
+  if (exitNoteBtn) exitNoteBtn.style.display = 'none';
 }
 
 function _browseUpdateNewTabPage(tab) {
@@ -2164,7 +2013,6 @@ function browseCloseTab(id) {
   _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank, paper: tab.paper || null, contentType: tab.contentType || null, arxivId: tab.arxivId || null });
   if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
   localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
-  if (tab.contentType === 'pdf') cleanupPdfViewer();
   // Stop captions if this is the captured tab
   if (_ccTabId === id) stopCaptions();
   _pwAutofillOffered.delete(id);
@@ -5765,12 +5613,6 @@ function browseEnableNoteMode() {
   // Already a paper tab — just show sidebar
   if (tab.contentType) {
     togglePaperSidebar();
-    return;
-  }
-
-  // Detected PDF or arXiv → open in PDF viewer with notes/highlights
-  if (tab._detectedPdf || /arxiv\.org\/(abs|pdf)\//.test(tab.url)) {
-    _browseOpenAsNoteMode(tab);
     return;
   }
 

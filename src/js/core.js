@@ -3318,7 +3318,7 @@ const SYNC_KEYS = [
   'urlBarSections',
   'blockedWords', 'qualityBypass', 'searchHistory', 'userQuotes', 'repostedLinks',
   'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
-  'pdfHighlights', 'pdfDrawings', 'smartHighlights',
+  'smartHighlights',
   'chatModel', 'chatTools', 'insightsAllowHeuristics',
   'iconSize'
 ];

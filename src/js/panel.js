@@ -488,7 +488,7 @@ function _sendPopupChatMessage(popup, capturedText) {
             } else if (currentEvent === 'tool_call') {
               try {
                 const tc = JSON.parse(line.slice(6));
-                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…' };
+                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…' };
                 _popupChatMessages[aiIdx].content = '';
                 _popupChatMessages[aiIdx]._thinking = true;
                 _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';

@@ -281,7 +281,6 @@ function paperViewGoBack() {
   if (win) {
     browseCloseTab(win.activeTab);
   } else {
-    cleanupPdfViewer();
     window.history.back();
   }
 }
