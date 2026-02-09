@@ -229,6 +229,7 @@ def doc_chat():
     is_vision = body.get('vision', False)
     client_model = body.get('model', '')
     tools_enabled = body.get('tools', False)
+    think_enabled = body.get('think', True)
     if not messages:
         return jsonify({'error': 'messages required'}), 400
 
@@ -297,12 +298,15 @@ def doc_chat():
             # Tool call loop (max 5 iterations)
             if tools_enabled:
                 for _ in range(5):
-                    payload = json.dumps({
+                    tool_payload = {
                         "model": model,
                         "messages": ollama_messages,
                         "tools": CHAT_TOOLS,
                         "stream": False
-                    }).encode()
+                    }
+                    if not think_enabled:
+                        tool_payload["think"] = False
+                    payload = json.dumps(tool_payload).encode()
                     req = urllib.request.Request(
                         "http://localhost:11434/api/chat",
                         data=payload,
@@ -346,11 +350,14 @@ def doc_chat():
                     pass
 
             # Final streaming call
-            payload = json.dumps({
+            stream_payload = {
                 "model": model,
                 "messages": ollama_messages,
                 "stream": True
-            }).encode()
+            }
+            if not think_enabled:
+                stream_payload["think"] = False
+            payload = json.dumps(stream_payload).encode()
             req = urllib.request.Request(
                 "http://localhost:11434/api/chat",
                 data=payload,

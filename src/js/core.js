@@ -198,7 +198,16 @@ function _islandRenderPillExpanded(a) {
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor2 + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     return annIcon + '<span>' + _escHtml(a.detail || a.label || '') + '</span><span class="island-dismiss" data-island-dismiss="annotate" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'context') {
-    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
+    var ctxHtml = '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(a.detail || a.label || '') + '</span>';
+    // Read-aloud button for browse pages
+    if (a.items && a.items.length) {
+      var isSpeaking = !!_ttsAudio;
+      var speakIcon = isSpeaking
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>'
+        : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+      ctxHtml += '<button class="island-readaloud-btn" data-island-readaloud="1" title="' + (isSpeaking ? 'Stop reading' : 'Read page aloud') + '">' + speakIcon + '</button>';
+    }
+    return ctxHtml;
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
 }
@@ -351,6 +360,12 @@ function _islandRender() {
       }
     }
     pill.onclick = function(e) {
+      var readAloudBtn = e.target.closest('[data-island-readaloud]');
+      if (readAloudBtn) {
+        e.stopPropagation();
+        if (typeof _readPageAloud === 'function') _readPageAloud();
+        return;
+      }
       var dismissEl = e.target.closest('[data-island-dismiss]');
       if (dismissEl) {
         e.stopPropagation();

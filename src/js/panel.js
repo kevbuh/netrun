@@ -418,6 +418,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         if (vm) body.model = vm;
       } else {
         if (toolsOn) body.tools = true;
+        if (localStorage.getItem('chatThinking') === 'off') body.think = false;
         // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
         if (noteContexts.length) {

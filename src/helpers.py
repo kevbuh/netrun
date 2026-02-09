@@ -183,7 +183,7 @@ CHAT_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "view": {"type": "string", "description": "View to navigate to: home, experiments, saved, calendar, settings, quality"}
+                    "view": {"type": "string", "description": "View to navigate to: home, browse, experiments, saved, calendar, settings, quality"}
                 },
                 "required": ["view"]
             }
@@ -224,7 +224,7 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "open_tab",
-            "description": "Open a URL in a new browser tab within the app.",
+            "description": "Open a URL in a new browser tab within the app. Use this when the user wants to open a link, visit a website, or navigate to a new tab.",
             "parameters": {
                 "type": "object",
                 "properties": {

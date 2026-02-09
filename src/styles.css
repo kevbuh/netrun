@@ -1914,6 +1914,17 @@
     .island-tab-item-close:hover {
       background: var(--aether-hover); color: var(--aether-text);
     }
+    .island-readaloud-btn {
+      flex-shrink: 0; width: 20px; height: 20px;
+      border: none; background: transparent;
+      color: var(--aether-text-dimmer); border-radius: 4px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; margin-left: 4px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .island-readaloud-btn:hover {
+      background: var(--aether-hover); color: var(--accent);
+    }
     .island-tab-newtab {
       padding: 9px 12px; border-radius: 8px; font-size: 0.82rem;
       color: var(--aether-text-dimmer); cursor: pointer;

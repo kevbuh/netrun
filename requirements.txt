@@ -7,3 +7,4 @@ PyMuPDF
 PyYAML
 kokoro
 soundfile
+pywhispercpp

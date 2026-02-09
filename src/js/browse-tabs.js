@@ -6126,6 +6126,53 @@ async function _extractTextFromFrame(tab) {
 }
 
 
+async function _readPageAloud() {
+  // Toggle off if already speaking
+  if (_ttsAudio) {
+    _ttsAudio.pause();
+    _ttsAudio = null;
+    _ttsStopWaveform();
+    islandRemove('tts');
+    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+    return;
+  }
+  var win = _getCurrentWindow();
+  if (!win) return;
+  var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+  if (!tab) return;
+  islandUpdate('tts', { type: 'tts', label: 'Extracting\u2026', detail: 'Extracting page text' });
+  var text = await _extractTextFromFrame(tab);
+  if (!text || text.length < 10) {
+    islandUpdate('tts', { type: 'tts', label: 'No text', detail: 'No readable text found', done: true });
+    return;
+  }
+  // Truncate to ~5000 chars to keep TTS request reasonable
+  if (text.length > 5000) text = text.slice(0, 5000);
+  islandUpdate('tts', { type: 'tts', label: 'Generating\u2026', detail: 'Generating speech audio' });
+  if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+  try {
+    var r = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+      body: JSON.stringify({ text: text })
+    });
+    if (!r.ok) throw new Error('TTS failed');
+    var blob = await r.blob();
+    var url = URL.createObjectURL(blob);
+    var audio = new Audio(url);
+    _ttsAudio = audio;
+    islandUpdate('tts', { type: 'tts', label: 'Reading', detail: 'Reading page aloud' });
+    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+    _ttsStartWaveform(audio);
+    audio.onended = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext(); };
+    audio.onerror = function() { URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext(); };
+    audio.play();
+  } catch (e) {
+    islandUpdate('tts', { type: 'tts', label: 'Failed', detail: 'TTS generation failed', done: true });
+    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+  }
+}
+
 function injectAnnotations(tab, annotations) {
   if (!tab || !tab.el || !annotations.length) return;
   const frame = tab.el;
@@ -6149,7 +6196,7 @@ function injectAnnotations(tab, annotations) {
       // Tooltip element
       let tooltip = document.createElement('div');
       tooltip.id = '__aether-annotation-tooltip';
-      tooltip.style.cssText = 'position:fixed;z-index:999999;padding:8px 12px;background:#1a1a2e;color:#e0e0e0;border-radius:6px;font-size:13px;line-height:1.4;max-width:320px;pointer-events:none;opacity:0;transition:opacity 0.15s;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+      tooltip.style.cssText = 'position:fixed;z-index:999999;padding:10px 14px;background:rgba(0,0,0,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:#fff;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:0.75rem;line-height:1.4;max-width:320px;pointer-events:none;opacity:0;transition:opacity 0.15s;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
       document.body.appendChild(tooltip);
 
       function showTooltip(mark, ann) {
@@ -6225,7 +6272,7 @@ function injectAnnotations(tab, annotations) {
 
           const mark = document.createElement('mark');
           mark.className = 'aether-annotation';
-          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;';
+          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;';
           mark.textContent = matchText;
           mark.addEventListener('mouseover', function() { showTooltip(mark, ann); });
           mark.addEventListener('mouseout', hideTooltip);
@@ -6256,7 +6303,7 @@ function injectAnnotations(tab, annotations) {
 
           const mark = document.createElement('mark');
           mark.className = 'aether-annotation';
-          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;';
+          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;';
           mark.textContent = matchText;
           if (isFirst) { wrapMark = mark; isFirst = false; }
           mark.addEventListener('mouseover', function() { showTooltip(wrapMark || mark, ann); });
