@@ -854,16 +854,33 @@ function _browseUpdateDownloadBadge() {
     ring.style.display = hasNewActive ? 'block' : 'none';
   }
 
-  // Dynamic Island: show download progress
+  // Dynamic Island: show download progress (persists until dismissed)
   if (typeof islandUpdate === 'function') {
     const active = _browseDownloads.filter(d => d.state === 'progressing');
-    if (active.length > 0) {
-      const dl = active[0];
-      const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
-      const name = dl.filename || 'Download';
-      islandUpdate('download', { type: 'download', label: pct + '%', detail: name + ' · ' + pct + '%', progress: pct });
-    } else if (_browseDownloads.length > 0 && _browseDownloads[0].state === 'completed') {
-      islandUpdate('download', { type: 'download', label: 'Downloaded', detail: 'Download complete', done: true });
+    const completed = _browseDownloads.filter(d => d.state === 'completed');
+    const total = _browseDownloads.length;
+    if (total > 0) {
+      const items = _browseDownloads.map(d => ({
+        id: d.id,
+        filename: d.filename || 'Download',
+        state: d.state,
+        pct: d.totalBytes > 0 ? Math.round((d.receivedBytes / d.totalBytes) * 100) : 0,
+        size: d.totalBytes > 0 ? _formatBytes(d.totalBytes) : '',
+        received: _formatBytes(d.receivedBytes || 0)
+      }));
+      const dlData = { type: 'download', items: items, dismiss: function() { islandRemove('download'); } };
+      if (active.length > 0) {
+        const dl = active[0];
+        const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
+        const name = dl.filename || 'Download';
+        dlData.label = active.length > 1 ? active.length + ' downloading' : pct + '%';
+        dlData.detail = active.length > 1 ? active.length + ' downloading · ' + completed.length + ' done' : name + ' · ' + pct + '%';
+        dlData.progress = pct;
+      } else {
+        dlData.label = total === 1 ? '1 download' : total + ' downloads';
+        dlData.detail = total === 1 ? completed[0].filename : total + ' downloads complete';
+      }
+      islandUpdate('download', dlData);
     } else {
       islandRemove('download');
     }

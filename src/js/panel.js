@@ -2787,6 +2787,11 @@ function _aetherRenderModelDropdown(popup) {
         if (label) label.textContent = model;
         const input = popup.querySelector('.doc-ask-inline-input');
         if (input) { input.value = ''; input.focus(); }
+        // Achievement: first model switch
+        if (!localStorage.getItem('ach_model_switch')) {
+          localStorage.setItem('ach_model_switch', '1');
+          if (typeof showAchievement === 'function') showAchievement('Model Swapper', 'Switched your AI model for the first time');
+        }
       }
     });
   });

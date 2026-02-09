@@ -97,6 +97,27 @@ function islandRemove(id) {
   _islandRender();
 }
 
+// Global achievement helper — island pill + toast
+function showAchievement(name, description) {
+  islandUpdate('achievement', { type: 'achievement', label: name || 'Unlocked!', detail: description || 'Achievement Unlocked!', done: true });
+  // Toast
+  var toast = document.createElement('div');
+  toast.className = 'achievement-toast';
+  toast.innerHTML = '<div class="achievement-toast-icon">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg>' +
+    '</div><div class="achievement-toast-content">' +
+    '<div class="achievement-toast-title">Achievement Unlocked!</div>' +
+    '<div class="achievement-toast-name">' + _escHtml(name || 'Achievement') + '</div>' +
+    '<div class="achievement-toast-desc">' + _escHtml(description || '') + '</div>' +
+    '</div>';
+  document.body.appendChild(toast);
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 400);
+  }, 5000);
+}
+
 var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 
@@ -107,7 +128,8 @@ function _islandRenderPill(a) {
     var pct = a.progress || 0;
     var circ = 2 * Math.PI * 6;
     var offset = circ * (1 - pct / 100);
-    return '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(a.label || pct + '%') + '</span>';
+    var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    return ring + '<span>' + _escHtml(a.label || pct + '%') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
     return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'audio') {
@@ -129,7 +151,8 @@ function _islandRenderPillExpanded(a) {
     var pct = a.progress || 0;
     var circ = 2 * Math.PI * 6;
     var offset = circ * (1 - pct / 100);
-    return '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(a.detail || a.label || 'Downloading') + '</span>';
+    var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    return ring + '<span>' + _escHtml(a.detail || a.label || 'Downloading') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
     return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'audio') {
@@ -194,7 +217,7 @@ function _islandRender() {
     var tray = pill.querySelector('.island-ctx-tray');
     compact.innerHTML = _islandRenderPill(a);
     expanded.innerHTML = _islandRenderPillExpanded(a);
-    // Fill items tray for context pills
+    // Fill items tray for context / download pills
     if (tray) {
       if (a.type === 'context' && a.items && a.items.length) {
         var trayHtml = '';
@@ -204,6 +227,28 @@ function _islandRender() {
           if (t.length > 36) t = t.slice(0, 34) + '\u2026';
           var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="12" height="12" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
           trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span>' + _escHtml(t) + '</span></div>';
+        }
+        tray.innerHTML = trayHtml;
+      } else if (a.type === 'download' && a.items && a.items.length) {
+        var trayHtml = '<div class="island-dl-header"><span>Downloads</span><span class="island-dl-clear" data-island-dl-clear="1">Clear all</span></div>';
+        for (var ti = 0; ti < a.items.length; ti++) {
+          var item = a.items[ti];
+          var fname = item.filename || 'Download';
+          if (fname.length > 40) fname = fname.slice(0, 38) + '\u2026';
+          var dlIcon = item.state === 'completed'
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#22c55e" stroke="none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+          var dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' · ' + item.size : '')
+            : item.state === 'cancelled' ? 'Cancelled'
+            : item.pct + '% · ' + item.received + (item.size ? ' / ' + item.size : '');
+          var progressHtml = item.state === 'progressing'
+            ? '<div class="island-dl-progress"><div class="island-dl-progress-bar" style="width:' + item.pct + '%"></div></div>'
+            : '';
+          trayHtml += '<div class="island-dl-item" data-island-dl="' + _escHtml(item.id) + '">'
+            + '<div class="island-dl-icon">' + dlIcon + '</div>'
+            + '<div class="island-dl-info"><div class="island-dl-name">' + _escHtml(fname) + '</div><div class="island-dl-status">' + _escHtml(dlStatus) + '</div>' + progressHtml + '</div>'
+            + '<button class="island-dl-remove" data-island-dl-remove="' + _escHtml(item.id) + '" title="Remove">&times;</button>'
+            + '</div>';
         }
         tray.innerHTML = trayHtml;
       } else {
@@ -227,11 +272,34 @@ function _islandRender() {
         if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
         return;
       }
+      var dlClear = e.target.closest('[data-island-dl-clear]');
+      if (dlClear) {
+        e.stopPropagation();
+        if (typeof clearBrowseDownloads === 'function') clearBrowseDownloads();
+        islandRemove('download');
+        return;
+      }
+      var dlRemove = e.target.closest('[data-island-dl-remove]');
+      if (dlRemove) {
+        e.stopPropagation();
+        var dlId = dlRemove.getAttribute('data-island-dl-remove');
+        if (typeof removeBrowseDownload === 'function') removeBrowseDownload(dlId);
+        return;
+      }
+      var dlItem = e.target.closest('[data-island-dl]');
+      if (dlItem) {
+        e.stopPropagation();
+        var dlId = dlItem.getAttribute('data-island-dl');
+        if (typeof openDownloadFile === 'function') openDownloadFile(dlId);
+        return;
+      }
       if (a.action) a.action();
     };
     pill.style.cursor = a.action ? 'pointer' : 'default';
+    var hasItems = !!(a.items && a.items.length);
     pill.classList.toggle('island-context', a.type === 'context');
-    pill.classList.toggle('island-has-items', !!(a.type === 'context' && a.items && a.items.length));
+    pill.classList.toggle('island-download-pill', a.type === 'download');
+    pill.classList.toggle('island-has-items', hasItems && (a.type === 'context' || a.type === 'download'));
 
     // Animate in
     if (isNew) {

@@ -523,26 +523,31 @@
     .pill-bar {
       position: fixed;
       top: 0;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 0;
+      right: 0;
       z-index: 9999;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 2px;
       padding: 3px 4px;
       background: transparent;
       border: none;
       box-shadow: none;
       overflow: visible;
+      pointer-events: none;
       transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
                   max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
                   background 0.3s ease,
                   border-radius 0.3s ease,
                   padding 0.3s ease;
     }
-    /* Electron: shift right to avoid macOS traffic lights */
-    body.electron-app .pill-bar {
-      left: calc(50% + 36px);
+    .pill-bar > * {
+      pointer-events: auto;
+    }
+    /* Electron: island avoids macOS traffic lights */
+    body.electron-app .pill-island-container {
+      left: 80px;
     }
 
     .pill-separator {
@@ -643,18 +648,26 @@
 
     /* ── Dynamic Island — pill bar browse mode ── */
     .pill-bar.browse-mode {
-      width: calc(100vw - 16px);
-      max-width: none;
+      left: 8px;
+      right: 8px;
+      justify-content: flex-start;
       background: rgba(0, 0, 0, 0.15);
       border-radius: 0 0 12px 12px;
       padding: 3px 40px 3px 8px;
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       overflow: visible;
+      pointer-events: auto;
+    }
+    .pill-bar.browse-mode .pill-island-container {
+      position: relative;
+      left: auto;
+      top: auto;
+      transform: none;
     }
     body.electron-app .pill-bar.browse-mode {
-      width: calc(100vw - 84px);
-      left: calc(50% + 36px);
+      left: 80px;
+      right: 8px;
       -webkit-app-region: drag;
     }
     body.electron-app .pill-bar.browse-mode button,
@@ -748,10 +761,34 @@
       opacity: 0;
       padding: 0;
     }
+    .pill-bar.browse-mode.ntp-active {
+      justify-content: center;
+    }
+    /* NTP: hide all browse chrome, show only island + nav icons */
+    .browse-mode.ntp-active #pill-menu-btn,
+    .browse-mode.ntp-active #pill-browse-hamburger,
+    .browse-mode.ntp-active #pill-browse-url,
+    .browse-mode.ntp-active #pill-browse-url-input,
+    .browse-mode.ntp-active #pill-browse-reload,
+    .browse-mode.ntp-active #pill-browse-tabs,
+    .browse-mode.ntp-active #pill-browse-more,
+    .browse-mode.ntp-active #pill-newtab-btn,
+    .browse-mode.ntp-active #pill-newwin-btn {
+      display: none !important;
+    }
     .browse-mode.ntp-active #pill-nav-icons {
       max-width: 800px;
       opacity: 1;
       pointer-events: auto;
+    }
+    .pill-bar.browse-mode.ntp-active .pill-island-container {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container {
+      left: 8px;
     }
     /* pill-browse-url follows naturally after pill-menu-btn in source order */
 
@@ -870,6 +907,10 @@
 
     /* ── Dynamic Island — live activity capsule ── */
     .pill-island-container {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
       display: flex;
       align-items: center;
       gap: 4px;
@@ -979,8 +1020,8 @@
     .browse-mode .pill-island.island-active:hover {
       max-width: 300px;
     }
-    /* Context pill — tray drops below as one connected surface */
-    .pill-island.island-context.island-has-items {
+    /* Tray pills (context & download) — tray drops below as one connected surface */
+    .pill-island.island-has-items {
       overflow: visible;
       z-index: 10;
       transition: max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -990,16 +1031,16 @@
                   background 0.25s ease,
                   box-shadow 0.25s ease;
     }
-    .pill-island.island-context.island-has-items .pill-island-expanded {
+    .pill-island.island-has-items .pill-island-expanded {
       display: none;
     }
     /* On hover: pill becomes the top of a connected card */
-    .pill-island.island-context.island-has-items.island-active:hover {
+    .pill-island.island-has-items.island-active:hover {
       border-radius: 12px 12px 0 0;
       background: var(--aether-bg);
       box-shadow: 0 2px 12px rgba(0,0,0,0.15);
     }
-    .pill-island.island-context.island-has-items.island-active:hover .pill-island-content:not(.pill-island-expanded) {
+    .pill-island.island-has-items.island-active:hover .pill-island-content:not(.pill-island-expanded) {
       opacity: 1;
     }
     /* Tray — absolutely positioned below pill, same surface */
@@ -1007,13 +1048,14 @@
       position: absolute;
       top: 100%;
       left: 0;
-      right: 0;
-      min-width: 200px;
+      width: max-content;
+      min-width: 280px;
+      max-width: 360px;
       display: flex;
       flex-direction: column;
       gap: 1px;
       background: var(--aether-bg);
-      border-radius: 0 0 14px 14px;
+      border-radius: 0 14px 14px 14px;
       padding: 0;
       max-height: 0;
       opacity: 0;
@@ -1024,7 +1066,7 @@
                   padding 0.25s ease,
                   box-shadow 0.25s ease;
     }
-    .pill-island.island-context.island-has-items.island-active:hover .island-ctx-tray {
+    .pill-island.island-has-items.island-active:hover .island-ctx-tray {
       max-height: 340px;
       opacity: 1;
       padding: 2px 4px 4px;
@@ -1061,6 +1103,83 @@
       background: var(--accent, #b4451a);
       flex-shrink: 0;
     }
+    /* Download tray items */
+    .island-dl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--aether-text-dim);
+    }
+    .island-dl-clear {
+      font-weight: 400;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: opacity 0.15s ease;
+    }
+    .island-dl-clear:hover { opacity: 1; }
+    .island-dl-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .island-dl-item:hover {
+      background: var(--aether-hover);
+    }
+    .island-dl-icon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+    .island-dl-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .island-dl-name {
+      font-size: 0.65rem;
+      color: var(--aether-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .island-dl-status {
+      font-size: 0.6rem;
+      color: var(--aether-text-dim);
+      margin-top: 1px;
+    }
+    .island-dl-progress {
+      height: 2px;
+      background: var(--aether-hover);
+      border-radius: 1px;
+      margin-top: 3px;
+      overflow: hidden;
+    }
+    .island-dl-progress-bar {
+      height: 100%;
+      background: var(--accent, #b4451a);
+      border-radius: 1px;
+      transition: width 0.3s ease;
+    }
+    .island-dl-remove {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--aether-text-dim);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      padding: 2px 4px;
+      transition: opacity 0.15s ease;
+    }
+    .island-dl-item:hover .island-dl-remove { opacity: 0.5; }
+    .island-dl-remove:hover { opacity: 1 !important; }
     .island-waveform {
       display: flex;
       align-items: center;
@@ -1605,8 +1724,20 @@
       color: var(--aether-placeholder);
     }
     #pill-browse-more {
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
+      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease,
+                  padding 0.3s ease;
+    }
+    .browse-mode #pill-browse-more {
+      max-width: 28px;
+      opacity: 1;
+      padding: 0;
     }
     /* ── Vertical tabs collapse button (inside vtabs panel) ── */
     .vtabs-collapse-header {
@@ -7003,17 +7134,28 @@
       top: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(-120px);
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
+      background: linear-gradient(135deg, #1a1400 0%, #2a1f00 50%, #1a1400 100%);
+      border: 1px solid #c9991a;
       border-radius: 16px;
       padding: 16px 24px;
       display: flex;
       align-items: center;
       gap: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      box-shadow: 0 0 24px rgba(234,179,8,0.2), 0 8px 32px rgba(0,0,0,0.4);
       z-index: 10001;
       opacity: 0;
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+      overflow: hidden;
+    }
+    .achievement-toast::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 35%, rgba(234,179,8,0.12) 45%, rgba(255,215,0,0.25) 50%, rgba(234,179,8,0.12) 55%, transparent 65%);
+      background-size: 300% 100%;
+      animation: achievement-shimmer 2s ease-in-out infinite;
+      pointer-events: none;
+      border-radius: inherit;
     }
     .achievement-toast.show {
       transform: translateX(-50%) translateY(0);
@@ -7022,50 +7164,70 @@
     .achievement-toast-icon {
       width: 48px;
       height: 48px;
-      background: var(--accent);
+      background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      animation: achievement-bounce 0.6s ease infinite;
+      animation: achievement-bounce 0.6s ease 3;
+      box-shadow: 0 0 16px rgba(255,215,0,0.3);
     }
     .achievement-toast-icon svg {
       width: 28px;
       height: 28px;
-      color: white;
+      color: #1a1400;
     }
     @keyframes achievement-bounce {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.15) rotate(-3deg); }
+      50% { transform: scale(1.05) rotate(2deg); }
+      75% { transform: scale(1.1) rotate(-1deg); }
+    }
+    @keyframes achievement-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -100% 0; }
     }
     .achievement-toast-content {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      position: relative;
     }
     .achievement-toast-title {
       font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--accent);
+      color: #ffd700;
     }
     .achievement-toast-name {
       font-size: 1.1rem;
       font-weight: 600;
-      color: var(--text-primary);
+      color: #f5e6b8;
     }
     .achievement-toast-desc {
       font-size: 0.85rem;
-      color: var(--text-muted);
+      color: #c9991a;
+    }
+
+    /* Achievement pill in Dynamic Island */
+    .pill-island[data-island-id="achievement"] {
+      background: linear-gradient(135deg, #2a1f00, #1a1400) !important;
+      border: 1px solid rgba(255,215,0,0.3) !important;
+      box-shadow: 0 0 12px rgba(255,215,0,0.15);
+      animation: achievement-pill-glow 1.5s ease-in-out 3;
+    }
+    @keyframes achievement-pill-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.15); }
+      50% { box-shadow: 0 0 20px rgba(255,215,0,0.35), 0 0 40px rgba(255,215,0,0.1); }
     }
 
     /* ── Profile Achievement Icon ── */
     .achievement-icon {
       width: 36px;
       height: 36px;
-      background: var(--accent);
+      background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -7077,7 +7239,7 @@
     .achievement-icon svg {
       width: 20px;
       height: 20px;
-      color: white;
+      color: #1a1400;
     }
 
     /* ── Blog View ── */
