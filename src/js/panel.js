@@ -911,13 +911,11 @@ function _renderPopupChat(popup, final) {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      if (_ttsAudio) {
-        _ttsAudio.pause();
-        _ttsAudio = null;
-        _ttsStopWaveform();
-        islandRemove('tts');
+      if (_ttsAudio || _ttsChunks.length > 0) {
+        var wasToggling = btn.classList.contains('doc-msg-speaking');
+        _ttsStopAll();
         container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
-        if (btn.classList.contains('doc-msg-speaking')) return; // was toggling off
+        if (wasToggling) return; // was toggling off
       }
       const msgEl = btn.closest('.doc-msg-ai');
       if (!msgEl) return;
@@ -4378,7 +4376,7 @@ function _showPanel(config) {
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
   const _origRemove = popup.remove.bind(popup);
-  popup.remove = function() { if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); } _origRemove(); };
+  popup.remove = function() { _ttsStopAll(); _origRemove(); };
 
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;
