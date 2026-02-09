@@ -300,6 +300,36 @@ def doc_chat():
 @bp.route('/api/extract-text', methods=['POST'])
 def extract_text():
     try:
+        # File upload mode (multipart/form-data)
+        if 'file' in request.files:
+            f = request.files['file']
+            name = f.filename or 'file'
+            lower = name.lower()
+            if lower.endswith('.pdf'):
+                import fitz
+                pdf_bytes = f.read()
+                tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+                tmp.write(pdf_bytes)
+                tmp.close()
+                try:
+                    doc = fitz.open(tmp.name)
+                    pages = [doc[i].get_text() for i in range(len(doc))]
+                    doc.close()
+                finally:
+                    os.unlink(tmp.name)
+                return jsonify({'text': '\n\n---\n\n'.join(pages), 'pages': len(pages)})
+            # Text-like files
+            TEXT_EXTS = {'.txt', '.md', '.csv', '.py', '.js', '.ts', '.json', '.html',
+                         '.css', '.xml', '.yaml', '.yml', '.toml', '.ini', '.cfg',
+                         '.sh', '.bash', '.zsh', '.r', '.sql', '.java', '.c', '.cpp',
+                         '.h', '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.lua'}
+            ext = os.path.splitext(lower)[1]
+            if ext in TEXT_EXTS:
+                text = f.read().decode('utf-8', errors='replace')
+                return jsonify({'text': text, 'pages': 1})
+            return jsonify({'text': '', 'pages': 0})
+
+        # URL mode (JSON body)
         body = request.get_json(force=True, silent=True) or {}
         url = body.get('url', '').strip()
         if not url:

@@ -112,6 +112,8 @@ function _islandRenderPill(a) {
     return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.label || '') + '</span>';
+  } else if (a.type === 'notemode') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.label || 'Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
 }
@@ -128,6 +130,8 @@ function _islandRenderPillExpanded(a) {
     return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+  } else if (a.type === 'notemode') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.detail || a.label || 'Open in Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
 }
@@ -143,7 +147,7 @@ function _islandRender() {
   }
 
   // Sort by priority desc, then by timestamp
-  var priority = { download: 4, cc: 3, tts: 3, audio: 2, qf: 2, feed: 1 };
+  var priority = { download: 4, cc: 3, tts: 3, notemode: 2, audio: 2, qf: 2, feed: 1 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -177,7 +181,18 @@ function _islandRender() {
     var expanded = pill.querySelector('.pill-island-expanded');
     compact.innerHTML = _islandRenderPill(a);
     expanded.innerHTML = _islandRenderPillExpanded(a);
-    pill.onclick = a.action || null;
+    pill.onclick = function(e) {
+      var dismissEl = e.target.closest('[data-island-dismiss]');
+      if (dismissEl) {
+        e.stopPropagation();
+        var dismissId = dismissEl.getAttribute('data-island-dismiss');
+        var act = _islandActivities[dismissId];
+        if (act && act.dismiss) act.dismiss();
+        else islandRemove(dismissId);
+        return;
+      }
+      if (a.action) a.action();
+    };
     pill.style.cursor = a.action ? 'pointer' : 'default';
 
     // Animate in

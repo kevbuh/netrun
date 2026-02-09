@@ -501,8 +501,12 @@ function browseNewTab(url) {
   }
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
-  // Blank tabs (Cmd+T / button) go to far right; URL tabs go next to current
-  if (isBlank) {
+  // Vertical tabs grow upward (new at top); horizontal tabs insert after active
+  if (_browseTabLayout === 'vertical') {
+    const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
+    if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
+    else win.tabs.push(tab);
+  } else if (isBlank) {
     win.tabs.push(tab);
   } else {
     const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
@@ -544,9 +548,15 @@ function browseNewPaperTab(url, paper) {
     const tab = { id, url, title: paper.title || _browseTitleFromUrl(url), favicon, el, blank: false,
                   paper, contentType: 'pdf', arxivId: arxivId || null };
     if (isUpload && paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
-    const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
-    if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
-    else win.tabs.push(tab);
+    if (_browseTabLayout === 'vertical') {
+      const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
+      if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
+      else win.tabs.push(tab);
+    } else {
+      const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
+      if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
+      else win.tabs.push(tab);
+    }
     if (url) _saveBrowseVisit(url, tab.title);
     browseSelectTab(id);
     _browseSaveTabs();
@@ -1494,25 +1504,24 @@ function _browseCheckPdfPill(tab) {
 
 function _browseShowPdfPill(tab) {
   _browseHidePdfPill();
-  const pill = document.createElement('div');
-  pill.id = 'browse-pdf-pill';
-  pill.style.cssText = 'position:absolute;bottom:16px;right:16px;z-index:100;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:999px;box-shadow:0 2px 12px rgba(0,0,0,0.25);cursor:pointer;font-size:13px;color:var(--text-primary);transition:background 0.15s,border-color 0.15s;';
-  pill.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
-    + '<span>Open in Note Mode</span>'
-    + '<span data-dismiss style="margin-left:2px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;">&times;</span>';
-  pill.onmouseenter = () => { pill.style.background = 'var(--accent)'; pill.style.color = '#fff'; pill.style.borderColor = 'var(--accent)'; };
-  pill.onmouseleave = () => { pill.style.background = 'var(--bg-card)'; pill.style.color = 'var(--text-primary)'; pill.style.borderColor = 'var(--border)'; };
-  pill.onclick = (e) => {
-    if (e.target.hasAttribute('data-dismiss')) { pill.remove(); tab._pdfPillDismissed = true; return; }
-    _browseOpenAsNoteMode(tab);
-  };
-  const container = document.getElementById('browse-content');
-  if (container) container.appendChild(pill);
+  if (typeof islandUpdate === 'function') {
+    islandUpdate('notemode', {
+      type: 'notemode',
+      label: 'Note Mode',
+      detail: 'Open in Note Mode',
+      action: () => {
+        _browseOpenAsNoteMode(tab);
+      },
+      dismiss: () => {
+        tab._pdfPillDismissed = true;
+        islandRemove('notemode');
+      }
+    });
+  }
 }
 
 function _browseHidePdfPill() {
-  const p = document.getElementById('browse-pdf-pill');
-  if (p) p.remove();
+  if (typeof islandRemove === 'function') islandRemove('notemode');
 }
 
 function _browseOpenAsNoteMode(tab) {
@@ -3166,7 +3175,7 @@ function _browseRenderTabs() {
           ? `<img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'">`
           : `<span class="vtabs-mini-letter">${escapeHtml((t.title || '?')[0].toUpperCase())}</span>`;
         const audioIndicator = hasAudio ? `<span class="vtabs-mini-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})">${isMuted ? '<svg width="8" height="8" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg width="8" height="8" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>'}</span>` : '';
-        miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})">${fav}${audioIndicator}${tip}</button>`;
+        miniHtml += `<button class="${cls}" data-tab-id="${t.id}" onclick="browseSelectTab(${t.id})">${fav}${audioIndicator}${tip}</button>`;
       }
 
       // Overflow badge
@@ -3175,7 +3184,122 @@ function _browseRenderTabs() {
       }
 
       strip.innerHTML = miniHtml;
+      strip.querySelectorAll('.vtabs-mini-tab').forEach(el => {
+        el.addEventListener('mousedown', _miniTabDragStart);
+      });
     }
+  }
+}
+
+// ── Mini tab drag (collapsed vertical strip) ──
+
+let _miniDragState = null;
+
+function _miniTabDragStart(e) {
+  if (e.button !== 0) return;
+  if (e.target.closest('.vtabs-mini-audio')) return;
+  const el = e.currentTarget;
+  const tabId = parseInt(el.dataset.tabId);
+  if (isNaN(tabId)) return;
+  e.preventDefault();
+  _miniDragState = { tabId, startY: e.clientY, el, ghost: null, indicator: null, insertBeforeId: null, hasMoved: false };
+  const origOnclick = el.getAttribute('onclick');
+  el.removeAttribute('onclick');
+  _miniDragState._origOnclick = origOnclick;
+  document.addEventListener('mousemove', _miniTabDragMove);
+  document.addEventListener('mouseup', _miniTabDragEnd);
+}
+
+function _miniTabDragMove(e) {
+  if (!_miniDragState) return;
+  const dy = e.clientY - _miniDragState.startY;
+  if (!_miniDragState.hasMoved && Math.abs(dy) < TAB_DRAG_THRESHOLD) return;
+
+  const strip = document.getElementById('browse-vtabs-collapsed-strip');
+  if (!strip) return;
+
+  if (!_miniDragState.hasMoved) {
+    _miniDragState.hasMoved = true;
+    _miniDragState.el.style.pointerEvents = 'none';
+    // Create ghost
+    const ghost = _miniDragState.el.cloneNode(true);
+    ghost.style.position = 'fixed';
+    ghost.style.pointerEvents = 'none';
+    ghost.style.zIndex = '10001';
+    ghost.style.opacity = '0.8';
+    ghost.style.width = _miniDragState.el.offsetWidth + 'px';
+    ghost.style.height = _miniDragState.el.offsetHeight + 'px';
+    document.body.appendChild(ghost);
+    _miniDragState.ghost = ghost;
+    _miniDragState.el.style.opacity = '0.3';
+    // Create indicator
+    const indicator = document.createElement('div');
+    indicator.style.cssText = 'position:absolute;left:2px;right:2px;height:2px;background:var(--accent);border-radius:1px;pointer-events:none;z-index:10;';
+    strip.style.position = 'relative';
+    strip.appendChild(indicator);
+    _miniDragState.indicator = indicator;
+  }
+
+  // Move ghost
+  _miniDragState.ghost.style.left = (e.clientX - _miniDragState.el.offsetWidth / 2) + 'px';
+  _miniDragState.ghost.style.top = (e.clientY - _miniDragState.el.offsetHeight / 2) + 'px';
+
+  // Find insertion point
+  const miniTabs = Array.from(strip.querySelectorAll('.vtabs-mini-tab'));
+  const stripRect = strip.getBoundingClientRect();
+  let insertBeforeId = null;
+  let indicatorTop = null;
+  for (const t of miniTabs) {
+    const rect = t.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < mid) {
+      const tid = parseInt(t.dataset.tabId);
+      if (!isNaN(tid)) insertBeforeId = tid;
+      indicatorTop = rect.top - stripRect.top - 1;
+      break;
+    }
+  }
+  if (indicatorTop === null && miniTabs.length > 0) {
+    const lastRect = miniTabs[miniTabs.length - 1].getBoundingClientRect();
+    indicatorTop = lastRect.bottom - stripRect.top + 1;
+  }
+  _miniDragState.insertBeforeId = insertBeforeId;
+  if (_miniDragState.indicator && indicatorTop !== null) {
+    _miniDragState.indicator.style.top = indicatorTop + 'px';
+  }
+}
+
+function _miniTabDragEnd(e) {
+  document.removeEventListener('mousemove', _miniTabDragMove);
+  document.removeEventListener('mouseup', _miniTabDragEnd);
+  if (!_miniDragState) return;
+
+  const { tabId, hasMoved, insertBeforeId, ghost, indicator, el, _origOnclick } = _miniDragState;
+  _miniDragState = null;
+
+  if (ghost) ghost.remove();
+  if (indicator) indicator.remove();
+  el.style.opacity = '';
+  el.style.pointerEvents = '';
+  if (_origOnclick) el.setAttribute('onclick', _origOnclick);
+
+  if (hasMoved) {
+    const win = _getCurrentWindow();
+    if (!win) return;
+    const fromIdx = win.tabs.findIndex(t => t.id === tabId);
+    if (fromIdx === -1) return;
+    const [movedTab] = win.tabs.splice(fromIdx, 1);
+    if (insertBeforeId !== null) {
+      const toIdx = win.tabs.findIndex(t => t.id === insertBeforeId);
+      if (toIdx !== -1) win.tabs.splice(toIdx, 0, movedTab);
+      else win.tabs.push(movedTab);
+    } else {
+      win.tabs.push(movedTab);
+    }
+    _browseRenderTabs();
+    _browseSaveTabs();
+  } else {
+    browseSelectTab(tabId);
   }
 }
 
