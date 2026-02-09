@@ -851,15 +851,6 @@ async function renderDashboard() {
   const _hasBottomRow = teams.length || myComments.length || myReposts.length;
 
   container.innerHTML = `
-    <!-- Search bar -->
-    <div class="mb-5">
-      <div class="relative" id="dashboard-search-wrapper">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-dimmer pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="dashboard-search" placeholder="Search projects, papers, teams..." class="w-full bg-input border border-border-input rounded-lg pl-10 pr-4 py-2.5 text-primary text-sm outline-none focus:border-accent transition-colors" oninput="dashboardSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();dashboardSearchSubmit()}else if(event.key==='Escape'){document.getElementById('dashboard-search-results').style.display='none'}" onfocus="dashboardSearchInput()" autocomplete="off">
-        <div id="dashboard-search-results" class="absolute left-0 right-0 top-full mt-1 bg-card border border-border-card rounded-lg shadow-xl overflow-hidden overflow-y-auto z-50" style="display:none;max-height:400px"></div>
-      </div>
-    </div>
-
     ${profileHeaderHtml}
 
     <!-- Stats Row -->
