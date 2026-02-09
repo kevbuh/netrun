@@ -84,8 +84,7 @@ function _pillStackReflow() {
 
 // ── Dynamic Island — live activity capsule ──
 var _islandActivities = {};  // { id: { type, label, detail, progress, done, _ts } }
-var _islandCurrent = null;
-var _islandDismissTimer = null;
+var _islandDismissTimers = {};  // { id: timeoutId }
 
 function islandUpdate(id, data) {
   _islandActivities[id] = Object.assign(_islandActivities[id] || {}, data, { _ts: Date.now() });
@@ -94,76 +93,113 @@ function islandUpdate(id, data) {
 
 function islandRemove(id) {
   delete _islandActivities[id];
-  if (_islandCurrent === id) _islandCurrent = null;
+  if (_islandDismissTimers[id]) { clearTimeout(_islandDismissTimers[id]); delete _islandDismissTimers[id]; }
   _islandRender();
 }
 
-function _islandRender() {
-  var el = document.getElementById('pill-island');
-  var compact = document.getElementById('pill-island-compact');
-  var expanded = document.getElementById('pill-island-expanded');
-  if (!el || !compact || !expanded) return;
+var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 
-  // Pick highest-priority active activity
-  // Priority: download > qf > feed > others
-  var priority = { download: 4, cc: 3, tts: 3, qf: 2, feed: 1 };
-  var best = null;
-  var bestP = -1;
-  for (var id in _islandActivities) {
-    var a = _islandActivities[id];
-    var p = priority[a.type] || 0;
-    if (p > bestP || (p === bestP && a._ts > (best ? best._ts : 0))) {
-      best = a;
-      bestP = p;
-      best._id = id;
-    }
+function _islandRenderPill(a) {
+  if (a.done) {
+    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(a.label || 'Done') + '</span>';
+  } else if (a.type === 'download') {
+    var pct = a.progress || 0;
+    var circ = 2 * Math.PI * 6;
+    var offset = circ * (1 - pct / 100);
+    return '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(a.label || pct + '%') + '</span>';
+  } else if (a.type === 'tts') {
+    return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
   }
+  return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
+}
 
-  if (!best) {
-    el.classList.remove('island-active');
-    _islandCurrent = null;
-    if (_islandDismissTimer) { clearTimeout(_islandDismissTimer); _islandDismissTimer = null; }
+function _islandRenderPillExpanded(a) {
+  if (a.done) {
+    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(a.label || 'Done') + '</span>';
+  } else if (a.type === 'download') {
+    var pct = a.progress || 0;
+    var circ = 2 * Math.PI * 6;
+    var offset = circ * (1 - pct / 100);
+    return '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(a.detail || a.label || 'Downloading') + '</span>';
+  } else if (a.type === 'tts') {
+    return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+  }
+  return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
+}
+
+function _islandRender() {
+  var container = document.getElementById('pill-island');
+  if (!container) return;
+
+  var ids = Object.keys(_islandActivities);
+  if (!ids.length) {
+    container.innerHTML = '';
     return;
   }
 
-  // Bounce animation on activity switch
-  if (_islandCurrent !== best._id) {
-    _islandCurrent = best._id;
-    el.classList.remove('island-bounce');
-    void el.offsetWidth;
-    el.classList.add('island-bounce');
-  }
+  // Sort by priority desc, then by timestamp
+  var priority = { download: 4, cc: 3, tts: 3, qf: 2, feed: 1 };
+  ids.sort(function(a, b) {
+    var pa = priority[_islandActivities[a].type] || 0;
+    var pb = priority[_islandActivities[b].type] || 0;
+    return pb - pa || _islandActivities[b]._ts - _islandActivities[a]._ts;
+  });
 
-  el.classList.add('island-active');
+  // Build pills — reuse existing DOM elements where possible
+  var existingEls = {};
+  container.querySelectorAll('.pill-island[data-island-id]').forEach(function(el) {
+    existingEls[el.getAttribute('data-island-id')] = el;
+  });
 
-  // Click handler
-  el.onclick = best.action || null;
-  el.style.cursor = best.action ? 'pointer' : 'default';
+  var fragment = document.createDocumentFragment();
+  ids.forEach(function(id) {
+    var a = _islandActivities[id];
+    var pill = existingEls[id];
+    var isNew = !pill;
+    if (isNew) {
+      pill = document.createElement('div');
+      pill.className = 'pill-island';
+      pill.setAttribute('data-island-id', id);
+      var compactDiv = document.createElement('div');
+      compactDiv.className = 'pill-island-content';
+      var expandedDiv = document.createElement('div');
+      expandedDiv.className = 'pill-island-content pill-island-expanded';
+      pill.appendChild(compactDiv);
+      pill.appendChild(expandedDiv);
+    }
+    delete existingEls[id];
+    var compact = pill.querySelector('.pill-island-content:not(.pill-island-expanded)');
+    var expanded = pill.querySelector('.pill-island-expanded');
+    compact.innerHTML = _islandRenderPill(a);
+    expanded.innerHTML = _islandRenderPillExpanded(a);
+    pill.onclick = a.action || null;
+    pill.style.cursor = a.action ? 'pointer' : 'default';
 
-  // Render compact content
-  if (best.done) {
-    compact.innerHTML = '<span class="island-dot-done"></span><span style="color:#22c55e">Done</span>';
-    expanded.innerHTML = '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(best.label || 'Done') + '</span>';
-  } else if (best.type === 'download') {
-    var pct = best.progress || 0;
-    var circ = 2 * Math.PI * 6;
-    var offset = circ * (1 - pct / 100);
-    compact.innerHTML = '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(best.label || pct + '%') + '</span>';
-    expanded.innerHTML = '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg><span>' + _escHtml(best.detail || best.label || 'Downloading') + '</span>';
-  } else {
-    compact.innerHTML = '<span class="island-dot"></span><span>' + _escHtml(best.label || '') + '</span>';
-    expanded.innerHTML = '<span class="island-dot"></span><span>' + _escHtml(best.detail || best.label || '') + '</span>';
-  }
+    // Animate in
+    if (isNew) {
+      pill.classList.add('island-active');
+      pill.classList.add('island-bounce');
+    } else {
+      pill.classList.add('island-active');
+    }
 
-  // Auto-dismiss on done
-  if (_islandDismissTimer) { clearTimeout(_islandDismissTimer); _islandDismissTimer = null; }
-  if (best.done) {
-    _islandDismissTimer = setTimeout(function() {
-      delete _islandActivities[best._id];
-      if (_islandCurrent === best._id) _islandCurrent = null;
-      _islandRender();
-    }, 2500);
-  }
+    fragment.appendChild(pill);
+
+    // Auto-dismiss on done
+    if (a.done && !_islandDismissTimers[id]) {
+      _islandDismissTimers[id] = setTimeout(function() {
+        delete _islandActivities[id];
+        delete _islandDismissTimers[id];
+        _islandRender();
+      }, 2500);
+    }
+  });
+
+  // Remove stale pills
+  Object.keys(existingEls).forEach(function(id) { existingEls[id].remove(); });
+
+  container.innerHTML = '';
+  container.appendChild(fragment);
 }
 
 // ── Content safe bounds for popups ──

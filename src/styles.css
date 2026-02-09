@@ -857,6 +857,12 @@
     .browse-bar-draggable.dragging { opacity: 0.3; }
 
     /* ── Dynamic Island — live activity capsule ── */
+    .pill-island-container {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
     .pill-island {
       display: flex;
       align-items: center;
@@ -884,7 +890,6 @@
       max-width: 240px;
       opacity: 1;
       padding: 0 10px;
-      margin: 0 2px;
     }
     .pill-island.island-active:hover {
       max-width: 360px;
@@ -960,6 +965,21 @@
     }
     .browse-mode .pill-island.island-active:hover {
       max-width: 300px;
+    }
+    .island-waveform {
+      display: flex;
+      align-items: center;
+      gap: 1.5px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+    .island-waveform-bar {
+      width: 2px;
+      height: 2px;
+      min-height: 2px;
+      border-radius: 1px;
+      background: var(--accent);
+      transition: height 0.08s ease-out;
     }
 
     /* ── Research view tabs ── */
@@ -1485,13 +1505,25 @@
     .vtabs-collapse-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 2px;
       padding: 4px 6px;
       flex-shrink: 0;
     }
+    /* Equal width for all header buttons */
+    .vtabs-collapse-header > button,
+    #vtabs-header-window-switcher > button {
+      flex: 1;
+      min-width: 0;
+    }
+    #vtabs-header-window-switcher {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex: 2;
+    }
+    #vtabs-header-window-switcher:empty { display: none; }
     .vtabs-collapse-btn {
-      width: 24px;
-      height: 24px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1501,7 +1533,6 @@
       cursor: pointer;
       border-radius: 6px;
       transition: background 0.15s, color 0.15s;
-      flex-shrink: 0;
       padding: 0;
     }
     .vtabs-collapse-btn:hover {
@@ -1547,8 +1578,23 @@
       flex-shrink: 0;
       overflow: hidden;
       color: var(--aether-text-secondary);
+      position: relative;
       transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
                   min-width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    /* Bezel corner — inverse radius connecting vtabs top to pill bar */
+    .browse-vtabs::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 10px;
+      height: 10px;
+      background: transparent;
+      box-shadow: -5px 5px 0 0 var(--aether-bg);
+      border-radius: 0 0 0 10px;
+      z-index: 2;
+      pointer-events: none;
     }
     .browse-vtabs.vtabs-collapsed {
       width: 36px;
@@ -1565,7 +1611,25 @@
       padding: 6px 0;
       align-items: center;
     }
-    .browse-vtabs.vtabs-collapsed .browse-vtab-action-btn {
+    .browse-vtabs.vtabs-collapsed .vtabs-collapse-btn,
+    .browse-vtabs.vtabs-collapsed .browse-vtab-action-btn,
+    .browse-vtabs.vtabs-collapsed .vtabs-win-nav {
+      width: 28px;
+      flex: none;
+      padding: 0;
+    }
+    /* Window nav buttons in vtabs header */
+    .vtabs-win-nav {
+      width: auto;
+    }
+    .vtabs-win-nav.disabled {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+    .browse-vtabs.vtabs-collapsed #vtabs-header-window-switcher {
+      flex-direction: column;
+    }
+    .browse-vtabs.vtabs-collapsed .vtabs-win-nav {
       width: 28px;
       padding: 0;
     }
@@ -1660,35 +1724,6 @@
       font-size: 0.62rem;
       color: var(--aether-text-dimmer);
     }
-    /* ── Collapsed window switcher ── */
-    .vtabs-mini-window-switcher {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-      padding: 2px 0 4px;
-      flex-shrink: 0;
-    }
-    .vtabs-mini-window-arrow {
-      width: 28px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: transparent;
-      color: var(--aether-text-dimmer);
-      cursor: pointer;
-      border-radius: 4px;
-      padding: 0;
-      transition: color 0.15s, background 0.15s;
-    }
-    .vtabs-mini-window-arrow:hover:not(.disabled) {
-      color: var(--aether-text);
-      background: var(--aether-hover);
-    }
-    .vtabs-mini-window-arrow:active:not(.disabled) { transform: scale(0.85); }
-    .vtabs-mini-window-arrow.disabled { opacity: 0.25; cursor: default; }
     .vtabs-mini-overflow {
       width: 28px;
       height: 28px;
@@ -1709,12 +1744,6 @@
     .vtabs-mini-overflow:hover {
       background: var(--aether-hover);
       color: var(--aether-text);
-    }
-    .vtabs-mini-window-label {
-      font-size: 0.6rem;
-      font-weight: 600;
-      color: var(--aether-text-dimmer);
-      line-height: 1;
     }
     .browse-tab-layout-toggle {
       width: 24px; height: 24px;

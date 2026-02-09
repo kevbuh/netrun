@@ -3020,14 +3020,12 @@ function _browseRenderTabs() {
     if (headerSwitcher) {
       if (_browseWindows.length > 1) {
         const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-        headerSwitcher.innerHTML = `<div class="browse-window-switcher vtabs-header-ws" data-window-idx="${winIdx}" onclick="toggleBrowseTabOverview()">
-          <button class="browse-window-arrow up ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
+        headerSwitcher.innerHTML = `<button class="browse-vtab-action-btn vtabs-win-nav ${winIdx === 0 ? 'disabled' : ''}" onclick="switchWindowUp()" title="Previous window">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
           </button>
-          <button class="browse-window-arrow down ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowDown()" title="Next window">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
-          </button>
-        </div>`;
+          <button class="browse-vtab-action-btn vtabs-win-nav ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="switchWindowDown()" title="Next window">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+          </button>`;
       } else {
         headerSwitcher.innerHTML = '';
       }
@@ -3158,10 +3156,8 @@ function _browseRenderTabs() {
       const headerH = headerEl ? headerEl.offsetHeight : 60;
       const stripH = containerH - headerH - 8; // 8px padding
       const itemSize = 30; // 28px tab + 2px gap
-      const switcherH = _browseWindows.length > 1 ? 52 : 0;
       const overflowBadgeH = 30;
-      const reserveH = switcherH + overflowBadgeH;
-      const availableForTabs = Math.max(0, stripH - reserveH);
+      const availableForTabs = Math.max(0, stripH - overflowBadgeH);
       const maxVisible = Math.max(1, Math.floor(availableForTabs / itemSize));
       const overflow = tabs.length - maxVisible;
       const visibleTabs = overflow > 0 ? tabs.slice(0, maxVisible) : tabs;
@@ -3182,26 +3178,9 @@ function _browseRenderTabs() {
         miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})">${fav}${tip}</button>`;
       }
 
-      // Spacer pushes bottom items to the end
-      miniHtml += '<div style="flex:1"></div>';
-
       // Overflow badge
       if (overflow > 0) {
         miniHtml += `<button class="vtabs-mini-overflow" onclick="toggleVtabsPanel()" title="${overflow} more tab${overflow > 1 ? 's' : ''}">+${overflow}</button>`;
-      }
-
-      // Window switcher at bottom
-      if (_browseWindows.length > 1) {
-        const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-        miniHtml += `<div class="vtabs-mini-window-switcher">
-          <button class="vtabs-mini-window-arrow ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
-            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
-          </button>
-          <span class="vtabs-mini-window-label">${winIdx + 1}</span>
-          <button class="vtabs-mini-window-arrow ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowDown()" title="Next window">
-            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
-          </button>
-        </div>`;
       }
 
       strip.innerHTML = miniHtml;

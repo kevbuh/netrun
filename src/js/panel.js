@@ -37,6 +37,41 @@ let _aetherDragPopup = null;
 let _aetherPinned = false;
 let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
 let _ttsAudio = null; // current Kokoro TTS audio element
+let _ttsAudioCtx = null;
+let _ttsAnalyser = null;
+let _ttsRafId = null;
+
+function _ttsStartWaveform(audio) {
+  if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
+  var src = _ttsAudioCtx.createMediaElementSource(audio);
+  _ttsAnalyser = _ttsAudioCtx.createAnalyser();
+  _ttsAnalyser.fftSize = 64;
+  src.connect(_ttsAnalyser);
+  _ttsAnalyser.connect(_ttsAudioCtx.destination);
+  var buf = new Uint8Array(_ttsAnalyser.frequencyBinCount);
+  function tick() {
+    _ttsRafId = requestAnimationFrame(tick);
+    if (!_ttsAnalyser) return;
+    _ttsAnalyser.getByteFrequencyData(buf);
+    var pill = document.querySelector('.pill-island[data-island-id="tts"]');
+    if (!pill) return;
+    var bars = pill.querySelectorAll('.island-waveform-bar');
+    // Sample 7 bars from frequency data
+    var count = bars.length;
+    var step = Math.floor(buf.length / count);
+    for (var i = 0; i < count; i++) {
+      var v = buf[i * step] / 255;
+      bars[i].style.height = Math.max(2, v * 14) + 'px';
+    }
+  }
+  tick();
+}
+
+function _ttsStopWaveform() {
+  if (_ttsRafId) { cancelAnimationFrame(_ttsRafId); _ttsRafId = null; }
+  _ttsAnalyser = null;
+  // Don't close AudioContext — reuse it (creating new ones is expensive)
+}
 
 function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -665,6 +700,8 @@ function _renderPopupChat(popup, final) {
       if (_ttsAudio) {
         _ttsAudio.pause();
         _ttsAudio = null;
+        _ttsStopWaveform();
+        islandRemove('tts');
         container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
         if (btn.classList.contains('doc-msg-speaking')) return; // was toggling off
       }
@@ -682,12 +719,13 @@ function _renderPopupChat(popup, final) {
         if (!r.ok) throw new Error('TTS failed');
         return r.blob();
       }).then(blob => {
-        islandRemove('tts');
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         _ttsAudio = audio;
-        audio.onended = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; };
-        audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; };
+        islandUpdate('tts', { type: 'tts', label: 'Speaking', detail: 'Playing speech audio' });
+        _ttsStartWaveform(audio);
+        audio.onended = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); };
+        audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); };
         audio.play();
       }).catch(() => { btn.classList.remove('doc-msg-speaking'); islandRemove('tts'); });
     });
@@ -4579,7 +4617,7 @@ function _showPanel(config) {
     existing.remove();
   }
   // Stop any ongoing TTS when panel is recreated
-  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; }
+  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); }
   // Remove any open note editor or help panel
   const existingEditor = document.getElementById('aether-note-editor');
   if (existingEditor) existingEditor.remove();
@@ -4590,7 +4628,7 @@ function _showPanel(config) {
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
   const _origRemove = popup.remove.bind(popup);
-  popup.remove = function() { if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; } _origRemove(); };
+  popup.remove = function() { if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); } _origRemove(); };
 
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;
