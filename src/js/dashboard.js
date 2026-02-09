@@ -199,6 +199,97 @@ function dashCalNav(dir) {
   renderDashboard();
 }
 
+// ── Bento dashboard helpers ──
+
+function _dashPapersReadRecent() {
+  const readSet = new Set(JSON.parse(localStorage.getItem('readPosts') || '[]'));
+  if (!readSet.size) return 0;
+  const papers = typeof allPapers !== 'undefined' ? allPapers : [];
+  return papers.filter(p => readSet.has(p.link)).length;
+}
+
+function _dashReadingStreak(activityItems) {
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  let streak = 0;
+  // Grace period: if before 9am, don't require today to have activity
+  const graceToday = today.getHours() < 9;
+  const d = new Date(today);
+  if (graceToday && !(activityItems[todayKey] || []).length) {
+    d.setDate(d.getDate() - 1);
+  }
+  for (let i = 0; i < 365; i++) {
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if ((activityItems[key] || []).length > 0) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function _dashTrending(limit) {
+  limit = limit || 5;
+  const papers = typeof allPapers !== 'undefined' ? allPapers : [];
+  if (!papers.length) return [];
+  const now = Date.now();
+  return papers.map(p => {
+    const engagement = (p.points || 0) + (p.citations || 0);
+    const qs = p._qualityScore || 0;
+    const ageH = (now - (p.pubDate || now)) / 3600000;
+    const recency = Math.max(0, 1 - ageH / 72);
+    const score = (engagement * 2 + qs) * (0.3 + recency * 0.7);
+    return { ...p, _trendScore: score };
+  }).filter(p => p._trendScore > 0).sort((a, b) => b._trendScore - a._trendScore).slice(0, limit);
+}
+
+function _dashBuildStatsRow(papersRead, streak, savedCount, projectCount, taskCount) {
+  const stats = [
+    { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
+    { value: streak, label: 'Streak', sub: streak === 1 ? 'day' : 'days', color: '#f97316', suffix: streak > 0 ? ' \u{1F525}' : '' },
+    { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
+    { value: projectCount, label: 'Projects', sub: 'active', color: '#a78bfa' },
+    { value: taskCount, label: 'Tasks', sub: 'open', color: '#fbbf24' },
+  ];
+  return `<div class="bento-stats">${stats.map(s =>
+    `<div class="bento-stat">
+      <span class="stat-value" style="color:${s.color}">${s.value}${s.suffix || ''}</span>
+      <span class="stat-label">${s.label}</span>
+      <span class="stat-sub">${s.sub}</span>
+    </div>`
+  ).join('')}</div>`;
+}
+
+function _dashBuildQuickActions() {
+  const actions = [
+    { label: 'New Project', onclick: 'openExperiments()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' },
+    { label: 'Search', onclick: 'openSearch()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' },
+    { label: 'Browse', onclick: 'openBrowse()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>' },
+    { label: 'Vault', onclick: 'openVault()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+  ];
+  return `<div class="grid grid-cols-2 gap-2 h-full">${actions.map(a =>
+    `<button class="bento-action-btn" onclick="${a.onclick}">${a.icon}<span>${a.label}</span></button>`
+  ).join('')}</div>`;
+}
+
+function _dashBuildTrendingCard(trending) {
+  if (!trending.length) return '<div class="text-[0.8rem] text-dimmer px-1">No trending posts yet. Open your feed to get started.</div>';
+  return trending.map((p, i) => {
+    const chip = typeof getSourceChip === 'function' ? getSourceChip(p.source, p.arxivId) : '';
+    const engagement = (p.points || 0) + (p.citations || 0);
+    const engLabel = engagement > 0 ? `<span class="text-[0.68rem] text-dimmest shrink-0">${engagement}</span>` : '';
+    return `<div class="bento-trending-item" onclick="window.location.hash='view/'+encodeURIComponent('${escapeAttr(p.link)}')">
+      <span class="bento-trending-rank">${i + 1}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[0.8rem] text-primary truncate">${escapeHtml(p.title)}</div>
+        <div class="flex items-center gap-1.5 mt-0.5">${chip}${engLabel}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
@@ -330,7 +421,7 @@ async function renderDashboard() {
     const maxItems = 8;
     const shown = _todayActivity.slice(0, maxItems);
     const remaining = _todayActivity.length - maxItems;
-    overviewHtml = `<div class="mb-5 p-4 rounded-xl border border-border-card bg-card">
+    overviewHtml = `
       <div class="flex items-center justify-between mb-3">
         <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
         <span class="text-[0.7rem] text-dimmer">${_todayActivity.length} interaction${_todayActivity.length > 1 ? 's' : ''} today</span>
@@ -348,23 +439,20 @@ async function renderDashboard() {
           </div>`;
         }).join('')}
         ${remaining > 0 ? `<div class="text-[0.72rem] text-dimmest px-1.5 mt-1">+ ${remaining} more</div>` : ''}
-      </div>
-    </div>`;
+      </div>`;
   } else if (_openTaskCount || _unreadSavedCount) {
-    overviewHtml = `<div class="mb-5 p-4 rounded-xl border border-border-card bg-card">
+    overviewHtml = `
       <div class="flex items-center justify-between mb-2">
         <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
       </div>
       <div id="dash-day-summary" class="text-[0.8rem] text-dim leading-relaxed mb-2" style="min-height:1.2em"><span class="text-dimmest text-[0.75rem]">Summarizing your day...</span></div>
-      <div class="flex flex-wrap gap-1.5">${_chips.map(c => `<span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-accent/10 text-accent">${c}</span>`).join('')}</div>
-    </div>`;
+      <div class="flex flex-wrap gap-1.5">${_chips.map(c => `<span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-accent/10 text-accent">${c}</span>`).join('')}</div>`;
   } else {
-    overviewHtml = `<div class="mb-5 p-4 rounded-xl border border-border-card bg-card">
+    overviewHtml = `
       <div class="flex items-center gap-2">
         <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
         <span class="text-[0.78rem] text-dimmest ml-1">— A clear day to explore.</span>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   // ── Activity heatmap (full year, GitHub-style) ──
@@ -382,6 +470,38 @@ async function renderDashboard() {
       addItem(key, { type: 'saved', title: entry.paper?.title || 'Saved post', link: entry.paper?.link });
     }
   });
+  // Enrich heatmap: comments, reposts, search history
+  myComments.forEach(c => {
+    if (c.timestamp) {
+      const d = new Date(c.timestamp);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      addItem(key, { type: 'comment', title: (c.content || '').slice(0, 80) });
+    }
+  });
+  myReposts.forEach(r => {
+    if (r.timestamp) {
+      const d = new Date(r.timestamp);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      addItem(key, { type: 'repost', title: r.paperTitle || 'Repost' });
+    }
+  });
+  const _shist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+  _shist.forEach(s => {
+    if (s.ts) {
+      const d = new Date(s.ts);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      addItem(key, { type: 'search', title: s.q || 'Search' });
+    }
+  });
+  const _wshist = JSON.parse(localStorage.getItem('webSearchHistory') || '[]');
+  _wshist.forEach(s => {
+    if (s.ts) {
+      const d = new Date(s.ts);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      addItem(key, { type: 'web-search', title: s.q || 'Web search' });
+    }
+  });
+
   // Helper to get count
   const activityCount = (key) => (activityItems[key] || []).length;
 
@@ -625,29 +745,9 @@ async function renderDashboard() {
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No quotes yet. Open a page and use Post Quote in the sidebar.</div>';
 
-  // ── My Tasks (assigned team todos) ──
+  // Task priority colors/labels (used in bento grid)
   const _priColors = { high: '#f87171', medium: '#fbbf24', low: '#6ee7b7' };
   const _priLabels = { high: 'High', medium: 'Med', low: 'Low' };
-  const myTasksHtml = myTasks.length ? `
-    <div class="mb-5">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-[0.9rem] font-semibold text-primary">My Tasks</h3>
-        <span class="text-[0.72rem] text-dimmer">${myTasks.length} open</span>
-      </div>
-      ${myTasks.map(t => `
-        <div class="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-hover transition-colors group">
-          <input type="checkbox" onchange="dashToggleTask(${t.team_id}, '${t.id}', this.checked)" class="accent-[var(--accent)] cursor-pointer" />
-          <div class="flex-1 min-w-0 cursor-pointer" onclick="window.location.hash='teams'; setTimeout(()=>showTeamDetailView(${t.team_id}),100)">
-            <div class="flex items-center gap-2">
-              <span class="text-[0.82rem] text-primary">${escapeHtml(t.title)}</span>
-              <span class="text-[0.55rem] px-1.5 py-0.5 rounded-full font-medium" style="background:${_priColors[t.priority]}20;color:${_priColors[t.priority]}">${_priLabels[t.priority]}</span>
-            </div>
-            <div class="text-[0.7rem] text-dimmer">${escapeHtml(t.team_name)} · from ${escapeHtml(t.author)}</div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
 
   // ── Profile header ──
   const _pAccent = profile.accent_color || '#b4451a';
@@ -696,6 +796,60 @@ async function renderDashboard() {
     <h3 class="text-[0.95rem] font-medium text-dimmer mb-4">${getGreeting()}</h3>
   `;
 
+  // ── Bento layout data ──
+  const _papersRead = _dashPapersReadRecent();
+  const _streak = _dashReadingStreak(activityItems);
+  const _savedCount = Object.keys(mergedSaved).length;
+  const _projectCount = experiments.length;
+  const _taskCount = myTasks.length;
+  const _trending = _dashTrending(5);
+
+  // Tasks card HTML
+  const _bentoTasksHtml = myTasks.length ? myTasks.slice(0, 5).map(t => `
+    <div class="flex items-center gap-2 px-1 py-1.5 rounded-md hover:bg-hover transition-colors">
+      <input type="checkbox" onchange="dashToggleTask(${t.team_id}, '${t.id}', this.checked)" class="accent-[var(--accent)] cursor-pointer shrink-0" />
+      <div class="flex-1 min-w-0 cursor-pointer" onclick="window.location.hash='teams'; setTimeout(()=>showTeamDetailView(${t.team_id}),100)">
+        <div class="text-[0.78rem] text-primary truncate">${escapeHtml(t.title)}</div>
+        <div class="text-[0.65rem] text-dimmest">${escapeHtml(t.team_name)}</div>
+      </div>
+      <span class="text-[0.55rem] px-1.5 py-0.5 rounded-full font-medium shrink-0" style="background:${_priColors[t.priority]}20;color:${_priColors[t.priority]}">${_priLabels[t.priority]}</span>
+    </div>
+  `).join('') : '';
+
+  // Teams card HTML
+  const _bentoTeamsHtml = teams.length ? teams.slice(0, 4).map(t => `
+    <div class="flex items-center gap-2 px-1 py-1.5 rounded-md hover:bg-hover transition-colors cursor-pointer" onclick="showTeamDetailView(${t.id}, event)">
+      ${typeof _pixelArt === 'function' ? _pixelArt(t.name) : ''}
+      <div class="min-w-0 flex-1">
+        <div class="text-[0.8rem] text-primary truncate">${escapeHtml(t.name)}</div>
+        <div class="text-[0.65rem] text-dimmest">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+  `).join('') : '';
+
+  // Comments card HTML
+  const _bentoCommentsHtml = myComments.slice(0, 4).map(c => {
+    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+    const preview = (c.content || '').length > 80 ? c.content.slice(0, 80) + '...' : c.content;
+    return `<a href="#paper/${encodeURIComponent(c.paperLink)}" class="block px-2 py-1.5 rounded-md hover:bg-hover transition-colors" style="text-decoration:none">
+      <div class="text-[0.75rem] text-primary leading-snug truncate">${escapeHtml(preview)}</div>
+      <div class="text-dimmest text-[0.65rem] mt-0.5">${timeAgo}</div>
+    </a>`;
+  }).join('');
+
+  // Reposts card HTML
+  const _bentoRepostsHtml = myReposts.slice(0, 4).map(r => {
+    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
+    return `<a href="#view/${encodeURIComponent(r.paperLink)}" class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors" style="text-decoration:none">
+      <svg class="w-3 h-3 text-green-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      <div class="text-[0.75rem] text-primary truncate flex-1">${escapeHtml(r.paperTitle || r.paperLink)}</div>
+      <span class="text-[0.65rem] text-dimmest shrink-0">${timeAgo}</span>
+    </a>`;
+  }).join('');
+
+  // Bottom row: only show if there's content
+  const _hasBottomRow = teams.length || myComments.length || myReposts.length;
+
   container.innerHTML = `
     <!-- Search bar -->
     <div class="mb-5">
@@ -708,116 +862,116 @@ async function renderDashboard() {
 
     ${profileHeaderHtml}
 
-    ${overviewHtml}
+    <!-- Stats Row -->
+    ${_dashBuildStatsRow(_papersRead, _streak, _savedCount, _projectCount, _taskCount)}
 
-    <!-- Calendar: full width -->
-    <div class="mb-5">
-      ${heatmapHtml}
-    </div>
+    <!-- Bento Grid -->
+    <div class="bento-grid">
 
-    ${myTasksHtml}
+      <!-- Daily Overview (3x1) -->
+      <div class="bento-card bento-3x1">
+        ${overviewHtml}
+      </div>
 
-    <!-- Two-column layout below calendar -->
-    <div class="flex gap-5 items-start">
-      <!-- Left column: Reading List -->
-      <div class="flex-1 min-w-0">
-        <div class="mb-5">
+      <!-- Quick Actions (1x1) -->
+      <div class="bento-card bento-1x1" style="padding:10px">
+        ${_dashBuildQuickActions()}
+      </div>
+
+      <!-- Activity Heatmap (4x1) -->
+      <div class="bento-card bento-4x1">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[0.82rem] font-semibold text-primary">Activity</h3>
+          <span class="text-[0.68rem] text-dimmest">${now.getFullYear()}</span>
+        </div>
+        ${heatmapHtml}
+      </div>
+
+      <!-- Tasks or Trending -->
+      ${_taskCount ? `
+        <div class="bento-card bento-2x1">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Reading List</h3>
+            <h3 class="text-[0.82rem] font-semibold text-primary">My Tasks</h3>
+            <span class="text-[0.68rem] text-dimmest">${_taskCount} open</span>
           </div>
+          ${_bentoTasksHtml}
+        </div>
+        <div class="bento-card bento-2x1">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.82rem] font-semibold text-primary">Trending</h3>
+          </div>
+          ${_dashBuildTrendingCard(_trending)}
+        </div>
+      ` : `
+        <div class="bento-card bento-4x1">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[0.82rem] font-semibold text-primary">Trending</h3>
+          </div>
+          ${_dashBuildTrendingCard(_trending)}
+        </div>
+      `}
+
+      <!-- Reading List (2x2) -->
+      <div class="bento-card bento-2x2">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[0.82rem] font-semibold text-primary">Reading List</h3>
+          <span class="text-[0.68rem] text-dimmest">${savedEntries.length}</span>
+        </div>
+        <div style="max-height:320px;overflow-y:auto" class="scrollbar-hide">
           ${readingHtml}
         </div>
       </div>
 
-      <!-- Right column: Recent Projects, Quotes -->
-      <div class="flex-1 min-w-0">
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Recent Projects</h3>
-            <button onclick="openExperiments()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
-          </div>
-          <div class="flex flex-col gap-2">${expsHtml}</div>
+      <!-- Recent Projects (2x1) -->
+      <div class="bento-card bento-2x1">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[0.82rem] font-semibold text-primary">Recent Projects</h3>
+          <button onclick="openExperiments()" class="text-[0.7rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
         </div>
+        <div class="flex flex-col gap-2">${expsHtml}</div>
+      </div>
 
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Quotes</h3>
-            <span class="text-[0.72rem] text-dimmer">${userQuotes.length}</span>
-          </div>
+      <!-- Quotes (2x1) -->
+      <div class="bento-card bento-2x1">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[0.82rem] font-semibold text-primary">Quotes</h3>
+          <span class="text-[0.68rem] text-dimmest">${userQuotes.length}</span>
+        </div>
+        <div style="max-height:180px;overflow-y:auto" class="scrollbar-hide">
           ${quotesHtml}
         </div>
-
-        ${teams.length ? `<div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[0.9rem] font-semibold text-primary">Teams</h3>
-            <button onclick="openTeams()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
-          </div>
-          <div class="flex flex-col gap-2">${teams.map(t => `
-            <div class="p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id}, event)">
-              <div class="flex items-center gap-2.5">
-                ${typeof _pixelArt === 'function' ? _pixelArt(t.name) : ''}
-                <div class="min-w-0 flex-1">
-                  <div class="text-[0.85rem] font-medium text-primary truncate">${escapeHtml(t.name)}</div>
-                  <div class="text-[0.72rem] text-dimmer mt-0.5">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
-                </div>
-              </div>
-            </div>
-          `).join('')}</div>
-        </div>` : ''}
-
-        ${(() => {
-          const myFeeds = typeof getFeedSources === 'function' ? getFeedSources() : {};
-          const enabledKeys = FEED_CATALOG.filter(f => myFeeds[f.key]).map(f => f.key);
-          if (!enabledKeys.length) return '';
-          return `<div class="mb-5">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-[0.9rem] font-semibold text-primary">Feeds</h3>
-              <button onclick="openSettings()" class="text-[0.75rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">Manage</button>
-            </div>
-            <div class="flex flex-wrap gap-1.5">${enabledKeys.map(key => {
-              const chip = getSourceChip(key);
-              if (chip) return `<div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border-card bg-card text-sm">${chip}</div>`;
-              const entry = FEED_CATALOG.find(f => f.key === key);
-              return `<div class="inline-flex items-center px-2.5 py-1.5 rounded-lg border border-border-card bg-card text-[0.78rem] text-primary">${escapeHtml(entry ? entry.name : key)}</div>`;
-            }).join('')}</div>
-          </div>`;
-        })()}
       </div>
-    </div>
 
-    <!-- Comments & Reposts -->
-    <div class="flex gap-5 items-start mt-1">
-      ${myComments.length ? `<div class="flex-1 min-w-0 mb-5">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-[0.9rem] font-semibold text-primary">Recent Comments</h3>
-          <span class="text-[0.72rem] text-dimmer">${myComments.length}</span>
-        </div>
-        <div class="flex flex-col gap-2">${myComments.slice(0, 6).map(c => {
-          const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
-          const contentPreview = (c.content || '').length > 120 ? c.content.slice(0, 120) + '...' : c.content;
-          return `<a href="#paper/${encodeURIComponent(c.paperLink)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
-            <div class="text-[0.78rem] text-primary leading-relaxed">${escapeHtml(contentPreview)}</div>
-            <div class="text-dimmer text-[0.7rem] mt-1">${timeAgo}</div>
-          </a>`;
-        }).join('')}</div>
-      </div>` : ''}
-      ${myReposts.length ? `<div class="flex-1 min-w-0 mb-5">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-[0.9rem] font-semibold text-primary">Reposts</h3>
-          <span class="text-[0.72rem] text-dimmer">${myReposts.length}</span>
-        </div>
-        <div class="flex flex-col gap-2">${myReposts.slice(0, 6).map(r => {
-          const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
-          const hostname = (() => { try { return new URL(r.paperLink).hostname.replace(/^www\\./, ''); } catch { return ''; } })();
-          return `<a href="#view/${encodeURIComponent(r.paperLink)}" class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
-            <div class="flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 text-green-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
-              <div class="text-[0.78rem] text-primary leading-relaxed truncate">${escapeHtml(r.paperTitle || r.paperLink)}</div>
+      ${_hasBottomRow ? `
+        ${teams.length ? `
+          <div class="bento-card ${!myComments.length && !myReposts.length ? 'bento-4x1' : myComments.length && myReposts.length ? 'bento-1x1' : 'bento-2x1'}">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-[0.82rem] font-semibold text-primary">Teams</h3>
+              <button onclick="openTeams()" class="text-[0.7rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
             </div>
-            <div class="text-dimmer text-[0.7rem] mt-1">${hostname ? escapeHtml(hostname) + ' · ' : ''}${timeAgo}</div>
-          </a>`;
-        }).join('')}</div>
-      </div>` : ''}
+            ${_bentoTeamsHtml}
+          </div>
+        ` : ''}
+        ${myComments.length ? `
+          <div class="bento-card ${!teams.length && !myReposts.length ? 'bento-4x1' : teams.length && myReposts.length ? 'bento-2x1' : !teams.length ? 'bento-2x1' : 'bento-2x1'}">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-[0.82rem] font-semibold text-primary">Recent Comments</h3>
+              <span class="text-[0.68rem] text-dimmest">${myComments.length}</span>
+            </div>
+            ${_bentoCommentsHtml}
+          </div>
+        ` : ''}
+        ${myReposts.length ? `
+          <div class="bento-card ${!teams.length && !myComments.length ? 'bento-4x1' : teams.length && myComments.length ? 'bento-1x1' : 'bento-2x1'}">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-[0.82rem] font-semibold text-primary">Reposts</h3>
+              <span class="text-[0.68rem] text-dimmest">${myReposts.length}</span>
+            </div>
+            ${_bentoRepostsHtml}
+          </div>
+        ` : ''}
+      ` : ''}
+
     </div>
   `;
 
