@@ -3131,8 +3131,41 @@ function _browseRenderTabs() {
   if (isVertical) {
     const strip = document.getElementById('browse-vtabs-collapsed-strip');
     if (strip) {
+      // Measure how many mini-tabs fit (each 28px + 2px gap, reserve space for window switcher + overflow badge)
+      const stripH = strip.clientHeight;
+      const itemSize = 30; // 28px tab + 2px gap
+      const switcherH = _browseWindows.length > 1 ? 52 : 0; // up + label + down
+      const available = Math.max(0, stripH - switcherH);
+      const maxVisible = Math.max(1, Math.floor(available / itemSize));
+      const overflow = tabs.length - maxVisible;
+      const visibleTabs = overflow > 0 ? tabs.slice(0, maxVisible) : tabs;
+
+      // column-reverse: first in HTML → bottom, last → top
+      // We want: tabs at top, window switcher at bottom
+      // So: window switcher first, then overflow badge, then tabs
       let miniHtml = '';
-      for (const t of tabs) {
+
+      // Window switcher at bottom
+      if (_browseWindows.length > 1) {
+        const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+        miniHtml += `<div class="vtabs-mini-window-switcher">
+          <button class="vtabs-mini-window-arrow ${winIdx === 0 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
+          </button>
+          <span class="vtabs-mini-window-label">${winIdx + 1}</span>
+          <button class="vtabs-mini-window-arrow ${winIdx === _browseWindows.length - 1 ? 'disabled' : ''}" onclick="event.stopPropagation();switchWindowDown()" title="Next window">
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+          </button>
+        </div>`;
+      }
+
+      // Overflow badge (above window switcher, below tabs)
+      if (overflow > 0) {
+        miniHtml += `<button class="vtabs-mini-overflow" onclick="toggleVtabsPanel()" title="${overflow} more tab${overflow > 1 ? 's' : ''}">+${overflow}</button>`;
+      }
+
+      // Visible tabs (top)
+      for (const t of visibleTabs) {
         const isActive = t.id === activeTab;
         const cls = 'vtabs-mini-tab' + (isActive ? ' active' : '');
         let domain = '';
@@ -3143,6 +3176,7 @@ function _browseRenderTabs() {
           : `<span class="vtabs-mini-letter">${escapeHtml((t.title || '?')[0].toUpperCase())}</span>`;
         miniHtml += `<button class="${cls}" onclick="browseSelectTab(${t.id})">${fav}${tip}</button>`;
       }
+
       strip.innerHTML = miniHtml;
     }
   }

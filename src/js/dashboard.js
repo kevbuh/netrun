@@ -268,6 +268,7 @@ function _dashBuildQuickActions() {
     { label: 'Search', onclick: 'openSearch()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' },
     { label: 'Browse', onclick: 'openBrowse()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>' },
     { label: 'Vault', onclick: 'openVault()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+    { label: 'Graph', onclick: 'wmOpen(\'graph\')', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="19" r="2"/><path stroke-linecap="round" d="M6.8 7.2l3.8 9.6M17.2 7.2l-3.8 9.6M7 6h10"/></svg>' },
   ];
   return `<div class="grid grid-cols-2 gap-2 h-full">${actions.map(a =>
     `<button class="bento-action-btn" onclick="${a.onclick}">${a.icon}<span>${a.label}</span></button>`

@@ -5,3 +5,5 @@ jupyter-client
 ipykernel
 PyMuPDF
 PyYAML
+kokoro
+soundfile

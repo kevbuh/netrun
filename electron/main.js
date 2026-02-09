@@ -80,7 +80,7 @@ function tryStartPythonServer(port) {
 
   let cmd, args;
   if (isDev) {
-    cmd = 'python3';
+    cmd = path.join(__dirname, '..', 'venv', 'bin', 'python3');
     args = [
       path.join(__dirname, '..', 'src', 'app.py'),
       '--port', String(port),
