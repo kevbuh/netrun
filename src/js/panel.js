@@ -121,7 +121,7 @@ function _ttsHighlightChunk(chunkText) {
       if (skip.has(el.tagName)) return;
       for (var i = 0; i < el.childNodes.length; i++) {
         var c = el.childNodes[i];
-        if (c.nodeType === 3 && c.textContent.trim()) textNodes.push(c);
+        if (c.nodeType === 3) textNodes.push(c);
         else if (c.nodeType === 1) walk(c);
       }
     }
