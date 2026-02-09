@@ -120,7 +120,10 @@ function _islandRenderPill(a) {
     var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
     return ring + '<span>' + _escHtml(a.label || pct + '%') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
-    return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
+    var ttsIconC = a.paused
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+      : _islandWaveformBars;
+    return ttsIconC + '<span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'ai') {
@@ -162,7 +165,11 @@ function _islandRenderPillExpanded(a) {
     var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
     return ring + '<span>' + _escHtml(a.detail || a.label || 'Downloading') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
-    return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+    var ttsIcon = a.paused
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+      : _islandWaveformBars;
+    var ttsTime = (typeof _ttsTimeDetail === 'function') ? _ttsTimeDetail() : '';
+    return ttsIcon + '<span>' + _escHtml(ttsTime || a.detail || a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'ai') {

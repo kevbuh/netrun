@@ -1866,6 +1866,10 @@
       color: var(--accent);
       animation: pill-mic-pulse 1.2s ease-in-out infinite;
     }
+    #pill-mic-btn:hover,
+    #pill-readaloud-btn:hover {
+      transform: none;
+    }
     #pill-mic-btn.pill-mic-active {
       color: #ef4444;
       animation: pill-mic-pulse 1.2s ease-in-out infinite;

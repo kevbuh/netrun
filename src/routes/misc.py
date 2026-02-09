@@ -763,6 +763,12 @@ def transcribe(google_id):
         text = ' '.join(seg.text.strip() for seg in segments).strip()
         os.remove(tmp_webm)
         os.remove(tmp_wav)
+        _NOISE = {'[BLANK_AUDIO]', '[silence]', '[Music]', '[music]',
+                  '[Applause]', '[applause]', '[Laughter]', '[laughter]',
+                  '[ Silence ]', '(silence)', '...', '[MUSIC]',
+                  '[NO SPEECH]', '[no speech]', '[inaudible]'}
+        if text in _NOISE:
+            text = ''
         return jsonify({'text': text})
     except Exception as e:
         import traceback; traceback.print_exc()

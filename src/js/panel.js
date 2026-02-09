@@ -46,6 +46,9 @@ let _ttsQueue = []; // queued audio blobs for chunked playback
 let _ttsChunks = []; // text chunks pending TTS
 let _ttsChunkIdx = 0; // next chunk to fetch
 let _ttsStopped = false; // cancellation flag
+let _ttsPaused = false; // pause flag
+let _ttsPlayedDurations = []; // durations of already-finished chunks
+let _ttsRemainingDurations = []; // estimated durations of queued chunks
 
 function _ttsStartWaveform(audio) {
   if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
@@ -81,21 +84,72 @@ function _ttsStopWaveform() {
 
 function _ttsStopAll() {
   _ttsStopped = true;
+  _ttsPaused = false;
   if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; }
   _ttsStopWaveform();
   _ttsQueue.forEach(function(u) { URL.revokeObjectURL(u); });
   _ttsQueue = [];
   _ttsChunks = [];
   _ttsChunkIdx = 0;
+  _ttsPlayedDurations = [];
+  _ttsRemainingDurations = [];
   islandRemove('tts');
   var btn = document.getElementById('pill-readaloud-btn');
   if (btn) btn.classList.remove('pill-readaloud-active');
   document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
 }
 
+function _ttsPauseResume() {
+  if (!_ttsAudio) return;
+  if (_ttsPaused) {
+    _ttsPaused = false;
+    _ttsAudio.play();
+    _ttsStartWaveform(_ttsAudio);
+    islandUpdate('tts', { type: 'tts', label: 'Reading', detail: _ttsTimeDetail() });
+    var btn = document.getElementById('pill-readaloud-btn');
+    if (btn) btn.classList.add('pill-readaloud-active');
+  } else {
+    _ttsPaused = true;
+    _ttsAudio.pause();
+    _ttsStopWaveform();
+    islandUpdate('tts', { type: 'tts', label: 'Paused', detail: _ttsTimeDetail(), paused: true });
+    var btn2 = document.getElementById('pill-readaloud-btn');
+    if (btn2) btn2.classList.remove('pill-readaloud-active');
+  }
+}
+
+function _ttsFormatTime(secs) {
+  var s = Math.round(secs);
+  if (s < 0) s = 0;
+  var m = Math.floor(s / 60);
+  var r = s % 60;
+  return m + ':' + (r < 10 ? '0' : '') + r;
+}
+
+function _ttsTimeDetail() {
+  if (!_ttsAudio) return '';
+  var currentRemaining = 0;
+  if (_ttsAudio.duration && isFinite(_ttsAudio.duration)) {
+    currentRemaining = _ttsAudio.duration - _ttsAudio.currentTime;
+  }
+  var queuedRemaining = 0;
+  for (var i = 0; i < _ttsRemainingDurations.length; i++) queuedRemaining += _ttsRemainingDurations[i];
+  // Estimate remaining unfetched chunks (~60 chars/sec speaking rate)
+  var unfetched = 0;
+  for (var j = _ttsChunkIdx; j < _ttsChunks.length; j++) unfetched += _ttsChunks[j].length / 60;
+  var total = currentRemaining + queuedRemaining + unfetched;
+  return _ttsFormatTime(total) + ' remaining';
+}
+
 function _ttsChunkText(text) {
   // Rejoin line-break hyphens common in PDFs (e.g. "regular-\nities" → "regularities")
   text = text.replace(/(\w)-\s+(\w)/g, function(_, a, b) { return a + b; });
+  // Also handles collapsed newlines ("sec-ond") — rejoin unless it's a real compound word
+  var _hyphenPrefixes = new Set(['self','semi','non','pre','post','multi','cross','high','low','long','short','well','co','re','anti','inter','intra','over','under','sub','super','meta','pseudo','quasi','ultra','micro','macro','mid','full','half','all','ever','ill','much','old','new','open','out','two','three','four','five','six','seven','eight','nine','ten','fine','large','small','hard','soft','real','near','far','deep','wide','fast','slow']);
+  text = text.replace(/([a-z]+)-([a-z]{2,})/g, function(match, before, after) {
+    if (_hyphenPrefixes.has(before)) return match;
+    return before + after;
+  });
   // Split on double-newlines (paragraphs), then break long paragraphs on sentences
   var maxChunk = 1000;
   var paras = text.split(/\n\s*\n/).filter(function(p) { return p.trim().length > 0; });
@@ -140,13 +194,20 @@ async function _ttsFetchChunk(text) {
 function _ttsPlayNext() {
   if (_ttsStopped || _ttsQueue.length === 0) return;
   var url = _ttsQueue.shift();
+  // Remove first queued duration since we're now playing it
+  if (_ttsRemainingDurations.length > 0) _ttsRemainingDurations.shift();
   var audio = new Audio(url);
   _ttsAudio = audio;
   var total = _ttsChunks.length;
   var playing = total - _ttsQueue.length - (_ttsChunkIdx < total ? (total - _ttsChunkIdx) : 0);
-  islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: 'Reading page aloud' });
+  islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() || 'Reading page aloud' });
   _ttsStartWaveform(audio);
+  // Update time detail once duration is known
+  audio.addEventListener('loadedmetadata', function() {
+    islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() });
+  });
   audio.onended = function() {
+    if (audio.duration && isFinite(audio.duration)) _ttsPlayedDurations.push(audio.duration);
     URL.revokeObjectURL(url);
     _ttsAudio = null;
     _ttsStopWaveform();
@@ -154,6 +215,8 @@ function _ttsPlayNext() {
       _ttsPlayNext();
     } else if (_ttsChunkIdx >= _ttsChunks.length) {
       // All done
+      _ttsPlayedDurations = [];
+      _ttsRemainingDurations = [];
       islandRemove('tts');
       var btn = document.getElementById('pill-readaloud-btn');
       if (btn) btn.classList.remove('pill-readaloud-active');
@@ -173,14 +236,17 @@ async function _ttsFetchAndQueue() {
   while (_ttsChunkIdx < _ttsChunks.length && !_ttsStopped) {
     var idx = _ttsChunkIdx++;
     var total = _ttsChunks.length;
-    if (!_ttsAudio) islandUpdate('tts', { type: 'tts', label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
+    if (!_ttsAudio && !_ttsPaused) islandUpdate('tts', { type: 'tts', label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
     try {
       var blob = await _ttsFetchChunk(_ttsChunks[idx]);
       if (_ttsStopped) return;
       var url = URL.createObjectURL(blob);
       _ttsQueue.push(url);
+      // Estimate duration from blob size (24kHz 16-bit mono WAV ≈ 48000 bytes/sec, minus 44-byte header)
+      var estDuration = Math.max(0, (blob.size - 44) / 48000);
+      _ttsRemainingDurations.push(estDuration);
       // Start playing as soon as first chunk is ready
-      if (!_ttsAudio) _ttsPlayNext();
+      if (!_ttsAudio && !_ttsPaused) _ttsPlayNext();
     } catch (e) {
       if (!_ttsAudio) _ttsStopAll();
       return;

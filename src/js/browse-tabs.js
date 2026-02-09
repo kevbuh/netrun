@@ -6140,8 +6140,13 @@ async function _extractTextFromFrame(tab) {
 
 
 async function _readPageAloud() {
-  // Toggle off if already speaking/queued
-  if (_ttsAudio || _ttsChunks.length > 0) {
+  // Pause/resume if already playing
+  if (_ttsAudio || _ttsPaused) {
+    _ttsPauseResume();
+    return;
+  }
+  // Stop if queued but not playing (shouldn't normally happen)
+  if (_ttsChunks.length > 0) {
     _ttsStopAll();
     return;
   }
