@@ -224,13 +224,13 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "open_tab",
-            "description": "Open a URL in a new browser tab within the app. Use this when the user wants to open a link, visit a website, or navigate to a new tab.",
+            "description": "Open a new browser tab in the app. If the user says 'open a new tab' or 'new tab' without specifying a URL, call this with NO url parameter to open a blank new tab page. Only pass a url if the user explicitly mentions a specific website or link to open.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "url": {"type": "string", "description": "The URL to open"}
+                    "url": {"type": "string", "description": "A specific URL to open. Do NOT pass this if the user just wants a blank new tab."}
                 },
-                "required": ["url"]
+                "required": []
             }
         }
     }
@@ -403,9 +403,10 @@ def execute_chat_tool(name, args, stream_callback=None, google_id=None):
                 stream_callback('action', {"type": "navigate", "view": args.get("view", "home")})
             return {"status": "ok", "message": f"Navigated to {args.get('view', 'home')}"}
         elif name == 'open_tab':
+            url = args.get("url", "")
             if stream_callback:
-                stream_callback('action', {"type": "open_tab", "url": args.get("url", "")})
-            return {"status": "ok", "message": f"Opened {args.get('url', '')} in a new tab"}
+                stream_callback('action', {"type": "open_tab", "url": url})
+            return {"status": "ok", "message": f"Opened {'a new tab' if not url else url + ' in a new tab'}"}
         elif name == 'create_experiment':
             return tool_create_experiment(args.get('title', ''), args.get('description', ''), google_id=google_id)
         elif name == 'create_calendar_event':

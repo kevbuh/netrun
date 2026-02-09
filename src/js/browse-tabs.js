@@ -1445,6 +1445,13 @@ function _browseInjectContentScripts(tab, frame) {
         });
         _browseUpdateRssPill(tab);
       } catch (err) {}
+    } else if (e.message && e.message.startsWith('__AETHER_ANN_HOVER__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__AETHER_ANN_HOVER__'.length));
+        _showAnnotationTooltip(data, frame);
+      } catch (err) {}
+    } else if (e.message === '__AETHER_ANN_LEAVE__') {
+      _hideAnnotationTooltip();
     } else if (e.message === '__AETHER_PW_FIELDS__') {
       _pwCheckAutofill(tab, frame);
     } else if (e.message && e.message.startsWith('__AETHER_PW_SUBMIT__')) {
@@ -6174,6 +6181,33 @@ async function _readPageAloud() {
   }
 }
 
+function _showAnnotationTooltip(data, frame) {
+  let tip = document.getElementById('aether-annotation-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'aether-annotation-tooltip';
+    tip.className = 'doc-selection-popup aether-ann-tooltip';
+    document.body.appendChild(tip);
+  }
+  const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + '">' + (data.label || data.type) + '</div>';
+  const explEl = '<div class="aether-ann-explanation">' + data.explanation + '</div>';
+  const conflictEl = data.conflictsWith ? '<div class="aether-ann-conflict">Conflicts with: ' + data.conflictsWith + '</div>' : '';
+  tip.innerHTML = labelEl + explEl + conflictEl;
+  tip.style.opacity = '1';
+  const fRect = frame.getBoundingClientRect();
+  const left = Math.min(data.left + fRect.left, window.innerWidth - 340);
+  tip.style.left = left + 'px';
+  tip.style.top = (data.top + fRect.top - tip.offsetHeight - 6) + 'px';
+  if (parseInt(tip.style.top) < 4) {
+    tip.style.top = (data.bottom + fRect.top + 6) + 'px';
+  }
+}
+
+function _hideAnnotationTooltip() {
+  const tip = document.getElementById('aether-annotation-tooltip');
+  if (tip) tip.style.opacity = '0';
+}
+
 function injectAnnotations(tab, annotations) {
   if (!tab || !tab.el || !annotations.length) return;
   const frame = tab.el;
@@ -6194,31 +6228,14 @@ function injectAnnotations(tab, annotations) {
       const annotations = JSON.parse('${annotationsJSON}');
       const colorMap = JSON.parse('${colorMapJSON}');
 
-      // Tooltip element
-      let tooltip = document.createElement('div');
-      tooltip.id = '__aether-annotation-tooltip';
-      tooltip.style.cssText = 'position:fixed;z-index:999999;padding:10px 14px;background:rgba(0,0,0,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:#fff;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:0.75rem;line-height:1.4;max-width:320px;pointer-events:none;opacity:0;transition:opacity 0.15s;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
-      document.body.appendChild(tooltip);
-
       function showTooltip(mark, ann) {
         const c = colorMap[ann.type] || colorMap.KEY_FINDING;
-        let html = '<div style="font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;color:' + c.labelColor + ';margin-bottom:4px;">' + c.label + '</div>';
-        html += '<div>' + ann.explanation + '</div>';
-        if (ann.conflictsWith) {
-          html += '<div style="margin-top:4px;font-size:12px;color:#aaa;">Conflicts with: ' + ann.conflictsWith + '</div>';
-        }
-        tooltip.innerHTML = html;
-        tooltip.style.opacity = '1';
         const rect = mark.getBoundingClientRect();
-        tooltip.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
-        tooltip.style.top = (rect.top - tooltip.offsetHeight - 6) + 'px';
-        if (parseInt(tooltip.style.top) < 4) {
-          tooltip.style.top = (rect.bottom + 6) + 'px';
-        }
+        console.log('__AETHER_ANN_HOVER__' + JSON.stringify({ type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }));
       }
 
       function hideTooltip() {
-        tooltip.style.opacity = '0';
+        console.log('__AETHER_ANN_LEAVE__');
       }
 
       // Build concatenated text from all text nodes with position mapping
@@ -6334,12 +6351,12 @@ function injectAnnotations(tab, annotations) {
 function clearAnnotations(tab) {
   if (!tab || !tab.el) return;
   if (typeof islandRemove === 'function') islandRemove('annotate');
+  const hostTooltip = document.getElementById('aether-annotation-tooltip');
+  if (hostTooltip) hostTooltip.remove();
   const frame = tab.el;
   const script = `
     (function() {
       window.__aetherAnnotationsActive = false;
-      const tooltip = document.getElementById('__aether-annotation-tooltip');
-      if (tooltip) tooltip.remove();
       document.querySelectorAll('mark.aether-annotation').forEach(function(mark) {
         const parent = mark.parentNode;
         if (!parent) return;

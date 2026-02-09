@@ -1873,16 +1873,17 @@
       align-items: center;
       justify-content: center;
       position: absolute;
-      left: calc(50% + 200px);
+      left: calc(50% + 150px);
       top: 50%;
       transform: translateY(-50%);
       z-index: 1;
     }
     body.electron-app .browse-mode.island-mode #pill-readaloud-btn {
-      left: calc(50vw - 80px + 200px);
+      left: calc(50vw - 80px + 150px);
     }
     #pill-readaloud-btn.pill-readaloud-active {
       color: var(--accent);
+      animation: pill-mic-pulse 1.2s ease-in-out infinite;
     }
     #pill-mic-btn.pill-mic-active {
       color: #ef4444;
@@ -3794,6 +3795,29 @@
       will-change: transform;
       contain: layout style;
       backface-visibility: hidden;
+    }
+    .aether-ann-tooltip {
+      padding: 10px 14px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      max-width: 320px;
+      z-index: 999999;
+    }
+    .aether-ann-label {
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .aether-ann-explanation {
+      line-height: 1.4;
+    }
+    .aether-ann-conflict {
+      margin-top: 4px;
+      font-size: 0.7rem;
+      color: var(--text-dimmer);
     }
     .doc-selection-popup-btns {
       display: flex;

@@ -517,10 +517,11 @@ function _sendPopupChatMessage(popup, capturedText) {
                 } else if (act.type === 'navigate' && act.view) {
                   const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
                   location.hash = routes[act.view] || '#';
-                } else if (act.type === 'open_tab' && act.url) {
+                } else if (act.type === 'open_tab') {
                   if (typeof browseNewTab === 'function') {
                     location.hash = '#browse';
-                    setTimeout(() => browseNewTab(act.url), 100);
+                    if (act.url) setTimeout(() => browseNewTab(act.url), 100);
+                    else setTimeout(() => browseNewTab(), 100);
                   }
                 }
               } catch (e) {}
