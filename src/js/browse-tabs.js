@@ -1941,6 +1941,7 @@ function browseSelectTab(id) {
   }
   // Show/hide PDF pill for current tab
   _browseCheckPdfPill(tab);
+  if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
 }
 
 function _browseUpdateBarForTab(tab) {
@@ -2089,6 +2090,19 @@ function _browseUpdateNewTabPage(tab) {
       });
     }
     ntp.style.display = '';
+    // Clone sidebar nav icons into NTP
+    var ntpIcons = ntp.querySelector('#ntp-nav-icons');
+    var srcIcons = document.getElementById('pill-nav-icons');
+    if (ntpIcons && srcIcons) {
+      ntpIcons.innerHTML = '';
+      srcIcons.querySelectorAll('.sidebar-icon').forEach(function(btn) {
+        var clone = btn.cloneNode(true);
+        clone.classList.remove('active', 'sidebar-kbd-selected');
+        clone.removeAttribute('id');
+        clone.className = 'ntp-nav-icon';
+        ntpIcons.appendChild(clone);
+      });
+    }
     // Clear search input and reset to default state
     const ntpInput = ntp.querySelector('#search-query');
     if (ntpInput) ntpInput.value = '';
@@ -3251,7 +3265,9 @@ function _browseRenderTabs() {
         const audioLabel = hasAudio ? `<span class="vtabs-mini-tip-audio">${isMuted ? 'Audio muted' : 'Playing audio'}</span>` : '';
         const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-text"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}${audioLabel}</span><span class="vtabs-mini-tip-close" onclick="event.stopPropagation();browseCloseTab(${t.id})">&times;</span></span>`;
         const musicBars = `<span class="vtabs-mini-music" onclick="event.stopPropagation();toggleTabMute(${t.id})"><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span></span>`;
-        const fav = hasAudio
+        const fav = isActive
+          ? `<span class="vtabs-mini-close" onclick="event.stopPropagation();browseCloseTab(${t.id})">&times;</span>`
+          : hasAudio
           ? musicBars
           : t.favicon
             ? `<img src="${escapeHtml(t.favicon)}" onerror="this.outerHTML='<span class=\\'vtabs-mini-letter\\'>${escapeHtml((t.title || '?')[0].toUpperCase())}</span>'">`

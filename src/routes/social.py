@@ -250,6 +250,22 @@ def get_achievements(google_id):
     return jsonify({'achievements': achievements})
 
 
+# 19b. POST /api/achievements/grant — grant a client-triggered achievement
+CLIENT_GRANTABLE = {'pet_adopter'}
+
+@bp.route('/api/achievements/grant', methods=['POST'])
+@require_auth
+def grant_achievement_route(google_id):
+    body = request.get_json(force=True, silent=True) or {}
+    aid = body.get('achievement_id', '')
+    if aid not in CLIENT_GRANTABLE:
+        return jsonify({'error': 'Invalid achievement'}), 400
+    ach = grant_achievement(google_id, aid)
+    if ach:
+        return jsonify({'achievement': ach})
+    return jsonify({'achievement': None})
+
+
 # 19. GET /api/achievements/<username> — specific user achievements
 @bp.route('/api/achievements/<username>')
 def get_user_achievements_route(username):
@@ -665,7 +681,12 @@ def set_status(google_id):
     if emoji and emoji not in valid_emojis:
         return jsonify({'error': 'Invalid emoji type'}), 400
     update_user_status(google_id, emoji, text)
-    return jsonify({'ok': True, 'status_emoji': emoji or None, 'status_text': text or None})
+    resp = {'ok': True, 'status_emoji': emoji or None, 'status_text': text or None}
+    if emoji or text:
+        ach = grant_achievement(google_id, 'first_status')
+        if ach:
+            resp['achievement'] = ach
+    return jsonify(resp)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -1130,11 +1130,16 @@ async function _saveStatus() {
   const emoji = selected?.dataset.pet || '';
   const text = (document.getElementById('status-text-input')?.value || '').trim().slice(0, 80);
   try {
-    await fetch('/api/users/me/status', {
+    var res = await fetch('/api/users/me/status', {
       method: 'PUT',
       headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ emoji, text })
     });
+    var data = await res.json();
+    if (data.achievement) {
+      if (typeof petCelebrate === 'function') petCelebrate();
+      islandUpdate('achievement', { type: 'achievement', label: data.achievement.name || 'Unlocked!', detail: data.achievement.description || 'Achievement Unlocked!', done: true });
+    }
     document.getElementById('dash-status-picker')?.classList.add('hidden');
     renderDashboard();
   } catch (e) { console.error('Save status error', e); }

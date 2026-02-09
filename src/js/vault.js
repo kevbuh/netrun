@@ -661,6 +661,7 @@ async function openVaultNote(noteId) {
 
   _vaultCurrentNote = note;
   localStorage.setItem('vaultLastNote', noteId);
+  if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
 
   // Update UI
   document.getElementById('vault-note-title').value = note.title || '';
@@ -1947,6 +1948,13 @@ async function vaultTogglePublish() {
         if (typeof petCelebrate === 'function') petCelebrate();
         // Show achievement toast
         vaultShowAchievementToast(note.achievement);
+        // Show in dynamic island
+        islandUpdate('achievement', {
+          type: 'achievement',
+          label: note.achievement.name || 'Unlocked!',
+          detail: note.achievement.description || 'Achievement Unlocked!',
+          done: true
+        });
       }
     }
   } catch (e) {

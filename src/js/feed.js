@@ -1649,6 +1649,7 @@ async function loadAllFeeds() {
     if (typeof computeInterestProfile === 'function') computeInterestProfile();
     renderPapers();
     if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Feeds loaded', detail: 'Feed refresh complete', done: true });
+    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
     if (isQualityFilterOn()) qualityFilterPapers();
     _detectNewPosts();
     startRefreshTimer();

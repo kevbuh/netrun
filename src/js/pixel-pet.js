@@ -962,7 +962,19 @@
 
   window.togglePixelPet = function(on) {
     localStorage.setItem('pixelPet', on ? 'on' : 'off');
-    if (on) startPixelPet(); else stopPixelPet();
+    if (on) {
+      startPixelPet();
+      fetch('/api/achievements/grant', {
+        method: 'POST',
+        headers: Object.assign({}, typeof _authHeaders === 'function' ? _authHeaders() : {}, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ achievement_id: 'pet_adopter' })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.achievement) {
+          petCelebrate();
+          islandUpdate('achievement', { type: 'achievement', label: data.achievement.name || 'Unlocked!', detail: data.achievement.description || 'Achievement Unlocked!', done: true });
+        }
+      }).catch(function() {});
+    } else stopPixelPet();
   };
 
   window.setPixelPetType = function(type) {

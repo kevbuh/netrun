@@ -112,8 +112,12 @@ function _islandRenderPill(a) {
     return _islandWaveformBars + '<span>' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.label || '') + '</span>';
+  } else if (a.type === 'achievement') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#eab308">' + _escHtml(a.label || 'Unlocked!') + '</span>';
   } else if (a.type === 'notemode') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.label || 'Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+  } else if (a.type === 'context') {
+    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.label || '') + '</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
 }
@@ -130,8 +134,24 @@ function _islandRenderPillExpanded(a) {
     return _islandWaveformBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+  } else if (a.type === 'achievement') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#eab308">' + _escHtml(a.detail || a.label || 'Achievement Unlocked!') + '</span>';
   } else if (a.type === 'notemode') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + _escHtml(a.detail || a.label || 'Open in Note Mode') + '</span><span class="island-dismiss" data-island-dismiss="notemode" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+  } else if (a.type === 'context') {
+    if (a.items && a.items.length) {
+      var html = '<div class="island-ctx-list">';
+      for (var ci = 0; ci < a.items.length; ci++) {
+        var item = a.items[ci];
+        var title = item.title || 'New Tab';
+        if (title.length > 32) title = title.slice(0, 30) + '\u2026';
+        var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="12" height="12" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+        html += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span>' + _escHtml(title) + '</span></div>';
+      }
+      html += '</div>';
+      return html;
+    }
+    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
 }
@@ -147,7 +167,7 @@ function _islandRender() {
   }
 
   // Sort by priority desc, then by timestamp
-  var priority = { download: 4, cc: 3, tts: 3, notemode: 2, audio: 2, qf: 2, feed: 1 };
+  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, notemode: 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -191,9 +211,18 @@ function _islandRender() {
         else islandRemove(dismissId);
         return;
       }
+      var tabItem = e.target.closest('[data-island-tab]');
+      if (tabItem) {
+        e.stopPropagation();
+        var tabId = +tabItem.getAttribute('data-island-tab');
+        if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
+        return;
+      }
       if (a.action) a.action();
     };
     pill.style.cursor = a.action ? 'pointer' : 'default';
+    pill.classList.toggle('island-context', a.type === 'context');
+    pill.classList.toggle('island-has-items', !!(a.type === 'context' && a.items && a.items.length));
 
     // Animate in
     if (isNew) {
@@ -211,7 +240,7 @@ function _islandRender() {
         delete _islandActivities[id];
         delete _islandDismissTimers[id];
         _islandRender();
-      }, 2500);
+      }, a.type === 'achievement' ? 5000 : 2500);
     }
   });
 
@@ -220,6 +249,88 @@ function _islandRender() {
 
   container.innerHTML = '';
   container.appendChild(fragment);
+}
+
+// ── Now Playing context pill ──
+function _updateNowPlayingContext() {
+  var hash = _currentRouteHash || window.location.hash || '';
+  var label = 'Aether';
+  var detail = 'Aether';
+  var viewKey = 'dashboard';
+  var ctxItems = null;
+
+  if (hash === '#feed' || hash === '') {
+    var count = (typeof lastFilteredPapers !== 'undefined' && lastFilteredPapers) ? lastFilteredPapers.length : 0;
+    label = count ? count + ' posts' : 'Feed';
+    detail = 'Feed' + (count ? ' \u00b7 ' + count + ' posts' : '');
+    viewKey = 'feed';
+  } else if (hash === '#browse' || hash === '#research' || hash === '#search') {
+    var win = (typeof _getCurrentWindow === 'function') ? _getCurrentWindow() : null;
+    var tabs = win ? win.tabs : [];
+    var nTabs = tabs.length;
+    var activeTab = win ? tabs.find(function(t) { return t.id === win.activeTab; }) : null;
+    var tabTitle = activeTab ? (activeTab.title || '') : '';
+    label = nTabs ? nTabs + ' tab' + (nTabs !== 1 ? 's' : '') : 'Browse';
+    detail = 'Browse' + (nTabs ? ' \u00b7 ' + nTabs + ' tab' + (nTabs !== 1 ? 's' : '') : '') + (tabTitle ? ' \u00b7 ' + tabTitle : '');
+    viewKey = 'browse';
+    ctxItems = tabs.map(function(t) {
+      return { id: t.id, title: t.title || t.url || 'New Tab', favicon: t.favicon || '', active: activeTab && t.id === activeTab.id };
+    });
+  } else if (hash === '#vault' || hash === '#vibe' || hash === '#experiments') {
+    var noteTitle = (typeof _vaultCurrentNote !== 'undefined' && _vaultCurrentNote) ? (_vaultCurrentNote.title || 'Untitled') : '';
+    var marimo = (typeof _vaultMarimoActive !== 'undefined' && _vaultMarimoActive) ? ' \u00b7 Marimo' : '';
+    label = noteTitle || 'Vault';
+    detail = 'Vault' + (noteTitle ? ' \u00b7 ' + noteTitle : '') + marimo;
+    viewKey = 'vault';
+  } else if (hash.startsWith('#experiment/')) {
+    label = 'Project';
+    detail = 'Vault \u00b7 Project';
+    viewKey = 'vault';
+  } else if (hash === '#terminal') {
+    var nTerms = (typeof _terminals !== 'undefined') ? _terminals.length : 0;
+    label = 'Terminal';
+    detail = 'Terminal' + (nTerms ? ' \u00b7 ' + nTerms + ' session' + (nTerms !== 1 ? 's' : '') : '');
+    viewKey = 'terminal';
+  } else if (hash === '#saved') {
+    var saved = [];
+    try { saved = JSON.parse(localStorage.getItem('savedPosts') || '[]'); } catch(e) {}
+    label = 'Dashboard';
+    detail = 'Dashboard' + (saved.length ? ' \u00b7 ' + saved.length + ' saved' : '');
+    viewKey = 'dashboard';
+  } else if (hash === '#neuralook') {
+    var nlTrained = (typeof _nlModelState !== 'undefined' && _nlModelState[typeof _nlModelType !== 'undefined' ? _nlModelType : 'cnn'] && _nlModelState[typeof _nlModelType !== 'undefined' ? _nlModelType : 'cnn'].trained);
+    label = nlTrained ? 'Tracking' : 'Neuralook';
+    detail = 'Neuralook' + (nlTrained ? ' \u00b7 Tracking' : '');
+    viewKey = 'neuralook';
+  } else if (hash === '#calendar') {
+    label = 'Calendar';
+    detail = 'Calendar';
+    viewKey = 'calendar';
+  } else if (hash === '#settings' || hash === '#quality' || hash === '#algorithm') {
+    label = 'Settings';
+    detail = 'Settings';
+    viewKey = 'settings';
+  } else if (hash === '#teams' || hash.startsWith('#team/')) {
+    label = 'Teams';
+    detail = 'Teams';
+    viewKey = 'teams';
+  } else if (hash === '#inbox') {
+    label = 'Inbox';
+    detail = 'Inbox';
+    viewKey = 'inbox';
+  }
+
+  // Truncate long labels/details
+  if (label.length > 24) label = label.slice(0, 22) + '\u2026';
+  if (detail.length > 48) detail = detail.slice(0, 46) + '\u2026';
+
+  islandUpdate('nowplaying', {
+    type: 'context',
+    label: label,
+    detail: detail,
+    items: ctxItems,
+    action: function() { wmOpen(viewKey); }
+  });
 }
 
 // ── Content safe bounds for popups ──
@@ -1562,6 +1673,7 @@ window.addEventListener('hashchange', () => {
     localStorage.setItem('lastHash', hash);
   }
   routeFromHash();
+  _updateNowPlayingContext();
 });
 
 // On page load, restore last hash if no hash specified
@@ -1575,6 +1687,7 @@ if (document.readyState === 'loading') {
       }
     }
     routeFromHash();
+    _updateNowPlayingContext();
   });
 } else {
   setTimeout(() => {
@@ -1586,6 +1699,7 @@ if (document.readyState === 'loading') {
       }
     }
     routeFromHash();
+    _updateNowPlayingContext();
   }, 0);
 }
 
@@ -3258,6 +3372,7 @@ function _onLoginSuccess() {
   }
   // Route to the correct view now that auth is resolved
   routeFromHash();
+  _updateNowPlayingContext();
 }
 
 async function authLogout() {

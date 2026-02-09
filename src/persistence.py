@@ -1542,6 +1542,18 @@ ACHIEVEMENTS = {
         'description': 'Created 50 notes',
         'icon': '🗄️',
     },
+    'first_status': {
+        'id': 'first_status',
+        'name': 'Statusphere',
+        'description': 'Set your first status',
+        'icon': '💬',
+    },
+    'pet_adopter': {
+        'id': 'pet_adopter',
+        'name': 'Pet Parent',
+        'description': 'Adopted a pixel pet',
+        'icon': '🐾',
+    },
 }
 
 
