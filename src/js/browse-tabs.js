@@ -6170,11 +6170,13 @@ async function _readPageAloud() {
   if (!tab) return;
   var btn = document.getElementById('pill-readaloud-btn');
   if (btn) btn.classList.add('pill-readaloud-active');
-  islandUpdate('tts', { type: 'tts', label: 'Extracting\u2026', detail: 'Extracting page text' });
+  _ttsTabId = tab.id;
+  islandUpdate('tts', { type: 'tts', label: 'Extracting\u2026', detail: 'Extracting page text', action: _ttsIslandAction });
   var text = await _extractTextFromFrame(tab);
   if (!text || text.length < 10) {
     islandUpdate('tts', { type: 'tts', label: 'No text', detail: 'No readable text found', done: true });
     if (btn) btn.classList.remove('pill-readaloud-active');
+    _ttsTabId = null;
     return;
   }
   // Chunk text and queue for playback

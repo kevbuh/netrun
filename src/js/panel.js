@@ -50,6 +50,11 @@ let _ttsPaused = false; // pause flag
 let _ttsPlayedDurations = []; // durations of already-finished chunks
 let _ttsRemainingDurations = []; // estimated durations of queued chunks
 let _ttsPlayingChunkIdx = -1; // index of the chunk currently being read aloud
+let _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
+
+function _ttsIslandAction() {
+  if (_ttsTabId != null && typeof browseSelectTab === 'function') browseSelectTab(_ttsTabId);
+}
 
 function _ttsStartWaveform(audio) {
   if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
@@ -87,7 +92,9 @@ function _ttsGetFrame() {
   if (typeof _getCurrentWindow !== 'function') return null;
   var win = _getCurrentWindow();
   if (!win) return null;
-  var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+  // Use the tab where TTS was started, not the currently active tab
+  var targetId = _ttsTabId != null ? _ttsTabId : win.activeTab;
+  var tab = win.tabs.find(function(t) { return t.id === targetId; });
   return tab && tab.el ? tab.el : null;
 }
 
@@ -100,7 +107,19 @@ function _ttsExecInFrame(frame, script) {
   }
 }
 
+function _ttsSplitSentences(text) {
+  var parts = text.match(/[^.!?]+[.!?]+[\s]*/g);
+  if (!parts || parts.length === 0) return [text];
+  // If there's trailing text without punctuation, append it to last sentence
+  var joined = parts.join('');
+  if (joined.length < text.length) {
+    parts[parts.length - 1] += text.substring(joined.length);
+  }
+  return parts.map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+}
+
 function _ttsHighlightChunk(chunkText) {
+  if (localStorage.getItem('ttsHighlight') === 'false') return;
   var frame = _ttsGetFrame();
   if (!frame || !chunkText) return;
   // Escape for embedding in JS string
@@ -182,7 +201,7 @@ function _ttsHighlightChunk(chunkText) {
       var after = txt.substring(nEnd);
       var mark = document.createElement('mark');
       mark.className = 'aether-tts-highlight';
-      mark.style.cssText = 'background:rgba(180,69,26,0.45);border-radius:3px;color:inherit;padding:1px 0;outline:2px solid rgba(180,69,26,0.6);outline-offset:-1px;';
+      mark.style.cssText = 'background:rgba(180,69,26,0.15);border-radius:3px;color:inherit;padding:1px 0;';
       mark.textContent = mid;
       var parent = m.node.parentNode;
       if (before) parent.insertBefore(document.createTextNode(before), m.node);
@@ -237,6 +256,7 @@ function _ttsStopAll() {
   _ttsChunks = [];
   _ttsChunkIdx = 0;
   _ttsPlayingChunkIdx = -1;
+  _ttsTabId = null;
   _ttsPlayedDurations = [];
   _ttsRemainingDurations = [];
   _ttsClearHighlights();
@@ -257,14 +277,14 @@ function _ttsPauseResume() {
     } else if (_ttsQueue.length > 0) {
       _ttsPlayNext();
     }
-    islandUpdate('tts', { type: 'tts', label: 'Reading', detail: _ttsTimeDetail() });
+    islandUpdate('tts', { type: 'tts', label: 'Reading', detail: _ttsTimeDetail(), action: _ttsIslandAction });
     var btn = document.getElementById('pill-readaloud-btn');
     if (btn) { btn.classList.add('pill-readaloud-active'); btn.classList.remove('pill-readaloud-paused'); }
   } else {
     _ttsPaused = true;
     if (_ttsAudio) { _ttsAudio.pause(); }
     _ttsStopWaveform();
-    islandUpdate('tts', { type: 'tts', label: 'Paused', detail: _ttsTimeDetail(), paused: true });
+    islandUpdate('tts', { type: 'tts', label: 'Paused', detail: _ttsTimeDetail(), paused: true, action: _ttsIslandAction });
     var btn2 = document.getElementById('pill-readaloud-btn');
     if (btn2) { btn2.classList.remove('pill-readaloud-active'); btn2.classList.add('pill-readaloud-paused'); }
   }
@@ -306,16 +326,14 @@ function _ttsTimeDetail() {
 }
 
 function _ttsChunkText(text) {
-  if (localStorage.getItem('ttsPreprocess') !== 'false') {
-    // Rejoin line-break hyphens common in PDFs (e.g. "regular-\nities" → "regularities")
-    text = text.replace(/(\w)-\s+(\w)/g, function(_, a, b) { return a + b; });
-    // Also handles collapsed newlines ("sec-ond") — rejoin unless it's a real compound word
-    var _hyphenPrefixes = new Set(['self','semi','non','pre','post','multi','cross','high','low','long','short','well','co','re','anti','inter','intra','over','under','sub','super','meta','pseudo','quasi','ultra','micro','macro','mid','full','half','all','ever','ill','much','old','new','open','out','two','three','four','five','six','seven','eight','nine','ten','fine','large','small','hard','soft','real','near','far','deep','wide','fast','slow']);
-    text = text.replace(/([a-z]+)-([a-z]{2,})/g, function(match, before, after) {
-      if (_hyphenPrefixes.has(before)) return match;
-      return before + after;
-    });
-  }
+  // Rejoin line-break hyphens common in PDFs (e.g. "regular-\nities" → "regularities")
+  text = text.replace(/(\w)-\s+(\w)/g, function(_, a, b) { return a + b; });
+  // Also handles collapsed newlines ("sec-ond") — rejoin unless it's a real compound word
+  var _hyphenPrefixes = new Set(['self','semi','non','pre','post','multi','cross','high','low','long','short','well','co','re','anti','inter','intra','over','under','sub','super','meta','pseudo','quasi','ultra','micro','macro','mid','full','half','all','ever','ill','much','old','new','open','out','two','three','four','five','six','seven','eight','nine','ten','fine','large','small','hard','soft','real','near','far','deep','wide','fast','slow']);
+  text = text.replace(/([a-z]+)-([a-z]{2,})/g, function(match, before, after) {
+    if (_hyphenPrefixes.has(before)) return match;
+    return before + after;
+  });
   // Split on double-newlines (paragraphs), then break long paragraphs on sentences
   var maxChunk = 1000;
   var paras = text.split(/\n\s*\n/).filter(function(p) { return p.trim().length > 0; });
@@ -368,15 +386,39 @@ function _ttsPlayNext() {
   var total = _ttsChunks.length;
   var playing = total - _ttsQueue.length - (_ttsChunkIdx < total ? (total - _ttsChunkIdx) : 0);
   _ttsPlayingChunkIdx = playing - 1;
-  islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() || 'Reading page aloud' });
+  islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() || 'Reading page aloud', action: _ttsIslandAction });
   _ttsStartWaveform(audio);
-  // Highlight the chunk being read in the page
-  if (_ttsPlayingChunkIdx >= 0 && _ttsPlayingChunkIdx < _ttsChunks.length) {
-    _ttsHighlightChunk(_ttsChunks[_ttsPlayingChunkIdx]);
+  // Sentence-level highlighting: split chunk into sentences, update on timeupdate
+  var chunkText = (_ttsPlayingChunkIdx >= 0 && _ttsPlayingChunkIdx < _ttsChunks.length) ? _ttsChunks[_ttsPlayingChunkIdx] : null;
+  var sentences = chunkText ? _ttsSplitSentences(chunkText) : [];
+  var lastSentIdx = -1;
+  audio.addEventListener('timeupdate', function() {
+    if (!sentences.length || !audio.duration || !isFinite(audio.duration)) return;
+    var progress = audio.currentTime / audio.duration;
+    // Estimate sentence index by character proportion
+    var totalChars = 0;
+    for (var si = 0; si < sentences.length; si++) totalChars += sentences[si].length;
+    var charPos = progress * totalChars;
+    var cumulative = 0;
+    var sentIdx = 0;
+    for (var si = 0; si < sentences.length; si++) {
+      cumulative += sentences[si].length;
+      if (charPos < cumulative) { sentIdx = si; break; }
+      sentIdx = si;
+    }
+    if (sentIdx !== lastSentIdx) {
+      lastSentIdx = sentIdx;
+      _ttsHighlightChunk(sentences[sentIdx]);
+    }
+  });
+  // Kick off first sentence highlight immediately
+  if (sentences.length) {
+    lastSentIdx = 0;
+    _ttsHighlightChunk(sentences[0]);
   }
   // Update time detail once duration is known
   audio.addEventListener('loadedmetadata', function() {
-    islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() });
+    islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail(), action: _ttsIslandAction });
   });
   audio.onended = function() {
     if (audio.duration && isFinite(audio.duration)) _ttsPlayedDurations.push(audio.duration);
@@ -411,7 +453,7 @@ async function _ttsFetchAndQueue() {
   while (_ttsChunkIdx < _ttsChunks.length && !_ttsStopped) {
     var idx = _ttsChunkIdx++;
     var total = _ttsChunks.length;
-    if (!_ttsAudio && !_ttsPaused) islandUpdate('tts', { type: 'tts', label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
+    if (!_ttsAudio && !_ttsPaused) islandUpdate('tts', { type: 'tts', label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio', action: _ttsIslandAction });
     try {
       var blob = await _ttsFetchChunk(_ttsChunks[idx]);
       if (_ttsStopped) return;
@@ -4607,8 +4649,6 @@ function _showPanel(config) {
     if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
-  // Stop any ongoing TTS when panel is recreated
-  _ttsStopAll();
   // Remove any open note editor or help panel
   const existingEditor = document.getElementById('aether-note-editor');
   if (existingEditor) existingEditor.remove();
@@ -4619,7 +4659,7 @@ function _showPanel(config) {
   popup.id = 'doc-chat-ask-float';
   popup.className = 'doc-selection-popup';
   const _origRemove = popup.remove.bind(popup);
-  popup.remove = function() { _ttsStopAll(); _origRemove(); };
+  popup.remove = function() { _origRemove(); };
 
   // Determine anchor mode
   const isSelectionAnchor = !!anchor.selectionRect;

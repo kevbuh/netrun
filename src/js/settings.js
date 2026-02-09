@@ -203,12 +203,12 @@ function _renderAppearanceSettings() {
       </div>
       <div class="flex items-center justify-between mt-4">
         <div>
-          <span class="text-primary text-sm">TTS Text Cleanup</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Rejoin hyphenated words for smoother speech. Turn off if highlights don't appear.</p>
+          <span class="text-primary text-sm">Read Aloud Highlight</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Highlight text in the page as it's being read aloud</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">
-            <input type="checkbox" ${localStorage.getItem('ttsPreprocess') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('ttsPreprocess', this.checked)">
+            <input type="checkbox" ${localStorage.getItem('ttsHighlight') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('ttsHighlight', this.checked)">
             <span class="slider"></span>
           </span>
         </label>
