@@ -629,14 +629,16 @@ function _renderNtpFileChips() {
   if (!container) return;
   if (!_ntpUploadedFiles.length) { container.innerHTML = ''; return; }
   container.innerHTML = _ntpUploadedFiles.map((f, i) => {
-    const ext = f.name.substring(f.name.lastIndexOf('.') + 1).toLowerCase();
-    const icon = ext === 'pdf'
-      ? '<svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>'
-      : '<svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>';
-    return `<button class="ntp-file-chip" onclick="openNtpFile(${i})" title="${escapeHtml(f.name)}">
-      ${icon}
-      <span class="ntp-file-chip-name">${escapeHtml(f.name)}</span>
-      <span class="ntp-file-chip-remove" onclick="event.stopPropagation(); removeNtpFile(${i})">&times;</span>
+    const dotIdx = f.name.lastIndexOf('.');
+    const ext = dotIdx >= 0 ? f.name.substring(dotIdx + 1).toUpperCase() : 'FILE';
+    const baseName = dotIdx >= 0 ? f.name.substring(0, dotIdx) : f.name;
+    return `<button class="ntp-file-card" onclick="openNtpFile(${i})" title="${escapeHtml(f.name)}">
+      <svg class="ntp-file-card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+      <div class="ntp-file-card-info">
+        <span class="ntp-file-card-name">${escapeHtml(baseName)}</span>
+        <span class="ntp-file-card-type">${escapeHtml(ext)}</span>
+      </div>
+      <span class="ntp-file-card-remove" onclick="event.stopPropagation(); removeNtpFile(${i})">&times;</span>
     </button>`;
   }).join('');
 }
@@ -648,17 +650,10 @@ function removeNtpFile(idx) {
   _renderNtpFileChips();
 }
 
-async function openNtpFile(idx) {
+function openNtpFile(idx) {
   const f = _ntpUploadedFiles[idx];
   if (!f) return;
-  if (window.electronAPI && window.electronAPI.saveAndOpenTemp) {
-    try {
-      const buf = await f.file.arrayBuffer();
-      await window.electronAPI.saveAndOpenTemp(f.name, buf);
-    } catch (e) { /* fallback: open blob */ window.open(f.blobUrl, '_blank'); }
-  } else {
-    window.open(f.blobUrl, '_blank');
-  }
+  openLocalPdf(f.file);
 }
 
 function openBrowseWithPaper(url, paper) {
@@ -2047,7 +2042,6 @@ function _browseUpdateNewTabPage(tab) {
                 </div>
               </div>
             </form>
-            <div id="ntp-file-chips" class="ntp-file-chips-container"></div>
             <div id="research-panel-search" class="research-panel" style="display:none;">
               <div id="search-hints" style="display:none"></div>
             </div>
@@ -3252,7 +3246,7 @@ function _browseRenderTabs() {
         let domain = '';
         try { domain = new URL(t.url || '').hostname.replace(/^www\./, ''); } catch {}
         const audioLabel = hasAudio ? `<span class="vtabs-mini-tip-audio">${isMuted ? 'Audio muted' : 'Playing audio'}</span>` : '';
-        const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}${audioLabel}</span>`;
+        const tip = `<span class="vtabs-mini-tip"><span class="vtabs-mini-tip-text"><span class="vtabs-mini-tip-title">${escapeHtml(t.title || 'New Tab')}</span>${domain ? '<span class="vtabs-mini-tip-url">' + escapeHtml(domain) + '</span>' : ''}${audioLabel}</span><span class="vtabs-mini-tip-close" onclick="event.stopPropagation();browseCloseTab(${t.id})">&times;</span></span>`;
         const musicBars = `<span class="vtabs-mini-music" onclick="event.stopPropagation();toggleTabMute(${t.id})"><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span><span class="vtabs-mini-music-bar"></span></span>`;
         const fav = hasAudio
           ? musicBars
