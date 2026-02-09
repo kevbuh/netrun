@@ -737,10 +737,6 @@
       overflow: hidden;
       padding: 0;
       margin-right: 0;
-      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  opacity 0.25s ease,
-                  padding 0.3s ease,
-                  margin 0.3s ease;
     }
     .browse-mode #pill-menu-btn {
       max-width: 28px;
@@ -771,8 +767,6 @@
       opacity: 0;
       overflow: hidden;
       padding: 0;
-      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  opacity 0.25s ease;
       flex-shrink: 0;
     }
     .browse-mode.island-mode #pill-browse-hamburger {
@@ -806,9 +800,21 @@
       display: none !important;
     }
     .browse-mode.ntp-active #pill-nav-icons {
+      position: static;
+      flex-direction: row;
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
       max-width: 800px;
+      max-height: none;
       opacity: 1;
+      overflow: visible;
       pointer-events: auto;
+      padding: 0;
+      color: inherit;
+    }
+    .browse-mode.ntp-active #pill-nav-icons .sidebar-icon {
+      color: var(--aether-text-dim);
     }
     .pill-bar.browse-mode.ntp-active .pill-island-container {
       position: absolute;
