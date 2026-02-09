@@ -3922,6 +3922,7 @@ let _overviewKeyHandler = null;
 let _overviewBrowseWinIdx = 0;      // selected window in expanded tab view
 let _overviewBrowseTabIdx = -1;     // -1 = window card level, >=0 = tab within window
 let _overviewTabsExpanded = false;   // true when showing tab list inside a window card
+let _overviewWasBrowseMode = false;  // pill bar was in browse-mode before overview opened
 let _overviewCaptureTimer = null;
 let _overviewCapturing = false;
 let _browseWindowPreviews = {};     // { windowId: 'data:image/png;base64,...' }
@@ -4110,6 +4111,14 @@ function showBrowseTabOverview() {
   _wmCapturePreview();
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
+  // Exit browse-mode on the pill bar so app nav icons are visible
+  var pill = document.getElementById('sidebar-nav');
+  if (pill && pill.classList.contains('browse-mode')) {
+    pill.classList.remove('browse-mode');
+    _overviewWasBrowseMode = true;
+  } else {
+    _overviewWasBrowseMode = false;
+  }
   _browseTabOverviewVisible = true;
   _overviewTabsExpanded = false;
   _overviewBrowseTabIdx = -1;
@@ -4136,6 +4145,17 @@ function hideBrowseTabOverview() {
   _overviewTabsExpanded = false;
   if (_overviewCaptureTimer) { clearTimeout(_overviewCaptureTimer); _overviewCaptureTimer = null; }
   _removeOverviewKeyHandler();
+  // Restore browse pill bar state if we were in browse-mode
+  if (_overviewWasBrowseMode) {
+    _overviewWasBrowseMode = false;
+    // Defer so any pending view switch (wmOpen to non-browse) can settle first
+    requestAnimationFrame(function() {
+      var browseView = document.getElementById('browse-view');
+      if (browseView && browseView.style.display === 'flex') {
+        _applyBrowseTabLayout();
+      }
+    });
+  }
   overlay.classList.remove('visible');
   overlay.style.opacity = '';
   setTimeout(() => { if (!_browseTabOverviewVisible) overlay.style.display = 'none'; }, 180);
