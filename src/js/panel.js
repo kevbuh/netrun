@@ -82,6 +82,23 @@ function _ttsStopWaveform() {
   // Don't close AudioContext — reuse it (creating new ones is expensive)
 }
 
+function _ttsUpdateBtnIcon() {
+  var btn = document.getElementById('pill-readaloud-btn');
+  if (!btn) return;
+  var speaker = btn.querySelector('.tts-icon-speaker');
+  var pause = btn.querySelector('.tts-icon-pause');
+  var play = btn.querySelector('.tts-icon-play');
+  var stopBtn = document.getElementById('pill-readaloud-stop');
+  var isActive = _ttsAudio || _ttsPaused || _ttsChunks.length > 0;
+  if (speaker) speaker.style.display = isActive ? 'none' : '';
+  if (pause) pause.style.display = (isActive && !_ttsPaused) ? '' : 'none';
+  if (play) play.style.display = (isActive && _ttsPaused) ? '' : 'none';
+  if (stopBtn) {
+    if (isActive) stopBtn.classList.add('tts-has-audio');
+    else stopBtn.classList.remove('tts-has-audio');
+  }
+}
+
 function _ttsStopAll() {
   _ttsStopped = true;
   _ttsPaused = false;
@@ -95,27 +112,33 @@ function _ttsStopAll() {
   _ttsRemainingDurations = [];
   islandRemove('tts');
   var btn = document.getElementById('pill-readaloud-btn');
-  if (btn) btn.classList.remove('pill-readaloud-active');
+  if (btn) { btn.classList.remove('pill-readaloud-active'); btn.classList.remove('pill-readaloud-paused'); }
+  _ttsUpdateBtnIcon();
   document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
 }
 
 function _ttsPauseResume() {
-  if (!_ttsAudio) return;
+  if (!_ttsAudio && !_ttsPaused) return;
   if (_ttsPaused) {
     _ttsPaused = false;
-    _ttsAudio.play();
-    _ttsStartWaveform(_ttsAudio);
+    if (_ttsAudio) {
+      _ttsAudio.play();
+      _ttsStartWaveform(_ttsAudio);
+    } else if (_ttsQueue.length > 0) {
+      _ttsPlayNext();
+    }
     islandUpdate('tts', { type: 'tts', label: 'Reading', detail: _ttsTimeDetail() });
     var btn = document.getElementById('pill-readaloud-btn');
-    if (btn) btn.classList.add('pill-readaloud-active');
+    if (btn) { btn.classList.add('pill-readaloud-active'); btn.classList.remove('pill-readaloud-paused'); }
   } else {
     _ttsPaused = true;
-    _ttsAudio.pause();
+    if (_ttsAudio) { _ttsAudio.pause(); }
     _ttsStopWaveform();
     islandUpdate('tts', { type: 'tts', label: 'Paused', detail: _ttsTimeDetail(), paused: true });
     var btn2 = document.getElementById('pill-readaloud-btn');
-    if (btn2) btn2.classList.remove('pill-readaloud-active');
+    if (btn2) { btn2.classList.remove('pill-readaloud-active'); btn2.classList.add('pill-readaloud-paused'); }
   }
+  _ttsUpdateBtnIcon();
 }
 
 function _ttsFormatTime(secs) {
@@ -127,18 +150,29 @@ function _ttsFormatTime(secs) {
 }
 
 function _ttsTimeDetail() {
-  if (!_ttsAudio) return '';
+  if (!_ttsAudio && !_ttsPaused) return '';
+  var audio = _ttsAudio;
   var currentRemaining = 0;
-  if (_ttsAudio.duration && isFinite(_ttsAudio.duration)) {
-    currentRemaining = _ttsAudio.duration - _ttsAudio.currentTime;
+  if (audio && audio.duration && isFinite(audio.duration)) {
+    currentRemaining = audio.duration - audio.currentTime;
   }
   var queuedRemaining = 0;
   for (var i = 0; i < _ttsRemainingDurations.length; i++) queuedRemaining += _ttsRemainingDurations[i];
-  // Estimate remaining unfetched chunks (~60 chars/sec speaking rate)
+  // Estimate unfetched chunks using avg duration of played chunks, or ~14 chars/sec fallback
+  var avgSecsPerChar = 1 / 14;
+  if (_ttsPlayedDurations.length > 0) {
+    var totalPlayed = 0;
+    var totalChars = 0;
+    for (var k = 0; k < _ttsPlayedDurations.length; k++) {
+      totalPlayed += _ttsPlayedDurations[k];
+      if (_ttsChunks[k]) totalChars += _ttsChunks[k].length;
+    }
+    if (totalChars > 0) avgSecsPerChar = totalPlayed / totalChars;
+  }
   var unfetched = 0;
-  for (var j = _ttsChunkIdx; j < _ttsChunks.length; j++) unfetched += _ttsChunks[j].length / 60;
+  for (var j = _ttsChunkIdx; j < _ttsChunks.length; j++) unfetched += _ttsChunks[j].length * avgSecsPerChar;
   var total = currentRemaining + queuedRemaining + unfetched;
-  return _ttsFormatTime(total) + ' remaining';
+  return _ttsFormatTime(total) + ' left';
 }
 
 function _ttsChunkText(text) {
@@ -198,6 +232,7 @@ function _ttsPlayNext() {
   if (_ttsRemainingDurations.length > 0) _ttsRemainingDurations.shift();
   var audio = new Audio(url);
   _ttsAudio = audio;
+  _ttsUpdateBtnIcon();
   var total = _ttsChunks.length;
   var playing = total - _ttsQueue.length - (_ttsChunkIdx < total ? (total - _ttsChunkIdx) : 0);
   islandUpdate('tts', { type: 'tts', label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() || 'Reading page aloud' });
@@ -219,7 +254,8 @@ function _ttsPlayNext() {
       _ttsRemainingDurations = [];
       islandRemove('tts');
       var btn = document.getElementById('pill-readaloud-btn');
-      if (btn) btn.classList.remove('pill-readaloud-active');
+      if (btn) { btn.classList.remove('pill-readaloud-active'); btn.classList.remove('pill-readaloud-paused'); }
+      _ttsUpdateBtnIcon();
     }
     // else: still fetching, will play when ready
   };

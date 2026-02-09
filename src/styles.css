@@ -804,8 +804,7 @@
     .browse-mode.ntp-active #pill-browse-url-input,
     .browse-mode.ntp-active #pill-browse-reload,
     .browse-mode.ntp-active #pill-browse-tabs,
-    .browse-mode.ntp-active #pill-mic-btn,
-    .browse-mode.ntp-active #pill-readaloud-btn,
+    .browse-mode.ntp-active #pill-readaloud-wrap,
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active #pill-newwin-btn {
@@ -1830,44 +1829,47 @@
       color: var(--aether-placeholder);
     }
     #pill-mic-btn {
-      max-width: 0;
-      opacity: 0;
-      overflow: hidden;
-      padding: 0;
+      flex-shrink: 0;
+    }
+    #pill-readaloud-wrap {
+      display: none;
+      align-items: center;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
-      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  opacity 0.25s ease,
-                  padding 0.3s ease;
+      position: relative;
     }
-    .browse-mode #pill-mic-btn {
-      max-width: 28px;
-      opacity: 1;
-      padding: 0;
+    .browse-mode #pill-readaloud-wrap {
+      display: flex;
       margin-left: auto;
     }
     #pill-readaloud-btn {
-      max-width: 0;
-      opacity: 0;
-      overflow: hidden;
-      padding: 0;
       flex-shrink: 0;
-      -webkit-app-region: no-drag;
-      transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  opacity 0.25s ease,
-                  padding 0.3s ease;
-    }
-    .browse-mode #pill-readaloud-btn {
-      max-width: 28px;
-      opacity: 1;
-      padding: 0;
     }
     #pill-readaloud-btn.pill-readaloud-active {
       color: var(--accent);
       animation: pill-mic-pulse 1.2s ease-in-out infinite;
     }
+    #pill-readaloud-btn.pill-readaloud-paused {
+      color: var(--accent);
+    }
+    #pill-readaloud-stop {
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      transition: max-width 0.2s ease, opacity 0.2s ease;
+      color: var(--aether-text-muted);
+    }
+    #pill-readaloud-wrap:hover #pill-readaloud-stop.tts-has-audio {
+      max-width: 28px;
+      opacity: 1;
+    }
+    #pill-readaloud-stop:hover {
+      color: #ef4444;
+    }
     #pill-mic-btn:hover,
-    #pill-readaloud-btn:hover {
+    #pill-readaloud-btn:hover,
+    #pill-readaloud-stop:hover {
       transform: none;
     }
     #pill-mic-btn.pill-mic-active {

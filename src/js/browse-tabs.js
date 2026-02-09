@@ -6165,8 +6165,10 @@ async function _readPageAloud() {
   }
   // Chunk text and queue for playback
   _ttsStopped = false;
+  _ttsPaused = false;
   _ttsChunks = _ttsChunkText(text);
   _ttsChunkIdx = 0;
+  _ttsUpdateBtnIcon();
   _ttsQueue = [];
   _ttsFetchAndQueue();
 }
