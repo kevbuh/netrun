@@ -111,9 +111,13 @@ Two-phase pipeline via local Ollama (`qwen2.5:1.5b`), accessible at Settings > F
 
 `#pill-island` in the pill bar shows live activity status. Morphs from 0→180px (spring easing), expands to 300px on hover with crossfade. Activities auto-dismiss after 2.5s when `done: true`.
 
-Priority order: `download` (progress ring) > `qf` (filtering/scoring count) > `feed` (loading indicator).
+Priority order: `achievement` > `download` (progress ring) > `tts`/`ai`/`cc` > `annotate` > `bookmark`/`rss`/`audio`/`qf` > `feed` > `context`.
 
-API: `islandUpdate(id, data)`, `islandRemove(id)`, `_islandRender()`. Wired from `quality.js`, `browse-tabs.js`, `feed.js`.
+Pill types: `download` (progress ring), `tts` (waveform), `audio` (animated bars), `ai` (pulsing dot), `achievement` (trophy), `rss` (subscribe), `tabs` (browse tabs), `annotate` (pen), `bookmark` (filled bookmark icon, accent color, auto-dismiss), `context` (generic).
+
+**Bookmark pill:** Fires on save via `toggleSavePost()` (feed.js) and `browseSaveToReadingList()` (browse-tabs.js). Shows "Saved" with truncated title on hover. Flying bookmark icon animates to pill island. Auto-dismisses after 2.5s.
+
+API: `islandUpdate(id, data)`, `islandRemove(id)`, `_islandRender()`. Wired from `quality.js`, `browse-tabs.js`, `feed.js`, `panel.js`, `vault.js`, `neuralook.js`, `dashboard.js`, `search.js`, `paper-sidebar.js`.
 
 ### Aether Panel
 
@@ -130,7 +134,7 @@ Key functions: `_showAetherPanel()`, `_sendPopupChatMessage()`, `_doAetherWebSea
 
 ### Post Actions
 
-- **Bookmark** → `localStorage.savedPosts`
+- **Bookmark** → `localStorage.savedPosts` + Dynamic Island pill + flying icon animation
 - **Hide (✕)** → `localStorage.hiddenPosts` + `qualityTestTitles`
 - **Click** → `localStorage.readPosts` (50% opacity + muted title)
 

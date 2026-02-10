@@ -148,9 +148,9 @@ function _islandRenderPill(a) {
     var _annModeColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    return annIcon + '<span style="color:var(--aether-text)">' + _escHtml(a.label || '') + '</span><span class="island-dismiss" data-island-dismiss="annotate" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer;color:var(--aether-text)">&times;</span>';
+    return annIcon + '<span style="color:var(--aether-text)">' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg><span style="color:var(--accent)">' + _escHtml(a.label || 'Saved') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.label || '') + '</span>';
   }
@@ -205,9 +205,9 @@ function _islandRenderPillExpanded(a) {
     var _annModeColors2 = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor2 = _annModeColors2[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor2 + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    return annIcon + '<span>' + _escHtml(a.detail || a.label || '') + '</span><span class="island-dismiss" data-island-dismiss="annotate" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+    return annIcon + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg><span style="color:var(--accent)">' + _escHtml(a.detail || a.label || 'Saved') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
   }
@@ -491,6 +491,16 @@ function _islandRender() {
         delete _islandDismissTimers[id];
         _islandRender();
       }, a.type === 'achievement' ? 5000 : 2500);
+    }
+
+    // Annotate: compact to icon-only after 15s (results and offers)
+    if (a.type === 'annotate' && !a.loading && !a.done) {
+      if (!pill._annCompactTimer) {
+        pill._annCompactTimer = setTimeout(function() { pill.classList.add('island-compact'); }, 15000);
+      }
+    } else if (a.type === 'annotate' && (a.loading || a.done)) {
+      if (pill._annCompactTimer) { clearTimeout(pill._annCompactTimer); pill._annCompactTimer = null; }
+      pill.classList.remove('island-compact');
     }
   });
 

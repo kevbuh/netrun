@@ -179,7 +179,7 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "navigate",
-            "description": "Navigate the app to a specific view.",
+            "description": "Navigate the app to a specific view. This ONLY changes which page is shown — it does NOT create, modify, or delete anything. To add a calendar event, use create_calendar_event instead.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -208,12 +208,13 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "create_calendar_event",
-            "description": "Add an event to the user's calendar. Use when the user asks to schedule, remind, or add something to their calendar.",
+            "description": "Add an event to the user's calendar. You MUST call this tool — do not just describe the event. Use when the user asks to schedule, remind, or add something to their calendar. Use the current date/time from the system prompt to compute relative times like 'in 5 minutes' or 'tomorrow'.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "Event title"},
-                    "date": {"type": "string", "description": "Event date in YYYY-MM-DD format"},
+                    "date": {"type": "string", "description": "Event date in YYYY-MM-DD format. Compute from current date in system prompt."},
+                    "time": {"type": "string", "description": "Event time in HH:MM format (24h). Compute from current time in system prompt for relative requests like 'in 5 minutes'."},
                     "description": {"type": "string", "description": "Optional event description"}
                 },
                 "required": ["title", "date"]
@@ -371,17 +372,21 @@ def tool_create_experiment(title, desc='', google_id=None):
     return {"id": slug, "title": title, "message": f"Project '{title}' created"}
 
 
-def tool_create_calendar_event(title, date, description='', google_id=None, stream_callback=None):
+def tool_create_calendar_event(title, date, time='', description='', google_id=None, stream_callback=None):
     """Add an event to the user's calendar."""
     if not title or not date:
         return {"error": "Title and date are required"}
     if not google_id:
         return {"error": "Not authenticated"}
     from persistence import create_calendar_event
-    event = create_calendar_event(google_id, {"title": title, "date": date, "description": description})
+    event_desc = description
+    if time:
+        event_desc = f"Time: {time}" + (f"\n{description}" if description else "")
+    event = create_calendar_event(google_id, {"title": title, "date": date, "description": event_desc})
     if stream_callback:
         stream_callback('action', {"type": "navigate", "view": "calendar"})
-    return {"status": "ok", "event": event, "message": f"Event '{title}' added to calendar on {date}"}
+    time_str = f" at {time}" if time else ""
+    return {"status": "ok", "event": event, "message": f"Event '{title}' added to calendar on {date}{time_str}"}
 
 
 def execute_chat_tool(name, args, stream_callback=None, google_id=None):
@@ -410,7 +415,7 @@ def execute_chat_tool(name, args, stream_callback=None, google_id=None):
         elif name == 'create_experiment':
             return tool_create_experiment(args.get('title', ''), args.get('description', ''), google_id=google_id)
         elif name == 'create_calendar_event':
-            return tool_create_calendar_event(args.get('title', ''), args.get('date', ''), args.get('description', ''), google_id=google_id, stream_callback=stream_callback)
+            return tool_create_calendar_event(args.get('title', ''), args.get('date', ''), args.get('time', ''), args.get('description', ''), google_id=google_id, stream_callback=stream_callback)
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:

@@ -918,7 +918,7 @@ function _sendPopupChatMessage(popup, capturedText) {
       _chatStreamStart = Date.now();
       const resp = await fetch('/api/doc-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
         body: JSON.stringify(body),
         signal: _popupChatAbort.signal
       });

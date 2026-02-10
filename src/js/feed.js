@@ -405,7 +405,8 @@ function toggleSavePost(paper, event) {
     _embedPost(paper.link);
     if (event) _showBookmarkFly(event);
     var _bmTitle = (paper.title || '').length > 40 ? paper.title.slice(0, 38) + '\u2026' : (paper.title || 'Saved');
-    islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle, done: true });
+    islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle });
+    setTimeout(function() { islandRemove('bookmark'); }, 2500);
     if (!localStorage.getItem('ach_bookworm')) {
       localStorage.setItem('ach_bookworm', '1');
       if (typeof showAchievement === 'function') showAchievement('Bookworm', 'Saved your first post');

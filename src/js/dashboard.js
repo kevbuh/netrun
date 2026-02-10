@@ -295,14 +295,16 @@ async function renderDashboard() {
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
 
   const _uname = _authUserInfo?.username;
-  const [expResp, calResp, tasksResp, teamsResp, profileResp, commentsResp, repostsResp] = await Promise.all([
+  const [expResp, calResp, tasksResp, teamsResp, profileResp, commentsResp, repostsResp, inboxInvites, inboxMessages] = await Promise.all([
     fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     fetch('/api/my-tasks', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     fetch('/api/teams', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
     _uname ? fetch('/api/users/' + encodeURIComponent(_uname), { headers: _authHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
     _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/comments', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([]),
-    _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/reposts', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([])
+    _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/reposts', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([]),
+    fetch('/api/inbox', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
+    fetch('/api/messages', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []),
   ]);
 
   const experiments = expResp || [];
@@ -403,7 +405,8 @@ async function renderDashboard() {
   let overviewHtml = '';
   // Summary chips
   const _chips = [];
-  const _todayEvtCount = events.filter(ev => ev.date === _todayKey).length;
+  const _todayEvents = events.filter(ev => ev.date === _todayKey);
+  const _todayEvtCount = _todayEvents.length;
   if (_todayEvtCount) _chips.push(`${_todayEvtCount} event${_todayEvtCount > 1 ? 's' : ''}`);
   if (_openTaskCount) _chips.push(`${_openTaskCount} open task${_openTaskCount > 1 ? 's' : ''}`);
   if (_unreadSavedCount) _chips.push(`${_unreadSavedCount} unread`);
@@ -414,21 +417,44 @@ async function renderDashboard() {
   const _todaySearchCount = _todayActivity.filter(a => a.type === 'search' || a.type === 'web-search').length;
   if (_todaySearchCount) _chips.push(`${_todaySearchCount} search${_todaySearchCount > 1 ? 'es' : ''}`);
 
+  // Today's events banner
+  const _eventsHtml = _todayEvents.length ? `
+    <div class="rounded-lg p-3 mb-3" style="background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.2)">
+      <div class="flex items-center gap-2 mb-2">
+        <svg class="w-4 h-4 shrink-0" style="color:#60a5fa" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="text-[0.78rem] font-semibold" style="color:#60a5fa">Today's Events</span>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        ${_todayEvents.map(ev => {
+          const evColor = ev.color || '#60a5fa';
+          return `<div class="flex items-center gap-2.5 cursor-pointer rounded-md px-2 py-1.5 hover:bg-hover transition-colors" onclick="window.location.hash='calendar'">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:${evColor}"></span>
+            <span class="text-[0.85rem] text-primary font-medium">${escapeHtml(ev.title || 'Calendar event')}</span>
+            ${ev.description ? `<span class="text-[0.72rem] text-dimmer truncate">${escapeHtml(ev.description)}</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
   // Build LLM prompt data (used after render)
   const _llmActivityData = _todayActivity.slice(0, 20).map(a => `${_fmtTime(a.time)} ${_ovLabels[a.type] || a.type}: ${a.title}`);
 
-  if (_todayActivity.length) {
+  // Filter events out of timeline (they have their own banner)
+  const _timelineItems = _todayActivity.filter(a => a.type !== 'event');
+
+  if (_timelineItems.length || _todayEvents.length) {
     const maxItems = 8;
-    const shown = _todayActivity.slice(0, maxItems);
-    const remaining = _todayActivity.length - maxItems;
+    const shown = _timelineItems.slice(0, maxItems);
+    const remaining = _timelineItems.length - maxItems;
     overviewHtml = `
       <div class="flex items-center justify-between mb-3">
         <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
         <span class="text-[0.7rem] text-dimmer">${_todayActivity.length} interaction${_todayActivity.length > 1 ? 's' : ''} today</span>
       </div>
       <div id="dash-day-summary" class="text-[0.8rem] text-dim leading-relaxed mb-3" style="min-height:1.2em"><span class="text-dimmest text-[0.75rem]">Summarizing your day...</span></div>
+      ${_eventsHtml}
       ${_chips.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${_chips.map(c => `<span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-accent/10 text-accent">${c}</span>`).join('')}</div>` : ''}
-      <div class="flex flex-col gap-1">
+      ${shown.length ? `<div class="flex flex-col gap-1">
         ${shown.map(a => {
           const onclick = a.link ? ` onclick="window.location.hash='view/'+encodeURIComponent('${escapeAttr(a.link)}')" style="cursor:pointer"` : '';
           return `<div class="flex items-center gap-2.5 px-1.5 py-1 rounded-md hover:bg-hover transition-colors"${onclick}>
@@ -439,7 +465,7 @@ async function renderDashboard() {
           </div>`;
         }).join('')}
         ${remaining > 0 ? `<div class="text-[0.72rem] text-dimmest px-1.5 mt-1">+ ${remaining} more</div>` : ''}
-      </div>`;
+      </div>` : ''}`;
   } else if (_openTaskCount || _unreadSavedCount) {
     overviewHtml = `
       <div class="flex items-center justify-between mb-2">
@@ -453,6 +479,45 @@ async function renderDashboard() {
         <span class="text-[0.82rem] text-primary font-medium">${_todayDateStr}</span>
         <span class="text-[0.78rem] text-dimmest ml-1">— A clear day to explore.</span>
       </div>`;
+  }
+
+  // ── Inbox card ──
+  const _inboxFeedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
+  const _inboxInvites = inboxInvites || [];
+  const _inboxMsgs = inboxMessages || [];
+  const _inboxTotal = _inboxFeedNotifs.length + _inboxInvites.length + _inboxMsgs.length;
+  let inboxHtml = '';
+  if (_inboxTotal > 0) {
+    let items = '';
+    _inboxFeedNotifs.slice().sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0)).slice(0, 5).forEach(n => {
+      const chip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : '';
+      items += `<div class="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors cursor-pointer" onclick="clearFeedNotification('${escapeAttr(n.link)}'); _browseReturnView='dashboard'; openBrowse('${escapeAttr(n.link)}')">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>
+        ${chip}
+        <span class="text-[0.78rem] text-primary truncate flex-1">${escapeHtml(n.title)}</span>
+        <button onclick="event.stopPropagation(); dismissFeedNotification('${escapeAttr(n.link)}', this); renderDashboard()" class="text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-0.5 shrink-0" title="Dismiss">&times;</button>
+      </div>`;
+    });
+    _inboxInvites.slice(0, 3).forEach(inv => {
+      items += `<div class="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors">
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
+        <span class="text-[0.78rem] text-primary truncate flex-1"><a href="#profile/${encodeURIComponent(inv.from_username)}" class="text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(inv.from_username)}</a> invited you to <span class="text-accent font-medium">${escapeHtml(inv.team_name)}</span></span>
+        <button onclick="respondToInvite(${inv.id}, true); renderDashboard()" class="px-2 py-0.5 rounded text-[0.65rem] bg-accent text-white border-none cursor-pointer">Accept</button>
+        <button onclick="respondToInvite(${inv.id}, false); renderDashboard()" class="px-2 py-0.5 rounded text-[0.65rem] border border-border-input text-muted bg-card cursor-pointer">Decline</button>
+      </div>`;
+    });
+    _inboxMsgs.slice(0, 3).forEach(m => {
+      items += `<div class="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors cursor-pointer" onclick="window.location.hash='inbox'">
+        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0"></span>
+        <span class="text-[0.78rem] text-primary truncate flex-1"><span class="font-medium">${escapeHtml(m.from_username || 'Unknown')}</span>: ${escapeHtml((m.content || '').slice(0, 60))}</span>
+      </div>`;
+    });
+    inboxHtml = `
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-[0.82rem] font-semibold text-primary">Inbox</h3>
+        <span class="text-[0.68rem] text-dimmest">${_inboxTotal} new</span>
+      </div>
+      <div class="flex flex-col gap-0.5" style="max-height:200px;overflow-y:auto">${items}</div>`;
   }
 
   // ── Activity heatmap (full year, GitHub-style) ──
@@ -869,6 +934,11 @@ async function renderDashboard() {
         ${_dashBuildQuickActions()}
       </div>
 
+      ${inboxHtml ? `<!-- Inbox -->
+      <div class="bento-card bento-2x1">
+        ${inboxHtml}
+      </div>` : ''}
+
       <!-- Activity Heatmap (4x1) -->
       <div class="bento-card bento-4x1">
         <div class="flex items-center justify-between mb-2">
@@ -1031,7 +1101,7 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
     islandUpdate('ai-summary', { type: 'ai', label: model || 'default', detail: 'Day summary \u00B7 ' + (model || 'default') });
     const resp = await fetch('/api/doc-chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
       body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
         model: model

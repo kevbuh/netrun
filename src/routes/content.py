@@ -261,25 +261,28 @@ def doc_chat():
         model = client_model or ("qwen3:8b" if tools_enabled else "qwen2.5:3b")
         truncated_ctx = context[:12000] if context else ''
         # Build page context string for tools
+        from datetime import datetime
+        now = datetime.now()
+        date_str = f'CURRENT DATE AND TIME: {now.strftime("%A, %B %d, %Y, %I:%M %p")} (local time). Always use this date/time for any time-relative requests.\n\n'
         page_ctx = ''
         if tools_enabled:
-            from datetime import datetime
-            now = datetime.now()
-            page_ctx = f'\n\nToday is {now.strftime("%A, %Y-%m-%d")}. The current time is {now.strftime("%I:%M %p")}.'
             page_url = body.get('pageUrl', '')
             page_title = body.get('pageTitle', '')
             if page_url:
-                page_ctx += f' The user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
+                page_ctx = f'\n\nThe user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
         if truncated_ctx:
             system_msg = (
+                date_str +
                 "You are the AI assistant inside Aether, a desktop research app with a built-in "
                 "browser, feed reader, calendar, and experiment workspace. The user is reading a "
                 "document. Answer their questions based on the document text below when relevant. "
-                "You have tools that perform real actions in the app — always use them when "
-                "relevant instead of explaining how to do something manually. Never say you "
+                "You have tools that perform real actions in the app. IMPORTANT: You MUST actually "
+                "call the tools to perform actions — never pretend you performed an action or describe "
+                "the result without calling the tool first. Never say you "
                 "cannot open tabs or navigate — you can, using your tools." + page_ctx + "\n\n"
                 "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
             ) if tools_enabled else (
+                date_str +
                 "You are a helpful research assistant. The user is reading a document. "
                 "Answer their questions based ONLY on the document text below. "
                 "Do not make up information that is not in the document.\n\n"
@@ -287,14 +290,24 @@ def doc_chat():
             )
         else:
             system_msg = (
+                date_str +
                 "You are the AI assistant inside Aether, a desktop research app with a built-in "
                 "browser, feed reader, calendar, and experiment workspace. You have tools that "
-                "perform real actions in the app — always use them when relevant instead of "
-                "explaining how to do something manually. Never say you cannot open tabs or "
+                "perform real actions in the app. IMPORTANT: You MUST actually call the tools to "
+                "perform actions — never pretend you performed an action or describe the result "
+                "without calling the tool first. Never say you cannot open tabs or "
                 "navigate — you can, using your tools. Available tools: web_search, search_papers, "
                 "fetch_page, save_to_reading_list, navigate, create_experiment, "
                 "create_calendar_event, open_tab." + page_ctx
-            ) if tools_enabled else "You are a helpful assistant."
+            ) if tools_enabled else (date_str + "You are a helpful assistant.")
+        # Inject current date/time into the last user message so the model can't miss it
+        if messages:
+            messages = [dict(m) for m in messages]  # shallow copy
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].get('role') == 'user':
+                    time_note = f'[Current date/time: {now.strftime("%Y-%m-%d %H:%M")}]'
+                    messages[i]['content'] = time_note + '\n' + messages[i]['content']
+                    break
         ollama_messages = [{"role": "system", "content": system_msg}] + messages
 
     def generate():
