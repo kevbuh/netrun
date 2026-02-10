@@ -70,7 +70,97 @@ function _renderAccountSettings() {
         <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
       </div>
     </div>
+    <!-- INBOX -->
+    <div class="mb-8">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Inbox</h3>
+      <div id="settings-inbox-content"><div class="text-center py-4 text-dim"><div class="spinner"></div></div></div>
+    </div>
   `;
+}
+
+async function _renderSettingsInbox() {
+  const container = document.getElementById('settings-inbox-content');
+  if (!container) return;
+  try {
+    const [invResp, msgResp, tasksResp, chatsResp] = await Promise.all([
+      fetch('/api/inbox', { headers: _authHeaders() }),
+      fetch('/api/messages', { headers: _authHeaders() }),
+      fetch('/api/my-tasks', { headers: _authHeaders() }),
+      fetch('/api/inbox-chats', { headers: _authHeaders() }),
+    ]);
+    const invites = await invResp.json();
+    const messages = msgResp.ok ? await msgResp.json() : [];
+    const tasks = tasksResp.ok ? await tasksResp.json() : [];
+    const chats = chatsResp.ok ? await chatsResp.json() : [];
+    const feedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
+    const dismissedTasks = JSON.parse(localStorage.getItem('dismissedInboxTasks') || '[]');
+    const filteredTasks = tasks.filter(t => !dismissedTasks.includes(t.id));
+
+    if (!invites.length && !messages.length && !filteredTasks.length && !chats.length && !feedNotifs.length) {
+      container.innerHTML = '<div class="py-6 text-dim text-sm">No new notifications.</div>';
+      return;
+    }
+
+    let html = '';
+
+    // Feed notifications
+    if (feedNotifs.length) {
+      html += '<div class="flex items-center justify-between mb-2"><div class="text-[0.75rem] text-dim uppercase tracking-wide">New Posts</div><button onclick="clearAllFeedNotifications(); _renderSettingsInbox()" class="text-[0.68rem] text-dimmer hover:text-accent bg-transparent border-none cursor-pointer">Dismiss all</button></div>';
+      feedNotifs.slice().sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0)).slice(0, 20).forEach(n => {
+        const sourceChip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : '<span class="text-dim text-xs">' + escapeHtml(n.source) + '</span>';
+        html += '<div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 border-l-accent border-l-2 cursor-pointer hover:border-border-input transition-colors" onclick="clearFeedNotification(\'' + escapeAttr(n.link) + '\'); _browseReturnView=\'settings\'; openBrowse(\'' + escapeAttr(n.link) + '\')">';
+        html += '<span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>';
+        html += sourceChip;
+        html += '<span class="text-[0.82rem] text-primary truncate flex-1">' + escapeHtml(n.title) + '</span>';
+        if (n.date) html += '<span class="text-[0.68rem] text-dim shrink-0">' + escapeHtml(n.date) + '</span>';
+        html += '<button onclick="event.stopPropagation(); dismissFeedNotification(\'' + escapeAttr(n.link) + '\', this); _renderSettingsInbox()" class="text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-1 shrink-0" title="Dismiss">&times;</button>';
+        html += '</div>';
+      });
+      if (feedNotifs.length > 20) html += '<div class="text-dimmer text-[0.7rem] text-center py-1">+' + (feedNotifs.length - 20) + ' more</div>';
+      html += '<div class="mb-5"></div>';
+    }
+
+    // Team invites
+    if (invites.length) {
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Team Invites</div>';
+      invites.forEach(inv => {
+        html += '<div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2">';
+        html += '<div><div class="text-primary text-sm font-medium"><a href="#profile/' + encodeURIComponent(inv.from_username) + '" class="text-primary hover:text-accent" style="text-decoration:none">' + escapeHtml(inv.from_username) + '</a> invited you to <span class="text-accent font-semibold">' + escapeHtml(inv.team_name) + '</span></div>';
+        html += '<div class="text-dimmer text-xs mt-0.5">' + (inv.created || '') + '</div></div>';
+        html += '<div class="flex gap-2"><button onclick="respondToInvite(' + inv.id + ', true); _renderSettingsInbox()" class="px-3 py-1 rounded-md text-xs bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors">Accept</button>';
+        html += '<button onclick="respondToInvite(' + inv.id + ', false); _renderSettingsInbox()" class="px-3 py-1 rounded-md text-xs border border-border-input text-muted bg-card cursor-pointer hover:text-primary transition-colors">Decline</button></div></div>';
+      });
+      html += '<div class="mb-5"></div>';
+    }
+
+    // Messages
+    if (messages.length) {
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Messages</div>';
+      messages.slice(0, 10).forEach(m => {
+        html += '<div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 cursor-pointer hover:border-border-input transition-colors" onclick="window.location.hash=\'inbox\'">';
+        html += '<span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>';
+        html += '<span class="text-[0.82rem] text-primary truncate flex-1">' + escapeHtml(m.from_username || 'Unknown') + ': ' + escapeHtml((m.content || '').slice(0, 80)) + '</span>';
+        html += '</div>';
+      });
+      html += '<div class="mb-5"></div>';
+    }
+
+    // Assigned tasks
+    if (filteredTasks.length) {
+      html += '<div class="text-[0.75rem] text-dim uppercase tracking-wide mb-2">Assigned Tasks</div>';
+      filteredTasks.forEach(t => {
+        html += '<div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5">';
+        html += '<span class="text-[0.82rem] text-primary flex-1">' + escapeHtml(t.title || t.description || 'Task') + '</span>';
+        if (t.team_name) html += '<span class="text-[0.68rem] text-dim">' + escapeHtml(t.team_name) + '</span>';
+        html += '</div>';
+      });
+      html += '<div class="mb-5"></div>';
+    }
+
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="py-6 text-dim text-sm">Failed to load inbox.</div>';
+  }
 }
 
 function _renderAppearanceSettings() {
@@ -1062,7 +1152,9 @@ function renderSettingsView() {
   }).catch(() => {});
 
   // Section-specific post-render hooks
-  if (_settingsSection === 'appearance') {
+  if (_settingsSection === 'profile') {
+    _renderSettingsInbox();
+  } else if (_settingsSection === 'appearance') {
     updateSpinnerPreview(getSelectedSpinner());
   } else if (_settingsSection === 'feed') {
     if (_settingsFeedTab === 'quality') {

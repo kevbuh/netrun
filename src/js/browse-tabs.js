@@ -5075,10 +5075,12 @@ function browseSaveToReadingList() {
   _browseUpdateSaveBtn();
   if (wasAdding) {
     const btn = document.getElementById('browse-save-btn');
-    if (btn && typeof _showBookmarkToast === 'function') {
+    if (btn && typeof _showBookmarkFly === 'function') {
       const r = btn.getBoundingClientRect();
-      _showBookmarkToast({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
+      _showBookmarkFly({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
     }
+    var _bmTitle = (tab.title || '').length > 40 ? tab.title.slice(0, 38) + '\u2026' : (tab.title || 'Saved');
+    islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle, done: true });
   }
 }
 

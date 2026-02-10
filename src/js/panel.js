@@ -108,6 +108,15 @@ function _ttsExecInFrame(frame, script) {
 }
 
 function _ttsSplitSentences(text) {
+  // Normalize Unicode hyphens and rejoin line-break splits (e.g. "habili-tation" → "habilitation")
+  text = text.replace(/[\u00AD\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D]/g, '-');
+  text = text.replace(/(\w)-\s*\n\s*(\w)/g, function(_, a, b) { return a + b; });
+  var _hpSet = new Set(['self','semi','non','pre','post','multi','cross','high','low','long','short','well','co','re','anti','inter','intra','over','under','sub','super','meta','pseudo','quasi','ultra','micro','macro','mid','full','half','all','ever','ill','much','old','new','open','out','two','three','four','five','six','seven','eight','nine','ten','fine','large','small','hard','soft','real','near','far','deep','wide','fast','slow']);
+  text = text.replace(/([a-zA-Z]+)-([a-zA-Z]{2,})/g, function(match, before, after) {
+    if (_hpSet.has(before.toLowerCase())) return match;
+    if (/^[A-Z]/.test(after)) return match;
+    return before + after;
+  });
   // First split on newlines to preserve line structure
   var lines = text.split(/\n+/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
   var result = [];
@@ -381,12 +390,15 @@ function _ttsTimeDetail() {
 }
 
 function _ttsChunkText(text) {
+  // Normalize Unicode hyphens/dashes to ASCII hyphen before processing
+  text = text.replace(/[\u00AD\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D]/g, '-');
   // Rejoin line-break hyphens common in PDFs (e.g. "regular-\nities" → "regularities")
   text = text.replace(/(\w)-\s+(\w)/g, function(_, a, b) { return a + b; });
-  // Also handles collapsed newlines ("sec-ond") — rejoin unless it's a real compound word
+  // Rejoin inline hyphens from line-break splits (e.g. "habili-tation" → "habilitation")
   var _hyphenPrefixes = new Set(['self','semi','non','pre','post','multi','cross','high','low','long','short','well','co','re','anti','inter','intra','over','under','sub','super','meta','pseudo','quasi','ultra','micro','macro','mid','full','half','all','ever','ill','much','old','new','open','out','two','three','four','five','six','seven','eight','nine','ten','fine','large','small','hard','soft','real','near','far','deep','wide','fast','slow']);
-  text = text.replace(/([a-z]+)-([a-z]{2,})/g, function(match, before, after) {
-    if (_hyphenPrefixes.has(before)) return match;
+  text = text.replace(/([a-zA-Z]+)-([a-zA-Z]{2,})/g, function(match, before, after) {
+    if (_hyphenPrefixes.has(before.toLowerCase())) return match;
+    if (/^[A-Z]/.test(after)) return match;
     return before + after;
   });
   // Split on any newline(s) to preserve line structure from <br> etc.
@@ -582,7 +594,10 @@ async function _fetchWikipediaPreview(text, containerDiv) {
       a.addEventListener('mousedown', (ev) => ev.stopPropagation());
       a.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
-        window.open(a.getAttribute('href'), '_blank');
+        const href = a.getAttribute('href');
+        if (href && typeof _openInNewTab === 'function') _openInNewTab(href);
+        else window.open(href, '_blank');
+        document.getElementById('doc-chat-ask-float')?.remove();
       });
     });
     _repositionSelectionPopup();
@@ -647,7 +662,10 @@ function _renderAuthorPreviewHtml(data, containerDiv) {
     a.addEventListener('mousedown', (ev) => ev.stopPropagation());
     a.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
-      window.open(a.getAttribute('href'), '_blank');
+      const href = a.getAttribute('href');
+      if (href && typeof _openInNewTab === 'function') _openInNewTab(href);
+      else window.open(href, '_blank');
+      document.getElementById('doc-chat-ask-float')?.remove();
     });
   });
   containerDiv.querySelectorAll('[data-author-nav]').forEach(a => {
@@ -722,7 +740,8 @@ async function _fetchSemanticPreview(text, containerDiv) {
       a.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
         const link = a.getAttribute('href');
-        if (link && typeof openPaperByUrl === 'function') openPaperByUrl(link, ev);
+        if (link && typeof _openInNewTab === 'function') _openInNewTab(link);
+        else if (link && typeof openPaperByUrl === 'function') openPaperByUrl(link, ev);
         document.getElementById('doc-chat-ask-float')?.remove();
       });
     });
@@ -1086,46 +1105,7 @@ function _reopenAetherPanel() {
 }
 
 function _updateContextBar(popup) {
-  const fill = popup.querySelector('.aether-context-fill');
-  if (!fill) return;
-  // Estimate tokens: chars / 4, context window ~32k for most models
-  let chars = 0;
-  // Document context
-  if (_docText) chars += _docText.length;
-  // Note contexts
-  for (const n of _pendingNoteContexts) chars += (n.content || '').length;
-  // Tab contexts
-  for (const t of _pendingTabContexts) chars += (t.content || '').length;
-  // File contexts
-  for (const f of _pendingFileContexts) chars += (f.content || '').length;
-  // All messages
-  for (const m of _popupChatMessages) chars += (m.content || '').length;
-  // Screenshots count as ~1k tokens each
-  const imgTokens = _pendingScreenshots.length * 1000;
-  for (const m of _popupChatMessages) {
-    if (m.images) imgTokens + m.images.length * 1000;
-  }
-  const estTokens = Math.round(chars / 4) + imgTokens;
-  // Use actual token counts from usage data if available
-  let actualTokens = 0;
-  for (const m of _popupChatMessages) {
-    if (m._usage) {
-      actualTokens += (m._usage.prompt_tokens || 0) + (m._usage.completion_tokens || 0);
-    }
-  }
-  const tokens = actualTokens || estTokens;
-  const limit = 32000;
-  const pct = Math.min(100, (tokens / limit) * 100);
-  fill.style.width = pct + '%';
-  // Color: green → yellow → red
-  if (pct < 50) fill.style.background = 'var(--accent)';
-  else if (pct < 80) fill.style.background = '#c8a030';
-  else fill.style.background = '#c44';
-  const label = actualTokens
-    ? tokens.toLocaleString() + ' tokens used (' + Math.round(pct) + '% of ' + limit.toLocaleString() + ')'
-    : '~' + Math.round(tokens).toLocaleString() + ' / ' + limit.toLocaleString() + ' tokens (~' + Math.round(pct) + '%)';
-  fill.title = label;
-  fill.parentElement.title = label;
+  // Removed — context bar no longer shown
 }
 
 function _renderPopupChat(popup, final) {
@@ -1343,25 +1323,7 @@ function _fmtTokens(n) {
 }
 
 function _updateContextUsage(popup) {
-  const el = popup.querySelector('.aether-context-usage');
-  if (!el) return;
-  const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  const limit = _getModelContextSize(model);
-  // Sum prompt_tokens from all assistant messages with usage, or estimate
-  let used = 0;
-  const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && m._usage);
-  if (lastAi && lastAi._usage) {
-    used = (lastAi._usage.prompt_tokens || 0) + (lastAi._usage.completion_tokens || 0);
-  } else {
-    // Estimate from all message content
-    for (const m of _popupChatMessages) {
-      if (m.content) used += Math.round(m.content.length / 4);
-    }
-  }
-  const pct = limit > 0 ? Math.round((used / limit) * 100) : 0;
-  el.textContent = `${_fmtTokens(used)}/${_fmtTokens(limit)} (${pct}%)`;
-  // Color based on usage
-  el.style.color = pct > 80 ? '#e53e3e' : pct > 50 ? '#d69e2e' : '';
+  // Removed — context usage no longer shown
 }
 
 function _updateChatStats(popup, final) {
@@ -4146,14 +4108,10 @@ function _panelBuildTopBar(popup) {
   spacer.style.flex = '1';
   topBar.appendChild(spacer);
 
-  // Stats + context usage — inline in the top bar after model label
+  // Stats — inline in the top bar after model label
   const statsSpan = document.createElement('span');
   statsSpan.className = 'doc-chat-stats';
   topBar.insertBefore(statsSpan, spacer.nextSibling);
-  const ctxSpan = document.createElement('span');
-  ctxSpan.className = 'aether-context-usage';
-  ctxSpan.textContent = '';
-  topBar.insertBefore(ctxSpan, statsSpan.nextSibling);
 
   // Clear button
   const clearBtn = document.createElement('button');
@@ -4836,14 +4794,6 @@ function _showPanel(config) {
     _aetherBackgroundStreaming = false; islandRemove('aether');
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
   }
-
-  // ── Context usage progress bar (very top) ──
-  const ctxBar = document.createElement('div');
-  ctxBar.className = 'aether-context-bar';
-  const ctxFill = document.createElement('div');
-  ctxFill.className = 'aether-context-fill';
-  ctxBar.appendChild(ctxFill);
-  popup.appendChild(ctxBar);
 
   // ── Build panel sections via helpers ──
   _panelBuildContextItems(popup, config);

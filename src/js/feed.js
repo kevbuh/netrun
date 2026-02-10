@@ -403,7 +403,9 @@ function toggleSavePost(paper, event) {
   renderPapers();
   if (wasAdding) {
     _embedPost(paper.link);
-    if (event) _showBookmarkToast(event);
+    if (event) _showBookmarkFly(event);
+    var _bmTitle = (paper.title || '').length > 40 ? paper.title.slice(0, 38) + '\u2026' : (paper.title || 'Saved');
+    islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle, done: true });
     if (!localStorage.getItem('ach_bookworm')) {
       localStorage.setItem('ach_bookworm', '1');
       if (typeof showAchievement === 'function') showAchievement('Bookworm', 'Saved your first post');
@@ -411,9 +413,9 @@ function toggleSavePost(paper, event) {
   }
 }
 
-function _showBookmarkToast(event) {
-  // Flying bookmark icon from click position to dashboard sidebar icon
-  const target = document.getElementById('sb-dashboard');
+function _showBookmarkFly(event) {
+  // Flying bookmark icon from click position to pill island
+  const target = document.getElementById('pill-island') || document.getElementById('sb-dashboard');
   if (target) {
     const icon = document.createElement('div');
     icon.innerHTML = '<svg style="width:24px;height:24px" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
@@ -433,23 +435,6 @@ function _showBookmarkToast(event) {
     });
     setTimeout(() => icon.remove(), 550);
   }
-  // Toast pill
-  let toast = document.getElementById('bookmark-toast');
-  if (toast) toast.remove();
-  toast = document.createElement('div');
-  toast.id = 'bookmark-toast';
-  toast.textContent = 'Added to Reading List';
-  toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);font-size:0.78rem;padding:6px 16px;border-radius:8px;z-index:9999;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,0.2);';
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(-50%) translateY(0)';
-  });
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(8px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 1500);
 }
 
 function markPostRead(link) {

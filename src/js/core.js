@@ -149,6 +149,8 @@ function _islandRenderPill(a) {
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     return annIcon + '<span style="color:var(--aether-text)">' + _escHtml(a.label || '') + '</span><span class="island-dismiss" data-island-dismiss="annotate" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer;color:var(--aether-text)">&times;</span>';
+  } else if (a.type === 'bookmark') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg><span style="color:var(--accent)">' + _escHtml(a.label || 'Saved') + '</span>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.label || '') + '</span>';
   }
@@ -204,6 +206,8 @@ function _islandRenderPillExpanded(a) {
     var annColor2 = _annModeColors2[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor2 + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     return annIcon + '<span>' + _escHtml(a.detail || a.label || '') + '</span><span class="island-dismiss" data-island-dismiss="annotate" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+  } else if (a.type === 'bookmark') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg><span style="color:var(--accent)">' + _escHtml(a.detail || a.label || 'Saved') + '</span>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
   }
@@ -223,7 +227,7 @@ function _islandRender() {
   // Tabs/nowplaying pill always first (far left): remove by ID, sort rest, prepend
   var firstPillId = ids.indexOf('tabs') !== -1 ? 'tabs' : (ids.indexOf('nowplaying') !== -1 ? 'nowplaying' : null);
   if (firstPillId) ids.splice(ids.indexOf(firstPillId), 1);
-  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, annotate: 2.5, rss: 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, cc: 3, tts: 3, ai: 3, annotate: 2.5, bookmark: 2, rss: 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
