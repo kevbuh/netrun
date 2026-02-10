@@ -1215,25 +1215,40 @@ function _browseInjectYouTubeAdBlock(frame, url) {
     injectAdCSS();
 
     // 2. Skip video ads via polling
+    var _wasMuted=false;
     var skipInterval=setInterval(function(){
       var player=document.querySelector('#movie_player');
       if(!player) return;
       var isAd=player.classList.contains('ad-showing')||player.classList.contains('ad-interrupting');
       if(isAd){
         var v=document.querySelector('video');
-        if(v&&v.duration){
-          v.currentTime=v.duration;
+        if(v){
+          if(!_wasMuted) _wasMuted=!v.muted;
           v.muted=true;
+          // Try multiple skip strategies
+          v.playbackRate=16;
+          try{v.currentTime=9999;}catch(e){}
+          try{v.currentTime=v.duration||9999;}catch(e){}
         }
-        var skipBtn=document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-skip-button-modern');
-        if(skipBtn) skipBtn.click();
+        // Click every possible skip button variant
+        var btns=document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot button, .ytp-ad-skip-button-container button');
+        btns.forEach(function(b){b.click();});
         var skipOv=document.querySelector('.ytp-ad-overlay-close-button');
         if(skipOv) skipOv.click();
+        // Also try the player API directly
+        try{
+          var p=document.getElementById('movie_player');
+          if(p&&p.skipAd) p.skipAd();
+          if(p&&p.cancelPlayback) p.cancelPlayback();
+        }catch(e){}
       } else {
         var v2=document.querySelector('video');
-        if(v2) v2.muted=false;
+        if(v2){
+          v2.playbackRate=1;
+          if(_wasMuted){v2.muted=false;_wasMuted=false;}
+        }
       }
-    },500);
+    },300);
 
     // 3. MutationObserver for enforcement dialogs
     var obs=new MutationObserver(function(muts){
