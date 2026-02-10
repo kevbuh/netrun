@@ -1812,6 +1812,9 @@
       z-index: 1;
       transition: opacity 0.25s ease 0.1s,
                   background 0.2s ease;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
     }
     body.electron-app .browse-mode.island-mode #pill-browse-url-input {
       left: calc(50vw - 80px);

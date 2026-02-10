@@ -6131,7 +6131,7 @@ async function _extractTextFromFrame(tab) {
   const frame = tab.el;
   const script = `(function() {
     const skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
-    const block = new Set(['DIV','P','BR','H1','H2','H3','H4','H5','H6','LI','TR','BLOCKQUOTE','PRE','SECTION','ARTICLE','HEADER','FOOTER','ASIDE','DT','DD','FIGCAPTION','HR']);
+    const block = new Set(['DIV','P','BR','H1','H2','H3','H4','H5','H6','LI','TR','BLOCKQUOTE','PRE','SECTION','ARTICLE','HEADER','FOOTER','ASIDE','DT','DD','FIGCAPTION','HR','BIG','DETAILS','SUMMARY','NAV','MAIN','TABLE','THEAD','TBODY','TFOOT','OL','UL']);
     function getText(el) {
       if (skip.has(el.tagName)) return '';
       if (el.tagName === 'BR') return '\\n';
@@ -6146,7 +6146,11 @@ async function _extractTextFromFrame(tab) {
       }
       return t;
     }
-    return getText(document.body || document.documentElement).replace(/[^\\S\\n]+/g, ' ').replace(/\\n\\s*\\n/g, '\\n\\n').trim();
+    // Prefer main content area on known sites (GitHub README, Medium articles, etc.)
+    var root = document.querySelector('article.markdown-body, article[itemprop="text"], .readme-content, [data-testid="readme"] article')
+            || document.querySelector('article, [role="main"], main')
+            || document.body || document.documentElement;
+    return getText(root).replace(/[^\\S\\n]+/g, ' ').replace(/\\n\\s*\\n/g, '\\n\\n').trim();
   })()`;
   try {
     if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {

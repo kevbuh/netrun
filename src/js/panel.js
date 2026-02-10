@@ -100,11 +100,18 @@ function _ttsGetFrame() {
 
 function _ttsExecInFrame(frame, script) {
   if (!frame) return;
-  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
-    frame.executeJavaScript(script).catch(function() {});
-  } else if (frame.tagName === 'IFRAME') {
-    try { frame.contentWindow.eval(script); } catch(e) {}
-  }
+  try {
+    if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+      // Skip pages that don't support script injection (raw text, etc.)
+      var url = (frame.getURL && frame.getURL()) || frame.src || '';
+      if (/^https?:\/\/raw\.|\.txt$|\.md$|\.csv$/i.test(url)) return;
+      if (frame.isLoading && frame.isLoading()) return;
+      if (frame.isCrashed && frame.isCrashed()) return;
+      frame.executeJavaScript('try{' + script + '}catch(e){}').catch(function() {});
+    } else if (frame.tagName === 'IFRAME') {
+      try { frame.contentWindow.eval('try{' + script + '}catch(e){}'); } catch(e) {}
+    }
+  } catch(e) {}
 }
 
 function _ttsSplitSentences(text) {
@@ -113,12 +120,13 @@ function _ttsSplitSentences(text) {
   var result = [];
   for (var li = 0; li < lines.length; li++) {
     var line = lines[li];
-    // Split line on sentence-ending punctuation
-    var parts = line.match(/[^.!?]+[.!?]+[\s]*/g);
+    // Split line on sentence-ending punctuation (but not decimal points like $3.88)
+    var parts = line.match(/(?:[^.!?:)]|\.\d)+[.!?:)]+[\s]*/g);
     if (parts && parts.length > 0) {
       var joined = parts.join('');
       if (joined.length < line.length) {
-        parts[parts.length - 1] += line.substring(joined.length);
+        var leftover = line.substring(joined.length).trim();
+        if (leftover) parts.push(leftover);
       }
       for (var pi = 0; pi < parts.length; pi++) {
         var s = parts[pi].trim();
@@ -136,10 +144,16 @@ function _ttsHighlightChunk(chunkText) {
   if (localStorage.getItem('ttsHighlight') === 'false') return;
   var frame = _ttsGetFrame();
   if (!frame || !chunkText) return;
-  // Escape for embedding in JS string
-  var escaped = chunkText.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
+  // Extract words for matching (strips punctuation that TTS preprocessing may have altered)
+  var words = chunkText.replace(/[^\w\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 1; }).slice(0, 8);
+  if (!words.length) return;
+  // Escape each word for regex and join with flexible gap
+  var pat = words.map(function(w) {
+    return w.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
+  }).join('[^]*?');
+  var escaped = pat.replace(/'/g, "\\'");
   var script = `(function() {
-    // Clear previous TTS highlights
+    try {
     document.querySelectorAll('mark.aether-tts-highlight').forEach(function(m) {
       var p = m.parentNode;
       if (!p) return;
@@ -147,7 +161,6 @@ function _ttsHighlightChunk(chunkText) {
     });
     document.body.normalize();
 
-    // Build a flat list of text nodes
     var skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
     var textNodes = [];
     function walk(el) {
@@ -160,71 +173,43 @@ function _ttsHighlightChunk(chunkText) {
     }
     walk(document.body || document.documentElement);
 
-    // Concatenate all text to find the chunk's position
     var full = '';
-    var map = []; // { node, start, end }
+    var map = [];
     for (var i = 0; i < textNodes.length; i++) {
       var s = full.length;
       full += textNodes[i].textContent;
       map.push({ node: textNodes[i], start: s, end: full.length });
     }
 
-    // Normalize whitespace in both to match
-    var chunk = '${escaped}';
-    var chunkNorm = chunk.replace(/\\s+/g, ' ').trim();
-    var fullNorm = full.replace(/\\s+/g, ' ');
+    var re = new RegExp('${escaped}', 'i');
+    var m = re.exec(full);
+    if (!m) return;
+    var origIdx = m.index;
+    var origEnd = m.index + m[0].length;
 
-    // Try to find the chunk — use first 80 chars for matching (chunks can be long)
-    var searchStr = chunkNorm.substring(0, 80);
-    var normIdx = fullNorm.indexOf(searchStr);
-    if (normIdx === -1) return;
-
-    // Map normalized index back to original index
-    var origIdx = 0, normCount = 0;
-    for (var k = 0; k < full.length && normCount < normIdx; k++) {
-      if (/\\s/.test(full[k])) {
-        // Skip extra whitespace in original
-        while (k + 1 < full.length && /\\s/.test(full[k + 1])) k++;
-      }
-      normCount++;
-      origIdx = k + 1;
-    }
-
-    // Find end position using full chunk length
-    var endNormIdx = normIdx + chunkNorm.length;
-    var origEnd = origIdx;
-    var nc2 = normCount;
-    for (var k2 = origIdx; k2 < full.length && nc2 < endNormIdx; k2++) {
-      if (/\\s/.test(full[k2])) {
-        while (k2 + 1 < full.length && /\\s/.test(full[k2 + 1])) k2++;
-      }
-      nc2++;
-      origEnd = k2 + 1;
-    }
-
-    // Wrap matching text nodes in highlight marks
     var first = null;
     for (var j = 0; j < map.length; j++) {
-      var m = map[j];
-      if (m.end <= origIdx || m.start >= origEnd) continue;
-      var nStart = Math.max(0, origIdx - m.start);
-      var nEnd = Math.min(m.node.textContent.length, origEnd - m.start);
-      var txt = m.node.textContent;
+      var e = map[j];
+      if (e.end <= origIdx || e.start >= origEnd) continue;
+      var nStart = Math.max(0, origIdx - e.start);
+      var nEnd = Math.min(e.node.textContent.length, origEnd - e.start);
+      var txt = e.node.textContent;
       var before = txt.substring(0, nStart);
       var mid = txt.substring(nStart, nEnd);
       var after = txt.substring(nEnd);
       var mark = document.createElement('mark');
       mark.className = 'aether-tts-highlight';
-      mark.style.cssText = 'background:rgba(180,69,26,0.15);border-radius:3px;color:inherit;padding:1px 0;';
+      mark.style.cssText = 'background-color:rgba(180,69,26,0.3) !important;border-radius:3px;color:inherit !important;padding:1px 0;-webkit-text-fill-color:inherit;';
       mark.textContent = mid;
-      var parent = m.node.parentNode;
-      if (before) parent.insertBefore(document.createTextNode(before), m.node);
-      parent.insertBefore(mark, m.node);
-      if (after) parent.insertBefore(document.createTextNode(after), m.node);
-      parent.removeChild(m.node);
+      var parent = e.node.parentNode;
+      if (before) parent.insertBefore(document.createTextNode(before), e.node);
+      parent.insertBefore(mark, e.node);
+      if (after) parent.insertBefore(document.createTextNode(after), e.node);
+      parent.removeChild(e.node);
       if (!first) first = mark;
     }
     if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch(e) {}
   })()`;
   _ttsExecInFrame(frame, script);
 }
@@ -348,9 +333,30 @@ function _ttsChunkText(text) {
     if (_hyphenPrefixes.has(before)) return match;
     return before + after;
   });
-  // Split on double-newlines (paragraphs), then break long paragraphs on sentences
+  // Clean up markdown and HTML artifacts for natural speech
+  text = text.replace(/<img[^>]*\/?>/gi, '');                    // strip image tags
+  text = text.replace(/<br\s*\/?>/gi, '\n');                     // br → newline
+  text = text.replace(/<\/?[a-z][^>]*>/gi, '');                  // strip remaining HTML tags
+  text = text.replace(/^#{1,6}\s+/gm, '');                       // strip markdown headers (## Title → Title)
+  text = text.replace(/\*\*(.+?)\*\*/g, '$1');                   // bold **text** → text
+  text = text.replace(/\*(.+?)\*/g, '$1');                       // italic *text* → text
+  text = text.replace(/__(.+?)__/g, '$1');                        // bold __text__ → text
+  text = text.replace(/_(.+?)_/g, '$1');                          // italic _text_ → text
+  text = text.replace(/`{1,3}([^`]+)`{1,3}/g, '$1');             // inline code `text` → text
+  text = text.replace(/^\s*[-*+]\s+/gm, '');                     // strip list bullets
+  text = text.replace(/^\s*\d+\.\s+/gm, '');                     // strip numbered list prefixes
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');           // [link text](url) → link text
+  text = text.replace(/!?\[([^\]]*)\]\([^)]+\)/g, '$1');         // ![alt](url) → alt (or remove if empty)
+  text = text.replace(/https?:\/\/\S+/g, '');                    // strip bare URLs
+  // Expand dots in domains/abbreviations for natural speech
+  text = text.replace(/\.\.\./g, '\u2026');
+  text = text.replace(/\.([a-z]{2,})\b/g, ' dot $1');
+  // Clean up extra whitespace from stripping
+  text = text.replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n[ \t]*\n/g, '\n\n');
+  // Split on any newline(s) to preserve line structure from <br> etc.
   var maxChunk = 1000;
-  var paras = text.split(/\n\s*\n/).filter(function(p) { return p.trim().length > 0; });
+  var paras = text.split(/\n+/).filter(function(p) { return p.trim().length > 0; });
   var chunks = [];
   for (var i = 0; i < paras.length; i++) {
     var p = paras[i].trim();
@@ -371,7 +377,7 @@ function _ttsChunkText(text) {
   var merged = [];
   for (var k = 0; k < chunks.length; k++) {
     if (merged.length > 0 && merged[merged.length - 1].length < 100) {
-      merged[merged.length - 1] += ' ' + chunks[k];
+      merged[merged.length - 1] += '\n' + chunks[k];
     } else {
       merged.push(chunks[k]);
     }
@@ -444,6 +450,9 @@ function _ttsPlayNext() {
     } else if (_ttsChunkIdx >= _ttsChunks.length) {
       // All done
       _ttsPlayingChunkIdx = -1;
+      _ttsTabId = null;
+      _ttsChunks = [];
+      _ttsChunkIdx = 0;
       _ttsClearHighlights();
       _ttsPlayedDurations = [];
       _ttsRemainingDurations = [];
