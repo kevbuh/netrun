@@ -6146,11 +6146,7 @@ async function _extractTextFromFrame(tab) {
       }
       return t;
     }
-    // Prefer main content area on known sites (GitHub README, Medium articles, etc.)
-    var root = document.querySelector('article.markdown-body, article[itemprop="text"], .readme-content, [data-testid="readme"] article')
-            || document.querySelector('article, [role="main"], main')
-            || document.body || document.documentElement;
-    return getText(root).replace(/[^\\S\\n]+/g, ' ').replace(/\\n\\s*\\n/g, '\\n\\n').trim();
+    return getText(document.body || document.documentElement).replace(/[^\\S\\n]+/g, ' ').replace(/\\n\\s*\\n/g, '\\n\\n').trim();
   })()`;
   try {
     if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
