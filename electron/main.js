@@ -66,7 +66,7 @@ async function _downloadAndBuildEngine() {
 
   _adblockEngine = new Engine(filterSet);
   try {
-    const buf = _adblockEngine.serializeRaw();
+    const buf = _adblockEngine.serialize();
     fs.writeFileSync(ADBLOCK_ENGINE_PATH(), Buffer.from(buf));
     console.log('[adblock] Serialized engine to disk');
   } catch (e) {
@@ -93,7 +93,7 @@ async function initAdblock() {
     try {
       const buf = fs.readFileSync(enginePath);
       _adblockEngine = new Engine(new FilterSet());
-      _adblockEngine.deserialize(new Uint8Array(buf));
+      _adblockEngine.deserialize(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
       console.log('[adblock] Loaded engine from disk');
       return;
     } catch (e) {

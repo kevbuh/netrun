@@ -950,6 +950,9 @@ function showOnboarding() {
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
   document.getElementById('onboard-view').style.display = '';
   document.getElementById('home-feed-section').style.display = 'none';
+  // Hide top pill bar during onboarding
+  const pillBar = document.getElementById('sidebar-nav');
+  if (pillBar) pillBar.style.display = 'none';
   renderCustomFeedsList();
 }
 
@@ -964,6 +967,9 @@ function completeOnboarding() {
   localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('home-feed-section').style.display = '';
+  // Show top pill bar after onboarding
+  const pillBar = document.getElementById('sidebar-nav');
+  if (pillBar) pillBar.style.display = '';
   loadAllFeeds();
 }
 

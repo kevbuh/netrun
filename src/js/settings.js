@@ -622,13 +622,7 @@ function _renderBrowserSettings() {
     <div class="mb-8">
       <div class="flex items-center gap-3 mb-1">
         <h3 class="text-white_ text-sm font-semibold">Ad Blocker</h3>
-        <label class="flex items-center gap-2 cursor-pointer ml-auto">
-          <span class="text-primary text-sm">Enable</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="toggle-adblock" ${localStorage.getItem('adBlockEnabled') === 'true' ? 'checked' : ''} onchange="setAdBlockEnabled(this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
+        <span class="text-[0.75rem] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">Always On</span>
       </div>
       <p class="text-dim text-[0.8rem] mb-3">Blocks ads and trackers ${window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy'}.</p>
       <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">${window.electronAPI ? 'Loading filter info...' : 'Filter list management requires Electron.'}</div>
