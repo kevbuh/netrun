@@ -138,7 +138,41 @@ function _islandRenderPill(a) {
       : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>';
     return rssIcon + '<span style="color:' + (a.subscribed ? '#22c55e' : 'var(--aether-text)') + '">' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'tabs') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg><span>' + _escHtml(a.label || '') + '</span>';
+    var tabItems = a.items || [];
+    var globeIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
+    if (tabItems.length <= 1) {
+      var t0 = tabItems[0];
+      var fav0 = (t0 && t0.favicon) ? '<img class="island-strip-fav island-strip-fav-active" src="' + _escHtml(t0.favicon) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'island-strip-fav island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))" data-island-tab="' + (t0 ? t0.id : '') + '">' : globeIcon;
+      var title0 = (t0 && t0.title) || 'New Tab';
+      if (title0.length > 20) title0 = title0.slice(0, 18) + '\u2026';
+      return fav0 + '<span>' + _escHtml(title0) + '</span>';
+    }
+    // 2+ tabs: favicon strip — active tab + up to 3 most recent others
+    var maxOthers = 2;
+    var activeItem = null;
+    var others = [];
+    for (var si = 0; si < tabItems.length; si++) {
+      if (tabItems[si].active) activeItem = tabItems[si];
+      else others.push(tabItems[si]);
+    }
+    var visible = [];
+    if (activeItem) visible.push(activeItem);
+    var recentOthers = others.slice(-maxOthers);
+    for (var ri = 0; ri < recentOthers.length; ri++) visible.push(recentOthers[ri]);
+    var overflow = tabItems.length - visible.length;
+    var html = '<span class="island-favicon-strip">';
+    for (var ti = 0; ti < visible.length; ti++) {
+      var t = visible[ti];
+      var cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
+      if (t.favicon) {
+        html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '" title="' + _escHtml(t.title || 'Tab') + '" data-island-tab="' + t.id + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'' + cls + ' island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\',title:this.title}))">';
+      } else {
+        html += '<span class="' + cls + ' island-strip-fav-placeholder" style="width:16px;height:16px;border-radius:3px" title="' + _escHtml(t.title || 'Tab') + '" data-island-tab="' + t.id + '"></span>';
+      }
+    }
+    if (overflow > 0) html += '<span class="island-strip-overflow">+' + overflow + '</span>';
+    html += '</span>';
+    return html;
   } else if (a.type === 'annotate') {
     var annPenIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     if (a.offer) {
@@ -235,7 +269,7 @@ function _islandRender() {
   // Tabs/nowplaying pill always first (far left): remove by ID, sort rest, prepend
   var firstPillId = ids.indexOf('tabs') !== -1 ? 'tabs' : (ids.indexOf('nowplaying') !== -1 ? 'nowplaying' : null);
   if (firstPillId) ids.splice(ids.indexOf(firstPillId), 1);
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, annotate: 2.5, 'feed-notif': 2, bookmark: 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -343,7 +377,7 @@ function _islandRender() {
       } else if (a.type === 'tabs' && a.items && a.items.length) {
         var trayHtml = '';
         var pinnedItems = a.items.filter(function(it) { return it.pinned; });
-        var unpinnedItems = a.items.filter(function(it) { return !it.pinned; });
+        var unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().reverse();
         if (pinnedItems.length) {
           for (var pi = 0; pi < pinnedItems.length; pi++) {
             var pItem = pinnedItems[pi];

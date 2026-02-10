@@ -6,13 +6,23 @@ function _browseUrlDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
 }
 
+function _browseShortUrl(url) {
+  const domain = _browseUrlDomain(url);
+  const tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+    ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+  if (tab && tab.title && tab.title !== _browseTitleFromUrl(tab.url)) {
+    return domain + '  /  ' + tab.title;
+  }
+  return domain;
+}
+
 function _browseSetUrlDisplay(input, url) {
   if (!input) return;
   input.dataset.fullUrl = url || '';
   if (document.activeElement === input || input.matches(':hover')) {
     input.value = url || '';
   } else if (localStorage.getItem('urlShorten') !== 'false' && url && !url.startsWith('aether://')) {
-    input.value = _browseUrlDomain(url);
+    input.value = _browseShortUrl(url);
   } else {
     input.value = url || '';
   }
@@ -27,7 +37,7 @@ function _browseUrlOnBlur(input) {
   const full = input.dataset.fullUrl || input.value;
   input.dataset.fullUrl = full;
   if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
-    input.value = _browseUrlDomain(full);
+    input.value = _browseShortUrl(full);
   }
 }
 
@@ -41,7 +51,7 @@ function _browseUrlOnMouseLeave(input) {
   if (document.activeElement === input) return;
   const full = input.dataset.fullUrl || input.value;
   if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
-    input.value = _browseUrlDomain(full);
+    input.value = _browseShortUrl(full);
   }
 }
 

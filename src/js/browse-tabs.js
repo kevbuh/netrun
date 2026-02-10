@@ -1101,8 +1101,12 @@ function _browseHandleNavigation(tab, frame) {
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
+    const sameOrigin = tab.url && e.url && _browseUrlDomain(tab.url) === _browseUrlDomain(e.url);
     tab.url = e.url;
-    tab.title = _browseTitleFromUrl(e.url);
+    // Keep real title for same-origin in-page navigations (hash/pushState)
+    if (!sameOrigin || !tab.title || tab.title === _browseTitleFromUrl(tab.url)) {
+      tab.title = _browseTitleFromUrl(e.url);
+    }
     tab.favicon = _browseFaviconUrl(e.url);
     _browseRenderTabs();
     _browseSaveTabs();
@@ -1119,6 +1123,11 @@ function _browseHandleNavigation(tab, frame) {
     if (tab.url) _saveBrowseVisit(tab.url, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
+    // Refresh shortened URL display with new title
+    if (_browseActiveTab === tab.id) {
+      const urlInput = document.getElementById('browse-url-input');
+      if (urlInput && document.activeElement !== urlInput) _browseSetUrlDisplay(urlInput, tab.url);
+    }
   });
   frame.addEventListener('page-favicon-updated', (e) => {
     if (e.favicons && e.favicons.length) tab.favicon = e.favicons[0];
