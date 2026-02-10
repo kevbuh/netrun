@@ -756,6 +756,11 @@
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
     }
+    /* Pill container constrained dynamically via JS --island-pills-max-w */
+    .browse-mode.island-mode .pill-island-container {
+      max-width: var(--island-pills-max-w, 40vw);
+      overflow: visible;
+    }
     .browse-mode.island-mode #pill-menu-btn {
       max-width: 0;
       opacity: 0;
@@ -1113,6 +1118,8 @@
     .pill-island.island-active:not(:hover):not(.island-tray-open):not(.island-entering):not(.island-exiting) {
       animation: pill-breathe 4s ease-in-out infinite;
     }
+    /* No breathing on tabs pill merged into URL capsule */
+    #pill-island-tabs-anchor > .pill-island.island-active { animation: none; }
     .pill-island .island-ring {
       width: 16px;
       height: 16px;
@@ -1146,6 +1153,33 @@
       animation: pill-enter 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
       overflow: hidden;
     }
+    /* In browse mode, clamp enter to 200px with no overshoot on width */
+    @keyframes pill-enter-browse {
+      0%   { opacity:0; scale:0.5; max-width:0; padding:0; }
+      50%  { opacity:1; scale:1.06; }
+      75%  { scale:0.98; }
+      100% { opacity:1; scale:1; max-width:200px; padding:0 10px; }
+    }
+    .browse-mode .pill-island.island-entering {
+      animation: pill-enter-browse 0.4s ease-out forwards;
+    }
+    /* Enter directly into compact state — smaller target */
+    @keyframes pill-enter-compact {
+      0%   { opacity:0; scale:0.5; max-width:0; padding:0; }
+      50%  { opacity:1; scale:1.1; }
+      100% { opacity:1; scale:1; max-width:34px; padding:0 5px; }
+    }
+    .pill-island.island-entering.island-compact {
+      animation: pill-enter-compact 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    /* Enter into tabs anchor — no scale overshoot, merge into capsule */
+    @keyframes pill-enter-anchor {
+      0%   { opacity:0; max-width:0; padding:0; }
+      100% { opacity:1; max-width:200px; padding:0 10px; }
+    }
+    #pill-island-tabs-anchor .pill-island.island-entering {
+      animation: pill-enter-anchor 0.35s ease-out forwards;
+    }
     @keyframes pill-exit {
       0%   { opacity:1; scale:1; max-width:400px; padding:0 10px; }
       100% { opacity:0; scale:0.4; max-width:0; padding:0; gap:0; }
@@ -1156,6 +1190,12 @@
     }
     .browse-mode .pill-island.island-active {
       max-width: 200px;
+      transition: max-width 0.35s ease-out,
+                  scale 0.15s ease,
+                  opacity 0.25s ease,
+                  padding 0.3s ease,
+                  background 0.2s ease,
+                  box-shadow 0.25s ease;
     }
     .browse-mode .pill-island.island-active:hover {
       max-width: 400px;
@@ -2002,6 +2042,7 @@
     .browse-mode.island-mode #pill-island-tabs-anchor {
       display: flex;
       align-items: center;
+      transition: width 0.35s cubic-bezier(0.34,1.56,0.64,1);
     }
     /* Tabs pill inside the unified bar — remove its own bg/radius */
     .browse-mode.island-mode #pill-island-tabs-anchor > .pill-island {
@@ -2009,6 +2050,11 @@
       border-radius: 0;
       border-top-left-radius: 12px;
       border-bottom-left-radius: 12px;
+    }
+    /* Hover effect via overlay since bg is transparent in island mode */
+    .browse-mode.island-mode #pill-island-tabs-anchor > .pill-island.island-active:hover {
+      background: var(--pill-surface-hover, rgba(255,255,255,0.08)) !important;
+      scale: 1;
     }
     /* Divider between tabs pill and URL input */
     .browse-mode.island-mode #pill-island-tabs-anchor::after {

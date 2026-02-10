@@ -89,6 +89,21 @@ function _pillStackReflow() {
 var _islandActivities = {};  // { id: { type, label, detail, progress, done, _ts } }
 var _islandDismissTimers = {};  // { id: timeoutId }
 
+// Keep pill container constrained on resize/mode change
+window.addEventListener('resize', function() {
+  var cont = document.getElementById('pill-island');
+  var wrap = document.getElementById('pill-url-wrap');
+  var nav = document.getElementById('sidebar-nav');
+  if (!cont || !wrap || !nav || !nav.classList.contains('island-mode')) {
+    if (cont) cont.style.removeProperty('--island-pills-max-w');
+    return;
+  }
+  var ur = wrap.getBoundingClientRect();
+  var cr = cont.getBoundingClientRect();
+  var avail = ur.left - cr.left - 12;
+  if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
+});
+
 function islandUpdate(id, data) {
   _islandActivities[id] = Object.assign(_islandActivities[id] || {}, data, { _ts: Date.now() });
   _islandRender();
@@ -103,11 +118,15 @@ function islandRemove(id) {
   if (_islandDismissTimers[id]) { clearTimeout(_islandDismissTimers[id]); delete _islandDismissTimers[id]; }
   delete _islandActivities[id];
   if (el && !el.classList.contains('island-exiting')) {
+    var parentCont = el.parentNode;
+    _islandSnapshotRects(parentCont);
     el.classList.add('island-exiting');
     el.addEventListener('animationend', function onExit(ev) {
       if (ev.animationName !== 'pill-exit') return;
       el.removeEventListener('animationend', onExit);
+      _islandSnapshotRects(parentCont);
       el.remove();
+      _islandFlipNeighbors(parentCont);
     });
   } else if (el) {
     el.remove();
@@ -268,6 +287,34 @@ function _islandRenderPillExpanded(a) {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
   }
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
+}
+
+// FLIP-animate neighboring pills when one enters/exits/compacts
+function _islandFlipNeighbors(cont) {
+  if (!cont) return;
+  var pills = cont.querySelectorAll('.pill-island:not(.island-exiting)');
+  pills.forEach(function(p) {
+    if (p.classList.contains('island-entering')) return;
+    if (!p._flipRect) return;
+    var newRect = p.getBoundingClientRect();
+    var dx = p._flipRect.left - newRect.left;
+    if (Math.abs(dx) > 1) {
+      p.style.transform = 'translateX(' + dx + 'px)';
+      p.style.transition = 'none';
+      requestAnimationFrame(function() {
+        p.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
+        p.style.transform = '';
+      });
+    }
+  });
+}
+
+// Snapshot pill positions for FLIP
+function _islandSnapshotRects(cont) {
+  if (!cont) return;
+  cont.querySelectorAll('.pill-island').forEach(function(p) {
+    p._flipRect = p.getBoundingClientRect();
+  });
 }
 
 function _islandRender() {
@@ -573,13 +620,22 @@ function _islandRender() {
     var isIslandMode = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
     var targetContainer = (id === 'tabs' && isIslandMode && tabsAnchor) ? tabsAnchor : container;
     if (isNew) {
+      // Pre-apply compact before entering so animation targets compact size
+      if ((a.type === 'rss' && a.subscribed) || (a.type === 'annotate' && !a.loading && !a.done && a._compact)) {
+        pill.classList.add('island-compact');
+      }
+      // Snapshot neighbors before insert so FLIP can animate them
+      _islandSnapshotRects(targetContainer);
       targetContainer.appendChild(pill);
       pill.classList.add('island-entering');
+      var _enterAnims = { 'pill-enter': 1, 'pill-enter-browse': 1, 'pill-enter-compact': 1, 'pill-enter-anchor': 1 };
       pill.addEventListener('animationend', function onEnter(ev) {
-        if (ev.animationName !== 'pill-enter') return;
+        if (!_enterAnims[ev.animationName]) return;
         pill.removeEventListener('animationend', onEnter);
         pill.classList.remove('island-entering');
         pill.classList.add('island-active');
+        // After entering, FLIP neighboring pills that shifted
+        _islandFlipNeighbors(targetContainer);
       });
       // Achievement: auto-expand tray then collapse after delay
       if (a.type === 'achievement') {
@@ -590,9 +646,21 @@ function _islandRender() {
         }, 7000);
       }
     } else {
-      // Move tabs pill to correct container if needed (e.g. mode switch)
+      // Move tabs pill to correct container if needed (e.g. mode switch) — FLIP animate
       if (pill.parentNode !== targetContainer) {
+        var oldRect = pill.getBoundingClientRect();
         targetContainer.appendChild(pill);
+        var newRect = pill.getBoundingClientRect();
+        var dx = oldRect.left - newRect.left;
+        var dy = oldRect.top - newRect.top;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          pill.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+          pill.style.transition = 'none';
+          requestAnimationFrame(function() {
+            pill.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+            pill.style.transform = '';
+          });
+        }
       }
       pill.classList.add('island-active');
     }
@@ -610,33 +678,53 @@ function _islandRender() {
     // RSS: icon-only when subscribed immediately, otherwise collapse after 15s
     if (a.type === 'rss' && a.subscribed) {
       if (pill._rssCompactTimer) { clearTimeout(pill._rssCompactTimer); pill._rssCompactTimer = null; }
-      pill.classList.add('island-compact');
+      if (!pill.classList.contains('island-compact')) {
+        _islandSnapshotRects(targetContainer);
+        pill.classList.add('island-compact');
+        _islandFlipNeighbors(targetContainer);
+      }
     } else if (a.type === 'rss') {
       if (!pill._rssCompactTimer && !pill.classList.contains('island-compact')) {
-        pill._rssCompactTimer = setTimeout(function() { pill.classList.add('island-compact'); }, 15000);
+        pill._rssCompactTimer = setTimeout(function() {
+          _islandSnapshotRects(targetContainer);
+          pill.classList.add('island-compact');
+          _islandFlipNeighbors(targetContainer);
+        }, 15000);
       }
     }
 
     // Annotate: compact to icon-only after 15s (results and offers)
     if (a.type === 'annotate' && !a.loading && !a.done) {
       if (!pill._annCompactTimer) {
-        pill._annCompactTimer = setTimeout(function() { pill.classList.add('island-compact'); }, 15000);
+        pill._annCompactTimer = setTimeout(function() {
+          _islandSnapshotRects(targetContainer);
+          pill.classList.add('island-compact');
+          _islandFlipNeighbors(targetContainer);
+        }, 15000);
       }
     } else if (a.type === 'annotate' && (a.loading || a.done)) {
       if (pill._annCompactTimer) { clearTimeout(pill._annCompactTimer); pill._annCompactTimer = null; }
-      pill.classList.remove('island-compact');
+      if (pill.classList.contains('island-compact')) {
+        _islandSnapshotRects(targetContainer);
+        pill.classList.remove('island-compact');
+        _islandFlipNeighbors(targetContainer);
+      }
     }
   });
 
-  // Remove stale pills (with exit animation)
+  // Remove stale pills (with exit animation + FLIP neighbors)
+  var hasStale = false;
   Object.keys(existingEls).forEach(function(id) {
     var staleEl = existingEls[id];
     if (!staleEl.classList.contains('island-exiting')) {
+      if (!hasStale) { _islandSnapshotRects(container); hasStale = true; }
       staleEl.classList.add('island-exiting');
       staleEl.addEventListener('animationend', function onExit(ev) {
         if (ev.animationName !== 'pill-exit') return;
         staleEl.removeEventListener('animationend', onExit);
+        _islandSnapshotRects(container);
         staleEl.remove();
+        _islandFlipNeighbors(container);
       });
     }
   });
@@ -675,15 +763,24 @@ function _islandRender() {
     }
   });
 
-  // Phase 5: Proximity detection — pills near URL capsule in island mode
+  // Proximity detection + dynamic constraint so pills never overlap URL capsule
   var urlWrap = document.getElementById('pill-url-wrap');
-  if (urlWrap && urlWrap.getBoundingClientRect) {
+  var isIslandNow = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
+  if (urlWrap && isIslandNow) {
     var urlRect = urlWrap.getBoundingClientRect();
+    var contRect = container.getBoundingClientRect();
+    // 12px gap between pills and URL capsule
+    var availW = urlRect.left - contRect.left - 12;
+    if (availW > 0) {
+      container.style.setProperty('--island-pills-max-w', Math.floor(availW) + 'px');
+    }
     sortedPills.forEach(function(p) {
       var pr = p.getBoundingClientRect();
       var dist = urlRect.left - pr.right;
       p.classList.toggle('near-url-bar', dist >= 0 && dist < 60);
     });
+  } else {
+    container.style.removeProperty('--island-pills-max-w');
   }
 }
 
