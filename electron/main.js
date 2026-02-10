@@ -368,8 +368,18 @@ app.on('web-contents-created', (event, contents) => {
     const ses = contents.session;
     if (!sessionsWithAdblock.has(ses)) {
       sessionsWithAdblock.add(ses);
+      const _ytAdPatterns = ['/api/stats/ads', '/pagead/', '/get_midroll_', 'doubleclick.net/pagead/', 'googlesyndication.com/pagead/'];
       ses.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, cb) => {
-        if (!_adblockEngine || !_adblockEnabled) return cb({});
+        if (!_adblockEnabled) return cb({});
+        // Fast-path: YouTube ad URL patterns
+        const url = details.url;
+        for (let i = 0; i < _ytAdPatterns.length; i++) {
+          if (url.includes(_ytAdPatterns[i])) {
+            _blockedCounts[details.webContentsId] = (_blockedCounts[details.webContentsId] || 0) + 1;
+            return cb({ cancel: true });
+          }
+        }
+        if (!_adblockEngine) return cb({});
         const type = _mapResourceType(details.resourceType);
         try {
           const result = _adblockEngine.check(details.url, details.referrer || details.url, type);

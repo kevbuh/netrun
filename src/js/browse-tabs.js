@@ -1179,6 +1179,89 @@ function _browseHandleNavigation(tab, frame) {
 
 }
 
+function _browseInjectYouTubeAdBlock(frame, url) {
+  if (!url || !url.includes('youtube.com')) return;
+  if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+  frame.executeJavaScript(`(function(){
+    if(window.__aetherYtAdBlockInjected) return;
+    window.__aetherYtAdBlockInjected=true;
+
+    // 1. Inject CSS to hide ad containers
+    function injectAdCSS(){
+      if(document.getElementById('aether-yt-adblock-css')) return;
+      var s=document.createElement('style');
+      s.id='aether-yt-adblock-css';
+      s.textContent=
+        '#player-ads,'+
+        '.ytp-ad-module,'+
+        '.ytp-ad-overlay-container,'+
+        '.ytp-ad-overlay-slot,'+
+        '.ytp-ad-image-overlay,'+
+        'ytd-promoted-sparkles-web-renderer,'+
+        'ytd-display-ad-renderer,'+
+        'ytd-ad-slot-renderer,'+
+        'ytd-in-feed-ad-layout-renderer,'+
+        'ytd-banner-promo-renderer,'+
+        'ytd-statement-banner-renderer,'+
+        '#masthead-ad,'+
+        '#feedmodule-ad,'+
+        '.ytd-rich-item-renderer[is-ad],'+
+        'ytd-promoted-video-renderer,'+
+        'tp-yt-paper-dialog.ytd-enforcement-message-view-model,'+
+        'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]'+
+        '{display:none!important}';
+      (document.head||document.documentElement).appendChild(s);
+    }
+    injectAdCSS();
+
+    // 2. Skip video ads via polling
+    var skipInterval=setInterval(function(){
+      var player=document.querySelector('#movie_player');
+      if(!player) return;
+      var isAd=player.classList.contains('ad-showing')||player.classList.contains('ad-interrupting');
+      if(isAd){
+        var v=document.querySelector('video');
+        if(v&&v.duration){
+          v.currentTime=v.duration;
+          v.muted=true;
+        }
+        var skipBtn=document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-skip-button-modern');
+        if(skipBtn) skipBtn.click();
+        var skipOv=document.querySelector('.ytp-ad-overlay-close-button');
+        if(skipOv) skipOv.click();
+      } else {
+        var v2=document.querySelector('video');
+        if(v2) v2.muted=false;
+      }
+    },500);
+
+    // 3. MutationObserver for enforcement dialogs
+    var obs=new MutationObserver(function(muts){
+      // Dismiss ad-blocker enforcement popup
+      var enforce=document.querySelector('tp-yt-paper-dialog.ytd-enforcement-message-view-model');
+      if(enforce){
+        enforce.remove();
+        var bg=document.querySelector('tp-yt-iron-overlay-backdrop');
+        if(bg) bg.remove();
+        var v=document.querySelector('video');
+        if(v&&v.paused) v.play();
+      }
+      // Also try the playability error
+      var pe=document.querySelector('yt-playability-error-supported-renderers');
+      if(pe){
+        var dismiss=pe.querySelector('button, .yt-playability-error-supported-renderers__dismiss-button');
+        if(dismiss) dismiss.click();
+      }
+    });
+    obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
+
+    // 4. Re-inject CSS on SPA navigation
+    window.addEventListener('yt-navigate-finish',function(){
+      injectAdCSS();
+    });
+  })();`).catch(function(){});
+}
+
 function _browseInjectContentScripts(tab, frame) {
   // Context menu — always show aether panel (with context items for links/images)
   // Debounce: the injected script also fires __AETHER_CONTEXT__ for the same right-click
@@ -1378,6 +1461,12 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // YouTube ad blocking injection
+    _browseInjectYouTubeAdBlock(frame, frame.getURL());
+  });
+
+  frame.addEventListener('did-navigate-in-page', (e) => {
+    if (e.isMainFrame) _browseInjectYouTubeAdBlock(frame, e.url);
   });
 
   // Listen for context menu via console message
