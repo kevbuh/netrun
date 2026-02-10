@@ -23,7 +23,7 @@ Flask server (`app.py`) with route blueprints in `src/routes/`:
 - `experiments.py` (29) — experiment CRUD, files, runs, kernel, venv, execute (SSE)
 - `social.py` (52) — teams, users, messages, comments, blog, achievements
 - `content.py` (16) — doc-chat (SSE), extract-text/links, paper-insights, citations, author/reference lookups, panel/search suggest, annotate, knowledge-graph
-- `browse.py` (8) — web-search, browse-proxy, image-proxy, link-preview, stock-quote, adblock
+- `browse.py` (6) — web-search, browse-proxy, image-proxy, link-preview, stock-quote, check-embed
 - `vault.py` (11) — notes CRUD, marimo start/stop, vault path/tree
 - `misc.py` (30) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content
 
@@ -34,7 +34,7 @@ Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` 
 - **Quality:** `/api/quality-filter` (POST, verdict KEEP/SKIP or score 0-100, optional `interest_context`), `/api/quality-prompt` (GET/PUT), `/api/blocked-titles` (GET/POST/DELETE)
 - **Content:** `/api/doc-chat` (SSE, optional `vision:true`), `/api/extract-text`, `/api/extract-links`, `/api/paper-insights`, `/api/author-details`, `/api/citation-lookup`, `/api/paper-references`, `/api/author-lookup`, `/api/panel-suggest`, `/api/search-suggest`, `/api/annotate`, `/api/knowledge-graph/similarities`
 - **Embeddings:** `/api/embed-content` (fire-and-forget), `/api/semantic-search`, `/api/find-similar`
-- **Browse:** `/api/web-search?q=`, `/api/check-embed`, `/api/images`
+- **Browse:** `/api/web-search?q=`, `/api/check-embed`, `/api/browse-proxy`, `/api/image-proxy`, `/api/link-preview`, `/api/stock-quote`
 - **Experiments:** `/api/experiments` (CRUD, stored as `experiments/{slug}/meta.json`)
 - **Neuralook:** `/api/neuralook/save-calibration`, `/api/neuralook/train` (SSE), `/api/neuralook/predict`, `/api/neuralook/implicit-samples`, `/api/neuralook/refine-history`, `/api/neuralook/auto-refine`
 
