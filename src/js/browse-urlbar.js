@@ -1772,6 +1772,10 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
     }
     if (browseHidden) return;
 
+    // Dismiss aether panel on any browse command
+    const _cmdPopup = document.getElementById('doc-chat-ask-float');
+    if (_cmdPopup) { _cmdPopup.remove(); _aetherTrackMode = false; _aetherShowCursor(); }
+
     if (command === 'new-tab') {
       const win = _getCurrentWindow();
       const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);

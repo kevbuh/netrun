@@ -2680,6 +2680,9 @@ window.addEventListener('keydown', e => {
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 't') {
     e.preventDefault();
+    // Dismiss aether panel if open
+    const _popup = document.getElementById('doc-chat-ask-float');
+    if (_popup) { _popup.remove(); _aetherTrackMode = false; if (typeof _aetherShowCursor === 'function') _aetherShowCursor(); }
     const browseView = document.getElementById('browse-view');
     const isOpen = browseView && browseView.style.display !== 'none' && browseView.style.display !== '';
     if (!isOpen && typeof openBrowse === 'function') openBrowse();
