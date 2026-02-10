@@ -1181,6 +1181,14 @@ function _browseInjectContentScripts(tab, frame) {
       (function(){
         if(window.__aetherContextMenuInjected)return;
         window.__aetherContextMenuInjected=true;
+        // Override window.open to relay to parent as new tab
+        var _origOpen=window.open;
+        window.open=function(url){
+          if(url&&url.indexOf('javascript:')!==0){
+            try{var resolved=new URL(url,location.href).href;console.log('__AETHER_OPEN_TAB__'+resolved);}catch(e){console.log('__AETHER_OPEN_TAB__'+url);}
+          }
+          return null;
+        };
         document.addEventListener('contextmenu',function(e){
           var tag = e.target.tagName;
           if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable){
@@ -1273,6 +1281,17 @@ function _browseInjectContentScripts(tab, frame) {
         // Relay clicks for neuralook implicit tracking
         document.addEventListener('click',function(e){
           console.log('__NEURALOOK_CLICK__'+e.screenX+','+e.screenY);
+          // Intercept target="_blank" links and Cmd/Ctrl+click to open in new tab
+          var a=e.target.closest('a[href]');
+          if(a){
+            var href=a.href;
+            if(!href||href.indexOf('javascript:')===0||href.charAt(0)==='#') return;
+            if(a.target==='_blank'||e.metaKey||e.ctrlKey){
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('__AETHER_OPEN_TAB__'+href);
+            }
+          }
         },true);
       })();
     `).catch(()=>{});
@@ -1437,6 +1456,9 @@ function _browseInjectContentScripts(tab, frame) {
           _showBrowseContextMenu(x, y, { linkUrl: data.href, linkText: data.text || '' });
         }
       } catch (err) {}
+    } else if (e.message && e.message.startsWith('__AETHER_OPEN_TAB__')) {
+      const url = e.message.slice('__AETHER_OPEN_TAB__'.length);
+      if (url) browseNewTab(url);
     } else if (e.message && e.message.startsWith('__NEURALOOK_CLICK__')) {
       if (typeof _nlHandleIframeClick === 'function') {
         const parts = e.message.slice('__NEURALOOK_CLICK__'.length).split(',');
@@ -2096,7 +2118,7 @@ function _browseUpdateNewTabPage(tab) {
   }
   if (_browseTabLayout === 'island') _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');
-  if (pinchOverlay) pinchOverlay.style.pointerEvents = (tab && tab.blank) ? 'none' : 'auto';
+  if (pinchOverlay) pinchOverlay.style.pointerEvents = (_browseZoomLevel > 1 && tab && !tab.blank) ? 'auto' : 'none';
 }
 
 function browseCloseTab(id) {
@@ -4552,6 +4574,9 @@ function browseZoom(dir) {
   if (dir === 0) { _browseZoomLevel = 1.0; _browseZoomPanX = 0; _browseZoomPanY = 0; }
   else _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + dir * 0.1));
   _browseApplyZoom();
+  // Sync pinch overlay: active only when zoomed in (for pan scrolling)
+  const po = document.querySelector('.browse-pinch-overlay');
+  if (po) po.style.pointerEvents = _browseZoomLevel > 1 ? 'auto' : 'none';
 }
 // focalX/focalY are cursor coords relative to the browse-content container viewport
 function _browseApplyZoom(focalX, focalY) {
@@ -5002,10 +5027,14 @@ function _browseInstallPinchOverlay() {
   if (!container || container.querySelector('.browse-pinch-overlay')) return;
   const overlay = document.createElement('div');
   overlay.className = 'browse-pinch-overlay';
-  overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:auto;';
+  // Default pointer-events:none so clicks pass through to webview natively.
+  // Only activate (pointer-events:auto) when zoomed in for pan scrolling.
+  overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;';
   container.appendChild(overlay);
-  const ntp = container.querySelector('.browse-ntp');
-  if (ntp && ntp.style.display !== 'none') overlay.style.pointerEvents = 'none';
+
+  function _pinchOverlaySync() {
+    overlay.style.pointerEvents = _browseZoomLevel > 1 ? 'auto' : 'none';
+  }
 
   // Chrome: pinch fires wheel with ctrlKey
   overlay.addEventListener('wheel', function(e) {
@@ -5018,6 +5047,7 @@ function _browseInstallPinchOverlay() {
       const fx = e.clientX - rect.left;
       const fy = e.clientY - rect.top;
       _browseApplyZoom(fx, fy);
+      _pinchOverlaySync();
     } else if (_browseZoomLevel > 1) {
       // When zoomed in, two-finger scroll pans the magnified view
       e.preventDefault();
@@ -5028,10 +5058,6 @@ function _browseInstallPinchOverlay() {
       _browseZoomPanX = Math.max(0, Math.min(maxPanX, _browseZoomPanX));
       _browseZoomPanY = Math.max(0, Math.min(maxPanY, _browseZoomPanY));
       _browseApplyZoom();
-    } else {
-      // Normal scroll: let it pass through to the iframe
-      overlay.style.pointerEvents = 'none';
-      setTimeout(function() { overlay.style.pointerEvents = 'auto'; }, 60);
     }
   }, { passive: false });
 
@@ -5048,33 +5074,32 @@ function _browseInstallPinchOverlay() {
     const fx = rect.width / 2;
     const fy = rect.height / 2;
     _browseApplyZoom(fx, fy);
+    _pinchOverlaySync();
   }, { passive: false });
   overlay.addEventListener('gestureend', function(e) {
     e.preventDefault();
   }, { passive: false });
 
-  // Forward clicks/mousedown to elements underneath
-  function _pinchPassthrough(e) {
-    overlay.style.pointerEvents = 'none';
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    overlay.style.pointerEvents = 'auto';
-    if (el && el !== overlay) {
-      if (e.type === 'click') {
-        el.click();
-      } else {
-        el.dispatchEvent(new MouseEvent(e.type, e));
-      }
-    }
-  }
-  overlay.addEventListener('mousedown', _pinchPassthrough);
-  overlay.addEventListener('click', _pinchPassthrough);
-  overlay.addEventListener('dblclick', _pinchPassthrough);
-  // After mousedown, keep overlay transparent so drag/select works in iframe
+  // When zoomed in, mousedown on overlay should pass through for clicks then restore
   overlay.addEventListener('mousedown', function() {
     overlay.style.pointerEvents = 'none';
-    function _restore() { overlay.style.pointerEvents = 'auto'; document.removeEventListener('mouseup', _restore); }
+    function _restore() {
+      document.removeEventListener('mouseup', _restore);
+      setTimeout(function() { _pinchOverlaySync(); }, 50);
+    }
     document.addEventListener('mouseup', _restore);
   });
+
+  // Also intercept ctrl+wheel on webview frames directly for initial zoom-in
+  container.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + delta));
+    const rect = container.getBoundingClientRect();
+    _browseApplyZoom(e.clientX - rect.left, e.clientY - rect.top);
+    _pinchOverlaySync();
+  }, { passive: false, capture: true });
 }
 
 function browseSaveToReadingList() {
