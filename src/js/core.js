@@ -145,7 +145,7 @@ function _islandRenderPill(a) {
       var fav0 = (t0 && t0.favicon) ? '<img class="island-strip-fav island-strip-fav-active" src="' + _escHtml(t0.favicon) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'island-strip-fav island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))" data-island-tab="' + (t0 ? t0.id : '') + '">' : globeIcon;
       var title0 = (t0 && t0.title) || 'New Tab';
       if (title0.length > 20) title0 = title0.slice(0, 18) + '\u2026';
-      return fav0 + '<span>' + _escHtml(title0) + '</span>';
+      return fav0 + '<span style="opacity:0.4">1 tab</span>';
     }
     // 2+ tabs: favicon strip — active tab + up to 3 most recent others
     var maxOthers = 2;
