@@ -538,11 +538,14 @@ function _islandRender() {
       }, a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500);
     }
 
-    // RSS: icon-only when subscribed
+    // RSS: icon-only when subscribed immediately, otherwise collapse after 15s
     if (a.type === 'rss' && a.subscribed) {
+      if (pill._rssCompactTimer) { clearTimeout(pill._rssCompactTimer); pill._rssCompactTimer = null; }
       pill.classList.add('island-compact');
     } else if (a.type === 'rss') {
-      pill.classList.remove('island-compact');
+      if (!pill._rssCompactTimer && !pill.classList.contains('island-compact')) {
+        pill._rssCompactTimer = setTimeout(function() { pill.classList.add('island-compact'); }, 15000);
+      }
     }
 
     // Annotate: compact to icon-only after 15s (results and offers)
