@@ -108,14 +108,28 @@ function _ttsExecInFrame(frame, script) {
 }
 
 function _ttsSplitSentences(text) {
-  var parts = text.match(/[^.!?]+[.!?]+[\s]*/g);
-  if (!parts || parts.length === 0) return [text];
-  // If there's trailing text without punctuation, append it to last sentence
-  var joined = parts.join('');
-  if (joined.length < text.length) {
-    parts[parts.length - 1] += text.substring(joined.length);
+  // First split on newlines to preserve line structure
+  var lines = text.split(/\n+/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+  var result = [];
+  for (var li = 0; li < lines.length; li++) {
+    var line = lines[li];
+    // Split line on sentence-ending punctuation
+    var parts = line.match(/[^.!?]+[.!?]+[\s]*/g);
+    if (parts && parts.length > 0) {
+      var joined = parts.join('');
+      if (joined.length < line.length) {
+        parts[parts.length - 1] += line.substring(joined.length);
+      }
+      for (var pi = 0; pi < parts.length; pi++) {
+        var s = parts[pi].trim();
+        if (s) result.push(s);
+      }
+    } else {
+      // No punctuation — treat the whole line as one sentence
+      result.push(line);
+    }
   }
-  return parts.map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+  return result.length > 0 ? result : [text];
 }
 
 function _ttsHighlightChunk(chunkText) {

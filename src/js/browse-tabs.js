@@ -6131,16 +6131,22 @@ async function _extractTextFromFrame(tab) {
   const frame = tab.el;
   const script = `(function() {
     const skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
+    const block = new Set(['DIV','P','BR','H1','H2','H3','H4','H5','H6','LI','TR','BLOCKQUOTE','PRE','SECTION','ARTICLE','HEADER','FOOTER','ASIDE','DT','DD','FIGCAPTION','HR']);
     function getText(el) {
       if (skip.has(el.tagName)) return '';
+      if (el.tagName === 'BR') return '\\n';
       let t = '';
       for (const c of el.childNodes) {
         if (c.nodeType === 3) t += c.textContent;
-        else if (c.nodeType === 1) t += getText(c);
+        else if (c.nodeType === 1) {
+          var inner = getText(c);
+          if (block.has(c.tagName) && inner.trim()) t += '\\n' + inner + '\\n';
+          else t += inner;
+        }
       }
       return t;
     }
-    return getText(document.body || document.documentElement).replace(/\\s+/g, ' ').trim();
+    return getText(document.body || document.documentElement).replace(/[^\\S\\n]+/g, ' ').replace(/\\n\\s*\\n/g, '\\n\\n').trim();
   })()`;
   try {
     if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
