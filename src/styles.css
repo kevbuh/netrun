@@ -674,7 +674,8 @@
     body.electron-app .pill-bar.browse-mode .browse-tab,
     body.electron-app .pill-bar.browse-mode .browse-split-pill,
     body.electron-app .pill-bar.browse-mode .browse-window-switcher,
-    body.electron-app .pill-bar.browse-mode #pill-browse-url-input {
+    body.electron-app .pill-bar.browse-mode #pill-browse-url-input,
+    body.electron-app .pill-bar.browse-mode #pill-island-tabs-anchor {
       -webkit-app-region: no-drag;
     }
 
@@ -801,7 +802,7 @@
     .browse-mode.ntp-active #pill-menu-btn,
     .browse-mode.ntp-active #pill-browse-hamburger,
     .browse-mode.ntp-active #pill-browse-url,
-    .browse-mode.ntp-active #pill-browse-url-input,
+    .browse-mode.ntp-active #pill-url-wrap,
     .browse-mode.ntp-active #pill-browse-reload,
     .browse-mode.ntp-active #pill-browse-tabs,
     .browse-mode.ntp-active #pill-readaloud-wrap,
@@ -1802,26 +1803,42 @@
       transition: max-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
                   opacity 0.25s ease 0.1s;
     }
-    .browse-mode.island-mode #pill-browse-url-input {
+    /* Wrapper for tabs pill + URL input in island mode */
+    #pill-url-wrap {
+      display: contents;
+    }
+    .browse-mode.island-mode #pill-url-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       position: absolute;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
+      z-index: 1;
+    }
+    body.electron-app .browse-mode.island-mode #pill-url-wrap {
+      left: calc(50vw - 80px);
+    }
+    #pill-island-tabs-anchor {
+      display: none;
+    }
+    .browse-mode.island-mode #pill-island-tabs-anchor {
+      display: flex;
+      align-items: center;
+    }
+    .browse-mode.island-mode #pill-browse-url-input {
       width: 320px;
       max-width: 320px;
       opacity: 1;
       padding: 4px 8px;
       text-align: center;
       border-radius: 12px;
-      z-index: 1;
       transition: opacity 0.25s ease 0.1s,
                   background 0.2s ease;
       text-overflow: ellipsis;
       overflow: hidden;
       white-space: nowrap;
-    }
-    body.electron-app .browse-mode.island-mode #pill-browse-url-input {
-      left: calc(50vw - 80px);
     }
     .browse-mode.island-mode #pill-browse-url-input:hover {
       background: var(--aether-hover);

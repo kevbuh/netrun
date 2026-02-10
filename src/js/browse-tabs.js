@@ -1119,6 +1119,8 @@ function _browseHandleNavigation(tab, frame) {
     if (window.electronAPI && window.electronAPI.adblockResetCount && typeof frame.getWebContentsId === 'function') {
       try { window.electronAPI.adblockResetCount(frame.getWebContentsId()); } catch {}
     }
+    // YouTube: inject ad-block CSS immediately on navigation (before dom-ready / first paint)
+    _browseInjectYouTubeCSS(frame, navUrl);
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -1137,6 +1139,8 @@ function _browseHandleNavigation(tab, frame) {
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
     }
+    // YouTube: re-inject ad-block CSS on SPA navigation
+    _browseInjectYouTubeCSS(frame, e.url);
   });
   frame.addEventListener('page-title-updated', (e) => {
     tab.title = e.title || _browseTitleFromUrl(tab.url);
@@ -1179,6 +1183,56 @@ function _browseHandleNavigation(tab, frame) {
 
 }
 
+var _ytAdBlockCSS =
+  '#player-ads,' +
+  '.ytp-ad-module,' +
+  '.ytp-ad-overlay-container,' +
+  '.ytp-ad-overlay-slot,' +
+  '.ytp-ad-image-overlay,' +
+  'ytd-promoted-sparkles-web-renderer,' +
+  'ytd-display-ad-renderer,' +
+  'ytd-ad-slot-renderer,' +
+  'ytd-in-feed-ad-layout-renderer,' +
+  'ytd-banner-promo-renderer,' +
+  'ytd-statement-banner-renderer,' +
+  '#masthead-ad,' +
+  '#feedmodule-ad,' +
+  '.ytd-rich-item-renderer[is-ad],' +
+  'ytd-promoted-video-renderer,' +
+  'tp-yt-paper-dialog.ytd-enforcement-message-view-model,' +
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]' +
+  '{display:none!important}' +
+  '#movie_player.ad-showing video,#movie_player.ad-interrupting video{opacity:0!important}' +
+  '#movie_player.ad-showing .ytp-chrome-bottom{opacity:0!important}' +
+  '.ytp-ad-text,.ytp-ad-preview-container,.ytp-ad-badge,.ytp-ad-visit-advertiser-button{display:none!important}';
+
+// Inject YouTube ad-block CSS + early mute (before JS runs, hides from first paint)
+function _browseInjectYouTubeCSS(frame, url) {
+  if (!url || !url.includes('youtube.com')) return;
+  if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+  frame.insertCSS(_ytAdBlockCSS).catch(function(){});
+  // Mute video elements immediately so ad audio never plays
+  frame.executeJavaScript(`(function(){
+    if(window.__aetherYtEarlyMute) return;
+    window.__aetherYtEarlyMute=true;
+    function muteAds(){
+      var p=document.getElementById('movie_player');
+      var isAd=p&&(p.classList.contains('ad-showing')||p.classList.contains('ad-interrupting'));
+      document.querySelectorAll('video').forEach(function(v){if(isAd)v.muted=true;});
+    }
+    // Intercept play() to mute before audio starts
+    var origPlay=HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play=function(){
+      var p=document.getElementById('movie_player');
+      if(p&&(p.classList.contains('ad-showing')||p.classList.contains('ad-interrupting')))this.muted=true;
+      return origPlay.apply(this,arguments);
+    };
+    // Also watch for video elements being added
+    var obs=new MutationObserver(function(){muteAds();});
+    obs.observe(document.documentElement,{childList:true,subtree:true});
+  })();`).catch(function(){});
+}
+
 function _browseInjectYouTubeAdBlock(frame, url) {
   if (!url || !url.includes('youtube.com')) return;
   if (localStorage.getItem('adBlockEnabled') !== 'true') return;
@@ -1186,35 +1240,7 @@ function _browseInjectYouTubeAdBlock(frame, url) {
     if(window.__aetherYtAdBlockInjected) return;
     window.__aetherYtAdBlockInjected=true;
 
-    // 1. Inject CSS to hide ad containers
-    function injectAdCSS(){
-      if(document.getElementById('aether-yt-adblock-css')) return;
-      var s=document.createElement('style');
-      s.id='aether-yt-adblock-css';
-      s.textContent=
-        '#player-ads,'+
-        '.ytp-ad-module,'+
-        '.ytp-ad-overlay-container,'+
-        '.ytp-ad-overlay-slot,'+
-        '.ytp-ad-image-overlay,'+
-        'ytd-promoted-sparkles-web-renderer,'+
-        'ytd-display-ad-renderer,'+
-        'ytd-ad-slot-renderer,'+
-        'ytd-in-feed-ad-layout-renderer,'+
-        'ytd-banner-promo-renderer,'+
-        'ytd-statement-banner-renderer,'+
-        '#masthead-ad,'+
-        '#feedmodule-ad,'+
-        '.ytd-rich-item-renderer[is-ad],'+
-        'ytd-promoted-video-renderer,'+
-        'tp-yt-paper-dialog.ytd-enforcement-message-view-model,'+
-        'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]'+
-        '{display:none!important}';
-      (document.head||document.documentElement).appendChild(s);
-    }
-    injectAdCSS();
-
-    // 2. Skip video ads via polling
+    // 1. Skip video ads via polling
     var _wasMuted=false;
     var skipInterval=setInterval(function(){
       var player=document.querySelector('#movie_player');
@@ -1270,10 +1296,6 @@ function _browseInjectYouTubeAdBlock(frame, url) {
     });
     obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
 
-    // 4. Re-inject CSS on SPA navigation
-    window.addEventListener('yt-navigate-finish',function(){
-      injectAdCSS();
-    });
   })();`).catch(function(){});
 }
 

@@ -282,6 +282,13 @@ function _islandRender() {
   container.querySelectorAll('.pill-island[data-island-id]').forEach(function(el) {
     existingEls[el.getAttribute('data-island-id')] = el;
   });
+  // Also check the tabs anchor (tabs pill may live there in island mode)
+  var _tabsAnchorEl = document.getElementById('pill-island-tabs-anchor');
+  if (_tabsAnchorEl) {
+    _tabsAnchorEl.querySelectorAll('.pill-island[data-island-id]').forEach(function(el) {
+      existingEls[el.getAttribute('data-island-id')] = el;
+    });
+  }
 
   var prevPill = null; // track insertion order
   ids.forEach(function(id) {
@@ -508,8 +515,11 @@ function _islandRender() {
     }
 
     // Animate in
+    var tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+    var isIslandMode = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
+    var targetContainer = (id === 'tabs' && isIslandMode && tabsAnchor) ? tabsAnchor : container;
     if (isNew) {
-      container.appendChild(pill);
+      targetContainer.appendChild(pill);
       pill.classList.add('island-active');
       pill.classList.add('island-bounce');
       pill.addEventListener('animationend', function() { pill.classList.remove('island-bounce'); }, { once: true });
@@ -522,6 +532,10 @@ function _islandRender() {
         }, 7000);
       }
     } else {
+      // Move tabs pill to correct container if needed (e.g. mode switch)
+      if (pill.parentNode !== targetContainer) {
+        targetContainer.appendChild(pill);
+      }
       pill.classList.add('island-active');
     }
 
@@ -561,8 +575,12 @@ function _islandRender() {
   // Remove stale pills
   Object.keys(existingEls).forEach(function(id) { existingEls[id].remove(); });
 
-  // Force DOM order to match sorted ids — always tabs first
-  var sortedPills = ids.map(function(id) {
+  // Force DOM order to match sorted ids — always tabs first (skip tabs pill if in anchor)
+  var sortedPills = ids.filter(function(id) {
+    // Don't reorder tabs pill if it's in the anchor container
+    if (id === 'tabs' && _tabsAnchorEl && _tabsAnchorEl.querySelector('.pill-island[data-island-id="tabs"]')) return false;
+    return true;
+  }).map(function(id) {
     return container.querySelector('.pill-island[data-island-id="' + id + '"]');
   }).filter(Boolean);
   for (var si = 0; si < sortedPills.length; si++) {
