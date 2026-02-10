@@ -1484,20 +1484,22 @@ function _clearBrowseHistory() {
 
 function toggleAdBlock() {
   const on = localStorage.getItem('adBlockEnabled') === 'true';
-  localStorage.setItem('adBlockEnabled', on ? 'false' : 'true');
+  const newState = !on;
+  localStorage.setItem('adBlockEnabled', newState ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.adblockSetEnabled) {
+    window.electronAPI.adblockSetEnabled(newState);
+  }
   _browseUpdateAdBlockBtn();
-  // Reload current tab through/without proxy
+  // Reload current tab to apply/remove blocking
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.url && !tab.blank && tab.el) {
-    const proxied = _browseProxyUrl(tab.url);
-    tab.el.dataset.originalUrl = tab.url;
-    tab.el.src = proxied;
-    if (proxied !== tab.url) {
-      tab.el.addEventListener('load', () => _browseUpdateAdBlockBadge(tab.url), { once: true });
+    if (_browseIsElectron) {
+      // Electron: just reload the webview — main process handles blocking
+      if (tab.el.reload) tab.el.reload();
     } else {
-      // Cleared proxy — hide badge
-      const badge = document.getElementById('browse-adblock-badge');
-      if (badge) badge.style.display = 'none';
+      const proxied = _browseProxyUrl(tab.url);
+      tab.el.dataset.originalUrl = tab.url;
+      tab.el.src = proxied;
     }
   }
 }
@@ -1518,7 +1520,27 @@ function _browseUpdateAdBlockBadge(url) {
     badge.style.display = 'none';
     return;
   }
-  // Try to read the blocked count from the proxied iframe's meta tag (same-origin)
+  // Electron: read count from main process via IPC
+  if (_browseIsElectron && window.electronAPI && window.electronAPI.adblockGetCount) {
+    const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+    if (tab && tab.el && typeof tab.el.getWebContentsId === 'function') {
+      try {
+        const wcId = tab.el.getWebContentsId();
+        window.electronAPI.adblockGetCount(wcId).then(count => {
+          if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.style.display = 'flex';
+          } else {
+            badge.style.display = 'none';
+          }
+        }).catch(() => { badge.style.display = 'none'; });
+      } catch { badge.style.display = 'none'; }
+    } else {
+      badge.style.display = 'none';
+    }
+    return;
+  }
+  // Non-Electron: read from proxied iframe meta tag (same-origin)
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.el) {
     try {

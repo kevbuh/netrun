@@ -1,4 +1,4 @@
-"""Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote, adblock."""
+"""Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote."""
 import json
 import os
 import re
@@ -7,7 +7,7 @@ import urllib.request
 
 from flask import Blueprint, request, jsonify, Response
 
-from persistence import DIR, cached_fetch, get_adblock_stats, update_adblock_lists, clean_html
+from persistence import DIR, cached_fetch, rewrite_proxy_html
 
 bp = Blueprint('browse', __name__)
 
@@ -128,11 +128,10 @@ def browse_proxy():
     try:
         data = cached_fetch(url, timeout=20)
         html_str = data.decode('utf-8', errors='replace')
-        cleaned, count = clean_html(html_str, url)
-        body = cleaned.encode('utf-8')
+        rewritten = rewrite_proxy_html(html_str, url)
+        body = rewritten.encode('utf-8')
         resp = Response(body, content_type='text/html; charset=utf-8')
         resp.headers['Access-Control-Allow-Origin'] = '*'
-        resp.headers['X-Blocked-Count'] = str(count)
         return resp
     except Exception as e:
         return jsonify({'error': str(e)}), 502
@@ -178,15 +177,5 @@ def stock_quote():
     except Exception as e:
         return jsonify({'error': str(e)}), 502
 
-
-@bp.route('/api/adblock-rules')
-def adblock_rules():
-    return jsonify(get_adblock_stats())
-
-
-@bp.route('/api/adblock-rules/reset', methods=['POST'])
-def adblock_reset():
-    update_adblock_lists()
-    return jsonify(get_adblock_stats())
 
 

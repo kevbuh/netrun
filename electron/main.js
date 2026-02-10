@@ -3,8 +3,109 @@ const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
+const { FilterSet, Engine } = require('adblock-rs');
 
 app.setName('Aether');
+
+// ── Ad Blocker (adblock-rs / Brave adblock-rust) ──
+
+let _adblockEngine = null;
+let _adblockEnabled = true;
+const _blockedCounts = {};
+
+const ADBLOCK_ENGINE_PATH = () => path.join(app.getPath('userData'), 'adblock_engine.dat');
+const ADBLOCK_META_PATH = () => path.join(app.getPath('userData'), 'adblock_meta.json');
+const ADBLOCK_FILTER_LISTS = [
+  ['EasyList', 'https://easylist.to/easylist/easylist.txt'],
+  ['EasyPrivacy', 'https://easylist.to/easylist/easyprivacy.txt'],
+];
+
+function _mapResourceType(rt) {
+  const map = {
+    mainFrame: 'document', subFrame: 'subdocument', stylesheet: 'stylesheet',
+    script: 'script', image: 'image', font: 'font', object: 'object',
+    xhr: 'xmlhttprequest', ping: 'ping', media: 'media',
+  };
+  return map[rt] || 'other';
+}
+
+function _fetchText(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return _fetchText(res.headers.location).then(resolve, reject);
+      }
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => resolve(data));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+async function _downloadAndBuildEngine() {
+  const filterSet = new FilterSet();
+  let totalRules = 0;
+  const listNames = [];
+
+  for (const [name, url] of ADBLOCK_FILTER_LISTS) {
+    try {
+      const text = await _fetchText(url);
+      const rules = text.split('\n').filter(l => l.trim() && !l.startsWith('!'));
+      filterSet.addFilters(rules);
+      totalRules += rules.length;
+      listNames.push(name);
+      console.log(`[adblock] Loaded ${name}: ~${rules.length} rules`);
+    } catch (e) {
+      console.error(`[adblock] Failed to download ${name} (${url}):`, e.message);
+    }
+  }
+
+  _adblockEngine = new Engine(filterSet);
+  try {
+    const buf = _adblockEngine.serializeRaw();
+    fs.writeFileSync(ADBLOCK_ENGINE_PATH(), Buffer.from(buf));
+    console.log('[adblock] Serialized engine to disk');
+  } catch (e) {
+    console.error('[adblock] Failed to serialize engine:', e.message);
+  }
+
+  const meta = { lists: listNames, ruleCount: totalRules, updatedAt: Date.now() };
+  try { fs.writeFileSync(ADBLOCK_META_PATH(), JSON.stringify(meta, null, 2)); } catch {}
+  return meta;
+}
+
+function _getEngineStats() {
+  try {
+    const data = fs.readFileSync(ADBLOCK_META_PATH(), 'utf8');
+    return JSON.parse(data);
+  } catch {
+    return { lists: [], ruleCount: 0, updatedAt: null };
+  }
+}
+
+async function initAdblock() {
+  const enginePath = ADBLOCK_ENGINE_PATH();
+  if (fs.existsSync(enginePath)) {
+    try {
+      const buf = fs.readFileSync(enginePath);
+      _adblockEngine = new Engine(new FilterSet());
+      _adblockEngine.deserialize(new Uint8Array(buf));
+      console.log('[adblock] Loaded engine from disk');
+      return;
+    } catch (e) {
+      console.error('[adblock] Failed to deserialize engine:', e.message);
+    }
+  }
+  try {
+    await _downloadAndBuildEngine();
+  } catch (e) {
+    console.error('[adblock] Failed to build engine:', e.message);
+  }
+}
 
 let pythonProcess = null;
 let mainWindow = null;
@@ -257,11 +358,29 @@ async function createWindow() {
 
 // Track sessions that already have download handlers to prevent duplicates
 const sessionsWithDownloadHandlers = new WeakSet();
+const sessionsWithAdblock = new WeakSet();
 
 // Handle keyboard shortcuts in all web contents (including webviews)
 app.on('web-contents-created', (event, contents) => {
   // Only handle webviews (they have a different type of webContents)
   if (contents.getType && contents.getType() === 'webview') {
+    // ── Ad block request interceptor ──
+    const ses = contents.session;
+    if (!sessionsWithAdblock.has(ses)) {
+      sessionsWithAdblock.add(ses);
+      ses.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, cb) => {
+        if (!_adblockEngine || !_adblockEnabled) return cb({});
+        const type = _mapResourceType(details.resourceType);
+        try {
+          const result = _adblockEngine.check(details.url, details.referrer || details.url, type);
+          if (result.matched) {
+            _blockedCounts[details.webContentsId] = (_blockedCounts[details.webContentsId] || 0) + 1;
+            return cb({ cancel: true });
+          }
+        } catch {}
+        cb({});
+      });
+    }
     // Intercept Cmd+click / target=_blank in webviews → open in browse tabs
     contents.setWindowOpenHandler(({ url }) => {
       const parent = contents.getOwnerBrowserWindow();
@@ -463,6 +582,25 @@ app.whenReady().then(() => {
     app.dock.setIcon(nativeImage.createFromPath(iconPath));
   }
   createMenu();
+
+  // ── Ad block IPC handlers ──
+  ipcMain.handle('adblock-get-count', (_, wcId) => _blockedCounts[wcId] || 0);
+  ipcMain.handle('adblock-reset-count', (_, wcId) => { _blockedCounts[wcId] = 0; });
+  ipcMain.handle('adblock-set-enabled', (_, on) => { _adblockEnabled = !!on; });
+  ipcMain.handle('adblock-cosmetic', (_, url) => {
+    if (!_adblockEngine) return { selectors: [] };
+    try {
+      const res = _adblockEngine.urlCosmeticResources(url);
+      return { selectors: res.hiddenClassIdSelectors || [] };
+    } catch { return { selectors: [] }; }
+  });
+  ipcMain.handle('adblock-update', async () => {
+    await _downloadAndBuildEngine();
+    return _getEngineStats();
+  });
+  ipcMain.handle('adblock-stats', () => _getEngineStats());
+
+  initAdblock();
 
   ipcMain.handle('print', async (event, options) => {
     const win = BrowserWindow.fromWebContents(event.sender);

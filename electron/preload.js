@@ -39,5 +39,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path),
-  saveAndOpenTemp: (name, buffer) => ipcRenderer.invoke('save-and-open-temp', name, buffer)
+  saveAndOpenTemp: (name, buffer) => ipcRenderer.invoke('save-and-open-temp', name, buffer),
+  // Ad blocker (adblock-rs in main process)
+  adblockGetCount: (wcId) => ipcRenderer.invoke('adblock-get-count', wcId),
+  adblockResetCount: (wcId) => ipcRenderer.invoke('adblock-reset-count', wcId),
+  adblockSetEnabled: (on) => ipcRenderer.invoke('adblock-set-enabled', on),
+  adblockCosmetic: (url) => ipcRenderer.invoke('adblock-cosmetic', url),
+  adblockUpdate: () => ipcRenderer.invoke('adblock-update'),
+  adblockStats: () => ipcRenderer.invoke('adblock-stats'),
 });

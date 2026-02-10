@@ -630,9 +630,9 @@ function _renderBrowserSettings() {
           </span>
         </label>
       </div>
-      <p class="text-dim text-[0.8rem] mb-3">Strips ads, tracking scripts, and sponsored content from pages in the browse tab via a server-side proxy.</p>
-      <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Loading filter info...</div>
-      <button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>
+      <p class="text-dim text-[0.8rem] mb-3">Blocks ads and trackers ${window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy'}.</p>
+      <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">${window.electronAPI ? 'Loading filter info...' : 'Filter list management requires Electron.'}</div>
+      ${window.electronAPI ? '<button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>' : ''}
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Site Permissions</h3>
@@ -1214,16 +1214,18 @@ function renderSettingsView() {
   } else if (_settingsSection === 'browser') {
     _urlBarSectionDragSetup();
     _loadSettingsPasswords();
-    fetch('/api/adblock-rules').then(r => r.json()).then(stats => {
-      const el = document.getElementById('adblock-rules-info');
-      if (!el) return;
-      if (stats.lists && stats.lists.length > 0) {
-        const count = (stats.ruleCount || 0).toLocaleString();
-        el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
-      } else {
-        el.textContent = 'No filter lists loaded yet. Click "Update filter lists" to download.';
-      }
-    }).catch(() => {});
+    if (window.electronAPI && window.electronAPI.adblockStats) {
+      window.electronAPI.adblockStats().then(stats => {
+        const el = document.getElementById('adblock-rules-info');
+        if (!el) return;
+        if (stats.lists && stats.lists.length > 0) {
+          const count = (stats.ruleCount || 0).toLocaleString();
+          el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
+        } else {
+          el.textContent = 'No filter lists loaded yet. Click "Update filter lists" to download.';
+        }
+      }).catch(() => {});
+    }
   }
 }
 
@@ -1371,6 +1373,9 @@ function setTheme(theme) {
 
 function setAdBlockEnabled(on) {
   localStorage.setItem('adBlockEnabled', on ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.adblockSetEnabled) {
+    window.electronAPI.adblockSetEnabled(on);
+  }
   if (typeof _browseUpdateAdBlockBtn === 'function') _browseUpdateAdBlockBtn();
 }
 
@@ -1390,9 +1395,12 @@ async function toggleProfilePrivacy(on) {
 
 function resetAdBlockRules() {
   const el = document.getElementById('adblock-rules-info');
+  if (!window.electronAPI || !window.electronAPI.adblockUpdate) {
+    if (el) el.textContent = 'Filter list updates require Electron.';
+    return;
+  }
   if (el) el.textContent = 'Updating filter lists...';
-  fetch('/api/adblock-rules/reset', { method: 'POST' })
-    .then(r => r.json())
+  window.electronAPI.adblockUpdate()
     .then(stats => {
       if (!el) return;
       if (stats.lists && stats.lists.length > 0) {

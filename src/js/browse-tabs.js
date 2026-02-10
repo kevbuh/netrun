@@ -13,6 +13,11 @@ const _BROWSE_GROUP_COLOR_MAP = {
 };
 const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
+// Sync initial adblock state to Electron main process
+if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
+  window.electronAPI.adblockSetEnabled(localStorage.getItem('adBlockEnabled') === 'true');
+}
+
 // Audio tracking: { tabId: { windowId, muted } }
 let _browseAudioTabs = new Map();
 let _pillBrowseMode = false;
@@ -406,7 +411,7 @@ function _browseGoBack() {
     _setBrowseReturnView(null);
     return;
   }
-  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null };
+  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null, vault: typeof openVault === 'function' ? openVault : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
   const fn = nav[_browseReturnView];
   _setBrowseReturnView(null);
   if (fn) fn(); else goHome();
@@ -1110,6 +1115,10 @@ function _browseHandleNavigation(tab, frame) {
     _updateAnnotateButtonState();
     // Offer to annotate the new page
     if (_browseActiveTab === tab.id) _offerAnnotation(tab);
+    // Adblock: reset count for this webview on navigation
+    if (window.electronAPI && window.electronAPI.adblockResetCount && typeof frame.getWebContentsId === 'function') {
+      try { window.electronAPI.adblockResetCount(frame.getWebContentsId()); } catch {}
+    }
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -1556,6 +1565,28 @@ function _browseBindFrame(tab) {
 
   _browseHandleNavigation(tab, el);
   _browseInjectContentScripts(tab, el);
+
+  // Adblock: inject cosmetic CSS + update badge after page load
+  if (window.electronAPI && window.electronAPI.adblockCosmetic) {
+    el.addEventListener('did-finish-load', () => {
+      if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+      const url = tab.url || '';
+      if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
+      // Inject cosmetic hide selectors
+      window.electronAPI.adblockCosmetic(url).then(res => {
+        if (res && res.selectors && res.selectors.length > 0) {
+          const css = res.selectors.join(', ') + ' { display: none !important; }';
+          try { el.insertCSS(css); } catch {}
+        }
+      }).catch(() => {});
+      // Update badge count after a short delay to let requests finish
+      setTimeout(() => {
+        if (_browseActiveTab === tab.id && typeof _browseUpdateAdBlockBadge === 'function') {
+          _browseUpdateAdBlockBadge(url);
+        }
+      }, 500);
+    });
+  }
 }
 
 // ── Password Manager ──
@@ -3031,9 +3062,6 @@ function _pillSyncUrl() {
   _updateIslandNavButtons();
 }
 
-const _islandNavBackArrow = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>';
-const _islandNavFeedIcon = '<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>';
-
 function _updateIslandNavButtons() {
   try {
     const backBtn = document.getElementById('pill-browse-back');
@@ -3047,18 +3075,8 @@ function _updateIslandNavButtons() {
     try { hasElFwd = _browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
     if (backBtn) {
       const hasNavBack = typeof _navHistory !== 'undefined' && _navHistory.length > 1;
-      const hasAnyBack = hasBackHistory || hasElBack || !!_browseReturnView || hasNavBack;
-      if (!hasAnyBack) {
-        backBtn.style.display = 'none';
-      } else if (!hasBackHistory && !hasElBack && !hasNavBack && _browseReturnView === 'feed') {
-        backBtn.style.display = '';
-        backBtn.innerHTML = _islandNavFeedIcon;
-        backBtn.title = 'Back to Feed';
-      } else {
-        backBtn.style.display = '';
-        backBtn.innerHTML = _islandNavBackArrow;
-        backBtn.title = 'Back';
-      }
+      const hasPageBack = hasBackHistory || hasElBack;
+      backBtn.style.display = '';
     }
     if (fwdBtn) {
       const hasNavFwd = typeof _navForward !== 'undefined' && _navForward.length > 0;
@@ -4540,8 +4558,9 @@ function browseBack() {
   }
   // No in-tab history — fall back to returning to the previous view (feed, inbox, etc.)
   if (_browseReturnView) { _browseGoBack(); return; }
-  // Last resort: use nav history stack
-  if (typeof navBack === 'function') navBack();
+  // Last resort: nav history, then always go home
+  if (typeof navBack === 'function' && navBack()) return;
+  goHome();
 }
 
 function browseForward() {

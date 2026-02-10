@@ -12,5 +12,8 @@
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "adblock-rs": "^0.12.1"
   }
 }

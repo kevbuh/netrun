@@ -2029,195 +2029,17 @@ def get_team_ancestors(team_id):
     return ancestors
 
 
-# ── Ad Block (Brave adblock-rust via Python bindings) ──
-
-ADBLOCK_ENGINE_FILE = os.path.join(DIR, 'adblock_engine.dat')
-ADBLOCK_META_FILE = os.path.join(DIR, 'adblock_meta.json')
-ADBLOCK_FILTER_LISTS = [
-    ('EasyList', 'https://easylist.to/easylist/easylist.txt'),
-    ('EasyPrivacy', 'https://easylist.to/easylist/easyprivacy.txt'),
-]
-
-_adblock_engine = None
-_adblock_meta = None
-
-
-def _read_adblock_meta():
-    global _adblock_meta
-    if _adblock_meta is not None:
-        return _adblock_meta
-    if os.path.exists(ADBLOCK_META_FILE):
-        try:
-            with open(ADBLOCK_META_FILE, 'r') as f:
-                _adblock_meta = json.load(f)
-                return _adblock_meta
-        except (json.JSONDecodeError, ValueError):
-            pass
-    return None
-
-
-def _write_adblock_meta(meta):
-    global _adblock_meta
-    _adblock_meta = meta
-    with open(ADBLOCK_META_FILE, 'w') as f:
-        json.dump(meta, f, indent=2)
-
-
-def _get_adblock_engine():
-    """Lazy-load the Brave adblock engine. Tries deserialize first, then downloads lists."""
-    global _adblock_engine
-    if _adblock_engine is not None:
-        return _adblock_engine
-    try:
-        import adblock
-    except ImportError:
-        print("[adblock] adblock package not installed, ad blocking disabled")
-        return None
-    # Try loading serialized engine from disk
-    if os.path.exists(ADBLOCK_ENGINE_FILE):
-        try:
-            engine = adblock.Engine(adblock.FilterSet())
-            engine.deserialize_from_file(ADBLOCK_ENGINE_FILE)
-            _adblock_engine = engine
-            print(f"[adblock] Loaded engine from {ADBLOCK_ENGINE_FILE}")
-            return engine
-        except Exception as e:
-            print(f"[adblock] Failed to deserialize engine: {e}")
-    # Build fresh engine by downloading filter lists
-    return update_adblock_lists()
-
-
-def update_adblock_lists():
-    """Download filter lists, build engine, serialize to disk. Returns engine or None."""
-    global _adblock_engine
-    try:
-        import adblock
-    except ImportError:
-        print("[adblock] adblock package not installed")
-        return None
-    fs = adblock.FilterSet()
-    total_rules = 0
-    list_names = []
-    ctx = ssl._create_unverified_context()
-    for name, url in ADBLOCK_FILTER_LISTS:
-        try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
-                text = resp.read().decode('utf-8', errors='replace')
-            rule_count = len([l for l in text.splitlines() if l.strip() and not l.startswith('!')])
-            fs.add_filter_list(text, format='standard')
-            total_rules += rule_count
-            list_names.append(name)
-            print(f"[adblock] Loaded {name}: ~{rule_count} rules")
-        except Exception as e:
-            print(f"[adblock] Failed to download {name} ({url}): {e}")
-    engine = adblock.Engine(fs)
-    try:
-        engine.serialize_to_file(ADBLOCK_ENGINE_FILE)
-        print(f"[adblock] Serialized engine to {ADBLOCK_ENGINE_FILE}")
-    except Exception as e:
-        print(f"[adblock] Failed to serialize engine: {e}")
-    _write_adblock_meta({
-        'lists': list_names,
-        'ruleCount': total_rules,
-        'updatedAt': time.time(),
-    })
-    _adblock_engine = engine
-    return engine
-
-
-def get_adblock_stats():
-    """Return info about the current adblock engine for the settings UI."""
-    meta = _read_adblock_meta()
-    if meta:
-        return meta
-    return {'lists': [], 'ruleCount': 0, 'updatedAt': None}
-
-
-def clean_html(html_str, base_url):
-    """Strip ads, trackers, and sponsored content from HTML using Brave adblock-rust.
-    Returns (cleaned_html, blocked_count)."""
+def rewrite_proxy_html(html_str, base_url):
+    """Rewrite relative URLs in proxied HTML for non-Electron browser mode (CORS proxy).
+    Returns processed HTML string."""
     from html.parser import HTMLParser
     from urllib.parse import urljoin, urlparse
 
-    engine = _get_adblock_engine()
-
-    # Map HTML tag context to adblock request types
-    _tag_request_type = {
-        'script': 'script',
-        'img': 'image',
-        'iframe': 'subdocument',
-        'video': 'media',
-        'audio': 'media',
-        'source': 'media',
-        'object': 'object',
-        'embed': 'object',
-    }
-
-    def _url_blocked(url, tag='other'):
-        if not engine or not url:
-            return False
-        try:
-            req_type = _tag_request_type.get(tag, 'other')
-            result = engine.check_network_urls(url, base_url, req_type)
-            return result.matched
-        except Exception:
-            return False
-
-    def _link_blocked(href, rel=''):
-        """Check if a <link> element should be blocked."""
-        if not engine or not href:
-            return False
-        try:
-            req_type = 'stylesheet' if 'stylesheet' in rel else 'other'
-            result = engine.check_network_urls(href, base_url, req_type)
-            return result.matched
-        except Exception:
-            return False
-
-    # Get cosmetic hide selectors from engine
-    cosmetic_selectors = set()
-    if engine:
-        try:
-            cr = engine.url_cosmetic_resources(base_url)
-            cosmetic_selectors = cr.hide_selectors or set()
-        except Exception:
-            pass
-
-    blocked_count = 0
     output = []
-    skip_depth = 0
-    skip_tag = None
 
-    class AdBlockParser(HTMLParser):
-        nonlocal blocked_count, skip_depth, skip_tag
-
+    class ProxyRewriter(HTMLParser):
         def handle_starttag(self, tag, attrs):
-            nonlocal blocked_count, skip_depth, skip_tag
             attrs_dict = dict(attrs)
-
-            if skip_depth > 0:
-                skip_depth += 1
-                return
-
-            # Block scripts/iframes/img with ad sources
-            if tag in ('script', 'iframe', 'img', 'video', 'audio', 'source', 'object', 'embed'):
-                src = attrs_dict.get('src', '')
-                if src and _url_blocked(src, tag):
-                    blocked_count += 1
-                    skip_depth = 1
-                    skip_tag = tag
-                    return
-
-            # Block <link> elements (stylesheets, etc.)
-            if tag == 'link':
-                href = attrs_dict.get('href', '')
-                rel = attrs_dict.get('rel', '')
-                if href and _link_blocked(href, rel):
-                    blocked_count += 1
-                    skip_depth = 1
-                    skip_tag = tag
-                    return
 
             # Rewrite relative URLs to absolute
             for url_attr in ('src', 'href', 'action', 'poster'):
@@ -2226,13 +2048,12 @@ def clean_html(html_str, base_url):
                     if not val.startswith(('http://', 'https://', 'data:', 'javascript:', '#', 'mailto:')):
                         attrs_dict[url_attr] = urljoin(base_url, val)
 
-            # Rewrite <img> src through image proxy so images are same-origin (enables canvas copy)
+            # Rewrite <img> src through image proxy so images are same-origin
             if tag == 'img' and 'src' in attrs_dict:
                 img_src = attrs_dict['src']
                 if img_src.startswith(('http://', 'https://')) and not img_src.startswith(('http://localhost', 'https://localhost')):
                     from urllib.parse import quote as _url_quote
                     attrs_dict['src'] = '/api/image-proxy?url=' + _url_quote(img_src, safe='')
-            # Also rewrite srcset for responsive images
             if tag in ('img', 'source') and 'srcset' in attrs_dict:
                 import re as _re
                 def _rewrite_srcset_entry(m):
@@ -2256,7 +2077,6 @@ def clean_html(html_str, base_url):
                 except Exception:
                     pass
 
-            # Reconstruct tag
             attr_str = ''
             for k, v in attrs_dict.items():
                 if v is None:
@@ -2266,20 +2086,12 @@ def clean_html(html_str, base_url):
             output.append(f'<{tag}{attr_str}>')
 
         def handle_endtag(self, tag):
-            nonlocal skip_depth, skip_tag
-            if skip_depth > 0:
-                skip_depth -= 1
-                return
             output.append(f'</{tag}>')
 
         def handle_data(self, data):
-            if skip_depth > 0:
-                return
             output.append(data)
 
         def handle_comment(self, data):
-            if skip_depth > 0:
-                return
             output.append(f'<!--{data}-->')
 
         def handle_decl(self, decl):
@@ -2289,20 +2101,7 @@ def clean_html(html_str, base_url):
             output.append(f'<?{data}>')
 
         def handle_startendtag(self, tag, attrs):
-            nonlocal blocked_count
-            if skip_depth > 0:
-                return
             attrs_dict = dict(attrs)
-            src_or_href = attrs_dict.get('src', '') or attrs_dict.get('href', '')
-            if tag in ('img', 'link') and src_or_href:
-                if tag == 'link':
-                    rel = attrs_dict.get('rel', '')
-                    if _link_blocked(src_or_href, rel):
-                        blocked_count += 1
-                        return
-                elif _url_blocked(src_or_href, tag):
-                    blocked_count += 1
-                    return
             for url_attr in ('src', 'href'):
                 if url_attr in attrs_dict and attrs_dict[url_attr]:
                     val = attrs_dict[url_attr]
@@ -2316,18 +2115,10 @@ def clean_html(html_str, base_url):
                     attr_str += f' {k}="{v}"'
             output.append(f'<{tag}{attr_str}/>')
 
-    parser = AdBlockParser(convert_charrefs=False)
+    parser = ProxyRewriter(convert_charrefs=False)
     parser.feed(html_str)
 
-    # Inject cosmetic CSS to hide ad elements (from engine + generic selectors)
-    cosmetic = ''
-    if cosmetic_selectors:
-        css_rules = ', '.join(cosmetic_selectors)
-        cosmetic = f'<style>{css_rules} {{ display: none !important; }}</style>'
-    # Inject blocked count as meta tag
-    meta = f'<meta name="adblock-count" content="{blocked_count}">'
-
-    # Inject link context menu script - shows options on link click
+    # Inject link context menu script for non-Electron mode
     link_popup_script = """<script>console.log('[aether] link menu script loaded');</script>
 <style>
 .aether-link-menu{position:fixed;z-index:999999;background:rgba(40,40,40,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 0;box-shadow:0 8px 32px rgba(0,0,0,.5);font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;min-width:220px}
@@ -2381,8 +2172,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
 })();
 </script>"""
 
-    result = meta + cosmetic + link_popup_script + ''.join(output)
-    return result, blocked_count
+    return link_popup_script + ''.join(output)
 
 
 # ── Reference Cache (persistent) ──
