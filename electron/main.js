@@ -351,6 +351,12 @@ async function createWindow() {
     }
   });
 
+  // Mouse back/forward buttons
+  mainWindow.on('app-command', (e, cmd) => {
+    if (cmd === 'browser-backward') mainWindow.webContents.send('browse-command', 'back');
+    else if (cmd === 'browser-forward') mainWindow.webContents.send('browse-command', 'forward');
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });

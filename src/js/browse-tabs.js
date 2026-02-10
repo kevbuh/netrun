@@ -2061,6 +2061,12 @@ window.addEventListener('blur', () => {
   _hideBrowseContextMenu();
 });
 
+// Mouse back/forward buttons (macOS — app-command doesn't fire on Mac)
+document.addEventListener('mousedown', (e) => {
+  if (e.button === 3) { e.preventDefault(); browseBack(); }
+  else if (e.button === 4) { e.preventDefault(); browseForward(); }
+});
+
 function browseSelectTab(id) {
   const win = _getCurrentWindow();
   if (!win) return;

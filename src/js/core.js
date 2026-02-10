@@ -95,9 +95,23 @@ function islandUpdate(id, data) {
 }
 
 function islandRemove(id) {
-  delete _islandActivities[id];
+  var el = document.querySelector('.pill-island[data-island-id="'+id+'"]');
+  if (!el) {
+    var anchor = document.getElementById('pill-island-tabs-anchor');
+    if (anchor) el = anchor.querySelector('.pill-island[data-island-id="'+id+'"]');
+  }
   if (_islandDismissTimers[id]) { clearTimeout(_islandDismissTimers[id]); delete _islandDismissTimers[id]; }
-  _islandRender();
+  delete _islandActivities[id];
+  if (el && !el.classList.contains('island-exiting')) {
+    el.classList.add('island-exiting');
+    el.addEventListener('animationend', function onExit(ev) {
+      if (ev.animationName !== 'pill-exit') return;
+      el.removeEventListener('animationend', onExit);
+      el.remove();
+    });
+  } else if (el) {
+    el.remove();
+  }
 }
 
 // Global achievement helper — persistent island pill, click to dismiss
@@ -324,8 +338,19 @@ function _islandRender() {
     var compact = pill.querySelector('.pill-island-content:not(.pill-island-expanded)');
     var expanded = pill.querySelector('.pill-island-expanded');
     var tray = pill.querySelector('.island-ctx-tray');
-    compact.innerHTML = _islandRenderPill(a);
-    expanded.innerHTML = _islandRenderPillExpanded(a);
+    // Smart content diffing: skip innerHTML if content unchanged
+    var newCompactHtml = _islandRenderPill(a);
+    var newExpandedHtml = _islandRenderPillExpanded(a);
+    if (compact._lastHtml !== newCompactHtml) { compact.innerHTML = newCompactHtml; compact._lastHtml = newCompactHtml; }
+    if (expanded._lastHtml !== newExpandedHtml) { expanded.innerHTML = newExpandedHtml; expanded._lastHtml = newExpandedHtml; }
+    // Download completion burst
+    if (a.type === 'download' && a.progress >= 100 && !pill._dlCompleteFired) {
+      pill._dlCompleteFired = true;
+      pill.classList.add('download-complete');
+      pill.addEventListener('animationend', function() { pill.classList.remove('download-complete'); }, { once: true });
+    } else if (a.type === 'download' && a.progress < 100) {
+      pill._dlCompleteFired = false;
+    }
     // Fill items tray for context / download pills
     if (tray) {
       if (a.type === 'context' && a.items && a.items.length) {
@@ -549,9 +574,13 @@ function _islandRender() {
     var targetContainer = (id === 'tabs' && isIslandMode && tabsAnchor) ? tabsAnchor : container;
     if (isNew) {
       targetContainer.appendChild(pill);
-      pill.classList.add('island-active');
-      pill.classList.add('island-bounce');
-      pill.addEventListener('animationend', function() { pill.classList.remove('island-bounce'); }, { once: true });
+      pill.classList.add('island-entering');
+      pill.addEventListener('animationend', function onEnter(ev) {
+        if (ev.animationName !== 'pill-enter') return;
+        pill.removeEventListener('animationend', onEnter);
+        pill.classList.remove('island-entering');
+        pill.classList.add('island-active');
+      });
       // Achievement: auto-expand tray then collapse after delay
       if (a.type === 'achievement') {
         pill.classList.add('island-tray-open');
@@ -574,9 +603,7 @@ function _islandRender() {
       var pendingCount = Object.keys(_islandDismissTimers).length;
       var stagger = pendingCount * 500;
       _islandDismissTimers[id] = setTimeout(function() {
-        delete _islandActivities[id];
-        delete _islandDismissTimers[id];
-        _islandRender();
+        islandRemove(id);
       }, baseDelay + stagger);
     }
 
@@ -601,8 +628,25 @@ function _islandRender() {
     }
   });
 
-  // Remove stale pills
-  Object.keys(existingEls).forEach(function(id) { existingEls[id].remove(); });
+  // Remove stale pills (with exit animation)
+  Object.keys(existingEls).forEach(function(id) {
+    var staleEl = existingEls[id];
+    if (!staleEl.classList.contains('island-exiting')) {
+      staleEl.classList.add('island-exiting');
+      staleEl.addEventListener('animationend', function onExit(ev) {
+        if (ev.animationName !== 'pill-exit') return;
+        staleEl.removeEventListener('animationend', onExit);
+        staleEl.remove();
+      });
+    }
+  });
+
+  // Phase 7: FLIP reordering — capture positions before reorder
+  var rects = {};
+  container.querySelectorAll('.pill-island').forEach(function(p) {
+    var pid = p.getAttribute('data-island-id');
+    if (pid) rects[pid] = p.getBoundingClientRect();
+  });
 
   // Force DOM order to match sorted ids — always tabs first (skip tabs pill if in anchor)
   var sortedPills = ids.filter(function(id) {
@@ -614,6 +658,32 @@ function _islandRender() {
   }).filter(Boolean);
   for (var si = 0; si < sortedPills.length; si++) {
     container.appendChild(sortedPills[si]);
+  }
+
+  // FLIP: animate from old to new position
+  sortedPills.forEach(function(p) {
+    var pid = p.getAttribute('data-island-id');
+    if (!rects[pid]) return;
+    var dx = rects[pid].left - p.getBoundingClientRect().left;
+    if (Math.abs(dx) > 1) {
+      p.style.transform = 'translateX(' + dx + 'px)';
+      p.style.transition = 'none';
+      requestAnimationFrame(function() {
+        p.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
+        p.style.transform = '';
+      });
+    }
+  });
+
+  // Phase 5: Proximity detection — pills near URL capsule in island mode
+  var urlWrap = document.getElementById('pill-url-wrap');
+  if (urlWrap && urlWrap.getBoundingClientRect) {
+    var urlRect = urlWrap.getBoundingClientRect();
+    sortedPills.forEach(function(p) {
+      var pr = p.getBoundingClientRect();
+      var dist = urlRect.left - pr.right;
+      p.classList.toggle('near-url-bar', dist >= 0 && dist < 60);
+    });
   }
 }
 
@@ -1938,11 +2008,18 @@ if (document.readyState === 'loading') {
   _initPanelResize();
 }
 
-// Global Cmd+] shortcut for panel toggle
+// Global Cmd+[/] shortcuts — browse back/forward when in browse, panel toggle otherwise
 document.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+  if (!(e.metaKey || e.ctrlKey)) return;
+  const browseView = document.getElementById('browse-view');
+  const browseVisible = browseView && browseView.style.display !== 'none';
+  if (e.key === '[') {
     e.preventDefault();
-    togglePanel();
+    if (browseVisible && typeof browseBack === 'function') browseBack();
+  } else if (e.key === ']') {
+    e.preventDefault();
+    if (browseVisible && typeof browseForward === 'function') browseForward();
+    else togglePanel();
   }
 });
 

@@ -69,6 +69,7 @@ function _browseUrlOnMouseLeave(input) {
   if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
     input.value = _browseShortUrl(full);
   }
+  _browseAutoSizeUrlInput(input);
 }
 
 // ── Browse URL Bar History Dropdown ──
@@ -1834,6 +1835,10 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
       if (typeof browsePrintPage === 'function') {
         browsePrintPage();
       }
+    } else if (command === 'back') {
+      browseBack();
+    } else if (command === 'forward') {
+      browseForward();
     }
   });
 }
