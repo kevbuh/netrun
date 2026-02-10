@@ -73,6 +73,86 @@ function _renderAccountSettings() {
   `;
 }
 
+function toggleSidebarIcon(id, visible) {
+  let hidden = [];
+  try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
+  if (visible) {
+    hidden = hidden.filter(h => h !== id);
+  } else {
+    if (!hidden.includes(id)) hidden.push(id);
+  }
+  localStorage.setItem('hiddenSidebarIcons', JSON.stringify(hidden));
+  applySidebarVisibility();
+}
+
+function resetSidebarIcons() {
+  localStorage.removeItem('sidebarOrder');
+  localStorage.removeItem('hiddenSidebarIcons');
+  applySidebarOrder();
+  applySidebarVisibility();
+  renderSettingsView();
+}
+
+let _sbDragEl = null, _sbDragGhost = null, _sbDragStartY = 0, _sbDragStarted = false;
+
+function _sbDragDown(e) {
+  const handle = e.target.closest('.sb-drag-handle');
+  if (!handle) return;
+  const row = handle.closest('.sb-icon-row');
+  if (!row) return;
+  _sbDragEl = row;
+  _sbDragStartY = e.clientY;
+  _sbDragStarted = false;
+  e.preventDefault();
+}
+
+function _sbDragMove(e) {
+  if (!_sbDragEl) return;
+  if (!_sbDragStarted && Math.abs(e.clientY - _sbDragStartY) < 4) return;
+  const list = document.getElementById('sb-icon-list');
+  if (!list) return;
+  if (!_sbDragStarted) {
+    _sbDragStarted = true;
+    _sbDragEl.style.opacity = '0.3';
+    _sbDragGhost = _sbDragEl.cloneNode(true);
+    _sbDragGhost.style.cssText = 'position:fixed;pointer-events:none;z-index:999;opacity:0.9;background:var(--bg-hover);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4);width:' + _sbDragEl.offsetWidth + 'px;left:' + _sbDragEl.getBoundingClientRect().left + 'px';
+    document.body.appendChild(_sbDragGhost);
+  }
+  _sbDragGhost.style.top = (e.clientY - _sbDragGhost.offsetHeight / 2) + 'px';
+  const rows = Array.from(list.querySelectorAll('.sb-icon-row'));
+  for (const row of rows) {
+    if (row === _sbDragEl) continue;
+    const r = row.getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    if (e.clientY < mid) {
+      list.insertBefore(_sbDragEl, row);
+      return;
+    }
+  }
+  list.appendChild(_sbDragEl);
+}
+
+function _sbDragEnd() {
+  if (!_sbDragEl) return;
+  _sbDragEl.style.opacity = '';
+  if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
+  if (_sbDragStarted) {
+    const list = document.getElementById('sb-icon-list');
+    if (list) {
+      const order = Array.from(list.querySelectorAll('.sb-icon-row')).map(r => r.dataset.id);
+      localStorage.setItem('sidebarOrder', JSON.stringify(order));
+      applySidebarOrder();
+      applySidebarVisibility();
+    }
+  }
+  _sbDragEl = null;
+  _sbDragStarted = false;
+}
+
+document.addEventListener('pointermove', _sbDragMove);
+document.addEventListener('pointerup', _sbDragEnd);
+document.addEventListener('pointercancel', _sbDragEnd);
+
 function _renderAppearanceSettings() {
   const currentTheme = localStorage.getItem('theme') || 'light';
   const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
@@ -224,22 +304,29 @@ function _renderAppearanceSettings() {
 
     <!-- MENU ICONS -->
     <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Menu Icons</h3>
-      <p class="text-dimmer text-[0.72rem] mb-3">Show or hide sidebar buttons</p>
-      ${[
-        { id: 'sb-home', label: 'Feed' },
-        { id: 'sb-vault', label: 'Vault' },
-        { id: 'sb-browse', label: 'Browse' },
-        { id: 'sb-calendar', label: 'Calendar' },
-        { id: 'sb-neuralook', label: 'Neuralook' },
-        { id: 'sb-dev', label: 'Dev Stats' },
-        { id: 'sb-rain', label: 'White Noise' },
-      ].map(item => {
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-white_ text-sm font-semibold">Menu Icons</h3>
+        <button onclick="resetSidebarIcons()" class="text-[0.72rem] text-dimmer hover:text-primary cursor-pointer">Reset</button>
+      </div>
+      <div id="sb-icon-list" onpointerdown="_sbDragDown(event)">
+      ${(function() {
+        const labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-rain': 'White Noise', 'sb-settings': 'Settings' };
+        const order = getSidebarOrder();
         let hidden = [];
         try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
-        const isVisible = !hidden.includes(item.id);
-        return '<div class="flex items-center justify-between mt-3"><span class="text-primary text-sm">' + item.label + '</span><label class="flex items-center gap-2 cursor-pointer"><span class="toggle-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + item.id + '\', this.checked)"><span class="slider"></span></span></label></div>';
-      }).join('')}
+        return order.map(id => {
+          const label = labels[id] || id;
+          const isVisible = !hidden.includes(id);
+          return '<div class="sb-icon-row flex items-center justify-between py-2" data-id="' + id + '" style="touch-action:none">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>' +
+              '<span class="text-primary text-sm">' + label + '</span>' +
+            '</div>' +
+            '<label class="flex items-center cursor-pointer"><span class="toggle-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + id + '\', this.checked)"><span class="slider"></span></span></label>' +
+          '</div>';
+        }).join('');
+      })()}
+      </div>
     </div>
   `;
 }

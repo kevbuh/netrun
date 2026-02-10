@@ -394,7 +394,7 @@ function _animateWindowSwitch(direction, callback) {
 let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
 
 function _browseGoBack() {
-  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openCalendar === 'function' ? openCalendar : null, settings: typeof openSettings === 'function' ? openSettings : null };
+  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null };
   const fn = nav[_browseReturnView];
   _browseReturnView = null;
   if (fn) fn(); else goHome();

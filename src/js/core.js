@@ -520,85 +520,9 @@ function _islandRender() {
   }
 }
 
-// ── Now Playing context pill ──
+// ── Now Playing context pill (removed — not useful) ──
 function _updateNowPlayingContext() {
-  var hash = _currentRouteHash || window.location.hash || '';
-  var label = 'Aether';
-  var detail = 'Aether';
-  var viewKey = 'dashboard';
-  var ctxItems = null;
-
-  if (hash === '#feed' || hash === '') {
-    var count = (typeof lastFilteredPapers !== 'undefined' && lastFilteredPapers) ? lastFilteredPapers.length : 0;
-    label = count ? count + ' posts' : 'Feed';
-    detail = 'Feed' + (count ? ' \u00b7 ' + count + ' posts' : '');
-    viewKey = 'feed';
-  } else if (hash === '#browse' || hash === '#research' || hash === '#search') {
-    var win = (typeof _getCurrentWindow === 'function') ? _getCurrentWindow() : null;
-    var tabs = win ? win.tabs : [];
-    var nTabs = tabs.length;
-    var activeTab = win ? tabs.find(function(t) { return t.id === win.activeTab; }) : null;
-    var tabTitle = activeTab ? (activeTab.title || '') : '';
-    label = nTabs ? nTabs + ' tab' + (nTabs !== 1 ? 's' : '') : 'Browse';
-    detail = 'Browse' + (nTabs ? ' \u00b7 ' + nTabs + ' tab' + (nTabs !== 1 ? 's' : '') : '') + (tabTitle ? ' \u00b7 ' + tabTitle : '');
-    viewKey = 'browse';
-    ctxItems = tabs.map(function(t) {
-      return { id: t.id, title: t.title || t.url || 'New Tab', favicon: t.favicon || '', active: activeTab && t.id === activeTab.id };
-    });
-  } else if (hash === '#vault' || hash === '#vibe' || hash === '#experiments') {
-    var noteTitle = (typeof _vaultCurrentNote !== 'undefined' && _vaultCurrentNote) ? (_vaultCurrentNote.title || 'Untitled') : '';
-    var marimo = (typeof _vaultMarimoActive !== 'undefined' && _vaultMarimoActive) ? ' \u00b7 Marimo' : '';
-    label = noteTitle || 'Vault';
-    detail = 'Vault' + (noteTitle ? ' \u00b7 ' + noteTitle : '') + marimo;
-    viewKey = 'vault';
-  } else if (hash.startsWith('#experiment/')) {
-    label = 'Project';
-    detail = 'Vault \u00b7 Project';
-    viewKey = 'vault';
-  } else if (hash === '#terminal') {
-    label = 'Vault';
-    detail = 'Vault \u00b7 Terminal';
-    viewKey = 'vault';
-  } else if (hash === '#saved') {
-    var saved = [];
-    try { saved = JSON.parse(localStorage.getItem('savedPosts') || '[]'); } catch(e) {}
-    label = 'Dashboard';
-    detail = 'Dashboard' + (saved.length ? ' \u00b7 ' + saved.length + ' saved' : '');
-    viewKey = 'dashboard';
-  } else if (hash === '#neuralook') {
-    var nlTrained = (typeof _nlModelState !== 'undefined' && _nlModelState[typeof _nlModelType !== 'undefined' ? _nlModelType : 'cnn'] && _nlModelState[typeof _nlModelType !== 'undefined' ? _nlModelType : 'cnn'].trained);
-    label = nlTrained ? 'Tracking' : 'Neuralook';
-    detail = 'Neuralook' + (nlTrained ? ' \u00b7 Tracking' : '');
-    viewKey = 'neuralook';
-  } else if (hash === '#calendar') {
-    label = 'Calendar';
-    detail = 'Calendar';
-    viewKey = 'calendar';
-  } else if (hash === '#settings' || hash === '#quality' || hash === '#algorithm') {
-    label = 'Settings';
-    detail = 'Settings';
-    viewKey = 'settings';
-  } else if (hash === '#teams' || hash.startsWith('#team/')) {
-    label = 'Teams';
-    detail = 'Teams';
-    viewKey = 'teams';
-  } else if (hash === '#inbox') {
-    label = 'Inbox';
-    detail = 'Inbox';
-    viewKey = 'inbox';
-  }
-
-  // Truncate long labels/details
-  if (label.length > 24) label = label.slice(0, 22) + '\u2026';
-  if (detail.length > 48) detail = detail.slice(0, 46) + '\u2026';
-
-  islandUpdate('nowplaying', {
-    type: 'context',
-    label: label,
-    detail: detail,
-    items: ctxItems,
-    action: function() { wmOpen(viewKey); }
-  });
+  islandRemove('nowplaying');
 }
 
 // ── Content safe bounds for popups ──
@@ -778,7 +702,7 @@ function throttle(fn, ms) {
 
 // Track the last non-paper view for back navigation
 let _lastActiveView = 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-calendar': 'calendar', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
 let _researchActiveTab = null;
@@ -1240,7 +1164,6 @@ const VIEW_REGISTRY = {
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'quality-view':        { template: '/views/quality.html',   tier: 2 },
   'algorithm-view':      { template: '/views/algorithm.html', tier: 2 },
-  'calendar-view':       { template: '/views/calendar.html',  tier: 2 },
   'inbox-view':          { template: '/views/inbox.html',     tier: 2 },
   'profile-view':        { template: '/views/profile.html',   tier: 2 },
   'author-profile-view': { template: '/views/author-profile.html', tier: 2 },
@@ -1334,7 +1257,7 @@ const _wmViewMeta = {
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook',  openFn() { openNeuralook(); } },
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
-  calendar:   { sidebarId: 'sb-calendar',  label: 'Calendar',   openFn() { openCalendar(); } },
+  calendar:   { sidebarId: 'sb-dashboard',  label: 'Dashboard',  openFn() { openDashboard(); } },
   graph:      { sidebarId: 'sb-graph',    label: 'Graph',      openFn() { openKnowledgeGraph(); } },
 };
 
@@ -1890,7 +1813,7 @@ function routeFromHash() {
   else if (hash === '#settings') wmOpen('settings');
   else if (hash === '#quality') { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
   else if (hash === '#algorithm') { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
-  else if (hash === '#calendar') wmOpen('calendar');
+  else if (hash === '#calendar') wmOpen('dashboard');
   else if (hash === '#inbox') wmOpen('inbox');
   else if (hash === '#teams') openTeams();
   else if (hash === '#vault') wmOpen('vault');
@@ -2750,14 +2673,42 @@ window.addEventListener('keydown', e => {
   }
 });
 
-// ── Sidebar icon visibility ──
+// ── Sidebar icon visibility & order ──
+const SIDEBAR_ICON_IDS = ['sb-dashboard','sb-home','sb-vault','sb-browse','sb-neuralook','sb-dev','sb-rain','sb-settings'];
+
+function _sidebarEl(id) {
+  return document.getElementById(id + '-wrap') || document.getElementById(id);
+}
+
 function applySidebarVisibility() {
   let hidden = [];
   try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
-  const ids = ['sb-home','sb-vault','sb-browse','sb-calendar','sb-neuralook','sb-dev','sb-rain'];
-  ids.forEach(id => {
-    const el = document.getElementById(id) || document.getElementById(id + '-wrap');
+  SIDEBAR_ICON_IDS.forEach(id => {
+    const el = _sidebarEl(id);
     if (el) el.style.display = hidden.includes(id) ? 'none' : '';
+  });
+}
+
+function getSidebarOrder() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('sidebarOrder'));
+    if (Array.isArray(saved) && saved.length) {
+      // Add any new icons not in saved order
+      const full = SIDEBAR_ICON_IDS.filter(id => !saved.includes(id));
+      return [...saved.filter(id => SIDEBAR_ICON_IDS.includes(id)), ...full];
+    }
+  } catch {}
+  return [...SIDEBAR_ICON_IDS];
+}
+
+function applySidebarOrder() {
+  const nav = document.getElementById('pill-nav-icons');
+  if (!nav) return;
+  const order = getSidebarOrder();
+  const pet = document.getElementById('pixel-pet-sidebar');
+  order.forEach(id => {
+    const el = _sidebarEl(id);
+    if (el) nav.insertBefore(el, pet);
   });
 }
 
@@ -2800,6 +2751,7 @@ function applySidebarVisibility() {
   }
 
   restoreOrder();
+  applySidebarOrder();
   applySidebarVisibility();
 
   let dragEl = null;
