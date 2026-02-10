@@ -13,6 +13,7 @@ let _vaultGitMode = false;
 let _vaultGitStatus = {}; // { 'path/file.md': 'M' }
 let _vaultTerminal = null; // single terminal instance for right panel
 let _vaultPath = null; // cached vault path
+let _vaultTerminalMode = false;
 
 // Open vault view
 async function openVault() {
@@ -690,6 +691,14 @@ async function openVaultNote(noteId) {
     const gitC = document.getElementById('vault-git-container');
     if (gitC) gitC.style.display = 'none';
     document.removeEventListener('keydown', _vibeKeyHandler);
+  }
+
+  // Reset terminal view if active
+  if (_vaultTerminalMode) {
+    _vaultTerminalMode = false;
+    document.getElementById('vault-terminal-btn')?.classList.remove('active');
+    const termC = document.getElementById('vault-terminal-container');
+    if (termC) termC.style.display = 'none';
   }
 
   if (note.type === 'marimo') {
@@ -1672,6 +1681,13 @@ function vaultToggleGraph() {
     if (gitC) gitC.style.display = 'none';
     document.removeEventListener('keydown', _vibeKeyHandler);
   }
+  // Deactivate terminal mode if active
+  if (_vaultTerminalMode) {
+    _vaultTerminalMode = false;
+    document.getElementById('vault-terminal-btn')?.classList.remove('active');
+    const termC = document.getElementById('vault-terminal-container');
+    if (termC) termC.style.display = 'none';
+  }
 
   _vaultGraphMode = !_vaultGraphMode;
 
@@ -1703,6 +1719,13 @@ function vaultToggleGit() {
     const graphC = document.getElementById('vault-graph-container');
     if (graphC) graphC.style.display = 'none';
   }
+  // Deactivate terminal mode if active
+  if (_vaultTerminalMode) {
+    _vaultTerminalMode = false;
+    document.getElementById('vault-terminal-btn')?.classList.remove('active');
+    const termC = document.getElementById('vault-terminal-container');
+    if (termC) termC.style.display = 'none';
+  }
 
   _vaultGitMode = !_vaultGitMode;
 
@@ -1728,6 +1751,72 @@ function vaultToggleGit() {
   } else {
     gitContainer.style.display = 'none';
     document.removeEventListener('keydown', _vibeKeyHandler);
+    editor.style.display = _vaultPreviewMode ? 'none' : '';
+    preview.style.display = _vaultPreviewMode ? '' : 'none';
+  }
+}
+
+// Toggle terminal mode in vault
+function vaultToggleTerminal() {
+  // Deactivate graph mode if active
+  if (_vaultGraphMode) {
+    _vaultGraphMode = false;
+    document.getElementById('vault-graph-btn')?.classList.remove('active');
+    const graphC = document.getElementById('vault-graph-container');
+    if (graphC) graphC.style.display = 'none';
+  }
+  // Deactivate git mode if active
+  if (_vaultGitMode) {
+    _vaultGitMode = false;
+    document.getElementById('vault-git-btn')?.classList.remove('active');
+    const gitC = document.getElementById('vault-git-container');
+    if (gitC) gitC.style.display = 'none';
+    document.removeEventListener('keydown', _vibeKeyHandler);
+  }
+
+  _vaultTerminalMode = !_vaultTerminalMode;
+
+  const btn = document.getElementById('vault-terminal-btn');
+  const editor = document.getElementById('vault-editor-container');
+  const preview = document.getElementById('vault-preview-container');
+  const termContainer = document.getElementById('vault-terminal-container');
+  const marimo = document.getElementById('vault-marimo-container');
+  const filePane = document.getElementById('vault-file-editor-pane');
+
+  if (btn) btn.classList.toggle('active', _vaultTerminalMode);
+
+  if (_vaultTerminalMode) {
+    editor.style.display = 'none';
+    preview.style.display = 'none';
+    if (marimo) marimo.style.display = 'none';
+    if (filePane) filePane.style.display = 'none';
+    termContainer.style.display = 'flex';
+
+    // Close bottom panel if open — terminals will be reparented
+    if (_bottomTerminalVisible) {
+      _bottomTerminalVisible = false;
+      const bp = document.getElementById('bottom-terminal-panel');
+      if (bp) bp.style.display = 'none';
+    }
+
+    _loadTerminalState();
+
+    if (_terminals.length === 0) {
+      createTerminal();
+    } else {
+      _terminals.forEach(t => {
+        if (!t.ws || t.ws.readyState !== WebSocket.OPEN) {
+          _connectTerminalWs(t);
+        }
+        setTimeout(() => t.fitAddon && t.fitAddon.fit(), 50);
+      });
+    }
+
+    _renderTabs();
+    _renderLayout();
+    _applyTerminalSettingsUI();
+  } else {
+    termContainer.style.display = 'none';
     editor.style.display = _vaultPreviewMode ? 'none' : '';
     preview.style.display = _vaultPreviewMode ? '' : 'none';
   }

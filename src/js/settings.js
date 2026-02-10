@@ -221,6 +221,26 @@ function _renderAppearanceSettings() {
         <input type="range" min="0.5" max="3" step="0.25" value="${parseFloat(localStorage.getItem('ttsSpeed')) || 1}" class="w-28 accent-accent" oninput="localStorage.setItem('ttsSpeed', this.value); document.getElementById('tts-speed-val').textContent = this.value + 'x'; if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = parseFloat(this.value);">
       </div>
     </div>
+
+    <!-- MENU ICONS -->
+    <div class="mb-8">
+      <h3 class="text-white_ text-sm font-semibold mb-3">Menu Icons</h3>
+      <p class="text-dimmer text-[0.72rem] mb-3">Show or hide sidebar buttons</p>
+      ${[
+        { id: 'sb-home', label: 'Feed' },
+        { id: 'sb-vault', label: 'Vault' },
+        { id: 'sb-browse', label: 'Browse' },
+        { id: 'sb-calendar', label: 'Calendar' },
+        { id: 'sb-neuralook', label: 'Neuralook' },
+        { id: 'sb-dev', label: 'Dev Stats' },
+        { id: 'sb-rain', label: 'White Noise' },
+      ].map(item => {
+        let hidden = [];
+        try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
+        const isVisible = !hidden.includes(item.id);
+        return '<div class="flex items-center justify-between mt-3"><span class="text-primary text-sm">' + item.label + '</span><label class="flex items-center gap-2 cursor-pointer"><span class="toggle-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + item.id + '\', this.checked)"><span class="slider"></span></span></label></div>';
+      }).join('')}
+    </div>
   `;
 }
 

@@ -136,36 +136,12 @@ let _termSettings = {
 };
 
 function openTerminal() {
-  hideAllViews();
-  // Close bottom panel if open — terminals will be reparented to full view
-  if (_bottomTerminalVisible) {
-    _bottomTerminalVisible = false;
-    const bp = document.getElementById('bottom-terminal-panel');
-    if (bp) bp.style.display = 'none';
-  }
-  const view = document.getElementById('terminal-view');
-  view.style.display = 'flex';
-  view.classList.remove('hidden');
-  setSidebarActive('sb-terminal');
-  window.location.hash = '#terminal';
-
-  _loadTerminalState();
-
-  if (_terminals.length === 0) {
-    createTerminal();
-  } else {
-    // Reconnect any closed WebSockets and refit
-    _terminals.forEach(t => {
-      if (!t.ws || t.ws.readyState !== WebSocket.OPEN) {
-        _connectTerminalWs(t);
-      }
-      setTimeout(() => t.fitAddon && t.fitAddon.fit(), 50);
+  // Redirect to vault with terminal mode
+  if (typeof openVault === 'function') {
+    openVault().then(() => {
+      if (!_vaultTerminalMode) vaultToggleTerminal();
     });
   }
-
-  _renderTabs();
-  _renderLayout();
-  _applyTerminalSettingsUI();
 }
 
 function _nextTerminalId() {
@@ -339,7 +315,7 @@ function renameTerminal(id, name) {
 }
 
 function _renderTabs() {
-  const tabsEl = document.getElementById('terminal-tabs');
+  const tabsEl = document.getElementById('vault-terminal-tabs') || document.getElementById('terminal-tabs');
   if (!tabsEl) return;
 
   tabsEl.innerHTML = _terminals.map(t => `
@@ -382,7 +358,7 @@ function _startRenameTab(id) {
 }
 
 function _renderLayout() {
-  const container = document.getElementById('terminal-panes-container');
+  const container = document.getElementById('vault-terminal-panes') || document.getElementById('terminal-panes-container');
   if (!container) return;
 
   container.innerHTML = '';
@@ -487,7 +463,7 @@ function _initSplitResize(handle, node, pane1) {
   let startRatio = node.ratio || 0.5;
 
   const onMove = (e) => {
-    const container = document.getElementById('terminal-panes-container');
+    const container = document.getElementById('vault-terminal-panes') || document.getElementById('terminal-panes-container');
     const rect = container.getBoundingClientRect();
     const clientPos = node.direction === 'horizontal' ? e.clientY : e.clientX;
     const size = node.direction === 'horizontal' ? rect.height : rect.width;
@@ -659,7 +635,7 @@ async function pasteTerminal() {
 function _debounceTermSearch() {
   clearTimeout(_termSearchTimeout);
   _termSearchTimeout = setTimeout(() => {
-    const query = document.getElementById('term-search-input')?.value || '';
+    const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
     terminalSearch(query);
   }, 300);
 }
@@ -668,7 +644,7 @@ function terminalSearch(query) {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (!t || !t.searchAddon) return;
 
-  const countEl = document.getElementById('term-search-count');
+  const countEl = document.getElementById('vault-term-search-count') || document.getElementById('term-search-count');
   if (!query) {
     t.searchAddon.clearDecorations();
     if (countEl) countEl.textContent = '';
@@ -681,19 +657,19 @@ function terminalSearch(query) {
 function terminalSearchNext() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (!t || !t.searchAddon) return;
-  const query = document.getElementById('term-search-input')?.value || '';
+  const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
   if (query) t.searchAddon.findNext(query);
 }
 
 function terminalSearchPrev() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (!t || !t.searchAddon) return;
-  const query = document.getElementById('term-search-input')?.value || '';
+  const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
   if (query) t.searchAddon.findPrevious(query);
 }
 
 function clearTerminalSearch() {
-  const input = document.getElementById('term-search-input');
+  const input = document.getElementById('vault-term-search-input') || document.getElementById('term-search-input');
   if (input) {
     input.value = '';
     input.blur();
@@ -702,21 +678,22 @@ function clearTerminalSearch() {
   if (t && t.searchAddon) {
     t.searchAddon.clearDecorations();
   }
-  document.getElementById('term-search-count').textContent = '';
+  const countEl = document.getElementById('vault-term-search-count') || document.getElementById('term-search-count');
+  if (countEl) countEl.textContent = '';
 }
 
 // Settings
 function toggleTerminalSettings() {
-  const dropdown = document.getElementById('term-settings-dropdown');
+  const dropdown = document.getElementById('vault-term-settings-dropdown') || document.getElementById('term-settings-dropdown');
   if (dropdown) {
     dropdown.classList.toggle('hidden');
   }
 }
 
 function _applyTerminalSettingsUI() {
-  const themeSelect = document.getElementById('term-theme-select');
-  const fontSlider = document.getElementById('term-fontsize-slider');
-  const fontValue = document.getElementById('term-fontsize-value');
+  const themeSelect = document.getElementById('vault-term-theme-select') || document.getElementById('term-theme-select');
+  const fontSlider = document.getElementById('vault-term-fontsize-slider') || document.getElementById('term-fontsize-slider');
+  const fontValue = document.getElementById('vault-term-fontsize-value') || document.getElementById('term-fontsize-value');
 
   if (themeSelect) themeSelect.value = _termSettings.theme;
   if (fontSlider) fontSlider.value = _termSettings.fontSize;
@@ -731,7 +708,7 @@ function applyTerminalTheme(themeName) {
     t.term.options.theme = theme;
   });
 
-  const container = document.getElementById('terminal-panes-container');
+  const container = document.getElementById('vault-terminal-panes') || document.getElementById('terminal-panes-container');
   if (container) container.style.background = theme.background;
   const bottomContainer = document.getElementById('bottom-terminal-container');
   if (bottomContainer) bottomContainer.style.background = theme.background;
@@ -781,9 +758,8 @@ function _loadTerminalState() {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  // Only handle if terminal view is visible
-  const view = document.getElementById('terminal-view');
-  if (!view || view.style.display === 'none') return;
+  // Only handle if vault terminal mode is active
+  if (typeof _vaultTerminalMode === 'undefined' || !_vaultTerminalMode) return;
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const cmdKey = isMac ? e.metaKey : e.ctrlKey;
@@ -813,7 +789,7 @@ document.addEventListener('keydown', (e) => {
     selectTerminalByIndex(parseInt(e.key, 10));
   } else if (cmdKey && e.key === 'f') {
     e.preventDefault();
-    const input = document.getElementById('term-search-input');
+    const input = document.getElementById('vault-term-search-input') || document.getElementById('term-search-input');
     if (input) input.focus();
   } else if (cmdKey && e.key === 'k') {
     e.preventDefault();
@@ -825,11 +801,12 @@ document.addEventListener('keydown', (e) => {
 
 // Close settings dropdown when clicking outside
 document.addEventListener('click', (e) => {
-  const dropdown = document.getElementById('term-settings-dropdown');
   const settingsBtn = e.target.closest('[onclick*="toggleTerminalSettings"]');
-  if (dropdown && !dropdown.contains(e.target) && !settingsBtn) {
-    dropdown.classList.add('hidden');
-  }
+  [document.getElementById('vault-term-settings-dropdown'), document.getElementById('term-settings-dropdown')].forEach(dropdown => {
+    if (dropdown && !dropdown.contains(e.target) && !settingsBtn) {
+      dropdown.classList.add('hidden');
+    }
+  });
 });
 
 // Utility
@@ -980,9 +957,8 @@ document.addEventListener('keydown', (e) => {
   const cmdKey = isMac ? e.metaKey : e.ctrlKey;
 
   if (cmdKey && e.key === 'j') {
-    // Don't toggle bottom panel when full terminal view is open — they share the same terminals
-    const view = document.getElementById('terminal-view');
-    if (view && view.style.display !== 'none' && !view.classList.contains('hidden')) return;
+    // Don't toggle bottom panel when vault terminal mode is active — they share the same terminals
+    if (typeof _vaultTerminalMode !== 'undefined' && _vaultTerminalMode) return;
     // Don't toggle on vibe page — it has its own embedded terminals
     if (window.location.hash === '#vibe') { e.preventDefault(); return; }
     e.preventDefault();
