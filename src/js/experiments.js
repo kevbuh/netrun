@@ -180,7 +180,7 @@ function renderExpPapers() {
 }
 
 function openExpPaper(link, title, source) {
-  _browseReturnView = 'experiment';
+  _setBrowseReturnView('experiment');
   _paperOriginExpId = currentExpId;
   openBrowseWithPaper(link, { link, title: title || link, source: source || '', description: '', authors: '', categories: [] });
 }

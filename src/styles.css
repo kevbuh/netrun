@@ -1694,6 +1694,9 @@
       flex-shrink: 0;
       border-radius: 2px;
     }
+    .ell-favicon {
+      color: var(--aether-text);
+    }
     .browse-tab-title {
       overflow: hidden;
       text-overflow: clip;

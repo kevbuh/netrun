@@ -288,7 +288,7 @@ async function renderInbox() {
       html += feedNotifs.slice().sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0)).slice(0, 20).map(n => {
         const sourceChip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : `<span class="text-dim text-xs">${escapeHtml(n.source)}</span>`;
         return `
-        <div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 border-l-accent border-l-2 cursor-pointer hover:border-border-input transition-colors" onclick="clearFeedNotification('${escapeAttr(n.link)}'); _browseReturnView='inbox'; openBrowse('${escapeAttr(n.link)}')">
+        <div class="flex items-center gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 border-l-accent border-l-2 cursor-pointer hover:border-border-input transition-colors" onclick="clearFeedNotification('${escapeAttr(n.link)}'); _setBrowseReturnView('inbox'); openBrowse('${escapeAttr(n.link)}')">
           <span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>
           ${sourceChip}
           <span class="text-[0.82rem] text-primary truncate flex-1">${escapeHtml(n.title)}</span>

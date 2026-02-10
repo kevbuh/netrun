@@ -4832,13 +4832,13 @@ function openPaper(index, e) {
   if (!paper) return;
   if (_isNewTabClick(e)) { _openInNewTab(paper.link); return; }
   markPostAsRead(paper.link);
-  _browseReturnView = _lastActiveView || 'feed';
+  _setBrowseReturnView(_lastActiveView || 'feed');
   openBrowseWithPaper(paper.link, paper);
 }
 
 function openPaperByUrl(url, e) {
   if (_isNewTabClick(e)) { _openInNewTab(url); return; }
-  _browseReturnView = typeof _lastActiveView !== 'undefined' ? _lastActiveView : 'feed';
+  _setBrowseReturnView(typeof _lastActiveView !== 'undefined' ? _lastActiveView : 'feed');
   const paper = (typeof searchResultsCache !== 'undefined' && searchResultsCache || []).find(r => r && r.link === url)
     || (typeof getSavedPosts === 'function' && getSavedPosts()[url]?.paper)
     || (typeof allPapers !== 'undefined' && allPapers.find(p => p.link === url))

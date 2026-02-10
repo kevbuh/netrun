@@ -391,12 +391,23 @@ function _animateWindowSwitch(direction, callback) {
   }, 150);
 }
 
-let _browseReturnView = null; // set by openPaper/inbox to enable "back to feed/inbox" button
+let _browseReturnView = localStorage.getItem('_browseReturnView') || null; // set by openPaper/inbox to enable "back to feed/inbox" button
+
+function _setBrowseReturnView(view) {
+  _browseReturnView = view;
+  if (view) localStorage.setItem('_browseReturnView', view);
+  else localStorage.removeItem('_browseReturnView');
+}
 
 function _browseGoBack() {
+  // Try nav history first — it knows the full path
+  if (typeof navBack === 'function' && navBack()) {
+    _setBrowseReturnView(null);
+    return;
+  }
   const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null };
   const fn = nav[_browseReturnView];
-  _browseReturnView = null;
+  _setBrowseReturnView(null);
   if (fn) fn(); else goHome();
 }
 
@@ -2901,7 +2912,7 @@ function _browseRenderTabHtml(t, activeTab) {
   const audioInfo = _browseAudioTabs.get(t.id);
   const isMuted = audioInfo?.muted;
   const title = escapeHtml(t.title);
-  const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+  const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : t.blank ? _ELL_SVG.replace('class="ell-favicon"', 'class="browse-tab-favicon ell-favicon"') : '';
   const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
     ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
   const isPinned = !!t.pinned;
@@ -2922,7 +2933,7 @@ function _browseRenderSplitPillHtml(panes, tabs, activeTab) {
     if (!t) return;
     const focused = pane.id === focusedPaneId;
     const title = escapeHtml(t.title);
-    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : '';
+    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : t.blank ? _ELL_SVG.replace('class="ell-favicon"', 'class="browse-tab-favicon ell-favicon"') : '';
     inner += `<div class="browse-split-pill-tab${focused ? ' focused' : ''}" data-tab-id="${t.id}" data-pane-id="${pane.id}" onclick="event.stopPropagation();_browseFocusPane(${pane.id})">
       ${fav}<span class="browse-tab-title">${title}</span>
       <button class="browse-tab-close" onclick="event.stopPropagation();browseUnsplitPane(${pane.id})" title="Close split pane">&times;</button>
@@ -3034,10 +3045,11 @@ function _updateIslandNavButtons() {
     const hasFwdHistory = tab && tab.forwardStack && tab.forwardStack.length > 0;
     try { hasElFwd = _browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
     if (backBtn) {
-      const hasAnyBack = hasBackHistory || hasElBack || !!_browseReturnView;
+      const hasNavBack = typeof _navHistory !== 'undefined' && _navHistory.length > 1;
+      const hasAnyBack = hasBackHistory || hasElBack || !!_browseReturnView || hasNavBack;
       if (!hasAnyBack) {
         backBtn.style.display = 'none';
-      } else if (!hasBackHistory && !hasElBack && _browseReturnView === 'feed') {
+      } else if (!hasBackHistory && !hasElBack && !hasNavBack && _browseReturnView === 'feed') {
         backBtn.style.display = '';
         backBtn.innerHTML = _islandNavFeedIcon;
         backBtn.title = 'Back to Feed';
@@ -3048,7 +3060,8 @@ function _updateIslandNavButtons() {
       }
     }
     if (fwdBtn) {
-      fwdBtn.style.display = (hasFwdHistory || hasElFwd) ? '' : 'none';
+      const hasNavFwd = typeof _navForward !== 'undefined' && _navForward.length > 0;
+      fwdBtn.style.display = (hasFwdHistory || hasElFwd || hasNavFwd) ? '' : 'none';
     }
   } catch(e) {}
 }
@@ -4223,7 +4236,7 @@ function _renderWindowOverview() {
         var tabIsActive = tab.id === bw.activeTab;
         var fav = tab.favicon
           ? '<img src="' + escapeHtml(tab.favicon) + '" class="wov-bt-fav" onerror="this.style.display=\'none\'">'
-          : '<span class="wov-bt-dot"></span>';
+          : tab.blank ? _ELL_SVG.replace('class="ell-favicon"', 'class="wov-bt-fav ell-favicon"') : '<span class="wov-bt-dot"></span>';
         html += '<div class="wov-bt' + (tabSelected ? ' wov-selected' : '') + (tabIsActive ? ' wov-bt-active' : '') + '" data-tab-idx="' + ti + '" data-win-id="' + bw.id + '">'
           + fav
           + '<span class="wov-bt-title">' + escapeHtml(tab.title || 'New Tab') + '</span>'
@@ -4525,7 +4538,9 @@ function browseBack() {
     return;
   }
   // No in-tab history — fall back to returning to the previous view (feed, inbox, etc.)
-  if (_browseReturnView) _browseGoBack();
+  if (_browseReturnView) { _browseGoBack(); return; }
+  // Last resort: use nav history stack
+  if (typeof navBack === 'function') navBack();
 }
 
 function browseForward() {
@@ -5795,7 +5810,7 @@ function _islandSyncTabs() {
     items: tabs.map(function(t) {
       return {
         id: t.id, title: t.title || 'New Tab',
-        favicon: t.favicon, active: t.id === activeTab,
+        favicon: t.favicon, blank: !!t.blank, active: t.id === activeTab,
         pinned: t.pinned, groupId: t.groupId,
         lastVisited: t.lastVisited || 0,
         hasAudio: _browseAudioTabs.has(t.id),

@@ -285,7 +285,7 @@ function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
 function showPaperView(paper, hashValue) {
   markPostRead(paper.link);
   if (typeof petReact === 'function') petReact('happy');
-  _browseReturnView = _browseReturnView || _lastActiveView || 'feed';
+  _setBrowseReturnView(_browseReturnView || _lastActiveView || 'feed');
   openBrowseWithPaper(paper.link, paper);
 }
 
@@ -581,7 +581,7 @@ async function openAuthorProfile(authorId) {
     if (data.error) throw new Error(data.error);
 
     let html = `
-      <button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary mb-6" onclick="history.back()">
+      <button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary mb-6" onclick="navBack() || history.back()">
         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         <span class="text-[0.75rem]">Back</span>
       </button>
@@ -642,7 +642,7 @@ async function openAuthorProfile(authorId) {
     content.innerHTML = html;
   } catch (e) {
     content.innerHTML = `
-      <button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary mb-6" onclick="history.back()">
+      <button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center gap-1 hover:text-primary mb-6" onclick="navBack() || history.back()">
         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         <span class="text-[0.75rem]">Back</span>
       </button>

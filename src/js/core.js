@@ -1,3 +1,6 @@
+// ── Ell logo (curvy ℓ) inline SVG for new-tab favicons ──
+var _ELL_SVG = '<svg class="ell-favicon" viewBox="0 0 961 1259" width="16" height="16" fill="none"><path d="M334.385 761.105L286.951 798.06C278.902 804.874 272.865 808.281 268.84 808.281C264.815 808.281 260.503 805.398 255.903 799.632C251.304 793.866 249.004 789.673 249.004 787.052C249.004 783.907 253.029 778.927 261.078 772.113C266.828 767.395 278.902 757.829 297.3 743.414C315.699 728.999 326.336 720.743 329.21 718.646C329.21 665.704 339.416 607.782 359.827 544.88C380.238 481.978 409.273 426.808 446.933 379.37C484.593 331.931 524.121 308.212 565.518 308.212C583.916 308.212 599.584 314.109 612.521 325.903C625.457 337.697 631.925 357.223 631.925 384.48C631.925 462.059 570.98 555.364 449.089 664.393C447.364 666.49 442.477 670.946 434.428 677.76C426.378 684.574 421.204 689.03 418.904 691.127C413.729 719.433 411.142 741.972 411.142 758.746C411.142 813.785 428.391 841.305 462.888 841.305C496.81 841.305 539.357 822.172 590.528 783.907C596.278 778.665 600.878 776.044 604.327 776.044C608.927 776.044 613.527 778.796 618.126 784.3C622.726 789.804 625.026 794.128 625.026 797.274C625.026 799.894 624.02 802.253 622.007 804.35C619.995 806.447 614.102 811.164 604.327 818.503C553.731 852.575 506.01 869.611 461.163 869.611C430.115 869.611 403.236 860.569 380.525 842.484C357.815 824.4 342.434 797.274 334.385 761.105ZM433.565 629.011C462.313 604.899 491.923 573.71 522.396 535.445C569.543 477.261 593.116 424.58 593.116 377.404C593.116 350.146 583.629 336.518 564.655 336.518C539.932 336.518 514.634 371.638 488.761 441.878C478.412 470.708 460.013 533.086 433.565 629.011Z" fill="currentColor"/></svg>';
+
 // ── Link hover preview (bottom-left status bar) ──
 var _linkPreviewEl = null;
 var _linkPreviewTimer = 0;
@@ -140,9 +143,10 @@ function _islandRenderPill(a) {
   } else if (a.type === 'tabs') {
     var tabItems = a.items || [];
     var globeIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
+    var ellIcon = _ELL_SVG;
     if (tabItems.length <= 1) {
       var t0 = tabItems[0];
-      var fav0 = (t0 && t0.favicon) ? '<img class="island-strip-fav island-strip-fav-active" src="' + _escHtml(t0.favicon) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'island-strip-fav island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))" data-island-tab="' + (t0 ? t0.id : '') + '">' : globeIcon;
+      var fav0 = (t0 && t0.favicon) ? '<img class="island-strip-fav island-strip-fav-active" src="' + _escHtml(t0.favicon) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'island-strip-fav island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))" data-island-tab="' + (t0 ? t0.id : '') + '">' : (t0 && t0.blank) ? ellIcon : globeIcon;
       var title0 = (t0 && t0.title) || 'New Tab';
       if (title0.length > 20) title0 = title0.slice(0, 18) + '\u2026';
       return fav0 + '<span style="opacity:0.4">1 tab</span>';
@@ -170,7 +174,11 @@ function _islandRenderPill(a) {
       if (t.favicon) {
         html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'' + cls + ' island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))">';
       } else {
-        html += '<span class="' + cls + ' island-strip-fav-placeholder" style="width:16px;height:16px;border-radius:3px"' + tipAttr + ' data-island-tab="' + t.id + '"></span>';
+        if (t.blank) {
+          html += _ELL_SVG.replace('class="ell-favicon"', 'class="' + cls + ' ell-favicon"').replace('>', tipAttr + ' data-island-tab="' + t.id + '">');
+        } else {
+          html += '<span class="' + cls + ' island-strip-fav-placeholder" style="width:16px;height:16px;border-radius:3px"' + tipAttr + ' data-island-tab="' + t.id + '"></span>';
+        }
       }
     }
     if (overflow > 0) html += '<span class="island-strip-overflow">+' + overflow + '</span>';
@@ -529,13 +537,16 @@ function _islandRender() {
       pill.classList.add('island-active');
     }
 
-    // Auto-dismiss on done
+    // Auto-dismiss on done — stagger so pills collapse one by one
     if (a.done && !_islandDismissTimers[id]) {
+      var baseDelay = a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500;
+      var pendingCount = Object.keys(_islandDismissTimers).length;
+      var stagger = pendingCount * 500;
       _islandDismissTimers[id] = setTimeout(function() {
         delete _islandActivities[id];
         delete _islandDismissTimers[id];
         _islandRender();
-      }, a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500);
+      }, baseDelay + stagger);
     }
 
     // RSS: icon-only when subscribed immediately, otherwise collapse after 15s
@@ -752,14 +763,14 @@ function throttle(fn, ms) {
 }
 
 // Track the last non-paper view for back navigation
-let _lastActiveView = 'feed';
+let _lastActiveView = localStorage.getItem('_lastActiveView') || 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 
 // Research view tab state
 let _researchActiveTab = null;
 
 function setSidebarActive(id) {
-  if (id && _sidebarToView[id]) _lastActiveView = _sidebarToView[id];
+  if (id && _sidebarToView[id]) { _lastActiveView = _sidebarToView[id]; localStorage.setItem('_lastActiveView', _lastActiveView); }
   document.querySelectorAll('.sidebar-icon').forEach(b => {
     b.classList.remove('active');
     // Don't remove sb-loading here - let animation finish on its own
@@ -1628,7 +1639,7 @@ async function openDevStats() {
 function expGoBack() {
   if (_expBackAction && _expBackAction.fn) {
     _expBackAction.fn();
-  } else {
+  } else if (!navBack()) {
     wmOpen('vault');
   }
 }
@@ -1636,6 +1647,52 @@ function expGoBack() {
 let _expBackAction = null; // stores {fn, label} for context-aware back button
 let _prevRouteHash = ''; // the hash before the current route
 let _currentRouteHash = ''; // the current route hash
+
+// ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──
+let _navHistory = JSON.parse(localStorage.getItem('_navHistory') || '[]');
+let _navForward = JSON.parse(localStorage.getItem('_navForward') || '[]');
+let _navNavigating = false; // guard to prevent push while navigating back/forward
+
+function _navSave() {
+  localStorage.setItem('_navHistory', JSON.stringify(_navHistory));
+  localStorage.setItem('_navForward', JSON.stringify(_navForward));
+}
+
+function _navPush(hash) {
+  if (_navNavigating) return;
+  if (!hash || hash === '#') return;
+  // Don't push duplicates
+  if (_navHistory.length && _navHistory[_navHistory.length - 1] === hash) return;
+  _navHistory.push(hash);
+  // Cap at 50 entries
+  if (_navHistory.length > 50) _navHistory = _navHistory.slice(-50);
+  // Clear forward stack on new navigation
+  _navForward = [];
+  _navSave();
+}
+
+function navBack() {
+  if (_navHistory.length <= 1) return false;
+  _navNavigating = true;
+  const current = _navHistory.pop();
+  _navForward.push(current);
+  const prev = _navHistory[_navHistory.length - 1];
+  _navSave();
+  window.location.hash = prev;
+  _navNavigating = false;
+  return true;
+}
+
+function navForward() {
+  if (!_navForward.length) return false;
+  _navNavigating = true;
+  const next = _navForward.pop();
+  _navHistory.push(next);
+  _navSave();
+  window.location.hash = next;
+  _navNavigating = false;
+  return true;
+}
 
 async function openExperimentDetail(id, e) {
   // Redirect through vault — open vault and expand the project folder
@@ -1859,6 +1916,7 @@ function routeFromHash() {
   const _oldHash = _currentRouteHash || '';
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
+  _navPush(hash);
   if (hash === '#research') { openResearch(); return; }
   else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
   else if (hash === '#settings') wmOpen('settings');

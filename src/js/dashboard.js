@@ -485,7 +485,7 @@ async function renderDashboard() {
     let items = '';
     _inboxFeedNotifs.slice().sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0)).slice(0, 5).forEach(n => {
       const chip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : '';
-      items += `<div class="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors cursor-pointer" onclick="clearFeedNotification('${escapeAttr(n.link)}'); _browseReturnView='dashboard'; openBrowse('${escapeAttr(n.link)}')">
+      items += `<div class="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors cursor-pointer" onclick="clearFeedNotification('${escapeAttr(n.link)}'); _setBrowseReturnView('dashboard'); openBrowse('${escapeAttr(n.link)}')">
         <span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>
         ${chip}
         <span class="text-[0.78rem] text-primary truncate flex-1">${escapeHtml(n.title)}</span>

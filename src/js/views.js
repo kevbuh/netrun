@@ -280,6 +280,8 @@ function paperViewGoBack() {
   const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
   if (win) {
     browseCloseTab(win.activeTab);
+  } else if (typeof navBack === 'function' && navBack()) {
+    // Used nav history stack
   } else {
     window.history.back();
   }
