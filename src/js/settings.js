@@ -256,17 +256,27 @@ function _renderAppearanceSettings() {
           </div>
         </div>
       </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">White Noise</span>
-        <div class="flex items-center gap-2">
-          <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono cursor-ns-resize select-none" title="Drag up/down to adjust volume" onmousedown="_rainVolDragStart(event)">${Math.round(_rainVolume * 100)}%</span>
-          <div class="flex gap-1">
-            ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
-              const sel = isRainSidebarVisible() && _rainNoiseType === key;
-              return `<button onclick="setRainSidebarVisible(true); setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
-            }).join('')}
-            <button onclick="setRainSidebarVisible(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${!isRainSidebarVisible() ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
-          </div>
+      <div class="mt-4">
+        <div class="flex items-center justify-between">
+          <span class="text-primary text-sm">White Noise</span>
+        </div>
+        <div class="flex flex-wrap gap-1 mt-2">
+          ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
+            const sel = isRainSidebarVisible() && _rainNoiseType === key;
+            return `<button onclick="setRainSidebarVisible(true); setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
+          }).join('')}
+          <button onclick="setRainSidebarVisible(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${!isRainSidebarVisible() ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="text-[0.7rem] text-dimmer whitespace-nowrap">Volume</span>
+          <input type="range" min="0" max="100" value="${Math.round(_rainVolume * 100)}" oninput="setRainVolume(this.value / 100)" class="flex-1 h-1 accent-accent">
+          <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono w-10 text-right">${Math.round(_rainVolume * 100)}%</span>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="text-[0.7rem] text-dimmer whitespace-nowrap">Tone</span>
+          <input type="range" min="20" max="5000" step="10" value="${_rainFreq || 1000}" ${_rainFreq === 0 ? 'disabled' : ''} oninput="setRainFreq(this.value)" class="flex-1 h-1 accent-accent" style="opacity:${_rainFreq === 0 ? '0.3' : '1'}" id="rain-freq-slider">
+          <span id="rain-freq-label" class="text-[0.7rem] text-dimmer font-mono w-14 text-right">${_rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto'}</span>
+          <button onclick="_rainFreq === 0 ? (setRainFreq(1000), document.getElementById('rain-freq-slider').disabled=false, document.getElementById('rain-freq-slider').style.opacity='1', document.getElementById('rain-freq-slider').value=1000) : (setRainFreq(0), document.getElementById('rain-freq-slider').disabled=true, document.getElementById('rain-freq-slider').style.opacity='0.3')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Auto</button>
         </div>
       </div>
       <div class="flex items-center justify-between mt-4">

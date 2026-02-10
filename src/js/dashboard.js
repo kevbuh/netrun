@@ -1,10 +1,99 @@
 // ── Dashboard ──
 
 let _dashYear, _dashMonth;
+let _dashCalMode = 'year'; // 'year' or 'month'
 {
   const _n = new Date();
   _dashYear = _n.getFullYear();
   _dashMonth = _n.getMonth();
+}
+
+function _dashBuildMonthView(activityItems, colorFn, events) {
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const isCurrentMonth = today.getFullYear() === _dashYear && today.getMonth() === _dashMonth;
+  const todayDate = today.getDate();
+  const firstDay = new Date(_dashYear, _dashMonth, 1).getDay();
+  const daysInMonth = new Date(_dashYear, _dashMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(_dashYear, _dashMonth, 0).getDate();
+
+  // Event dots by day
+  const eventsByDay = {};
+  events.forEach(ev => {
+    const [y, m, d] = ev.date.split('-').map(Number);
+    if (y === _dashYear && m === _dashMonth + 1) {
+      (eventsByDay[d] ||= []).push(ev);
+    }
+  });
+
+  let html = `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">
+    <button onclick="_dashCalPrev()" style="background:none;border:none;color:var(--text-dimmer);cursor:pointer;font-size:16px;padding:2px 6px;line-height:1" title="Previous month">&lsaquo;</button>
+    <span class="text-[0.82rem] font-semibold text-primary" style="min-width:140px;text-align:center">${monthNames[_dashMonth]} ${_dashYear}</span>
+    <button onclick="_dashCalNext()" style="background:none;border:none;color:var(--text-dimmer);cursor:pointer;font-size:16px;padding:2px 6px;line-height:1" title="Next month">&rsaquo;</button>
+  </div>`;
+
+  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:12px;text-align:center">`;
+  dayNames.forEach(d => { html += `<div style="color:var(--text-dimmest);padding:2px 0;font-weight:600;font-size:10px">${d}</div>`; });
+
+  // Previous month trailing days
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = daysInPrevMonth - i;
+    html += `<div style="aspect-ratio:1;border-radius:4px;background:var(--border-card);opacity:0.3;display:flex;align-items:center;justify-content:center"><span style="font-size:11px;color:var(--text-dimmest)">${d}</span></div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = isCurrentMonth && d === todayDate;
+    const key = `${_dashYear}-${String(_dashMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const date = new Date(_dashYear, _dashMonth, d);
+    const isFuture = date > today;
+    const count = (activityItems[key] || []).length;
+    const lvl = isFuture ? 0 : Math.min(count, 10);
+    const bg = colorFn(lvl, 0);
+    const evs = eventsByDay[d] || [];
+    const dots = evs.length ? `<div style="display:flex;justify-content:center;gap:2px;margin-top:1px">${evs.slice(0,3).map(ev => `<span style="width:4px;height:4px;border-radius:50%;background:${ev.color||'white'}"></span>`).join('')}</div>` : '';
+    const border = isToday ? 'box-shadow:inset 0 0 0 1.5px var(--accent);' : '';
+    const titleParts = [];
+    if (count) titleParts.push(count + ' activit' + (count === 1 ? 'y' : 'ies'));
+    if (evs.length) titleParts.push(evs.map(e => e.title).join(', '));
+    const title = titleParts.length ? titleParts.join(' · ') : '';
+    html += `<div style="aspect-ratio:1;border-radius:4px;background:${bg};${border}display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative" class="heatmap-cell" data-key="${key}" onclick="_dashMonthDayClick('${key}',event)" title="${escapeAttr(title)}">
+      <span style="font-size:11px;color:${lvl >= 5 ? 'white' : 'var(--text-primary)'};font-weight:${isToday ? '700' : '400'};line-height:1">${d}</span>
+      ${dots}
+    </div>`;
+  }
+
+  // Next month leading days
+  const totalCells = firstDay + daysInMonth;
+  const remaining = (7 - (totalCells % 7)) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    html += `<div style="aspect-ratio:1;border-radius:4px;background:var(--border-card);opacity:0.3;display:flex;align-items:center;justify-content:center"><span style="font-size:11px;color:var(--text-dimmest)">${d}</span></div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function _dashToggleCalMode() { _dashCalMode = _dashCalMode === 'year' ? 'month' : 'year'; renderDashboard(); }
+function _dashCalPrev() { _dashMonth--; if (_dashMonth < 0) { _dashMonth = 11; _dashYear--; } renderDashboard(); }
+function _dashCalNext() { _dashMonth++; if (_dashMonth > 11) { _dashMonth = 0; _dashYear++; } renderDashboard(); }
+
+function _dashMonthDayClick(dateKey, evt) {
+  evt.stopPropagation();
+  const pop = document.getElementById('heatmap-popover');
+  if (!pop) return;
+  window._heatmapPopoverKey = dateKey;
+  window._heatmapPopoverAddForm = false;
+  window._renderHeatmapPopover(dateKey);
+  pop.style.display = 'block';
+  const rect = evt.target.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - pop.offsetWidth / 2;
+  left = Math.max(4, Math.min(left, window.innerWidth - pop.offsetWidth - 4));
+  let top = rect.bottom + 6;
+  if (top + pop.offsetHeight > window.innerHeight) top = rect.top - pop.offsetHeight - 6;
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
 }
 
 let _dashSearchDebounce = null;
@@ -669,7 +758,7 @@ async function renderDashboard() {
   heatmapHtml += '</svg></div>';
   // Tooltip and popover are fixed-position, appended to body via JS
   heatmapHtml += '<div id="heatmap-tip" style="display:none;position:fixed;pointer-events:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text-primary);white-space:nowrap;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>';
-  heatmapHtml += '<div id="heatmap-popover" style="display:none;position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div>';
+  // Popover is rendered outside heatmapHtml so it exists in both year and month modes
 
   // Store activity items on window for click handler
   window._heatmapItems = activityItems;
@@ -678,27 +767,45 @@ async function renderDashboard() {
   requestAnimationFrame(() => {
     const tip = document.getElementById('heatmap-tip');
     const pop = document.getElementById('heatmap-popover');
+    if (!pop) return;
+
+    // SVG heatmap handlers (year mode only)
     const svg = document.querySelector('.heatmap-svg');
-    if (!svg || !tip || !pop) return;
+    if (svg && tip) {
+      svg.addEventListener('mouseover', e => {
+        const r = e.target.closest('.heatmap-cell');
+        if (!r) { tip.style.display = 'none'; return; }
+        tip.textContent = r.dataset.tip;
+        tip.style.display = 'block';
+        const cr = r.getBoundingClientRect();
+        let left = cr.left + cr.width / 2 - tip.offsetWidth / 2;
+        left = Math.max(4, Math.min(left, window.innerWidth - tip.offsetWidth - 4));
+        tip.style.left = left + 'px';
+        tip.style.top = (cr.top - tip.offsetHeight - 6) + 'px';
+      });
+      svg.addEventListener('mouseout', e => {
+        if (!e.target.closest('.heatmap-cell')) return;
+        tip.style.display = 'none';
+      });
+      svg.addEventListener('click', e => {
+        const r = e.target.closest('.heatmap-cell');
+        if (!r) return;
+        const key = r.dataset.key;
+        window._heatmapPopoverKey = key;
+        window._heatmapPopoverAddForm = false;
+        window._renderHeatmapPopover(key);
+        pop.style.display = 'block';
+        const cr = r.getBoundingClientRect();
+        let left = cr.left + cr.width / 2 - pop.offsetWidth / 2;
+        left = Math.max(4, Math.min(left, window.innerWidth - pop.offsetWidth - 4));
+        let top = cr.bottom + 6;
+        if (top + pop.offsetHeight > window.innerHeight) top = cr.top - pop.offsetHeight - 6;
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+      });
+    }
 
-    // Hover tooltip (fixed positioning — works with scroll)
-    svg.addEventListener('mouseover', e => {
-      const r = e.target.closest('.heatmap-cell');
-      if (!r) { tip.style.display = 'none'; return; }
-      tip.textContent = r.dataset.tip;
-      tip.style.display = 'block';
-      const cr = r.getBoundingClientRect();
-      let left = cr.left + cr.width / 2 - tip.offsetWidth / 2;
-      left = Math.max(4, Math.min(left, window.innerWidth - tip.offsetWidth - 4));
-      tip.style.left = left + 'px';
-      tip.style.top = (cr.top - tip.offsetHeight - 6) + 'px';
-    });
-    svg.addEventListener('mouseout', e => {
-      if (!e.target.closest('.heatmap-cell')) return;
-      tip.style.display = 'none';
-    });
-
-    // Click popover (fixed positioning — works with scroll)
+    // Popover renderer + event CRUD (shared by both modes)
     window._heatmapPopoverKey = null;
     window._heatmapPopoverAddForm = false;
     window._renderHeatmapPopover = function(key) {
@@ -757,7 +864,6 @@ async function renderDashboard() {
       const colorEl = document.querySelector('input[name="hm-ev-color"]:checked');
       const color = colorEl ? colorEl.value : '#b4451a';
       await addCalendarEvent({ title, description: desc, date: key, color });
-      // Update heatmap items
       (window._heatmapItems[key] ||= []).push({ type: 'event', title, id: calendarEvents[calendarEvents.length - 1]?.id, color, description: desc });
       window._heatmapPopoverAddForm = false;
       window._renderHeatmapPopover(key);
@@ -771,25 +877,8 @@ async function renderDashboard() {
       window._renderHeatmapPopover(key);
     };
 
-    svg.addEventListener('click', e => {
-      const r = e.target.closest('.heatmap-cell');
-      if (!r) return;
-      const key = r.dataset.key;
-      window._heatmapPopoverKey = key;
-      window._heatmapPopoverAddForm = false;
-      window._renderHeatmapPopover(key);
-
-      pop.style.display = 'block';
-      const cr = r.getBoundingClientRect();
-      let left = cr.left + cr.width / 2 - pop.offsetWidth / 2;
-      left = Math.max(4, Math.min(left, window.innerWidth - pop.offsetWidth - 4));
-      let top = cr.bottom + 6;
-      if (top + pop.offsetHeight > window.innerHeight) top = cr.top - pop.offsetHeight - 6;
-      pop.style.left = left + 'px';
-      pop.style.top = top + 'px';
-    });
-
     // Close popover on click outside
+    pop.addEventListener('click', e => { e.stopPropagation(); });
     document.addEventListener('click', e => {
       if (!e.target.closest('.heatmap-cell') && !e.target.closest('#heatmap-popover')) {
         pop.style.display = 'none';
@@ -991,13 +1080,23 @@ async function renderDashboard() {
         ${inboxHtml}
       </div>` : ''}
 
-      <!-- Activity Heatmap (4x1) -->
+      <!-- Activity Heatmap / Month Calendar (4x1) -->
       <div class="bento-card bento-4x1">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[0.82rem] font-semibold text-primary">Activity</h3>
-          <span class="text-[0.68rem] text-dimmest">${now.getFullYear()}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="dash-cal-label" class="text-[0.68rem] text-dimmest">${_dashCalMode === 'month' ? '' : now.getFullYear()}</span>
+            <button onclick="_dashToggleCalMode()" style="background:none;border:1px solid var(--border-card);border-radius:6px;padding:2px 8px;color:var(--text-dimmer);cursor:pointer;font-size:11px;display:flex;align-items:center;gap:4px" title="Toggle view">
+              ${_dashCalMode === 'month'
+                ? '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg> Year'
+                : '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Month'}
+            </button>
+          </div>
         </div>
-        ${heatmapHtml}
+        <div id="dash-cal-content">
+          ${_dashCalMode === 'month' ? _dashBuildMonthView(activityItems, colorFn, events) : heatmapHtml}
+        </div>
+        <div id="heatmap-popover" style="display:none;position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div>
       </div>
 
       <!-- Tasks or Trending -->

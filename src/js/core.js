@@ -3122,12 +3122,18 @@ let _rainNodes = [];
 let _rainOn = false;
 let _rainVolume = parseFloat(localStorage.getItem('rainVolume') || '0.3');
 let _rainNoiseType = localStorage.getItem('rainNoiseType') || 'rain';
+let _rainFreq = parseInt(localStorage.getItem('rainFreq') || '0');
 
 // Noise type presets: each defines layers for _makeNoise
 const NOISE_PRESETS = {
   rain:    { label: 'Rain',    layers: [['brown', 0.7], ['pink', 0.3]], thunder: true },
-  brown:   { label: 'Brown',   layers: [['brown', 1.0]], thunder: false },
   storm:   { label: 'Storm',   layers: [['brown', 0.8], ['pink', 0.2]], thunder: true, thunderFreq: 0.4 },
+  brown:   { label: 'Brown',   layers: [['brown', 1.0]], thunder: false },
+  pink:    { label: 'Pink',    layers: [['pink', 1.0]], thunder: false },
+  white:   { label: 'White',   layers: [['white', 1.0]], thunder: false },
+  ocean:   { label: 'Ocean',   layers: [['brown', 0.6], ['pink', 0.4]], thunder: false, lfo: true },
+  stream:  { label: 'Stream',  layers: [['pink', 0.5], ['white', 0.15]], thunder: false, lfo: true },
+  fire:    { label: 'Fire',    layers: [['brown', 0.5], ['pink', 0.5]], thunder: false, crackle: true },
 };
 
 function toggleRain() {
@@ -3150,6 +3156,8 @@ function startRain() {
   const preset = NOISE_PRESETS[_rainNoiseType] || NOISE_PRESETS.rain;
   preset.layers.forEach(([type, amp]) => _makeNoise(_rainCtx, master, type, amp));
   if (preset.thunder) _rainThunderLoop(_rainCtx, master, preset.thunderFreq || 1);
+  if (preset.lfo) _rainLFO(_rainCtx, master);
+  if (preset.crackle) _rainCrackleLoop(_rainCtx, master);
 }
 
 function stopRain() {
@@ -3168,6 +3176,14 @@ function stopRain() {
 function setRainNoiseType(type) {
   _rainNoiseType = type;
   localStorage.setItem('rainNoiseType', type);
+  if (_rainOn) { stopRain(); startRain(); }
+}
+
+function setRainFreq(hz) {
+  _rainFreq = Math.max(0, Math.min(5000, parseInt(hz) || 0));
+  localStorage.setItem('rainFreq', _rainFreq.toString());
+  const label = document.getElementById('rain-freq-label');
+  if (label) label.textContent = _rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto';
   if (_rainOn) { stopRain(); startRain(); }
 }
 
@@ -3295,6 +3311,8 @@ function _makeNoise(ctx, dest, type, amp) {
       if (type === 'brown') {
         b0 = (b0 + (0.02 * white)) / 1.02;
         data[i] = b0 * 3.5 * amp;
+      } else if (type === 'white') {
+        data[i] = white * 0.3 * amp;
       } else {
         // pink noise (Paul Kellet's algorithm)
         b0 = 0.99886 * b0 + white * 0.0555179;
@@ -3312,15 +3330,18 @@ function _makeNoise(ctx, dest, type, amp) {
   src.buffer = buf;
   src.loop = true;
 
-  // Shape the noise
+  // Default filter frequencies per type
+  const defaultLp = type === 'brown' ? 400 : type === 'white' ? 4000 : 2500;
+  const defaultHp = type === 'brown' ? 40 : type === 'white' ? 100 : 200;
+
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = type === 'brown' ? 400 : 2500;
+  lp.frequency.value = _rainFreq > 0 ? _rainFreq : defaultLp;
   lp.Q.value = 0.5;
 
   const hp = ctx.createBiquadFilter();
   hp.type = 'highpass';
-  hp.frequency.value = type === 'brown' ? 40 : 200;
+  hp.frequency.value = defaultHp;
   hp.Q.value = 0.5;
 
   src.connect(hp);
@@ -3328,6 +3349,42 @@ function _makeNoise(ctx, dest, type, amp) {
   lp.connect(dest);
   src.start();
   _rainNodes.push(src);
+}
+
+function _rainLFO(ctx, masterGain) {
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.type = 'sine';
+  lfo.frequency.value = 0.08 + Math.random() * 0.07;
+  lfoGain.gain.value = _rainVolume * 0.25;
+  lfo.connect(lfoGain);
+  lfoGain.connect(masterGain.gain);
+  lfo.start();
+  _rainNodes.push(lfo);
+}
+
+function _rainCrackleLoop(ctx, dest) {
+  if (!_rainOn || !_rainCtx) return;
+  const delay = 200 + Math.random() * 600;
+  setTimeout(function() {
+    if (!_rainOn || !_rainCtx) return;
+    const dur = 0.005 + Math.random() * 0.015;
+    const bufSize = Math.ceil(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      const env = 1 - i / bufSize;
+      data[i] = (Math.random() * 2 - 1) * env * env;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.15 * _rainVolume;
+    src.connect(gain);
+    gain.connect(dest);
+    src.start();
+    _rainCrackleLoop(ctx, dest);
+  }, delay);
 }
 
 function _rainThunderLoop(ctx, dest, freqMul) {
@@ -3403,7 +3460,7 @@ const SYNC_KEYS = [
   'qualityThreshold', 'qualityCache', 'hiddenPosts', 'savedPosts',
   'readPosts', 'qualityTestTitles', 'paperRatings', 'theme',
   'accentColor', 'spinner', 'userName', 'sidebarOrder',
-  'clickSound', 'clickSoundType', 'clickAether', 'rainNoiseType', 'rainVolume',
+  'clickSound', 'clickSoundType', 'clickAether', 'rainNoiseType', 'rainVolume', 'rainFreq',
   'editorTheme', 'rainSidebarVisible',
   'pixelPet', 'pixelPetType', 'pixelPetMode',
   'feedNotifications', 'seenPostLinks',
