@@ -139,6 +139,18 @@ Key functions: `_showAetherPanel()`, `_sendPopupChatMessage()`, `_doAetherWebSea
 - **Hide (✕)** → `localStorage.hiddenPosts` + `qualityTestTitles`
 - **Click** → `localStorage.readPosts` (50% opacity + muted title)
 
+### Ad Blocking
+
+Two-layer system in `electron/main.js` + `browse-tabs.js`, gated on `localStorage.adBlockEnabled`.
+
+**Network-level** (Electron `onBeforeRequest`): adblock-rs engine (EasyList + EasyPrivacy) blocks ad/tracker requests. YouTube-specific URL patterns (`/api/stats/ads`, `/pagead/`, `/get_midroll_`, `doubleclick.net`, `googlesyndication.com`) checked first for fast-path blocking.
+
+**Cosmetic** (element hiding + removal): `adblock-cosmetic` IPC returns EasyList cosmetic selectors per URL. CSS injected via `frame.insertCSS()` on `dom-ready` + `did-navigate`; elements removed from DOM via `MutationObserver` (30s TTL).
+
+**YouTube-specific** (`_browseInjectYouTubeAdBlock`, `_browseInjectYouTubeCSS`): CSS injected on `did-navigate` (pre-paint) hides `.ad-showing` video + ad containers. Early mute script intercepts `HTMLMediaElement.prototype.play()` to silence ads before audio plays. Polling loop (300ms) fast-forwards ads at 16x speed, clicks skip buttons, tries player API (`skipAd`, `cancelPlayback`). `MutationObserver` auto-dismisses ad-blocker enforcement dialogs. Guard flag `window.__aetherYtAdBlockInjected` prevents double-injection.
+
+Key globals: `_ytAdBlockCSS` (shared CSS string), `_browseInjectYouTubeCSS(frame, url)` (early CSS+mute), `_browseInjectYouTubeAdBlock(frame, url)` (full JS skipper on dom-ready).
+
 ### Semantic Search
 
 `nomic-embed-text` (768-dim) via Ollama. Posts embedded on read/bookmark (`_embedPost()` → `POST /api/embed-content`), vault notes on save. Stored as float32 BLOBs in `embeddings` table, deduped by SHA-256.

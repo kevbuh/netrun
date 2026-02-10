@@ -1692,23 +1692,95 @@ function _browseBindFrame(tab) {
   _browseHandleNavigation(tab, el);
   _browseInjectContentScripts(tab, el);
 
-  // Adblock: inject cosmetic CSS + update badge after page load
+  // Adblock: generic ad placeholder CSS (covers common ad frameworks)
+  var _adPlaceholderCSS =
+    'ins.adsbygoogle,' +
+    'ins.adsbygoogle[data-ad-status],' +
+    '[id^="google_ads_"],' +
+    '[id^="div-gpt-ad"],' +
+    '[data-google-query-id],' +
+    'iframe[src*="doubleclick.net"],' +
+    'iframe[src*="googlesyndication.com"],' +
+    'iframe[id^="google_ads_"],' +
+    'iframe[src=""],' +
+    '[class*="ad-container"],' +
+    '[class*="ad-wrapper"],' +
+    '[class*="ad-slot"],' +
+    '[class*="ad-banner"],' +
+    '[class*="adunit"],' +
+    '[id*="ad-container"],' +
+    '[id*="ad-wrapper"],' +
+    '[id*="ad-slot"],' +
+    '[data-ad-slot],' +
+    '[data-ad],' +
+    'amp-ad,' +
+    'amp-embed[type="ad"],' +
+    '.ad-placeholder,' +
+    '.ad-loading,' +
+    '.sponsored-content' +
+    '{display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important}';
+
+  // Adblock: inject cosmetic CSS early + remove elements + update badge
   if (window.electronAPI && window.electronAPI.adblockCosmetic) {
-    el.addEventListener('did-finish-load', () => {
+    // Inject generic ad placeholder CSS on every navigation
+    const _injectPlaceholderCSS = (url) => {
       if (localStorage.getItem('adBlockEnabled') !== 'true') return;
-      const url = tab.url || '';
       if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
-      // Inject cosmetic hide selectors
+      try { el.insertCSS(_adPlaceholderCSS); } catch {}
+    };
+
+    // Inject EasyList cosmetic selectors + remove elements from DOM
+    const _injectCosmetic = (url) => {
+      if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+      if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
       window.electronAPI.adblockCosmetic(url).then(res => {
-        if (res && res.selectors && res.selectors.length > 0) {
-          const css = res.selectors.join(', ') + ' { display: none !important; }';
-          try { el.insertCSS(css); } catch {}
+        var extraSel = (res && res.selectors && res.selectors.length) ? res.selectors.join(', ') : '';
+        // Hide via CSS (both EasyList selectors and generic placeholders)
+        if (extraSel) {
+          try { el.insertCSS(extraSel + ' { display: none !important; }'); } catch {}
         }
+        // Remove elements from DOM (EasyList + generic ad containers)
+        el.executeJavaScript(`(function(){
+          if(window.__aetherAdCleanInjected) return;
+          window.__aetherAdCleanInjected=true;
+          var extra = ${JSON.stringify(extraSel)};
+          var generic = 'ins.adsbygoogle, [id^="google_ads_"], [id^="div-gpt-ad"], [data-google-query-id], iframe[src*="doubleclick.net"], iframe[src*="googlesyndication.com"], iframe[id^="google_ads_"], [data-ad-slot], amp-ad, amp-embed[type="ad"]';
+          var sel = extra ? (generic + ', ' + extra) : generic;
+          function removeAds(){
+            document.querySelectorAll(sel).forEach(function(el){el.remove();});
+            // Also remove iframes that failed to load (blocked by network filter)
+            document.querySelectorAll('iframe').forEach(function(f){
+              try{
+                var s=f.src||f.getAttribute('src')||'';
+                if(!s||s==='about:blank'||(f.offsetWidth<=1&&f.offsetHeight<=1)) return;
+                if(s.includes('ad')||s.includes('sponsor')||s.includes('doubleclick')||s.includes('googlesyndication')) f.remove();
+              }catch(e){}
+            });
+            // Collapse empty ad containers (divs with ad-related attrs but no visible content)
+            document.querySelectorAll('[class*="ad-"],[class*="Ad-"],[id*="ad-"],[id*="Ad-"]').forEach(function(el){
+              if(el.children.length===0&&el.textContent.trim()==='') el.remove();
+            });
+          }
+          removeAds();
+          var obs=new MutationObserver(function(){removeAds();});
+          obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
+          setTimeout(function(){obs.disconnect();},30000);
+        })();`).catch(() => {});
       }).catch(() => {});
-      // Update badge count after a short delay to let requests finish
+    };
+    el.addEventListener('dom-ready', () => {
+      _injectPlaceholderCSS(tab.url || '');
+      _injectCosmetic(tab.url || '');
+    });
+    el.addEventListener('did-navigate', (e) => {
+      _injectPlaceholderCSS(e.url || '');
+      _injectCosmetic(e.url || '');
+    });
+    el.addEventListener('did-finish-load', () => {
+      // Update badge count after requests finish
       setTimeout(() => {
         if (_browseActiveTab === tab.id && typeof _browseUpdateAdBlockBadge === 'function') {
-          _browseUpdateAdBlockBadge(url);
+          _browseUpdateAdBlockBadge(tab.url || '');
         }
       }, 500);
     });

@@ -16,6 +16,18 @@ function _browseShortUrl(url) {
   return domain;
 }
 
+function _browseAutoSizeUrlInput(input) {
+  if (!input || input.id !== 'pill-browse-url-input') return;
+  var pill = document.getElementById('sidebar-nav');
+  if (!pill || !pill.classList.contains('island-mode')) return;
+  var canvas = _browseAutoSizeUrlInput._c || (_browseAutoSizeUrlInput._c = document.createElement('canvas'));
+  var ctx = canvas.getContext('2d');
+  ctx.font = getComputedStyle(input).font;
+  var text = input.value || input.placeholder || '';
+  var w = Math.ceil(ctx.measureText(text).width) + 24; // 24 for padding
+  input.style.width = Math.min(Math.max(w, 80), 320) + 'px';
+}
+
 function _browseSetUrlDisplay(input, url) {
   if (!input) return;
   input.dataset.fullUrl = url || '';
@@ -26,11 +38,13 @@ function _browseSetUrlDisplay(input, url) {
   } else {
     input.value = url || '';
   }
+  _browseAutoSizeUrlInput(input);
 }
 
 function _browseUrlOnFocus(input) {
   const full = input.dataset.fullUrl;
   if (full) input.value = full;
+  _browseAutoSizeUrlInput(input);
 }
 
 function _browseUrlOnBlur(input) {
@@ -39,12 +53,14 @@ function _browseUrlOnBlur(input) {
   if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
     input.value = _browseShortUrl(full);
   }
+  _browseAutoSizeUrlInput(input);
 }
 
 function _browseUrlOnMouseEnter(input) {
   if (document.activeElement === input) return;
   const full = input.dataset.fullUrl;
   if (full) input.value = full;
+  _browseAutoSizeUrlInput(input);
 }
 
 function _browseUrlOnMouseLeave(input) {

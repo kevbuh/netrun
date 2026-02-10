@@ -798,12 +798,19 @@
     .pill-bar.browse-mode.ntp-active {
       justify-content: center;
     }
+    .browse-mode.ntp-active #pill-browse-back {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
     /* NTP: hide all browse chrome, show only island + nav icons */
     .browse-mode.ntp-active #pill-menu-btn,
     .browse-mode.ntp-active #pill-browse-hamburger,
     .browse-mode.ntp-active #pill-browse-url,
-    .browse-mode.ntp-active #pill-url-wrap,
+    .browse-mode.ntp-active #pill-browse-url-input,
     .browse-mode.ntp-active #pill-browse-reload,
+    .browse-mode.ntp-active #pill-browse-fwd,
     .browse-mode.ntp-active #pill-browse-tabs,
     .browse-mode.ntp-active #pill-readaloud-wrap,
     .browse-mode.ntp-active #pill-browse-more,
@@ -1810,12 +1817,22 @@
     .browse-mode.island-mode #pill-url-wrap {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 0;
       position: absolute;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
       z-index: 1;
+      background: var(--aether-hover);
+      border-radius: 12px;
+      height: 24px;
+      overflow: visible;
+    }
+    [data-aether-theme="default"] .browse-mode.island-mode #pill-url-wrap {
+      background: rgba(255,255,255,0.12);
+    }
+    [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap {
+      background: rgba(0,0,0,0.08);
     }
     body.electron-app .browse-mode.island-mode #pill-url-wrap {
       left: calc(50vw - 80px);
@@ -1827,13 +1844,33 @@
       display: flex;
       align-items: center;
     }
+    /* Tabs pill inside the unified bar — remove its own bg/radius */
+    .browse-mode.island-mode #pill-island-tabs-anchor > .pill-island {
+      background: transparent !important;
+      border-radius: 0;
+      border-top-left-radius: 12px;
+      border-bottom-left-radius: 12px;
+    }
+    /* Divider between tabs pill and URL input */
+    .browse-mode.island-mode #pill-island-tabs-anchor::after {
+      content: '';
+      width: 1px;
+      height: 14px;
+      background: var(--aether-text-dimmest, rgba(255,255,255,0.15));
+      flex-shrink: 0;
+    }
+    /* Hide divider when no tabs pill is present */
+    .browse-mode.island-mode #pill-island-tabs-anchor:empty::after {
+      display: none;
+    }
     .browse-mode.island-mode #pill-browse-url-input {
-      width: 320px;
+      width: auto;
       max-width: 320px;
       opacity: 1;
-      padding: 4px 8px;
+      padding: 4px 10px;
       text-align: center;
-      border-radius: 12px;
+      border-radius: 0 12px 12px 0;
+      background: transparent;
       transition: opacity 0.25s ease 0.1s,
                   background 0.2s ease;
       text-overflow: ellipsis;
@@ -1841,20 +1878,24 @@
       white-space: nowrap;
     }
     .browse-mode.island-mode #pill-browse-url-input:hover {
-      background: var(--aether-hover);
+      background: rgba(255,255,255,0.06);
       cursor: pointer;
     }
     .browse-mode.island-mode #pill-browse-url-input:focus {
       cursor: text;
     }
-    [data-aether-theme="default"] .browse-mode.island-mode #pill-browse-url-input:hover {
-      background: rgba(255,255,255,0.12);
-    }
-    [data-aether-theme="aether"] .browse-mode.island-mode #pill-browse-url-input:hover {
-      background: rgba(0,0,0,0.08);
-    }
     #pill-browse-url-input::placeholder {
       color: var(--aether-placeholder);
+    }
+    /* NTP: tabs pill sits to the left of the centered nav icons */
+    .browse-mode.island-mode.ntp-active #pill-url-wrap {
+      position: static;
+      transform: none;
+      display: flex;
+      align-items: center;
+      order: -1;
+      margin-right: 4px;
+      height: 24px;
     }
     #pill-mic-btn {
       flex-shrink: 0;
