@@ -427,20 +427,7 @@ async function respondToInvite(id, accept) {
 
 async function refreshInboxBadge() {
   try {
-    const resp = await fetch('/api/messages/unread-count', { headers: _authHeaders() });
-    const data = await resp.json();
-    const badge = document.getElementById('inbox-badge');
-    if (badge) {
-      badge.dataset.serverCount = data.total || 0;
-      const feedCount = typeof _getFeedNotifications === 'function' ? _getFeedNotifications().length : 0;
-      const total = (data.total || 0) + feedCount;
-      if (total > 0) {
-        badge.textContent = total;
-        badge.style.display = '';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
+    await fetch('/api/messages/unread-count', { headers: _authHeaders() });
   } catch (err) { /* ignore */ }
 }
 

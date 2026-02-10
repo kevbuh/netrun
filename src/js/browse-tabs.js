@@ -1466,7 +1466,8 @@ function _browseInjectContentScripts(tab, frame) {
 
 function _browseUpdateRssPill(tab) {
   if (tab.id !== _browseActiveTab || !tab.rssFeeds || !tab.rssFeeds.length) {
-    islandRemove('rss');
+    var cur = _islandActivities && _islandActivities['rss'];
+    if (!cur || !cur.subscribed) islandRemove('rss');
     return;
   }
   var feed = tab.rssFeeds[0];

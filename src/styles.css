@@ -1914,6 +1914,13 @@
     .pill-island[data-island-id="annotate"].island-compact.island-active:hover { max-width: 400px; padding: 0 10px; }
     .pill-island[data-island-id="annotate"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
     .pill-island[data-island-id="rss"] { cursor: pointer; }
+    .pill-island[data-island-id="rss"].island-compact.island-active {
+      max-width: 34px; padding: 0 5px;
+      transition: max-width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), padding 0.3s ease, opacity 0.3s ease;
+    }
+    .pill-island[data-island-id="rss"].island-compact.island-active .pill-island-content span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width 0.3s ease, opacity 0.2s ease; }
+    .pill-island[data-island-id="rss"].island-compact.island-active:hover { max-width: 400px; padding: 0 10px; }
+    .pill-island[data-island-id="rss"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
 
     .pill-island.island-tabs-pill, .pill-island[data-island-id="nowplaying"] { cursor: pointer; order: -9999; }
     .pill-island.island-tabs-pill .island-tab-favicon {

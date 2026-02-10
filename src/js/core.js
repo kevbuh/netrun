@@ -111,7 +111,9 @@ var _islandWaveformBars = '<span class="island-waveform"><span class="island-wav
 var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 
 function _islandRenderPill(a) {
-  if (a.done) {
+  if (a.type === 'feed-notif') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + _escHtml(a.label || '') + '</span>';
+  } else if (a.done) {
     return '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(a.label || 'Done') + '</span>';
   } else if (a.type === 'download') {
     var pct = a.progress || 0;
@@ -160,7 +162,9 @@ function _islandRenderPill(a) {
 }
 
 function _islandRenderPillExpanded(a) {
-  if (a.done) {
+  if (a.type === 'feed-notif') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + _escHtml(a.detail || a.label || '') + '</span>';
+  } else if (a.done) {
     return '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(a.label || 'Done') + '</span>';
   } else if (a.type === 'download') {
     var pct = a.progress || 0;
@@ -231,7 +235,7 @@ function _islandRender() {
   // Tabs/nowplaying pill always first (far left): remove by ID, sort rest, prepend
   var firstPillId = ids.indexOf('tabs') !== -1 ? 'tabs' : (ids.indexOf('nowplaying') !== -1 ? 'nowplaying' : null);
   if (firstPillId) ids.splice(ids.indexOf(firstPillId), 1);
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, annotate: 2.5, bookmark: 2, rss: 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, annotate: 2.5, 'feed-notif': 2, bookmark: 2, rss: 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -494,7 +498,14 @@ function _islandRender() {
         delete _islandActivities[id];
         delete _islandDismissTimers[id];
         _islandRender();
-      }, a.type === 'achievement' ? 5000 : 2500);
+      }, a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500);
+    }
+
+    // RSS: icon-only when subscribed
+    if (a.type === 'rss' && a.subscribed) {
+      pill.classList.add('island-compact');
+    } else if (a.type === 'rss') {
+      pill.classList.remove('island-compact');
     }
 
     // Annotate: compact to icon-only after 15s (results and offers)
@@ -3118,6 +3129,7 @@ document.addEventListener('click', function(e) {
 // ── Ambient rain sounds (Web Audio API) ──
 
 let _rainCtx = null;
+let _rainAudio = null;
 let _rainNodes = [];
 let _rainOn = false;
 let _rainVolume = parseFloat(localStorage.getItem('rainVolume') || '0.3');
@@ -3131,9 +3143,9 @@ const NOISE_PRESETS = {
   brown:   { label: 'Brown',   layers: [['brown', 1.0]], thunder: false },
   pink:    { label: 'Pink',    layers: [['pink', 1.0]], thunder: false },
   white:   { label: 'White',   layers: [['white', 1.0]], thunder: false },
-  ocean:   { label: 'Ocean',   layers: [['brown', 0.6], ['pink', 0.4]], thunder: false, lfo: true },
-  stream:  { label: 'Stream',  layers: [['pink', 0.5], ['white', 0.15]], thunder: false, lfo: true },
-  fire:    { label: 'Fire',    layers: [['brown', 0.5], ['pink', 0.5]], thunder: false, crackle: true },
+  ocean:   { label: 'Ocean',   audio: 'audio/ocean.mp3' },
+  stream:  { label: 'Stream',  audio: 'audio/stream.mp3' },
+  fire:    { label: 'Fire',    audio: 'audio/fire.mp3' },
 };
 
 function toggleRain() {
@@ -3147,17 +3159,27 @@ function startRain() {
   if (btn) btn.classList.add('active');
   localStorage.setItem('rainOn', '1');
 
+  const preset = NOISE_PRESETS[_rainNoiseType] || NOISE_PRESETS.rain;
+
+  if (preset.audio) {
+    // Sample-based preset: loop an audio file
+    var a = new Audio(preset.audio);
+    a.loop = true;
+    a.volume = _rainVolume;
+    a.addEventListener('canplaythrough', function() { a.play(); }, { once: true });
+    a.load();
+    _rainAudio = a;
+    return;
+  }
+
   _rainCtx = new (window.AudioContext || window.webkitAudioContext)();
   const master = _rainCtx.createGain();
   master.gain.value = _rainVolume;
   master.connect(_rainCtx.destination);
   _rainNodes.push(master);
 
-  const preset = NOISE_PRESETS[_rainNoiseType] || NOISE_PRESETS.rain;
   preset.layers.forEach(([type, amp]) => _makeNoise(_rainCtx, master, type, amp));
   if (preset.thunder) _rainThunderLoop(_rainCtx, master, preset.thunderFreq || 1);
-  if (preset.lfo) _rainLFO(_rainCtx, master);
-  if (preset.crackle) _rainCrackleLoop(_rainCtx, master);
 }
 
 function stopRain() {
@@ -3166,6 +3188,10 @@ function stopRain() {
   const btn = document.getElementById('sb-rain');
   if (btn) btn.classList.remove('active');
   localStorage.removeItem('rainOn');
+  if (_rainAudio) {
+    _rainAudio.pause();
+    _rainAudio = null;
+  }
   if (_rainCtx) {
     _rainCtx.close();
     _rainCtx = null;
@@ -3190,6 +3216,9 @@ function setRainFreq(hz) {
 function setRainVolume(v) {
   _rainVolume = Math.max(0, Math.min(1, v));
   localStorage.setItem('rainVolume', _rainVolume.toString());
+  if (_rainAudio) {
+    _rainAudio.volume = _rainVolume;
+  }
   if (_rainNodes.length && _rainNodes[0]) {
     _rainNodes[0].gain.value = _rainVolume;
   }
@@ -3223,6 +3252,7 @@ function setRainSidebarVisible(show) {
   localStorage.setItem('rainSidebarVisible', show ? '1' : '0');
   const btn = document.getElementById('sb-rain');
   if (btn) btn.style.display = show ? '' : 'none';
+  if (!show) stopRain();
 }
 
 function isRainSidebarVisible() {
@@ -3349,42 +3379,6 @@ function _makeNoise(ctx, dest, type, amp) {
   lp.connect(dest);
   src.start();
   _rainNodes.push(src);
-}
-
-function _rainLFO(ctx, masterGain) {
-  const lfo = ctx.createOscillator();
-  const lfoGain = ctx.createGain();
-  lfo.type = 'sine';
-  lfo.frequency.value = 0.08 + Math.random() * 0.07;
-  lfoGain.gain.value = _rainVolume * 0.25;
-  lfo.connect(lfoGain);
-  lfoGain.connect(masterGain.gain);
-  lfo.start();
-  _rainNodes.push(lfo);
-}
-
-function _rainCrackleLoop(ctx, dest) {
-  if (!_rainOn || !_rainCtx) return;
-  const delay = 200 + Math.random() * 600;
-  setTimeout(function() {
-    if (!_rainOn || !_rainCtx) return;
-    const dur = 0.005 + Math.random() * 0.015;
-    const bufSize = Math.ceil(ctx.sampleRate * dur);
-    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufSize; i++) {
-      const env = 1 - i / bufSize;
-      data[i] = (Math.random() * 2 - 1) * env * env;
-    }
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.15 * _rainVolume;
-    src.connect(gain);
-    gain.connect(dest);
-    src.start();
-    _rainCrackleLoop(ctx, dest);
-  }, delay);
 }
 
 function _rainThunderLoop(ctx, dest, freqMul) {

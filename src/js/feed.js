@@ -84,8 +84,19 @@ function _detectNewPosts() {
       }
     }
     // Cap at 50 most recent
+    const prevLen = existingLinks.size;
     if (notifications.length > 50) notifications.splice(0, notifications.length - 50);
     _setFeedNotifications(notifications);
+    const newCount = notifications.length - prevLen;
+    if (newCount > 0) {
+      islandUpdate('feed-notif', {
+        type: 'feed-notif',
+        label: newCount + ' new',
+        detail: newCount + ' new post' + (newCount === 1 ? '' : 's'),
+        done: true,
+        action: function() { location.hash = '#inbox'; islandRemove('feed-notif'); }
+      });
+    }
   }
 
   // Mark all current links as seen
@@ -94,32 +105,15 @@ function _detectNewPosts() {
     if (p.link) updatedSeen.add(p.link);
   }
   _setSeenPostLinks(updatedSeen);
-  _updateInboxBadgeWithFeed();
-}
-
-function _updateInboxBadgeWithFeed() {
-  const feedCount = _getFeedNotifications().length;
-  const badge = document.getElementById('inbox-badge');
-  if (!badge) return;
-  const serverCount = parseInt(badge.dataset.serverCount || '0', 10);
-  const total = serverCount + feedCount;
-  if (total > 0) {
-    badge.textContent = total;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
 }
 
 function clearFeedNotification(link) {
   const notifications = _getFeedNotifications().filter(n => n.link !== link);
   _setFeedNotifications(notifications);
-  _updateInboxBadgeWithFeed();
 }
 
 function clearAllFeedNotifications() {
   _setFeedNotifications([]);
-  _updateInboxBadgeWithFeed();
 }
 
 function getHiddenPosts() {
