@@ -84,6 +84,7 @@ function _browseSaveTabsNow() {
         saved.paper = p; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null;
         if (t.localPath) saved.localPath = t.localPath;
       }
+      if (t.lastVisited) saved.lastVisited = t.lastVisited;
       if (t.pinned) saved.pinned = true;
       if (t.groupId != null) saved.groupId = t.groupId;
       return saved;
@@ -127,7 +128,7 @@ function _browseRestoreTabs() {
         const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab, groups: savedWin.groups || [], splitPanes: savedWin.splitPanes || [], focusedPane: savedWin.focusedPane || null };
         for (const saved of savedWin.tabs) {
           if (saved.blank) {
-            const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
+            const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true, lastVisited: saved.lastVisited || 0 };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -135,7 +136,7 @@ function _browseRestoreTabs() {
           }
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
-            const tab = { id: saved.id, url: 'aether://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true };
+            const tab = { id: saved.id, url: 'aether://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true, lastVisited: saved.lastVisited || 0 };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -143,7 +144,7 @@ function _browseRestoreTabs() {
           }
           // Help page tab
           if (saved._helpPage) {
-            const tab = { id: saved.id, url: 'aether://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true };
+            const tab = { id: saved.id, url: 'aether://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true, lastVisited: saved.lastVisited || 0 };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -156,7 +157,7 @@ function _browseRestoreTabs() {
             el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
             container.appendChild(el);
             const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false,
-                          paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null };
+                          paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null, lastVisited: saved.lastVisited || 0 };
             if (saved.localPath) { tab.localPath = saved.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.localPath); }
             else if (saved.paper && saved.paper.localPath) { tab.localPath = saved.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.paper.localPath); }
             else if (saved.paper && saved.paper.pdfUrl) { tab.pdfUrl = saved.paper.pdfUrl; }
@@ -175,7 +176,7 @@ function _browseRestoreTabs() {
             el.style.display = 'none';
             container.appendChild(el);
           }
-          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, deferred: shouldDefer };
+          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, deferred: shouldDefer, lastVisited: saved.lastVisited || 0 };
           if (saved.pinned) tab.pinned = true;
           if (saved.groupId != null) tab.groupId = saved.groupId;
           win.tabs.push(tab);
@@ -209,7 +210,7 @@ function _browseRestoreTabs() {
         const el = _browseCreateFrame(saved.id, saved.url);
         el.style.display = 'none';
         container.appendChild(el);
-        const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false };
+        const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, lastVisited: saved.lastVisited || 0 };
         win.tabs.push(tab);
         _browseBindFrame(tab);
       }
@@ -3960,7 +3961,7 @@ function _browseRestoreTabsLite() {
       var win = { id: sw.id, name: sw.name, tabs: [], activeTab: sw.activeTab, groups: sw.groups || [], splitPanes: sw.splitPanes || [], focusedPane: sw.focusedPane || null };
       for (var j = 0; j < sw.tabs.length; j++) {
         var st = sw.tabs[j];
-        var tab = { id: st.id, url: st.url || '', title: st.title || 'New Tab', favicon: st.url ? _browseFaviconUrl(st.url) : '', el: null, blank: !!st.blank };
+        var tab = { id: st.id, url: st.url || '', title: st.title || 'New Tab', favicon: st.url ? _browseFaviconUrl(st.url) : '', el: null, blank: !!st.blank, lastVisited: st.lastVisited || 0 };
         if (st.pinned) tab.pinned = true;
         if (st.groupId != null) tab.groupId = st.groupId;
         if (st.paper) {

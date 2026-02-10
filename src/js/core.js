@@ -142,29 +142,22 @@ function _islandRenderPill(a) {
     return rssIcon + '<span style="color:' + (a.subscribed ? '#22c55e' : 'var(--aether-text)') + '">' + _escHtml(a.label || '') + '</span>';
   } else if (a.type === 'tabs') {
     var tabItems = a.items || [];
-    var globeIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
+    var _globePath = 'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418';
+    function _globeIcon(cls, attrs) { return '<svg class="' + (cls || '') + '" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"' + (attrs || '') + '><path stroke-linecap="round" stroke-linejoin="round" d="' + _globePath + '"/></svg>'; }
+    var tabIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/></svg>';
     var ellIcon = _ELL_SVG;
-    if (tabItems.length <= 1) {
-      var t0 = tabItems[0];
-      var fav0 = (t0 && t0.favicon) ? '<img class="island-strip-fav island-strip-fav-active" src="' + _escHtml(t0.favicon) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'island-strip-fav island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))" data-island-tab="' + (t0 ? t0.id : '') + '">' : (t0 && t0.blank) ? ellIcon : globeIcon;
-      var title0 = (t0 && t0.title) || 'New Tab';
-      if (title0.length > 20) title0 = title0.slice(0, 18) + '\u2026';
-      return fav0 + '<span style="opacity:0.4">1 tab</span>';
-    }
-    // 2+ tabs: favicon strip — active tab + up to 3 most recent others
-    var maxOthers = 2;
-    var activeItem = null;
-    var others = [];
+    // Collect non-blank tabs sorted by lastVisited desc
+    var nonBlank = [];
     for (var si = 0; si < tabItems.length; si++) {
-      if (tabItems[si].active) activeItem = tabItems[si];
-      else others.push(tabItems[si]);
+      if (!tabItems[si].blank) nonBlank.push(tabItems[si]);
     }
-    var visible = [];
-    if (activeItem) visible.push(activeItem);
-    var visitedOthers = others.filter(function(o) { return o.lastVisited > 0; });
-    visitedOthers.sort(function(x, y) { return y.lastVisited - x.lastVisited; });
-    var recentOthers = visitedOthers.slice(0, maxOthers);
-    for (var ri = 0; ri < recentOthers.length; ri++) visible.push(recentOthers[ri]);
+    nonBlank.sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
+    // If no non-blank tabs (all NTP), show ell + tab icon + "0 tabs"
+    if (nonBlank.length === 0) {
+      return ellIcon + tabIcon + '<span style="opacity:0.4">0 tabs</span>';
+    }
+    // Pick up to 2 most recently visited non-blank tabs for favicon strip
+    var visible = nonBlank.slice(0, 3);
     var overflow = tabItems.length - visible.length;
     var html = '<span class="island-favicon-strip">';
     for (var ti = 0; ti < visible.length; ti++) {
@@ -172,16 +165,12 @@ function _islandRenderPill(a) {
       var cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
       var tipAttr = ' title="' + _escHtml(t.title || 'Tab') + '"';
       if (t.favicon) {
-        html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'' + cls + ' island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))">';
+        html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'<svg class=&quot;' + cls + '&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;1.5&quot;><path stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; d=&quot;' + _globePath + '&quot;/></svg>\'">';
       } else {
-        if (t.blank) {
-          html += _ELL_SVG.replace('class="ell-favicon"', 'class="' + cls + ' ell-favicon"').replace('>', tipAttr + ' data-island-tab="' + t.id + '">');
-        } else {
-          html += '<span class="' + cls + ' island-strip-fav-placeholder" style="width:16px;height:16px;border-radius:3px"' + tipAttr + ' data-island-tab="' + t.id + '"></span>';
-        }
+        html += _globeIcon(cls, tipAttr + ' data-island-tab="' + t.id + '"');
       }
     }
-    if (overflow > 0) html += '<span class="island-strip-overflow">+' + overflow + '</span>';
+    if (overflow > 0) html += '<span class="island-strip-overflow">+ ' + overflow + ' tabs</span>';
     html += '</span>';
     return html;
   } else if (a.type === 'annotate') {
