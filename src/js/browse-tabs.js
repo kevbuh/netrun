@@ -4451,6 +4451,13 @@ function _browseResolveUrl(input) {
   if (!input) return 'https://www.google.com';
   // Collapse internal whitespace/newlines from multi-line pastes (e.g. URLs copied across line breaks)
   if (/^(https?|file|blob|data|aether):\/\//i.test(input)) return input.replace(/\s+/g, '');
+  // Resolve relative paths against the current tab's URL
+  if (/^\//.test(input)) {
+    const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+    if (tab && tab.url) {
+      try { return new URL(input, tab.url).href; } catch {}
+    }
+  }
   if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(input.replace(/\s+/g, ''))) return 'https://' + input.replace(/\s+/g, '');
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }
