@@ -157,17 +157,20 @@ function _islandRenderPill(a) {
     }
     var visible = [];
     if (activeItem) visible.push(activeItem);
-    var recentOthers = others.slice(-maxOthers);
+    var visitedOthers = others.filter(function(o) { return o.lastVisited > 0; });
+    visitedOthers.sort(function(x, y) { return y.lastVisited - x.lastVisited; });
+    var recentOthers = visitedOthers.slice(0, maxOthers);
     for (var ri = 0; ri < recentOthers.length; ri++) visible.push(recentOthers[ri]);
     var overflow = tabItems.length - visible.length;
     var html = '<span class="island-favicon-strip">';
     for (var ti = 0; ti < visible.length; ti++) {
       var t = visible[ti];
       var cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
+      var tipAttr = ' title="' + _escHtml(t.title || 'Tab') + '"';
       if (t.favicon) {
-        html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '" title="' + _escHtml(t.title || 'Tab') + '" data-island-tab="' + t.id + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'' + cls + ' island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\',title:this.title}))">';
+        html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'' + cls + ' island-strip-fav-placeholder\',style:\'width:16px;height:16px;border-radius:3px\'}))">';
       } else {
-        html += '<span class="' + cls + ' island-strip-fav-placeholder" style="width:16px;height:16px;border-radius:3px" title="' + _escHtml(t.title || 'Tab') + '" data-island-tab="' + t.id + '"></span>';
+        html += '<span class="' + cls + ' island-strip-fav-placeholder" style="width:16px;height:16px;border-radius:3px"' + tipAttr + ' data-island-tab="' + t.id + '"></span>';
       }
     }
     if (overflow > 0) html += '<span class="island-strip-overflow">+' + overflow + '</span>';
@@ -377,7 +380,7 @@ function _islandRender() {
       } else if (a.type === 'tabs' && a.items && a.items.length) {
         var trayHtml = '';
         var pinnedItems = a.items.filter(function(it) { return it.pinned; });
-        var unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().reverse();
+        var unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
         if (pinnedItems.length) {
           for (var pi = 0; pi < pinnedItems.length; pi++) {
             var pItem = pinnedItems[pi];
@@ -465,7 +468,7 @@ function _islandRender() {
       }
       if (a.action) a.action();
     };
-    pill.style.cursor = (a.action || a.type === 'annotate') ? 'pointer' : 'default';
+    pill.style.cursor = (a.action || a.type === 'annotate' || a.type === 'tabs') ? 'pointer' : 'default';
     var hasItems = !!(a.items && a.items.length);
     var hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'annotate')) || a.type === 'achievement';
     pill.classList.toggle('island-context', a.type === 'context');

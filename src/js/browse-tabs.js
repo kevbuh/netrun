@@ -1807,6 +1807,8 @@ function browseSelectTab(id) {
     const panes = _browseGetSplitPanes();
     const paneWithTab = panes.find(p => p.tabId === id);
     win.activeTab = id;
+    var splitTab = win.tabs.find(t => t.id === id);
+    if (splitTab) splitTab.lastVisited = Date.now();
     if (paneWithTab) {
       _browseFocusPane(paneWithTab.id);
     } else {
@@ -1854,6 +1856,7 @@ function browseSelectTab(id) {
 
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
+  if (tab) tab.lastVisited = Date.now();
 
   // Auto-close blank new tabs when navigating away, keeping only the most recent one
   const blankTabs = win.tabs.filter(t => t.blank && t.id !== id);
@@ -5762,6 +5765,7 @@ function _islandSyncTabs() {
         id: t.id, title: t.title || 'New Tab',
         favicon: t.favicon, active: t.id === activeTab,
         pinned: t.pinned, groupId: t.groupId,
+        lastVisited: t.lastVisited || 0,
         hasAudio: _browseAudioTabs.has(t.id),
         muted: _browseAudioTabs.get(t.id) && _browseAudioTabs.get(t.id).muted
       };
