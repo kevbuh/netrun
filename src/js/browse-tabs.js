@@ -1703,14 +1703,14 @@ function _browseBindFrame(tab) {
     'iframe[src*="googlesyndication.com"],' +
     'iframe[id^="google_ads_"],' +
     'iframe[src=""],' +
-    '[class*="ad-container"],' +
-    '[class*="ad-wrapper"],' +
-    '[class*="ad-slot"],' +
-    '[class*="ad-banner"],' +
-    '[class*="adunit"],' +
-    '[id*="ad-container"],' +
-    '[id*="ad-wrapper"],' +
-    '[id*="ad-slot"],' +
+    '.ad-container,' +
+    '.ad-wrapper,' +
+    '.ad-slot,' +
+    '.ad-banner,' +
+    '.adunit,' +
+    '#ad-container,' +
+    '#ad-wrapper,' +
+    '#ad-slot,' +
     '[data-ad-slot],' +
     '[data-ad],' +
     'amp-ad,' +
@@ -1756,8 +1756,8 @@ function _browseBindFrame(tab) {
                 if(s.includes('ad')||s.includes('sponsor')||s.includes('doubleclick')||s.includes('googlesyndication')) f.remove();
               }catch(e){}
             });
-            // Collapse empty ad containers (divs with ad-related attrs but no visible content)
-            document.querySelectorAll('[class*="ad-"],[class*="Ad-"],[id*="ad-"],[id*="Ad-"]').forEach(function(el){
+            // Collapse empty ad containers (divs with specific ad classes but no visible content)
+            document.querySelectorAll('.ad-container,.ad-wrapper,.ad-slot,.ad-banner,.adunit,.ad-placeholder,#ad-container,#ad-wrapper,#ad-slot').forEach(function(el){
               if(el.children.length===0&&el.textContent.trim()==='') el.remove();
             });
           }

@@ -1121,11 +1121,9 @@
     .pill-island[data-island-id="annotate"] {
       cursor: pointer;
     }
-    /* On hover: pill becomes the top of a connected card */
+    /* On hover: pill becomes the top of a connected card (goo layer handles visual merge) */
     .pill-island.island-has-items.island-active.island-tray-open {
-      border-radius: 12px 12px 0 0;
-      background: var(--aether-bg);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      box-shadow: none;
     }
     .pill-island.island-has-items.island-active.island-tray-open .pill-island-content:not(.pill-island-expanded) {
       opacity: 1;
@@ -1159,8 +1157,75 @@
       padding: 6px;
       pointer-events: auto;
       overflow-y: auto;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
+
+    /* ── Goo metaball layer — organic pill+tray merge ── */
+    .pill-goo-bg {
+      position: absolute;
+      inset: 0;
+      overflow: visible;
+      filter: url(#goo);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .goo-pill-shape {
+      position: absolute;
+      inset: -2px 0; /* slightly taller to improve overlap with tray */
+      border-radius: 12px;
+      background: var(--aether-hover);
+      transition: background 0.25s ease;
+    }
+    .goo-tray-shape {
+      position: absolute;
+      top: calc(100% - 10px); /* overlap pill by 10px so blur merges the shapes */
+      left: 0;
+      width: var(--goo-tray-w, 280px);
+      height: 0;
+      background: var(--aether-bg);
+      border-radius: 0 14px 14px 14px;
+      transition: height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.25s ease;
+      opacity: 0;
+    }
+    .pill-island.island-tray-open .goo-tray-shape {
+      height: var(--goo-tray-h, 200px);
+      opacity: 1;
+    }
+    .pill-island.island-tray-open .pill-goo-bg {
+      filter: url(#goo) drop-shadow(0 8px 24px rgba(0,0,0,0.25));
+    }
+    .pill-island.island-tray-open .goo-pill-shape {
+      background: var(--aether-bg);
+    }
+    [data-aether-theme="default"] .goo-pill-shape {
+      background: rgba(255,255,255,0.12);
+    }
+    [data-aether-theme="aether"] .goo-pill-shape {
+      background: rgba(0,0,0,0.08);
+    }
+    [data-aether-theme="default"] .pill-island.island-tray-open .goo-pill-shape,
+    [data-aether-theme="aether"] .pill-island.island-tray-open .goo-pill-shape {
+      background: var(--aether-bg);
+    }
+    .pill-island:not(.island-has-items) .pill-goo-bg,
+    .pill-island[data-island-id="achievement"] .pill-goo-bg {
+      display: none;
+    }
+    .pill-island.island-has-items:not([data-island-id="achievement"]) {
+      background: transparent !important;
+    }
+    .pill-island.island-has-items:not([data-island-id="achievement"]) .island-ctx-tray {
+      background: transparent;
+    }
+    .pill-island .pill-island-content,
+    .pill-island .pill-island-expanded {
+      position: relative;
+      z-index: 1;
+    }
+    .pill-island .island-ctx-tray {
+      z-index: 1;
+    }
+
     .island-ctx-item {
       display: flex;
       align-items: center;

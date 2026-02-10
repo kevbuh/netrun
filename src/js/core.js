@@ -299,6 +299,16 @@ function _islandRender() {
       pill = document.createElement('div');
       pill.className = 'pill-island';
       pill.setAttribute('data-island-id', id);
+      // Goo background layer — filtered shapes that merge pill + tray into organic blob
+      var gooBg = document.createElement('div');
+      gooBg.className = 'pill-goo-bg';
+      var gooPill = document.createElement('div');
+      gooPill.className = 'goo-shape goo-pill-shape';
+      var gooTray = document.createElement('div');
+      gooTray.className = 'goo-shape goo-tray-shape';
+      gooBg.appendChild(gooPill);
+      gooBg.appendChild(gooTray);
+      pill.appendChild(gooBg);
       var compactDiv = document.createElement('div');
       compactDiv.className = 'pill-island-content';
       var expandedDiv = document.createElement('div');
@@ -478,6 +488,25 @@ function _islandRender() {
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');
     pill.classList.toggle('island-has-items', hasTray);
+    // Sync goo tray dimensions with actual tray content
+    if (hasTray && tray && tray.innerHTML) {
+      var syncGoo = function() {
+        var h = tray.scrollHeight;
+        var w = tray.scrollWidth || tray.offsetWidth;
+        // +28 accounts for overlap offset (10px) + tray padding (12px) + breathing room
+        if (h > 0) pill.style.setProperty('--goo-tray-h', (h + 28) + 'px');
+        if (w > 0) pill.style.setProperty('--goo-tray-w', w + 'px');
+      };
+      requestAnimationFrame(syncGoo);
+      // Re-sync after tray opens (content may reflow with padding)
+      if (!pill._gooSyncBound) {
+        pill._gooSyncBound = true;
+        var obs = new MutationObserver(function() {
+          if (pill.classList.contains('island-tray-open')) requestAnimationFrame(syncGoo);
+        });
+        obs.observe(pill, { attributes: true, attributeFilter: ['class'] });
+      }
+    }
 
     // Hover/click management for tray
     if (hasTray) {
