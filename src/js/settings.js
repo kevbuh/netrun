@@ -213,6 +213,13 @@ function _renderAppearanceSettings() {
           </span>
         </label>
       </div>
+      <div class="flex items-center justify-between mt-4">
+        <div>
+          <span class="text-primary text-sm">Read Aloud Speed</span>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Playback speed for TTS audio (<span id="tts-speed-val">${parseFloat(localStorage.getItem('ttsSpeed')) || 1}x</span>)</p>
+        </div>
+        <input type="range" min="0.5" max="3" step="0.25" value="${parseFloat(localStorage.getItem('ttsSpeed')) || 1}" class="w-28 accent-accent" oninput="localStorage.setItem('ttsSpeed', this.value); document.getElementById('tts-speed-val').textContent = this.value + 'x'; if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = parseFloat(this.value);">
+      </div>
     </div>
   `;
 }

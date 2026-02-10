@@ -256,7 +256,7 @@ function _ttsHighlightChunk(chunkText) {
       var after = txt.substring(nEnd);
       var mark = document.createElement('mark');
       mark.className = 'aether-tts-highlight';
-      mark.style.cssText = 'background:rgba(180,69,26,0.3);border-radius:3px;color:inherit;padding:1px 0;';
+      mark.style.cssText = 'background:rgba(100,149,237,0.25);border-radius:3px;color:inherit;padding:1px 0;';
       mark.textContent = mid;
       var parent = m.node.parentNode;
       if (before) parent.insertBefore(document.createTextNode(before), m.node);
@@ -436,6 +436,7 @@ function _ttsPlayNext() {
   // Remove first queued duration since we're now playing it
   if (_ttsRemainingDurations.length > 0) _ttsRemainingDurations.shift();
   var audio = new Audio(url);
+  audio.playbackRate = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
   _ttsAudio = audio;
   _ttsUpdateBtnIcon();
   var total = _ttsChunks.length;
@@ -1276,6 +1277,7 @@ function _renderPopupChat(popup, final) {
       }).then(blob => {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
+        audio.playbackRate = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
         _ttsAudio = audio;
         islandUpdate('tts', { type: 'tts', label: 'Speaking', detail: 'Playing speech audio' });
         _ttsStartWaveform(audio);
@@ -4013,6 +4015,90 @@ function _panelBuildSelectionUI(popup, config) {
     }).catch(() => {});
   });
   btnRow.appendChild(copyBtn);
+
+  // Read Aloud button — uses existing Kokoro TTS system
+  const readBtn = document.createElement('button');
+  readBtn.className = 'doc-selection-copy-btn';
+  readBtn.textContent = '\u{1F50A} Read Aloud';
+  readBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+  readBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    // If TTS is already active, toggle pause/stop
+    if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
+      _ttsStopAll();
+      readBtn.textContent = '\u{1F50A} Read Aloud';
+      return;
+    }
+    if (!capturedText || capturedText.length < 2) return;
+    readBtn.textContent = '\u{23F9} Stop';
+    _ttsStopped = false;
+    _ttsPaused = false;
+    _ttsChunks = _ttsChunkText(capturedText);
+    _ttsChunkIdx = 0;
+    _ttsPlayedDurations = [];
+    _ttsRemainingDurations = [];
+    _ttsQueue = [];
+    _ttsFetchAndQueue();
+    // Reset button when TTS finishes naturally
+    const checkDone = setInterval(() => {
+      if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
+        clearInterval(checkDone);
+        if (readBtn.isConnected) readBtn.textContent = '\u{1F50A} Read Aloud';
+      }
+    }, 500);
+  });
+  btnRow.appendChild(readBtn);
+
+  // "Read from here" button — reads from selection to end of page
+  if (typeof _getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
+    const fromHereBtn = document.createElement('button');
+    fromHereBtn.className = 'doc-selection-copy-btn';
+    fromHereBtn.textContent = '\u{25B6} From Here';
+    fromHereBtn.title = 'Read from this point to the end of the page';
+    fromHereBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+    fromHereBtn.addEventListener('click', async (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      // If TTS is already active, stop it
+      if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
+        _ttsStopAll();
+        fromHereBtn.textContent = '\u{25B6} From Here';
+        readBtn.textContent = '\u{1F50A} Read Aloud';
+        return;
+      }
+      const win = _getCurrentWindow();
+      if (!win) return;
+      const tab = win.tabs.find(t => t.id === win.activeTab);
+      if (!tab) return;
+      fromHereBtn.textContent = '\u{23F9} Stop';
+      const fullText = await _extractTextFromFrame(tab);
+      if (!fullText || fullText.length < 10) {
+        fromHereBtn.textContent = '\u{25B6} From Here';
+        return;
+      }
+      // Find selection in full text and read from there
+      const needle = capturedText.trim().replace(/\s+/g, ' ');
+      const haystack = fullText.replace(/\s+/g, ' ');
+      const idx = haystack.indexOf(needle);
+      const textFromHere = idx >= 0 ? haystack.slice(idx) : needle + '\n' + haystack;
+      _ttsTabId = tab.id;
+      _ttsStopped = false;
+      _ttsPaused = false;
+      _ttsChunks = _ttsChunkText(textFromHere);
+      _ttsChunkIdx = 0;
+      _ttsPlayedDurations = [];
+      _ttsRemainingDurations = [];
+      _ttsQueue = [];
+      _ttsUpdateBtnIcon();
+      _ttsFetchAndQueue();
+      const checkDone2 = setInterval(() => {
+        if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
+          clearInterval(checkDone2);
+          if (fromHereBtn.isConnected) fromHereBtn.textContent = '\u{25B6} From Here';
+        }
+      }, 500);
+    });
+    btnRow.appendChild(fromHereBtn);
+  }
 
   popup.appendChild(btnRow);
 
