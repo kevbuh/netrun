@@ -1086,7 +1086,7 @@ function _browseHandleNavigation(tab, frame) {
     _browseSaveTabs();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
-      if (urlInput) urlInput.value = navUrl;
+      _browseSetUrlDisplay(urlInput, navUrl);
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(navUrl);
     }
@@ -1108,7 +1108,7 @@ function _browseHandleNavigation(tab, frame) {
     _browseSaveTabs();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
-      if (urlInput) urlInput.value = e.url;
+      _browseSetUrlDisplay(urlInput, e.url);
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
     }
@@ -1815,7 +1815,7 @@ function browseSelectTab(id) {
     _browseRenderTabs();
     _browseUpdateNewTabPage(tab);
     const urlInput = document.getElementById('browse-url-input');
-    if (urlInput) urlInput.value = tab ? (tab.url || '') : '';
+    _browseSetUrlDisplay(urlInput, tab ? (tab.url || '') : '');
     _browseSaveTabs();
 
     // Handle paper tab in split mode
@@ -1895,7 +1895,7 @@ function browseSelectTab(id) {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = tab ? (tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : tab.url) : '';
+  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -2472,9 +2472,7 @@ function _browseFocusPane(paneId) {
   // Update URL bar
   const tab = win?.tabs.find(t => t.id === pane.tabId);
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput && tab) {
-    urlInput.value = tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : (tab.url || '');
-  }
+  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : (tab.url || ''));
   _browseUpdateSaveBtn();
   _browseRenderTabs();
 }
@@ -2951,7 +2949,6 @@ function _applyBrowseTabLayout() {
   } else {
     // Restore everything
     if (bar) bar.style.display = '';
-    islandRemove('tabs');
     if (_pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
     } else {
@@ -2970,7 +2967,7 @@ function _pillSyncUrl() {
   if (!input) return;
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const isBlankNtp = tab && tab.blank;
-  input.value = (!isBlankNtp && tab && tab.url) ? tab.url : '';
+  _browseSetUrlDisplay(input, (!isBlankNtp && tab && tab.url) ? tab.url : '');
   // Hide URL input + reload in island mode on new tab page; show nav icons
   if (_browseTabLayout === 'island') {
     input.style.visibility = isBlankNtp ? 'hidden' : '';
@@ -3092,12 +3089,12 @@ function _browseRenderTabs() {
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
 
+  // Always sync the Dynamic Island tabs pill
+  _islandSyncTabs();
+
   // In island mode, only sync island — no DOM tab bar to render
   if (isIsland) {
-    _islandSyncTabs();
-    // Sync pill URL input in island mode
     _pillSyncUrl();
-    // Mirror tabs into pill bar if in browse mode (horizontal only)
     return;
   }
   if (!bar) return;
@@ -4425,7 +4422,7 @@ function browseNavigate(input) {
     }
   }
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = url;
+  _browseSetUrlDisplay(urlInput, url);
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -4480,7 +4477,7 @@ function browseBack() {
       el.src = proxied;
     }
     const urlInput = document.getElementById('browse-url-input');
-    if (urlInput) urlInput.value = prevUrl;
+    _browseSetUrlDisplay(urlInput, prevUrl);
     _browseRenderTabs();
     _browseUpdateSaveBtn();
     _browseSaveTabs();
@@ -4508,7 +4505,7 @@ function browseForward() {
   el.dataset.originalUrl = nextUrl;
   el.src = proxied;
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = nextUrl;
+  _browseSetUrlDisplay(urlInput, nextUrl);
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -5739,12 +5736,8 @@ function browsePrintPage() {
 // ── Dynamic Island pill bar — browse mode ──
 
 function _islandSyncTabs() {
-  // In island mode, the nowplaying context pill handles tab display
-  if (_browseTabLayout === 'island') {
-    islandRemove('tabs');
-    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
-    return;
-  }
+  var bv = document.getElementById('browse-view');
+  if (!bv || bv.style.display !== 'flex') { islandRemove('tabs'); return; }
   var win = _getCurrentWindow();
   var tabs = win ? win.tabs : [];
   var activeTab = win ? win.activeTab : null;
@@ -5783,7 +5776,6 @@ function _setPillBrowseMode(enabled) {
     if (dragPill) dragPill.style.display = 'none';
     const bar = document.getElementById('browse-bar');
     if (bar) bar.style.display = '';
-    islandRemove('tabs');
     _pillSyncTabs();
   } else {
     if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }

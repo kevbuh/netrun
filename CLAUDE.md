@@ -21,18 +21,18 @@ Flask server (`app.py`) with route blueprints in `src/routes/`:
 - `auth.py` (6) — login, logout, username, delete, me, sync
 - `feed.py` (14) — feeds, RSS proxy, quality filter, models, feed-items
 - `experiments.py` (29) — experiment CRUD, files, runs, kernel, venv, execute (SSE)
-- `social.py` (51) — teams, users, messages, comments, blog, achievements
-- `content.py` (14) — doc-chat (SSE), extract-text/links, paper-insights, citations, author/reference lookups, panel/search suggest
+- `social.py` (52) — teams, users, messages, comments, blog, achievements
+- `content.py` (16) — doc-chat (SSE), extract-text/links, paper-insights, citations, author/reference lookups, panel/search suggest, annotate, knowledge-graph
 - `browse.py` (8) — web-search, browse-proxy, image-proxy, link-preview, stock-quote, adblock
 - `vault.py` (11) — notes CRUD, marimo start/stop, vault path/tree
-- `misc.py` (31) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content
+- `misc.py` (30) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content
 
-Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` (vault I/O, git ops), `persistence.py` (25-table DB, prompts, classify_title, cached_fetch), `kernels.py` (Jupyter kernel mgmt), `feed_catalog.py` (server mirror of FEED_CATALOG — must stay in sync with `js/core.js`), `feed_parser.py` (RSS/Atom/HN/Polymarket, stdlib only), `feed_poller.py` (10min polling daemon, 8 threads, 30-day retention)
+Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` (vault I/O, git ops), `persistence.py` (25-table DB, prompts, classify_title, cached_fetch), `kernels.py` (Jupyter kernel mgmt), `feed_catalog.py` (server mirror of FEED_CATALOG — must stay in sync with `js/core.js`), `feed_parser.py` (RSS/Atom/HN/Polymarket, stdlib only), `feed_poller.py` (10min polling daemon, 8 threads, 30-day retention), `terminal_server.py` (WebSocket terminal)
 
 **Key API groups:**
 - **Feeds:** `/feed`, `/hn-feed`, `/polymarket-feed`, `/api/feed-items`, `/api/feed-items/custom`, `/api/rss-proxy?url=`, `/api/arxiv-search`, `/api/citations`
 - **Quality:** `/api/quality-filter` (POST, verdict KEEP/SKIP or score 0-100, optional `interest_context`), `/api/quality-prompt` (GET/PUT), `/api/blocked-titles` (GET/POST/DELETE)
-- **Content:** `/api/doc-chat` (SSE, optional `vision:true`), `/api/extract-text`, `/api/extract-links`, `/api/paper-insights`, `/api/author-details`, `/api/citation-lookup`, `/api/paper-references`, `/api/author-lookup`, `/api/panel-suggest`, `/api/search-suggest`
+- **Content:** `/api/doc-chat` (SSE, optional `vision:true`), `/api/extract-text`, `/api/extract-links`, `/api/paper-insights`, `/api/author-details`, `/api/citation-lookup`, `/api/paper-references`, `/api/author-lookup`, `/api/panel-suggest`, `/api/search-suggest`, `/api/annotate`, `/api/knowledge-graph/similarities`
 - **Embeddings:** `/api/embed-content` (fire-and-forget), `/api/semantic-search`, `/api/find-similar`
 - **Browse:** `/api/web-search?q=`, `/api/check-embed`, `/api/images`
 - **Experiments:** `/api/experiments` (CRUD, stored as `experiments/{slug}/meta.json`)
@@ -42,7 +42,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 
 ### Frontend — `src/index.html` + `js/` + `styles.css`
 
-25 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
+26 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
 
 | Route | View |
 |-------|------|
@@ -59,12 +59,13 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 | `#inbox` | Unified inbox |
 | `#terminal` | WebSocket terminal |
 | `#neuralook` | Eye-tracking |
+| `#graph` | Knowledge graph (force-directed visualization) |
 | `#settings` | Settings (themes, feeds, quality, AI models) |
 | `#quality`, `#algorithm` | Redirect to Settings sub-tabs |
 | `#blog/{id}`, `#profile/{username}`, `#author/{id}`, `#dev` | Content views |
 | `#vibe`, `#experiments`, `#search` | Legacy redirects → vault/research |
 
-**Script load order** (order matters — all global): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `vibe.js` → `neuralook.js`
+**Script load order** (order matters — all global): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `knowledge-graph.js` → `vibe.js` → `neuralook.js`
 
 **Electron:** `electron/main.js` (main process, IPC, Python server lifecycle), `electron/preload.js` (context bridge), `electron/password-store.js` (encrypted passwords via safeStorage). Tests: `tests/password-store.test.js` (node:test + node:assert).
 
@@ -152,6 +153,10 @@ Webcam gaze prediction with dual-model support (CNN/MobileNet). Calibration → 
 
 State in `neuralook.js`: `_nlModelType`, `_nlModelState`, `_nlAutoRefineEnabled`, `_nlRefinementHistory`, `_nlAdaptiveRadius`.
 
+### Knowledge Graph
+
+Force-directed canvas visualization of papers, authors, topics, and notes. Nodes connected by similarity edges (via `/api/knowledge-graph/similarities`). View at `#graph`, implemented in `knowledge-graph.js` with `knowledge-graph.html` template.
+
 ### Database Schema (SQLite — `aether.db`)
 
 25 tables, auto-created:
@@ -160,22 +165,23 @@ State in `neuralook.js`: `_nlModelType`, `_nlModelState`, `_nlAutoRefineEnabled`
 - **Content:** `experiment_owners`, `calendar_events`, `todos`, `comments` (threaded)
 - **Messaging:** `direct_messages`, `team_messages`, `team_todos`, `team_chat_read`
 - **Social:** `message_reactions`, `reposts`, `blog_votes`, `achievements`
-- **Caching:** `reference_cache`, `author_cache`, `quality_cache`
+- **Caching:** `reference_cache`, `author_cache`, `quality_cache`, `smart_highlights_cache`
 - **Feeds:** `feed_items` (indexed on source, unique on source+link)
 - **Embeddings:** `embeddings` (content_hash PK, BLOB, indexed on content_type)
 - **Analytics:** `usage_log`
 
-### localStorage Keys (90+)
+### localStorage Keys (100+)
 
 **Auth:** `authToken`, `authUser`, `authUserInfo`
 **Feed & Quality:** `feedSources`, `customFeeds`, `qualityFilter`, `qualityPrompt`, `qualityThreshold`, `qualityCache`, `qualityBypass`, `qualityTestTitles`, `hiddenPosts`, `savedPosts`, `readPosts`, `paperRatings`, `blockedWords`, `seenPostLinks`, `repostedLinks`, `offlineCached`, `userQuotes`, `searchHistory`
 **Personalization:** `interestProfile`, `maxPerCategoryRun`, `fyWeightBase`, `fyWeightAffinity`, `fyWeightRecency`
 **Appearance:** `theme`, `accentColor`, `aetherColor`, `spinner`, `editorTheme`, `iconSize`, `pixelPet`, `pixelPetType`, `pixelPetMode`
 **UI State:** `userName`, `sidebarOrder`, `sidebarTab`, `lastHash`, `universalPanelVisible/Width`, `paperSidebarWidth`, `expSidebarWidth/Collapsed`, `teamSidebarCollapsed`, `dismissedInboxTasks`, `downloadBannerDismissed`
-**Sound:** `clickSound`, `clickSoundType`, `clickAether`, `rainOn`, `rainVolume`, `rainNoiseType`, `rainSidebarVisible`
+**Sound & TTS:** `clickSound`, `clickSoundType`, `clickAether`, `rainOn`, `rainVolume`, `rainNoiseType`, `rainFreq`, `rainSidebarVisible`, `ttsHighlight`, `ttsSpeed`, `voiceAutoSend`
 **Browse:** `browseHistory`, `browseClosedTabs`, `browseDownloads`, `browseDownloadsLastSeen`, `browseBarOrder/Overflow`, `browseTabLayout/Sessions`, `vtabsPanelCollapsed`, `urlBarSections`, `webSearchHistory`, `adBlockEnabled`, `sitePermissions`, `aetherPanelSide`
-**Chat & AI:** `chatModel`, `visionModel`, `summaryModel`, `chatThreads`, `chatTools`, `panelTabComplete`, `panelSemanticSearch/Min`, `vaultChatMinSimilarity`, `vaultChatMessages`
-**Other:** `insightsAllowHeuristics`, `insightSubtab`, `feedNotifications`, `feedNotifSources`, `nlRefinementHistory`, `daySummaryCache`, `terminalState`, `vaultLastNote`, `vaultWelcomeCreated`, `whiteboardBoards/LastId`
+**Chat & AI:** `chatModel`, `visionModel`, `summaryModel`, `chatThreads`, `chatTools`, `chatThinking`, `panelTabComplete`, `panelSemanticSearch/Min`, `vaultChatMinSimilarity`, `vaultChatMessages`
+**Annotations:** `smartHighlights`, `annotationsCache`, `autoAnnotate`
+**Other:** `insightsAllowHeuristics`, `insightSubtab`, `feedNotifications`, `feedNotifSources`, `nlRefinementHistory`, `daySummaryCache`, `terminalState`, `vaultLastNote`, `vaultWelcomeCreated`, `whiteboardBoards/LastId`, `hiddenSidebarIcons`
 
 ### Authentication
 
@@ -183,7 +189,7 @@ Login gate blocks app until authenticated. Auth endpoints: `/api/auth/register`,
 
 Flow: check `authToken` → show gate if missing/expired → on login pull settings + start 60s sync → on register push defaults.
 
-**Synced settings (50 keys):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, clickAether, rainNoiseType, rainVolume, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile, urlBarSections, blockedWords, qualityBypass, searchHistory, userQuotes, repostedLinks, fyWeightBase, fyWeightAffinity, fyWeightRecency, maxPerCategoryRun, chatModel, chatTools, insightsAllowHeuristics, iconSize
+**Synced settings (53 keys):** feedSources, customFeeds, qualityFilter, qualityPrompt, qualityThreshold, qualityCache, hiddenPosts, savedPosts, readPosts, qualityTestTitles, paperRatings, theme, accentColor, spinner, userName, sidebarOrder, clickSound, clickSoundType, clickAether, rainNoiseType, rainVolume, rainFreq, editorTheme, rainSidebarVisible, pixelPet, pixelPetType, pixelPetMode, feedNotifications, seenPostLinks, adBlockEnabled, feedNotifSources, browseBarOrder, browseHistory, webSearchHistory, chatThreads, aetherColor, interestProfile, urlBarSections, blockedWords, qualityBypass, searchHistory, userQuotes, repostedLinks, fyWeightBase, fyWeightAffinity, fyWeightRecency, maxPerCategoryRun, smartHighlights, chatModel, chatTools, insightsAllowHeuristics, iconSize, hiddenSidebarIcons
 
 ### External APIs
 

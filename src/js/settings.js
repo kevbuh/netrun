@@ -640,6 +640,19 @@ function _renderBrowserSettings() {
       <div id="settings-site-permissions">${_renderSettingsSitePermissions()}</div>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center gap-3 mb-1">
+        <h3 class="text-white_ text-sm font-semibold">Simplify URLs</h3>
+        <label class="flex items-center gap-2 cursor-pointer ml-auto">
+          <span class="text-primary text-sm">Enable</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-url-shorten" ${localStorage.getItem('urlShorten') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('urlShorten', this.checked); const inp = document.getElementById('browse-url-input'); if(inp && !this.checked && inp.dataset.fullUrl) inp.value = inp.dataset.fullUrl; else if(inp && this.checked) _browseUrlOnBlur(inp);">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <p class="text-dim text-[0.8rem] mb-3">Show only the domain name in the URL bar when not focused. Hover or click to see the full URL.</p>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">URL Bar Sections</h3>
       <p class="text-dim text-[0.8rem] mb-3">Reorder and toggle sections in the URL bar dropdown. Drag to reorder.</p>
       <div id="settings-urlbar-sections">${_renderUrlBarSectionsSettings()}</div>

@@ -1,4 +1,50 @@
 // browse-urlbar.js — URL bar, instant answers, history, ad blocker
+
+// ── URL Shortening ──
+
+function _browseUrlDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+}
+
+function _browseSetUrlDisplay(input, url) {
+  if (!input) return;
+  input.dataset.fullUrl = url || '';
+  if (document.activeElement === input || input.matches(':hover')) {
+    input.value = url || '';
+  } else if (localStorage.getItem('urlShorten') !== 'false' && url && !url.startsWith('aether://')) {
+    input.value = _browseUrlDomain(url);
+  } else {
+    input.value = url || '';
+  }
+}
+
+function _browseUrlOnFocus(input) {
+  const full = input.dataset.fullUrl;
+  if (full) input.value = full;
+}
+
+function _browseUrlOnBlur(input) {
+  const full = input.dataset.fullUrl || input.value;
+  input.dataset.fullUrl = full;
+  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
+    input.value = _browseUrlDomain(full);
+  }
+}
+
+function _browseUrlOnMouseEnter(input) {
+  if (document.activeElement === input) return;
+  const full = input.dataset.fullUrl;
+  if (full) input.value = full;
+}
+
+function _browseUrlOnMouseLeave(input) {
+  if (document.activeElement === input) return;
+  const full = input.dataset.fullUrl || input.value;
+  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
+    input.value = _browseUrlDomain(full);
+  }
+}
+
 // ── Browse URL Bar History Dropdown ──
 
 const _URL_BAR_SECTIONS = [
@@ -1015,7 +1061,7 @@ function openSearchHistoryPage() {
 
   // Update URL bar
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = 'aether://history';
+  _browseSetUrlDisplay(urlInput, 'aether://history');
 
   _renderWebSearchHistoryPage(el);
 }
@@ -1055,7 +1101,7 @@ function openHelpPage() {
   _browseRenderTabs();
 
   const urlInput = document.getElementById('browse-url-input');
-  if (urlInput) urlInput.value = 'aether://help';
+  _browseSetUrlDisplay(urlInput, 'aether://help');
 
   _renderHelpPage(el);
 }
