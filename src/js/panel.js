@@ -1852,23 +1852,6 @@ document.addEventListener('keydown', function(e) {
       _aetherRestoreFocus();
     }
   }
-  // Shift clicks the element under cursor and dismisses the panel
-  if (e.key === 'Shift') {
-    const popup = document.getElementById('doc-chat-ask-float');
-    if (popup && _aetherTrackMode) {
-      _aetherTrackMode = false;
-      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
-      if (el && !popup.contains(el)) el.click();
-      _maybeDismissToIsland(popup);
-      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _pendingScreenshots = [];
-      _pendingNoteContexts = [];
-      _pendingTabContexts = [];
-      _pendingFileContexts = [];
-      popup.remove();
-      _aetherShowCursor();
-    }
-  }
 });
 
 // "/" key opens aether panel with "/" pre-filled
@@ -4545,20 +4528,6 @@ function _panelBuildChatInput(popup, config) {
       popup.remove();
       _aetherShowCursor();
       _aetherRestoreFocus();
-    }
-    // Shift clicks the element under cursor and dismisses the panel
-    if (ev.key === 'Shift' && _aetherTrackMode) {
-      _aetherTrackMode = false;
-      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
-      if (el && !popup.contains(el)) el.click();
-      _maybeDismissToIsland(popup);
-      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _pendingScreenshots = [];
-      _pendingNoteContexts = [];
-      _pendingTabContexts = [];
-      _pendingFileContexts = [];
-      popup.remove();
-      _aetherShowCursor();
     }
   });
   askInput.addEventListener('input', () => {
