@@ -1159,13 +1159,13 @@ var _devChartRegistry = [];
 
 // Dev panel navigation structure
 const DEV_SECTIONS = [
-  { id: 'overview', label: 'Overview', icon: '📊' },
-  { id: 'function-registry', label: 'Function Registry', icon: '🔍' },
-  { id: 'feed-validator', label: 'Feed Validator', icon: '📡' },
-  { id: 'load-order', label: 'Load Order', icon: '🔗' },
-  { id: 'dependency-graph', label: 'Dependency Graph', icon: '🕸️' },
-  { id: 'git-log', label: 'Git Log', icon: '📜' },
-  { id: 'tools', label: 'Dev Tools', icon: '🛠️' }
+  { id: 'overview', label: 'Overview' },
+  { id: 'function-registry', label: 'Function Registry' },
+  { id: 'feed-validator', label: 'Feed Validator' },
+  { id: 'load-order', label: 'Load Order' },
+  { id: 'dependency-graph', label: 'Dependency Graph' },
+  { id: 'git-log', label: 'Git Log' },
+  { id: 'tools', label: 'Dev Tools' }
 ];
 
 var _devActiveSection = null;
@@ -1294,19 +1294,19 @@ function renderDevPanel() {
     return `<div
       onclick="_devNavigateTo('${section.id}')"
       style="
-        padding:10px 16px;
+        padding:12px 16px;
         cursor:pointer;
         border-left:3px solid ${isActive ? 'var(--accent)' : 'transparent'};
         background:${isActive ? 'var(--bg-hover)' : 'transparent'};
         color:${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'};
         font-size:0.8rem;
         font-weight:${isActive ? '600' : '400'};
-        transition:all 0.15s ease;
+        transition:all var(--motion-fast) var(--motion-smooth);
+        border-radius:${isActive ? '0' : '0'};
       "
       onmouseover="if ('${section.id}' !== '${_devActiveSection}') this.style.background='var(--bg-hover)'"
       onmouseout="if ('${section.id}' !== '${_devActiveSection}') this.style.background='transparent'"
     >
-      <span style="margin-right:8px">${section.icon}</span>
       ${section.label}
     </div>`;
   }).join('');
@@ -1360,7 +1360,10 @@ async function _renderDevOverview() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Project Health Dashboard</h2>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Project Health</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">Real-time metrics and performance monitoring</p>
+    </div>
     <div class="dev-stats-cards" id="dev-stats-cards"></div>
     <div id="dev-loc-chart"></div>
   `;
@@ -1456,13 +1459,15 @@ function _renderDevFunctionRegistry() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Function Registry</h2>
-    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
-      Analyze global functions, duplicates, and unused code across all vanilla JS files.
-    </p>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <button onclick="_devRunFunctionRegistry()" id="dev-fn-reg-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Analyze Functions</button>
-      <button onclick="_devOpenFunctionRegistryReport()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 14px;font-size:0.75rem;cursor:pointer">Open HTML Report</button>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Function Registry</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+        Analyze global functions, duplicates, and unused code across all vanilla JS files.
+      </p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button onclick="_devRunFunctionRegistry()" id="dev-fn-reg-btn" class="dev-btn-primary">Analyze Functions</button>
+      <button onclick="_devOpenFunctionRegistryReport()" class="dev-btn-secondary">Open HTML Report</button>
       <span id="dev-fn-reg-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
     </div>
     <div id="dev-fn-reg-results"></div>
@@ -1475,12 +1480,14 @@ function _renderDevFeedValidator() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Feed Catalog Validator</h2>
-    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
-      Validate sync between JS (core.js) and Python (feed_catalog.py) feed catalogs.
-    </p>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Feed Catalog Validator</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+        Validate sync between JS (core.js) and Python (feed_catalog.py) feed catalogs.
+      </p>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button onclick="_devRunFeedValidator()" id="dev-feed-val-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Run Validation</button>
+      <button onclick="_devRunFeedValidator()" id="dev-feed-val-btn" class="dev-btn-primary">Run Validation</button>
       <span id="dev-feed-val-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
     </div>
     <div id="dev-feed-val-results"></div>
@@ -1493,12 +1500,14 @@ function _renderDevLoadOrder() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Script Load Order Validator</h2>
-    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
-      Analyze script dependencies and detect forward references or circular dependencies.
-    </p>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Script Load Order</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+        Analyze script dependencies and detect forward references or circular dependencies.
+      </p>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button onclick="_devRunLoadOrderAnalysis()" id="dev-load-ord-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Run Analysis</button>
+      <button onclick="_devRunLoadOrderAnalysis()" id="dev-load-ord-btn" class="dev-btn-primary">Run Analysis</button>
       <span id="dev-load-ord-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
     </div>
     <div id="dev-load-ord-results"></div>
@@ -1511,28 +1520,30 @@ function _renderDevDependencyGraph() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dependency Graph</h2>
-    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
-      Interactive dependency visualization. Switch between file-level and function-level views.
-    </p>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Dependency Graph</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+        Interactive dependency visualization. Switch between file-level and function-level views.
+      </p>
+    </div>
 
     <!-- Controls Row 1: Load & Level Toggle -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button onclick="_devLoadDependencyGraph()" id="dev-dep-graph-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Load Graph</button>
+      <button onclick="_devLoadDependencyGraph()" id="dev-dep-graph-btn" class="dev-btn-primary">Load Graph</button>
 
       <div style="display:flex;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;overflow:hidden">
-        <button onclick="_devSetGraphLevel('file')" id="dev-graph-level-file" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Files</button>
-        <button onclick="_devSetGraphLevel('function')" id="dev-graph-level-function" style="background:transparent;color:var(--text-primary);border:none;padding:6px 14px;font-size:0.75rem;cursor:pointer">Functions</button>
+        <button onclick="_devSetGraphLevel('file')" id="dev-graph-level-file" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all var(--motion-fast) var(--motion-smooth)">Files</button>
+        <button onclick="_devSetGraphLevel('function')" id="dev-graph-level-function" style="background:transparent;color:var(--text-primary);border:none;padding:6px 14px;font-size:0.75rem;cursor:pointer;transition:all var(--motion-fast) var(--motion-smooth)">Functions</button>
       </div>
 
-      <button onclick="_devResetGraphZoom()" id="dev-graph-reset-btn" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 14px;font-size:0.75rem;cursor:pointer;display:none">Reset Zoom</button>
+      <button onclick="_devResetGraphZoom()" id="dev-graph-reset-btn" class="dev-btn-secondary" style="display:none">Reset Zoom</button>
       <span id="dev-dep-graph-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
     </div>
 
     <!-- Controls Row 2: Search & Filters (for function view) -->
     <div id="dev-graph-function-controls" style="display:none;margin-bottom:12px;gap:8px;flex-wrap:wrap">
-      <input type="text" id="dev-graph-search" placeholder="Search functions..." style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 12px;font-size:0.75rem;width:250px" oninput="_devGraphSearch(this.value)">
-      <select id="dev-graph-file-filter" onchange="_devGraphFilterByFile(this.value)" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 12px;font-size:0.75rem">
+      <input type="text" id="dev-graph-search" placeholder="Search functions..." class="dev-input" oninput="_devGraphSearch(this.value)">
+      <select id="dev-graph-file-filter" onchange="_devGraphFilterByFile(this.value)" class="dev-input">
         <option value="">All Files</option>
       </select>
       <label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--text-dimmer)">
@@ -1543,10 +1554,19 @@ function _renderDevDependencyGraph() {
 
     <!-- Legend -->
     <div style="display:flex;gap:16px;margin-bottom:12px;font-size:0.65rem;color:var(--text-dimmer);flex-wrap:wrap">
-      <div>🔴 Cross-file dependency</div>
-      <div>⚫ Same-file dependency</div>
-      <div>📁 File group</div>
-      <div style="margin-left:16px">Click to expand/collapse</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444"></span>
+        Cross-file dependency
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--text-dimmer)"></span>
+        Same-file dependency
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--accent)"></span>
+        File group
+      </div>
+      <div style="margin-left:8px">Click to expand/collapse</div>
     </div>
 
     <div id="dev-dep-graph-container" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:16px;max-height:600px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.6">
@@ -1795,7 +1815,7 @@ function _devRenderFunctionTree(allNodes, allEdges) {
           html += `<div style="margin-left:32px;color:var(--text-dimmer);font-size:10px">`;
           topDeps.forEach(dep => {
             const target = allNodes.find(n => n.id === dep.target);
-            html += `🔴 → ${dep.target} <span style="opacity:0.7">(${target?.file})</span> `;
+            html += `<span style="color:#ef4444">→</span> ${dep.target} <span style="opacity:0.7">(${target?.file})</span> `;
           });
           if (crossFileDeps.length > 2) html += `+${crossFileDeps.length - 2} more`;
           html += `</div>`;
@@ -1861,7 +1881,10 @@ async function _renderDevGitLog() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Git History</h2>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Git History</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">Recent commit activity</p>
+    </div>
     <div id="dev-git-log-container"></div>
   `;
 
@@ -1893,11 +1916,14 @@ function _renderDevTools() {
   if (!contentPane) return;
 
   contentPane.innerHTML = `
-    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dev Tools</h2>
-    <div style="border-top:1px solid var(--border-card);padding-top:12px;margin-top:12px">
-      <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:8px">Achievement Tester</div>
+    <div style="margin-bottom:24px">
+      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Dev Tools</h2>
+      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">Testing utilities and debugging tools</p>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:16px">
+      <div style="color:var(--text-primary);font-size:0.85rem;font-weight:600;margin-bottom:12px">Achievement Tester</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap" id="dev-ach-tester">
-        <select id="dev-ach-select" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:0.7rem;min-width:160px">
+        <select id="dev-ach-select" class="dev-input" style="min-width:180px">
           <option value="bookworm">Bookworm</option>
           <option value="curator">Curator</option>
           <option value="critic">Critic</option>
@@ -1906,9 +1932,9 @@ function _renderDevTools() {
           <option value="its_alive">It's Alive!</option>
           <option value="pixel_parent">Pixel Parent</option>
         </select>
-        <button onclick="_devTestAchievement()" style="background:linear-gradient(135deg,#b8860b,#ffd700);color:#1a1400;border:none;border-radius:6px;padding:4px 12px;font-size:0.7rem;font-weight:600;cursor:pointer">Show</button>
-        <button onclick="islandRemove('achievement')" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Dismiss</button>
-        <button onclick="_devResetAchievements()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Reset All</button>
+        <button onclick="_devTestAchievement()" style="background:linear-gradient(135deg,#b8860b,#ffd700);color:#1a1400;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:opacity 0.2s">Show</button>
+        <button onclick="islandRemove('achievement')" class="dev-btn-secondary">Dismiss</button>
+        <button onclick="_devResetAchievements()" class="dev-btn-secondary">Reset All</button>
       </div>
     </div>
   `;
@@ -2010,8 +2036,8 @@ async function _devRunFunctionRegistry() {
       ` : ''}
 
       ${errorCount > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #ef4444">
-          <div style="color:#ef4444;font-size:0.7rem;font-weight:600;margin-bottom:8px">🔴 ERROR: Global Naming Conflicts (${errorCount})</div>
+        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #ef4444">
+          <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Global Naming Conflicts (${errorCount})</div>
           ${dupsBySeverity.ERROR.slice(0, 5).map(dup => `
             <div style="margin-bottom:8px;font-size:0.65rem">
               <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
@@ -2025,8 +2051,8 @@ async function _devRunFunctionRegistry() {
       ` : ''}
 
       ${warningCount > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
-          <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ WARNING: Same-Scope Duplicates (${warningCount})</div>
+        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+          <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Same-Scope Duplicates (${warningCount})</div>
           ${dupsBySeverity.WARNING.slice(0, 5).map(dup => `
             <div style="margin-bottom:8px;font-size:0.65rem">
               <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
@@ -2122,8 +2148,8 @@ async function _devRunFeedValidator() {
     }
 
     const isSync = data.errorCount === 0;
-    status.textContent = isSync ? '✅ Catalogs in sync' : `❌ ${data.errorCount} mismatch${data.errorCount === 1 ? '' : 'es'} found`;
-    status.style.color = isSync ? 'var(--text-success)' : 'var(--text-error)';
+    status.textContent = isSync ? 'Catalogs in sync' : `${data.errorCount} mismatch${data.errorCount === 1 ? '' : 'es'} found`;
+    status.style.color = isSync ? '#34d399' : '#ef4444';
 
     results.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
@@ -2144,8 +2170,12 @@ async function _devRunFeedValidator() {
       ${data.errorCount > 0 ? `
         ${_devRenderFeedValidatorErrors(data.errors)}
       ` : `
-        <div style="padding:24px;text-align:center;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
-          <div style="font-size:48px;margin-bottom:8px">✅</div>
+        <div style="padding:24px;text-align:center;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px">
+          <div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
           <div style="color:var(--text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div>
           <div style="color:var(--text-dimmer);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div>
         </div>
@@ -2166,8 +2196,8 @@ function _devRenderFeedValidatorErrors(errors) {
 
   return `
     ${byType.MISSING_IN_PY.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
-        <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Missing in Python (${byType.MISSING_IN_PY.length})</div>
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+        <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Missing in Python (${byType.MISSING_IN_PY.length})</div>
         <div style="color:var(--text-dimmer);font-size:0.65rem">
           ${byType.MISSING_IN_PY.map(e => `
             <div style="margin-bottom:6px">
@@ -2180,8 +2210,8 @@ function _devRenderFeedValidatorErrors(errors) {
     ` : ''}
 
     ${byType.MISSING_IN_JS.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
-        <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Missing in JavaScript (${byType.MISSING_IN_JS.length})</div>
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+        <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Missing in JavaScript (${byType.MISSING_IN_JS.length})</div>
         <div style="color:var(--text-dimmer);font-size:0.65rem">
           ${byType.MISSING_IN_JS.map(e => `
             <div style="margin-bottom:6px">
@@ -2194,8 +2224,8 @@ function _devRenderFeedValidatorErrors(errors) {
     ` : ''}
 
     ${byType.URL_MISMATCH.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #ef4444">
-        <div style="color:#ef4444;font-size:0.7rem;font-weight:600;margin-bottom:8px">🔴 URL Mismatch (${byType.URL_MISMATCH.length})</div>
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #ef4444">
+        <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: URL Mismatch (${byType.URL_MISMATCH.length})</div>
         <div style="overflow-x:auto">
           <table style="width:100%;font-size:0.65rem;border-collapse:collapse">
             <thead>
@@ -2220,8 +2250,8 @@ function _devRenderFeedValidatorErrors(errors) {
     ` : ''}
 
     ${byType.SPECIAL_MISMATCH.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #ef4444">
-        <div style="color:#ef4444;font-size:0.7rem;font-weight:600;margin-bottom:8px">🔴 Special Field Mismatch (${byType.SPECIAL_MISMATCH.length})</div>
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #ef4444">
+        <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Special Field Mismatch (${byType.SPECIAL_MISMATCH.length})</div>
         <div style="color:var(--text-dimmer);font-size:0.65rem">
           ${byType.SPECIAL_MISMATCH.map(e => `
             <div style="margin-bottom:6px">
@@ -2257,8 +2287,8 @@ async function _devRunLoadOrderAnalysis() {
     }
 
     const isOptimal = data.warnings.length === 0;
-    status.textContent = isOptimal ? '✅ Load order optimal' : `⚠️ ${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
-    status.style.color = isOptimal ? 'var(--text-success)' : '#f59e0b';
+    status.textContent = isOptimal ? 'Load order optimal' : `${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
+    status.style.color = isOptimal ? '#34d399' : '#f59e0b';
 
     results.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
@@ -2281,8 +2311,8 @@ async function _devRunLoadOrderAnalysis() {
       </div>
 
       <details open style="margin-bottom:12px">
-        <summary style="padding:8px 12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.7rem;font-weight:600">
-          📜 Script Load Order (${data.scriptCount} files)
+        <summary style="padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.75rem;font-weight:600;transition:all var(--motion-fast) var(--motion-smooth)">
+          Script Load Order (${data.scriptCount} files)
         </summary>
         <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">
           ${data.scriptOrder.map((script, i) => `
@@ -2295,8 +2325,8 @@ async function _devRunLoadOrderAnalysis() {
       </details>
 
       ${data.warnings.length > 0 ? `
-        <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
-          <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Forward References (WARNING - may cause issues)</div>
+        <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+          <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Forward References (may cause issues)</div>
           <div style="color:var(--text-dimmer);font-size:0.65rem;max-height:200px;overflow-y:auto">
             ${data.warnings.slice(0, 10).map(ref => `
               <div style="margin-bottom:8px;padding:8px;background:var(--bg-hover);border-radius:4px">
