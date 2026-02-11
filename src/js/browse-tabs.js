@@ -1189,64 +1189,172 @@ function _browseHandleNavigation(tab, frame) {
 
 }
 
+// Chromium net error codes -> user-friendly error info
+var _browseErrorMap = {
+  // DNS
+  '-105': { id: 'NAME_NOT_RESOLVED',   title: 'This site can\u2019t be reached', desc: 'DNS address could not be found for <strong>%DOMAIN%</strong>.', icon: 'dns',    suggestions: ['Check the URL for typos', 'Check your internet connection', 'Try disabling your VPN or proxy'] },
+  '-118': { id: 'CONNECTION_TIMED_OUT', title: 'This site can\u2019t be reached', desc: '<strong>%DOMAIN%</strong> took too long to respond.', icon: 'timeout', suggestions: ['Check your internet connection', 'Check any firewall or proxy settings', 'Try again later'] },
+  '-137': { id: 'NAME_RESOLUTION_FAILED', title: 'This site can\u2019t be reached', desc: 'DNS resolution failed for <strong>%DOMAIN%</strong>.', icon: 'dns', suggestions: ['Check the URL for typos', 'Try flushing your DNS cache', 'Check your DNS settings'] },
+  // Connection
+  '-2':   { id: 'FAILED',              title: 'This site can\u2019t be reached', desc: 'An unexpected network error occurred.', icon: 'offline', suggestions: ['Check your internet connection', 'Try again later'] },
+  '-6':   { id: 'FILE_NOT_FOUND',      title: 'File not found', desc: 'The requested file was not found.', icon: '404', suggestions: ['Check the file path', 'The file may have been moved or deleted'] },
+  '-7':   { id: 'TIMED_OUT',           title: 'This site can\u2019t be reached', desc: '<strong>%DOMAIN%</strong> took too long to respond.', icon: 'timeout', suggestions: ['Check your internet connection', 'The site may be down \u2014 try again later'] },
+  '-15':  { id: 'SOCKET_NOT_CONNECTED', title: 'This site can\u2019t be reached', desc: 'The socket is not connected.', icon: 'offline', suggestions: ['Check your internet connection', 'Try reloading the page'] },
+  '-21':  { id: 'NETWORK_CHANGED',     title: 'Connection interrupted', desc: 'Your network connection changed while loading.', icon: 'offline', suggestions: ['Check your Wi-Fi or network connection', 'Try reloading the page'] },
+  '-100': { id: 'CONNECTION_CLOSED',    title: 'This site can\u2019t be reached', desc: 'The connection to <strong>%DOMAIN%</strong> was unexpectedly closed.', icon: 'offline', suggestions: ['The site may be experiencing issues', 'Try again later'] },
+  '-101': { id: 'CONNECTION_RESET',     title: 'This site can\u2019t be reached', desc: 'The connection was reset.', icon: 'offline', suggestions: ['Check your internet connection', 'The site may be blocking your request', 'Try disabling your VPN'] },
+  '-102': { id: 'CONNECTION_REFUSED',   title: 'This site can\u2019t be reached', desc: '<strong>%DOMAIN%</strong> refused to connect.', icon: 'refused', suggestions: ['The site may be down for maintenance', 'Check if a firewall is blocking access', 'Try again later'] },
+  '-104': { id: 'CONNECTION_FAILED',    title: 'This site can\u2019t be reached', desc: 'Failed to establish a connection to <strong>%DOMAIN%</strong>.', icon: 'offline', suggestions: ['Check your internet connection', 'The site may be temporarily unavailable'] },
+  '-106': { id: 'INTERNET_DISCONNECTED', title: 'No internet', desc: 'You\u2019re not connected to the internet.', icon: 'offline', suggestions: ['Check your Wi-Fi or ethernet connection', 'Check your router', 'Try connecting to a different network'] },
+  '-109': { id: 'ADDRESS_UNREACHABLE', title: 'This site can\u2019t be reached', desc: '<strong>%DOMAIN%</strong> is unreachable.', icon: 'offline', suggestions: ['Check the URL', 'The server may be on a private network'] },
+  '-110': { id: 'SSL_PROTOCOL_ERROR',  title: 'This site can\u2019t provide a secure connection', desc: '<strong>%DOMAIN%</strong> sent an invalid response.', icon: 'ssl', suggestions: ['The site may be using an unsupported protocol', 'Try again later'] },
+  '-111': { id: 'DNS_CACHE_MISS',      title: 'This site can\u2019t be reached', desc: 'DNS lookup for <strong>%DOMAIN%</strong> failed.', icon: 'dns', suggestions: ['Try reloading the page', 'Check your DNS settings'] },
+  '-112': { id: 'ADDRESS_INVALID',     title: 'This site can\u2019t be reached', desc: 'The server address is invalid.', icon: 'offline', suggestions: ['Check the URL for typos'] },
+  // SSL/TLS
+  '-200': { id: 'CERT_COMMON_NAME_INVALID', title: 'Your connection is not private', desc: 'The certificate for <strong>%DOMAIN%</strong> doesn\u2019t match the domain.', icon: 'ssl', suggestions: ['The site may be misconfigured', 'Don\u2019t enter any sensitive information', 'You could try the HTTP version'] },
+  '-201': { id: 'CERT_DATE_INVALID',   title: 'Your connection is not private', desc: 'The security certificate for <strong>%DOMAIN%</strong> has expired.', icon: 'ssl', suggestions: ['Check that your system clock is correct', 'The site\u2019s certificate may need renewal'] },
+  '-202': { id: 'CERT_AUTHORITY_INVALID', title: 'Your connection is not private', desc: 'The certificate authority is not trusted.', icon: 'ssl', suggestions: ['The certificate may be self-signed', 'Don\u2019t enter sensitive information on this site'] },
+  '-204': { id: 'CERT_INVALID',        title: 'Your connection is not private', desc: 'The server\u2019s security certificate is not valid.', icon: 'ssl', suggestions: ['Attackers might be trying to steal your information', 'Don\u2019t proceed unless you trust this site'] },
+  // HTTP errors
+  '403':  { id: 'HTTP_403_FORBIDDEN',  title: 'Access denied', desc: 'You don\u2019t have permission to view this page on <strong>%DOMAIN%</strong>.', icon: '403', suggestions: ['You may need to sign in', 'The site may restrict access to certain regions', 'Contact the site owner if you think this is an error'] },
+  '404':  { id: 'HTTP_404_NOT_FOUND',  title: 'Page not found', desc: 'The page you were looking for on <strong>%DOMAIN%</strong> doesn\u2019t exist.', icon: '404', suggestions: ['Check the URL for typos', 'The page may have been moved or deleted', 'Try searching the site directly'] },
+  '410':  { id: 'HTTP_410_GONE',       title: 'Page gone', desc: 'This page has been permanently removed.', icon: '404', suggestions: ['The content has been intentionally deleted', 'Try the Wayback Machine for an archived version'] },
+  '429':  { id: 'HTTP_429_TOO_MANY',   title: 'Too many requests', desc: 'You\u2019ve been rate limited by <strong>%DOMAIN%</strong>.', icon: 'timeout', suggestions: ['Wait a few minutes before trying again', 'Reduce how frequently you visit this page'] },
+  '500':  { id: 'HTTP_500_SERVER',     title: 'Server error', desc: '<strong>%DOMAIN%</strong> encountered an internal error.', icon: 'server', suggestions: ['This is a problem on the site\u2019s end', 'Try again in a few minutes', 'If it persists, contact the site owner'] },
+  '502':  { id: 'HTTP_502_BAD_GATEWAY', title: 'Bad gateway', desc: '<strong>%DOMAIN%</strong> received an invalid response from an upstream server.', icon: 'server', suggestions: ['The site may be under heavy load', 'Try again in a few minutes'] },
+  '503':  { id: 'HTTP_503_UNAVAILABLE', title: 'Service unavailable', desc: '<strong>%DOMAIN%</strong> is temporarily down for maintenance.', icon: 'server', suggestions: ['The site is likely undergoing maintenance', 'Try again later'] },
+  '504':  { id: 'HTTP_504_TIMEOUT',    title: 'Gateway timeout', desc: '<strong>%DOMAIN%</strong> took too long to respond.', icon: 'timeout', suggestions: ['The site may be experiencing heavy traffic', 'Try again in a few minutes'] },
+};
+
 function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
-  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
-  const bg = isDark ? '#1a1a2e' : '#f5f5f5';
-  const fg = isDark ? '#e0e0e0' : '#333';
-  const mutedFg = isDark ? '#888' : '#999';
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
-  const btnBg = isDark ? '#2a2a3e' : '#fff';
-  const btnBorder = isDark ? '#444' : '#ddd';
-  const safeUrl = (failedUrl || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  const displayUrl = (failedUrl || '').replace(/^https?:\/\//, '');
-  const waybackUrl = 'https://web.archive.org/web/*/' + encodeURIComponent(failedUrl || '');
-  const searchUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(displayUrl);
+  var isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  var cs = getComputedStyle(document.documentElement);
+  var v = function(n, fb) { return cs.getPropertyValue(n).trim() || fb; };
+  var bgBody    = v('--bg-body',     isDark ? '#0a0a0a' : '#f5f5f5');
+  var bgCard    = v('--bg-card',     isDark ? '#151515' : '#fff');
+  var bgHover   = v('--bg-hover',    isDark ? '#1e1e1e' : '#f0f0f0');
+  var textPri   = v('--text-primary',isDark ? '#e0e0e0' : '#333');
+  var textMuted = v('--text-muted',  isDark ? '#777'    : '#666');
+  var textDim   = v('--text-dim',    isDark ? '#555'    : '#888');
+  var textDimmer= v('--text-dimmer', isDark ? '#444'    : '#999');
+  var borderCard= v('--border-card', isDark ? '#222'    : '#e0e0e0');
+  var borderSub = v('--border-subtle',isDark ? '#252525': '#e0e0e0');
+  var accent    = v('--accent',      '#b4451a');
+  var accentHov = v('--accent-hover','#c9562a');
 
-  const is404 = errorCode === 404 || /404/.test(errorDesc);
-  const icon = is404 ? '🔍' : '🌐';
-  const title = is404 ? 'Page Not Found' : 'Can\'t Reach This Site';
-  const subtitle = is404
-    ? 'The page you\'re looking for doesn\'t exist or may have been moved.'
-    : (errorDesc || 'The site could not be loaded.');
+  var safeUrl = (failedUrl || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  var domain = '';
+  try { domain = new URL(failedUrl).hostname; } catch(e) { domain = (failedUrl || '').replace(/^https?:\/\//, '').split('/')[0]; }
+  var safeDomain = domain.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  var waybackUrl = 'https://web.archive.org/web/*/' + encodeURIComponent(failedUrl || '');
+  var searchUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(domain);
+  var googleCacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(failedUrl || '');
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px}
-    .err-wrap{text-align:center;max-width:480px}
-    .err-icon{font-size:64px;margin-bottom:16px}
-    .err-title{font-size:22px;font-weight:600;margin-bottom:8px}
-    .err-sub{font-size:14px;color:${mutedFg};margin-bottom:6px;line-height:1.5}
-    .err-url{font-size:12px;color:${mutedFg};word-break:break-all;margin-bottom:24px;font-family:monospace}
-    .err-actions{display:flex;flex-direction:column;gap:10px;align-items:center}
-    .err-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;border:1px solid ${btnBorder};background:${btnBg};color:${fg};font-size:14px;cursor:pointer;text-decoration:none;transition:all .15s}
-    .err-btn:hover{border-color:${accent};color:${accent}}
-    .err-btn.primary{background:${accent};color:#fff;border-color:${accent}}
-    .err-btn.primary:hover{opacity:.85}
-    .err-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-    .err-code{font-size:11px;color:${mutedFg};margin-top:16px}
-  </style></head><body>
-  <div class="err-wrap">
-    <div class="err-icon">${icon}</div>
-    <div class="err-title">${title}</div>
-    <div class="err-sub">${subtitle}</div>
-    <div class="err-url">${safeUrl}</div>
-    <div class="err-actions">
-      <a class="err-btn primary" href="${waybackUrl}" id="wb">⏳ Search Wayback Machine</a>
-      <div class="err-row">
-        <a class="err-btn" href="${searchUrl}" id="sr">🔎 Search the Web</a>
-        <button class="err-btn" onclick="location.reload()" id="rt">↻ Retry</button>
-      </div>
-    </div>
-    ${errorCode ? `<div class="err-code">Error ${errorCode}</div>` : ''}
-  </div></body></html>`;
+  // Look up error info
+  var errInfo = _browseErrorMap[String(errorCode)];
+  if (!errInfo) {
+    var isSSL = errorCode <= -200 && errorCode >= -210;
+    errInfo = {
+      id: 'ERR_' + (errorCode || 'UNKNOWN'),
+      title: isSSL ? 'Your connection is not private' : 'This site can\u2019t be reached',
+      desc: errorDesc || 'An unexpected error occurred while loading <strong>%DOMAIN%</strong>.',
+      icon: isSSL ? 'ssl' : 'offline',
+      suggestions: ['Check your internet connection', 'Try again later']
+    };
+  }
+  var desc = errInfo.desc.replace(/%DOMAIN%/g, safeDomain);
+
+  // SVG icons (match app aesthetic, no emoji)
+  var icons = {
+    'dns':     '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="30" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><circle cx="36" cy="36" r="4" fill="' + textDim + '"/><path d="M36 6v60M6 36h60" stroke="' + textDim + '" stroke-width="1" opacity=".25"/><ellipse cx="36" cy="36" rx="16" ry="30" stroke="' + textDim + '" stroke-width="1.2" fill="none"/><path d="M10 24h52M10 48h52" stroke="' + textDim + '" stroke-width=".8" opacity=".2"/><line x1="10" y1="10" x2="62" y2="62" stroke="' + accent + '" stroke-width="2" stroke-linecap="round"/></svg>',
+    'offline': '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><path d="M14 50a24 24 0 0144 0" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".25"/><path d="M22 44a16 16 0 0128 0" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".4"/><path d="M30 38a8 8 0 0112 0" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".6"/><circle cx="36" cy="50" r="3" fill="' + textDim + '"/><line x1="12" y1="12" x2="60" y2="60" stroke="' + accent + '" stroke-width="2" stroke-linecap="round"/></svg>',
+    'timeout': '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="38" r="26" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><path d="M36 20v20l12 7" stroke="' + textDim + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M28 8h16" stroke="' + textDim + '" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    'refused': '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><rect x="20" y="16" width="32" height="40" rx="4" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><line x1="20" y1="32" x2="52" y2="32" stroke="' + textDim + '" stroke-width="1"/><circle cx="36" cy="44" r="3" fill="' + textDim + '"/><line x1="12" y1="10" x2="60" y2="62" stroke="' + accent + '" stroke-width="2" stroke-linecap="round"/></svg>',
+    'ssl':     '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><rect x="22" y="32" width="28" height="24" rx="3" stroke="' + accent + '" stroke-width="1.5" fill="none"/><path d="M28 32v-6a8 8 0 0116 0v6" stroke="' + accent + '" stroke-width="1.5" fill="none"/><circle cx="36" cy="44" r="2.5" fill="' + accent + '"/><line x1="36" y1="47" x2="36" y2="51" stroke="' + accent + '" stroke-width="1.5" stroke-linecap="round"/><path d="M20 16l-4 4M52 16l4 4" stroke="' + accent + '" stroke-width="1.5" stroke-linecap="round" opacity=".6"/></svg>',
+    '404':     '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="28" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><text x="36" y="44" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="20" font-weight="600" fill="' + textDim + '">404</text></svg>',
+    '403':     '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="28" stroke="' + accent + '" stroke-width="1.5" fill="none"/><rect x="30" y="22" width="12" height="16" rx="6" stroke="' + accent + '" stroke-width="1.5" fill="none"/><rect x="26" y="36" width="20" height="16" rx="3" stroke="' + accent + '" stroke-width="1.5" fill="none"/><circle cx="36" cy="44" r="2" fill="' + accent + '"/></svg>',
+    'server':  '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><rect x="16" y="14" width="40" height="14" rx="3" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><rect x="16" y="32" width="40" height="14" rx="3" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><rect x="16" y="50" width="40" height="14" rx="3" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".35"/><circle cx="24" cy="21" r="2" fill="' + textDim + '"/><circle cx="24" cy="39" r="2" fill="' + textDim + '"/><circle cx="24" cy="57" r="2" fill="' + textDim + '" opacity=".35"/><line x1="48" y1="21" x2="42" y2="21" stroke="' + textDim + '" stroke-width="1" stroke-linecap="round" opacity=".4"/><line x1="48" y1="39" x2="42" y2="39" stroke="' + textDim + '" stroke-width="1" stroke-linecap="round" opacity=".4"/></svg>',
+  };
+  var iconSvg = icons[errInfo.icon] || icons['offline'];
+
+  var suggestionsHtml = errInfo.suggestions.map(function(s) {
+    return '<li>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</li>';
+  }).join('');
+
+  var errId = errInfo.id || ('ERR_' + errorCode);
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+    '*{margin:0;padding:0;box-sizing:border-box}' +
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+      'background:' + bgBody + ';color:' + textPri + ';display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px}' +
+    '.ep{max-width:520px;width:100%}' +
+    '.ep-top{display:flex;align-items:flex-start;gap:24px;margin-bottom:20px}' +
+    '.ep-icon{flex-shrink:0;opacity:.85}' +
+    '.ep-text{flex:1;min-width:0}' +
+    '.ep-title{font-size:20px;font-weight:600;margin-bottom:6px;line-height:1.3}' +
+    '.ep-desc{font-size:13px;color:' + textMuted + ';line-height:1.5;margin-bottom:6px}' +
+    '.ep-desc strong{color:' + textPri + ';font-weight:500}' +
+    '.ep-id{font-size:11px;color:' + textDimmer + ';font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;margin-bottom:2px}' +
+    '.ep-card{background:' + bgCard + ';border:1px solid ' + borderCard + ';border-radius:10px;padding:14px 18px;margin-bottom:16px}' +
+    '.ep-card-title{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:' + textDim + ';margin-bottom:10px}' +
+    '.ep-suggestions{list-style:none;padding:0}' +
+    '.ep-suggestions li{font-size:13px;color:' + textMuted + ';padding:3px 0 3px 16px;position:relative;line-height:1.5}' +
+    '.ep-suggestions li::before{content:"";position:absolute;left:0;top:11px;width:5px;height:5px;border-radius:50%;background:' + borderSub + '}' +
+    '.ep-actions{display:flex;gap:8px;flex-wrap:wrap}' +
+    'a.ep-btn,button.ep-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid ' + borderCard + ';' +
+      'background:' + bgCard + ';color:' + textPri + ';font-size:12.5px;cursor:pointer;text-decoration:none;transition:border-color .15s,color .15s,background .15s;font-family:inherit;line-height:1.4}' +
+    'a.ep-btn:hover,button.ep-btn:hover{background:' + bgHover + ';border-color:' + accent + ';color:' + accent + '}' +
+    '.ep-btn.primary{background:' + accent + ';color:#fff;border-color:' + accent + '}' +
+    '.ep-btn.primary:hover{background:' + accentHov + ';color:#fff}' +
+    '.ep-btn svg{width:13px;height:13px;flex-shrink:0}' +
+    '.ep-details{margin-top:14px}' +
+    '.ep-details summary{font-size:11.5px;color:' + textDim + ';cursor:pointer;user-select:none}' +
+    '.ep-details summary:hover{color:' + textMuted + '}' +
+    '.ep-details-body{margin-top:8px;font-size:11px;color:' + textDimmer + ';font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;line-height:1.7;word-break:break-all}' +
+  '</style></head><body>' +
+  '<div class="ep">' +
+    '<div class="ep-top">' +
+      '<div class="ep-icon">' + iconSvg + '</div>' +
+      '<div class="ep-text">' +
+        '<div class="ep-title">' + errInfo.title.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
+        '<div class="ep-desc">' + desc + '</div>' +
+        '<div class="ep-id">' + errId + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ep-card">' +
+      '<div class="ep-card-title">Try this</div>' +
+      '<ul class="ep-suggestions">' + suggestionsHtml + '</ul>' +
+    '</div>' +
+    '<div class="ep-actions">' +
+      '<button class="ep-btn primary" onclick="location.reload()">' +
+        '<svg viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 0110.89-3.48M14 2v4h-4M14 8a6 6 0 01-10.89 3.48M2 14v-4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        'Reload</button>' +
+      '<a class="ep-btn" href="' + waybackUrl + '">' +
+        '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 4v4.5l3 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+        'Wayback Machine</a>' +
+      '<a class="ep-btn" href="' + searchUrl + '">' +
+        '<svg viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+        'Search</a>' +
+      '<a class="ep-btn" href="' + googleCacheUrl + '">' +
+        '<svg viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+        'Cached</a>' +
+    '</div>' +
+    '<details class="ep-details">' +
+      '<summary>Details</summary>' +
+      '<div class="ep-details-body">' +
+        errId + (errorCode ? ' (' + errorCode + ')' : '') + '<br>' +
+        (errorDesc ? errorDesc.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '<br>' : '') +
+        safeUrl +
+      '</div>' +
+    '</details>' +
+  '</div></body></html>';
 
   if (_browseIsElectron) {
-    // For webviews, load the error page as a data URL
     try { frame.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)); } catch {}
   } else {
     frame.srcdoc = html;
   }
-  tab.title = title;
+  tab.title = errInfo.title;
   tab.errorPage = true;
   _browseRenderTabs();
 }
