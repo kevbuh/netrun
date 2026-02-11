@@ -1163,11 +1163,13 @@ const DEV_SECTIONS = [
   { id: 'function-registry', label: 'Function Registry', icon: '🔍' },
   { id: 'feed-validator', label: 'Feed Validator', icon: '📡' },
   { id: 'load-order', label: 'Load Order', icon: '🔗' },
+  { id: 'dependency-graph', label: 'Dependency Graph', icon: '🕸️' },
   { id: 'git-log', label: 'Git Log', icon: '📜' },
   { id: 'tools', label: 'Dev Tools', icon: '🛠️' }
 ];
 
 var _devActiveSection = null;
+var _devD3Loaded = false;
 
 function _devLineChart(hist, yKey, label, color, tooltipFn) {
   if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
@@ -1336,6 +1338,9 @@ function renderDevSection(sectionId) {
     case 'load-order':
       _renderDevLoadOrder();
       break;
+    case 'dependency-graph':
+      _renderDevDependencyGraph();
+      break;
     case 'git-log':
       _renderDevGitLog();
       break;
@@ -1496,6 +1501,283 @@ function _renderDevLoadOrder() {
     </div>
     <div id="dev-load-ord-results"></div>
   `;
+}
+
+// ── Dependency Graph Section ──
+function _renderDevDependencyGraph() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dependency Graph</h2>
+    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
+      Interactive visualization of file dependencies. Drag nodes, zoom/pan, click to highlight.
+    </p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button onclick="_devLoadDependencyGraph()" id="dev-dep-graph-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Load Graph</button>
+      <button onclick="_devResetGraphZoom()" id="dev-graph-reset-btn" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 14px;font-size:0.75rem;cursor:pointer;display:none">Reset Zoom</button>
+      <span id="dev-dep-graph-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+    </div>
+
+    <!-- Legend -->
+    <div style="display:flex;gap:16px;margin-bottom:12px;font-size:0.65rem;color:var(--text-dimmer);flex-wrap:wrap">
+      <div><span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:50%;margin-right:4px"></span>ERROR</div>
+      <div><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:50%;margin-right:4px"></span>WARNING</div>
+      <div><span style="display:inline-block;width:12px;height:12px;background:#60a5fa;border-radius:50%;margin-right:4px"></span>INFO</div>
+      <div><span style="display:inline-block;width:12px;height:12px;background:var(--text-dimmer);border-radius:50%;margin-right:4px"></span>Normal</div>
+      <div style="margin-left:16px">Node size = function count</div>
+      <div>Edge thickness = call count</div>
+    </div>
+
+    <div id="dev-dep-graph-container" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;position:relative;overflow:hidden">
+      <svg id="dev-dep-graph-svg" style="width:100%;height:600px"></svg>
+    </div>
+  `;
+}
+
+async function _devLoadDependencyGraph() {
+  const btn = document.getElementById('dev-dep-graph-btn');
+  const resetBtn = document.getElementById('dev-graph-reset-btn');
+  const status = document.getElementById('dev-dep-graph-status');
+  const svg = document.getElementById('dev-dep-graph-svg');
+
+  if (!btn || !status || !svg) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  status.textContent = 'Generating graph data...';
+
+  try {
+    // Load D3.js if not already loaded
+    if (!_devD3Loaded && typeof d3 === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://d3js.org/d3.v7.min.js';
+        script.onload = () => {
+          _devD3Loaded = true;
+          resolve();
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    const res = await fetch('/api/dependency-graph', { headers: _authHeaders() });
+    const data = await res.json();
+
+    if (data.status === 'error') {
+      status.textContent = 'Error: ' + data.message;
+      status.style.color = 'var(--text-error)';
+      return;
+    }
+
+    status.textContent = `${data.nodes.length} files, ${data.edges.length} dependencies`;
+    status.style.color = 'var(--text-success)';
+    resetBtn.style.display = 'inline-block';
+
+    // Render the graph
+    _devRenderD3Graph(data.nodes, data.edges);
+
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.style.color = 'var(--text-error)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reload Graph';
+  }
+}
+
+var _devGraphZoom = null;
+var _devGraphSimulation = null;
+
+function _devResetGraphZoom() {
+  if (_devGraphZoom) {
+    const svg = d3.select('#dev-dep-graph-svg');
+    svg.transition().duration(750).call(_devGraphZoom.transform, d3.zoomIdentity);
+  }
+}
+
+function _devRenderD3Graph(nodes, edges) {
+  const svg = d3.select('#dev-dep-graph-svg');
+  const container = document.getElementById('dev-dep-graph-container');
+  const width = container.clientWidth;
+  const height = 600;
+
+  // Clear previous graph
+  svg.selectAll('*').remove();
+
+  // Create main group for zoom/pan
+  const g = svg.append('g');
+
+  // Setup zoom
+  _devGraphZoom = d3.zoom()
+    .scaleExtent([0.1, 4])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    });
+
+  svg.call(_devGraphZoom);
+
+  // Severity color mapping
+  const severityColor = {
+    'ERROR': '#ef4444',
+    'WARNING': '#f59e0b',
+    'INFO': '#60a5fa',
+    null: 'var(--text-dimmer)'
+  };
+
+  // Node color by script order (gradient from accent to dimmer)
+  const nodeColor = d3.scaleSequential()
+    .domain([0, nodes.length - 1])
+    .interpolator(d3.interpolateRgb('var(--accent)', 'var(--text-dimmer)'));
+
+  // Create force simulation
+  _devGraphSimulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d => d.id).distance(100))
+    .force('charge', d3.forceManyBody().strength(-300))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(d => Math.sqrt(d.functions) * 3 + 5));
+
+  // Draw edges
+  const link = g.append('g')
+    .selectAll('line')
+    .data(edges)
+    .join('line')
+    .attr('stroke', d => severityColor[d.severity] || severityColor[null])
+    .attr('stroke-opacity', 0.6)
+    .attr('stroke-width', d => Math.max(1, Math.sqrt(d.calls)))
+    .attr('marker-end', 'url(#arrowhead)');
+
+  // Add arrowhead marker
+  svg.append('defs').append('marker')
+    .attr('id', 'arrowhead')
+    .attr('viewBox', '-0 -5 10 10')
+    .attr('refX', 15)
+    .attr('refY', 0)
+    .attr('orient', 'auto')
+    .attr('markerWidth', 4)
+    .attr('markerHeight', 4)
+    .append('svg:path')
+    .attr('d', 'M 0,-5 L 10,0 L 0,5')
+    .attr('fill', 'var(--text-dimmer)')
+    .attr('opacity', 0.6);
+
+  // Draw nodes
+  const node = g.append('g')
+    .selectAll('circle')
+    .data(nodes)
+    .join('circle')
+    .attr('r', d => Math.max(8, Math.sqrt(d.functions) * 3))
+    .attr('fill', d => {
+      const computed = getComputedStyle(document.documentElement);
+      const accent = computed.getPropertyValue('--accent').trim();
+      const dimmer = computed.getPropertyValue('--text-dimmer').trim();
+      return d3.interpolateRgb(accent, dimmer)(d.order / Math.max(1, nodes.length - 1));
+    })
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', dragStarted)
+      .on('drag', dragged)
+      .on('end', dragEnded))
+    .on('click', function(event, d) {
+      // Highlight connected nodes
+      const connectedNodeIds = new Set();
+      connectedNodeIds.add(d.id);
+
+      edges.forEach(edge => {
+        if (edge.source.id === d.id) connectedNodeIds.add(edge.target.id);
+        if (edge.target.id === d.id) connectedNodeIds.add(edge.source.id);
+      });
+
+      node.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+      link.attr('opacity', e =>
+        (e.source.id === d.id || e.target.id === d.id) ? 0.8 : 0.1
+      );
+      label.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+    })
+    .on('dblclick', function() {
+      // Reset highlighting
+      node.attr('opacity', 1);
+      link.attr('opacity', 0.6);
+      label.attr('opacity', 1);
+    });
+
+  // Add labels
+  const label = g.append('g')
+    .selectAll('text')
+    .data(nodes)
+    .join('text')
+    .text(d => d.id.replace('.js', ''))
+    .attr('font-size', 10)
+    .attr('fill', 'var(--text-primary)')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => Math.sqrt(d.functions) * 3 + 15)
+    .style('pointer-events', 'none')
+    .style('user-select', 'none');
+
+  // Add tooltips
+  const tooltip = d3.select('body').append('div')
+    .style('position', 'absolute')
+    .style('background', 'var(--bg-card)')
+    .style('border', '1px solid var(--border-card)')
+    .style('border-radius', '6px')
+    .style('padding', '8px 12px')
+    .style('font-size', '0.7rem')
+    .style('pointer-events', 'none')
+    .style('opacity', 0)
+    .style('z-index', 10000);
+
+  node.on('mouseover', function(event, d) {
+    tooltip.transition().duration(200).style('opacity', 1);
+    tooltip.html(`
+      <strong>${d.id}</strong><br/>
+      Functions: ${d.functions}<br/>
+      LOC: ${d.loc.toLocaleString()}<br/>
+      Load order: #${d.order + 1}
+    `)
+    .style('left', (event.pageX + 10) + 'px')
+    .style('top', (event.pageY - 10) + 'px');
+  })
+  .on('mouseout', function() {
+    tooltip.transition().duration(200).style('opacity', 0);
+  });
+
+  // Update positions on simulation tick
+  _devGraphSimulation.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+
+    node
+      .attr('cx', d => d.x)
+      .attr('cy', d => d.y);
+
+    label
+      .attr('x', d => d.x)
+      .attr('y', d => d.y);
+  });
+
+  // Drag functions
+  function dragStarted(event, d) {
+    if (!event.active) _devGraphSimulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+  }
+
+  function dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+  }
+
+  function dragEnded(event, d) {
+    if (!event.active) _devGraphSimulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+  }
 }
 
 // ── Git Log Section ──

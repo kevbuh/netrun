@@ -607,6 +607,135 @@ def validate_load_order(google_id):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+@bp.route('/api/dependency-graph')
+@require_auth
+def dependency_graph(google_id):
+    """
+    Generate dependency graph data for D3.js visualization.
+
+    Returns:
+        {
+            "status": "ok",
+            "nodes": [{"id": "core.js", "functions": 150, "loc": 6000, "order": 0}, ...],
+            "edges": [{"source": "core.js", "target": "feed.js", "calls": 45, "severity": "INFO"}, ...]
+        }
+    """
+    try:
+        import json
+        # Run function registry analysis
+        script_path = os.path.join(os.path.dirname(DIR), 'scripts', 'function-registry.js')
+        result = subprocess.run(
+            ['node', script_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return jsonify({'status': 'error', 'message': f'Script failed: {result.stderr}'}), 500
+
+        # Read the generated JSON report
+        json_path = os.path.join(os.path.dirname(DIR), 'coverage', 'function-registry.json')
+        if not os.path.exists(json_path):
+            return jsonify({'status': 'error', 'message': 'Report file not found'}), 500
+
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+
+        # Also get load order data for severity info
+        load_result = subprocess.run(
+            ['node', script_path, '--check-load-order', '--json'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        load_data = {}
+        if load_result.returncode == 0:
+            try:
+                load_data = json.loads(load_result.stdout)
+            except json.JSONDecodeError:
+                pass
+
+        # Build nodes (files)
+        nodes = []
+        file_stats = data.get('files', {})
+        script_order = load_data.get('scriptOrder', [])
+
+        for filename, stats in file_stats.items():
+            nodes.append({
+                'id': filename,
+                'functions': stats.get('functionCount', 0),
+                'loc': stats.get('loc', 0),
+                'order': script_order.index(filename) if filename in script_order else 999
+            })
+
+        # Build edges (dependencies)
+        edges = []
+        edge_map = {}  # Track (source, target) -> {calls, severity}
+
+        # Process forward references to get severity
+        forward_refs = load_data.get('forwardRefs', [])
+        for ref in forward_refs:
+            source = ref.get('callFile')
+            target = ref.get('defFile')
+            severity = ref.get('severity', 'INFO')
+
+            if source and target and source != target:
+                key = (source, target)
+                if key not in edge_map:
+                    edge_map[key] = {'calls': 0, 'severity': severity}
+                edge_map[key]['calls'] += 1
+                # Keep highest severity (ERROR > WARNING > INFO)
+                if severity == 'ERROR' or (severity == 'WARNING' and edge_map[key]['severity'] == 'INFO'):
+                    edge_map[key]['severity'] = severity
+
+        # Process all cross-file function calls to get call counts
+        functions = data.get('functions', {})
+        for func_name, func_data in functions.items():
+            defs = func_data.get('definitions', [])
+            call_sites = func_data.get('callSites', [])
+
+            if not defs or not call_sites:
+                continue
+
+            # Get all files where function is defined
+            def_files = set(d.get('file') for d in defs if d.get('file'))
+
+            # Count calls from other files
+            for site in call_sites:
+                source = site.get('file')
+                if not source:
+                    continue
+
+                # If calling from different file, it's a dependency
+                for target in def_files:
+                    if source != target:
+                        key = (source, target)
+                        if key not in edge_map:
+                            edge_map[key] = {'calls': 0, 'severity': None}
+                        edge_map[key]['calls'] += 1
+
+        # Convert edge_map to array
+        for (source, target), data in edge_map.items():
+            edges.append({
+                'source': source,
+                'target': target,
+                'calls': data['calls'],
+                'severity': data['severity']
+            })
+
+        return jsonify({
+            'status': 'ok',
+            'nodes': nodes,
+            'edges': edges
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Analysis timed out'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @bp.route('/api/calendar')
 @require_auth
 def list_calendar(google_id):
