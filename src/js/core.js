@@ -496,7 +496,7 @@ function _islandFlipNeighbors(cont) {
       p.style.transform = 'translateX(' + dx + 'px)';
       p.style.transition = 'none';
       requestAnimationFrame(function() {
-        p.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
+        p.style.transition = 'transform 0.35s ' + Motion.css('snappy');
         p.style.transform = '';
       });
     }
@@ -669,7 +669,7 @@ function _islandRender() {
           pill.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
           pill.style.transition = 'none';
           requestAnimationFrame(function() {
-            pill.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+            pill.style.transition = 'transform 0.4s ' + Motion.css('snappy');
             pill.style.transform = '';
           });
         }
@@ -769,7 +769,7 @@ function _islandRender() {
       p.style.transform = 'translateX(' + dx + 'px)';
       p.style.transition = 'none';
       requestAnimationFrame(function() {
-        p.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
+        p.style.transition = 'transform 0.35s ' + Motion.css('snappy');
         p.style.transform = '';
       });
     }

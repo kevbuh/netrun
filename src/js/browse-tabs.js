@@ -2594,7 +2594,7 @@ function browseReopenTab() {
 function _browseAnimateBounce() {
   const content = document.getElementById('browse-content');
   if (!content) return;
-  content.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+  content.style.transition = 'transform 0.35s ' + Motion.css('snappy');
   content.style.transform = 'translateX(-60px) scale(0.97)';
   requestAnimationFrame(() => {
     setTimeout(() => {
