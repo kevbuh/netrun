@@ -2237,12 +2237,15 @@ function _tweetRepost(idx, btn) {
   }
   // Animate the repost icon
   if (svg) {
-    svg.style.transition = 'transform 0.4s cubic-bezier(.4,2,.6,1)';
-    svg.style.transform = 'scale(1.4) rotate(360deg)';
-    setTimeout(() => {
-      svg.style.transform = 'scale(1) rotate(0deg)';
-      setTimeout(() => { svg.style.transition = ''; }, 400);
-    }, 400);
+    Motion.animate(svg, {
+      spring: 'bouncy',
+      from: { scale: 1, rotate: 0 },
+      to: { scale: 1.4, rotate: 360 },
+      duration: 400,
+      onFinish: function() {
+        Motion.animate(svg, { spring: 'smooth', from: { scale: 1.4, rotate: 360 }, to: { scale: 1, rotate: 0 } });
+      }
+    });
   }
   // Keep it green
   btn.style.color = 'rgb(74, 222, 128)';

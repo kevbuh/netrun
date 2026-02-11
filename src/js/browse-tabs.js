@@ -2594,14 +2594,10 @@ function browseReopenTab() {
 function _browseAnimateBounce() {
   const content = document.getElementById('browse-content');
   if (!content) return;
-  content.style.transition = 'transform 0.35s ' + Motion.css('snappy');
-  content.style.transform = 'translateX(-60px) scale(0.97)';
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      content.style.transform = '';
-      setTimeout(() => { content.style.transition = ''; }, 350);
-    }, 120);
-  });
+  Motion.sequence([
+    { el: content, spring: 'snappy', from: { x: 0, scale: 1 }, to: { x: -60, scale: 0.97 }, duration: 120 },
+    { el: content, spring: 'snappy', from: { x: -60, scale: 0.97 }, to: { x: 0, scale: 1 } }
+  ]);
 }
 
 // ── Split Pane System ──
