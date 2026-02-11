@@ -473,6 +473,39 @@ def dev_stats():
         return jsonify({'error': str(e)}), 500
 
 
+@bp.route('/api/function-registry')
+@require_auth
+def function_registry(google_id):
+    """Run function registry analysis and return results"""
+    try:
+        import json
+        # Run the Node.js script
+        result = subprocess.run(
+            ['node', 'scripts/function-registry.js'],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(DIR),
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return jsonify({'error': f'Script failed: {result.stderr}'}), 500
+
+        # Read the generated JSON report
+        json_path = os.path.join(os.path.dirname(DIR), 'coverage', 'function-registry.json')
+        if not os.path.exists(json_path):
+            return jsonify({'error': 'Report file not found'}), 500
+
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+
+        return jsonify(data)
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Analysis timed out'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @bp.route('/api/calendar')
 @require_auth
 def list_calendar(google_id):

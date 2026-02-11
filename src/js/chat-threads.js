@@ -113,5 +113,3 @@ function _initSidebarTerminal() {
   observer.observe(container);
 }
 
-function toggleInsightDropdown(subtab) { /* no-op — sections always visible */ }
-function switchInsightSubtab(subtab) { /* no-op — sections always visible */ }

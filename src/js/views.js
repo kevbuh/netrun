@@ -181,79 +181,6 @@ function _renderReaderView(container, data) {
 // ── Topbar overflow (three-dots menu) ──
 let _topbarOverflowRO = null;
 
-function _setupTopbarOverflow(topbar) {
-  if (_topbarOverflowRO) _topbarOverflowRO.disconnect();
-  _topbarOverflowRO = new ResizeObserver(() => _updateTopbarOverflow(topbar));
-  _topbarOverflowRO.observe(topbar);
-  // Run once immediately after layout
-  requestAnimationFrame(() => _updateTopbarOverflow(topbar));
-}
-
-function _updateTopbarOverflow(topbar) {
-  const actionsWrap = topbar.querySelector('#topbar-actions');
-  const overflowWrap = topbar.querySelector('#topbar-overflow-wrap');
-  const menu = topbar.querySelector('#topbar-overflow-menu');
-  if (!actionsWrap || !overflowWrap) return;
-
-  const actions = topbar._topbarActions || [];
-  const items = actionsWrap.querySelectorAll('.topbar-action');
-
-  // First show all to measure
-  items.forEach(el => el.style.display = '');
-  overflowWrap.style.display = 'none';
-
-  // Also hide meta on very narrow screens
-  const meta = topbar.querySelector('.topbar-meta');
-  if (meta) meta.style.display = '';
-
-  const topbarWidth = topbar.clientWidth;
-  const topbarScroll = topbar.scrollWidth;
-
-  // If everything fits, done
-  if (topbarScroll <= topbarWidth + 2) return;
-
-  // Hide meta first if needed
-  if (meta && topbarScroll > topbarWidth + 2) {
-    meta.style.display = 'none';
-    if (topbar.scrollWidth <= topbarWidth + 2) return;
-  }
-
-  // Show overflow button, then hide actions from the end until it fits
-  overflowWrap.style.display = '';
-  const overflowed = [];
-  for (let i = items.length - 1; i >= 0; i--) {
-    if (topbar.scrollWidth <= topbarWidth + 2) break;
-    // Don't overflow items marked noOverflow (star rating needs inline interaction)
-    if (actions[i]?.noOverflow) continue;
-    items[i].style.display = 'none';
-    overflowed.unshift(i);
-  }
-
-  if (!overflowed.length) {
-    overflowWrap.style.display = 'none';
-    return;
-  }
-
-  // Build menu items
-  menu.innerHTML = overflowed.map(i => {
-    const a = actions[i];
-    if (a.href) {
-      return `<a href="${escapeHtml(a.href)}" target="_blank" rel="noopener" class="flex items-center gap-2 px-3 py-1.5 text-[0.78rem] text-primary hover:bg-hover cursor-pointer" style="text-decoration:none" onclick="_closeTopbarOverflow()">${escapeHtml(a.label)}</a>`;
-    }
-    return `<div class="flex items-center gap-2 px-3 py-1.5 text-[0.78rem] text-primary hover:bg-hover cursor-pointer" onclick="${a.action}; _closeTopbarOverflow()">${escapeHtml(a.label)}</div>`;
-  }).join('');
-}
-
-function _toggleTopbarOverflow() {
-  const menu = document.getElementById('topbar-overflow-menu');
-  if (!menu) return;
-  if (menu.style.display !== 'none') {
-    _closeTopbarOverflow();
-  } else {
-    menu.style.display = '';
-    setTimeout(() => document.addEventListener('click', _topbarOverflowOutside), 0);
-  }
-}
 
 function _closeTopbarOverflow() {
   const menu = document.getElementById('topbar-overflow-menu');
@@ -269,20 +196,6 @@ function _topbarOverflowOutside(e) {
 // ── Paper Viewer (shared) ──
 let paperViewOrigin = 'arxiv';
 
-function paperViewGoBack() {
-  if (typeof dismissPaperExpDropdown === 'function') dismissPaperExpDropdown();
-  if (typeof dismissAuthorPopover === 'function') dismissAuthorPopover();
-  // Close the active browse tab
-  const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
-  if (win) {
-    browseCloseTab(win.activeTab);
-  } else if (typeof navBack === 'function' && navBack()) {
-    // Used nav history stack
-  } else {
-    window.history.back();
-  }
-}
-
 let _currentPaperViewPaper = null;
 let _paperOriginExpId = null;
 let _paperInsightsLoaded = false;
@@ -297,29 +210,6 @@ function togglePaperViewBookmark() {
     browseBtn.title = saved ? 'Saved' : 'Save';
     browseBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (saved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
   }
-}
-
-// ── Toggle paper sidebar (delegates to universal panel) ──
-function togglePaperSidebar() {
-  togglePanel();
-}
-
-// ── Open URL in the Internet Browser view ──
-function openInBrowser(url) {
-  if (typeof openBrowse === 'function') openBrowse(url);
-}
-
-// ── Enable notetaking mode ──
-function enableNotetakingMode() {
-  if (!_panelVisible) {
-    _panelVisible = true;
-    localStorage.setItem('universalPanelVisible', 'true');
-  }
-  showPanelForView('browse');
-  switchPanelTab('notes');
-  // Hide the notetaking mode button since we're now in notetaking mode
-  const notetakingBtn = document.getElementById('notetaking-mode-btn');
-  if (notetakingBtn) notetakingBtn.style.display = 'none';
 }
 
 function toggleBrowseSidebar() {

@@ -1,96 +1,5 @@
 // paper-sidebar.js — Paper sidebar panels, insights, notes, comments, citations
 
-// ── Shared sidebar rendering ──
-function _renderSidebarHTML(paper) {
-  const username = escapeHtml((_authUserInfo && _authUserInfo.username) || _authUser || 'Anonymous');
-  const commentsPanel = `
-    <div class="flex flex-col flex-1 min-h-0">
-      <div id="comments-list" class="flex-1 overflow-y-auto"></div>
-      <div class="border-t border-border-card pt-2 mt-2 shrink-0">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-[0.72rem] text-dim">Posting as</span>
-          <span class="text-[0.78rem] text-primary font-medium">${username}</span>
-        </div>
-        <textarea id="comment-input" class="w-full text-[0.78rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="3" placeholder="Write a comment..."></textarea>
-        <button onclick="postComment()" class="mt-1 px-3 py-1 text-[0.78rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none font-medium">Post</button>
-      </div>
-    </div>
-  `;
-  // Paper info section for PDF mode (above tab toolbar)
-  let paperInfoHtml = '';
-  if (paper) {
-    const sourceName = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[paper.source]) || (paper.source?.startsWith('custom:') ? paper.source.slice(7) : '');
-    let infoMeta = [];
-    if (sourceName) infoMeta.push(`<span class="text-meta-value">${escapeHtml(sourceName)}</span>`);
-    if (paper.published) infoMeta.push(`<span class="text-dim">${escapeHtml(paper.published)}</span>`);
-    if (paper.categories && paper.categories.length) {
-      const catTags = paper.categories.slice(0, 3).map(c => {
-        const fullName = (typeof ARXIV_CAT_NAMES !== 'undefined' && ARXIV_CAT_NAMES[c]) || '';
-        return `<span class="text-[0.68rem] bg-sidebar-cat text-sidebar-cat-color px-1.5 py-0.5 rounded border border-sidebar-cat-border shrink-0 cursor-default" ${fullName ? `title="${escapeHtml(fullName)}"` : ''}>${escapeHtml(c)}</span>`;
-      });
-      infoMeta.push(...catTags);
-    }
-    paperInfoHtml = `<div id="sidebar-paper-info" class="px-4 py-3 border-b border-border-card shrink-0">
-      <div class="sidebar-paper-title text-[0.85rem] font-semibold text-primary leading-snug mb-1">${renderTitle(paper.title)}</div>
-      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] mb-1">${infoMeta.join('<span class="text-dimmest">\u00b7</span>')}</div>
-      <div class="sidebar-paper-authors text-[0.72rem] text-muted leading-snug">${paper.authors ? escapeHtml(paper.authors) : ''}</div>
-      <div id="sidebar-paper-authors-cards" class="mt-2"></div>
-    </div>`;
-  }
-
-  return `
-    ${paperInfoHtml}
-    <div class="sidebar-tab-toolbar">
-      <button id="sidebar-tab-insights" class="sidebar-tab-btn active" onclick="switchSidebarTab('insights')" title="Insights"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="sidebar-tab-notes" class="sidebar-tab-btn" onclick="switchSidebarTab('notes')" title="Notes"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-
-      <button id="sidebar-tab-comments" class="sidebar-tab-btn" onclick="switchSidebarTab('comments')" title="Comments"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg></button>
-      <button id="sidebar-tab-terminal" class="sidebar-tab-btn" onclick="switchSidebarTab('terminal')" title="Terminal"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button>
-    </div>
-    <div id="paper-selection-mirror" class="mx-4 mt-3 mb-3 shrink-0 hidden"></div>
-    <div id="sidebar-pane-insights" class="flex flex-col flex-1 min-h-0">
-      <div class="flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        <div class="insight-section" id="insight-drop-ai">
-          <div class="insight-section-title">AI</div>
-          <div class="insight-section-body" id="insight-pane-ai"></div>
-        </div>
-        <div class="insight-section" id="insight-drop-smart">
-          <div class="insight-section-title" style="display:flex;align-items:center;gap:6px">
-            Smart Highlights
-            <span style="flex:1"></span>
-          </div>
-          <div class="insight-section-body" id="insight-pane-smart"></div>
-        </div>
-        <div class="insight-section" id="insight-drop-references">
-          <div class="insight-section-title">References</div>
-          <div class="insight-section-body" id="insight-pane-references"></div>
-        </div>
-        <div class="insight-section" id="insight-drop-links">
-          <div class="insight-section-title">Links</div>
-          <div class="insight-section-body" id="insight-pane-links">
-            <div id="pdf-links-section"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">
-      <div id="pdf-highlights-section">
-        <div id="pdf-highlights-panel"></div>
-      </div>
-    </div>
-    <div id="sidebar-pane-comments" class="flex flex-col flex-1 min-h-0 px-4 pt-3 pb-4" style="display:none">
-      ${commentsPanel}
-    </div>
-    <div id="sidebar-pane-terminal" class="flex flex-col flex-1 min-h-0" style="display:none">
-      <div id="sidebar-terminal-container" style="flex:1;min-height:0;padding:4px;"></div>
-    </div>
-  `;
-}
-
-function _initSidebar() {
-  // No-op — sidebar resize is now handled by universal panel
-}
-
 function _initSidebarForUrl(url) {
   _paperLink = url;
   _docChatPaperUrl = url;
@@ -190,81 +99,6 @@ function dismissPaperExpDropdown() {
 // ── Unified Share Dropdown (projects + teams) ──
 let _shareDropdown = null;
 
-function toggleShareDropdown() {
-  if (_shareDropdown) { _shareDropdown.remove(); _shareDropdown = null; return; }
-  const wrap = document.getElementById('paper-share-btn-wrap');
-  if (!wrap) return;
-  const btnRect = wrap.getBoundingClientRect();
-
-  const dd = document.createElement('div');
-  dd.className = 'paper-exp-dropdown';
-  dd.style.cssText = `position:fixed;top:${btnRect.bottom + 4}px;min-width:240px;max-height:360px;overflow-y:auto;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10001;padding:4px 0;`;
-  dd.style.right = (window.innerWidth - btnRect.right) + 'px';
-  dd.innerHTML = '<div style="padding:8px 12px;font-size:0.78rem;color:var(--text-dim)">Loading...</div>';
-  document.body.appendChild(dd);
-  _shareDropdown = dd;
-
-  const close = (e) => {
-    if (_shareDropdown && !_shareDropdown.contains(e.target) && !wrap.contains(e.target)) {
-      _shareDropdown.remove(); _shareDropdown = null;
-      document.removeEventListener('mousedown', close);
-    }
-  };
-  setTimeout(() => document.addEventListener('mousedown', close), 0);
-
-  const paper = _currentPaperViewPaper;
-  // Load both projects and teams
-  Promise.all([
-    fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    (typeof _cachedTeams !== 'undefined' && _cachedTeams.length ? Promise.resolve(_cachedTeams) : (typeof fetchTeams === 'function' ? fetchTeams().then(() => _cachedTeams) : Promise.resolve([]))),
-  ]).then(([exps, teams]) => {
-    if (!_shareDropdown) return;
-    let html = '';
-
-    // Projects section
-    html += '<div style="padding:4px 12px 4px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Add to project</div>';
-    if (exps.length) {
-      for (const exp of exps) {
-        const papers = exp.papers || [];
-        const isLinked = papers.some(p => p.link === paper.link);
-        const icon = isLinked
-          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" style="flex-shrink:0"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`
-          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dimmest)" stroke-width="2" style="flex-shrink:0"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>`;
-        html += `<div class="share-dd-exp hover:bg-hover" data-exp-id="${exp.id}" data-linked="${isLinked}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.78rem;color:${isLinked ? 'var(--accent)' : 'var(--text-primary)'}">
-          ${icon}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(exp.title)}</span>
-        </div>`;
-      }
-    } else {
-      html += '<div style="padding:4px 12px 8px;font-size:0.78rem;color:var(--text-dim)">No projects yet</div>';
-    }
-
-    // Teams section
-    if (teams && teams.length) {
-      html += '<div style="height:1px;background:var(--border-card);margin:4px 0"></div>';
-      html += '<div style="padding:4px 12px 4px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team</div>';
-      for (const t of teams) {
-        html += `<div class="hover:bg-hover" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.78rem;color:var(--text-primary)" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this);if(_shareDropdown){_shareDropdown.remove();_shareDropdown=null;}">
-          <div style="width:20px;height:20px;border-radius:5px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${escapeHtml(t.name[0].toUpperCase())}</div>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.name)}</span>
-        </div>`;
-      }
-    }
-
-    dd.innerHTML = html;
-
-    // Attach click handlers for project items
-    dd.querySelectorAll('.share-dd-exp').forEach(el => {
-      el.addEventListener('click', () => {
-        const expId = el.dataset.expId;
-        const isLinked = el.dataset.linked === 'true';
-        const exp = exps.find(e => e.id === expId);
-        if (exp) togglePaperInExperiment(expId, paper, isLinked, exp.papers || []);
-        if (_shareDropdown) { _shareDropdown.remove(); _shareDropdown = null; }
-      });
-    });
-  });
-}
-
 function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
   let papers;
   if (isLinked) {
@@ -280,19 +114,6 @@ function togglePaperInExperiment(expId, paper, isLinked, currentPapers) {
     dismissPaperExpDropdown();
     togglePaperExpDropdown(); // re-open to show updated state
   });
-}
-
-function showPaperView(paper, hashValue) {
-  markPostRead(paper.link);
-  if (typeof petReact === 'function') petReact('happy');
-  _setBrowseReturnView(_browseReturnView || _lastActiveView || 'feed');
-  openBrowseWithPaper(paper.link, paper);
-}
-
-// ── Post Quote from Viewer ──
-function postQuoteFromViewer() {
-  const input = document.getElementById('paper-quote-input');
-  if (input && input.value.trim()) { _postQuoteText(input.value.trim()); input.value = ''; }
 }
 
 // ── Paper Insights ──
@@ -657,66 +478,6 @@ async function openAuthorProfile(authorId) {
 // ── Share to Team ──
 let _shareDropdownOpen = false;
 
-async function toggleShareToTeamDropdown() {
-  const wrap = document.getElementById('paper-share-btn-wrap');
-  if (!wrap) return;
-  const existing = document.querySelector('.share-team-dropdown');
-  if (existing) { existing.remove(); _shareDropdownOpen = false; return; }
-
-  _shareDropdownOpen = true;
-  const dd = document.createElement('div');
-  dd.className = 'share-team-dropdown';
-  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px';
-  dd.innerHTML = '<div style="padding:4px 12px;color:var(--text-dimmer);font-size:11px">Loading teams...</div>';
-  document.body.appendChild(dd);
-  const btnRect = wrap.getBoundingClientRect();
-  dd.style.top = (btnRect.bottom + 4) + 'px';
-  dd.style.right = (window.innerWidth - btnRect.right) + 'px';
-
-  // Close on outside click
-  const closeHandler = (e) => {
-    if (!dd.contains(e.target) && !wrap.contains(e.target)) { dd.remove(); _shareDropdownOpen = false; document.removeEventListener('click', closeHandler, true); }
-  };
-  setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
-
-  if (!_cachedTeams.length) await fetchTeams();
-  if (!_cachedTeams.length) {
-    dd.innerHTML = '<div style="padding:8px 12px;color:var(--text-dimmer)">No teams yet</div>';
-    return;
-  }
-
-  dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
-    _cachedTeams.map(t => {
-      const teamRow = `<div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div><span>${escapeHtml(t.name)}</span></div>`;
-      return `<div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary)" onclick="sharePaperToTeam(${t.id}, '${escapeAttr(t.name)}', false, this)">${teamRow}</div>`;
-    }).join('');
-}
-
-async function sharePaperToTeam(teamId, teamName, withNotes, el) {
-  const paper = _currentPaperViewPaper;
-  if (!paper) return;
-  if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
-
-  const content = paper.link;
-
-  try {
-    const resp = await fetch(`/api/teams/${teamId}/messages`, {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ content })
-    });
-    if (resp.ok) {
-      if (el) { el.innerHTML = `<span style="color:var(--accent)">Shared to ${escapeHtml(teamName)}</span>`; }
-      setTimeout(() => {
-        const dd = document.querySelector('.share-team-dropdown');
-        if (dd) dd.remove();
-        _shareDropdownOpen = false;
-      }, 800);
-    }
-  } catch (err) {
-    if (el) { el.innerHTML = '<span style="color:#f87171">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = ''; }
-  }
-}
 
 // ── Cite Paper ──
 let _citePopup = null;
@@ -881,11 +642,6 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
-
-function showPdfFindBar() {
-  const input = document.getElementById('pdf-search-input');
-  if (input) { input.focus(); input.select(); }
-}
 
 function closePdfFindBar() {
   const input = document.getElementById('pdf-search-input');

@@ -1306,22 +1306,6 @@ const _modelContextSizes = {
   'gemma2:9b': 8000, 'mistral:7b': 32000, 'deepseek-r1:8b': 64000,
 };
 
-function _getModelContextSize(model) {
-  if (!model) return 32000;
-  // Try exact match first, then prefix match
-  if (_modelContextSizes[model]) return _modelContextSizes[model];
-  const base = model.replace(/:latest$/, '');
-  if (_modelContextSizes[base]) return _modelContextSizes[base];
-  for (const k of Object.keys(_modelContextSizes)) {
-    if (base.startsWith(k.split(':')[0])) return _modelContextSizes[k];
-  }
-  return 32000;
-}
-
-function _fmtTokens(n) {
-  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
-}
-
 function _updateContextUsage(popup) {
   // Removed — context usage no longer shown
 }
@@ -1373,10 +1357,6 @@ function _sendPopupChatToSidebar() {
   _pendingTabContexts = [];
   _pendingFileContexts = [];
   if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-}
-
-function _saveChatAsHighlight(popup) {
-  // PDF viewer removed — no-op
 }
 
 function _savePopupChatToHighlight(popup) {
@@ -1596,46 +1576,6 @@ function _postQuoteText(text) {
   toast.textContent = 'Quote posted to feed';
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 1500);
-}
-
-async function _showWordAether(word, x, y) {
-  const panel = document.createElement('div');
-  panel.id = 'doc-chat-ask-float';
-  panel.className = 'doc-aether-panel';
-  // Position near selection, clamp to viewport
-  const left = Math.min(x, window.innerWidth - 340);
-  const top = Math.min(Math.max(y, 10), window.innerHeight - 300);
-  panel.style.left = left + 'px';
-  panel.style.top = top + 'px';
-  panel.innerHTML = '<div class="flex items-center gap-2 text-[0.75rem] text-dim py-2 px-3"><span class="spinner"></span>Looking up…</div>';
-  document.body.appendChild(panel);
-
-  try {
-    const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`);
-    if (!resp.ok) throw new Error('Not found');
-    const data = await resp.json();
-    const entry = data[0];
-
-    let html = '<div class="px-3 py-2.5">';
-    // Word + phonetic
-    html += `<div class="text-[1rem] font-bold text-primary">${escapeHtml(entry.word)}</div>`;
-    const phonetic = entry.phonetics?.find(p => p.text)?.text;
-    if (phonetic) html += `<div class="text-[0.78rem] text-dim mt-0.5">${escapeHtml(phonetic)}</div>`;
-
-    // Meanings
-    for (const meaning of (entry.meanings || []).slice(0, 3)) {
-      html += `<div class="mt-2"><span class="text-[0.68rem] font-semibold text-accent uppercase tracking-wide">${escapeHtml(meaning.partOfSpeech)}</span></div>`;
-      for (const def of (meaning.definitions || []).slice(0, 2)) {
-        html += `<div class="text-[0.78rem] text-primary leading-relaxed mt-1 pl-2 border-l-2 border-accent/30">${escapeHtml(def.definition)}</div>`;
-        if (def.example) html += `<div class="text-[0.72rem] text-dim italic mt-0.5 pl-2">${escapeHtml(def.example)}</div>`;
-      }
-    }
-
-    html += '</div>';
-    panel.innerHTML = html;
-  } catch (e) {
-    panel.innerHTML = `<div class="px-3 py-2.5"><div class="text-[1rem] font-bold text-primary">${escapeHtml(word)}</div><div class="text-[0.78rem] text-dim mt-1">No definition found.</div></div>`;
-  }
 }
 
 // Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
@@ -3628,24 +3568,6 @@ function _injectProfileItems(popup) {
   const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
   if (inputWrap) popup.insertBefore(ctxDiv, inputWrap);
   else popup.appendChild(ctxDiv);
-}
-
-// ── Helper: open aether panel anchored to profile icon ──
-function _openProfilePanel() {
-  const btn = document.getElementById('sb-settings');
-  if (!btn) return;
-  // Close existing panel and restore cursor
-  _aetherShowCursor();
-  const existing = document.getElementById('doc-chat-ask-float');
-  if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
-  // Close old popover if visible
-  const pop = document.getElementById('user-menu-popover');
-  if (pop) pop.style.display = 'none';
-  const rect = btn.getBoundingClientRect();
-  _showPanel({ anchor: { x: rect.left + rect.width / 2, y: rect.bottom + 6 }, trackCursor: false });
-  // Inject profile items after panel is built
-  const popup = document.getElementById('doc-chat-ask-float');
-  if (popup) _injectProfileItems(popup);
 }
 
 // ── Helper: build generic context menu items (vault, tab, custom items) ──

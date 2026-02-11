@@ -1,15 +1,5 @@
 // ── AI Quality Filter (local Ollama) ──
 
-function clearAllBlockedPosts() {
-  localStorage.removeItem('hiddenPosts');
-  clearTestTitles();
-  renderPapers();
-  const qPanel = document.getElementById('quality-filter-panel');
-  if (qPanel && qPanel.style.display !== 'none') renderQualityPanel();
-  const qView = document.getElementById('quality-view');
-  if (qView && !qView.classList.contains('hidden')) renderQualityView();
-}
-
 const DEFAULT_QUALITY_PROMPT =
   'You are a topic filter. Your job is to remove obvious junk from a feed reader.\n\n' +
   'SKIP only if the title is clearly about: product reviews, buyer\'s guides, \'best X\' roundups, ' +
@@ -72,17 +62,7 @@ function resetQualityPrompt() {
   if (el) el.value = DEFAULT_QUALITY_PROMPT;
   runPromptTest();
 }
-function clearTestTitles() {
-  localStorage.removeItem('qualityTestTitles');
-  updateTestTitleCount();
-  const resultsEl = document.getElementById('prompt-test-results');
-  if (resultsEl) resultsEl.innerHTML = '';
-  fetch('/api/blocked-titles', { method: 'DELETE' }).catch((e) => { /* fire-and-forget */ });
-}
-function updateTestTitleCount() {
-  const el = document.getElementById('test-title-count');
-  if (el) el.textContent = getTestTitles().length;
-}
+
 async function runPromptTestInternal() {
   const titles = getTestTitles();
   const resultsEl = document.getElementById('prompt-test-results');
@@ -122,11 +102,6 @@ async function runPromptTestInternal() {
 }
 async function runPromptTest() {
   await runPromptTestInternal();
-}
-function clearQualityCache() {
-  localStorage.removeItem('qualityCache');
-  renderPapers();
-  if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
 }
 function resetEverything() {
   localStorage.removeItem('qualityPrompt');
@@ -219,16 +194,6 @@ function setQualityThreshold(val) {
 function getQualityBypass() {
   return getLS('qualityBypass', {});
 }
-function setQualityBypass(key, bypass) {
-  const b = getQualityBypass();
-  if (bypass) b[key] = true; else delete b[key];
-  setLS('qualityBypass', b);
-  renderPapers();
-}
-function isSourceBypassed(sourceKey) {
-  return !!getQualityBypass()[sourceKey];
-}
-
 function getPapersNeedingVerdict() {
   const search = document.getElementById('search').value.toLowerCase();
   const category = document.getElementById('category').value;

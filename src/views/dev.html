@@ -21,4 +21,14 @@
       <button onclick="_devResetAchievements()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Reset All</button>
     </div>
   </div>
+
+  <div style="margin-top:16px;border-top:1px solid var(--border-card);padding-top:12px">
+    <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:8px">Function Registry</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="_devRunFunctionRegistry()" id="dev-fn-reg-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:0.7rem;font-weight:600;cursor:pointer">Analyze Functions</button>
+      <button onclick="_devOpenFunctionRegistryReport()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Open HTML Report</button>
+      <span id="dev-fn-reg-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+    </div>
+    <div id="dev-fn-reg-results"></div>
+  </div>
 </div>

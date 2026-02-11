@@ -132,17 +132,6 @@ app.on('second-instance', () => {
   }
 });
 
-function findFreePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, '127.0.0.1', () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-    srv.on('error', reject);
-  });
-}
-
 function waitForServer(port, timeoutMs = 15000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {

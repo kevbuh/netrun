@@ -965,17 +965,6 @@ function debounce(fn, ms) {
   };
 }
 
-function throttle(fn, ms) {
-  let lastTime = 0;
-  return function(...args) {
-    const now = Date.now();
-    if (now - lastTime >= ms) {
-      lastTime = now;
-      fn.apply(this, args);
-    }
-  };
-}
-
 // Track the last non-paper view for back navigation
 let _lastActiveView = localStorage.getItem('_lastActiveView') || 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
@@ -1596,13 +1585,6 @@ function _wmActivateWindow(index) {
   if (meta) meta.openFn();
 }
 
-function _wmCloseWindow(index) {
-  if (_wmWindows.length <= 1) return;
-  _wmWindows.splice(index, 1);
-  if (_wmFocusIndex >= _wmWindows.length) _wmFocusIndex = _wmWindows.length - 1;
-  if (_browseTabOverviewVisible) _renderWindowOverview();
-}
-
 function _wmToggleTiling() {
   if (typeof toggleBrowseTabOverview === 'function') toggleBrowseTabOverview();
 }
@@ -1893,17 +1875,6 @@ function navBack() {
   const prev = _navHistory[_navHistory.length - 1];
   _navSave();
   window.location.hash = prev;
-  _navNavigating = false;
-  return true;
-}
-
-function navForward() {
-  if (!_navForward.length) return false;
-  _navNavigating = true;
-  const next = _navForward.pop();
-  _navHistory.push(next);
-  _navSave();
-  window.location.hash = next;
   _navNavigating = false;
   return true;
 }
@@ -2914,12 +2885,6 @@ function renderLatexIn(elementId) {
   renderLatexInEl(el);
 }
 
-function formatFirstAuthor(authors) {
-  const parts = authors.split(',').map(s => s.trim()).filter(Boolean);
-  if (parts.length <= 1) return authors;
-  return parts[0] + ' et al.';
-}
-
 // Double-tap Cmd/Ctrl → toggle window overview
 let _dblCmdLast = 0;
 let _dblCmdArmed = false;
@@ -3545,24 +3510,6 @@ function setRainVolume(v) {
   if (tooltip && tooltip.dataset.volDrag) tooltip.textContent = Math.round(_rainVolume * 100) + '%';
 }
 
-function _rainVolDragStart(e) {
-  e.preventDefault();
-  const startY = e.clientY;
-  const startVol = _rainVolume;
-  const el = document.getElementById('rain-volume-value');
-  function onMove(ev) {
-    const dy = ev.clientY - startY;
-    const newVol = Math.max(0, Math.min(1, startVol - dy / 150));
-    setRainVolume(newVol);
-  }
-  function onUp() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
 function setRainSidebarVisible(show) {
   localStorage.setItem('rainSidebarVisible', show ? '1' : '0');
   const btn = document.getElementById('sb-rain');
@@ -3804,20 +3751,6 @@ function getLS(key, fallback) {
 function setLS(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 // ── Auth fetch helper (reduces fetch+auth+error boilerplate) ──
-async function authFetch(url, opts = {}) {
-  opts.headers = Object.assign({}, _authHeaders(), opts.headers || {});
-  const r = await fetch(url, opts);
-  if (r.status === 401 && typeof _showLoginGate === 'function') {
-    _authToken = null;
-    localStorage.removeItem('authToken');
-    _showLoginGate();
-  }
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r;
-}
-
-// ── Login gate ──
-
 // ── Login gate ──
 
 function _showLoginGate() {
@@ -3982,35 +3915,6 @@ async function _submitUsername() {
   }
 }
 
-async function _saveUsernameFromSettings() {
-  const input = document.getElementById('settings-username');
-  const msg = document.getElementById('settings-username-msg');
-  const btn = document.getElementById('settings-username-save');
-  if (!input || !msg) return;
-  const username = input.value.trim();
-  input.value = username;
-  if (!username) { msg.style.color = '#e74c3c'; msg.textContent = 'Username cannot be empty'; return; }
-  if (username.length < 2 || username.length > 20) { msg.style.color = '#e74c3c'; msg.textContent = '2-20 characters required'; return; }
-  if (!/^[a-zA-Z0-9_-]+$/.test(username)) { msg.style.color = '#e74c3c'; msg.textContent = 'Only letters, numbers, hyphens, underscores'; return; }
-  if (_authUserInfo && _authUserInfo.username === username) { msg.style.color = 'var(--text-muted)'; msg.textContent = 'No change'; return; }
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
-  try {
-    const res = await fetch('/api/auth/username', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ username })
-    });
-    const data = await res.json();
-    if (!res.ok) { msg.style.color = '#e74c3c'; msg.textContent = data.error || 'Failed'; return; }
-    if (_authUserInfo) _authUserInfo.username = data.username;
-    msg.style.color = 'var(--accent)'; msg.textContent = 'Username updated';
-  } catch (e) {
-    msg.style.color = '#e74c3c'; msg.textContent = 'Network error';
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
-  }
-}
-
 // ── Auth actions ──
 
 function _onLoginSuccess() {
@@ -4080,63 +3984,6 @@ function _updateAccountUI() {
   }
 }
 
-function _toggleUserMenu() {
-  const pop = document.getElementById('user-menu-popover');
-  if (!pop) return;
-  // Always close first then re-open (always show popup on click)
-  pop.style.display = 'none';
-  const email = _authUserInfo?.email || '';
-  const username = _authUserInfo?.username || '';
-  pop.innerHTML = `
-    <div style="padding:10px 16px 8px;border-bottom:1px solid var(--border-card);">
-      <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${escapeHtml(username)}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">${escapeHtml(email)}</div>
-    </div>
-    <button onclick="_userMenuAction('profile')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z"/></svg>
-      View Profile
-    </button>
-    <button onclick="_userMenuAction('settings')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
-      Settings
-    </button>
-    <button onclick="_userMenuAction('help')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>
-      Help
-    </button>
-    <div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>
-    <button onclick="_userMenuAction('logout')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);font-size:13px;cursor:pointer;text-align:left;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
-      <svg class="w-4 h-4" style="flex-shrink:0;opacity:.6;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3h-9m9 0l-3-3m3 3l-3 3"/></svg>
-      Sign Out
-    </button>
-  `;
-  pop.style.display = '';
-  // Close on outside click
-  setTimeout(() => {
-    function _closeMenu(e) {
-      if (!pop.contains(e.target) && e.target.id !== 'sb-settings') {
-        pop.style.display = 'none';
-        document.removeEventListener('click', _closeMenu);
-      }
-    }
-    document.addEventListener('click', _closeMenu);
-  }, 0);
-}
-
-function _userMenuAction(action) {
-  document.getElementById('user-menu-popover').style.display = 'none';
-  if (action === 'profile') openUserProfile(_authUserInfo?.username || '');
-  else if (action === 'settings') openSettings();
-  else if (action === 'help') openHelpPage();
-  else if (action === 'logout') _doLogout();
-  else if (action === 'delete') _doDeleteAccount();
-}
-
-function openAuthModal() {
-  if (!_authUser) { _showLoginGate(); return; }
-  // Already logged in — open settings instead
-  if (typeof openSettings === 'function') openSettings();
-}
 
 // ── Sync ──
 
@@ -4214,13 +4061,6 @@ function _stopSyncInterval() {
 }
 
 // ── UI action handlers ──
-
-async function _doSettingsSync() {
-  const s = document.getElementById('settings-sync-status');
-  if (s) s.textContent = 'Syncing...';
-  await syncToServer(true);
-  if (s) s.textContent = 'Synced just now';
-}
 
 function _doLogout() {
   authLogout();

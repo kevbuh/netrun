@@ -198,17 +198,6 @@ function hidePost(link, title, event) {
 function getTestTitles() {
   return getLS('qualityTestTitles', []);
 }
-async function fetchTestTitlesFromServer() {
-  try {
-    const resp = await fetch('/api/blocked-titles');
-    if (resp.ok) {
-      const titles = await resp.json();
-      setLS('qualityTestTitles', titles);
-      return titles;
-    }
-  } catch (e) { console.warn('fetchBlockedTitles:', e); }
-  return getTestTitles();
-}
 function addTestTitle(title) {
   const titles = getTestTitles();
   if (!titles.includes(title)) { titles.push(title); setLS('qualityTestTitles', titles); }
@@ -218,8 +207,6 @@ function addTestTitle(title) {
     body: JSON.stringify({ title })
   }).catch((e) => { /* fire-and-forget */ });
 }
-function isPostHidden(link) { return getHiddenPosts().includes(link); }
-
 // ── User Quotes ──
 function _getUserQuotes() {
   return getLS('userQuotes', []);
@@ -440,10 +427,6 @@ function markPostRead(link) {
   updateSavedBadge();
 }
 
-function openSaved() {
-  openDashboard();
-}
-
 function renderSavedPosts() {
   // Reading list is now part of the dashboard — no-op
 }
@@ -575,19 +558,6 @@ function setSortMode(mode) {
   renderPapers();
 }
 
-async function fetchFeed() {
-  try {
-    const resp = await fetch('/feed');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    return parseFeed(await resp.text());
-  } catch (err) {
-    document.getElementById('papers').innerHTML =
-      `<div class="text-center py-20 text-red-400"><p>Failed to load feed: ${err.message}</p>
-       <p class="mt-2 text-[0.85rem] text-muted">Try refreshing or check your connection.</p></div>`;
-    return [];
-  }
-}
-
 async function fetchHNFeed() {
   try {
     const resp = await fetch('/hn-feed');
@@ -669,16 +639,6 @@ let _hcActiveCategory = null; // null = All
 let _hcHoveredIdx = -1;
 let _hcZoom = 1;
 
-function _honeycombCircleContent(entry) {
-  if (entry.favicon) {
-    return `<img src="https://www.google.com/s2/favicons?domain=${entry.favicon}&sz=64" alt="${entry.name}" onerror="this.outerHTML='<span class=\\'hc-letter\\' style=\\'color:${entry.fg || '#fff'}\\'>${entry.letter || entry.name[0]}</span>'">`;
-  }
-  if (entry.img) {
-    return `<img src="${entry.img}" alt="${entry.name}">`;
-  }
-  return `<span class="hc-letter" style="color:${entry.fg || '#fff'}">${entry.letter || entry.name[0]}</span>`;
-}
-
 function _renderHcCategoryTabs() {
   const container = document.getElementById('hc-category-tabs');
   if (!container) return;
@@ -744,155 +704,7 @@ function renderOnboardGrid() {
   grid.innerHTML = html;
 }
 
-function _hcApplyTransform() {
-  const grid = document.getElementById('onboard-grid');
-  if (grid) grid.style.transform = `translate(${_hcPanX}px, ${_hcPanY}px) scale(${_hcZoom})`;
-}
 
-function _centerHoneycomb() {
-  const vp = document.getElementById('honeycomb-viewport');
-  const grid = document.getElementById('onboard-grid');
-  if (!vp || !grid) return;
-  _hcZoom = 1;
-  const vpW = vp.clientWidth;
-  const vpH = vp.clientHeight;
-  const gW = parseFloat(grid.style.width);
-  const gH = parseFloat(grid.style.height);
-  _hcPanX = (vpW - gW) / 2;
-  _hcPanY = (vpH - gH) / 2;
-  _hcApplyTransform();
-}
-
-function _attachHoneycombListeners() {
-  const vp = document.getElementById('honeycomb-viewport');
-  if (!vp) return;
-
-  vp.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    _hcDragging = true;
-    _hcDidDrag = false;
-    _hcDragStartX = e.clientX;
-    _hcDragStartY = e.clientY;
-    _hcPanStartX = _hcPanX;
-    _hcPanStartY = _hcPanY;
-    vp.classList.add('grabbing');
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    const vpRect = document.getElementById('honeycomb-viewport')?.getBoundingClientRect();
-    if (vpRect) {
-      _hcMouseX = e.clientX - vpRect.left;
-      _hcMouseY = e.clientY - vpRect.top;
-    }
-    if (_hcDragging) {
-      const dx = e.clientX - _hcDragStartX;
-      const dy = e.clientY - _hcDragStartY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _hcDidDrag = true;
-      _hcPanX = _hcPanStartX + dx;
-      _hcPanY = _hcPanStartY + dy;
-      _hcApplyTransform();
-    }
-    if (!_hcRafId && document.getElementById('honeycomb-viewport')) {
-      _hcRafId = requestAnimationFrame(_applyFisheye);
-    }
-  });
-
-  window.addEventListener('mouseup', () => {
-    if (_hcDragging) {
-      _hcDragging = false;
-      const vpEl = document.getElementById('honeycomb-viewport');
-      if (vpEl) vpEl.classList.remove('grabbing');
-    }
-  });
-
-  vp.addEventListener('mouseleave', () => {
-    if (_hcHoveredIdx >= 0 && _hcHoveredIdx < _hcCircleEls.length) {
-      _hcCircleEls[_hcHoveredIdx].style.transform = 'scale(1)';
-      _hcCircleEls[_hcHoveredIdx].style.zIndex = '';
-      _hcCircleEls[_hcHoveredIdx].classList.remove('hc-hovered');
-    }
-    _hcHoveredIdx = -1;
-  });
-
-  // Touch support
-  let _touchId = null;
-  vp.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) return;
-    const t = e.touches[0];
-    _touchId = t.identifier;
-    _hcDragging = true;
-    _hcDidDrag = false;
-    _hcDragStartX = t.clientX;
-    _hcDragStartY = t.clientY;
-    _hcPanStartX = _hcPanX;
-    _hcPanStartY = _hcPanY;
-  }, { passive: true });
-
-  vp.addEventListener('touchmove', (e) => {
-    const t = Array.from(e.touches).find(t => t.identifier === _touchId);
-    if (!t) return;
-    const dx = t.clientX - _hcDragStartX;
-    const dy = t.clientY - _hcDragStartY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _hcDidDrag = true;
-    _hcPanX = _hcPanStartX + dx;
-    _hcPanY = _hcPanStartY + dy;
-    _hcApplyTransform();
-  }, { passive: true });
-
-  vp.addEventListener('touchend', () => {
-    _hcDragging = false;
-    _touchId = null;
-  }, { passive: true });
-
-  // Scroll to zoom
-  vp.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const vpRect = vp.getBoundingClientRect();
-    const mx = e.clientX - vpRect.left;
-    const my = e.clientY - vpRect.top;
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.min(3, Math.max(0.3, _hcZoom * delta));
-    // Zoom toward cursor
-    _hcPanX = mx - (mx - _hcPanX) * (newZoom / _hcZoom);
-    _hcPanY = my - (my - _hcPanY) * (newZoom / _hcZoom);
-    _hcZoom = newZoom;
-    _hcApplyTransform();
-  }, { passive: false });
-}
-
-function _applyFisheye() {
-  _hcRafId = 0;
-  // Convert viewport mouse coords to grid coords (accounting for zoom)
-  const gx = (_hcMouseX - _hcPanX) / _hcZoom;
-  const gy = (_hcMouseY - _hcPanY) / _hcZoom;
-  const hitRadius = 28; // half of circle size + small margin
-
-  // Find closest circle to cursor
-  let closestIdx = -1, closestDist = Infinity;
-  for (let i = 0; i < _hcPositions.length; i++) {
-    const dx = gx - _hcPositions[i].x;
-    const dy = gy - _hcPositions[i].y;
-    const d = dx * dx + dy * dy;
-    if (d < closestDist) { closestDist = d; closestIdx = i; }
-  }
-  closestDist = Math.sqrt(closestDist);
-  const hovIdx = closestDist < hitRadius ? closestIdx : -1;
-
-  // Update hovered class + tooltip
-  if (hovIdx !== _hcHoveredIdx) {
-    if (_hcHoveredIdx >= 0 && _hcHoveredIdx < _hcCircleEls.length) {
-      _hcCircleEls[_hcHoveredIdx].classList.remove('hc-hovered');
-      _hcCircleEls[_hcHoveredIdx].style.transform = 'scale(1)';
-      _hcCircleEls[_hcHoveredIdx].style.zIndex = '';
-    }
-    _hcHoveredIdx = hovIdx;
-    if (_hcHoveredIdx >= 0) {
-      _hcCircleEls[_hcHoveredIdx].classList.add('hc-hovered');
-      _hcCircleEls[_hcHoveredIdx].style.transform = 'scale(1.35)';
-      _hcCircleEls[_hcHoveredIdx].style.zIndex = '50';
-    }
-  }
-}
 
 function toggleOnboardSource(key) {
   if (onboardSelected.has(key)) {
@@ -914,12 +726,6 @@ function _toggleOnboardCategory(cat) {
   });
   renderOnboardGrid();
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
-}
-
-function toggleOnboardNotif(key) {
-  if (!onboardSelected.has(key)) return;
-  if (onboardNotifSelected.has(key)) onboardNotifSelected.delete(key);
-  else onboardNotifSelected.add(key);
 }
 
 function _updateOnboardCardStates() {
@@ -1123,26 +929,6 @@ function renderQualityPanel() {
 }
 
 // ── Quality Filter Dedicated View ──
-
-async function openQualityView() {
-  hideAllViews();
-  const view = await ensureView('quality-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'quality';
-  setSidebarActive('sb-home');
-  renderQualityView();
-}
-
-async function openAlgorithmView() {
-  hideAllViews();
-  const view = await ensureView('algorithm-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = 'algorithm';
-  setSidebarActive('sb-home');
-  renderAlgorithmView();
-}
 
 function renderAlgorithmView() {
   const container = document.getElementById('algorithm-view-content');
@@ -1500,18 +1286,6 @@ function _renderPersonalizationPanel() {
   `;
 }
 
-function toggleFeedSource(key, value) {
-  const sources = getFeedSources();
-  sources[key] = value;
-  setLS('feedSources', sources);
-  if (value && !localStorage.getItem('ach_explorer')) {
-    localStorage.setItem('ach_explorer', '1');
-    if (typeof showAchievement === 'function') showAchievement('Explorer', 'Enabled a new feed source');
-  }
-  allPapers = [];
-  loadAllFeeds();
-}
-
 async function fetchGenericRSS(feedUrl, sourceName) {
   try {
     const resp = await fetch(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
@@ -1783,11 +1557,6 @@ async function fetchCitationsFor(papers) {
 }
 
 // ── Trends extraction ──
-function extractTopCategories(papers) {
-  const freq = {};
-  papers.forEach(p => p.categories.forEach(c => { freq[c] = (freq[c] || 0) + 1; }));
-  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8);
-}
 
 function renderTrends() {
   const panel = document.getElementById('trends-panel');

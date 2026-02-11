@@ -67,41 +67,6 @@ function _pixelArt(seed) {
 let currentExpId = null;
 let currentExp = null;
 
-async function fetchExperimentDetail(id) {
-  try {
-    const resp = await fetch(`/api/experiments/${id}`, { headers: _authHeaders() });
-    currentExp = await resp.json();
-    if (currentExp.error) { document.getElementById('exp-detail-view').innerHTML = `<div class="text-dimmer text-sm mt-12 text-center ml-[72px]">${escapeHtml(currentExp.error)}</div>`; return; }
-    document.getElementById('exp-detail-title').innerHTML = marked.parseInline(currentExp.title);
-    renderLatexIn('exp-detail-title');
-    const descEl = document.getElementById('exp-detail-desc');
-    if (currentExp.desc) {
-      descEl.innerHTML = marked.parse(currentExp.desc);
-      descEl.classList.remove('text-dimmest');
-      descEl.classList.add('text-muted');
-      renderLatexIn('exp-detail-desc');
-      _rewriteExpImages(descEl);
-    } else {
-      descEl.textContent = 'No description. Double-click to add one.';
-      descEl.classList.add('text-dimmest');
-      descEl.classList.remove('text-muted');
-    }
-    document.getElementById('exp-file-editor').style.display = 'none';
-    document.getElementById('exp-file-editor').innerHTML = '';
-    document.getElementById('exp-default-content').style.display = '';
-    currentFile = null;
-    _renderExpMetadata();
-    renderExpPapers();
-    if (typeof renderTeamPicker === 'function') renderTeamPicker(id);
-    await fetchExpFiles();
-    _renderExpMetadata();
-    // Auto-open README.md if it exists and no file is open
-    if (!currentFile) _autoOpenReadme();
-  } catch (err) {
-    document.getElementById('exp-detail-desc').innerHTML =
-      `<div class="text-center py-10 text-red-400 text-[0.85rem]">Failed to load: ${err.message}</div>`;
-  }
-}
 
 function _renderMetaTree(node, prefix) {
   let lines = [];
@@ -301,10 +266,6 @@ async function fetchExpFiles() {
   }
 }
 
-function _autoOpenReadme() {
-  const readme = _expFiles.find(f => /^readme\.md$/i.test(f));
-  if (readme) openFile(readme);
-}
 
 function _onFileRowClick(fname, event) {
   if (event.metaKey || event.ctrlKey) {
@@ -592,40 +553,6 @@ function startRenameFileInEditor(fname) {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
     if (e.key === 'Escape') { commit(); }
-  });
-  input.addEventListener('blur', () => commit());
-}
-
-function startRenameFile(fname, spanEl) {
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = fname;
-  input.className = 'bg-input border border-border-input rounded px-1 py-0.5 text-[0.8rem] text-primary outline-none focus:border-accent w-full';
-  input.onclick = e => e.stopPropagation();
-  spanEl.replaceWith(input);
-  input.focus();
-  // Select name without extension
-  const dotIdx = fname.lastIndexOf('.');
-  input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
-
-  async function commit() {
-    const newName = input.value.trim();
-    if (newName && newName !== fname) {
-      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
-        method: 'PUT', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
-        body: JSON.stringify({ rename: newName })
-      });
-      if (resp.ok) {
-        if (currentFile === fname) currentFile = newName;
-        fetchExpFiles();
-        return;
-      }
-    }
-    fetchExpFiles();
-  }
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    if (e.key === 'Escape') { fetchExpFiles(); }
   });
   input.addEventListener('blur', () => commit());
 }

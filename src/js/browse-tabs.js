@@ -269,14 +269,6 @@ function browseCloseWindow(id) {
   _browseSaveTabs();
 }
 
-function browseRenameWindow(id, name) {
-  const win = _browseWindows.find(w => w.id === id);
-  if (win) {
-    win.name = name;
-    _browseSaveTabs();
-  }
-}
-
 // Helper: create window without auto-creating a tab (for session restore)
 function _createBrowseWindow(name) {
   const id = _browseNextWindowId++;
@@ -3020,25 +3012,6 @@ function goToAudioTab() {
   }
 }
 
-function toggleAllAudio() {
-  // Check if all are muted
-  const allMuted = [..._browseAudioTabs.values()].every(info => info.muted);
-  const newMuted = !allMuted;
-
-  for (const [tabId, info] of _browseAudioTabs) {
-    for (const win of _browseWindows) {
-      const tab = win.tabs.find(t => t.id === tabId);
-      if (tab && tab.el && _browseIsElectron) {
-        tab.el.setAudioMuted(newMuted);
-        info.muted = newMuted;
-        _browseAudioTabs.set(tabId, info);
-      }
-    }
-  }
-  _browseRenderTabs();
-  _updateAudioIndicator();
-}
-
 function _updateAudioIndicator() {
   // Remove legacy floating indicator if it exists
   const legacy = document.getElementById('audio-indicator');
@@ -3124,11 +3097,6 @@ function _updateCCButton() {
       islandRemove('cc');
     }
   }
-}
-
-function _dismissCCPill() {
-  _ccPillDismissed = true;
-  if (typeof islandRemove === 'function') islandRemove('cc');
 }
 
 async function toggleCaptions() {
@@ -3964,30 +3932,6 @@ function _browseShowGroupContextMenu(e, groupId) {
 let _tabHoverTimeout = null;
 let _tabHoverDismissTimeout = null;
 
-function _browseTabHoverIn(e) {
-  const tabEl = e.currentTarget;
-  clearTimeout(_tabHoverTimeout);
-  clearTimeout(_tabHoverDismissTimeout);
-  if (document.getElementById('doc-chat-ask-float')) return;
-  _tabHoverTimeout = setTimeout(() => _showTabTooltip(tabEl), 400);
-}
-
-function _browseTabHoverOut(e) {
-  clearTimeout(_tabHoverTimeout);
-  const panel = document.getElementById('doc-chat-ask-float');
-  if (e && e.relatedTarget && panel && panel.contains(e.relatedTarget)) return;
-  clearTimeout(_tabHoverDismissTimeout);
-  _tabHoverDismissTimeout = setTimeout(() => {
-    const p = document.getElementById('doc-chat-ask-float');
-    if (p && p.classList.contains('tab-context-panel')) p.remove();
-  }, 150);
-}
-
-function _showTabTooltip(tabEl) {
-  if (typeof _showTabContextMenu === 'function') {
-    _showTabContextMenu(null, tabEl);
-  }
-}
 
 // ── Tab drag-to-reorder ──
 
@@ -4267,59 +4211,6 @@ function _browseCaptureWindowPreview(windowId) {
   }).catch(function() {});
 }
 
-function _overviewScheduleCapture() {
-  if (_overviewCaptureTimer) clearTimeout(_overviewCaptureTimer);
-  _overviewCaptureTimer = setTimeout(_overviewDoCapture, 250);
-}
-
-async function _overviewDoCapture() {
-  if (_overviewCapturing || !_browseTabOverviewVisible) return;
-  if (!window.electronAPI?.captureScreen) return;
-  var winId = _browseActiveWindow;
-  if (!winId) return;
-  var overlay = document.getElementById('browse-tab-overview');
-  if (!overlay) return;
-  _overviewCapturing = true;
-  try {
-    await new Promise(function(r) { setTimeout(r, 150); });
-    if (!_browseTabOverviewVisible) { _overviewCapturing = false; return; }
-    overlay.style.transition = 'none';
-    overlay.style.display = 'none';
-    await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
-    await new Promise(function(r) { setTimeout(r, 50); });
-    var pill = document.getElementById('sidebar-nav');
-    var top = pill ? pill.offsetTop + pill.offsetHeight : 0;
-    var base64 = await window.electronAPI.captureScreen({
-      x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
-    });
-    if (!_browseTabOverviewVisible) { _overviewCapturing = false; return; }
-    overlay.style.display = 'flex';
-    overlay.style.opacity = '1';
-    overlay.offsetHeight;
-    overlay.style.transition = '';
-    if (base64 && _browseTabOverviewVisible) {
-      _browseWindowPreviews[winId] = 'data:image/png;base64,' + base64;
-      var cards = overlay.querySelectorAll('.wov-card');
-      var idx = _browseWindows.findIndex(function(bw) { return bw.id === winId; });
-      var card = cards[idx];
-      if (card) {
-        var prev = card.querySelector('.wov-card-preview');
-        if (prev) {
-          prev.style.backgroundImage = 'url(' + _browseWindowPreviews[winId] + ')';
-          prev.classList.remove('wov-card-preview-empty');
-          prev.innerHTML = '';
-        }
-      }
-    }
-  } catch (e) {
-    if (_browseTabOverviewVisible) {
-      overlay.style.display = 'flex';
-      overlay.style.opacity = '1';
-    }
-    overlay.style.transition = '';
-  }
-  _overviewCapturing = false;
-}
 
 // SVG icons for app window cards
 const _wovAppIcons = {
@@ -4904,14 +4795,6 @@ function _browseActiveEl() {
 }
 
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
-function _browseHideActiveWebview() {
-  const el = _browseActiveEl();
-  if (el && el.tagName === 'WEBVIEW') el.style.visibility = 'hidden';
-}
-function _browseRestoreActiveWebview() {
-  const el = _browseActiveEl();
-  if (el && el.tagName === 'WEBVIEW') el.style.visibility = '';
-}
 
 function browseBack() {
   const el = _browseActiveEl();
@@ -5846,63 +5729,6 @@ function _promptSaveSessionFromOverview() {
 }
 
 // Save a single window as a session - show inline input
-function _saveWindowAsSession(windowId) {
-  const win = _browseWindows.find(w => w.id === windowId);
-  if (!win) return;
-
-  const tabs = win.tabs.filter(t => !t.blank && t.url);
-  if (!tabs.length) return;
-
-  // Find the window section and show inline input
-  const section = document.querySelector(`.browse-window-section[onclick*="${windowId}"]`);
-  if (!section) return;
-
-  const header = section.querySelector('.browse-window-header');
-  if (!header) return;
-
-  // Create input row
-  const inputRow = document.createElement('div');
-  inputRow.className = 'browse-window-save-input';
-  inputRow.innerHTML = `
-    <input type="text" placeholder="Session name..." value="${escapeHtml(win.name)}" autofocus>
-    <button class="save-confirm">Save</button>
-    <button class="save-cancel">&times;</button>
-  `;
-  header.after(inputRow);
-
-  const input = inputRow.querySelector('input');
-  const confirmBtn = inputRow.querySelector('.save-confirm');
-  const cancelBtn = inputRow.querySelector('.save-cancel');
-
-  input.focus();
-  input.select();
-
-  const doSave = () => {
-    const name = input.value.trim();
-    if (!name) { input.focus(); return; }
-    const sessions = _getTabSessions();
-    sessions.unshift({
-      name,
-      tabs: tabs.map(t => ({ url: t.url, title: t.title })),
-      savedAt: Date.now()
-    });
-    _saveTabSessions(sessions);
-    _renderToolbarSessions();
-    _renderBrowseTabOverview();
-  };
-
-  const doCancel = () => inputRow.remove();
-
-  confirmBtn.onclick = (e) => { e.stopPropagation(); doSave(); };
-  cancelBtn.onclick = (e) => { e.stopPropagation(); doCancel(); };
-  input.onkeydown = (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') doSave();
-    if (e.key === 'Escape') doCancel();
-  };
-  input.onclick = (e) => e.stopPropagation();
-}
-
 // Load session from overview (replaces current windows)
 function _loadSessionFromOverview(index, addToExisting = false) {
   const sessions = _getTabSessions();

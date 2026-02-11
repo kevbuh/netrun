@@ -1898,16 +1898,6 @@ function _nlMoveDot(x, y) {
   _nlGazeDot.style.top = y + 'px';
 }
 
-function _nlUpdateDotColor(color) {
-  if (_nlGazeDot) { _nlGazeDot.style.background = color; _nlGazeDot.style.boxShadow = '0 0 8px ' + color + '80'; }
-}
-
-function _nlUpdateDotSize(size) {
-  const label = document.getElementById('nl-dot-size-label');
-  if (label) label.textContent = size + 'px';
-  if (_nlGazeDot) { _nlGazeDot.style.width = size + 'px'; _nlGazeDot.style.height = size + 'px'; }
-}
-
 // ── Stats & Graphs ──
 
 function _nlStartStatsInterval() {

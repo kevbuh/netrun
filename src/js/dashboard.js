@@ -2,164 +2,6 @@
 
 let _dashSearchDebounce = null;
 
-function dashboardSearchInput() {
-  clearTimeout(_dashSearchDebounce);
-  _dashSearchDebounce = setTimeout(() => {
-    const input = document.getElementById('dashboard-search');
-    const query = (input?.value || '').trim();
-    const dropdown = document.getElementById('dashboard-search-results');
-    if (!dropdown) return;
-    if (!query) { dropdown.style.display = 'none'; return; }
-    _renderDashSearchResults(query, dropdown);
-  }, 150);
-}
-
-function dashboardSearchSubmit() {
-  const input = document.getElementById('dashboard-search');
-  const query = (input?.value || '').trim();
-  if (!query) return;
-  _dashSearchGoToSearch(query);
-}
-
-function _dashSearchGoToSearch(query) {
-  document.getElementById('dashboard-search-results')?.style.setProperty('display', 'none');
-  openSearch();
-  const searchInput = document.getElementById('search-query');
-  if (searchInput) { searchInput.value = query; submitSearch(); }
-}
-
-function _dashSearchGoToArxiv(query) {
-  document.getElementById('dashboard-search-results')?.style.setProperty('display', 'none');
-  openSearch();
-  const searchInput = document.getElementById('search-query');
-  if (searchInput) { searchInput.value = query; submitSearch(); }
-}
-
-function _dashSearchWebSearch(query) {
-  document.getElementById('dashboard-search-results')?.style.setProperty('display', 'none');
-  openBrowse(query);
-}
-
-async function _dashSearchUsers(query, placeholderId) {
-  try {
-    const resp = await fetch('/api/users?q=' + encodeURIComponent(query), { headers: _authHeaders() });
-    if (!resp.ok) return;
-    const users = (await resp.json()).slice(0, 4);
-    const el = document.getElementById(placeholderId);
-    if (!el || !users.length) return;
-    let html = `<div class="px-3 pt-2 pb-1 text-[0.65rem] text-dimmer uppercase tracking-wide font-semibold">Users</div>`;
-    html += users.map(u => {
-      const pic = u.picture ? `<img src="${escapeAttr(u.picture)}" class="w-5 h-5 rounded-full shrink-0" onerror="this.style.display='none'">` : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-400 shrink-0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-      return `<a href="#user/${encodeURIComponent(u.username)}" class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" style="text-decoration:none" onclick="document.getElementById('dashboard-search-results').style.display='none'">
-        ${pic}
-        <div class="text-primary text-[0.82rem] truncate">${escapeHtml(u.username)}</div>
-      </a>`;
-    }).join('');
-    el.innerHTML = html;
-  } catch (e) { /* ignore */ }
-}
-
-function _renderDashSearchResults(query, dropdown) {
-  const q = query.toLowerCase();
-
-  // Search experiments
-  const exps = (typeof allExperiments !== 'undefined' ? allExperiments : [])
-    .filter(e => e.title?.toLowerCase().includes(q) || (e.desc || '').toLowerCase().includes(q))
-    .slice(0, 4);
-
-  // Search papers (from feed cache)
-  const papers = (typeof allPapers !== 'undefined' ? allPapers : [])
-    .filter(p => p.title?.toLowerCase().includes(q) || (p.authors || '').toLowerCase().includes(q))
-    .slice(0, 4);
-
-  // Search saved papers
-  const saved = JSON.parse(localStorage.getItem('savedPosts') || '{}');
-  const savedPapers = Object.values(saved)
-    .filter(s => s.paper?.title?.toLowerCase().includes(q))
-    .map(s => s.paper)
-    .filter(p => !papers.some(fp => fp.link === p.link))
-    .slice(0, 3);
-
-  // Search teams
-  const teams = (_cachedTeams || [])
-    .filter(t => t.name?.toLowerCase().includes(q))
-    .slice(0, 3);
-
-  const hasResults = exps.length || papers.length || savedPapers.length || teams.length;
-
-  let html = '';
-
-  // Projects section
-  if (exps.length) {
-    html += `<div class="px-3 pt-2 pb-1 text-[0.65rem] text-dimmer uppercase tracking-wide font-semibold">Projects</div>`;
-    html += exps.map(e => `
-      <a href="#experiment/${encodeURIComponent(e.id)}" class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" style="text-decoration:none" onclick="document.getElementById('dashboard-search-results').style.display='none'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-400 shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <div class="min-w-0 flex-1">
-          <div class="text-primary text-[0.82rem] truncate">${escapeHtml(e.title || e.id)}</div>
-          ${e.desc ? `<div class="text-dimmer text-[0.7rem] truncate">${escapeHtml(e.desc)}</div>` : ''}
-        </div>
-      </a>`).join('');
-  }
-
-  // Papers section (feed + saved)
-  const allPaperResults = [...papers, ...savedPapers];
-  if (allPaperResults.length) {
-    html += `<div class="px-3 pt-2 pb-1 text-[0.65rem] text-dimmer uppercase tracking-wide font-semibold">${exps.length ? '' : ''}Papers</div>`;
-    html += allPaperResults.map(p => {
-      const href = '#view/' + encodeURIComponent(p.link);
-      return `
-      <a href="${href}" class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" style="text-decoration:none" onclick="document.getElementById('dashboard-search-results').style.display='none'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <div class="min-w-0 flex-1">
-          <div class="text-primary text-[0.82rem] truncate">${escapeHtml(p.title)}</div>
-          ${p.authors ? `<div class="text-dimmer text-[0.7rem] truncate">${escapeHtml(p.authors.split(',').slice(0, 2).join(', '))}${p.authors.split(',').length > 2 ? ' et al.' : ''}</div>` : ''}
-        </div>
-      </a>`;
-    }).join('');
-  }
-
-  // Teams section
-  if (teams.length) {
-    html += `<div class="px-3 pt-2 pb-1 text-[0.65rem] text-dimmer uppercase tracking-wide font-semibold">Teams</div>`;
-    html += teams.map(t => `
-      <div class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" onclick="document.getElementById('dashboard-search-results').style.display='none'; showTeamDetailView(${t.id}, event)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400 shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <div class="text-primary text-[0.82rem] truncate">${escapeHtml(t.name)}</div>
-        ${t.private ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-dimmer shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : ''}
-      </div>`).join('');
-  }
-
-  // Users section (async, filled below)
-  const usersPlaceholderId = '_dash-search-users-' + Date.now();
-  html += `<div id="${usersPlaceholderId}"></div>`;
-
-  // Divider before actions
-  html += `<div class="border-t border-border-subtle my-1"></div>`;
-
-  // Search actions (always shown)
-  const eq = escapeAttr(query);
-  html += `
-    <div class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" onclick="_dashSearchGoToSearch('${eq}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <div class="text-primary text-[0.82rem]">Search feed for <span class="text-accent font-medium">${escapeHtml(query)}</span></div>
-    </div>
-    <div class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" onclick="_dashSearchGoToArxiv('${eq}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-400 shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-      <div class="text-primary text-[0.82rem]">Search arXiv for <span class="text-accent font-medium">${escapeHtml(query)}</span></div>
-    </div>
-    <div class="flex items-center gap-2.5 px-3 py-2 hover:bg-hover transition-colors cursor-pointer" onclick="_dashSearchWebSearch('${eq}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-sky-400 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-      <div class="text-primary text-[0.82rem]">Web search for <span class="text-accent font-medium">${escapeHtml(query)}</span></div>
-    </div>
-  `;
-
-  // Fetch users async
-  _dashSearchUsers(query, usersPlaceholderId);
-
-  dropdown.innerHTML = html;
-  dropdown.style.display = '';
-}
 
 function _closeDashSearch(e) {
   const dropdown = document.getElementById('dashboard-search-results');
@@ -182,13 +24,6 @@ async function dashToggleTask(teamId, todoId, done) {
 
 function dashRemoveSaved(link) {
   toggleSavePostByLink(link);
-  renderDashboard();
-}
-
-function dashCalNav(dir) {
-  _dashMonth += dir;
-  if (_dashMonth > 11) { _dashMonth = 0; _dashYear++; }
-  if (_dashMonth < 0) { _dashMonth = 11; _dashYear--; }
   renderDashboard();
 }
 
@@ -1556,6 +1391,110 @@ function _devResetAchievements() {
   var keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_its_alive', 'ach_pixel_parent', 'ach_gaze_master'];
   keys.forEach(function(k) { localStorage.removeItem(k); });
   islandRemove('achievement');
+}
+
+async function _devRunFunctionRegistry() {
+  const btn = document.getElementById('dev-fn-reg-btn');
+  const status = document.getElementById('dev-fn-reg-status');
+  const results = document.getElementById('dev-fn-reg-results');
+  if (!btn || !status || !results) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  status.textContent = 'Running analysis...';
+  results.innerHTML = '';
+
+  try {
+    const res = await fetch('/api/function-registry', { headers: _authHeaders() });
+    const data = await res.json();
+
+    if (data.error) {
+      status.textContent = 'Error: ' + data.error;
+      status.style.color = 'var(--text-error)';
+      return;
+    }
+
+    status.textContent = 'Analysis complete';
+    status.style.color = 'var(--text-success)';
+
+    const summary = data.summary;
+    results.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px">
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${summary.totalFunctions}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Functions</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:${summary.duplicateFunctions > 0 ? '#f59e0b' : 'var(--text-primary)'}">${summary.duplicateFunctions}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Duplicates</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:${summary.unusedFunctions > 0 ? '#ef4444' : 'var(--text-primary)'}">${summary.unusedFunctions}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Unused</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--text-primary)">${summary.totalFiles}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Files</div>
+        </div>
+      </div>
+
+      ${data.issues.duplicates.length > 0 ? `
+        <div style="margin-top:16px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
+          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Duplicate Functions (${data.issues.duplicates.length})</div>
+          ${data.issues.duplicates.slice(0, 5).map(dup => `
+            <div style="margin-bottom:8px;font-size:0.65rem">
+              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
+              <div style="color:var(--text-dimmer);margin-top:4px;margin-left:8px">
+                ${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}
+              </div>
+            </div>
+          `).join('')}
+          ${data.issues.duplicates.length > 5 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${data.issues.duplicates.length - 5} more</div>` : ''}
+        </div>
+      ` : ''}
+
+      ${data.issues.unused.length > 0 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
+          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🗑️ Unused Functions (${data.issues.unused.length})</div>
+          <div style="color:var(--text-dimmer);font-size:0.65rem;max-height:150px;overflow-y:auto">
+            ${data.issues.unused.slice(0, 10).map(u => `<code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px;margin-right:8px;margin-bottom:4px;display:inline-block">${escapeHtml(u.name)}()</code>`).join('')}
+            ${data.issues.unused.length > 10 ? `<div style="margin-top:8px">...and ${data.issues.unused.length - 10} more</div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5).length > 0 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
+          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🔥 Most Called Functions</div>
+          ${Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5).map(([name, info], i) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem">
+              <span>
+                <span style="color:var(--accent);font-weight:600">#${i + 1}</span>
+                <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code>
+              </span>
+              <span style="color:var(--text-dimmer)">${info.callCount} calls</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.style.color = 'var(--text-error)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze Functions';
+  }
+}
+
+function _devOpenFunctionRegistryReport() {
+  if (window.electronAPI && window.electronAPI.openExternal) {
+    const path = require('path');
+    const reportPath = path.join(process.cwd(), 'coverage', 'function-registry.html');
+    window.electronAPI.openExternal('file://' + reportPath);
+  } else {
+    window.open('../coverage/function-registry.html', '_blank');
+  }
 }
 
 var _devGitLogOffset = 0;

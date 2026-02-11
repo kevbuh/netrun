@@ -25,7 +25,7 @@ Flask server (`app.py`) with route blueprints in `src/routes/`:
 - `content.py` (16) — doc-chat (SSE), extract-text/links, paper-insights, citations, author/reference lookups, panel/search suggest, annotate, knowledge-graph
 - `browse.py` (6) — web-search, browse-proxy, image-proxy, link-preview, stock-quote, check-embed
 - `vault.py` (11) — notes CRUD, marimo start/stop, vault path/tree
-- `misc.py` (30) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content
+- `misc.py` (31) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content, function-registry, dev-stats
 
 Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` (vault I/O, git ops), `persistence.py` (25-table DB, prompts, classify_title, cached_fetch), `kernels.py` (Jupyter kernel mgmt), `feed_catalog.py` (server mirror of FEED_CATALOG — **manually kept in sync** with `js/core.js`), `feed_parser.py` (RSS/Atom/HN/Polymarket, stdlib only), `feed_poller.py` (10min polling daemon, 8 threads, 30-day retention), `terminal_server.py` (WebSocket terminal)
 
@@ -206,6 +206,37 @@ Flow: check `authToken` → show gate if missing/expired → on login pull setti
 ### External APIs
 
 arXiv (RSS + API), Hacker News, Semantic Scholar, Ollama (`localhost:11434`), DuckDuckGo, Polymarket
+
+## Development Tools
+
+### Function Registry
+
+Tool for analyzing global function definitions, call sites, and dependencies across all 26 vanilla JS files.
+
+**Usage:**
+```bash
+npm run function-registry              # CLI analysis + generates reports
+```
+
+**In-app:** Dev panel (`#dev`) has "Analyze Functions" button that runs `/api/function-registry` and displays:
+- Total functions, duplicates, unused functions, file count
+- Top 5 duplicate function definitions (with locations)
+- First 10 unused functions (potential dead code)
+- Top 5 most-called functions
+
+**Outputs:**
+- `coverage/function-registry.json` - Full machine-readable report with all functions, call sites, dependencies
+- `coverage/function-registry.html` - Interactive HTML report with searchable tables, filterable views, file-by-file breakdown
+
+**Reports include:**
+- Function definitions (type, file, line number)
+- Call counts and call sites
+- Duplicate function names (same name in multiple scopes)
+- Unused functions (defined but never called)
+- Cross-file dependencies (what each file calls from others)
+- Most-called functions ranking
+
+Script location: `scripts/function-registry.js`
 
 ## Key Conventions
 

@@ -115,58 +115,6 @@ function _renderWbList() {
   }).join('');
 }
 
-function _wbDefaultColor() {
-  const theme = document.documentElement.getAttribute('data-theme');
-  return (theme === 'light' || theme === 'sepia') ? '#000000' : '#ffffff';
-}
-
-function initWhiteboard() {
-  _wbCanvas = document.getElementById('wb-canvas');
-  _wbCtx = _wbCanvas.getContext('2d');
-
-  // Set color picker default based on theme
-  const colorInput = document.getElementById('wb-color');
-  if (colorInput) colorInput.value = _wbDefaultColor();
-
-  _sizeWbCanvas();
-  _redrawWb();
-
-  if (_wbInited) return;
-  _wbInited = true;
-
-  // Pointer events
-  _wbCanvas.addEventListener('pointerdown', _wbPointerDown);
-  _wbCanvas.addEventListener('pointermove', _wbPointerMove);
-  _wbCanvas.addEventListener('pointerup', _wbPointerUp);
-  _wbCanvas.addEventListener('pointerleave', _wbPointerUp);
-
-  // Toolbar — mode buttons
-  const setMode = (mode) => {
-    _wbMode = mode;
-    document.getElementById('wb-eraser').classList.toggle('active', mode === 'eraser');
-    document.getElementById('wb-stroke-eraser').classList.toggle('active', mode === 'stroke-eraser');
-    _wbCanvas.style.cursor = mode === 'draw' ? 'crosshair' : 'pointer';
-  };
-  document.getElementById('wb-eraser').addEventListener('click', () => {
-    setMode(_wbMode === 'eraser' ? 'draw' : 'eraser');
-  });
-  document.getElementById('wb-stroke-eraser').addEventListener('click', () => {
-    setMode(_wbMode === 'stroke-eraser' ? 'draw' : 'stroke-eraser');
-  });
-  document.getElementById('wb-undo').addEventListener('click', _wbUndo);
-  document.getElementById('wb-redo').addEventListener('click', _wbRedo);
-  document.getElementById('wb-clear').addEventListener('click', _wbClear);
-  document.getElementById('wb-size').addEventListener('input', (e) => {
-    document.getElementById('wb-size-label').textContent = e.target.value;
-  });
-
-  // Resize
-  _wbResizeObs = new ResizeObserver(() => {
-    _sizeWbCanvas();
-    _redrawWb();
-  });
-  _wbResizeObs.observe(document.getElementById('wb-canvas-area'));
-}
 
 function _sizeWbCanvas() {
   const area = document.getElementById('wb-canvas-area');
@@ -181,101 +129,10 @@ function _getWbBgColor() {
   return getComputedStyle(document.documentElement).getPropertyValue('--bg-body').trim() || '#0a0a0a';
 }
 
-function _wbPointerDown(e) {
-  const rect = _wbCanvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
 
-  if (_wbMode === 'stroke-eraser') {
-    // Find and remove the topmost stroke near this point
-    _wbDrawing = true;
-    _wbCanvas.setPointerCapture(e.pointerId);
-    _wbStrokeErase(x, y);
-    return;
-  }
 
-  _wbDrawing = true;
-  _wbCanvas.setPointerCapture(e.pointerId);
-  const color = _wbMode === 'eraser' ? _getWbBgColor() : document.getElementById('wb-color').value;
-  const size = parseInt(document.getElementById('wb-size').value, 10);
-  _wbCurrent = { points: [{ x, y }], color, size, eraser: _wbMode === 'eraser' };
-  _wbCtx.lineCap = 'round';
-  _wbCtx.lineJoin = 'round';
-  _wbCtx.strokeStyle = color;
-  _wbCtx.lineWidth = size;
-  _wbCtx.beginPath();
-  _wbCtx.moveTo(x, y);
-}
 
-function _wbPointerMove(e) {
-  if (!_wbDrawing) return;
-  const rect = _wbCanvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
 
-  if (_wbMode === 'stroke-eraser') {
-    _wbStrokeErase(x, y);
-    return;
-  }
-
-  if (!_wbCurrent) return;
-  _wbCurrent.points.push({ x, y });
-  _wbCtx.lineTo(x, y);
-  _wbCtx.stroke();
-  _wbCtx.beginPath();
-  _wbCtx.moveTo(x, y);
-}
-
-function _wbPointerUp() {
-  if (!_wbDrawing) return;
-  _wbDrawing = false;
-  if (_wbMode !== 'stroke-eraser' && _wbCurrent && _wbCurrent.points.length > 0) {
-    _wbStrokes.push(_wbCurrent);
-    _wbRedoStack = [];
-    _saveWbStrokes();
-  }
-  _wbCurrent = null;
-}
-
-// Distance from point (px,py) to line segment (ax,ay)-(bx,by)
-function _ptSegDist(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
-  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
-function _wbStrokeErase(x, y) {
-  const threshold = 8;
-  // Walk strokes top-to-bottom (last drawn = topmost)
-  for (let i = _wbStrokes.length - 1; i >= 0; i--) {
-    const s = _wbStrokes[i];
-    if (s.eraser) continue; // skip eraser strokes
-    for (let j = 0; j < s.points.length - 1; j++) {
-      const d = _ptSegDist(x, y, s.points[j].x, s.points[j].y, s.points[j + 1].x, s.points[j + 1].y);
-      if (d <= threshold + s.size / 2) {
-        _wbRedoStack = [];
-        _wbStrokes.splice(i, 1);
-        _redrawWb();
-        _saveWbStrokes();
-        return;
-      }
-    }
-    // Single-point stroke (dot)
-    if (s.points.length === 1) {
-      const d = Math.hypot(x - s.points[0].x, y - s.points[0].y);
-      if (d <= threshold + s.size / 2) {
-        _wbRedoStack = [];
-        _wbStrokes.splice(i, 1);
-        _redrawWb();
-        _saveWbStrokes();
-        return;
-      }
-    }
-  }
-}
 
 function _redrawWb() {
   const ctx = _wbCtx;
@@ -298,27 +155,8 @@ function _redrawWb() {
   }
 }
 
-function _wbUndo() {
-  if (!_wbStrokes.length) return;
-  _wbRedoStack.push(_wbStrokes.pop());
-  _redrawWb();
-  _saveWbStrokes();
-}
 
-function _wbRedo() {
-  if (!_wbRedoStack.length) return;
-  _wbStrokes.push(_wbRedoStack.pop());
-  _redrawWb();
-  _saveWbStrokes();
-}
 
-function _wbClear() {
-  if (!_wbStrokes.length) return;
-  _wbRedoStack = [];
-  _wbStrokes = [];
-  _redrawWb();
-  _saveWbStrokes();
-}
 
 function _saveWbStrokes() {
   if (!_wbCurrentId) return;

@@ -1323,12 +1323,6 @@ function _systemColorScheme() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function getThemeColorScheme() {
-  const theme = localStorage.getItem('theme') || 'light';
-  if (theme === 'auto') return _systemColorScheme();
-  return THEME_COLOR_SCHEME[theme] || 'light';
-}
-
 // Resolve 'auto' to the actual theme name based on system preference
 function _resolveAutoTheme() {
   return _systemColorScheme() === 'dark' ? 'dark' : 'light';
@@ -1363,14 +1357,6 @@ function setTheme(theme) {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });
-}
-
-function setAdBlockEnabled(on) {
-  localStorage.setItem('adBlockEnabled', on ? 'true' : 'false');
-  if (window.electronAPI && window.electronAPI.adblockSetEnabled) {
-    window.electronAPI.adblockSetEnabled(on);
-  }
-  if (typeof _browseUpdateAdBlockBtn === 'function') _browseUpdateAdBlockBtn();
 }
 
 
