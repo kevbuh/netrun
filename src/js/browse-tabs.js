@@ -3520,11 +3520,7 @@ function _pillUrlKeydown(e) {
     if (!input) return;
     const val = input.value.trim();
     if (!val) return;
-    const mainInput = document.getElementById('browse-url-input');
-    if (mainInput) {
-      mainInput.value = val;
-      _browseUrlKeydown({ key: 'Enter', preventDefault() {} });
-    }
+    browseNavigate(val);
     input.blur();
   } else if (e.key === 'Escape') {
     e.target.blur();
