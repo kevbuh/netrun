@@ -506,6 +506,107 @@ def function_registry(google_id):
         return jsonify({'error': str(e)}), 500
 
 
+@bp.route('/api/validate-feeds')
+@require_auth
+def validate_feeds(google_id):
+    """
+    Run feed catalog validation script and return results.
+
+    Returns:
+        {
+            "status": "ok" | "error",
+            "jsCatalogSize": int,
+            "pyCatalogSize": int,
+            "errorCount": int,
+            "errors": [
+                {
+                    "type": "MISSING_IN_PY" | "MISSING_IN_JS" | "URL_MISMATCH" | "SPECIAL_MISMATCH",
+                    "key": str,
+                    "js": {...} | null,
+                    "py": {...} | null
+                }
+            ]
+        }
+    """
+    try:
+        import json
+        # Run validate-feeds.js script with --json flag
+        script_path = os.path.join(os.path.dirname(DIR), 'scripts', 'validate-feeds.js')
+        result = subprocess.run(
+            ['node', script_path, '--json'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        # Parse JSON output (script outputs to stdout even on error)
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to parse validation output',
+                'stderr': result.stderr
+            }), 500
+
+        return jsonify(data)
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Validation timed out'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@bp.route('/api/validate-load-order')
+@require_auth
+def validate_load_order(google_id):
+    """
+    Run load order validation and return results.
+
+    Returns:
+        {
+            "status": "ok",
+            "scriptCount": int,
+            "scriptOrder": [...],
+            "forwardRefs": [...],
+            "warnings": [...],
+            "infos": [...],
+            "cycles": [...]
+        }
+    """
+    try:
+        import json
+        # Run function-registry.js with --check-load-order and --json flags
+        script_path = os.path.join(os.path.dirname(DIR), 'scripts', 'function-registry.js')
+        result = subprocess.run(
+            ['node', script_path, '--check-load-order', '--json'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return jsonify({
+                'status': 'error',
+                'message': f'Script failed: {result.stderr}'
+            }), 500
+
+        # Parse JSON output
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to parse load order output',
+                'stderr': result.stderr
+            }), 500
+
+        return jsonify(data)
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Analysis timed out'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @bp.route('/api/calendar')
 @require_auth
 def list_calendar(google_id):

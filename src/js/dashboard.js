@@ -1157,6 +1157,18 @@ let _devFpsRaf = null;
 var _devChartId = 0;
 var _devChartRegistry = [];
 
+// Dev panel navigation structure
+const DEV_SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: '📊' },
+  { id: 'function-registry', label: 'Function Registry', icon: '🔍' },
+  { id: 'feed-validator', label: 'Feed Validator', icon: '📡' },
+  { id: 'load-order', label: 'Load Order', icon: '🔗' },
+  { id: 'git-log', label: 'Git Log', icon: '📜' },
+  { id: 'tools', label: 'Dev Tools', icon: '🛠️' }
+];
+
+var _devActiveSection = null;
+
 function _devLineChart(hist, yKey, label, color, tooltipFn) {
   if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
   const id = '_dchart_' + (_devChartId++);
@@ -1260,15 +1272,96 @@ function _devRelativeTime(d) {
   return d.toLocaleDateString();
 }
 
-async function renderDevStats() {
+function renderDevPanel() {
   if (_devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
+
+  const sidebar = document.getElementById('dev-sidebar');
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!sidebar || !contentPane) return;
+
+  // Load active section from localStorage or default to 'overview'
+  if (!_devActiveSection) {
+    _devActiveSection = localStorage.getItem('devPanelSection') || 'overview';
+  }
+
+  // Render sidebar navigation
+  sidebar.innerHTML = DEV_SECTIONS.map(section => {
+    const isActive = section.id === _devActiveSection;
+    return `<div
+      onclick="_devNavigateTo('${section.id}')"
+      style="
+        padding:10px 16px;
+        cursor:pointer;
+        border-left:3px solid ${isActive ? 'var(--accent)' : 'transparent'};
+        background:${isActive ? 'var(--bg-hover)' : 'transparent'};
+        color:${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'};
+        font-size:0.8rem;
+        font-weight:${isActive ? '600' : '400'};
+        transition:all 0.15s ease;
+      "
+      onmouseover="if ('${section.id}' !== '${_devActiveSection}') this.style.background='var(--bg-hover)'"
+      onmouseout="if ('${section.id}' !== '${_devActiveSection}') this.style.background='transparent'"
+    >
+      <span style="margin-right:8px">${section.icon}</span>
+      ${section.label}
+    </div>`;
+  }).join('');
+
+  // Render active section content
+  renderDevSection(_devActiveSection);
+}
+
+function _devNavigateTo(sectionId) {
+  _devActiveSection = sectionId;
+  localStorage.setItem('devPanelSection', sectionId);
+  renderDevPanel();
+}
+
+function renderDevSection(sectionId) {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
+
+  switch (sectionId) {
+    case 'overview':
+      _renderDevOverview();
+      break;
+    case 'function-registry':
+      _renderDevFunctionRegistry();
+      break;
+    case 'feed-validator':
+      _renderDevFeedValidator();
+      break;
+    case 'load-order':
+      _renderDevLoadOrder();
+      break;
+    case 'git-log':
+      _renderDevGitLog();
+      break;
+    case 'tools':
+      _renderDevTools();
+      break;
+    default:
+      contentPane.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Unknown section</div>';
+  }
+}
+
+// ── Overview Section ──
+async function _renderDevOverview() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Project Health Dashboard</h2>
+    <div class="dev-stats-cards" id="dev-stats-cards"></div>
+    <div id="dev-loc-chart"></div>
+  `;
 
   const cards = document.getElementById('dev-stats-cards');
   const chart = document.getElementById('dev-loc-chart');
-  if (!cards || !chart) return;
 
   cards.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
-  chart.innerHTML = '';
 
   let data;
   try {
@@ -1284,15 +1377,11 @@ async function renderDevStats() {
   const stats = [
     { value: (data.project_age_days || 0) + 'd', label: 'Project Age' },
     { value: data.total_loc.toLocaleString(), label: 'Total Lines' },
-    { value: (data.core_loc || 0).toLocaleString(), label: 'Core Lines' },
-    { value: (data.test_loc || 0).toLocaleString(), label: 'Test Lines' },
     { value: data.files, label: 'Files' },
-    { value: (data.total_commits || 0).toLocaleString(), label: 'Total Commits' },
-    { value: data.commits_today, label: 'Commits Today' },
-    { value: data.avg_commits_day || 0, label: 'Avg Commits/Day' },
+    { value: (data.total_commits || 0).toLocaleString(), label: 'Commits' },
     { value: '—', label: 'FPS', id: 'dev-fps-value' },
-    { value: (data.ram_mb || 0) + ' MB', label: 'Server RAM' },
-    { value: (data.project_mb || 0) + ' MB', label: 'Project Size' },
+    { value: (data.ram_mb || 0) + ' MB', label: 'RAM' },
+    { value: (data.project_mb || 0) + ' MB', label: 'Size' },
   ];
   cards.innerHTML = stats.map(s =>
     `<div class="dev-stat-card">
@@ -1325,12 +1414,12 @@ async function renderDevStats() {
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
   const hist = data.loc_history || [];
 
-  // LOC chart with +/- hover
+  // LOC chart
   const locChart = _devLineChart(hist, 'lines', 'Lines of Code', accent, h =>
     `${h.lines.toLocaleString()} lines\n<span style="color:#3fb950">+${(h.added || 0).toLocaleString()}</span> <span style="color:#f85149">-${(h.deleted || 0).toLocaleString()}</span>`
   );
 
-  // Build usage history arrays aligned to loc_history dates
+  // Build usage history arrays
   const usage = data.usage_history || {};
   const allDates = hist.map(h => h.date);
   function usageSeries(eventName) {
@@ -1338,11 +1427,9 @@ async function renderDevStats() {
   }
   const toolSeries = usageSeries('tool_call');
   const aetherSeries = usageSeries('aether_chat');
-  const searchSeries = usageSeries('search_chat');
 
   const toolChart = _devLineChart(toolSeries, 'count', 'Tool Calls', '#6d9eeb', h => `${h.count} tool calls`);
   const aetherChart = _devLineChart(aetherSeries, 'count', 'Aether Chats', '#93c47d', h => `${h.count} aether chats`);
-  const searchChart = _devLineChart(searchSeries, 'count', 'Search Chats', '#e06666', h => `${h.count} search chats`);
 
   const cpd = data.commits_per_day || [];
   const commitsChart = cpd.length >= 2 ? _devLineChart(cpd, 'count', 'Commits / Day', '#f6b26b', h => `${h.count} commits`) : '';
@@ -1354,17 +1441,120 @@ async function renderDevStats() {
     <div class="dev-loc-chart">${aetherChart}</div>
   </div>`;
   _devBindCharts();
+}
 
-  // Git log
-  const gitLogEl = document.getElementById('dev-git-log');
-  const log = data.git_log || [];
-  if (gitLogEl && log.length) {
-    gitLogEl.innerHTML = `
-      <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:4px">Recent Commits</div>
-      <div class="dev-git-log-list" id="dev-git-log-list">${_devRenderCommitRows(log)}</div>`;
-    _devGitLogOffset = log.length;
-    if (log.length >= 20) _devAppendLoadMoreBtn();
+// ── Function Registry Section ──
+function _renderDevFunctionRegistry() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Function Registry</h2>
+    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
+      Analyze global functions, duplicates, and unused code across all vanilla JS files.
+    </p>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="_devRunFunctionRegistry()" id="dev-fn-reg-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Analyze Functions</button>
+      <button onclick="_devOpenFunctionRegistryReport()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 14px;font-size:0.75rem;cursor:pointer">Open HTML Report</button>
+      <span id="dev-fn-reg-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+    </div>
+    <div id="dev-fn-reg-results"></div>
+  `;
+}
+
+// ── Feed Validator Section ──
+function _renderDevFeedValidator() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Feed Catalog Validator</h2>
+    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
+      Validate sync between JS (core.js) and Python (feed_catalog.py) feed catalogs.
+    </p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button onclick="_devRunFeedValidator()" id="dev-feed-val-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Run Validation</button>
+      <span id="dev-feed-val-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+    </div>
+    <div id="dev-feed-val-results"></div>
+  `;
+}
+
+// ── Load Order Section ──
+function _renderDevLoadOrder() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Script Load Order Validator</h2>
+    <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
+      Analyze script dependencies and detect forward references or circular dependencies.
+    </p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button onclick="_devRunLoadOrderAnalysis()" id="dev-load-ord-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Run Analysis</button>
+      <span id="dev-load-ord-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+    </div>
+    <div id="dev-load-ord-results"></div>
+  `;
+}
+
+// ── Git Log Section ──
+async function _renderDevGitLog() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Git History</h2>
+    <div id="dev-git-log-container"></div>
+  `;
+
+  const container = document.getElementById('dev-git-log-container');
+  container.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
+
+  try {
+    const res = await fetch('/api/dev-stats', { headers: _authHeaders() });
+    const data = await res.json();
+    const log = data.git_log || [];
+
+    if (log.length) {
+      container.innerHTML = `
+        <div class="dev-git-log-list" id="dev-git-log-list">${_devRenderCommitRows(log)}</div>
+      `;
+      _devGitLogOffset = log.length;
+      if (log.length >= 20) _devAppendLoadMoreBtn();
+    } else {
+      container.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">No commits found</div>';
+    }
+  } catch (e) {
+    container.innerHTML = `<div class="text-sm" style="color:var(--text-dimmer)">Error: ${e.message}</div>`;
   }
+}
+
+// ── Dev Tools Section ──
+function _renderDevTools() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+
+  contentPane.innerHTML = `
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dev Tools</h2>
+    <div style="border-top:1px solid var(--border-card);padding-top:12px;margin-top:12px">
+      <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:8px">Achievement Tester</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap" id="dev-ach-tester">
+        <select id="dev-ach-select" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:0.7rem;min-width:160px">
+          <option value="bookworm">Bookworm</option>
+          <option value="curator">Curator</option>
+          <option value="critic">Critic</option>
+          <option value="explorer">Explorer</option>
+          <option value="model_switch">Model Swapper</option>
+          <option value="its_alive">It's Alive!</option>
+          <option value="pixel_parent">Pixel Parent</option>
+        </select>
+        <button onclick="_devTestAchievement()" style="background:linear-gradient(135deg,#b8860b,#ffd700);color:#1a1400;border:none;border-radius:6px;padding:4px 12px;font-size:0.7rem;font-weight:600;cursor:pointer">Show</button>
+        <button onclick="islandRemove('achievement')" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Dismiss</button>
+        <button onclick="_devResetAchievements()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Reset All</button>
+      </div>
+    </div>
+  `;
 }
 
 var _devAchievements = {
@@ -1418,6 +1608,19 @@ async function _devRunFunctionRegistry() {
     status.style.color = 'var(--text-success)';
 
     const summary = data.summary;
+
+    // Group duplicates by severity
+    const dupsBySeverity = { ERROR: [], WARNING: [], INFO: [] };
+    data.issues.duplicates.forEach(dup => {
+      const severity = dup.severity || 'WARNING';
+      if (!dupsBySeverity[severity]) dupsBySeverity[severity] = [];
+      dupsBySeverity[severity].push(dup);
+    });
+
+    const errorCount = dupsBySeverity.ERROR.length;
+    const warningCount = dupsBySeverity.WARNING.length;
+    const infoCount = dupsBySeverity.INFO.length;
+
     results.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px">
         <div class="dev-stat-card" style="padding:12px">
@@ -1439,9 +1642,20 @@ async function _devRunFunctionRegistry() {
       </div>
 
       ${data.issues.duplicates.length > 0 ? `
-        <div style="margin-top:16px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
-          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Duplicate Functions (${data.issues.duplicates.length})</div>
-          ${data.issues.duplicates.slice(0, 5).map(dup => `
+        <div style="margin-top:16px;padding:8px 12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
+          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600">
+            Severity Breakdown:
+            <span style="color:#ef4444;margin-left:12px">${errorCount} ERROR</span>
+            <span style="color:#f59e0b;margin-left:8px">${warningCount} WARNING</span>
+            <span style="color:#60a5fa;margin-left:8px">${infoCount} INFO</span>
+          </div>
+        </div>
+      ` : ''}
+
+      ${errorCount > 0 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #ef4444">
+          <div style="color:#ef4444;font-size:0.7rem;font-weight:600;margin-bottom:8px">🔴 ERROR: Global Naming Conflicts (${errorCount})</div>
+          ${dupsBySeverity.ERROR.slice(0, 5).map(dup => `
             <div style="margin-bottom:8px;font-size:0.65rem">
               <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
               <div style="color:var(--text-dimmer);margin-top:4px;margin-left:8px">
@@ -1449,8 +1663,40 @@ async function _devRunFunctionRegistry() {
               </div>
             </div>
           `).join('')}
-          ${data.issues.duplicates.length > 5 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${data.issues.duplicates.length - 5} more</div>` : ''}
+          ${errorCount > 5 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${errorCount - 5} more</div>` : ''}
         </div>
+      ` : ''}
+
+      ${warningCount > 0 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
+          <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ WARNING: Same-Scope Duplicates (${warningCount})</div>
+          ${dupsBySeverity.WARNING.slice(0, 5).map(dup => `
+            <div style="margin-bottom:8px;font-size:0.65rem">
+              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
+              <div style="color:var(--text-dimmer);margin-top:4px;margin-left:8px">
+                ${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}
+              </div>
+            </div>
+          `).join('')}
+          ${warningCount > 5 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${warningCount - 5} more</div>` : ''}
+        </div>
+      ` : ''}
+
+      ${infoCount > 0 ? `
+        <details style="margin-top:12px">
+          <summary style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #60a5fa;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600">
+            ℹ️ INFO: Nested Duplicates (${infoCount}) - Safe, intentional
+          </summary>
+          <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px">
+            ${dupsBySeverity.INFO.slice(0, 10).map(dup => `
+              <div style="margin-bottom:8px;font-size:0.65rem">
+                <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
+                <span style="color:var(--text-dimmer);margin-left:8px">(${dup.definitions.length} definitions)</span>
+              </div>
+            `).join('')}
+            ${infoCount > 10 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${infoCount - 10} more</div>` : ''}
+          </div>
+        </details>
       ` : ''}
 
       ${data.issues.unused.length > 0 ? `
@@ -1494,6 +1740,261 @@ function _devOpenFunctionRegistryReport() {
     window.electronAPI.openExternal('file://' + reportPath);
   } else {
     window.open('../coverage/function-registry.html', '_blank');
+  }
+}
+
+async function _devRunFeedValidator() {
+  const btn = document.getElementById('dev-feed-val-btn');
+  const status = document.getElementById('dev-feed-val-status');
+  const results = document.getElementById('dev-feed-val-results');
+  if (!btn || !status || !results) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Validating...';
+  status.textContent = 'Running validation...';
+  results.innerHTML = '';
+
+  try {
+    const res = await fetch('/api/validate-feeds', { headers: _authHeaders() });
+    const data = await res.json();
+
+    if (data.status === 'error' && data.message) {
+      status.textContent = 'Error: ' + data.message;
+      status.style.color = 'var(--text-error)';
+      return;
+    }
+
+    const isSync = data.errorCount === 0;
+    status.textContent = isSync ? '✅ Catalogs in sync' : `❌ ${data.errorCount} mismatch${data.errorCount === 1 ? '' : 'es'} found`;
+    status.style.color = isSync ? 'var(--text-success)' : 'var(--text-error)';
+
+    results.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${data.jsCatalogSize}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">JS Entries</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${data.pyCatalogSize}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">PY Entries</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:${isSync ? '#34d399' : '#ef4444'}">${data.errorCount}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Mismatches</div>
+        </div>
+      </div>
+
+      ${data.errorCount > 0 ? `
+        ${_devRenderFeedValidatorErrors(data.errors)}
+      ` : `
+        <div style="padding:24px;text-align:center;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
+          <div style="font-size:48px;margin-bottom:8px">✅</div>
+          <div style="color:var(--text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div>
+          <div style="color:var(--text-dimmer);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div>
+        </div>
+      `}
+    `;
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.style.color = 'var(--text-error)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Validation';
+  }
+}
+
+function _devRenderFeedValidatorErrors(errors) {
+  const byType = { MISSING_IN_PY: [], MISSING_IN_JS: [], URL_MISMATCH: [], SPECIAL_MISMATCH: [] };
+  errors.forEach(e => byType[e.type].push(e));
+
+  return `
+    ${byType.MISSING_IN_PY.length > 0 ? `
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
+        <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Missing in Python (${byType.MISSING_IN_PY.length})</div>
+        <div style="color:var(--text-dimmer);font-size:0.65rem">
+          ${byType.MISSING_IN_PY.map(e => `
+            <div style="margin-bottom:6px">
+              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
+              <span style="margin-left:8px">→ Add to feed_catalog.py</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    ${byType.MISSING_IN_JS.length > 0 ? `
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
+        <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Missing in JavaScript (${byType.MISSING_IN_JS.length})</div>
+        <div style="color:var(--text-dimmer);font-size:0.65rem">
+          ${byType.MISSING_IN_JS.map(e => `
+            <div style="margin-bottom:6px">
+              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
+              <span style="margin-left:8px">→ Add to core.js</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    ${byType.URL_MISMATCH.length > 0 ? `
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #ef4444">
+        <div style="color:#ef4444;font-size:0.7rem;font-weight:600;margin-bottom:8px">🔴 URL Mismatch (${byType.URL_MISMATCH.length})</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;font-size:0.65rem;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border-card)">
+                <th style="text-align:left;padding:4px;color:var(--text-primary)">Key</th>
+                <th style="text-align:left;padding:4px;color:var(--text-primary)">JS URL</th>
+                <th style="text-align:left;padding:4px;color:var(--text-primary)">PY URL</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${byType.URL_MISMATCH.map(e => `
+                <tr style="border-bottom:1px solid var(--border-card)">
+                  <td style="padding:4px"><code style="color:#60a5fa;background:var(--bg-hover);padding:2px 4px;border-radius:3px">${escapeHtml(e.key)}</code></td>
+                  <td style="padding:4px;color:var(--text-dimmer);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.js?.url || '(none)')}</td>
+                  <td style="padding:4px;color:var(--text-dimmer);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.py?.url || '(none)')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    ${byType.SPECIAL_MISMATCH.length > 0 ? `
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #ef4444">
+        <div style="color:#ef4444;font-size:0.7rem;font-weight:600;margin-bottom:8px">🔴 Special Field Mismatch (${byType.SPECIAL_MISMATCH.length})</div>
+        <div style="color:var(--text-dimmer);font-size:0.65rem">
+          ${byType.SPECIAL_MISMATCH.map(e => `
+            <div style="margin-bottom:6px">
+              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
+              <span style="margin-left:8px">JS: ${e.js?.special || '(none)'} → PY: ${e.py?.special || '(none)'}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+async function _devRunLoadOrderAnalysis() {
+  const btn = document.getElementById('dev-load-ord-btn');
+  const status = document.getElementById('dev-load-ord-status');
+  const results = document.getElementById('dev-load-ord-results');
+  if (!btn || !status || !results) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  status.textContent = 'Running analysis...';
+  results.innerHTML = '';
+
+  try {
+    const res = await fetch('/api/validate-load-order', { headers: _authHeaders() });
+    const data = await res.json();
+
+    if (data.status === 'error' && data.message) {
+      status.textContent = 'Error: ' + data.message;
+      status.style.color = 'var(--text-error)';
+      return;
+    }
+
+    const isOptimal = data.warnings.length === 0;
+    status.textContent = isOptimal ? '✅ Load order optimal' : `⚠️ ${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
+    status.style.color = isOptimal ? 'var(--text-success)' : '#f59e0b';
+
+    results.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${data.scriptCount}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Scripts</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:${data.warnings.length > 0 ? '#f59e0b' : 'var(--text-primary)'}">${data.warnings.length}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Warnings</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--text-dimmer)">${data.infos.length}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Info</div>
+        </div>
+        <div class="dev-stat-card" style="padding:12px">
+          <div class="dev-stat-value" style="font-size:24px;color:var(--text-primary)">${data.cycles.length}</div>
+          <div class="dev-stat-label" style="font-size:0.65rem">Circular Deps</div>
+        </div>
+      </div>
+
+      <details open style="margin-bottom:12px">
+        <summary style="padding:8px 12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.7rem;font-weight:600">
+          📜 Script Load Order (${data.scriptCount} files)
+        </summary>
+        <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">
+          ${data.scriptOrder.map((script, i) => `
+            <div style="font-size:0.65rem;color:var(--text-dimmer);margin-bottom:2px;font-family:monospace">
+              <span style="color:var(--accent);font-weight:600">${i + 1}.</span>
+              <span style="margin-left:8px">${escapeHtml(script)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </details>
+
+      ${data.warnings.length > 0 ? `
+        <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #f59e0b">
+          <div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:8px">⚠️ Forward References (WARNING - may cause issues)</div>
+          <div style="color:var(--text-dimmer);font-size:0.65rem;max-height:200px;overflow-y:auto">
+            ${data.warnings.slice(0, 10).map(ref => `
+              <div style="margin-bottom:8px;padding:8px;background:var(--bg-hover);border-radius:4px">
+                <div><strong>${ref.callFile}</strong> (order ${ref.callOrder}) calls <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code></div>
+                <div style="margin-top:4px;color:var(--text-dimmer)">→ Defined in <strong>${ref.defFile}</strong> (order ${ref.defOrder})</div>
+              </div>
+            `).join('')}
+            ${data.warnings.length > 10 ? `<div style="margin-top:8px">...and ${data.warnings.length - 10} more</div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${data.infos.length > 0 ? `
+        <details style="margin-bottom:12px">
+          <summary style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600;border-left:3px solid #60a5fa">
+            ℹ️ Forward References (INFO - ${data.infos.length}) - Safe with defer
+          </summary>
+          <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px">
+            <div style="color:var(--text-dimmer);font-size:0.65rem;margin-bottom:8px">
+              These forward references are safe because scripts use defer attribute and functions are called inside other functions or event handlers.
+            </div>
+            <div style="color:var(--text-dimmer);font-size:0.65rem">
+              ${data.infos.slice(0, 5).map(ref => `
+                <div style="margin-bottom:4px">
+                  ${ref.callFile} → <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code> → ${ref.defFile}
+                </div>
+              `).join('')}
+              ${data.infos.length > 5 ? `<div style="margin-top:8px">...and ${data.infos.length - 5} more</div>` : ''}
+            </div>
+          </div>
+        </details>
+      ` : ''}
+
+      ${data.cycles.length > 0 ? `
+        <details style="margin-bottom:12px">
+          <summary style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.7rem;font-weight:600">
+            🔄 Circular Dependencies (${data.cycles.length})
+          </summary>
+          <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px">
+            <div style="color:var(--text-dimmer);font-size:0.65rem">
+              ${data.cycles.slice(0, 10).map(cycle => `
+                <div style="margin-bottom:4px">${cycle.join(' → ')}</div>
+              `).join('')}
+              ${data.cycles.length > 10 ? `<div style="margin-top:8px">...and ${data.cycles.length - 10} more</div>` : ''}
+            </div>
+          </div>
+        </details>
+      ` : ''}
+    `;
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.style.color = 'var(--text-error)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Analysis';
   }
 }
 

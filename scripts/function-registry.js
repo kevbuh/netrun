@@ -1103,24 +1103,45 @@ function main() {
   const args = process.argv.slice(2);
   const checkLoadOrder = args.includes('--check-load-order');
   const suggestReorder = args.includes('--suggest-reorder');
+  const jsonOutput = args.includes('--json');
 
-  console.time('Analysis time');
+  if (!jsonOutput) {
+    console.time('Analysis time');
+  }
 
   const data = analyzeCodebase();
   const report = generateReport(data);
 
-  console.timeEnd('Analysis time');
-  console.log();
+  if (!jsonOutput) {
+    console.timeEnd('Analysis time');
+    console.log();
+  }
 
   if (checkLoadOrder || suggestReorder) {
     // Load order analysis only
     const loadOrderData = analyzeLoadOrder(data);
-    printLoadOrderReport(loadOrderData);
 
-    if (suggestReorder && loadOrderData.warnings.length > 0) {
-      console.log('💡 Suggestion: Review forward references above.');
-      console.log('   Most are safe (deferred via VIEW_REGISTRY, event handlers).');
-      console.log('   Current order works due to script defer attribute.\n');
+    if (jsonOutput) {
+      // JSON output for API consumption
+      const output = {
+        status: 'ok',
+        scriptCount: loadOrderData.scriptOrder.length,
+        scriptOrder: loadOrderData.scriptOrder,
+        forwardRefs: loadOrderData.forwardRefs,
+        warnings: loadOrderData.warnings,
+        infos: loadOrderData.infos,
+        cycles: loadOrderData.cycles
+      };
+      console.log(JSON.stringify(output, null, 2));
+    } else {
+      // Console output
+      printLoadOrderReport(loadOrderData);
+
+      if (suggestReorder && loadOrderData.warnings.length > 0) {
+        console.log('💡 Suggestion: Review forward references above.');
+        console.log('   Most are safe (deferred via VIEW_REGISTRY, event handlers).');
+        console.log('   Current order works due to script defer attribute.\n');
+      }
     }
 
     return;

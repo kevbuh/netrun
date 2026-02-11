@@ -1,34 +1,11 @@
-<div class="p-4">
-  <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dev Stats</h2>
-  <div class="dev-stats-cards" id="dev-stats-cards"></div>
-  <div id="dev-loc-chart"></div>
-  <div id="dev-git-log" style="margin-top:10px"></div>
-
-  <div style="margin-top:16px;border-top:1px solid var(--border-card);padding-top:12px">
-    <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:8px">Achievement Tester</div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap" id="dev-ach-tester">
-      <select id="dev-ach-select" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:0.7rem;min-width:160px">
-        <option value="bookworm">Bookworm</option>
-        <option value="curator">Curator</option>
-        <option value="critic">Critic</option>
-        <option value="explorer">Explorer</option>
-        <option value="model_switch">Model Swapper</option>
-        <option value="its_alive">It's Alive!</option>
-        <option value="pixel_parent">Pixel Parent</option>
-      </select>
-      <button onclick="_devTestAchievement()" style="background:linear-gradient(135deg,#b8860b,#ffd700);color:#1a1400;border:none;border-radius:6px;padding:4px 12px;font-size:0.7rem;font-weight:600;cursor:pointer">Show</button>
-      <button onclick="islandRemove('achievement')" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Dismiss</button>
-      <button onclick="_devResetAchievements()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Reset All</button>
-    </div>
+<div class="electron-drag-top"></div>
+<div style="display:grid; grid-template-columns:200px 1fr; height:calc(100vh - 38px); overflow:hidden;">
+  <!-- Sidebar -->
+  <div id="dev-sidebar" style="border-right:1px solid var(--border-card); display:flex; flex-direction:column; padding:16px 0; overflow-y:auto;">
+    <!-- Populated by renderDevPanel() -->
   </div>
-
-  <div style="margin-top:16px;border-top:1px solid var(--border-card);padding-top:12px">
-    <div style="color:var(--text-primary);font-size:0.75rem;font-weight:600;margin-bottom:8px">Function Registry</div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <button onclick="_devRunFunctionRegistry()" id="dev-fn-reg-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:0.7rem;font-weight:600;cursor:pointer">Analyze Functions</button>
-      <button onclick="_devOpenFunctionRegistryReport()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:4px 12px;font-size:0.7rem;cursor:pointer">Open HTML Report</button>
-      <span id="dev-fn-reg-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
-    </div>
-    <div id="dev-fn-reg-results"></div>
+  <!-- Content Pane -->
+  <div id="dev-content-pane" style="overflow-y:auto; padding:24px 32px 64px;">
+    <!-- Populated by renderDevSection() -->
   </div>
 </div>

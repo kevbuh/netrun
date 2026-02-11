@@ -1829,7 +1829,7 @@ async function openDevStats() {
   view.style.display = 'block';
   if (window.location.hash !== '#dev') window.location.hash = '#dev';
   setSidebarActive('sb-dev');
-  renderDevStats();
+  renderDevPanel();
 }
 
 function expGoBack() {
