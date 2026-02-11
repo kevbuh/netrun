@@ -4175,34 +4175,59 @@ function _panelBuildSelectionUI(popup, config) {
     btnRow.appendChild(fromHereBtn);
   }
 
-  // Good/Bad annotation feedback buttons
-  const _makeFeedbackBtn = (rating, emoji, color) => {
-    const btn = document.createElement('button');
-    btn.className = 'doc-selection-copy-btn';
-    btn.title = rating === 'good' ? 'Good highlight' : 'Bad highlight';
-    btn.innerHTML = '<span style="font-size:12px">' + emoji + '</span>';
-    btn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      let feedbackUrl = '';
-      let feedbackTitle = '';
-      if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
-        const feedbackTab = _browseTabs.find(t => t.id === _browseActiveTab);
-        if (feedbackTab) { feedbackUrl = feedbackTab.url || ''; feedbackTitle = feedbackTab.title || ''; }
+  // Annotate "+" button — mark selected text as a specific annotation type
+  const annotateBtn = document.createElement('button');
+  annotateBtn.className = 'doc-selection-copy-btn';
+  annotateBtn.title = 'Mark as annotation';
+  annotateBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  annotateBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+  annotateBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    // Toggle dropdown
+    let dropdown = btnRow.querySelector('.ann-type-dropdown');
+    if (dropdown) { dropdown.remove(); return; }
+    dropdown = document.createElement('div');
+    dropdown.className = 'ann-type-dropdown';
+    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--aether-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;';
+    const types = [
+      { key: 'ALPHA', name: 'Alpha', color: '#4caf50' },
+      { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350' },
+      { key: 'AD', name: 'Ad', color: '#ff9800' },
+    ];
+    // Add custom categories
+    if (typeof _customAnnotationCategories !== 'undefined') {
+      for (const cc of _customAnnotationCategories) {
+        types.push({ key: cc.key, name: cc.name, color: cc.color });
       }
-      fetch('/api/annotation-feedback', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
-        body: JSON.stringify({ quote: capturedText, rating: rating, url: feedbackUrl, pageTitle: feedbackTitle })
-      }).catch(() => {});
-      btn.style.color = color;
-      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      btn.disabled = true;
-    });
-    return btn;
-  };
-  btnRow.appendChild(_makeFeedbackBtn('good', '\u{1F44D}', '#4caf50'));
-  btnRow.appendChild(_makeFeedbackBtn('bad', '\u{1F44E}', '#ef5350'));
+    }
+    for (const t of types) {
+      const chip = document.createElement('button');
+      chip.style.cssText = 'background:none;border:1px solid ' + t.color + '40;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:11px;color:' + t.color + ';display:flex;align-items:center;gap:4px;white-space:nowrap;';
+      chip.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:' + t.color + '"></span>' + escapeHtml(t.name);
+      chip.addEventListener('mousedown', (mev) => { mev.stopPropagation(); mev.preventDefault(); });
+      chip.addEventListener('click', (cev) => {
+        cev.stopPropagation(); cev.preventDefault();
+        let feedbackUrl = '';
+        let feedbackTitle = '';
+        if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+          const fTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
+          if (fTab) { feedbackUrl = fTab.url || ''; feedbackTitle = fTab.title || ''; }
+        }
+        fetch('/api/annotation-feedback', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
+          body: JSON.stringify({ quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle })
+        }).catch(() => {});
+        dropdown.remove();
+        annotateBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + t.color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        annotateBtn.disabled = true;
+      });
+      dropdown.appendChild(chip);
+    }
+    btnRow.style.position = 'relative';
+    btnRow.appendChild(dropdown);
+  });
+  btnRow.appendChild(annotateBtn);
 
   // Clear button — positioned on far right
   const clearBtnIcon = document.createElement('button');
@@ -4447,16 +4472,6 @@ function _panelBuildChatInput(popup, config) {
     // Let Cmd+I bubble up to document handler for toggle
     if ((ev.metaKey || ev.ctrlKey) && ev.key === 'i') return;
     ev.stopPropagation();
-    // Tab accepts AI suggestion
-    if (ev.key === 'Tab' && !ev.shiftKey) {
-      const suggEl = popup.querySelector('.aether-suggestion');
-      if (suggEl) {
-        ev.preventDefault();
-        const text = suggEl.querySelector('.aether-suggestion-text').textContent;
-        _acceptPanelSuggestion(popup, text);
-        return;
-      }
-    }
     const val = askInput.value;
     const isCmd = val.startsWith('/');
     const dropdown = popup.querySelector('.aether-cmd-dropdown');
@@ -4646,12 +4661,6 @@ function _panelBuildChatInput(popup, config) {
     // Shift key handler removed - no longer dismisses panel
   });
   askInput.addEventListener('input', () => {
-    // Dismiss suggestion when user types
-    const suggEl = popup.querySelector('.aether-suggestion');
-    if (suggEl) {
-      suggEl.remove();
-      if (!askInput.value.trim()) askInput.placeholder = 'Ask anything…';
-    }
     const val = askInput.value;
     if (val.startsWith('/')) {
       const notesMatch = val.match(/^\/notes(\s+(.*))?$/i);
@@ -4726,27 +4735,7 @@ function _panelBuildChatInput(popup, config) {
     }).catch(() => {});
   });
 
-  // Tab button (accepts AI suggestion) - far right of input row
-  const tabBtn = document.createElement('button');
-  tabBtn.className = 'aether-tab-key-btn';
-  tabBtn.textContent = 'Tab';
-  tabBtn.title = 'Accept suggestion (Tab)';
-  tabBtn.style.cssText = 'margin-left:auto;padding:2px 6px;font-size:0.65rem;border:1px solid rgba(255,255,255,0.15);border-radius:3px;background:none;color:rgba(255,255,255,0.4);cursor:pointer;flex-shrink:0;';
-  tabBtn.addEventListener('mouseenter', () => { tabBtn.style.color = 'rgba(255,255,255,0.7)'; tabBtn.style.borderColor = 'rgba(255,255,255,0.25)'; });
-  tabBtn.addEventListener('mouseleave', () => { tabBtn.style.color = 'rgba(255,255,255,0.4)'; tabBtn.style.borderColor = 'rgba(255,255,255,0.15)'; });
-  tabBtn.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const suggEl = popup.querySelector('.aether-suggestion');
-    if (suggEl) {
-      const text = suggEl.querySelector('.aether-suggestion-text').textContent;
-      _acceptPanelSuggestion(popup, text);
-    }
-  });
-
-  // Input row with Tab button on the right
   askWrap.appendChild(askInput);
-  askWrap.appendChild(tabBtn);
   popup.appendChild(askWrap);
 
   // Second row: model label + buttons
@@ -4772,21 +4761,6 @@ function _panelBuildChatInput(popup, config) {
 
   popup.appendChild(buttonRow);
 
-  // Fetch AI suggestion when there's any text context
-  const suggestText = capturedText
-    || (contextMenu && contextMenu.linkText)
-    || (contextMenu && contextMenu.linkUrl)
-    || (() => {
-      // Use current page/tab title + URL as context
-      const bt = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
-        ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-      if (bt && bt.title) return bt.title + (bt.url ? ' — ' + bt.url : '');
-      if (_docText) return _docText.slice(0, 300);
-      return '';
-    })();
-  if (suggestText) {
-    _fetchPanelSuggestion(popup, suggestText);
-  }
 }
 
 // ── Helper: install Cmd+C copy key handler ──
