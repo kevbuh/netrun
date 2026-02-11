@@ -1238,14 +1238,7 @@ function _slidesCopyLink() {
   if (!currentExpId || !_slidesFname) return;
   const url = `${window.location.origin}/#experiment/${encodeURIComponent(currentExpId)}?file=${encodeURIComponent(_slidesFname)}`;
   navigator.clipboard.writeText(url).then(() => {
-    // Brief toast
-    const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 16px;border-radius:8px;font-size:13px;z-index:10002;box-shadow:0 4px 12px rgba(0,0,0,.3)';
-    toast.textContent = 'Link copied to clipboard';
-    toast.style.opacity = '0';
-    document.body.appendChild(toast);
-    Motion.animate(toast, { spring: 'smooth', from: { opacity: 0, y: 8 }, to: { opacity: 1, y: 0 } });
-    setTimeout(function() { Motion.animate(toast, { spring: 'smooth', from: { opacity: 1 }, to: { opacity: 0 }, onFinish: function() { toast.remove(); } }); }, 1700);
+    Motion.toast('Link copied to clipboard', { position: 'bottom', duration: 2000 });
   });
 }
 

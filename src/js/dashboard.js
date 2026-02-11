@@ -1543,17 +1543,14 @@ function _renderDevDependencyGraph() {
 
     <!-- Legend -->
     <div style="display:flex;gap:16px;margin-bottom:12px;font-size:0.65rem;color:var(--text-dimmer);flex-wrap:wrap">
-      <div><span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:50%;margin-right:4px"></span>ERROR</div>
-      <div><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:50%;margin-right:4px"></span>WARNING</div>
-      <div><span style="display:inline-block;width:12px;height:12px;background:#60a5fa;border-radius:50%;margin-right:4px"></span>INFO</div>
-      <div><span style="display:inline-block;width:12px;height:12px;background:var(--text-dimmer);border-radius:50%;margin-right:4px"></span>Normal</div>
-      <div style="margin-left:16px">↕️ Y-axis = load order</div>
-      <div>Node size = functions</div>
-      <div>Edge thickness = calls</div>
+      <div>🔴 Cross-file dependency</div>
+      <div>⚫ Same-file dependency</div>
+      <div>📁 File group</div>
+      <div style="margin-left:16px">Click to expand/collapse</div>
     </div>
 
-    <div id="dev-dep-graph-container" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;position:relative;overflow:hidden">
-      <svg id="dev-dep-graph-svg" style="width:100%;height:600px"></svg>
+    <div id="dev-dep-graph-container" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:16px;max-height:600px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.6">
+      <div style="color:var(--text-dimmer)">Click "Load Graph" to start...</div>
     </div>
   `;
 }
@@ -1588,31 +1585,16 @@ function _devSetGraphLevel(level) {
 
 async function _devLoadDependencyGraph() {
   const btn = document.getElementById('dev-dep-graph-btn');
-  const resetBtn = document.getElementById('dev-graph-reset-btn');
   const status = document.getElementById('dev-dep-graph-status');
-  const svg = document.getElementById('dev-dep-graph-svg');
+  const container = document.getElementById('dev-dep-graph-container');
 
-  if (!btn || !status || !svg) return;
+  if (!btn || !status || !container) return;
 
   btn.disabled = true;
   btn.textContent = 'Loading...';
   status.textContent = 'Generating graph data...';
 
   try {
-    // Load D3.js if not already loaded
-    if (!_devD3Loaded && typeof d3 === 'undefined') {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://d3js.org/d3.v7.min.js';
-        script.onload = () => {
-          _devD3Loaded = true;
-          resolve();
-        };
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    }
-
     const res = await fetch(`/api/dependency-graph?level=${_devGraphLevel}`, { headers: _authHeaders() });
     const data = await res.json();
 
@@ -1635,13 +1617,12 @@ async function _devLoadDependencyGraph() {
     const nodeLabel = _devGraphLevel === 'file' ? 'files' : 'functions';
     status.textContent = `${data.nodes.length} ${nodeLabel}, ${data.edges.length} dependencies`;
     status.style.color = 'var(--text-success)';
-    resetBtn.style.display = 'inline-block';
 
-    // Render the graph
+    // Render the tree
     if (_devGraphLevel === 'file') {
-      _devRenderFileGraph(data.nodes, data.edges);
+      _devRenderFileTree(data.nodes, data.edges);
     } else {
-      _devRenderFunctionGraph(data.nodes, data.edges);
+      _devRenderFunctionTree(data.nodes, data.edges);
     }
 
   } catch (e) {
@@ -1653,15 +1634,7 @@ async function _devLoadDependencyGraph() {
   }
 }
 
-var _devGraphZoom = null;
-var _devGraphSimulation = null;
-
-function _devResetGraphZoom() {
-  if (_devGraphZoom) {
-    const svg = d3.select('#dev-dep-graph-svg');
-    svg.transition().duration(750).call(_devGraphZoom.transform, d3.zoomIdentity);
-  }
-}
+var _devCollapsedFiles = new Set();
 
 function _devRenderFileGraph(nodes, edges) {
   const svg = d3.select('#dev-dep-graph-svg');

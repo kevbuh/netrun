@@ -335,6 +335,37 @@
   }
 
 
+  // ─── 8. Flash + Toast Helpers ─────────────────────────────
+
+  function _flash(el, holdMs) {
+    if (!el) return;
+    holdMs = holdMs || 1200;
+    _animate(el, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } });
+    setTimeout(function() {
+      _animate(el, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } });
+    }, holdMs);
+  }
+
+  function _toast(text, config) {
+    config = config || {};
+    var el = document.createElement('div');
+    el.className = config.className || 'doc-selection-popup';
+    el.textContent = text;
+    el.style.cssText = 'position:fixed;pointer-events:none;z-index:10002;font-size:0.78rem;padding:6px 14px;'
+      + (config.position === 'bottom'
+        ? 'bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);'
+        : 'left:50%;top:20px;transform:translateX(-50%);');
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    var fromY = config.position === 'bottom' ? 8 : -8;
+    _animate(el, { spring: 'smooth', from: { opacity: 0, y: fromY }, to: { opacity: 1, y: 0 } });
+    setTimeout(function() {
+      _animate(el, { spring: 'smooth', from: { opacity: 1 }, to: { opacity: 0 }, onFinish: function() { el.remove(); } });
+    }, config.duration || 1500);
+    return el;
+  }
+
+
   // ─── Public API ────────────────────────────────────────────
 
   window.Motion = {
@@ -365,6 +396,10 @@
     // Ollama awareness
     get modelActive()   { return _modelActive; },
     get reducedMotion() { return _reducedMotion(); },
+
+    // Helpers
+    flash: _flash,
+    toast: _toast,
 
     // FLIP
     flip: _flip

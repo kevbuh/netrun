@@ -109,8 +109,7 @@ async function saveMarkdown() {
     method:'PUT', headers:{ ..._authHeaders(), 'Content-Type':'application/json'},
     body: JSON.stringify({content})
   });
-  const ind = document.getElementById('md-save-ind');
-  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
+  Motion.flash(document.getElementById('md-save-ind'));
 }
 
 // ── Markdown Toolbar Helpers ──
@@ -560,8 +559,7 @@ async function saveLatex() {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({content})
   });
-  const ind = document.getElementById('tex-save-ind');
-  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
+  Motion.flash(document.getElementById('tex-save-ind'));
 }
 
 async function compileLatex() {
@@ -825,8 +823,7 @@ async function saveMermaid() {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({content: content})
   });
-  var ind = document.getElementById('mermaid-save-ind');
-  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
+  Motion.flash(document.getElementById('mermaid-save-ind'));
 }
 
 function startRenameMermaidFile(fname) {
@@ -1489,7 +1486,6 @@ async function savePythonFile() {
     method:'PUT', headers:{ ..._authHeaders(), 'Content-Type':'application/json'},
     body: JSON.stringify({content})
   });
-  const ind = document.getElementById('py-save-ind');
-  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
+  Motion.flash(document.getElementById('py-save-ind'));
 }
 
