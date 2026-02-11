@@ -825,14 +825,15 @@ function _acceptPanelSuggestion(popup, suggestion) {
   input.value = suggestion;
   const el = popup.querySelector('.aether-suggestion');
   if (el) el.remove();
-  _sendPopupChatMessage(popup, popup._capturedText || '');
+  input.focus();
 }
 
 function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
-  if (!q && _pendingScreenshots.length === 0) return;
+  // Allow sending if there's capturedText, screenshots, or a query
+  if (!q && _pendingScreenshots.length === 0 && !capturedText) return;
   input.value = '';
 
   // Pin the panel in place and restore the cursor
@@ -1850,6 +1851,48 @@ document.addEventListener('keydown', function(e) {
       popup.remove();
       _aetherShowCursor();
       _aetherRestoreFocus();
+    }
+  }
+  // Shift clicks the element under cursor and dismisses the panel
+  if (e.key === 'Shift') {
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (popup && _aetherTrackMode) {
+      _aetherTrackMode = false;
+      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
+      if (el && !popup.contains(el)) el.click();
+      _maybeDismissToIsland(popup);
+      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _pendingScreenshots = [];
+      _pendingNoteContexts = [];
+      _pendingTabContexts = [];
+      _pendingFileContexts = [];
+      popup.remove();
+      _aetherShowCursor();
+    }
+  }
+});
+
+// Enter key with selection adds text to panel input
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const popup = document.getElementById('doc-chat-ask-float');
+    if (!popup) return;
+    const askInput = popup.querySelector('.doc-ask-inline-input');
+    if (!askInput) return;
+
+    const selection = window.getSelection();
+    const selectedText = selection ? selection.toString().trim() : '';
+    // Only handle if text is selected and it's not inside the input
+    if (selectedText && !selection.containsNode(askInput, true)) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Add selected text to input
+      const currentVal = askInput.value.trim();
+      askInput.value = currentVal ? currentVal + ' ' + selectedText : selectedText;
+      askInput.focus();
+      // Clear the selection
+      if (selection) selection.removeAllRanges();
+      return;
     }
   }
 });
@@ -4017,13 +4060,14 @@ function _panelBuildSelectionUI(popup, config) {
   // Copy button
   const copyBtn = document.createElement('button');
   copyBtn.className = 'doc-selection-copy-btn';
-  copyBtn.textContent = 'Copy';
+  copyBtn.title = 'Copy';
+  copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   copyBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
   copyBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     navigator.clipboard.writeText(capturedText).then(() => {
-      copyBtn.textContent = 'Copied';
-      setTimeout(() => { if (copyBtn.isConnected) copyBtn.textContent = 'Copy'; }, 1200);
+      copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => { if (copyBtn.isConnected) copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1200);
     }).catch(() => {});
   });
   btnRow.appendChild(copyBtn);
@@ -4031,18 +4075,21 @@ function _panelBuildSelectionUI(popup, config) {
   // Read Aloud button — uses existing Kokoro TTS system
   const readBtn = document.createElement('button');
   readBtn.className = 'doc-selection-copy-btn';
-  readBtn.textContent = '\u{1F50A} Read Aloud';
+  readBtn.title = 'Read aloud';
+  readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
   readBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
   readBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     // If TTS is already active, toggle pause/stop
     if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
       _ttsStopAll();
-      readBtn.textContent = '\u{1F50A} Read Aloud';
+      readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+      readBtn.title = 'Read aloud';
       return;
     }
     if (!capturedText || capturedText.length < 2) return;
-    readBtn.textContent = '\u{23F9} Stop';
+    readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    readBtn.title = 'Stop';
     _ttsStopped = false;
     _ttsPaused = false;
     _ttsChunks = _ttsChunkText(capturedText);
@@ -4055,7 +4102,10 @@ function _panelBuildSelectionUI(popup, config) {
     const checkDone = setInterval(() => {
       if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
         clearInterval(checkDone);
-        if (readBtn.isConnected) readBtn.textContent = '\u{1F50A} Read Aloud';
+        if (readBtn.isConnected) {
+          readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+          readBtn.title = 'Read aloud';
+        }
       }
     }, 500);
   });
@@ -4065,7 +4115,7 @@ function _panelBuildSelectionUI(popup, config) {
   if (typeof _getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
     const fromHereBtn = document.createElement('button');
     fromHereBtn.className = 'doc-selection-copy-btn';
-    fromHereBtn.textContent = '\u{25B6} From Here';
+    fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
     fromHereBtn.title = 'Read from this point to the end of the page';
     fromHereBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
     fromHereBtn.addEventListener('click', async (ev) => {
@@ -4073,18 +4123,22 @@ function _panelBuildSelectionUI(popup, config) {
       // If TTS is already active, stop it
       if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
         _ttsStopAll();
-        fromHereBtn.textContent = '\u{25B6} From Here';
-        readBtn.textContent = '\u{1F50A} Read Aloud';
+        fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+        fromHereBtn.title = 'Read from this point to the end of the page';
+        readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+        readBtn.title = 'Read aloud';
         return;
       }
       const win = _getCurrentWindow();
       if (!win) return;
       const tab = win.tabs.find(t => t.id === win.activeTab);
       if (!tab) return;
-      fromHereBtn.textContent = '\u{23F9} Stop';
+      fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      fromHereBtn.title = 'Stop';
       const fullText = await _extractTextFromFrame(tab);
       if (!fullText || fullText.length < 10) {
-        fromHereBtn.textContent = '\u{25B6} From Here';
+        fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+        fromHereBtn.title = 'Read from this point to the end of the page';
         return;
       }
       // Find selection in full text and read from there
@@ -4105,12 +4159,40 @@ function _panelBuildSelectionUI(popup, config) {
       const checkDone2 = setInterval(() => {
         if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
           clearInterval(checkDone2);
-          if (fromHereBtn.isConnected) fromHereBtn.textContent = '\u{25B6} From Here';
+          if (fromHereBtn.isConnected) {
+            fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+            fromHereBtn.title = 'Read from this point to the end of the page';
+          }
         }
       }, 500);
     });
     btnRow.appendChild(fromHereBtn);
   }
+
+  // Clear button — positioned on far right
+  const clearBtnIcon = document.createElement('button');
+  clearBtnIcon.className = 'doc-selection-copy-btn';
+  clearBtnIcon.title = 'Clear conversation';
+  clearBtnIcon.style.marginLeft = 'auto';
+  clearBtnIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  clearBtnIcon.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  clearBtnIcon.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    _saveChatMemory();
+    _popupChatMessages = [];
+    _chatMemoryRetrieved = false;
+    _chatStreamStart = 0;
+    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    const cm = popup.querySelector('.doc-popup-chat-messages');
+    if (cm) cm.innerHTML = '';
+    const ca = popup.querySelector('.doc-popup-chat-area');
+    if (ca) ca.classList.remove('visible');
+    popup.classList.remove('has-chat');
+    const statsSpan = popup.querySelector('.doc-chat-stats');
+    if (statsSpan) statsSpan.textContent = '';
+    _repositionSelectionPopup();
+  });
+  btnRow.appendChild(clearBtnIcon);
 
   popup.appendChild(btnRow);
 
@@ -4162,28 +4244,6 @@ function _panelBuildTopBar(popup) {
   const statsSpan = document.createElement('span');
   statsSpan.className = 'doc-chat-stats';
   topBar.insertBefore(statsSpan, spacer.nextSibling);
-
-  // Clear button
-  const clearBtn = document.createElement('button');
-  clearBtn.className = 'aether-topbar-btn';
-  clearBtn.textContent = 'Clear';
-  clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  clearBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _saveChatMemory();
-    _popupChatMessages = [];
-    _chatMemoryRetrieved = false;
-    _chatStreamStart = 0;
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-    const cm = popup.querySelector('.doc-popup-chat-messages');
-    if (cm) cm.innerHTML = '';
-    const ca = popup.querySelector('.doc-popup-chat-area');
-    if (ca) ca.classList.remove('visible');
-    popup.classList.remove('has-chat');
-    statsSpan.textContent = '';
-    _repositionSelectionPopup();
-  });
-  topBar.appendChild(clearBtn);
 
   // Redo button — resend last user message
   const redoBtn = document.createElement('button');
@@ -4239,20 +4299,6 @@ function _panelBuildTopBar(popup) {
   const topRightGroup = document.createElement('span');
   topRightGroup.className = 'aether-topbar-right';
 
-  const openSidebarBtn = document.createElement('button');
-  openSidebarBtn.className = 'aether-topbar-icon';
-  openSidebarBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75-3.751m0 0-3.75-3.75m3.75 3.75H3.74V19.5" /></svg>';
-  openSidebarBtn.title = 'Open in sidebar';
-  openSidebarBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openSidebarBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _aetherTrackMode = false;
-    const sidebar = document.getElementById('browse-sidebar');
-    if (sidebar) sidebar.style.display = '';
-    _sendPopupChatToSidebar();
-  });
-  topRightGroup.appendChild(openSidebarBtn);
-
   topBar.appendChild(topRightGroup);
 
   // Drag to move
@@ -4294,30 +4340,57 @@ function _panelBuildChatInput(popup, config) {
   chatArea.appendChild(chatMsgs);
   popup.appendChild(chatArea);
 
-  // Screenshot / attachment strip
+  // Context box (appears above chat, like Cursor)
+  if (capturedText) {
+    const contextBox = document.createElement('div');
+    contextBox.className = 'aether-context-box';
+
+    const contextIcon = document.createElement('div');
+    contextIcon.className = 'aether-context-icon';
+    contextIcon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>';
+
+    const closeIcon = document.createElement('div');
+    closeIcon.className = 'aether-context-close-icon';
+    closeIcon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+    const contextContent = document.createElement('div');
+    contextContent.className = 'aether-context-content';
+
+    const contextLabel = document.createElement('span');
+    contextLabel.className = 'aether-context-label';
+    contextLabel.textContent = 'CONTEXT';
+
+    const contextText = document.createElement('span');
+    contextText.className = 'aether-context-text';
+    contextText.textContent = ' ' + capturedText;
+
+    contextContent.appendChild(contextLabel);
+    contextContent.appendChild(contextText);
+
+    contextBox.appendChild(contextIcon);
+    contextBox.appendChild(closeIcon);
+    contextBox.appendChild(contextContent);
+
+    contextBox.addEventListener('mouseenter', () => {
+      contextBox.classList.add('hover');
+    });
+
+    contextBox.addEventListener('mouseleave', () => {
+      contextBox.classList.remove('hover');
+    });
+
+    contextBox.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      contextBox.remove();
+      popup._capturedText = '';
+    });
+
+    popup.appendChild(contextBox);
+  }
+
+  // Screenshot / attachment strip (for screenshots/files, not text context)
   const attachStrip = document.createElement('div');
   attachStrip.className = 'doc-screenshot-attachments';
-  // Add selected text as a context chip in the strip
-  if (capturedText) {
-    attachStrip.style.display = 'flex';
-    const chip = document.createElement('div');
-    chip.className = 'doc-tab-context-chip';
-    const truncated = capturedText.length > 60 ? capturedText.slice(0, 60) + '…' : capturedText;
-    chip.innerHTML = `<svg class="w-3 h-3 flex-shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>` +
-      `<span class="truncate">${escapeHtml(truncated)}</span>`;
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'doc-note-context-remove';
-    removeBtn.textContent = '\u00d7';
-    removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    removeBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      chip.remove();
-      popup._capturedText = '';
-      if (!attachStrip.children.length) attachStrip.style.display = 'none';
-    });
-    chip.appendChild(removeBtn);
-    attachStrip.appendChild(chip);
-  }
   popup.appendChild(attachStrip);
 
   // Ask input + send button
@@ -4330,7 +4403,7 @@ function _panelBuildChatInput(popup, config) {
   }
   const askInput = document.createElement('input');
   askInput.type = 'text';
-  askInput.placeholder = capturedText ? 'Ask about this…' : 'Ask anything…';
+  askInput.placeholder = 'Ask anything…';
   askInput.className = 'doc-ask-inline-input';
 
   const sendBtn = document.createElement('button');
@@ -4477,6 +4550,20 @@ function _panelBuildChatInput(popup, config) {
       _aetherHideCmdDropdown(popup);
       _doAetherWebSearch(popup);
     } else if (ev.key === 'Enter') {
+      // Check if user has text selected in the panel (not in the input)
+      const selection = window.getSelection();
+      const selectedText = selection ? selection.toString().trim() : '';
+      if (selectedText && !selection.containsNode(askInput, true)) {
+        ev.preventDefault();
+        // Add selected text to input
+        const currentVal = askInput.value.trim();
+        askInput.value = currentVal ? currentVal + ' ' + selectedText : selectedText;
+        askInput.focus();
+        // Clear the selection
+        if (selection) selection.removeAllRanges();
+        return;
+      }
+
       ev.preventDefault();
       if (isCmd && dropdown) {
         const matches = _aetherFilterCommands(val.slice(1).trim());
@@ -4529,13 +4616,27 @@ function _panelBuildChatInput(popup, config) {
       _aetherShowCursor();
       _aetherRestoreFocus();
     }
+    // Shift clicks the element under cursor and dismisses the panel
+    if (ev.key === 'Shift' && _aetherTrackMode) {
+      _aetherTrackMode = false;
+      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
+      if (el && !popup.contains(el)) el.click();
+      _maybeDismissToIsland(popup);
+      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      _pendingScreenshots = [];
+      _pendingNoteContexts = [];
+      _pendingTabContexts = [];
+      _pendingFileContexts = [];
+      popup.remove();
+      _aetherShowCursor();
+    }
   });
   askInput.addEventListener('input', () => {
     // Dismiss suggestion when user types
     const suggEl = popup.querySelector('.aether-suggestion');
     if (suggEl) {
       suggEl.remove();
-      if (!askInput.value.trim()) askInput.placeholder = popup._capturedText ? 'Ask about this…' : 'Ask anything…';
+      if (!askInput.value.trim()) askInput.placeholder = 'Ask anything…';
     }
     const val = askInput.value;
     if (val.startsWith('/')) {

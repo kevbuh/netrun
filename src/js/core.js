@@ -233,7 +233,7 @@ function _islandRenderPill(a) {
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Annotating…') + '</span>';
     }
-    var _annModeColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107', STATISTIC: '#2196f3', DEFINITION: '#9c27b0', BIAS: '#ff9800', METHODOLOGY: '#009688', CONNECTION: '#ab47bc' };
+    var _annModeColors = { ASSUMPTION: '#ff9800', VERIFY: '#ffc107', TENSION: '#ef5350', BIAS: '#9c27b0', IMPLICATION: '#2196f3', CONTRADICTION: '#ef5350', CONNECTION: '#ab47bc' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
@@ -291,8 +291,8 @@ function _islandBuildTray(a, isBrowse) {
     }
     return trayHtml;
   } else if (a.type === 'annotate' && a.items && a.items.length) {
-    var annColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107', STATISTIC: '#2196f3', DEFINITION: '#9c27b0', BIAS: '#ff9800', METHODOLOGY: '#009688', CONNECTION: '#ab47bc' };
-    var annLabels = { KEY_FINDING: 'Key Finding', CONTRADICTION: 'Contradiction', VERIFY: 'Verify', STATISTIC: 'Statistic', DEFINITION: 'Definition', BIAS: 'Bias', METHODOLOGY: 'Methodology', CONNECTION: 'Connection' };
+    var annColors = { ASSUMPTION: '#ff9800', VERIFY: '#ffc107', TENSION: '#ef5350', BIAS: '#9c27b0', IMPLICATION: '#2196f3', CONTRADICTION: '#ef5350', CONNECTION: '#ab47bc' };
+    var annLabels = { ASSUMPTION: 'Assumption', VERIFY: 'Verify', TENSION: 'Tension', BIAS: 'Bias', IMPLICATION: 'Implication', CONTRADICTION: 'Contradiction', CONNECTION: 'Connection' };
     var trayHtml = '';
     for (var ai = 0; ai < a.items.length; ai++) {
       var ann = a.items[ai];
@@ -301,7 +301,6 @@ function _islandBuildTray(a, isBrowse) {
       var quote = ann.quote || '';
       var isConnection = ann.type === 'CONNECTION';
       var displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : quote;
-      if (displayText.length > 60) displayText = displayText.slice(0, 58) + '\u2026';
       var confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--text-dimmer);margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
       trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + ' style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
       trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge + '</div>';

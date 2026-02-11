@@ -246,6 +246,7 @@ function browseSelectWindow(id) {
   }
   _browseUpdateNewTabPage(win.tabs.find(t => t.id === win.activeTab));
   _browseSaveTabs();
+  _browseCollapseEmptyWindows();
 }
 
 function browseCloseWindow(id) {
@@ -267,6 +268,41 @@ function browseCloseWindow(id) {
     browseSelectWindow(_browseWindows[Math.min(idx, _browseWindows.length - 1)].id);
   }
   _browseSaveTabs();
+}
+
+// Auto-close non-active windows that only contain blank/new-tab pages
+function _browseCollapseEmptyWindows() {
+  if (_browseWindows.length <= 1) return;
+  const toClose = [];
+  for (const w of _browseWindows) {
+    if (w.id === _browseActiveWindow) continue;
+    if (w.tabs.length === 0 || w.tabs.every(t => t.blank)) {
+      toClose.push(w.id);
+    }
+  }
+  for (const id of toClose) {
+    browseCloseWindow(id);
+  }
+}
+
+// Update window count badge on the overview button
+function _browseUpdateWindowBadge() {
+  const badge = document.getElementById('global-overview-badge');
+  if (!badge) return;
+  var count = _browseWindows.length;
+  // Before browse is opened, peek at localStorage for the count
+  if (!count) {
+    try {
+      var raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
+      if (raw) { var d = JSON.parse(raw); count = (d.windows || []).length; }
+    } catch (e) {}
+  }
+  if (count > 1) {
+    badge.textContent = count;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
 }
 
 // Helper: create window without auto-creating a tab (for session restore)
@@ -1019,9 +1055,10 @@ function _initBrowseDownloads() {
 
 // Initialize downloads on page load
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _initBrowseDownloads);
+  document.addEventListener('DOMContentLoaded', () => { _initBrowseDownloads(); _browseUpdateWindowBadge(); });
 } else {
   _initBrowseDownloads();
+  _browseUpdateWindowBadge();
 }
 
 function _browseHandleNavigation(tab, frame) {
@@ -1045,6 +1082,7 @@ function _browseHandleNavigation(tab, frame) {
     _saveBrowseVisit(navUrl, tab.title);
     _browseRenderTabs();
     _browseSaveTabs();
+    _browseCollapseEmptyWindows();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
       _browseSetUrlDisplay(urlInput, navUrl);
@@ -3475,6 +3513,9 @@ function _browseRenderTabs() {
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
 
+  // Update window count badge
+  _browseUpdateWindowBadge();
+
   // Always sync the Dynamic Island tabs pill
   _islandSyncTabs();
 
@@ -4209,6 +4250,7 @@ function toggleBrowseTabOverview() {
 // Lightweight restore: read browse windows from localStorage without creating DOM/iframes.
 // Used by the overview so browse tabs are visible even if Browse hasn't been opened yet.
 function _browseRestoreTabsLite() {
+  if (_browseWindows.length) { _browseUpdateWindowBadge(); return; }
   try {
     var raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
     if (!raw) return;
@@ -4242,6 +4284,7 @@ function _browseRestoreTabsLite() {
     if (_browseWindows.length) {
       _browseActiveWindow = _browseWindows.find(function(w) { return w.id === data.activeWindow; }) ? data.activeWindow : _browseWindows[0].id;
     }
+    _browseUpdateWindowBadge();
   } catch (e) { /* ignore */ }
 }
 
@@ -6247,7 +6290,7 @@ function _restoreAnnotationPill(tab) {
   if (!annotations.length) return false;
   const typeCounts = {};
   for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
-  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'KEY_FINDING';
+  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ASSUMPTION';
   // Auto-enable and inject cached annotations into the page
   _annotationsEnabled.set(tab.id, true);
   injectAnnotations(tab, annotations);
@@ -6355,7 +6398,7 @@ async function annotateCurrentPage(tab) {
     // Icon color = mode (most frequent type)
     const typeCounts = {};
     for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
-    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'KEY_FINDING';
+    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ASSUMPTION';
     if (typeof islandUpdate === 'function') {
       islandUpdate('annotate', {
         type: 'annotate',
@@ -6480,13 +6523,12 @@ function injectAnnotations(tab, annotations) {
   const frame = tab.el;
 
   const colorMap = {
-    KEY_FINDING: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Key Finding', labelColor: '#4caf50' },
-    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
+    ASSUMPTION: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Assumption', labelColor: '#ff9800' },
     VERIFY: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Verify', labelColor: '#ffc107' },
-    STATISTIC: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Statistic', labelColor: '#2196f3' },
-    DEFINITION: { bg: 'rgba(156, 39, 176, 0.25)', border: '#9c27b0', label: 'Definition', labelColor: '#9c27b0' },
-    BIAS: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Bias', labelColor: '#ff9800' },
-    METHODOLOGY: { bg: 'rgba(0, 150, 136, 0.25)', border: '#009688', label: 'Methodology', labelColor: '#009688' },
+    TENSION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Tension', labelColor: '#ef5350' },
+    BIAS: { bg: 'rgba(156, 39, 176, 0.25)', border: '#9c27b0', label: 'Bias', labelColor: '#9c27b0' },
+    IMPLICATION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Implication', labelColor: '#2196f3' },
+    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
     CONNECTION: { bg: 'rgba(171, 71, 188, 0.25)', border: '#ab47bc', label: 'Connection', labelColor: '#ab47bc' }
   };
 
@@ -6502,7 +6544,7 @@ function injectAnnotations(tab, annotations) {
 
       var _hoveredAnn = null;
       function showTooltip(mark, ann) {
-        var c = colorMap[ann.type] || colorMap.KEY_FINDING;
+        var c = colorMap[ann.type] || colorMap.ASSUMPTION;
         _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null };
       }
 
@@ -6544,7 +6586,7 @@ function injectAnnotations(tab, annotations) {
         const matchIdx = fullLower.indexOf(quoteLower);
         if (matchIdx === -1) continue;
         const matchEnd = matchIdx + quote.length;
-        const c = colorMap[ann.type] || colorMap.KEY_FINDING;
+        const c = colorMap[ann.type] || colorMap.ASSUMPTION;
 
         // Find all text nodes that overlap with this match range
         const affectedNodes = [];

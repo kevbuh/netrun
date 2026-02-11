@@ -1131,27 +1131,26 @@ def annotate_page():
                 tab_context += f'\n\n--- OTHER TAB: "{t_title}" ---\n{t_text}\n--- END TAB ---'
 
         prompt = (
-            "You are a critical reading assistant. Analyze the following web page text and find 5-12 passages worth annotating.\n\n"
-            "Annotation types (use a diverse mix):\n"
-            "- KEY_FINDING — important facts, conclusions, or significant data\n"
-            "- CONTRADICTION — conflicts with content from other open tabs listed below\n"
-            "- VERIFY — unsubstantiated, surprising, or dubious claims needing fact-checking\n"
-            "- STATISTIC — specific numbers, percentages, metrics, or quantitative data\n"
-            "- DEFINITION — key terms being defined or explained\n"
-            "- BIAS — language showing bias, spin, or one-sided framing\n"
-            "- METHODOLOGY — descriptions of methods, study design, or experimental approach\n\n"
+            "You are a sharp, skeptical analyst. Read the page below and find 4-8 passages that a smart reader might MISS or underestimate on a first read.\n\n"
+            "Do NOT annotate anything obvious. Skip main conclusions, definitions, and surface-level facts — the reader already sees those.\n\n"
+            "Annotation types:\n"
+            "- ASSUMPTION — unstated assumptions the argument depends on. What must be true for this claim to hold?\n"
+            "- VERIFY — specific claims that sound plausible but are unsubstantiated, cherry-picked, or misleadingly framed. Explain what to check.\n"
+            "- TENSION — internal inconsistencies within the text, or claims that sit uneasily with each other\n"
+            "- BIAS — rhetorical moves: framing effects, weasel words, false equivalence, appeal to authority, omitted context\n"
+            "- IMPLICATION — downstream consequences or second-order effects the author doesn't address\n"
+            "- CONTRADICTION — conflicts with content from other open tabs listed below\n\n"
             "For each annotation provide a JSON object with:\n"
             "- \"type\": one of the types above\n"
             "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n"
-            "- \"explanation\": a short reason (1 sentence)\n"
+            "- \"explanation\": 1-2 sentences. Be specific — name the assumption, the missing evidence, or the rhetorical move. Don't just say \"this is biased\".\n"
             "- \"confidence\": 0-100 how confident you are this annotation is correct and useful\n"
             "- \"conflictsWith\": (only for CONTRADICTION) the title of the other tab it conflicts with\n\n"
             "Rules:\n"
             "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change any words.\n"
             "- Only use CONTRADICTION if there is an actual conflict with another tab\n"
             "- If no other tabs are provided, do not use CONTRADICTION type\n"
-            "- Use diverse annotation types — don't only use KEY_FINDING\n"
-            "- Prioritize passages most relevant to the user's interests\n"
+            "- Fewer good annotations > many shallow ones. 4 incisive annotations beat 12 obvious ones.\n"
             "- Respond ONLY with a JSON array, no other text\n\n"
         )
         if interest_context:
@@ -1191,7 +1190,7 @@ def annotate_page():
             json_str = arr_match.group()
         parsed = json.loads(json_str)
 
-        valid_types = {'KEY_FINDING', 'CONTRADICTION', 'VERIFY', 'STATISTIC', 'DEFINITION', 'BIAS', 'METHODOLOGY'}
+        valid_types = {'ASSUMPTION', 'VERIFY', 'TENSION', 'BIAS', 'IMPLICATION', 'CONTRADICTION'}
         text_lower = text.lower()
         annotations = []
         if isinstance(parsed, list):
