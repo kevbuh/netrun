@@ -493,12 +493,7 @@ function _islandFlipNeighbors(cont) {
     var newRect = p.getBoundingClientRect();
     var dx = p._flipRect.left - newRect.left;
     if (Math.abs(dx) > 1) {
-      p.style.transform = 'translateX(' + dx + 'px)';
-      p.style.transition = 'none';
-      requestAnimationFrame(function() {
-        p.style.transition = 'transform 0.35s ' + Motion.css('snappy');
-        p.style.transform = '';
-      });
+      Motion.animate(p, { spring: 'snappy', from: { x: dx }, to: { x: 0 } });
     }
   });
 }
@@ -666,12 +661,7 @@ function _islandRender() {
         var dx = oldRect.left - newRect.left;
         var dy = oldRect.top - newRect.top;
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-          pill.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-          pill.style.transition = 'none';
-          requestAnimationFrame(function() {
-            pill.style.transition = 'transform 0.4s ' + Motion.css('snappy');
-            pill.style.transform = '';
-          });
+          Motion.animate(pill, { spring: 'snappy', from: { x: dx, y: dy }, to: { x: 0, y: 0 } });
         }
       }
       pill.classList.add('island-active');
@@ -766,12 +756,7 @@ function _islandRender() {
     if (!rects[pid]) return;
     var dx = rects[pid].left - p.getBoundingClientRect().left;
     if (Math.abs(dx) > 1) {
-      p.style.transform = 'translateX(' + dx + 'px)';
-      p.style.transition = 'none';
-      requestAnimationFrame(function() {
-        p.style.transition = 'transform 0.35s ' + Motion.css('snappy');
-        p.style.transform = '';
-      });
+      Motion.animate(p, { spring: 'snappy', from: { x: dx }, to: { x: 0 } });
     }
   });
 

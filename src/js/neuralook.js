@@ -917,7 +917,7 @@ function _nlShowTrainPill() {
     borderRadius: '14px', padding: '10px 16px', minWidth: '220px', maxWidth: '360px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
     fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
-    transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
+    opacity: '0',
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'
   });
@@ -1625,13 +1625,11 @@ function _nlShowClickFeedback(x, y, accepted, detail) {
     position: 'fixed', left: (x + 12) + 'px', top: (y - 8) + 'px', zIndex: '99999',
     pointerEvents: 'none', fontSize: '0.65rem', fontFamily: 'inherit', fontWeight: '600',
     color, whiteSpace: 'nowrap', lineHeight: '1',
-    opacity: '1', transition: 'opacity 0.8s ease-out, transform 0.8s ease-out',
-    transform: 'translateY(0)'
+    opacity: '0'
   });
   el.textContent = accepted ? `+${detail}` : detail;
   document.body.appendChild(el);
-  requestAnimationFrame(() => { el.style.opacity = '0'; el.style.transform = 'translateY(-16px)'; });
-  setTimeout(() => el.remove(), 900);
+  Motion.animate(el, { duration: 800, spring: 'gentle', from: { opacity: 1, y: 0 }, to: { opacity: 0, y: -16 }, onFinish: function() { el.remove(); } });
 }
 
 function _nlShowModelUpdatedPill(version, valErrorPx) {
@@ -1645,7 +1643,7 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
     borderRadius: '14px', padding: '10px 16px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(96,165,250,0.15)',
     fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
-    transition: 'opacity 0.3s, transform 0.3s', opacity: '0', transform: 'translateY(10px)',
+    opacity: '0',
     display: 'flex', alignItems: 'center', gap: '10px',
     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
   });

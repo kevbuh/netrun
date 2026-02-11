@@ -1602,7 +1602,10 @@ function _devRenderD3Graph(nodes, edges) {
   const svg = d3.select('#dev-dep-graph-svg');
   const container = document.getElementById('dev-dep-graph-container');
   const width = container.clientWidth;
-  const height = 600;
+  const height = Math.max(600, nodes.length * 30 + 100);
+
+  // Update SVG height for scrolling
+  svg.style('height', height + 'px');
 
   // Clear previous graph
   svg.selectAll('*').remove();
@@ -1612,7 +1615,7 @@ function _devRenderD3Graph(nodes, edges) {
 
   // Setup zoom
   _devGraphZoom = d3.zoom()
-    .scaleExtent([0.1, 4])
+    .scaleExtent([0.5, 2])
     .on('zoom', (event) => {
       g.attr('transform', event.transform);
     });
@@ -1627,91 +1630,103 @@ function _devRenderD3Graph(nodes, edges) {
     null: 'var(--text-dimmer)'
   };
 
-  // Node color by script order (gradient from accent to dimmer)
-  const nodeColor = d3.scaleSequential()
-    .domain([0, nodes.length - 1])
-    .interpolator(d3.interpolateRgb('var(--accent)', 'var(--text-dimmer)'));
-
-  // Sort nodes by load order for hierarchical layout
+  // Sort nodes by load order
   nodes.sort((a, b) => a.order - b.order);
 
-  // Hierarchical layout: arrange by load order (like git log --graph)
-  const verticalSpacing = Math.min(50, (height - 100) / nodes.length);
-  const margin = 50;
+  // Simple vertical layout (like git log --graph)
+  const verticalSpacing = 28;
+  const leftMargin = 80;
+  const dotX = leftMargin;
 
-  // Calculate horizontal positions to minimize edge crossings
-  const layerGroups = new Map();
-  nodes.forEach(node => {
-    const layer = node.order;
-    if (!layerGroups.has(layer)) layerGroups.set(layer, []);
-    layerGroups.get(layer).push(node);
-  });
-
-  // Assign positions: Y by load order, X distributed across width
+  // Assign positions: single vertical column
   nodes.forEach((node, i) => {
-    node.y = margin + i * verticalSpacing;
-
-    // Calculate X based on dependencies to minimize crossings
-    const layerNodes = layerGroups.get(node.order);
-    const nodeIndex = layerNodes.indexOf(node);
-    const layerSize = layerNodes.length;
-
-    if (layerSize === 1) {
-      node.x = width / 2;
-    } else {
-      // Distribute horizontally with padding
-      const horizontalSpacing = (width - 2 * margin) / (layerSize + 1);
-      node.x = margin + (nodeIndex + 1) * horizontalSpacing;
-    }
-
-    node.fx = node.x; // Fix X position
-    node.fy = node.y; // Fix Y position
+    node.x = dotX;
+    node.y = 40 + i * verticalSpacing;
+    node.fx = node.x;
+    node.fy = node.y;
   });
 
-  // Use minimal force simulation just for stability
-  _devGraphSimulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(edges).id(d => d.id).distance(verticalSpacing).strength(0.1))
-    .alphaDecay(0.1) // Fast convergence
-    .stop(); // Don't animate, use fixed positions
+  // Build dependency map for branch visualization
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const outgoingEdges = new Map();
+  const incomingEdges = new Map();
 
-  // Draw edges as curves (like git graph)
-  const link = g.append('g')
+  edges.forEach(e => {
+    const sourceId = e.source.id || e.source;
+    const targetId = e.target.id || e.target;
+
+    if (!outgoingEdges.has(sourceId)) outgoingEdges.set(sourceId, []);
+    if (!incomingEdges.has(targetId)) incomingEdges.set(targetId, []);
+
+    outgoingEdges.get(sourceId).push({ target: targetId, severity: e.severity, calls: e.calls });
+    incomingEdges.get(targetId).push({ source: sourceId, severity: e.severity, calls: e.calls });
+  });
+
+  // Stop any simulation
+  _devGraphSimulation = null;
+
+  // Draw vertical backbone line
+  g.append('line')
+    .attr('x1', dotX)
+    .attr('y1', nodes[0].y)
+    .attr('x2', dotX)
+    .attr('y2', nodes[nodes.length - 1].y)
+    .attr('stroke', 'var(--border-card)')
+    .attr('stroke-width', 2)
+    .attr('stroke-opacity', 0.5);
+
+  // Draw dependency branches (orthogonal lines)
+  const branchLines = [];
+  edges.forEach(e => {
+    const sourceId = e.source.id || e.source;
+    const targetId = e.target.id || e.target;
+    const source = nodeMap.get(sourceId);
+    const target = nodeMap.get(targetId);
+
+    if (source && target && source !== target) {
+      // Don't draw if it's just the next node in sequence
+      if (Math.abs(source.order - target.order) > 1) {
+        branchLines.push({
+          source,
+          target,
+          severity: e.severity,
+          calls: e.calls
+        });
+      }
+    }
+  });
+
+  // Draw branch lines (simple orthogonal paths)
+  const branches = g.append('g')
     .selectAll('path')
-    .data(edges)
+    .data(branchLines)
     .join('path')
     .attr('fill', 'none')
     .attr('stroke', d => severityColor[d.severity] || severityColor[null])
-    .attr('stroke-opacity', 0.5)
-    .attr('stroke-width', d => Math.max(1.5, Math.min(4, Math.sqrt(d.calls))))
-    .attr('marker-end', 'url(#arrowhead)');
+    .attr('stroke-opacity', 0.4)
+    .attr('stroke-width', 1.5)
+    .attr('d', d => {
+      const branchOffset = 25;
+      // Draw orthogonal path: out right, down/up, then back left
+      return `M ${d.source.x},${d.source.y}
+              L ${d.source.x + branchOffset},${d.source.y}
+              L ${d.source.x + branchOffset},${d.target.y}
+              L ${d.target.x},${d.target.y}`;
+    });
 
-  // Add arrowhead marker
-  svg.append('defs').append('marker')
-    .attr('id', 'arrowhead')
-    .attr('viewBox', '-0 -5 10 10')
-    .attr('refX', 15)
-    .attr('refY', 0)
-    .attr('orient', 'auto')
-    .attr('markerWidth', 4)
-    .attr('markerHeight', 4)
-    .append('svg:path')
-    .attr('d', 'M 0,-5 L 10,0 L 0,5')
-    .attr('fill', 'var(--text-dimmer)')
-    .attr('opacity', 0.6);
-
-  // Draw nodes
+  // Draw nodes (simple dots like git log)
   const node = g.append('g')
     .selectAll('circle')
     .data(nodes)
     .join('circle')
-    .attr('r', d => Math.max(6, Math.min(12, Math.sqrt(d.functions) * 2)))
+    .attr('r', 5)
     .attr('fill', d => {
       const computed = getComputedStyle(document.documentElement);
       const accent = computed.getPropertyValue('--accent').trim();
       const dimmer = computed.getPropertyValue('--text-dimmer').trim();
       return d3.interpolateRgb(accent, dimmer)(d.order / Math.max(1, nodes.length - 1));
     })
-    .attr('stroke', '#fff')
+    .attr('stroke', 'var(--bg-card)')
     .attr('stroke-width', 2)
     .style('cursor', 'pointer')
     .on('click', function(event, d) {
@@ -1719,36 +1734,37 @@ function _devRenderD3Graph(nodes, edges) {
       const connectedNodeIds = new Set();
       connectedNodeIds.add(d.id);
 
-      edges.forEach(edge => {
-        if (edge.source.id === d.id) connectedNodeIds.add(edge.target.id);
-        if (edge.target.id === d.id) connectedNodeIds.add(edge.source.id);
+      branchLines.forEach(b => {
+        if (b.source.id === d.id) connectedNodeIds.add(b.target.id);
+        if (b.target.id === d.id) connectedNodeIds.add(b.source.id);
       });
 
       node.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
-      link.attr('opacity', e =>
-        (e.source.id === d.id || e.target.id === d.id) ? 0.8 : 0.1
+      branches.attr('opacity', b =>
+        (b.source.id === d.id || b.target.id === d.id) ? 0.8 : 0.1
       );
-      label.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+      label.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.3);
     })
     .on('dblclick', function() {
       // Reset highlighting
       node.attr('opacity', 1);
-      link.attr('opacity', 0.6);
+      branches.attr('opacity', 0.4);
       label.attr('opacity', 1);
     });
 
-  // Add labels (to the right of nodes, like git graph)
+  // Add labels (to the right of dots, like git log)
   const label = g.append('g')
     .selectAll('text')
     .data(nodes)
     .join('text')
     .text(d => d.id.replace('.js', ''))
-    .attr('font-size', 11)
+    .attr('font-size', 13)
     .attr('font-family', 'monospace')
     .attr('fill', 'var(--text-primary)')
     .attr('text-anchor', 'start')
-    .attr('dx', d => Math.max(6, Math.min(12, Math.sqrt(d.functions) * 2)) + 8)
-    .attr('dy', 4)
+    .attr('x', d => d.x + 15)
+    .attr('y', d => d.y)
+    .attr('dy', '0.35em')
     .style('pointer-events', 'none')
     .style('user-select', 'none');
 
@@ -1779,43 +1795,10 @@ function _devRenderD3Graph(nodes, edges) {
     tooltip.transition().duration(200).style('opacity', 0);
   });
 
-  // Position nodes (fixed layout)
+  // Position nodes (simple dots in vertical line)
   node
     .attr('cx', d => d.x)
     .attr('cy', d => d.y);
-
-  label
-    .attr('x', d => d.x)
-    .attr('y', d => d.y);
-
-  // Draw curved edges (bezier curves like git graph)
-  link.attr('d', d => {
-    const source = nodes.find(n => n.id === d.source.id || n.id === d.source);
-    const target = nodes.find(n => n.id === d.target.id || n.id === d.target);
-
-    if (!source || !target) return '';
-
-    const sx = source.x;
-    const sy = source.y;
-    const tx = target.x;
-    const ty = target.y;
-
-    // Calculate control points for smooth curve
-    const dx = tx - sx;
-    const dy = ty - sy;
-
-    // For horizontal distance, use bezier curve
-    // For vertical, use gentle S-curve
-    if (Math.abs(dx) > 50) {
-      // Use bezier curve with horizontal control points
-      const midX = (sx + tx) / 2;
-      return `M ${sx},${sy} C ${midX},${sy} ${midX},${ty} ${tx},${ty}`;
-    } else {
-      // Close together horizontally, use simple curve
-      const curve = Math.min(Math.abs(dy) / 3, 30);
-      return `M ${sx},${sy} C ${sx},${sy + curve} ${tx},${ty - curve} ${tx},${ty}`;
-    }
-  });
 }
 
 // ── Git Log Section ──
