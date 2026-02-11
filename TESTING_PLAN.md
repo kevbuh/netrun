@@ -262,7 +262,7 @@ test('user can browse and save posts', async ({ page }) => {
 ## Test Organization Structure
 
 ```
-alpha/
+netrun/
 ├── tests/                     # Electron tests (node:test)
 │   └── password-store.test.js
 │

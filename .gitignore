@@ -4,9 +4,8 @@ build/
 dist/
 src/uploads/
 src/vault/
-src/alpha.db
-src/lookup.db
-src/aether.db
+src/netrun.db
+*.db
 __pycache__/
 *.pyc
 src/feed_cache/

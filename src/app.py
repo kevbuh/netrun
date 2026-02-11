@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Aether server — Flask-based."""
+"""NetRun server — Flask-based."""
 import argparse
 import json
 import os
 import sys
 
 # Parse args before importing persistence so ARXIV_DATA_DIR is set
-_parser = argparse.ArgumentParser(description='Aether server')
+_parser = argparse.ArgumentParser(description='NetRun server')
 _parser.add_argument('--port', type=int, default=8000, help='Port to listen on')
 _parser.add_argument('--data-dir', default=None, help='Directory for user data (DB, experiments, etc.)')
 _parser.add_argument('--static-dir', default=None, help='Directory for static files to serve')

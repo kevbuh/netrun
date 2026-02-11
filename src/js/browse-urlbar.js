@@ -33,7 +33,7 @@ function _browseSetUrlDisplay(input, url) {
   input.dataset.fullUrl = url || '';
   if (document.activeElement === input || input.matches(':hover')) {
     input.value = url || '';
-  } else if (localStorage.getItem('urlShorten') !== 'false' && url && !url.startsWith('aether://')) {
+  } else if (localStorage.getItem('urlShorten') !== 'false' && url && !url.startsWith('netrun://')) {
     input.value = _browseShortUrl(url);
   } else {
     input.value = url || '';
@@ -50,7 +50,7 @@ function _browseUrlOnFocus(input) {
 function _browseUrlOnBlur(input) {
   const full = input.dataset.fullUrl || input.value;
   input.dataset.fullUrl = full;
-  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
+  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
     input.value = _browseShortUrl(full);
   }
   _browseAutoSizeUrlInput(input);
@@ -66,7 +66,7 @@ function _browseUrlOnMouseEnter(input) {
 function _browseUrlOnMouseLeave(input) {
   if (document.activeElement === input) return;
   const full = input.dataset.fullUrl || input.value;
-  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('aether://')) {
+  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
     input.value = _browseShortUrl(full);
   }
   _browseAutoSizeUrlInput(input);
@@ -1067,7 +1067,7 @@ function openSearchHistoryPage() {
 
   // Mark it as a history tab
   tab.blank = false;
-  tab.url = 'aether://history';
+  tab.url = 'netrun://history';
   tab.title = 'History';
   tab.favicon = '';
   tab._historyPage = true;
@@ -1088,7 +1088,7 @@ function openSearchHistoryPage() {
 
   // Update URL bar
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, 'aether://history');
+  _browseSetUrlDisplay(urlInput, 'netrun://history');
 
   _renderWebSearchHistoryPage(el);
 }
@@ -1110,7 +1110,7 @@ function openHelpPage() {
   if (!tab) return;
 
   tab.blank = false;
-  tab.url = 'aether://help';
+  tab.url = 'netrun://help';
   tab.title = 'Help';
   tab.favicon = '';
   tab._helpPage = true;
@@ -1128,7 +1128,7 @@ function openHelpPage() {
   _browseRenderTabs();
 
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, 'aether://help');
+  _browseSetUrlDisplay(urlInput, 'netrun://help');
 
   _renderHelpPage(el);
 }
@@ -1296,8 +1296,8 @@ function _renderHelpPage(el) {
   html += `<div ${section}><div ${h2}>Internal Pages</div>`;
   html += `<table ${table}>`;
   html += `<tr><th ${th}>URL</th><th ${th}>Page</th></tr>`;
-  html += `<tr><td ${tdk}>aether://help</td><td ${tdv}>This page</td></tr>`;
-  html += `<tr><td ${tdk}>aether://history</td><td ${tdv}>Browsing & search history</td></tr>`;
+  html += `<tr><td ${tdk}>netrun://help</td><td ${tdv}>This page</td></tr>`;
+  html += `<tr><td ${tdk}>netrun://history</td><td ${tdv}>Browsing & search history</td></tr>`;
   html += '</table></div>';
 
   html += '</div>';

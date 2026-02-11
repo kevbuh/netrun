@@ -7,7 +7,7 @@ const https = require('https');
 const fs = require('fs');
 const { FilterSet, Engine } = require('adblock-rs');
 
-app.setName('Aether');
+app.setName('NetRun');
 
 // ── Ad Blocker (adblock-rs / Brave adblock-rust) ──
 
@@ -716,7 +716,7 @@ app.whenReady().then(() => {
     const os = require('os');
     const fs = require('fs');
     const { shell } = require('electron');
-    const dir = path.join(os.tmpdir(), 'aether-uploads');
+    const dir = path.join(os.tmpdir(), 'netrun-uploads');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const filePath = path.join(dir, name);
     fs.writeFileSync(filePath, Buffer.from(buffer));

@@ -91,7 +91,7 @@ See `TESTING_PLAN.md` for detailed roadmap!
 ### New Files Created
 
 ```
-alpha/
+netrun/
 ├── pytest.ini                              # Pytest configuration
 ├── TESTING_PLAN.md                         # Comprehensive testing roadmap
 ├── TESTING_QUICKSTART.md                   # This file!

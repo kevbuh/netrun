@@ -328,7 +328,7 @@ def cached_fetch(url, timeout=15):
 
 # ── User accounts (SQLite) ──
 
-DB_PATH = os.path.join(DIR, 'aether.db')
+DB_PATH = os.path.join(DIR, 'netrun.db')
 SESSION_TTL = 30 * 24 * 3600  # 30 days
 
 

@@ -143,7 +143,7 @@ function _browseRestoreTabs() {
           }
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
-            const tab = { id: saved.id, url: 'aether://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
+            const tab = { id: saved.id, url: 'netrun://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -151,7 +151,7 @@ function _browseRestoreTabs() {
           }
           // Help page tab
           if (saved._helpPage) {
-            const tab = { id: saved.id, url: 'aether://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
+            const tab = { id: saved.id, url: 'netrun://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -459,13 +459,13 @@ function openBrowse(url) {
 
 function browseNewTab(url) {
   if (_browseTabOverviewVisible) hideBrowseTabOverview();
-  // Intercept aether:// URLs
+  // Intercept netrun:// URLs
   const trimUrl = (url || '').trim().toLowerCase();
-  if (trimUrl === 'aether://history' || trimUrl === 'aether://history/') {
+  if (trimUrl === 'netrun://history' || trimUrl === 'netrun://history/') {
     openSearchHistoryPage();
     return;
   }
-  if (trimUrl === 'aether://help' || trimUrl === 'aether://help/') {
+  if (trimUrl === 'netrun://help' || trimUrl === 'netrun://help/') {
     openHelpPage();
     return;
   }
@@ -2367,7 +2367,7 @@ function browseSelectTab(id) {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : tab.url) : '');
+  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
@@ -2528,11 +2528,11 @@ function _browseUpdateNewTabPage(tab) {
           <div id="search-feed-results"></div>
           <div id="search-arxiv-results"></div>
         </div>
-        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">aether</div>`;
+        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">netrun</div>`;
       container.appendChild(ntp);
       fetch('/api/version').then(r => r.json()).then(v => {
         const el = ntp.querySelector('.browse-ntp-version');
-        if (el && v.version) el.textContent = 'aether v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
+        if (el && v.version) el.textContent = 'netrun v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
       }).catch(() => {});
       ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--accent)'; });
       ntp.addEventListener('dragleave', function() { ntp.style.outline = ''; });
@@ -2940,7 +2940,7 @@ function _browseFocusPane(paneId) {
   // Update URL bar
   const tab = win?.tabs.find(t => t.id === pane.tabId);
   const urlInput = document.getElementById('browse-url-input');
-  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'aether://history' : tab._helpPage ? 'aether://help' : (tab.url || ''));
+  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : (tab.url || ''));
   _browseUpdateSaveBtn();
   _browseRenderTabs();
 }
@@ -4340,8 +4340,8 @@ function _browseRestoreTabsLite() {
           else if (st.paper.localPath) { tab.localPath = st.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(st.paper.localPath); }
           else if (st.paper.pdfUrl) { tab.pdfUrl = st.paper.pdfUrl; }
         }
-        if (st._historyPage) { tab.url = 'aether://history'; tab.title = 'History'; tab._historyPage = true; }
-        if (st._helpPage) { tab.url = 'aether://help'; tab.title = 'Help'; tab._helpPage = true; }
+        if (st._historyPage) { tab.url = 'netrun://history'; tab.title = 'History'; tab._historyPage = true; }
+        if (st._helpPage) { tab.url = 'netrun://help'; tab.title = 'Help'; tab._helpPage = true; }
         win.tabs.push(tab);
       }
       _browseWindows.push(win);
@@ -4778,11 +4778,11 @@ function _browseFaviconUrl(url) {
 function browseNavigate(input) {
   // Handle slash commands
   const cmd = (input || '').trim().toLowerCase();
-  if (cmd === '/history' || cmd === 'aether://history' || cmd === 'aether://history/') {
+  if (cmd === '/history' || cmd === 'netrun://history' || cmd === 'netrun://history/') {
     openSearchHistoryPage();
     return;
   }
-  if (cmd === '/help' || cmd === 'aether://help' || cmd === 'aether://help/') {
+  if (cmd === '/help' || cmd === 'netrun://help' || cmd === 'netrun://help/') {
     openHelpPage();
     return;
   }

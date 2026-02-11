@@ -1,4 +1,4 @@
-# CLAUDE.md
+# CLAUDE.md — NetRun
 
 ## Running the Application
 
@@ -199,7 +199,7 @@ Force-directed canvas visualization of papers, authors, topics, notes, and memor
 
 **Node types:** paper (accent color), author (blue), topic (green diamond), note (orange square), memory (purple circle). Memories connect to papers via `page_url` (discussed edge) and topics via keyword match (has_topic edge).
 
-### Database Schema (SQLite — `aether.db`)
+### Database Schema (SQLite — `netrun.db`)
 
 26 tables, auto-created:
 - **Auth:** `users`, `sessions` (30-day TTL), `user_data` (per-user key-value sync)
