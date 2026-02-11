@@ -135,7 +135,7 @@ function _embedPost(link) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title: paper.title, link: paper.link, source: paper.source || '', description: paper.description || '', type: 'post' })
-  }).catch(() => {});
+  }).catch((e) => { /* fire-and-forget */ });
 }
 function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
@@ -187,7 +187,7 @@ function hidePost(link, title, event) {
   if (event) event.stopPropagation();
   const hidden = getHiddenPosts();
   if (!hidden.includes(link)) hidden.push(link);
-  localStorage.setItem('hiddenPosts', JSON.stringify(hidden));
+  setLS('hiddenPosts', hidden);
   if (title) addTestTitle(title);
   if (!localStorage.getItem('ach_curator')) {
     localStorage.setItem('ach_curator', '1');
@@ -206,7 +206,7 @@ async function fetchTestTitlesFromServer() {
       setLS('qualityTestTitles', titles);
       return titles;
     }
-  } catch {}
+  } catch (e) { console.warn('fetchBlockedTitles:', e); }
   return getTestTitles();
 }
 function addTestTitle(title) {
@@ -216,7 +216,7 @@ function addTestTitle(title) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title })
-  }).catch(() => {});
+  }).catch((e) => { /* fire-and-forget */ });
 }
 function isPostHidden(link) { return getHiddenPosts().includes(link); }
 
@@ -285,7 +285,7 @@ function getBlockedWords() {
   return getLS('blockedWords', []);
 }
 function setBlockedWords(words) {
-  localStorage.setItem('blockedWords', JSON.stringify(words));
+  setLS('blockedWords', words);
 }
 function addBlockedWord() {
   const input = document.getElementById('blocked-word-input');
@@ -327,7 +327,7 @@ function renderBlockedWordsList() {
 // ── Offline caching ──
 
 function getOfflineCachedSet() {
-  try { return new Set(JSON.parse(localStorage.getItem('offlineCached') || '[]')); } catch { return new Set(); }
+  return new Set(getLS('offlineCached', []));
 }
 
 function isPostCached(link) {
@@ -356,7 +356,7 @@ async function cachePostOffline(link, paper, btnEl) {
     });
     const cached = getOfflineCachedSet();
     cached.add(link);
-    localStorage.setItem('offlineCached', JSON.stringify([...cached]));
+    setLS('offlineCached', [...cached]);
     if (btnEl) { btnEl.innerHTML = _offlineCachedIcon(); btnEl.classList.add('cached'); }
   } catch (e) {
     console.error('cachePostOffline error', e);
@@ -376,9 +376,9 @@ function _offlineCachedIcon() {
 }
 
 function getSavedPosts() {
-  try { return JSON.parse(localStorage.getItem('savedPosts') || '{}'); } catch { return {}; }
+  return getLS('savedPosts', {});
 }
-function savePosts(data) { localStorage.setItem('savedPosts', JSON.stringify(data)); }
+function savePosts(data) { setLS('savedPosts', data); }
 function isPostSaved(link) { return !!getSavedPosts()[link]; }
 
 
@@ -502,7 +502,7 @@ function unsubscribeSource(key) {
   const sources = getFeedSources();
   if (key in sources) {
     sources[key] = false;
-    localStorage.setItem('feedSources', JSON.stringify(sources));
+    setLS('feedSources', sources);
   }
   // Check custom feeds
   const custom = getCustomFeeds();
@@ -963,8 +963,8 @@ function completeOnboarding() {
     sources[f.key] = onboardSelected.has(f.key);
     notifSources[f.key] = onboardNotifSelected.has(f.key);
   });
-  localStorage.setItem('feedSources', JSON.stringify(sources));
-  localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
+  setLS('feedSources', sources);
+  setLS('feedNotifSources', notifSources);
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('home-feed-section').style.display = '';
   // Show top pill bar after onboarding
@@ -974,13 +974,11 @@ function completeOnboarding() {
 }
 
 function getFeedSources() {
-  try { return { ...FEED_SOURCE_DEFAULTS, ...JSON.parse(localStorage.getItem('feedSources')) }; }
-  catch { return { ...FEED_SOURCE_DEFAULTS }; }
+  return { ...FEED_SOURCE_DEFAULTS, ...getLS('feedSources', {}) };
 }
 
 function getCustomFeeds() {
-  try { return JSON.parse(localStorage.getItem('customFeeds')) || []; }
-  catch { return []; }
+  return getLS('customFeeds', []);
 }
 
 function renderCustomFeedsList() {
@@ -1014,7 +1012,7 @@ async function addCustomFeed() {
   if (feeds.some(f => f.url === url)) return;
   // Try to fetch the feed title
   let name = url;
-  try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch {}
+  try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch (e) { /* fire-and-forget */ }
   try {
     const resp = await fetch(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
     if (resp.ok) {
@@ -1023,9 +1021,9 @@ async function addCustomFeed() {
       const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
       if (feedTitle) name = feedTitle;
     }
-  } catch {}
+  } catch (e) { /* fire-and-forget */ }
   feeds.push({ url, name, enabled: true });
-  localStorage.setItem('customFeeds', JSON.stringify(feeds));
+  setLS('customFeeds', feeds);
   input.value = '';
   renderCustomFeedsList();
   allPapers = [];
@@ -1035,7 +1033,7 @@ async function addCustomFeed() {
 function removeCustomFeed(index) {
   const feeds = getCustomFeeds();
   feeds.splice(index, 1);
-  localStorage.setItem('customFeeds', JSON.stringify(feeds));
+  setLS('customFeeds', feeds);
   renderCustomFeedsList();
   allPapers = [];
   loadAllFeeds();
@@ -1044,7 +1042,7 @@ function removeCustomFeed(index) {
 function toggleCustomFeed(index, enabled) {
   const feeds = getCustomFeeds();
   feeds[index].enabled = enabled;
-  localStorage.setItem('customFeeds', JSON.stringify(feeds));
+  setLS('customFeeds', feeds);
   allPapers = [];
   loadAllFeeds();
 }
@@ -1391,7 +1389,7 @@ function renderQualityView() {
     }
     const scoringEl = document.getElementById('scoring-prompt-display');
     if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-  }).catch(() => {});
+  }).catch((e) => { console.warn('loadQualityPrompt:', e); });
 }
 
 function _renderPersonalizationPanel() {
@@ -1505,7 +1503,7 @@ function _renderPersonalizationPanel() {
 function toggleFeedSource(key, value) {
   const sources = getFeedSources();
   sources[key] = value;
-  localStorage.setItem('feedSources', JSON.stringify(sources));
+  setLS('feedSources', sources);
   if (value && !localStorage.getItem('ach_explorer')) {
     localStorage.setItem('ach_explorer', '1');
     if (typeof showAchievement === 'function') showAchievement('Explorer', 'Enabled a new feed source');
@@ -1834,16 +1832,16 @@ function saveSearchHistory(query, resultCount) {
   let hist = getSearchHistory().filter(h => h.q !== q);
   hist.unshift({ q, ts: Date.now(), c: resultCount || 0 });
   if (hist.length > 50) hist = hist.slice(0, 50);
-  localStorage.setItem('searchHistory', JSON.stringify(hist));
+  setLS('searchHistory', hist);
 }
 function _updateSearchHistoryCount(count) {
   const hist = getSearchHistory();
-  if (hist.length) { hist[0].c = count; localStorage.setItem('searchHistory', JSON.stringify(hist)); }
+  if (hist.length) { hist[0].c = count; setLS('searchHistory', hist); }
 }
 function removeSearchHistory(index) {
   const hist = getSearchHistory();
   hist.splice(index, 1);
-  localStorage.setItem('searchHistory', JSON.stringify(hist));
+  setLS('searchHistory', hist);
   showSearchHistoryView();
 }
 
@@ -2274,7 +2272,7 @@ function _renderPapersNow() {
         fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() })
           .then(r => r.json())
           .then(comments => _renderTweetComments(container, comments, p.link, i))
-          .catch(() => {});
+          .catch((e) => { console.warn('loadTweetComments:', e); });
       }
     }
   });
@@ -2439,16 +2437,16 @@ function _hideTweetReply(id) {
 }
 
 function _getRepostedLinks() {
-  try { return JSON.parse(localStorage.getItem('repostedLinks') || '[]'); } catch { return []; }
+  return getLS('repostedLinks', []);
 }
 function _isReposted(link) { return _getRepostedLinks().includes(link); }
 function _markReposted(link) {
   const links = _getRepostedLinks();
-  if (!links.includes(link)) { links.push(link); localStorage.setItem('repostedLinks', JSON.stringify(links)); }
+  if (!links.includes(link)) { links.push(link); setLS('repostedLinks', links); }
 }
 function _unmarkReposted(link) {
   const links = _getRepostedLinks().filter(l => l !== link);
-  localStorage.setItem('repostedLinks', JSON.stringify(links));
+  setLS('repostedLinks', links);
 }
 
 function _tweetRepost(idx, btn) {

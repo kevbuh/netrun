@@ -640,8 +640,8 @@ async function openVaultNote(noteId) {
 
   // If in file editor mode, close it first
   if (_vaultEditorMode === 'file') {
-    if (typeof _cleanupDrawEditor === 'function') try { _cleanupDrawEditor(); } catch (e) {}
-    if (typeof _cleanupSlidesEditor === 'function') try { _cleanupSlidesEditor(); } catch (e) {}
+    if (typeof _cleanupDrawEditor === 'function') try { _cleanupDrawEditor(); } catch (e) { /* fire-and-forget */ }
+    if (typeof _cleanupSlidesEditor === 'function') try { _cleanupSlidesEditor(); } catch (e) { /* fire-and-forget */ }
     if (typeof closeFileEditor === 'function') closeFileEditor();
     _vaultEditorMode = 'note';
     const pane = document.getElementById('vault-file-editor-pane');
@@ -823,7 +823,7 @@ async function saveCurrentNote() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
-    }).catch(() => {});
+    }).catch((e) => { /* fire-and-forget */ });
   } catch (e) {
     console.error('Failed to save note', e);
   }
@@ -1026,8 +1026,8 @@ function vaultCloseFile() {
   if (_vaultEditorMode !== 'file') return;
 
   // Cleanup draw/slides editors if active
-  if (typeof _cleanupDrawEditor === 'function') try { _cleanupDrawEditor(); } catch (e) {}
-  if (typeof _cleanupSlidesEditor === 'function') try { _cleanupSlidesEditor(); } catch (e) {}
+  if (typeof _cleanupDrawEditor === 'function') try { _cleanupDrawEditor(); } catch (e) { /* fire-and-forget */ }
+  if (typeof _cleanupSlidesEditor === 'function') try { _cleanupSlidesEditor(); } catch (e) { /* fire-and-forget */ }
 
   // Close the experiment file editor
   if (typeof closeFileEditor === 'function') closeFileEditor();
@@ -2199,7 +2199,7 @@ function toggleBlogBookmark() {
   let savedPosts = {};
   try {
     savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '{}');
-  } catch (e) {}
+  } catch (e) { /* fire-and-forget */ }
 
   const btn = document.getElementById('blog-bookmark-btn');
 
@@ -2232,7 +2232,7 @@ function updateBlogBookmarkButton() {
   let savedPosts = {};
   try {
     savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '{}');
-  } catch (e) {}
+  } catch (e) { /* fire-and-forget */ }
 
   const btn = document.getElementById('blog-bookmark-btn');
   btn?.classList.toggle('active', !!savedPosts[url]);
@@ -2635,7 +2635,7 @@ function _saveVaultChatMessages() {
       role: m.role, content: m.content, _sources: m._sources
     }));
     localStorage.setItem('vaultChatMessages', JSON.stringify(toSave));
-  } catch (e) {}
+  } catch (e) { /* fire-and-forget */ }
 }
 
 function clearVaultChat() {
@@ -2769,19 +2769,19 @@ async function sendVaultChatMessage() {
           if (currentEvent === 'sources') {
             try {
               _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6));
-            } catch (e) {}
+            } catch (e) { /* fire-and-forget */ }
           } else if (currentEvent === 'token') {
             try {
               const token = JSON.parse(line.slice(6));
               aiText += token;
               _vaultChatMessages[aiIdx].content = aiText;
               _renderVaultChatMessages(false);
-            } catch (e) {}
+            } catch (e) { /* fire-and-forget */ }
           } else if (currentEvent === 'error') {
             try {
               const errMsg = JSON.parse(line.slice(6));
               _vaultChatMessages[aiIdx].content = 'Error: ' + errMsg;
-            } catch (e) {}
+            } catch (e) { /* fire-and-forget */ }
           }
         }
       }
@@ -2978,15 +2978,15 @@ async function _sendNtpVaultChat() {
           currentEvent = line.slice(7);
         } else if (line.startsWith('data: ')) {
           if (currentEvent === 'sources') {
-            try { _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6)); } catch (e) {}
+            try { _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6)); } catch (e) { /* fire-and-forget */ }
           } else if (currentEvent === 'token') {
             try {
               aiText += JSON.parse(line.slice(6));
               _vaultChatMessages[aiIdx].content = aiText;
               _renderNtpVaultChatMessages(false);
-            } catch (e) {}
+            } catch (e) { /* fire-and-forget */ }
           } else if (currentEvent === 'error') {
-            try { _vaultChatMessages[aiIdx].content = 'Error: ' + JSON.parse(line.slice(6)); } catch (e) {}
+            try { _vaultChatMessages[aiIdx].content = 'Error: ' + JSON.parse(line.slice(6)); } catch (e) { /* fire-and-forget */ }
           }
         }
       }
@@ -3027,7 +3027,7 @@ async function _ensureVaultPath() {
       const data = await resp.json();
       _vaultPath = data.path || null;
     }
-  } catch {}
+  } catch (e) { console.warn('ensureVaultPath:', e); }
   return _vaultPath;
 }
 
@@ -3045,7 +3045,7 @@ async function _vaultFetchGitStatus() {
     }
     _vaultGitStatus = map;
     renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
-  } catch {}
+  } catch (e) { console.warn('vaultFetchGitStatus:', e); }
 }
 
 // Terminal in right panel
@@ -3069,11 +3069,11 @@ function renderVaultTerminalPanel(container) {
     _vaultTerminal.fitAddon.fit();
     _ensureVaultPath().then(vp => _connectTerminalWs(_vaultTerminal, vp));
   } else {
-    setTimeout(() => { try { _vaultTerminal.fitAddon.fit(); } catch {} }, 50);
+    setTimeout(() => { try { _vaultTerminal.fitAddon.fit(); } catch (e) { /* fire-and-forget */ } }, 50);
   }
 
   const ro = new ResizeObserver(() => {
-    try { _vaultTerminal.fitAddon.fit(); } catch {}
+    try { _vaultTerminal.fitAddon.fit(); } catch (e) { /* fire-and-forget */ }
   });
   ro.observe(pane);
 }

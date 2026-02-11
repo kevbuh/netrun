@@ -33,7 +33,7 @@ async function fetchServerPrompt() {
       localStorage.setItem('qualityPrompt', data.prompt);
       return data.prompt;
     }
-  } catch {}
+  } catch (e) { console.warn('fetchServerPrompt:', e); }
   return null;
 }
 async function saveQualityPrompt() {
@@ -54,7 +54,7 @@ async function saveQualityPrompt() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: val === DEFAULT_QUALITY_PROMPT ? '' : val })
     });
-  } catch {}
+  } catch (e) { console.warn('saveQualityPrompt:', e); }
   localStorage.removeItem('qualityCache');
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
@@ -67,7 +67,7 @@ function resetQualityPrompt() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt: '' })
-  }).catch(() => {});
+  }).catch((e) => { /* fire-and-forget */ });
   const el = document.getElementById('quality-prompt-input');
   if (el) el.value = DEFAULT_QUALITY_PROMPT;
   runPromptTest();
@@ -77,7 +77,7 @@ function clearTestTitles() {
   updateTestTitleCount();
   const resultsEl = document.getElementById('prompt-test-results');
   if (resultsEl) resultsEl.innerHTML = '';
-  fetch('/api/blocked-titles', { method: 'DELETE' }).catch(() => {});
+  fetch('/api/blocked-titles', { method: 'DELETE' }).catch((e) => { /* fire-and-forget */ });
 }
 function updateTestTitleCount() {
   const el = document.getElementById('test-title-count');
@@ -135,7 +135,7 @@ function resetEverything() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt: '' })
-  }).catch(() => {});
+  }).catch((e) => { /* fire-and-forget */ });
   localStorage.removeItem('qualityCache');
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
@@ -182,10 +182,10 @@ function renderBlockedList() {
   }).join('');
 }
 function getQualityCache() {
-  try { return JSON.parse(localStorage.getItem('qualityCache') || '{}'); } catch { return {}; }
+  return getLS('qualityCache', {});
 }
 function saveQualityCacheData(cache) {
-  localStorage.setItem('qualityCache', JSON.stringify(cache));
+  setLS('qualityCache', cache);
 }
 function isQualityFilterOn() {
   return localStorage.getItem('qualityFilter') !== 'off';
@@ -217,12 +217,12 @@ function setQualityThreshold(val) {
   renderPapers();
 }
 function getQualityBypass() {
-  try { return JSON.parse(localStorage.getItem('qualityBypass') || '{}'); } catch { return {}; }
+  return getLS('qualityBypass', {});
 }
 function setQualityBypass(key, bypass) {
   const b = getQualityBypass();
   if (bypass) b[key] = true; else delete b[key];
-  localStorage.setItem('qualityBypass', JSON.stringify(b));
+  setLS('qualityBypass', b);
   renderPapers();
 }
 function isSourceBypassed(sourceKey) {
@@ -429,12 +429,12 @@ function computeInterestProfile() {
     .map(e => e.cat);
 
   const profile = { sourceCounts, catCounts, topTopics, topCategories, updatedAt: Date.now() };
-  localStorage.setItem('interestProfile', JSON.stringify(profile));
+  setLS('interestProfile', profile);
   return profile;
 }
 
 function getInterestProfile() {
-  try { return JSON.parse(localStorage.getItem('interestProfile') || 'null'); } catch { return null; }
+  return getLS('interestProfile', null);
 }
 
 function buildInterestContext() {

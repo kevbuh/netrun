@@ -75,13 +75,13 @@ function _renderAccountSettings() {
 
 function toggleSidebarIcon(id, visible) {
   let hidden = [];
-  try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
+  hidden = getLS('hiddenSidebarIcons', []);
   if (visible) {
     hidden = hidden.filter(h => h !== id);
   } else {
     if (!hidden.includes(id)) hidden.push(id);
   }
-  localStorage.setItem('hiddenSidebarIcons', JSON.stringify(hidden));
+  setLS('hiddenSidebarIcons', hidden);
   applySidebarVisibility();
 }
 
@@ -140,7 +140,7 @@ function _sbDragEnd() {
     const list = document.getElementById('sb-icon-list');
     if (list) {
       const order = Array.from(list.querySelectorAll('.sb-icon-row')).map(r => r.dataset.id);
-      localStorage.setItem('sidebarOrder', JSON.stringify(order));
+      setLS('sidebarOrder', order);
       applySidebarOrder();
       applySidebarVisibility();
     }
@@ -323,7 +323,7 @@ function _renderAppearanceSettings() {
         const labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-rain': 'White Noise', 'sb-settings': 'Settings' };
         const order = getSidebarOrder();
         let hidden = [];
-        try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
+        hidden = getLS('hiddenSidebarIcons', []);
         return order.map(id => {
           const label = labels[id] || id;
           const isVisible = !hidden.includes(id);
@@ -863,7 +863,7 @@ function _pwDeleteEntry(id) {
   if (!window.electronAPI || !window.electronAPI.pwDelete) return;
   window.electronAPI.pwDelete(id).then(() => {
     _loadSettingsPasswords();
-  }).catch(() => {});
+  }).catch((e) => { console.warn('pwDelete:', e); });
 }
 
 function _loadSettingsModels() {
@@ -1183,7 +1183,7 @@ function renderSettingsView() {
   fetch('/api/version').then(r => r.json()).then(v => {
     const el = document.getElementById('settings-version');
     if (el && v.version) el.textContent = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
-  }).catch(() => {});
+  }).catch((e) => { /* fire-and-forget */ });
 
   // Section-specific post-render hooks
   if (_settingsSection === 'appearance') {
@@ -1199,7 +1199,7 @@ function renderSettingsView() {
         }
         var scoringEl = document.getElementById('scoring-prompt-display');
         if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-      }).catch(function(){});
+      }).catch(function(e){ console.warn('loadQualityPrompt:', e); });
     } else if (_settingsFeedTab === 'algorithm') {
       if (typeof _renderPersonalizationPanel === 'function') _renderPersonalizationPanel();
     }
@@ -1218,7 +1218,7 @@ function renderSettingsView() {
         } else {
           el.textContent = 'No filter lists loaded yet. Click "Update filter lists" to download.';
         }
-      }).catch(() => {});
+      }).catch((e) => { /* fire-and-forget */ });
     }
   }
 }
