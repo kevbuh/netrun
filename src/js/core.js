@@ -345,7 +345,7 @@ function _islandBuildTray(a, isBrowse) {
   }
   if (a.type === 'pulse') {
     var recent = (typeof Motion !== 'undefined') ? Motion.pulse.recent : [];
-    var trayHtml = '<div style="padding:6px 8px;font-size:0.6rem;opacity:0.4;text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
+    var trayHtml = '<div style="padding:6px 8px;font-size:0.6rem;color:#fff;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
     var start = Math.max(0, recent.length - 30);
     for (var ri = recent.length - 1; ri >= start; ri--) {
       var ev = recent[ri];

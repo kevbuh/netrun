@@ -408,7 +408,7 @@ function openBrowse(url) {
     const win = _getCurrentWindow();
     const tab = win?.tabs.find(t => t.id === win.activeTab);
     if (tab && tab.url && !tab.blank) {
-      _initSidebarForUrl(tab.url);
+      if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
       if (!_restoreAnnotationPill(tab)) _offerAnnotation(tab);
     }
   }
@@ -2344,7 +2344,7 @@ function browseSelectTab(id) {
     } else {
       hidePanel();
     }
-    _initSidebarForUrl(tab.url);
+    if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
     _startScrollTracker(tab.url);
     _browseUpdateBarForTab(tab);
   } else {

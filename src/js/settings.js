@@ -997,7 +997,7 @@ function _renderAgentSettings() {
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">
-            <input type="checkbox" ${localStorage.getItem('chatThinking') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('chatThinking', this.checked ? 'on' : 'off')">
+            <input type="checkbox" ${localStorage.getItem('chatThinking') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('chatThinking', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
         </label>

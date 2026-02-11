@@ -911,7 +911,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         if (vm) body.model = vm;
       } else {
         if (toolsOn) body.tools = true;
-        if (localStorage.getItem('chatThinking') === 'off') body.think = false;
+        body.think = localStorage.getItem('chatThinking') === 'on';
         // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
         if (noteContexts.length) {
@@ -1155,6 +1155,58 @@ function _updateContextBar(popup) {
   // Removed — context bar no longer shown
 }
 
+function _renderLatexInElement(element) {
+  // Process LaTeX in text nodes, handling both inline ($...$) and display ($$...$$) math
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+  const nodesToProcess = [];
+  let node;
+  while (node = walker.nextNode()) {
+    // Skip if parent is code, pre, or already processed
+    if (node.parentElement && !node.parentElement.closest('code, pre, .katex')) {
+      nodesToProcess.push(node);
+    }
+  }
+
+  nodesToProcess.forEach(textNode => {
+    const text = textNode.textContent;
+    // Match both display ($$...$$) and inline ($...$) LaTeX
+    const regex = /(\$\$[^$]+?\$\$|\$[^$]+?\$)/g;
+    const matches = text.match(regex);
+    if (!matches) return;
+
+    const parts = text.split(regex);
+    const fragment = document.createDocumentFragment();
+
+    parts.forEach(part => {
+      if (part.startsWith('$$') && part.endsWith('$$')) {
+        // Display math
+        const math = part.slice(2, -2);
+        const span = document.createElement('span');
+        try {
+          katex.render(math, span, { displayMode: true, throwOnError: false });
+          fragment.appendChild(span);
+        } catch (e) {
+          fragment.appendChild(document.createTextNode(part));
+        }
+      } else if (part.startsWith('$') && part.endsWith('$')) {
+        // Inline math
+        const math = part.slice(1, -1);
+        const span = document.createElement('span');
+        try {
+          katex.render(math, span, { displayMode: false, throwOnError: false });
+          fragment.appendChild(span);
+        } catch (e) {
+          fragment.appendChild(document.createTextNode(part));
+        }
+      } else {
+        fragment.appendChild(document.createTextNode(part));
+      }
+    });
+
+    textNode.parentNode.replaceChild(fragment, textNode);
+  });
+}
+
 function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
@@ -1233,6 +1285,12 @@ function _renderPopupChat(popup, final) {
     const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
     return `<div class="doc-msg-ai">${thinkingBlock}${content}${speakBtn}</div>`;
   }).join('');
+  // Render LaTeX in AI messages
+  if (typeof katex !== 'undefined') {
+    container.querySelectorAll('.doc-msg-ai').forEach(msgEl => {
+      _renderLatexInElement(msgEl);
+    });
+  }
   // Attach click handlers for search results
   container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
     el.addEventListener('click', (ev) => {
