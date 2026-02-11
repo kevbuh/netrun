@@ -65,7 +65,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 | `#blog/{id}`, `#profile/{username}`, `#author/{id}`, `#dev` | Content views |
 | `#vibe`, `#experiments`, `#search` | Legacy redirects → vault/research |
 
-**Script load order** (order matters — all global): `core.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `knowledge-graph.js` → `vibe.js` → `neuralook.js`
+**Script load order** (order matters — all global): `core.js` → `motion.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `knowledge-graph.js` → `vibe.js` → `neuralook.js`
 
 **Electron:** `electron/main.js` (main process, IPC, Python server lifecycle), `electron/preload.js` (context bridge), `electron/password-store.js` (encrypted passwords via safeStorage). Tests: `tests/password-store.test.js` (node:test + node:assert).
 
@@ -150,6 +150,20 @@ Two-layer system in `electron/main.js` + `browse-tabs.js`, gated on `localStorag
 **YouTube-specific** (`_browseInjectYouTubeAdBlock`, `_browseInjectYouTubeCSS`): CSS injected on `did-navigate` (pre-paint) hides `.ad-showing` video + ad containers. Early mute script intercepts `HTMLMediaElement.prototype.play()` to silence ads before audio plays. Polling loop (300ms) fast-forwards ads at 16x speed, clicks skip buttons, tries player API (`skipAd`, `cancelPlayback`). `MutationObserver` auto-dismisses ad-blocker enforcement dialogs. Guard flag `window.__aetherYtAdBlockInjected` prevents double-injection.
 
 Key globals: `_ytAdBlockCSS` (shared CSS string), `_browseInjectYouTubeCSS(frame, url)` (early CSS+mute), `_browseInjectYouTubeAdBlock(frame, url)` (full JS skipper on dom-ready).
+
+### AetherMotion
+
+`js/motion.js` — lightweight animation framework exposing a global `Motion` object. Opt-in; existing CSS animations stay untouched.
+
+**Design tokens:** `Motion.spring.snappy/smooth/gentle/bouncy` (tension/friction/mass), `Motion.duration.instant/fast/normal/slow`, `Motion.stagger.tight/normal/relaxed`. `Motion.css('snappy')` returns the `cubic-bezier(0.34, 1.56, 0.64, 1)` used throughout the codebase.
+
+**Core:** `Motion.animate(el, { spring, from, to, duration, delay, onFinish })` — Web Animations API, auto GPU promote/demote, interruptible (cancels previous on same element). Shorthand transform props: `x`, `y`, `scale`, `rotate`. Spring keyframes generated via damped harmonic oscillator (cached, 64 entries).
+
+**Helpers:** `Motion.sequence([steps])` chains animations, `Motion.staggerFn(selector, config)` staggers across elements, `Motion.flip(el, callback)` for FLIP layout animations.
+
+**GPU management:** `Motion.promote(el)` / `Motion.demote(el)`, budget of 30 layers (8 when Ollama active). Auto-demote after animation ends.
+
+**Ollama awareness:** Polls `localhost:11434/api/ps` every 5s. `Motion.modelActive` (boolean), `Motion.reducedMotion` (modelActive OR `prefers-reduced-motion`). Reduces layer budget and collapses animation duration when active.
 
 ### Semantic Search
 

@@ -939,7 +939,7 @@ function _nlShowTrainPill() {
   document.body.appendChild(pill);
   pillStackAdd('nl-train-pill');
   _nlTrainPill = pill;
-  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
+  Motion.animate(pill, { spring: 'smooth', from: { opacity: 0, y: 10 }, to: { opacity: 1, y: 0 } });
 
   // Add spinner keyframes if not already present
   if (!document.getElementById('nl-pill-spin-style')) {
@@ -1022,11 +1022,9 @@ function _nlErrorTrainPill(msg) {
 function _nlDismissTrainPill() {
   if (!_nlTrainPill) return;
   pillStackRemove('nl-train-pill');
-  _nlTrainPill.style.opacity = '0';
-  _nlTrainPill.style.transform = 'translateY(10px)';
   const p = _nlTrainPill;
   _nlTrainPill = null;
-  setTimeout(() => p.remove(), 300);
+  Motion.animate(p, { spring: 'smooth', from: { opacity: 1, y: 0 }, to: { opacity: 0, y: 10 }, onFinish: function() { p.remove(); } });
 }
 
 async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
@@ -1661,15 +1659,14 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
   pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-model-updated-pill'); pill.remove(); };
   document.body.appendChild(pill);
   pillStackAdd('nl-model-updated-pill');
-  requestAnimationFrame(() => { pill.style.opacity = '1'; pill.style.transform = 'translateY(0)'; });
+  Motion.animate(pill, { spring: 'smooth', from: { opacity: 0, y: 10 }, to: { opacity: 1, y: 0 } });
   pill.animate([
     { boxShadow: '0 0 0 0 rgba(96,165,250,0.4)', transform: 'translateY(0) scale(1)' },
     { boxShadow: '0 0 20px 8px rgba(96,165,250,0.25)', transform: 'translateY(-2px) scale(1.03)' },
     { boxShadow: '0 0 0 0 rgba(96,165,250,0)', transform: 'translateY(0) scale(1)' }
   ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
   setTimeout(() => {
-    pill.style.opacity = '0'; pill.style.transform = 'translateY(10px)';
-    setTimeout(() => { pillStackRemove('nl-model-updated-pill'); pill.remove(); }, 300);
+    Motion.animate(pill, { spring: 'smooth', from: { opacity: 1, y: 0 }, to: { opacity: 0, y: 10 }, onFinish: function() { pillStackRemove('nl-model-updated-pill'); pill.remove(); } });
   }, 5000);
 }
 

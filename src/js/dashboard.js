@@ -1511,7 +1511,7 @@ function _renderDevDependencyGraph() {
   contentPane.innerHTML = `
     <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dependency Graph</h2>
     <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
-      Interactive visualization of file dependencies. Drag nodes, zoom/pan, click to highlight.
+      Git-style hierarchical view of file dependencies. Files arranged by load order (top to bottom). Zoom/pan, click to highlight.
     </p>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <button onclick="_devLoadDependencyGraph()" id="dev-dep-graph-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Load Graph</button>
@@ -1525,8 +1525,9 @@ function _renderDevDependencyGraph() {
       <div><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:50%;margin-right:4px"></span>WARNING</div>
       <div><span style="display:inline-block;width:12px;height:12px;background:#60a5fa;border-radius:50%;margin-right:4px"></span>INFO</div>
       <div><span style="display:inline-block;width:12px;height:12px;background:var(--text-dimmer);border-radius:50%;margin-right:4px"></span>Normal</div>
-      <div style="margin-left:16px">Node size = function count</div>
-      <div>Edge thickness = call count</div>
+      <div style="margin-left:16px">↕️ Y-axis = load order</div>
+      <div>Node size = functions</div>
+      <div>Edge thickness = calls</div>
     </div>
 
     <div id="dev-dep-graph-container" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;position:relative;overflow:hidden">
@@ -1631,21 +1632,57 @@ function _devRenderD3Graph(nodes, edges) {
     .domain([0, nodes.length - 1])
     .interpolator(d3.interpolateRgb('var(--accent)', 'var(--text-dimmer)'));
 
-  // Create force simulation
-  _devGraphSimulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(edges).id(d => d.id).distance(100))
-    .force('charge', d3.forceManyBody().strength(-300))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(d => Math.sqrt(d.functions) * 3 + 5));
+  // Sort nodes by load order for hierarchical layout
+  nodes.sort((a, b) => a.order - b.order);
 
-  // Draw edges
+  // Hierarchical layout: arrange by load order (like git log --graph)
+  const verticalSpacing = Math.min(50, (height - 100) / nodes.length);
+  const margin = 50;
+
+  // Calculate horizontal positions to minimize edge crossings
+  const layerGroups = new Map();
+  nodes.forEach(node => {
+    const layer = node.order;
+    if (!layerGroups.has(layer)) layerGroups.set(layer, []);
+    layerGroups.get(layer).push(node);
+  });
+
+  // Assign positions: Y by load order, X distributed across width
+  nodes.forEach((node, i) => {
+    node.y = margin + i * verticalSpacing;
+
+    // Calculate X based on dependencies to minimize crossings
+    const layerNodes = layerGroups.get(node.order);
+    const nodeIndex = layerNodes.indexOf(node);
+    const layerSize = layerNodes.length;
+
+    if (layerSize === 1) {
+      node.x = width / 2;
+    } else {
+      // Distribute horizontally with padding
+      const horizontalSpacing = (width - 2 * margin) / (layerSize + 1);
+      node.x = margin + (nodeIndex + 1) * horizontalSpacing;
+    }
+
+    node.fx = node.x; // Fix X position
+    node.fy = node.y; // Fix Y position
+  });
+
+  // Use minimal force simulation just for stability
+  _devGraphSimulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d => d.id).distance(verticalSpacing).strength(0.1))
+    .alphaDecay(0.1) // Fast convergence
+    .stop(); // Don't animate, use fixed positions
+
+  // Draw edges as curves (like git graph)
   const link = g.append('g')
-    .selectAll('line')
+    .selectAll('path')
     .data(edges)
-    .join('line')
+    .join('path')
+    .attr('fill', 'none')
     .attr('stroke', d => severityColor[d.severity] || severityColor[null])
-    .attr('stroke-opacity', 0.6)
-    .attr('stroke-width', d => Math.max(1, Math.sqrt(d.calls)))
+    .attr('stroke-opacity', 0.5)
+    .attr('stroke-width', d => Math.max(1.5, Math.min(4, Math.sqrt(d.calls))))
     .attr('marker-end', 'url(#arrowhead)');
 
   // Add arrowhead marker
@@ -1667,7 +1704,7 @@ function _devRenderD3Graph(nodes, edges) {
     .selectAll('circle')
     .data(nodes)
     .join('circle')
-    .attr('r', d => Math.max(8, Math.sqrt(d.functions) * 3))
+    .attr('r', d => Math.max(6, Math.min(12, Math.sqrt(d.functions) * 2)))
     .attr('fill', d => {
       const computed = getComputedStyle(document.documentElement);
       const accent = computed.getPropertyValue('--accent').trim();
@@ -1677,10 +1714,6 @@ function _devRenderD3Graph(nodes, edges) {
     .attr('stroke', '#fff')
     .attr('stroke-width', 2)
     .style('cursor', 'pointer')
-    .call(d3.drag()
-      .on('start', dragStarted)
-      .on('drag', dragged)
-      .on('end', dragEnded))
     .on('click', function(event, d) {
       // Highlight connected nodes
       const connectedNodeIds = new Set();
@@ -1704,16 +1737,18 @@ function _devRenderD3Graph(nodes, edges) {
       label.attr('opacity', 1);
     });
 
-  // Add labels
+  // Add labels (to the right of nodes, like git graph)
   const label = g.append('g')
     .selectAll('text')
     .data(nodes)
     .join('text')
     .text(d => d.id.replace('.js', ''))
-    .attr('font-size', 10)
+    .attr('font-size', 11)
+    .attr('font-family', 'monospace')
     .attr('fill', 'var(--text-primary)')
-    .attr('text-anchor', 'middle')
-    .attr('dy', d => Math.sqrt(d.functions) * 3 + 15)
+    .attr('text-anchor', 'start')
+    .attr('dx', d => Math.max(6, Math.min(12, Math.sqrt(d.functions) * 2)) + 8)
+    .attr('dy', 4)
     .style('pointer-events', 'none')
     .style('user-select', 'none');
 
@@ -1744,40 +1779,43 @@ function _devRenderD3Graph(nodes, edges) {
     tooltip.transition().duration(200).style('opacity', 0);
   });
 
-  // Update positions on simulation tick
-  _devGraphSimulation.on('tick', () => {
-    link
-      .attr('x1', d => d.source.x)
-      .attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x)
-      .attr('y2', d => d.target.y);
+  // Position nodes (fixed layout)
+  node
+    .attr('cx', d => d.x)
+    .attr('cy', d => d.y);
 
-    node
-      .attr('cx', d => d.x)
-      .attr('cy', d => d.y);
+  label
+    .attr('x', d => d.x)
+    .attr('y', d => d.y);
 
-    label
-      .attr('x', d => d.x)
-      .attr('y', d => d.y);
+  // Draw curved edges (bezier curves like git graph)
+  link.attr('d', d => {
+    const source = nodes.find(n => n.id === d.source.id || n.id === d.source);
+    const target = nodes.find(n => n.id === d.target.id || n.id === d.target);
+
+    if (!source || !target) return '';
+
+    const sx = source.x;
+    const sy = source.y;
+    const tx = target.x;
+    const ty = target.y;
+
+    // Calculate control points for smooth curve
+    const dx = tx - sx;
+    const dy = ty - sy;
+
+    // For horizontal distance, use bezier curve
+    // For vertical, use gentle S-curve
+    if (Math.abs(dx) > 50) {
+      // Use bezier curve with horizontal control points
+      const midX = (sx + tx) / 2;
+      return `M ${sx},${sy} C ${midX},${sy} ${midX},${ty} ${tx},${ty}`;
+    } else {
+      // Close together horizontally, use simple curve
+      const curve = Math.min(Math.abs(dy) / 3, 30);
+      return `M ${sx},${sy} C ${sx},${sy + curve} ${tx},${ty - curve} ${tx},${ty}`;
+    }
   });
-
-  // Drag functions
-  function dragStarted(event, d) {
-    if (!event.active) _devGraphSimulation.alphaTarget(0.3).restart();
-    d.fx = d.x;
-    d.fy = d.y;
-  }
-
-  function dragged(event, d) {
-    d.fx = event.x;
-    d.fy = event.y;
-  }
-
-  function dragEnded(event, d) {
-    if (!event.active) _devGraphSimulation.alphaTarget(0);
-    d.fx = null;
-    d.fy = null;
-  }
 }
 
 // ── Git Log Section ──

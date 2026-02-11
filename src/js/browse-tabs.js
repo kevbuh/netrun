@@ -338,31 +338,20 @@ function _animateWindowSwitch(direction, callback) {
   const content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
 
-  const offset = direction === 'up' ? '30px' : '-30px';
-  const offsetIn = direction === 'up' ? '-30px' : '30px';
+  const offY = direction === 'up' ? 30 : -30;
+  const inY = direction === 'up' ? -30 : 30;
 
-  content.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
-  content.style.transform = `translateY(${offset})`;
-  content.style.opacity = '0';
-
-  setTimeout(() => {
-    callback();
-    content.style.transition = 'none';
-    content.style.transform = `translateY(${offsetIn})`;
-    content.style.opacity = '0';
-
-    requestAnimationFrame(() => {
-      content.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
-      content.style.transform = 'translateY(0)';
-      content.style.opacity = '1';
-
-      setTimeout(() => {
-        content.style.transition = '';
-        content.style.transform = '';
-        content.style.opacity = '';
-      }, 200);
-    });
-  }, 150);
+  Motion.animate(content, {
+    spring: 'smooth', duration: 150,
+    from: { y: 0, opacity: 1 }, to: { y: offY, opacity: 0 },
+    onFinish: function() {
+      callback();
+      Motion.animate(content, {
+        spring: 'smooth', duration: 200,
+        from: { y: inY, opacity: 0 }, to: { y: 0, opacity: 1 }
+      });
+    }
+  });
 }
 
 let _browseReturnView = localStorage.getItem('_browseReturnView') || null; // set by openPaper/inbox to enable "back to feed/inbox" button
@@ -3716,10 +3705,11 @@ function _splitPillDragStart(e) {
 
     if (ghost) {
       if (mode === 'unsplit') {
-        ghost.style.transition = 'opacity 0.15s, transform 0.15s';
-        ghost.style.opacity = '0';
-        ghost.style.transform = 'scale(0.9)';
-        setTimeout(() => ghost.remove(), 150);
+        Motion.animate(ghost, {
+          duration: 150, spring: 'smooth',
+          from: { opacity: 1, scale: 1 }, to: { opacity: 0, scale: 0.9 },
+          onFinish: function() { ghost.remove(); }
+        });
       } else {
         ghost.remove();
       }
@@ -5095,14 +5085,15 @@ function _magnifySnapBack() {
   _magnifyZoom = 1;
   var el = _magnifyEl;
   if (el) {
-    el.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
-    el.style.transform = '';
+    Motion.animate(el, {
+      spring: 'smooth', duration: 350,
+      to: { scale: 1 },
+      onFinish: function() {
+        el.style.transformOrigin = '';
+      }
+    });
     var container = document.getElementById('browse-content');
     if (container) container.style.overflow = '';
-    setTimeout(function() {
-      el.style.transition = '';
-      el.style.transformOrigin = '';
-    }, 360);
   }
   _magnifyEl = null;
 }
@@ -5284,30 +5275,20 @@ function _animateTabSwitch(direction, callback) {
   const content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
 
-  const offset = direction === 'left' ? '30px' : '-30px';
-  const offsetIn = direction === 'left' ? '-30px' : '30px';
+  const offX = direction === 'left' ? 30 : -30;
+  const inX = direction === 'left' ? -30 : 30;
 
-  content.style.transition = 'transform 0.12s ease-out, opacity 0.12s ease-out';
-  content.style.transform = `translateX(${offset})`;
-  content.style.opacity = '0.5';
-
-  setTimeout(() => {
-    callback();
-    content.style.transition = 'none';
-    content.style.transform = `translateX(${offsetIn})`;
-
-    requestAnimationFrame(() => {
-      content.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
-      content.style.transform = 'translateX(0)';
-      content.style.opacity = '1';
-
-      setTimeout(() => {
-        content.style.transition = '';
-        content.style.transform = '';
-        content.style.opacity = '';
-      }, 150);
-    });
-  }, 120);
+  Motion.animate(content, {
+    spring: 'smooth', duration: 120,
+    from: { x: 0, opacity: 1 }, to: { x: offX, opacity: 0.5 },
+    onFinish: function() {
+      callback();
+      Motion.animate(content, {
+        spring: 'smooth', duration: 150,
+        from: { x: inX, opacity: 0.5 }, to: { x: 0, opacity: 1 }
+      });
+    }
+  });
 }
 
 function _browseRemoveKeyGuard() {
