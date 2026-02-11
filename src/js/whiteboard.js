@@ -38,7 +38,6 @@ function wbOpen(id) {
   // Save current board first
   if (_wbCurrentId && _wbCurrentId !== id) _saveWbStrokes();
   _wbCurrentId = id;
-  localStorage.setItem('whiteboardLastId', id);
   // Load strokes
   try {
     const raw = localStorage.getItem(_wbStrokesKey(id));

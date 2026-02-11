@@ -3757,6 +3757,10 @@ function _panelBuildLinkContextMenu(popup, config) {
       addItem('Open Link Here', () => { if (typeof browseNavigate === 'function') browseNavigate(linkUrl); });
       addSep();
       addItem('Copy Link Address', () => navigator.clipboard.writeText(linkUrl).catch(() => {}));
+      if (linkUrl.startsWith('mailto:')) {
+        const email = linkUrl.replace('mailto:', '').split('?')[0];
+        addItem('Copy Email Address', () => navigator.clipboard.writeText(email).catch(() => {}));
+      }
       if (linkText) addItem('Copy Link Text', () => navigator.clipboard.writeText(linkText).catch(() => {}));
     }
     if (imgUrl) {

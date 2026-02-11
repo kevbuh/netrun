@@ -2102,6 +2102,19 @@ function _buildRenderCtx() {
   return { qfOn, qCache, hiddenSet, readSet, bypass, blockedWords, savedPosts, repostedSet, ratings };
 }
 
+function _renderFeedEmptyState(container, qfOn) {
+  const threshold = qfOn ? getQualityThreshold() : 0;
+  const filledDots = Math.round(threshold / 10);
+  const dots = Array.from({ length: 10 }, (_, i) =>
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px;background:${i < filledDots ? 'var(--accent)' : 'var(--border-card)'};transition:background 0.2s" title="${(i + 1) * 10}%"></span>`
+  ).join('');
+  container.innerHTML = `<div style="column-span:all;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 0;gap:16px">
+    <div class="text-dim" style="font-size:0.9rem">No papers match your filter</div>
+    ${qfOn ? `<div style="display:flex;align-items:center;justify-content:center">${dots}</div>
+    <div class="text-dimmer" style="font-size:0.75rem">Quality threshold: ${threshold}%</div>` : ''}
+  </div>`;
+}
+
 function _renderPapersNow() {
   _syncUserQuotesIntoAllPapers();
   const ctx = _buildRenderCtx();
@@ -2124,16 +2137,7 @@ function _renderPapersNow() {
   const container = document.getElementById('papers');
   if (!filtered.length && pendingCount > 0) return;
   if (!filtered.length) {
-    const threshold = qfOn ? getQualityThreshold() : 0;
-    const filledDots = Math.round(threshold / 10);
-    const dots = Array.from({ length: 10 }, (_, i) =>
-      `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px;background:${i < filledDots ? 'var(--accent)' : 'var(--border-card)'};transition:background 0.2s" title="${(i + 1) * 10}%"></span>`
-    ).join('');
-    container.innerHTML = `<div style="column-span:all;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 0;gap:16px">
-      <div class="text-dim" style="font-size:0.9rem">No papers match your filter</div>
-      ${qfOn ? `<div style="display:flex;align-items:center;justify-content:center">${dots}</div>
-      <div class="text-dimmer" style="font-size:0.75rem">Quality threshold: ${threshold}%</div>` : ''}
-    </div>`;
+    _renderFeedEmptyState(container, qfOn);
     return;
   }
   if (feedViewMode === 'compact') {

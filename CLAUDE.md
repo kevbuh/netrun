@@ -188,12 +188,12 @@ Force-directed canvas visualization of papers, authors, topics, and notes. Nodes
 **Feed & Quality:** `feedSources`, `customFeeds`, `qualityFilter`, `qualityPrompt`, `qualityThreshold`, `qualityCache`, `qualityBypass`, `qualityTestTitles`, `hiddenPosts`, `savedPosts`, `readPosts`, `paperRatings`, `blockedWords`, `seenPostLinks`, `repostedLinks`, `offlineCached`, `userQuotes`, `searchHistory`
 **Personalization:** `interestProfile`, `maxPerCategoryRun`, `fyWeightBase`, `fyWeightAffinity`, `fyWeightRecency`
 **Appearance:** `theme`, `accentColor`, `aetherColor`, `spinner`, `editorTheme`, `iconSize`, `pixelPet`, `pixelPetType`, `pixelPetMode`
-**UI State:** `userName`, `sidebarOrder`, `sidebarTab`, `lastHash`, `universalPanelVisible/Width`, `paperSidebarWidth`, `expSidebarWidth/Collapsed`, `teamSidebarCollapsed`, `dismissedInboxTasks`, `downloadBannerDismissed`
+**UI State:** `userName`, `sidebarOrder`, `sidebarTab`, `lastHash`, `universalPanelVisible/Width`, `expSidebarWidth/Collapsed`, `teamSidebarCollapsed`, `dismissedInboxTasks`, `downloadBannerDismissed`, `_browseReturnView`, `_lastActiveView`, `_navHistory`, `_navForward`
 **Sound & TTS:** `clickSound`, `clickSoundType`, `clickAether`, `rainOn`, `rainVolume`, `rainNoiseType`, `rainFreq`, `rainSidebarVisible`, `ttsHighlight`, `ttsSpeed`, `voiceAutoSend`
-**Browse:** `browseHistory`, `browseClosedTabs`, `browseDownloads`, `browseDownloadsLastSeen`, `browseBarOrder/Overflow`, `browseTabLayout/Sessions`, `vtabsPanelCollapsed`, `urlBarSections`, `webSearchHistory`, `adBlockEnabled`, `sitePermissions`, `aetherPanelSide`
+**Browse:** `browseHistory`, `browseClosedTabs`, `browseDownloads`, `browseDownloadsLastSeen`, `browseBarOrder/Overflow`, `browseTabLayout/Sessions`, `urlBarSections`, `webSearchHistory`, `adBlockEnabled`, `sitePermissions`, `aetherPanelSide`
 **Chat & AI:** `chatModel`, `visionModel`, `summaryModel`, `chatThreads`, `chatTools`, `chatThinking`, `panelTabComplete`, `panelSemanticSearch/Min`, `vaultChatMinSimilarity`, `vaultChatMessages`
 **Annotations:** `smartHighlights`, `annotationsCache`, `autoAnnotate`
-**Other:** `insightsAllowHeuristics`, `insightSubtab`, `feedNotifications`, `feedNotifSources`, `nlRefinementHistory`, `daySummaryCache`, `terminalState`, `vaultLastNote`, `vaultWelcomeCreated`, `whiteboardBoards/LastId`, `hiddenSidebarIcons`
+**Other:** `insightsAllowHeuristics`, `feedNotifications`, `feedNotifSources`, `nlRefinementHistory`, `daySummaryCache`, `terminalState`, `vaultLastNote`, `vaultWelcomeCreated`, `whiteboardBoards/LastId`, `hiddenSidebarIcons`, `ach_*`, `urlShorten`
 
 ### Authentication
 
