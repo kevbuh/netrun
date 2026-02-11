@@ -27,7 +27,7 @@ Flask server (`app.py`) with route blueprints in `src/routes/`:
 - `vault.py` (11) — notes CRUD, marimo start/stop, vault path/tree
 - `misc.py` (30) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content
 
-Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` (vault I/O, git ops), `persistence.py` (25-table DB, prompts, classify_title, cached_fetch), `kernels.py` (Jupyter kernel mgmt), `feed_catalog.py` (server mirror of FEED_CATALOG — must stay in sync with `js/core.js`), `feed_parser.py` (RSS/Atom/HN/Polymarket, stdlib only), `feed_poller.py` (10min polling daemon, 8 threads, 30-day retention), `terminal_server.py` (WebSocket terminal)
+Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` (vault I/O, git ops), `persistence.py` (25-table DB, prompts, classify_title, cached_fetch), `kernels.py` (Jupyter kernel mgmt), `feed_catalog.py` (server mirror of FEED_CATALOG — **manually kept in sync** with `js/core.js`), `feed_parser.py` (RSS/Atom/HN/Polymarket, stdlib only), `feed_poller.py` (10min polling daemon, 8 threads, 30-day retention), `terminal_server.py` (WebSocket terminal)
 
 **Key API groups:**
 - **Feeds:** `/feed`, `/hn-feed`, `/polymarket-feed`, `/api/feed-items`, `/api/feed-items/custom`, `/api/rss-proxy?url=`, `/api/arxiv-search`, `/api/citations`
@@ -42,7 +42,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 
 ### Frontend — `src/index.html` + `js/` + `styles.css`
 
-26 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
+27 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
 
 | Route | View |
 |-------|------|
@@ -79,7 +79,7 @@ Left sidebar (60px) has view buttons; order customizable via `localStorage.sideb
 
 `FEED_CATALOG` in `core.js` (mirrored in `feed_catalog.py`) defines 166 sources across 14 categories. Each entry: `key`, `name`, `desc`, `cat`, `url` (or null for special), `special` ('arxiv'|'hn'|'polymarket'), logo props.
 
-**Adding a feed:** append to both `FEED_CATALOG` in `js/core.js` and `CATALOG` in `feed_catalog.py`. Everything else (onboarding, settings, loading, chips, polling) derives from them.
+**Adding a feed:** append to both `FEED_CATALOG` in `js/core.js` and `CATALOG` in `feed_catalog.py` (must manually sync both). Everything else (onboarding, settings, loading, chips, polling) derives from them.
 
 Categories: Research & Science (7), Tech & News (6), Programming (10), AI & ML (4), Security (1), Ideas & Culture (5), Sports (3), Prediction Markets (1), Design (2), Finance (3), Space (2), News & World (4), Blogs & Newsletters (35), HN Top Blogs (83). Users can also add custom RSS feeds.
 
@@ -211,7 +211,7 @@ arXiv (RSS + API), Hacker News, Semantic Scholar, Ollama (`localhost:11434`), Du
 
 - Dark/light themes, accent `#b4451a`, Tailwind via CDN
 - No frameworks/bundlers — all vanilla JS
-- Tests: `npm test` (node:test + node:assert). Syntax check: `node -c file.js`
+- Tests: `npm test` (node:test + vitest). Syntax check: `node -c file.js`
 - Feed rendering is data-driven from `FEED_CATALOG`; catalog must stay in sync between `js/core.js` and `feed_catalog.py`
 - `getSourceChip(source, arxivId)` → inline logo + name; `catalogLogo(entry, size)` → SVG/img logos
 - Quality prompts: `DEFAULT_VERDICT_PROMPT` / `DEFAULT_SCORING_PROMPT` in `persistence.py`, mirrored in `quality.js`
