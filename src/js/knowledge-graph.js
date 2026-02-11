@@ -25,9 +25,10 @@ const _KG_COLORS = {
   author: '#4da6ff',
   topic:  '#22c55e',
   note:   '#f59e0b',
+  memory: '#8b5cf6',
 };
-const _KG_SHAPES = { paper: 'circle', author: 'circle', topic: 'diamond', note: 'square' };
-const _KG_RADII  = { paper: 6, author: 5, topic: 5, note: 5 };
+const _KG_SHAPES = { paper: 'circle', author: 'circle', topic: 'diamond', note: 'square', memory: 'circle' };
+const _KG_RADII  = { paper: 6, author: 5, topic: 5, note: 5, memory: 5 };
 
 // ── Entry point ──
 async function openKnowledgeGraph() {
@@ -133,6 +134,9 @@ async function _kgBuildGraph() {
 
   // 6. Note references
   _kgNoteReferences(nodeMap);
+
+  // 6b. Collect memories
+  await _kgCollectMemories(nodeMap);
 
   // 7. Fetch similarities (graceful failure)
   await _kgFetchSimilarities(papers, nodeMap);
@@ -297,6 +301,48 @@ async function _kgCollectNotes(nodeMap) {
     _kgNodes.push(node);
     nodeMap[id] = node;
   }
+}
+
+async function _kgCollectMemories(nodeMap) {
+  try {
+    const headers = {};
+    const token = localStorage.getItem('authToken');
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const resp = await fetch('/api/chat-memories/list?limit=30', { headers });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    for (const mem of (data.memories || [])) {
+      const id = 'm:' + mem.id;
+      if (nodeMap[id]) continue;
+      const node = {
+        id, type: 'memory',
+        label: _kgTruncate(mem.summary || 'Memory', 30),
+        x: 0, y: 0, vx: 0, vy: 0, pinned: false,
+        data: mem
+      };
+      _kgNodes.push(node);
+      nodeMap[id] = node;
+      // Connect to matching paper by page_url
+      if (mem.page_url) {
+        const paperId = 'p:' + mem.page_url;
+        if (nodeMap[paperId]) {
+          _kgEdges.push({ source: id, target: paperId, type: 'discussed', weight: 0.7 });
+        }
+      }
+      // Connect to matching topic nodes
+      if (mem.topics) {
+        const topics = mem.topics.split(',');
+        for (const t of topics) {
+          const tw = t.trim().toLowerCase();
+          if (!tw) continue;
+          const topicId = 't:' + tw;
+          if (nodeMap[topicId]) {
+            _kgEdges.push({ source: id, target: topicId, type: 'has_topic', weight: 0.5 });
+          }
+        }
+      }
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function _kgNoteReferences(nodeMap) {

@@ -8,6 +8,7 @@ const _SETTINGS_SECTIONS = [
   { key: 'browser', label: 'Browser', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>' },
   { key: 'panel', label: 'Lookup Panel', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>' },
   { key: 'agent', label: 'Agent', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>' },
+  { key: 'memory', label: 'Memory', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"/></svg>' },
   { key: 'help', label: 'Help', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>' },
 ];
 
@@ -1138,6 +1139,152 @@ function _renderHelpSettings() {
   `;
 }
 
+let _memoryListLoaded = [];
+let _memoryTotal = 0;
+
+function _renderMemorySettings() {
+  return '<div id="memory-stats-banner" class="mb-4 p-3 rounded-lg border border-border-subtle bg-card/50">' +
+    '<div class="text-dimmer text-[0.75rem]">Loading memory stats...</div></div>' +
+    '<div class="flex items-center justify-between mb-3">' +
+    '<span class="text-muted text-[0.75rem]" id="memory-count-label"></span>' +
+    '<button onclick="_clearAllMemories()" class="text-[0.7rem] text-red-400 hover:text-red-300 transition-colors">Clear All</button></div>' +
+    '<div id="memory-list" class="flex flex-col gap-2" style="max-height:60vh;overflow-y:auto;"></div>' +
+    '<div id="memory-load-more" class="mt-3 text-center" style="display:none;">' +
+    '<button onclick="_loadMemoryList(' + 0 + ')" class="text-[0.7rem] text-accent hover:underline">Load more</button></div>' +
+    '<div id="memory-empty" class="text-center py-8" style="display:none;">' +
+    '<div class="text-dimmer text-[0.8rem]">No memories yet. Chat with Aether and memories will be saved automatically.</div></div>';
+}
+
+function _renderMemoryCard(mem) {
+  const summary = mem.summary.length > 150 ? mem.summary.slice(0, 150) + '...' : mem.summary;
+  const topics = (mem.topics || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+  const topicChips = topics.map(function(t) {
+    return '<span class="inline-block px-1.5 py-0.5 text-[0.6rem] rounded-full bg-accent/10 text-accent">' + escapeHtml(t) + '</span>';
+  }).join(' ');
+  const ago = typeof timeAgo === 'function' ? timeAgo(mem.created_at * 1000) : new Date(mem.created_at * 1000).toLocaleDateString();
+  const pageInfo = mem.page_title ? '<span class="text-dimmer text-[0.6rem]">' + escapeHtml(mem.page_title) + '</span>' : '';
+  return '<div class="p-3 rounded-lg border border-border-subtle bg-card/50 group" id="mem-card-' + mem.id + '">' +
+    '<div class="flex items-start justify-between gap-2">' +
+    '<div class="flex-1 min-w-0">' +
+    '<div class="text-[0.78rem] text-primary leading-snug mb-1">' + escapeHtml(summary) + '</div>' +
+    (topicChips ? '<div class="flex flex-wrap gap-1 mb-1">' + topicChips + '</div>' : '') +
+    '<div class="flex items-center gap-2">' +
+    '<span class="text-dimmer text-[0.6rem]">' + ago + '</span>' +
+    (mem.message_count ? '<span class="text-dimmer text-[0.6rem]">' + mem.message_count + ' msgs</span>' : '') +
+    pageInfo +
+    '</div></div>' +
+    '<button onclick="_deleteMemory(' + mem.id + ')" class="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all p-1" title="Delete memory">' +
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+    '</div></div>';
+}
+
+function _loadMemoryList(offset) {
+  const headers = {};
+  const token = localStorage.getItem('authToken');
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  fetch('/api/chat-memories/list?limit=30&offset=' + offset, { headers: headers })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      const list = document.getElementById('memory-list');
+      const empty = document.getElementById('memory-empty');
+      const countLabel = document.getElementById('memory-count-label');
+      const loadMore = document.getElementById('memory-load-more');
+      if (!list) return;
+      _memoryTotal = data.total || 0;
+      if (offset === 0) {
+        _memoryListLoaded = data.memories || [];
+        list.innerHTML = '';
+      } else {
+        _memoryListLoaded = _memoryListLoaded.concat(data.memories || []);
+      }
+      if (_memoryListLoaded.length === 0) {
+        if (empty) empty.style.display = '';
+        if (countLabel) countLabel.textContent = '';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      if (countLabel) countLabel.textContent = _memoryTotal + ' memories';
+      var html = '';
+      for (var i = (offset === 0 ? 0 : _memoryListLoaded.length - (data.memories || []).length); i < _memoryListLoaded.length; i++) {
+        html += _renderMemoryCard(_memoryListLoaded[i]);
+      }
+      if (offset === 0) list.innerHTML = html;
+      else list.insertAdjacentHTML('beforeend', html);
+      if (loadMore) {
+        if (_memoryListLoaded.length < _memoryTotal) {
+          loadMore.style.display = '';
+          loadMore.innerHTML = '<button onclick="_loadMemoryList(' + _memoryListLoaded.length + ')" class="text-[0.7rem] text-accent hover:underline">Load more</button>';
+        } else {
+          loadMore.style.display = 'none';
+        }
+      }
+    }).catch(function(e) { console.warn('loadMemoryList:', e); });
+
+  // Also load stats
+  if (offset === 0) {
+    fetch('/api/chat-memories/stats', { headers: headers })
+      .then(function(r) { return r.json(); })
+      .then(function(stats) {
+        var banner = document.getElementById('memory-stats-banner');
+        if (!banner) return;
+        if (!stats.total_count) {
+          banner.innerHTML = '<div class="text-dimmer text-[0.75rem]">No memories stored yet.</div>';
+          return;
+        }
+        var oldest = stats.oldest_ts ? new Date(stats.oldest_ts * 1000).toLocaleDateString() : '?';
+        var newest = stats.newest_ts ? new Date(stats.newest_ts * 1000).toLocaleDateString() : '?';
+        var topicChips = (stats.top_topics || []).map(function(t) {
+          return '<span class="inline-block px-1.5 py-0.5 text-[0.6rem] rounded-full bg-accent/10 text-accent">' + escapeHtml(t.topic) + ' <span class="text-dimmer">(' + t.count + ')</span></span>';
+        }).join(' ');
+        banner.innerHTML = '<div class="flex items-center gap-3 mb-2">' +
+          '<span class="text-primary text-[0.85rem] font-medium">' + stats.total_count + ' memories</span>' +
+          '<span class="text-dimmer text-[0.7rem]">' + oldest + ' — ' + newest + '</span></div>' +
+          (topicChips ? '<div class="flex flex-wrap gap-1">' + topicChips + '</div>' : '');
+      }).catch(function(e) { console.warn('loadMemoryStats:', e); });
+  }
+}
+
+function _deleteMemory(id) {
+  var headers = { 'Content-Type': 'application/json' };
+  var token = localStorage.getItem('authToken');
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  fetch('/api/chat-memories/' + id, { method: 'DELETE', headers: headers })
+    .then(function() {
+      var card = document.getElementById('mem-card-' + id);
+      if (card) card.remove();
+      _memoryTotal--;
+      _memoryListLoaded = _memoryListLoaded.filter(function(m) { return m.id !== id; });
+      var countLabel = document.getElementById('memory-count-label');
+      if (countLabel) countLabel.textContent = _memoryTotal + ' memories';
+      if (_memoryListLoaded.length === 0) {
+        var empty = document.getElementById('memory-empty');
+        if (empty) empty.style.display = '';
+      }
+    }).catch(function(e) { console.warn('deleteMemory:', e); });
+}
+
+function _clearAllMemories() {
+  if (!confirm('Delete all memories? This cannot be undone.')) return;
+  var headers = { 'Content-Type': 'application/json' };
+  var token = localStorage.getItem('authToken');
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  var promises = _memoryListLoaded.map(function(m) {
+    return fetch('/api/chat-memories/' + m.id, { method: 'DELETE', headers: headers });
+  });
+  Promise.all(promises).then(function() {
+    _memoryListLoaded = [];
+    _memoryTotal = 0;
+    var list = document.getElementById('memory-list');
+    if (list) list.innerHTML = '';
+    var empty = document.getElementById('memory-empty');
+    if (empty) empty.style.display = '';
+    var countLabel = document.getElementById('memory-count-label');
+    if (countLabel) countLabel.textContent = '';
+    var banner = document.getElementById('memory-stats-banner');
+    if (banner) banner.innerHTML = '<div class="text-dimmer text-[0.75rem]">No memories stored yet.</div>';
+  }).catch(function(e) { console.warn('clearAllMemories:', e); });
+}
+
 function renderSettingsView() {
   // Render sidebar
   const sidebar = document.getElementById('settings-sidebar');
@@ -1154,7 +1301,7 @@ function renderSettingsView() {
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', help: 'Help' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', memory: 'Memory', help: 'Help' };
     let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
 
     if (_settingsSection === 'profile') {
@@ -1172,6 +1319,8 @@ function renderSettingsView() {
       content += _renderPanelSettings();
     } else if (_settingsSection === 'agent') {
       content += _renderAgentSettings();
+    } else if (_settingsSection === 'memory') {
+      content += _renderMemorySettings();
     } else if (_settingsSection === 'help') {
       content += _renderHelpSettings();
     }
@@ -1220,6 +1369,8 @@ function renderSettingsView() {
         }
       }).catch((e) => { /* fire-and-forget */ });
     }
+  } else if (_settingsSection === 'memory') {
+    _loadMemoryList(0);
   }
 }
 

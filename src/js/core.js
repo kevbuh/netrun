@@ -766,12 +766,20 @@ function _islandRender() {
     if (availW > 0) {
       container.style.setProperty('--island-pills-max-w', Math.floor(availW) + 'px');
     }
-    // Constrain right container too — don't overlap right side of URL capsule
+    // Constrain right container too — don't overlap right-side buttons (mic, more, new-window)
     var navBar = document.getElementById('sidebar-nav');
     var navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
+    // Measure width of right-side buttons so pills sit to their left
+    var rightBtnsW = 0;
+    ['pill-readaloud-wrap', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
+      var b = document.getElementById(bid);
+      if (b && b.offsetWidth > 0) rightBtnsW += b.offsetWidth + 2; // + gap
+    });
+    rightBtnsW += 8; // right padding
+    rightContainer.style.setProperty('--island-right-offset', rightBtnsW + 'px');
     var rightAvail = navRect.right - urlRect.right - 20; // 12px gap + 8px right padding
     if (rightAvail > 0) {
-      rightContainer.style.setProperty('--island-pills-right-max-w', Math.floor(rightAvail) + 'px');
+      rightContainer.style.setProperty('--island-pills-right-max-w', Math.floor(rightAvail - rightBtnsW) + 'px');
     }
     // Check each pill — if it clips or goes past the URL capsule, move to right container
     var leftPills = Array.from(container.querySelectorAll('.pill-island:not(.island-exiting)'));
@@ -791,8 +799,30 @@ function _islandRender() {
       }
       p.classList.toggle('near-url-bar', dist >= 0 && dist < 60);
     });
-    // Move pills back to left container if there's now room
+    // Find the left edge of the first visible right-side button
+    var rightBoundary = navRect.right - 4;
+    ['pill-readaloud-wrap', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
+      var b = document.getElementById(bid);
+      if (b && b.offsetWidth > 0) {
+        var br = b.getBoundingClientRect();
+        if (br.left < rightBoundary) rightBoundary = br.left;
+      }
+    });
+    rightBoundary -= 6; // gap before buttons
+
+    // Compact/expand right-side pills based on clipping
     var rightPills = Array.from(rightContainer.querySelectorAll('.pill-island:not(.island-exiting)'));
+    rightPills.forEach(function(p) {
+      var pr = p.getBoundingClientRect();
+      if (pr.right > rightBoundary && !p.classList.contains('island-compact')) {
+        p.classList.add('island-compact');
+      } else if (pr.right <= rightBoundary - 40 && p.classList.contains('island-compact') && !p._userCompacted) {
+        // Expand back if there's enough room (40px headroom)
+        p.classList.remove('island-compact');
+      }
+    });
+
+    // Move pills back to left container if there's now room
     if (rightPills.length > 0) {
       // Recalculate how much space is left
       var lastLeft = container.querySelector('.pill-island:last-child');
@@ -802,6 +832,7 @@ function _islandRender() {
         var pw = p.getBoundingClientRect().width;
         if (pw > 0 && spaceLeft >= pw) {
           var oldRect = p.getBoundingClientRect();
+          p.classList.remove('island-compact');
           container.appendChild(p);
           var newRect = p.getBoundingClientRect();
           var dx = oldRect.left - newRect.left;
@@ -821,6 +852,15 @@ function _islandRender() {
     }
   }
 }
+
+// Re-check right-side pill clipping on resize
+var _islandResizeTimer = null;
+window.addEventListener('resize', function() {
+  clearTimeout(_islandResizeTimer);
+  _islandResizeTimer = setTimeout(function() {
+    if (Object.keys(_islandActivities).length) _islandRender();
+  }, 100);
+});
 
 // ── Now Playing context pill (removed — not useful) ──
 function _updateNowPlayingContext() {
@@ -2148,9 +2188,6 @@ var _ROUTE_PREFIX_HANDLERS = [
   ['#team/',       (rest) => { const teamId = parseInt(rest, 10); if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId); }],
   ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
   ['#experiment/', (rest) => { const qIdx = rest.indexOf('?'); const expId = qIdx >= 0 ? decodeURIComponent(rest.slice(0, qIdx)) : decodeURIComponent(rest); const params = qIdx >= 0 ? new URLSearchParams(rest.slice(qIdx)) : null; const autoFile = params && params.get('file'); wmOpen('vault'); setTimeout(() => { if (typeof vaultExpandProject === 'function') vaultExpandProject(expId); if (autoFile && typeof vaultOpenProjectFile === 'function') vaultOpenProjectFile(expId, decodeURIComponent(autoFile)); }, 300); }],
-  ['#paper/',      (rest) => openPaperByUrl(decodeURIComponent(rest))],
-  ['#view/',       (rest) => openPaperByUrl(decodeURIComponent(rest))],
-  ['#author/',     (rest) => openAuthorProfile(rest)],
 ];
 
 function routeFromHash() {

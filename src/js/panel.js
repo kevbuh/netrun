@@ -946,6 +946,15 @@ function _sendPopupChatMessage(popup, capturedText) {
                   const memCtx = '\n\nRELEVANT PAST CONVERSATIONS:\n' +
                     memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
                   ctx = ctx ? ctx + memCtx : memCtx;
+                  // Show recall indicator
+                  const _chatContainer = document.querySelector('#doc-chat-ask-float .doc-chat-messages') || document.querySelector('.doc-chat-messages');
+                  if (_chatContainer) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'text-dimmer text-center py-1 italic';
+                    indicator.style.fontSize = '0.68rem';
+                    indicator.textContent = 'Recalled ' + memData.memories.length + ' past conversation' + (memData.memories.length > 1 ? 's' : '');
+                    _chatContainer.appendChild(indicator);
+                  }
                 }
               }
             }

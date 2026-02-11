@@ -25,6 +25,7 @@ from persistence import (
     pairwise_similarities,
     smart_highlights_get, smart_highlights_set,
     store_chat_memory, search_chat_memories,
+    list_chat_memories, delete_chat_memory, get_memory_stats,
     _pack_embedding, _unpack_embedding, _cosine_similarity,
 )
 
@@ -591,254 +592,6 @@ def _extract_smart_highlights(body):
     return jsonify({'highlights': highlights})
 
 
-@bp.route('/api/paper-insights', methods=['POST'])
-def paper_insights():
-    try:
-        body = request.get_json(force=True, silent=True) or {}
-        url = body.get('url', '').strip()
-        if not url:
-            return jsonify({'error': 'url required'}), 400
-
-        # Smart highlights mode — separate extraction pipeline
-        mode = body.get('mode', 'insights')
-        if mode == 'highlights':
-            return _extract_smart_highlights(body)
-
-        allow_heuristics = body.get('allowHeuristics', True)
-        _cache_key = url + ('::h' if allow_heuristics else '::noh')
-        # Cache read disabled for dev -- always fetch fresh
-
-        # Reuse extract-text logic to get document text
-        extracted = _do_extract_text(url)
-        text = extracted['text']
-
-        # 0. Extract authors from Semantic Scholar (includes stats)
-        authors = []
-        paper_title = None
-        arxiv_match = re.search(r'(\d{4}\.\d{4,5})', url)
-        if arxiv_match:
-            arxiv_id = arxiv_match.group(1)
-            cache_key = f'authors:{arxiv_id}'
-            now = time.time()
-            # Check cache first
-            if cache_key in _s2_cache and (now - _s2_cache[cache_key]['ts']) < _S2_CACHE_TTL:
-                authors = _s2_cache[cache_key]['data']
-                print(f'[paper-insights] Using cached author data for {arxiv_id}')
-            else:
-                try:
-                    # First get paper with author IDs
-                    s2_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=title,authors.authorId,authors.name,authors.affiliations'
-                    s2_req = urllib.request.Request(s2_url, headers={'User-Agent': 'Mozilla/5.0'})
-                    ctx = ssl._create_unverified_context()
-                    with urllib.request.urlopen(s2_req, timeout=10, context=ctx) as s2_resp:
-                        s2_data = json.loads(s2_resp.read())
-                    print(f'[paper-insights] S2 paper authors: {len(s2_data.get("authors", []))} authors')
-                    if s2_data.get('title'):
-                        paper_title = s2_data['title']
-                    if 'authors' in s2_data:
-                        # Collect author IDs for batch lookup (limit to first 10)
-                        author_ids = []
-                        basic_authors = []
-                        for a in s2_data['authors'][:10]:
-                            author_info = {'name': a.get('name', '')}
-                            if a.get('authorId'):
-                                author_info['authorId'] = a['authorId']
-                                author_ids.append(a['authorId'])
-                            if a.get('affiliations'):
-                                author_info['affiliation'] = a['affiliations'][0] if isinstance(a['affiliations'], list) else a['affiliations']
-                            basic_authors.append(author_info)
-
-                        # Batch fetch author details if we have IDs
-                        if author_ids:
-                            try:
-                                batch_url = 'https://api.semanticscholar.org/graph/v1/author/batch'
-                                batch_body = json.dumps({'ids': author_ids}).encode('utf-8')
-                                batch_req = urllib.request.Request(
-                                    f'{batch_url}?fields=authorId,hIndex,paperCount,citationCount',
-                                    data=batch_body,
-                                    headers={'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/json'},
-                                    method='POST'
-                                )
-                                with urllib.request.urlopen(batch_req, timeout=10, context=ctx) as batch_resp:
-                                    author_details = json.loads(batch_resp.read())
-                                print(f'[paper-insights] S2 author details sample: {author_details[:1] if author_details else "none"}')
-                                # Create lookup by authorId
-                                details_map = {d['authorId']: d for d in author_details if d and d.get('authorId')}
-                                # Merge details into basic_authors
-                                for author_info in basic_authors:
-                                    aid = author_info.get('authorId')
-                                    if aid and aid in details_map:
-                                        d = details_map[aid]
-                                        if d.get('hIndex'):
-                                            author_info['hIndex'] = d['hIndex']
-                                        if d.get('paperCount'):
-                                            author_info['paperCount'] = d['paperCount']
-                                        if d.get('citationCount'):
-                                            author_info['citationCount'] = d['citationCount']
-                            except Exception as e2:
-                                print(f'[paper-insights] S2 author batch fetch failed: {e2}')
-
-                        authors = basic_authors
-                        # Cache the result
-                        _s2_cache[cache_key] = {'data': authors, 'ts': now}
-                except Exception as e:
-                    print(f'[paper-insights] Semantic Scholar author fetch failed: {e}')
-            # Fallback to arXiv API for just names (only if S2 failed)
-            if not authors:
-                try:
-                    api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
-                    api_req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-                    ctx = ssl._create_unverified_context()
-                    with urllib.request.urlopen(api_req, timeout=15, context=ctx) as api_resp:
-                        api_xml = api_resp.read().decode('utf-8')
-                    root = ET.fromstring(api_xml)
-                    ns = {'atom': 'http://www.w3.org/2005/Atom'}
-                    for entry in root.findall('atom:entry', ns):
-                        for author_el in entry.findall('atom:author', ns):
-                            name_el = author_el.find('atom:name', ns)
-                            if name_el is not None and name_el.text:
-                                authors.append({'name': name_el.text.strip()})
-                except Exception:
-                    pass
-
-        # 1. Extract repo URLs (heuristic -- regex)
-        repos = []
-        if allow_heuristics:
-            repo_pattern = re.compile(
-                r'https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)'
-                r'/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]*)?'
-            )
-            context_pattern = re.compile(
-                r'(?:code|implementation|source|repository|available|released|open[- ]?source)[^.]*?(https?://(?:github\.com|gitlab\.com|huggingface\.co|bitbucket\.org)/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)',
-                re.IGNORECASE
-            )
-            raw_urls = repo_pattern.findall(text)
-            seen = {}
-            for u in raw_urls:
-                u = u.rstrip('/')
-                u = re.sub(r'[.,;:)\]]+$', '', u)
-                parts = u.split('/')
-                if len(parts) >= 5:
-                    base = '/'.join(parts[:5])
-                else:
-                    base = u
-                if base not in seen:
-                    seen[base] = u
-                    repos.append({'url': base, 'context': ''})
-            context_matches = context_pattern.findall(text)
-            for cm in context_matches:
-                cm_base = '/'.join(cm.rstrip('/').split('/')[:5])
-                for r in repos:
-                    if r['url'] == cm_base and not r['context']:
-                        r['context'] = 'Code repository'
-
-        # 2. Extract key insights via LLM (Ollama qwen2.5:3b)
-        normalized = re.sub(r'(?<![.!?\n])\n(?![A-Z\n])', ' ', text)
-        normalized = re.sub(r'  +', ' ', normalized)
-        sentences = re.split(r'(?<=[.!?])\s+', normalized)
-        truncated_text = text[:10000]
-        insights = []
-        try:
-            insight_prompt = (
-                "You are a research paper analyzer. Read the document text below and extract "
-                "the most important insights. For each insight, provide a category label and "
-                "quote the EXACT sentence or passage from the text (do not paraphrase).\n\n"
-                "Categories: Contribution, Result, Method, Surprising, Design\n\n"
-                "Respond ONLY with a JSON array. Each element: {\"label\": \"Category\", \"text\": \"exact quote from paper\"}\n"
-                "Return 3-5 insights. Only use categories from the list above.\n"
-                "If you cannot find insights for a category, skip it.\n\n"
-                "--- DOCUMENT TEXT ---\n" + truncated_text + "\n--- END ---"
-            )
-            llm_payload = json.dumps({
-                "model": "qwen2.5:3b",
-                "messages": [{"role": "user", "content": insight_prompt}],
-                "stream": False,
-                "options": {"temperature": 0, "num_predict": 1500}
-            }).encode()
-            llm_req = urllib.request.Request(
-                "http://localhost:11434/api/chat",
-                data=llm_payload,
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(llm_req, timeout=60) as llm_resp:
-                llm_data = json.loads(llm_resp.read())
-            raw_content = llm_data.get("message", {}).get("content", "").strip()
-            # Parse JSON from response (handle markdown code fences)
-            json_str = raw_content
-            if '```' in json_str:
-                json_str = re.sub(r'```(?:json)?\s*', '', json_str)
-                json_str = json_str.replace('```', '')
-            json_str = json_str.strip()
-            parsed_insights = json.loads(json_str)
-            valid_labels = {'Contribution', 'Result', 'Method', 'Surprising', 'Design'}
-            if isinstance(parsed_insights, list):
-                for item in parsed_insights[:5]:
-                    if isinstance(item, dict) and 'label' in item and 'text' in item:
-                        label = item['label']
-                        if label in valid_labels:
-                            insights.append({'label': label, 'text': item['text'][:300]})
-        except Exception as llm_err:
-            print(f"[insights] LLM extraction failed: {llm_err}")
-            if allow_heuristics:
-                print("[insights] Falling back to keyword matching")
-                fallback_phrases = {
-                    'Contribution': ['we propose', 'we introduce', 'we present', 'this paper presents'],
-                    'Result': ['we show that', 'we achieve', 'outperforms', 'state-of-the-art'],
-                    'Method': ['our method', 'our approach', 'our framework', 'we train'],
-                }
-                used_sentences = set()
-                for category, phrases in fallback_phrases.items():
-                    for s in sentences:
-                        s_clean = ' '.join(s.split())
-                        if len(s_clean) < 40:
-                            continue
-                        if any(p in s_clean.lower() for p in phrases) and s_clean not in used_sentences:
-                            trimmed = s_clean[:300]
-                            if len(s_clean) > 300:
-                                trimmed = trimmed.rsplit(' ', 1)[0] + '...'
-                            insights.append({'label': category, 'text': trimmed})
-                            used_sentences.add(s_clean)
-                            break
-
-        # 3. Extract GPU/hardware info (heuristic -- regex)
-        if allow_heuristics:
-            gpu_pattern = re.compile(
-                r'(?:NVIDIA|AMD|Intel)?\s*(?:A100|H100|V100|A6000|A40|RTX\s*\d{4}\s*(?:Ti)?|'
-                r'P100|T4|K80|TPU\s*v\d|MI\d{3}|GeForce|Titan|3090|4090|A10G)',
-                re.IGNORECASE
-            )
-            gpu_matches = gpu_pattern.findall(normalized)
-            if gpu_matches:
-                seen_gpus = set()
-                unique_gpus = []
-                for g in gpu_matches:
-                    g_clean = ' '.join(g.split())
-                    if g_clean.lower() not in seen_gpus:
-                        seen_gpus.add(g_clean.lower())
-                        unique_gpus.append(g_clean)
-                gpu_sentence = ''
-                for s in sentences:
-                    s_clean = ' '.join(s.split())
-                    if gpu_pattern.search(s_clean) and len(s_clean) >= 30:
-                        gpu_sentence = s_clean[:300]
-                        if len(s_clean) > 300:
-                            gpu_sentence = gpu_sentence.rsplit(' ', 1)[0] + '...'
-                        break
-                insights.append({
-                    'label': 'Hardware',
-                    'text': gpu_sentence or ('Trained on: ' + ', '.join(unique_gpus)),
-                    'gpus': unique_gpus,
-                })
-
-        result = {'repos': repos, 'insights': insights, 'authors': authors}
-        if paper_title:
-            result['title'] = paper_title
-        _insights_cache[_cache_key] = result
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 502
-
-
 @bp.route('/api/author-details', methods=['POST'])
 def author_details():
     try:
@@ -1284,6 +1037,28 @@ def get_chat_memories():
     results = search_chat_memories(query_vec, limit=3)
     filtered = [r for r in results if r['score'] > 0.5]
     return jsonify({'memories': filtered})
+
+
+@bp.route('/api/chat-memories/list', methods=['GET'])
+def list_memories():
+    """List all chat memories with pagination."""
+    limit = int(request.args.get('limit', 50))
+    offset = int(request.args.get('offset', 0))
+    result = list_chat_memories(limit=limit, offset=offset)
+    return jsonify(result)
+
+
+@bp.route('/api/chat-memories/<int:memory_id>', methods=['DELETE'])
+def remove_memory(memory_id):
+    """Delete a single chat memory."""
+    delete_chat_memory(memory_id)
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/chat-memories/stats', methods=['GET'])
+def memory_stats():
+    """Get memory stats: count, date range, top topics."""
+    return jsonify(get_memory_stats())
 
 
 @bp.route('/api/reading-connections', methods=['POST'])

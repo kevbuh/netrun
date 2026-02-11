@@ -765,12 +765,12 @@
     .browse-mode.island-mode #pill-island-right {
       display: flex;
       position: absolute;
-      right: 8px;
+      right: var(--island-right-offset, 8px);
       left: auto;
       max-width: var(--island-pills-right-max-w, 40vw);
     }
     body.electron-app .browse-mode.island-mode #pill-island-right {
-      right: 8px;
+      right: var(--island-right-offset, 8px);
     }
     .browse-mode.island-mode #pill-menu-btn {
       max-width: 0;
@@ -2228,6 +2228,15 @@
     .pill-island[data-island-id="rss"].island-compact.island-active .pill-island-content span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width 0.3s ease, opacity 0.2s ease; }
     .pill-island[data-island-id="rss"].island-compact.island-active:hover { max-width: 400px; padding: 0 6px; }
     .pill-island[data-island-id="rss"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
+
+    /* Generic compact for any pill in the right overflow container */
+    #pill-island-right .pill-island.island-compact.island-active {
+      max-width: 34px; padding: 0 5px;
+      transition: max-width 0.45s var(--motion-snappy), padding 0.3s ease, opacity 0.3s ease;
+    }
+    #pill-island-right .pill-island.island-compact.island-active .pill-island-content span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width 0.3s ease, opacity 0.2s ease; }
+    #pill-island-right .pill-island.island-compact.island-active:hover { max-width: 400px; padding: 0 6px; }
+    #pill-island-right .pill-island.island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
 
     .island-favicon-strip { display: flex; align-items: center; gap: 3px; }
     .island-strip-fav { width: 16px; height: 16px; border-radius: 3px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; object-fit: contain; }

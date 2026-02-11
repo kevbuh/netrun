@@ -213,6 +213,9 @@ function getPapersNeedingVerdict() {
   });
 }
 
+let _memoryStatsCache = null;
+let _memoryStatsFetchedAt = 0;
+
 let _qfRunning = false;
 let _qfQueued = false;
 let _qfAborted = false;
@@ -381,6 +384,28 @@ function computeInterestProfile() {
     if (isSaved) { sourceCounts[src].saved++; catCounts[cat].saved++; _extractTitleWords(p.title, wordMap, 3); }
     if (rating > 0) { sourceCounts[src].rated++; _extractTitleWords(p.title, wordMap, rating); }
     if (isHidden) { sourceCounts[src].hidden++; catCounts[cat].hidden++; }
+  }
+
+  // Inject memory topics with weight 2
+  if (_memoryStatsCache && _memoryStatsCache.top_topics) {
+    for (const t of _memoryStatsCache.top_topics) {
+      const parts = t.topic.split(',');
+      for (const p of parts) {
+        const w = p.trim().toLowerCase();
+        if (w && w.length >= 3) wordMap[w] = (wordMap[w] || 0) + 2;
+      }
+    }
+  }
+  // Fire-and-forget fetch for next call (5min TTL same as profile)
+  if (Date.now() - _memoryStatsFetchedAt > 5 * 60 * 1000) {
+    _memoryStatsFetchedAt = Date.now();
+    var _hdr = {};
+    var _tk = localStorage.getItem('authToken');
+    if (_tk) _hdr['Authorization'] = 'Bearer ' + _tk;
+    fetch('/api/chat-memories/stats', { headers: _hdr })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { _memoryStatsCache = data; })
+      .catch(function() {});
   }
 
   const topTopics = Object.entries(wordMap)

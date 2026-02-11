@@ -731,6 +731,56 @@ def search_chat_memories(query_vec, limit=3):
     return results[:limit]
 
 
+def list_chat_memories(limit=50, offset=0):
+    """List chat memories ordered by recency. Returns {memories: [...], total: N}."""
+    conn = _get_db()
+    total = conn.execute("SELECT COUNT(*) FROM chat_memories").fetchone()[0]
+    rows = conn.execute(
+        "SELECT id, summary, topics, page_title, page_url, message_count, created_at FROM chat_memories ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        (limit, offset)
+    ).fetchall()
+    conn.close()
+    return {
+        'memories': [dict(r) for r in rows],
+        'total': total
+    }
+
+
+def delete_chat_memory(memory_id):
+    """Delete a single chat memory by id."""
+    conn = _get_db()
+    conn.execute("DELETE FROM chat_memories WHERE id = ?", (memory_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_memory_stats():
+    """Aggregate stats: total count, date range, top 10 topics."""
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT COUNT(*) as cnt, MIN(created_at) as oldest, MAX(created_at) as newest FROM chat_memories"
+    ).fetchone()
+    total = row['cnt']
+    oldest = row['oldest']
+    newest = row['newest']
+    # Aggregate topics
+    topic_rows = conn.execute("SELECT topics FROM chat_memories WHERE topics IS NOT NULL AND topics != ''").fetchall()
+    conn.close()
+    freq = {}
+    for tr in topic_rows:
+        for t in tr['topics'].split(','):
+            t = t.strip().lower()
+            if t:
+                freq[t] = freq.get(t, 0) + 1
+    top_topics = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:10]
+    return {
+        'total_count': total,
+        'oldest_ts': oldest,
+        'newest_ts': newest,
+        'top_topics': [{'topic': t, 'count': c} for t, c in top_topics]
+    }
+
+
 def pairwise_similarities(links, threshold=0.65):
     """Compute pairwise cosine similarities for a set of links that have embeddings.
     Returns list of { source, target, score } for pairs above threshold. Cap at 300 links."""
