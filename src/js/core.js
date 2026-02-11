@@ -496,16 +496,19 @@ function _islandRender() {
     return;
   }
 
-  // Tabs/nowplaying pill always first (far left): remove by ID, sort rest, prepend
-  var firstPillId = ids.indexOf('tabs') !== -1 ? 'tabs' : (ids.indexOf('nowplaying') !== -1 ? 'nowplaying' : null);
-  if (firstPillId) ids.splice(ids.indexOf(firstPillId), 1);
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0, pulse: -1 };
+  // Pinned pills always first (far left): pulse → tabs → nowplaying
+  var pinnedLeft = [];
+  ['pulse', 'tabs', 'nowplaying'].forEach(function(pid) {
+    var idx = ids.indexOf(pid);
+    if (idx !== -1) { ids.splice(idx, 1); pinnedLeft.push(pid); }
+  });
+  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
     return pb - pa || _islandActivities[b]._ts - _islandActivities[a]._ts;
   });
-  if (firstPillId) ids.unshift(firstPillId);
+  ids = pinnedLeft.concat(ids);
 
   // Build pills — reuse existing DOM elements where possible
   var existingEls = {};
