@@ -559,10 +559,12 @@ function _islandSnapshotRects(cont) {
 function _islandRender() {
   var container = document.getElementById('pill-island');
   if (!container) return;
+  var rightContainer = document.getElementById('pill-island-right');
 
   var ids = Object.keys(_islandActivities);
   if (!ids.length) {
     container.innerHTML = '';
+    if (rightContainer) rightContainer.innerHTML = '';
     return;
   }
 
@@ -586,6 +588,12 @@ function _islandRender() {
   var _tabsAnchorEl = document.getElementById('pill-island-tabs-anchor');
   if (_tabsAnchorEl) {
     _tabsAnchorEl.querySelectorAll('.pill-island[data-island-id]').forEach(function(el) {
+      existingEls[el.getAttribute('data-island-id')] = el;
+    });
+  }
+  // Also check right overflow container
+  if (rightContainer) {
+    rightContainer.querySelectorAll('.pill-island[data-island-id]').forEach(function(el) {
       existingEls[el.getAttribute('data-island-id')] = el;
     });
   }
@@ -769,14 +777,15 @@ function _islandRender() {
   Object.keys(existingEls).forEach(function(id) {
     var staleEl = existingEls[id];
     if (!staleEl.classList.contains('island-exiting')) {
-      if (!hasStale) { _islandSnapshotRects(container); hasStale = true; }
+      var staleCont = staleEl.parentNode;
+      if (!hasStale) { _islandSnapshotRects(container); if (rightContainer) _islandSnapshotRects(rightContainer); hasStale = true; }
       staleEl.classList.add('island-exiting');
       staleEl.addEventListener('animationend', function onExit(ev) {
         if (ev.animationName !== 'pill-exit') return;
         staleEl.removeEventListener('animationend', onExit);
-        _islandSnapshotRects(container);
+        _islandSnapshotRects(staleCont);
         staleEl.remove();
-        _islandFlipNeighbors(container);
+        _islandFlipNeighbors(staleCont);
       });
     }
   });
@@ -810,10 +819,10 @@ function _islandRender() {
     }
   });
 
-  // Proximity detection + dynamic constraint so pills never overlap URL capsule
+  // Proximity detection: move overflow pills to right side of URL capsule
   var urlWrap = document.getElementById('pill-url-wrap');
   var isIslandNow = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
-  if (urlWrap && isIslandNow) {
+  if (urlWrap && isIslandNow && rightContainer) {
     var urlRect = urlWrap.getBoundingClientRect();
     var contRect = container.getBoundingClientRect();
     // 12px gap between pills and URL capsule
@@ -821,13 +830,59 @@ function _islandRender() {
     if (availW > 0) {
       container.style.setProperty('--island-pills-max-w', Math.floor(availW) + 'px');
     }
-    sortedPills.forEach(function(p) {
+    // Constrain right container too — don't overlap right side of URL capsule
+    var navBar = document.getElementById('sidebar-nav');
+    var navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
+    var rightAvail = navRect.right - urlRect.right - 20; // 12px gap + 8px right padding
+    if (rightAvail > 0) {
+      rightContainer.style.setProperty('--island-pills-right-max-w', Math.floor(rightAvail) + 'px');
+    }
+    // Check each pill — if it clips or goes past the URL capsule, move to right container
+    var leftPills = Array.from(container.querySelectorAll('.pill-island:not(.island-exiting)'));
+    leftPills.forEach(function(p) {
       var pr = p.getBoundingClientRect();
       var dist = urlRect.left - pr.right;
+      // Pill clips the URL capsule (right edge past URL left edge minus gap)
+      if (dist < 4) {
+        var oldRect = p.getBoundingClientRect();
+        rightContainer.appendChild(p);
+        var newRect = p.getBoundingClientRect();
+        var dx = oldRect.left - newRect.left;
+        var dy = oldRect.top - newRect.top;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          Motion.animate(p, { spring: 'snappy', from: { x: dx, y: dy }, to: { x: 0, y: 0 } });
+        }
+      }
       p.classList.toggle('near-url-bar', dist >= 0 && dist < 60);
     });
+    // Move pills back to left container if there's now room
+    var rightPills = Array.from(rightContainer.querySelectorAll('.pill-island:not(.island-exiting)'));
+    if (rightPills.length > 0) {
+      // Recalculate how much space is left
+      var lastLeft = container.querySelector('.pill-island:last-child');
+      var leftEdge = lastLeft ? lastLeft.getBoundingClientRect().right + 4 : contRect.left;
+      var spaceLeft = urlRect.left - leftEdge - 12;
+      rightPills.forEach(function(p) {
+        var pw = p.getBoundingClientRect().width;
+        if (pw > 0 && spaceLeft >= pw) {
+          var oldRect = p.getBoundingClientRect();
+          container.appendChild(p);
+          var newRect = p.getBoundingClientRect();
+          var dx = oldRect.left - newRect.left;
+          if (Math.abs(dx) > 1) {
+            Motion.animate(p, { spring: 'snappy', from: { x: dx }, to: { x: 0 } });
+          }
+          spaceLeft -= (pw + 4);
+        }
+      });
+    }
   } else {
     container.style.removeProperty('--island-pills-max-w');
+    // Not in island mode — move any right-side pills back to main container
+    if (rightContainer) {
+      var strandedPills = Array.from(rightContainer.querySelectorAll('.pill-island'));
+      strandedPills.forEach(function(p) { container.appendChild(p); });
+    }
   }
 }
 
