@@ -203,30 +203,6 @@ function _browseRestoreTabs() {
       return true;
     }
 
-    // Fallback to old single-window format
-    raw = localStorage.getItem('browseTabs');
-    if (raw) {
-      const { tabs, activeTab, nextId } = JSON.parse(raw);
-      if (!tabs || !tabs.length) return false;
-      _browseNextTabId = nextId || 1;
-      const container = document.getElementById('browse-content');
-      const win = { id: _browseNextWindowId++, name: 'Window 1', tabs: [], activeTab: null };
-      for (const saved of tabs) {
-        const el = _browseCreateFrame(saved.id, saved.url);
-        el.style.display = 'none';
-        container.appendChild(el);
-        const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, lastVisited: saved.lastVisited || 0 };
-        win.tabs.push(tab);
-        _browseBindFrame(tab);
-      }
-      win.activeTab = win.tabs.find(t => t.id === activeTab) ? activeTab : win.tabs[0]?.id;
-      _browseWindows.push(win);
-      _browseActiveWindow = win.id;
-      if (win.activeTab) browseSelectTab(win.activeTab);
-      localStorage.removeItem('browseTabs'); // Migrate to new format
-      _browseSaveTabs();
-      return true;
-    }
     return false;
   } catch { return false; }
 }
