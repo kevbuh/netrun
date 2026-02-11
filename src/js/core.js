@@ -233,7 +233,7 @@ function _islandRenderPill(a) {
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Annotating…') + '</span>';
     }
-    var _annModeColors = { ASSUMPTION: '#ff9800', VERIFY: '#ffc107', TENSION: '#ef5350', BIAS: '#9c27b0', IMPLICATION: '#2196f3', CONTRADICTION: '#ef5350', CONNECTION: '#ab47bc' };
+    var _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
@@ -291,8 +291,8 @@ function _islandBuildTray(a, isBrowse) {
     }
     return trayHtml;
   } else if (a.type === 'annotate' && a.items && a.items.length) {
-    var annColors = { ASSUMPTION: '#ff9800', VERIFY: '#ffc107', TENSION: '#ef5350', BIAS: '#9c27b0', IMPLICATION: '#2196f3', CONTRADICTION: '#ef5350', CONNECTION: '#ab47bc' };
-    var annLabels = { ASSUMPTION: 'Assumption', VERIFY: 'Verify', TENSION: 'Tension', BIAS: 'Bias', IMPLICATION: 'Implication', CONTRADICTION: 'Contradiction', CONNECTION: 'Connection' };
+    var annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
+    var annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
     var trayHtml = '';
     for (var ai = 0; ai < a.items.length; ai++) {
       var ann = a.items[ai];

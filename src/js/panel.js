@@ -805,7 +805,7 @@ function _renderPanelSuggestion(popup, suggestion) {
   if (!askWrap) return;
   el = document.createElement('div');
   el.className = 'aether-suggestion';
-  el.innerHTML = `<span class="aether-suggestion-text">${escapeHtml(suggestion)}</span><span class="aether-suggestion-hint">Tab</span>`;
+  el.innerHTML = `<span class="aether-suggestion-text">${escapeHtml(suggestion)}</span>`;
   el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   el.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -1286,7 +1286,8 @@ function _renderPopupChat(popup, final) {
     const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
     const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
     const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
-    return `<div class="doc-msg-ai">${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}</div></div>`;
+    const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg></button>` : '';
+    return `<div class="doc-msg-ai">${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
   }).join('');
   // Render LaTeX in AI messages
   if (typeof katex !== 'undefined') {
@@ -1382,7 +1383,7 @@ function _renderPopupChat(popup, final) {
       ev.stopPropagation(); ev.preventDefault();
       const msgEl = btn.closest('.doc-msg-ai');
       if (!msgEl) return;
-      const text = msgEl.textContent.replace(/Copy message|Read aloud/g, '').replace(/\s+/g, ' ').trim();
+      const text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
       if (!text) return;
       navigator.clipboard.writeText(text).then(() => {
         btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -1390,6 +1391,27 @@ function _renderPopupChat(popup, final) {
           btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
         }, 1000);
       }).catch(() => {});
+    });
+  });
+  // Attach redo button handlers
+  container.querySelectorAll('.doc-msg-redo-btn').forEach(btn => {
+    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      // Find last user message
+      let lastUserIdx = -1;
+      for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
+        if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+      }
+      if (lastUserIdx < 0) return;
+      // Remove the last user message and everything after it
+      const lastUserMsg = _popupChatMessages[lastUserIdx];
+      _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
+      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+      // Re-insert user message and re-send
+      const input = popup.querySelector('.doc-ask-inline-input');
+      if (input) input.value = lastUserMsg._display || lastUserMsg.content;
+      _sendPopupChatMessage(popup, popup._capturedText || '');
     });
   });
   // Attach edit button handlers
@@ -1853,23 +1875,7 @@ document.addEventListener('keydown', function(e) {
       _aetherRestoreFocus();
     }
   }
-  // Shift clicks the element under cursor and dismisses the panel
-  if (e.key === 'Shift') {
-    const popup = document.getElementById('doc-chat-ask-float');
-    if (popup && _aetherTrackMode) {
-      _aetherTrackMode = false;
-      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
-      if (el && !popup.contains(el)) el.click();
-      _maybeDismissToIsland(popup);
-      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _pendingScreenshots = [];
-      _pendingNoteContexts = [];
-      _pendingTabContexts = [];
-      _pendingFileContexts = [];
-      popup.remove();
-      _aetherShowCursor();
-    }
-  }
+  // Shift key handler removed - no longer dismisses panel
 });
 
 // Enter key with selection adds text to panel input
@@ -4227,15 +4233,7 @@ function _panelBuildTopBar(popup) {
   topBar.className = 'doc-popup-chat-actions aether-top-actions';
   topBar.style.cursor = 'grab';
 
-  // Model label
-  const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-model-label';
-  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  modelLabel.textContent = cm;
-  modelLabel.title = 'Current model';
-  topBar.appendChild(modelLabel);
-
-  // Spacer
+  // Spacer (model label moved to button row)
   const spacer = document.createElement('span');
   spacer.style.flex = '1';
   topBar.appendChild(spacer);
@@ -4407,7 +4405,7 @@ function _panelBuildChatInput(popup, config) {
   askInput.className = 'doc-ask-inline-input';
 
   const sendBtn = document.createElement('button');
-  sendBtn.className = 'doc-ask-inline-send';
+  sendBtn.className = 'aether-input-btn doc-ask-inline-send';
   sendBtn.innerHTML = '↑';
   sendBtn.title = 'Send';
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -4616,20 +4614,7 @@ function _panelBuildChatInput(popup, config) {
       _aetherShowCursor();
       _aetherRestoreFocus();
     }
-    // Shift clicks the element under cursor and dismisses the panel
-    if (ev.key === 'Shift' && _aetherTrackMode) {
-      _aetherTrackMode = false;
-      const el = document.elementFromPoint(_lastMouseX, _lastMouseY);
-      if (el && !popup.contains(el)) el.click();
-      _maybeDismissToIsland(popup);
-      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _pendingScreenshots = [];
-      _pendingNoteContexts = [];
-      _pendingTabContexts = [];
-      _pendingFileContexts = [];
-      popup.remove();
-      _aetherShowCursor();
-    }
+    // Shift key handler removed - no longer dismisses panel
   });
   askInput.addEventListener('input', () => {
     // Dismiss suggestion when user types
@@ -4667,7 +4652,7 @@ function _panelBuildChatInput(popup, config) {
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
   // Mic button for voice input (MediaRecorder + Whisper)
   const micBtn = document.createElement('button');
-  micBtn.className = 'doc-ask-mic-btn';
+  micBtn.className = 'aether-input-btn doc-ask-mic-btn';
   micBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
   micBtn.title = 'Voice input';
   let micRecorder = null;
@@ -4712,13 +4697,51 @@ function _panelBuildChatInput(popup, config) {
     }).catch(() => {});
   });
 
-  const inputRightGroup = document.createElement('span');
-  inputRightGroup.className = 'aether-topbar-right';
-  inputRightGroup.appendChild(micBtn);
-  inputRightGroup.appendChild(sendBtn);
+  // Tab button (accepts AI suggestion) - far right of input row
+  const tabBtn = document.createElement('button');
+  tabBtn.className = 'aether-tab-key-btn';
+  tabBtn.textContent = 'Tab';
+  tabBtn.title = 'Accept suggestion (Tab)';
+  tabBtn.style.cssText = 'margin-left:auto;padding:2px 6px;font-size:0.65rem;border:1px solid rgba(255,255,255,0.15);border-radius:3px;background:none;color:rgba(255,255,255,0.4);cursor:pointer;flex-shrink:0;';
+  tabBtn.addEventListener('mouseenter', () => { tabBtn.style.color = 'rgba(255,255,255,0.7)'; tabBtn.style.borderColor = 'rgba(255,255,255,0.25)'; });
+  tabBtn.addEventListener('mouseleave', () => { tabBtn.style.color = 'rgba(255,255,255,0.4)'; tabBtn.style.borderColor = 'rgba(255,255,255,0.15)'; });
+  tabBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const suggEl = popup.querySelector('.aether-suggestion');
+    if (suggEl) {
+      const text = suggEl.querySelector('.aether-suggestion-text').textContent;
+      _acceptPanelSuggestion(popup, text);
+    }
+  });
+
+  // Input row with Tab button on the right
   askWrap.appendChild(askInput);
-  askWrap.appendChild(inputRightGroup);
+  askWrap.appendChild(tabBtn);
   popup.appendChild(askWrap);
+
+  // Second row: model label + buttons
+  const buttonRow = document.createElement('div');
+  buttonRow.className = 'aether-button-row';
+
+  // Model label (moved from topBar)
+  const modelLabel = document.createElement('span');
+  modelLabel.className = 'aether-model-label';
+  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  modelLabel.textContent = cm;
+  modelLabel.title = 'Current model';
+  buttonRow.appendChild(modelLabel);
+
+  // Spacer to push buttons right
+  const spacer = document.createElement('span');
+  spacer.style.flex = '1';
+  buttonRow.appendChild(spacer);
+
+  // Mic and Send buttons
+  buttonRow.appendChild(micBtn);
+  buttonRow.appendChild(sendBtn);
+
+  popup.appendChild(buttonRow);
 
   // Fetch AI suggestion when there's any text context
   const suggestText = capturedText

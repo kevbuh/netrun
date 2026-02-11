@@ -1131,26 +1131,22 @@ def annotate_page():
                 tab_context += f'\n\n--- OTHER TAB: "{t_title}" ---\n{t_text}\n--- END TAB ---'
 
         prompt = (
-            "You are a sharp, skeptical analyst. Read the page below and find 4-8 passages that a smart reader might MISS or underestimate on a first read.\n\n"
-            "Do NOT annotate anything obvious. Skip main conclusions, definitions, and surface-level facts — the reader already sees those.\n\n"
+            "You are an expert analyst. Read the page and return ONLY high-signal annotations. Zero fluff.\n\n"
             "Annotation types:\n"
-            "- ASSUMPTION — unstated assumptions the argument depends on. What must be true for this claim to hold?\n"
-            "- VERIFY — specific claims that sound plausible but are unsubstantiated, cherry-picked, or misleadingly framed. Explain what to check.\n"
-            "- TENSION — internal inconsistencies within the text, or claims that sit uneasily with each other\n"
-            "- BIAS — rhetorical moves: framing effects, weasel words, false equivalence, appeal to authority, omitted context\n"
-            "- IMPLICATION — downstream consequences or second-order effects the author doesn't address\n"
-            "- CONTRADICTION — conflicts with content from other open tabs listed below\n\n"
+            "- ALPHA — the key result, finding, or insight on this page. The thing worth remembering. Only use for genuinely important information.\n"
+            "- CONTRADICTION — this passage conflicts with something in another open tab. You MUST explain the specific contradiction and why the two claims can't both be true. Only use if other tabs are provided below.\n"
+            "- AD — sponsored content, affiliate links, product placement, or advertorial disguised as editorial. Flag anything that looks like it's trying to sell you something while pretending to be informational.\n\n"
             "For each annotation provide a JSON object with:\n"
             "- \"type\": one of the types above\n"
             "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n"
-            "- \"explanation\": 1-2 sentences. Be specific — name the assumption, the missing evidence, or the rhetorical move. Don't just say \"this is biased\".\n"
-            "- \"confidence\": 0-100 how confident you are this annotation is correct and useful\n"
-            "- \"conflictsWith\": (only for CONTRADICTION) the title of the other tab it conflicts with\n\n"
+            "- \"explanation\": 1-2 sentences. For ALPHA: why this matters. For CONTRADICTION: what it contradicts and why. For AD: what's being sold.\n"
+            "- \"confidence\": 0-100 how confident you are\n"
+            "- \"conflictsWith\": (only for CONTRADICTION) the title of the conflicting tab\n\n"
             "Rules:\n"
             "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change any words.\n"
-            "- Only use CONTRADICTION if there is an actual conflict with another tab\n"
-            "- If no other tabs are provided, do not use CONTRADICTION type\n"
-            "- Fewer good annotations > many shallow ones. 4 incisive annotations beat 12 obvious ones.\n"
+            "- Only use CONTRADICTION if other tabs are provided AND there is a real conflict.\n"
+            "- Quality over quantity. 1-4 annotations max. Only annotate if it's genuinely worth flagging.\n"
+            "- If the page has no key results and no ads, return an empty array [].\n"
             "- Respond ONLY with a JSON array, no other text\n\n"
         )
         if interest_context:
@@ -1190,7 +1186,7 @@ def annotate_page():
             json_str = arr_match.group()
         parsed = json.loads(json_str)
 
-        valid_types = {'ASSUMPTION', 'VERIFY', 'TENSION', 'BIAS', 'IMPLICATION', 'CONTRADICTION'}
+        valid_types = {'ALPHA', 'CONTRADICTION', 'AD'}
         text_lower = text.lower()
         annotations = []
         if isinstance(parsed, list):
@@ -1227,7 +1223,7 @@ def annotate_page():
                 # Search saved posts
                 saved_results = search_embeddings(xref_vec, content_type='post', limit=3, exclude_link=url)
                 for r in saved_results:
-                    if r['score'] > 0.5 and len(connections) < 5:
+                    if r['score'] > 0.75 and len(connections) < 2:
                         connections.append({
                             'type': 'CONNECTION',
                             'explanation': f"Related to saved post (similarity {int(r['score']*100)}%)",
@@ -1238,7 +1234,7 @@ def annotate_page():
                 # Search chat memories
                 mem_results = search_chat_memories(xref_vec, limit=2)
                 for r in mem_results:
-                    if r['score'] > 0.5 and len(connections) < 5:
+                    if r['score'] > 0.75 and len(connections) < 2:
                         connections.append({
                             'type': 'CONNECTION',
                             'explanation': f"Related conversation: {(r.get('topics') or '')[:80]}",

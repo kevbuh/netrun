@@ -6290,7 +6290,7 @@ function _restoreAnnotationPill(tab) {
   if (!annotations.length) return false;
   const typeCounts = {};
   for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
-  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ASSUMPTION';
+  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
   // Auto-enable and inject cached annotations into the page
   _annotationsEnabled.set(tab.id, true);
   injectAnnotations(tab, annotations);
@@ -6373,7 +6373,7 @@ async function annotateCurrentPage(tab) {
     }
 
     // Call annotate API (current tab only — no cross-tab context)
-    const model = localStorage.getItem('summaryModel') || '';
+    const model = localStorage.getItem('annotateModel') || '';
     const interestCtx = typeof buildInterestContext === 'function' ? buildInterestContext() : '';
     const resp = await fetch('/api/annotate', {
       method: 'POST',
@@ -6398,7 +6398,7 @@ async function annotateCurrentPage(tab) {
     // Icon color = mode (most frequent type)
     const typeCounts = {};
     for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
-    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ASSUMPTION';
+    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
     if (typeof islandUpdate === 'function') {
       islandUpdate('annotate', {
         type: 'annotate',
@@ -6523,13 +6523,10 @@ function injectAnnotations(tab, annotations) {
   const frame = tab.el;
 
   const colorMap = {
-    ASSUMPTION: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Assumption', labelColor: '#ff9800' },
-    VERIFY: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Verify', labelColor: '#ffc107' },
-    TENSION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Tension', labelColor: '#ef5350' },
-    BIAS: { bg: 'rgba(156, 39, 176, 0.25)', border: '#9c27b0', label: 'Bias', labelColor: '#9c27b0' },
-    IMPLICATION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Implication', labelColor: '#2196f3' },
+    ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Alpha', labelColor: '#4caf50' },
     CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
-    CONNECTION: { bg: 'rgba(171, 71, 188, 0.25)', border: '#ab47bc', label: 'Connection', labelColor: '#ab47bc' }
+    AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
+    CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
 
   const annotationsJSON = JSON.stringify(annotations).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -6544,7 +6541,7 @@ function injectAnnotations(tab, annotations) {
 
       var _hoveredAnn = null;
       function showTooltip(mark, ann) {
-        var c = colorMap[ann.type] || colorMap.ASSUMPTION;
+        var c = colorMap[ann.type] || colorMap.ALPHA;
         _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null };
       }
 
@@ -6586,7 +6583,7 @@ function injectAnnotations(tab, annotations) {
         const matchIdx = fullLower.indexOf(quoteLower);
         if (matchIdx === -1) continue;
         const matchEnd = matchIdx + quote.length;
-        const c = colorMap[ann.type] || colorMap.ASSUMPTION;
+        const c = colorMap[ann.type] || colorMap.ALPHA;
 
         // Find all text nodes that overlap with this match range
         const affectedNodes = [];

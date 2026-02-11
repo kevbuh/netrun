@@ -4078,6 +4078,7 @@
     }
     .doc-msg-copy-btn,
     .doc-msg-speak-btn,
+    .doc-msg-redo-btn,
     .doc-msg-edit-btn {
       background: none;
       border: none;
@@ -4094,11 +4095,13 @@
     }
     .doc-msg-ai:hover .doc-msg-copy-btn,
     .doc-msg-ai:hover .doc-msg-speak-btn,
+    .doc-msg-ai:hover .doc-msg-redo-btn,
     .doc-msg-user:hover .doc-msg-edit-btn {
       opacity: 0.6;
     }
     .doc-msg-copy-btn:hover,
     .doc-msg-speak-btn:hover,
+    .doc-msg-redo-btn:hover,
     .doc-msg-edit-btn:hover {
       opacity: 1 !important;
       color: var(--text-primary);
@@ -4106,6 +4109,7 @@
     }
     .doc-msg-copy-btn:active,
     .doc-msg-speak-btn:active,
+    .doc-msg-redo-btn:active,
     .doc-msg-edit-btn:active {
       transform: scale(0.9);
     }
@@ -4333,7 +4337,7 @@
       align-items: center;
       border-top: none;
       margin-top: 2px;
-      padding: 2px 8px 2px 0;
+      padding: 2px 8px 0 0;
     }
     .doc-ask-inline-input {
       background: transparent;
@@ -5067,6 +5071,34 @@
     }
     .aether-topbar-icon:hover {
       color: var(--accent);
+      background: var(--aether-hover-subtle);
+    }
+    .aether-button-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px 8px 8px;
+    }
+    .aether-button-row .aether-model-label {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.5);
+      opacity: 1;
+    }
+    .aether-input-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.6;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px 6px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      transition: opacity 0.12s, background 0.12s;
+    }
+    .aether-input-btn:hover {
+      opacity: 1;
       background: var(--aether-hover-subtle);
     }
     .doc-popup-chat-actions button {
