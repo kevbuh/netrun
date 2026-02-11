@@ -7,11 +7,20 @@
     "postinstall": "node scripts/rename-electron.js",
     "start": "electron .",
     "server": "venv/bin/python3 src/app.py",
-    "test": "node --test 'tests/**/*.test.js'"
+    "test": "npm run test:electron && npm run test:unit",
+    "test:electron": "node --test 'tests/**/*.test.js'",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
     "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "happy-dom": "^20.6.1",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "adblock-rs": "^0.12.1"
