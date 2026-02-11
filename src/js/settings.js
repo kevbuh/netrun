@@ -8,6 +8,7 @@ const _SETTINGS_SECTIONS = [
   { key: 'browser', label: 'Browser', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>' },
   { key: 'panel', label: 'Lookup Panel', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>' },
   { key: 'agent', label: 'Agent', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>' },
+  { key: 'prompts', label: 'Prompts', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>' },
   { key: 'memory', label: 'Memory', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"/></svg>' },
   { key: 'help', label: 'Help', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>' },
 ];
@@ -1309,7 +1310,7 @@ function renderSettingsView() {
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', memory: 'Memory', help: 'Help' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', memory: 'Memory', help: 'Help' };
     let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
 
     if (_settingsSection === 'profile') {
@@ -1327,6 +1328,8 @@ function renderSettingsView() {
       content += _renderPanelSettings();
     } else if (_settingsSection === 'agent') {
       content += _renderAgentSettings();
+    } else if (_settingsSection === 'prompts') {
+      content += _renderPromptsSettings();
     } else if (_settingsSection === 'memory') {
       content += _renderMemorySettings();
     } else if (_settingsSection === 'help') {
@@ -1377,6 +1380,8 @@ function renderSettingsView() {
         }
       }).catch((e) => { /* fire-and-forget */ });
     }
+  } else if (_settingsSection === 'prompts') {
+    _loadPromptsData();
   } else if (_settingsSection === 'memory') {
     _loadMemoryList(0);
   }
@@ -2030,6 +2035,261 @@ function setAetherColor(mode) {
   localStorage.setItem('aetherColor', mode);
   document.documentElement.setAttribute('data-aether-theme', mode);
   renderSettingsView();
+}
+
+// ── Prompts Settings ──
+
+let _promptsAnnotationData = null;
+let _promptsAnnotationEditing = false;
+let _promptsFeedbackGood = [];
+let _promptsFeedbackBad = [];
+let _promptsFeedbackStats = { good: 0, bad: 0 };
+let _promptsCategories = [];
+
+function _renderPromptsSettings() {
+  const annPrompt = _promptsAnnotationData;
+  const isCustom = annPrompt && annPrompt.isCustom;
+  const updatedAt = annPrompt && annPrompt.updatedAt ? new Date(annPrompt.updatedAt * 1000).toLocaleDateString() : null;
+
+  let html = '';
+
+  // ── Annotation Prompt Card ──
+  html += '<div class="mb-6 p-4 rounded-lg border border-border-subtle bg-card/50">';
+  html += '<div class="flex items-center justify-between mb-2"><h3 class="text-primary text-sm font-semibold">Annotation Prompt</h3>';
+  html += '<div class="flex items-center gap-2">';
+  if (isCustom) html += '<span class="text-[0.65rem] text-dim">Updated ' + escapeHtml(updatedAt || '') + '</span>';
+  else html += '<span class="text-[0.65rem] text-dim">Default</span>';
+  html += '</div></div>';
+  html += '<p class="text-dimmer text-[0.72rem] mb-3">Controls how pages are annotated with ALPHA, CONTRADICTION, and AD highlights.</p>';
+
+  if (_promptsAnnotationEditing) {
+    html += '<textarea id="ann-prompt-input" class="w-full bg-input border border-border-input rounded-md p-3 text-primary text-[0.78rem] font-mono resize-y" style="min-height:200px">' + escapeHtml((annPrompt && annPrompt.prompt) || '') + '</textarea>';
+    html += '<div class="flex gap-2 mt-2">';
+    html += '<button onclick="_saveAnnotationPrompt()" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save</button>';
+    html += '<button onclick="_promptsAnnotationEditing=false;renderSettingsView()" class="text-dim text-[0.78rem] bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer hover:text-primary">Cancel</button>';
+    if (isCustom) html += '<button onclick="_resetAnnotationPrompt()" class="text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors ml-auto">Reset to default</button>';
+    html += '</div>';
+  } else {
+    html += '<pre class="text-[0.72rem] text-dimmer bg-input/50 rounded-md p-3 overflow-auto whitespace-pre-wrap max-h-[150px] border border-border-subtle">' + escapeHtml((annPrompt && annPrompt.prompt) || '(loading...)') + '</pre>';
+    html += '<button onclick="_promptsAnnotationEditing=true;renderSettingsView()" class="mt-2 text-accent text-[0.78rem] bg-transparent border border-accent/30 rounded-md px-3 py-1 cursor-pointer hover:bg-accent/10">Edit</button>';
+  }
+  html += '</div>';
+
+  // ── Custom Categories ──
+  html += '<div class="mb-6 p-4 rounded-lg border border-border-subtle bg-card/50">';
+  html += '<h3 class="text-primary text-sm font-semibold mb-2">Annotation Categories</h3>';
+  html += '<p class="text-dimmer text-[0.72rem] mb-3">Default types plus your custom categories. Custom categories are appended to the annotation prompt.</p>';
+
+  // Default categories (not deletable)
+  const defaults = [
+    { key: 'ALPHA', name: 'Alpha', color: '#4caf50', description: 'Uncommon or surprising fact worth remembering' },
+    { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350', description: 'Logical flaw or conflicting claims' },
+    { key: 'AD', name: 'Ad', color: '#ff9800', description: 'Sponsored content or advertorial' },
+    { key: 'CONNECTION', name: 'Connection', color: '#2196f3', description: 'Related to saved content or memories' }
+  ];
+  for (const d of defaults) {
+    html += '<div class="flex items-center gap-2 py-1.5 px-2 rounded mb-1">';
+    html += '<span style="width:10px;height:10px;border-radius:50%;background:' + d.color + ';flex-shrink:0"></span>';
+    html += '<span class="text-primary text-[0.78rem] font-medium">' + escapeHtml(d.name) + '</span>';
+    html += '<span class="text-dimmer text-[0.7rem]">' + escapeHtml(d.description) + '</span>';
+    html += '</div>';
+  }
+
+  // Custom categories
+  for (const c of _promptsCategories) {
+    html += '<div class="flex items-center gap-2 py-1.5 px-2 rounded mb-1 bg-hover/30">';
+    html += '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeAttr(c.color) + ';flex-shrink:0"></span>';
+    html += '<span class="text-primary text-[0.78rem] font-medium">' + escapeHtml(c.name) + '</span>';
+    html += '<span class="text-dimmer text-[0.7rem] flex-1">' + escapeHtml(c.description) + '</span>';
+    html += '<button onclick="_deleteAnnotationCategory(\'' + escapeAttr(c.key) + '\')" class="text-dimmer hover:text-red-400 text-[0.8rem] bg-transparent border-none cursor-pointer px-1" title="Delete">&times;</button>';
+    html += '</div>';
+  }
+
+  // Add category form
+  html += '<div class="flex items-center gap-2 mt-3">';
+  html += '<input id="ann-cat-color" type="color" value="#888888" style="width:24px;height:24px;border:none;padding:0;cursor:pointer;background:transparent">';
+  html += '<input id="ann-cat-key" class="bg-input border border-border-input rounded px-2 py-1 text-primary text-[0.72rem]" placeholder="KEY" style="width:60px;text-transform:uppercase">';
+  html += '<input id="ann-cat-name" class="bg-input border border-border-input rounded px-2 py-1 text-primary text-[0.72rem]" placeholder="Name" style="width:80px">';
+  html += '<input id="ann-cat-desc" class="bg-input border border-border-input rounded px-2 py-1 text-primary text-[0.72rem] flex-1" placeholder="Description">';
+  html += '<button onclick="_addAnnotationCategory()" class="text-accent text-[0.72rem] bg-transparent border border-accent/30 rounded px-2 py-1 cursor-pointer hover:bg-accent/10">Add</button>';
+  html += '</div>';
+  html += '</div>';
+
+  // ── Verdict Prompt Card ──
+  html += '<div class="mb-6 p-4 rounded-lg border border-border-subtle bg-card/50">';
+  html += '<div class="flex items-center justify-between mb-2"><h3 class="text-primary text-sm font-semibold">Verdict Prompt</h3>';
+  html += '<span class="text-[0.65rem] text-dim">Quality filter — KEEP/SKIP</span></div>';
+  html += '<p class="text-dimmer text-[0.72rem] mb-3">Determines whether feed items are kept or skipped. Edit in Settings &gt; Feed &gt; Quality.</p>';
+  html += '<pre id="prompts-verdict-display" class="text-[0.72rem] text-dimmer bg-input/50 rounded-md p-3 overflow-auto whitespace-pre-wrap max-h-[120px] border border-border-subtle">(loading...)</pre>';
+  html += '<button onclick="_setSettingsSection(\'feed\');_setSettingsFeedTab(\'quality\')" class="mt-2 text-accent text-[0.78rem] bg-transparent border border-accent/30 rounded-md px-3 py-1 cursor-pointer hover:bg-accent/10">Edit in Feed settings</button>';
+  html += '</div>';
+
+  // ── Scoring Prompt Card ──
+  html += '<div class="mb-6 p-4 rounded-lg border border-border-subtle bg-card/50">';
+  html += '<div class="flex items-center justify-between mb-2"><h3 class="text-primary text-sm font-semibold">Scoring Prompt</h3>';
+  html += '<span class="text-[0.65rem] text-dim">Read-only</span></div>';
+  html += '<p class="text-dimmer text-[0.72rem] mb-3">Scores feed items 0-100 for relevance ranking. Not user-editable.</p>';
+  html += '<pre id="prompts-scoring-display" class="text-[0.72rem] text-dimmer bg-input/50 rounded-md p-3 overflow-auto whitespace-pre-wrap max-h-[120px] border border-border-subtle">(loading...)</pre>';
+  html += '</div>';
+
+  // ── Feedback Manager ──
+  html += '<div class="mb-6 p-4 rounded-lg border border-border-subtle bg-card/50">';
+  html += '<h3 class="text-primary text-sm font-semibold mb-1">Rated Highlights</h3>';
+  html += '<p class="text-dimmer text-[0.72rem] mb-3" id="feedback-stats-bar">' + _promptsFeedbackStats.good + ' good, ' + _promptsFeedbackStats.bad + ' bad — these examples improve your annotation prompt</p>';
+
+  html += '<div class="grid grid-cols-2 gap-4" style="grid-template-columns:1fr 1fr">';
+
+  // Good column
+  html += '<div>';
+  html += '<div class="text-[0.75rem] font-semibold mb-2" style="color:#4caf50">Good highlights</div>';
+  html += '<div id="feedback-good-list" class="space-y-1" style="max-height:300px;overflow-y:auto">';
+  if (_promptsFeedbackGood.length === 0) html += '<div class="text-dimmer text-[0.7rem] text-center py-4">No good highlights yet</div>';
+  for (const fb of _promptsFeedbackGood) {
+    html += _renderFeedbackItem(fb, 'good');
+  }
+  html += '</div></div>';
+
+  // Bad column
+  html += '<div>';
+  html += '<div class="text-[0.75rem] font-semibold mb-2" style="color:#ef5350">Bad highlights</div>';
+  html += '<div id="feedback-bad-list" class="space-y-1" style="max-height:300px;overflow-y:auto">';
+  if (_promptsFeedbackBad.length === 0) html += '<div class="text-dimmer text-[0.7rem] text-center py-4">No bad highlights yet</div>';
+  for (const fb of _promptsFeedbackBad) {
+    html += _renderFeedbackItem(fb, 'bad');
+  }
+  html += '</div></div>';
+
+  html += '</div></div>';
+
+  return html;
+}
+
+function _renderFeedbackItem(fb, currentRating) {
+  const quote = (fb.quote || '').length > 120 ? fb.quote.slice(0, 117) + '...' : (fb.quote || '');
+  const title = (fb.page_title || '').length > 40 ? fb.page_title.slice(0, 37) + '...' : (fb.page_title || '');
+  const date = fb.created_at ? new Date(fb.created_at * 1000).toLocaleDateString() : '';
+  const moveDir = currentRating === 'good' ? 'bad' : 'good';
+  const moveIcon = currentRating === 'good'
+    ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>'
+    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>';
+  let html = '<div class="p-2 rounded border border-border-subtle bg-card/30 text-[0.72rem]">';
+  html += '<div class="text-primary">' + escapeHtml(quote) + '</div>';
+  if (title) html += '<div class="text-dimmer text-[0.65rem] mt-0.5">' + escapeHtml(title) + '</div>';
+  html += '<div class="flex items-center gap-1 mt-1">';
+  if (fb.ann_type) html += '<span class="text-[0.6rem] px-1 rounded bg-hover text-dim">' + escapeHtml(fb.ann_type) + '</span>';
+  html += '<span class="text-dimmer text-[0.6rem]">' + escapeHtml(date) + '</span>';
+  html += '<span class="ml-auto flex gap-1">';
+  html += '<button onclick="_moveFeedback(' + fb.id + ',\'' + moveDir + '\')" class="text-dimmer hover:text-primary bg-transparent border-none cursor-pointer p-0.5" title="Move to ' + moveDir + '">' + moveIcon + '</button>';
+  html += '<button onclick="_deleteFeedback(' + fb.id + ')" class="text-dimmer hover:text-red-400 bg-transparent border-none cursor-pointer p-0.5" title="Delete">&times;</button>';
+  html += '</span></div></div>';
+  return html;
+}
+
+async function _loadPromptsData() {
+  try {
+    const [annRes, qualRes, fbGoodRes, fbBadRes, statsRes, catRes] = await Promise.all([
+      fetch('/api/annotation-prompt', { headers: _authHeaders() }),
+      fetch('/api/quality-prompt', { headers: _authHeaders() }),
+      fetch('/api/annotation-feedback?rating=good&limit=50', { headers: _authHeaders() }),
+      fetch('/api/annotation-feedback?rating=bad&limit=50', { headers: _authHeaders() }),
+      fetch('/api/annotation-feedback/stats', { headers: _authHeaders() }),
+      fetch('/api/annotation-categories', { headers: _authHeaders() })
+    ]);
+    if (annRes.ok) _promptsAnnotationData = await annRes.json();
+    if (qualRes.ok) {
+      const qd = await qualRes.json();
+      const vEl = document.getElementById('prompts-verdict-display');
+      if (vEl) vEl.textContent = qd.prompt || '(default)';
+      const sEl = document.getElementById('prompts-scoring-display');
+      if (sEl && qd.scoringPrompt) sEl.textContent = qd.scoringPrompt;
+    }
+    if (fbGoodRes.ok) { const d = await fbGoodRes.json(); _promptsFeedbackGood = d.items || []; }
+    if (fbBadRes.ok) { const d = await fbBadRes.json(); _promptsFeedbackBad = d.items || []; }
+    if (statsRes.ok) _promptsFeedbackStats = await statsRes.json();
+    if (catRes.ok) { const d = await catRes.json(); _promptsCategories = d.categories || []; }
+    // Re-render with data
+    if (_settingsSection === 'prompts') {
+      const pane = document.getElementById('settings-content-pane');
+      if (pane) {
+        pane.innerHTML = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">Prompts</h2>' + _renderPromptsSettings();
+      }
+    }
+  } catch (e) { console.warn('_loadPromptsData:', e); }
+}
+
+async function _saveAnnotationPrompt() {
+  const el = document.getElementById('ann-prompt-input');
+  if (!el) return;
+  try {
+    await fetch('/api/annotation-prompt', {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: el.value })
+    });
+    _promptsAnnotationEditing = false;
+    _loadPromptsData();
+  } catch (e) { console.warn('saveAnnotationPrompt:', e); }
+}
+
+async function _resetAnnotationPrompt() {
+  try {
+    await fetch('/api/annotation-prompt', {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: '' })
+    });
+    _promptsAnnotationEditing = false;
+    _loadPromptsData();
+  } catch (e) { console.warn('resetAnnotationPrompt:', e); }
+}
+
+async function _addAnnotationCategory() {
+  const key = (document.getElementById('ann-cat-key')?.value || '').trim().toUpperCase();
+  const name = (document.getElementById('ann-cat-name')?.value || '').trim();
+  const desc = (document.getElementById('ann-cat-desc')?.value || '').trim();
+  const color = document.getElementById('ann-cat-color')?.value || '#888888';
+  if (!key || !name || !desc) return;
+  try {
+    await fetch('/api/annotation-categories', {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, name, description: desc, color })
+    });
+    _loadPromptsData();
+    _loadCustomAnnotationCategories();
+  } catch (e) { console.warn('addAnnotationCategory:', e); }
+}
+
+async function _deleteAnnotationCategory(key) {
+  try {
+    await fetch('/api/annotation-categories/' + encodeURIComponent(key), {
+      method: 'DELETE',
+      headers: _authHeaders()
+    });
+    _loadPromptsData();
+    _loadCustomAnnotationCategories();
+  } catch (e) { console.warn('deleteAnnotationCategory:', e); }
+}
+
+async function _moveFeedback(id, newRating) {
+  try {
+    await fetch('/api/annotation-feedback/' + id, {
+      method: 'PUT',
+      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: newRating })
+    });
+    _loadPromptsData();
+  } catch (e) { console.warn('moveFeedback:', e); }
+}
+
+async function _deleteFeedback(id) {
+  try {
+    await fetch('/api/annotation-feedback/' + id, {
+      method: 'DELETE',
+      headers: _authHeaders()
+    });
+    _loadPromptsData();
+  } catch (e) { console.warn('deleteFeedback:', e); }
 }
 
 function applyStoredAppearance() {

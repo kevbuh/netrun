@@ -28,6 +28,11 @@ from persistence import (
     store_chat_memory, search_chat_memories,
     list_chat_memories, delete_chat_memory, get_memory_stats,
     _pack_embedding, _unpack_embedding, _cosine_similarity,
+    read_annotation_prompt, write_annotation_prompt, annotation_prompt_mtime,
+    store_annotation_feedback, list_annotation_feedback,
+    update_annotation_feedback_rating, delete_annotation_feedback,
+    get_annotation_feedback_stats,
+    list_annotation_categories, add_annotation_category, delete_annotation_category,
 )
 
 bp = Blueprint('content', __name__)
@@ -1130,25 +1135,31 @@ def annotate_page():
             if t_text:
                 tab_context += f'\n\n--- OTHER TAB: "{t_title}" ---\n{t_text}\n--- END TAB ---'
 
-        prompt = (
-            "You are an expert analyst. Read the page and return ONLY high-signal annotations. Zero fluff.\n\n"
-            "Annotation types:\n"
-            "- ALPHA — the key result, finding, or insight on this page. The thing worth remembering. Only use for genuinely important information.\n"
-            "- CONTRADICTION — this passage conflicts with something in another open tab. You MUST explain the specific contradiction and why the two claims can't both be true. Only use if other tabs are provided below.\n"
-            "- AD — sponsored content, affiliate links, product placement, or advertorial disguised as editorial. Flag anything that looks like it's trying to sell you something while pretending to be informational.\n\n"
-            "For each annotation provide a JSON object with:\n"
-            "- \"type\": one of the types above\n"
-            "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n"
-            "- \"explanation\": 1-2 sentences. For ALPHA: why this matters. For CONTRADICTION: what it contradicts and why. For AD: what's being sold.\n"
-            "- \"confidence\": 0-100 how confident you are\n"
-            "- \"conflictsWith\": (only for CONTRADICTION) the title of the conflicting tab\n\n"
-            "Rules:\n"
-            "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change any words.\n"
-            "- Only use CONTRADICTION if other tabs are provided AND there is a real conflict.\n"
-            "- Quality over quantity. 1-4 annotations max. Only annotate if it's genuinely worth flagging.\n"
-            "- If the page has no key results and no ads, return an empty array [].\n"
-            "- Respond ONLY with a JSON array, no other text\n\n"
-        )
+        # Build prompt from stored/default + feedback examples + custom categories
+        custom_prompt = read_annotation_prompt()
+        prompt = (custom_prompt or DEFAULT_ANNOTATION_PROMPT)
+
+        # Append custom annotation categories
+        custom_cats = list_annotation_categories()
+        if custom_cats:
+            prompt += "Additional annotation types:\n"
+            for cat in custom_cats:
+                prompt += f"- {cat['key']} — {cat['description']}\n"
+            prompt += "\n"
+
+        # Append feedback examples as few-shot context
+        good_examples = list_annotation_feedback(rating='good', limit=10)
+        bad_examples = list_annotation_feedback(rating='bad', limit=10)
+        if good_examples:
+            prompt += "EXAMPLES OF GOOD ANNOTATIONS (produce more like these):\n"
+            for ex in good_examples:
+                prompt += f"- \"{ex['quote'][:200]}\"" + (f" [{ex['ann_type']}]" if ex['ann_type'] else "") + "\n"
+            prompt += "\n"
+        if bad_examples:
+            prompt += "EXAMPLES OF BAD ANNOTATIONS (avoid these):\n"
+            for ex in bad_examples:
+                prompt += f"- \"{ex['quote'][:200]}\"" + (f" [{ex['ann_type']}]" if ex['ann_type'] else "") + "\n"
+            prompt += "\n"
         if interest_context:
             prompt += "USER INTERESTS:\n" + interest_context + "\n\n"
         prompt += "--- MAIN PAGE TEXT ---\n" + main_text + "\n--- END PAGE TEXT ---"
@@ -1187,6 +1198,8 @@ def annotate_page():
         parsed = json.loads(json_str)
 
         valid_types = {'ALPHA', 'CONTRADICTION', 'AD'}
+        for cat in custom_cats:
+            valid_types.add(cat['key'])
         text_lower = text.lower()
         annotations = []
         if isinstance(parsed, list):
@@ -1253,6 +1266,123 @@ def annotate_page():
         return jsonify({'annotations': annotations})
     except Exception as e:
         return jsonify({'error': str(e)}), 502
+
+
+# ── Annotation Feedback ──
+
+@bp.route('/api/annotation-feedback', methods=['POST'])
+def create_annotation_feedback():
+    body = request.get_json(force=True, silent=True) or {}
+    quote = (body.get('quote') or '').strip()
+    rating = (body.get('rating') or '').strip()
+    if not quote or rating not in ('good', 'bad'):
+        return jsonify({'error': 'quote and rating (good/bad) required'}), 400
+    store_annotation_feedback(
+        body.get('url', ''), body.get('pageTitle', ''),
+        quote, body.get('explanation', ''),
+        body.get('annType', ''), rating
+    )
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/annotation-feedback', methods=['GET'])
+def get_annotation_feedback():
+    rating = request.args.get('rating')
+    limit = min(int(request.args.get('limit', 100)), 500)
+    offset = int(request.args.get('offset', 0))
+    items = list_annotation_feedback(rating=rating, limit=limit, offset=offset)
+    return jsonify({'items': items})
+
+
+@bp.route('/api/annotation-feedback/stats', methods=['GET'])
+def get_feedback_stats():
+    return jsonify(get_annotation_feedback_stats())
+
+
+@bp.route('/api/annotation-feedback/<int:fid>', methods=['PUT'])
+def update_feedback(fid):
+    body = request.get_json(force=True, silent=True) or {}
+    rating = (body.get('rating') or '').strip()
+    if rating not in ('good', 'bad'):
+        return jsonify({'error': 'rating must be good or bad'}), 400
+    update_annotation_feedback_rating(fid, rating)
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/annotation-feedback/<int:fid>', methods=['DELETE'])
+def delete_feedback(fid):
+    delete_annotation_feedback(fid)
+    return jsonify({'ok': True})
+
+
+# ── Annotation Prompt ──
+
+DEFAULT_ANNOTATION_PROMPT = (
+    "You are a helpful assistant whose job it is twofold. First, you must point out AI slop and also point out redundant information to protect the user from potentially harmful, fearmongering, or biased sentences. At the same time, you are also in charge of highlighting IMPORTANT sentences and key ideas of the current article, book, paper, or general website page that the user is visiting. Read the page and return ONLY extremely high-signal annotations. Zero fluff. Do not point out anything that is obvious.\n\n"
+    "Annotation types:\n"
+    "- ALPHA — Something lowkey, an uncommon or surprising result or fact. The thing worth remembering. Only use for genuinely informative information.\n"
+    "- CONTRADICTION — a sentence idea, or thought that shows a logical flaw. one that conflicts with previous sentences. You MUST explain the specific contradiction and why the two claims can't both be true.\n"
+    "- AD — sponsored content, affiliate links, product placement, or advertorial disguised as editorial. Flag anything that looks like it's trying to sell you something while pretending to be informational. Do not flag pip installs.\n\n"
+    "For each annotation provide a JSON object with:\n"
+    "- \"type\": one of the types above\n"
+    "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n"
+    "- \"explanation\": 1-2 sentences. For ALPHA: why this matters. For CONTRADICTION: what it contradicts and why. For AD: what's being sold.\n"
+    "- \"confidence\": 0-100 how confident you are\n"
+    "- \"conflictsWith\": (only for CONTRADICTION) the sentence of the conflicting claim\n\n"
+    "Rules:\n"
+    "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change ANY words. It must be verbatim from the text.\n"
+    "- Only use CONTRADICTION if there is a real logical flaw.\n"
+    "- Always use AD if the sentence seems to be trying to sell a product or service.\n"
+    "- Return 1-3 annotations for a typical page. 5-8 for longer textbooks and articles.\n"
+    "- If the page has no key results and no ads, return an empty array [].\n"
+    "- Respond ONLY with a JSON array, no other text\n\n"
+)
+
+
+@bp.route('/api/annotation-prompt', methods=['GET'])
+def get_annotation_prompt():
+    custom = read_annotation_prompt()
+    mtime = annotation_prompt_mtime()
+    return jsonify({
+        'prompt': custom or DEFAULT_ANNOTATION_PROMPT,
+        'default': DEFAULT_ANNOTATION_PROMPT,
+        'isCustom': custom is not None,
+        'updatedAt': mtime
+    })
+
+
+@bp.route('/api/annotation-prompt', methods=['PUT'])
+def set_annotation_prompt():
+    body = request.get_json(force=True, silent=True) or {}
+    prompt = (body.get('prompt') or '').strip()
+    write_annotation_prompt(prompt if prompt else None)
+    return jsonify({'ok': True})
+
+
+# ── Annotation Categories ──
+
+@bp.route('/api/annotation-categories', methods=['GET'])
+def get_annotation_categories():
+    return jsonify({'categories': list_annotation_categories()})
+
+
+@bp.route('/api/annotation-categories', methods=['POST'])
+def create_annotation_category():
+    body = request.get_json(force=True, silent=True) or {}
+    key = (body.get('key') or '').strip().upper()
+    name = (body.get('name') or '').strip()
+    desc = (body.get('description') or '').strip()
+    color = (body.get('color') or '#888888').strip()
+    if not key or not name or not desc:
+        return jsonify({'error': 'key, name, and description required'}), 400
+    add_annotation_category(key, name, desc, color)
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/annotation-categories/<key>', methods=['DELETE'])
+def remove_annotation_category(key):
+    delete_annotation_category(key)
+    return jsonify({'ok': True})
 
 
 @bp.route('/api/knowledge-graph/similarities', methods=['POST'])

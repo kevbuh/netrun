@@ -23,6 +23,7 @@ os.makedirs(FEED_CACHE_DIR, exist_ok=True)
 EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')  # legacy — only used for migration
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
+ANNOTATION_PROMPT_FILE = os.path.join(DIR, 'annotation_prompt.txt')
 
 SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
 VAULT_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'aether')
@@ -114,6 +115,104 @@ def write_prompt(prompt):
     else:
         with open(PROMPT_FILE, 'w') as f:
             f.write(prompt.strip())
+
+
+def read_annotation_prompt():
+    """Read the custom annotation prompt from disk, or return None if not set."""
+    if os.path.exists(ANNOTATION_PROMPT_FILE):
+        with open(ANNOTATION_PROMPT_FILE, 'r') as f:
+            text = f.read().strip()
+            return text if text else None
+    return None
+
+
+def write_annotation_prompt(prompt):
+    """Write a custom annotation prompt to disk. Pass None/empty to delete."""
+    if not prompt or not prompt.strip():
+        if os.path.exists(ANNOTATION_PROMPT_FILE):
+            os.remove(ANNOTATION_PROMPT_FILE)
+    else:
+        with open(ANNOTATION_PROMPT_FILE, 'w') as f:
+            f.write(prompt.strip())
+
+
+def annotation_prompt_mtime():
+    """Return mtime of annotation prompt file, or None."""
+    if os.path.exists(ANNOTATION_PROMPT_FILE):
+        return os.path.getmtime(ANNOTATION_PROMPT_FILE)
+    return None
+
+
+def store_annotation_feedback(url, page_title, quote, explanation, ann_type, rating):
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO annotation_feedback (url, page_title, quote, explanation, ann_type, rating, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (url or '', page_title or '', quote, explanation or '', ann_type or '', rating, time.time())
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_annotation_feedback(rating=None, limit=100, offset=0):
+    conn = _get_db()
+    if rating:
+        rows = conn.execute(
+            "SELECT id, url, page_title, quote, explanation, ann_type, rating, created_at FROM annotation_feedback WHERE rating = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (rating, limit, offset)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, url, page_title, quote, explanation, ann_type, rating, created_at FROM annotation_feedback ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (limit, offset)
+        ).fetchall()
+    conn.close()
+    return [{'id': r[0], 'url': r[1], 'page_title': r[2], 'quote': r[3], 'explanation': r[4], 'ann_type': r[5], 'rating': r[6], 'created_at': r[7]} for r in rows]
+
+
+def update_annotation_feedback_rating(feedback_id, rating):
+    conn = _get_db()
+    conn.execute("UPDATE annotation_feedback SET rating = ? WHERE id = ?", (rating, feedback_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_annotation_feedback(feedback_id):
+    conn = _get_db()
+    conn.execute("DELETE FROM annotation_feedback WHERE id = ?", (feedback_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_annotation_feedback_stats():
+    conn = _get_db()
+    good = conn.execute("SELECT COUNT(*) FROM annotation_feedback WHERE rating = 'good'").fetchone()[0]
+    bad = conn.execute("SELECT COUNT(*) FROM annotation_feedback WHERE rating = 'bad'").fetchone()[0]
+    conn.close()
+    return {'good': good, 'bad': bad}
+
+
+def list_annotation_categories():
+    conn = _get_db()
+    rows = conn.execute("SELECT key, name, description, color, created_at FROM annotation_categories ORDER BY created_at").fetchall()
+    conn.close()
+    return [{'key': r[0], 'name': r[1], 'description': r[2], 'color': r[3], 'created_at': r[4]} for r in rows]
+
+
+def add_annotation_category(key, name, description, color):
+    conn = _get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO annotation_categories (key, name, description, color, created_at) VALUES (?, ?, ?, ?, ?)",
+        (key, name, description, color or '#888888', time.time())
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_annotation_category(key):
+    conn = _get_db()
+    conn.execute("DELETE FROM annotation_categories WHERE key = ?", (key,))
+    conn.commit()
+    conn.close()
 
 
 DEFAULT_VERDICT_PROMPT = (
@@ -523,6 +622,25 @@ def init_db():
             created_at REAL NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_chatmem_created ON chat_memories(created_at DESC);
+    """)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS annotation_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT DEFAULT '',
+            page_title TEXT DEFAULT '',
+            quote TEXT NOT NULL,
+            explanation TEXT DEFAULT '',
+            ann_type TEXT DEFAULT '',
+            rating TEXT NOT NULL,
+            created_at REAL NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS annotation_categories (
+            key TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            color TEXT NOT NULL DEFAULT '#888888',
+            created_at REAL NOT NULL
+        );
     """)
     conn.commit()
     conn.close()

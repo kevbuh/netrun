@@ -4175,6 +4175,35 @@ function _panelBuildSelectionUI(popup, config) {
     btnRow.appendChild(fromHereBtn);
   }
 
+  // Good/Bad annotation feedback buttons
+  const _makeFeedbackBtn = (rating, emoji, color) => {
+    const btn = document.createElement('button');
+    btn.className = 'doc-selection-copy-btn';
+    btn.title = rating === 'good' ? 'Good highlight' : 'Bad highlight';
+    btn.innerHTML = '<span style="font-size:12px">' + emoji + '</span>';
+    btn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      let feedbackUrl = '';
+      let feedbackTitle = '';
+      if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+        const feedbackTab = _browseTabs.find(t => t.id === _browseActiveTab);
+        if (feedbackTab) { feedbackUrl = feedbackTab.url || ''; feedbackTitle = feedbackTab.title || ''; }
+      }
+      fetch('/api/annotation-feedback', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
+        body: JSON.stringify({ quote: capturedText, rating: rating, url: feedbackUrl, pageTitle: feedbackTitle })
+      }).catch(() => {});
+      btn.style.color = color;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      btn.disabled = true;
+    });
+    return btn;
+  };
+  btnRow.appendChild(_makeFeedbackBtn('good', '\u{1F44D}', '#4caf50'));
+  btnRow.appendChild(_makeFeedbackBtn('bad', '\u{1F44E}', '#ef5350'));
+
   // Clear button — positioned on far right
   const clearBtnIcon = document.createElement('button');
   clearBtnIcon.className = 'doc-selection-copy-btn';

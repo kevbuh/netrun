@@ -85,6 +85,16 @@ function _pillStackReflow() {
   }
 }
 
+// ── Custom annotation categories (loaded from server) ──
+var _customAnnotationCategories = [];
+
+function _loadCustomAnnotationCategories() {
+  fetch('/api/annotation-categories', { headers: typeof _authHeaders === 'function' ? _authHeaders() : {} })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { _customAnnotationCategories = d.categories || []; })
+    .catch(function() {});
+}
+
 // ── Dynamic Island — live activity capsule ──
 var _islandActivities = {};  // { id: { type, label, detail, progress, done, _ts } }
 var _islandDismissTimers = {};  // { id: timeoutId }
@@ -293,6 +303,14 @@ function _islandBuildTray(a, isBrowse) {
   } else if (a.type === 'annotate' && a.items && a.items.length) {
     var annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     var annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
+    // Extend with custom categories
+    if (typeof _customAnnotationCategories !== 'undefined') {
+      for (var ci = 0; ci < _customAnnotationCategories.length; ci++) {
+        var cc = _customAnnotationCategories[ci];
+        annColors[cc.key] = cc.color;
+        annLabels[cc.key] = cc.name;
+      }
+    }
     var trayHtml = '';
     for (var ai = 0; ai < a.items.length; ai++) {
       var ann = a.items[ai];
@@ -303,7 +321,12 @@ function _islandBuildTray(a, isBrowse) {
       var displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : quote;
       var confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--text-dimmer);margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
       trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + ' style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
-      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge + '</div>';
+      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge;
+      // Rating buttons
+      trayHtml += '<span style="margin-left:auto;display:flex;gap:2px">';
+      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;font-size:12px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'">&#x1F44D;</button>';
+      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;font-size:12px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'">&#x1F44E;</button>';
+      trayHtml += '</span></div>';
       trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(displayText) + '</div>';
       if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
       trayHtml += '</div>';
@@ -393,6 +416,33 @@ function _islandAttachHandlers(pill, a, hasTray) {
       var tabId = +tabItem.getAttribute('data-island-tab');
       if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
       pill.classList.remove('island-tray-open');
+      return;
+    }
+    // Annotation rating buttons
+    var rateGoodBtn = e.target.closest('[data-ann-rate-good]');
+    var rateBadBtn = e.target.closest('[data-ann-rate-bad]');
+    if (rateGoodBtn || rateBadBtn) {
+      e.stopPropagation();
+      var rIdx = +(rateGoodBtn || rateBadBtn).getAttribute(rateGoodBtn ? 'data-ann-rate-good' : 'data-ann-rate-bad');
+      var rRating = rateGoodBtn ? 'good' : 'bad';
+      var rAnn = a.items && a.items[rIdx];
+      if (rAnn) {
+        var rUrl = '';
+        var rTitle = '';
+        if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+          var rTab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+          if (rTab) { rUrl = rTab.url || ''; rTitle = rTab.title || ''; }
+        }
+        fetch('/api/annotation-feedback', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
+          body: JSON.stringify({ quote: rAnn.quote || '', explanation: rAnn.explanation || '', annType: rAnn.type || '', rating: rRating, url: rUrl, pageTitle: rTitle })
+        }).catch(function() {});
+        var rBtn = rateGoodBtn || rateBadBtn;
+        rBtn.style.opacity = '1';
+        rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
+        rBtn.textContent = '\u2713';
+      }
       return;
     }
     var annItem = e.target.closest('[data-island-ann]');
@@ -3988,6 +4038,8 @@ function _onLoginSuccess() {
     refreshInboxBadge();
     setInterval(refreshInboxBadge, 60000);
   }
+  // Load custom annotation categories
+  _loadCustomAnnotationCategories();
   // Calendar event notifications
   if (typeof startCalendarNotifications === 'function') startCalendarNotifications();
   // Route to the correct view now that auth is resolved

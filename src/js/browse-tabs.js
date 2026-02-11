@@ -6311,6 +6311,7 @@ function _restoreAnnotationPill(tab) {
 
 function toggleAnnotations() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  console.log('[annotate] toggleAnnotations tab=', tab?.id, 'blank=', tab?.blank, 'url=', tab?.url, 'el=', tab?.el?.tagName);
   if (!tab || tab.blank) return;
   // Clear any pending offer timer
   if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
@@ -6325,6 +6326,7 @@ function toggleAnnotations() {
 }
 
 async function annotateCurrentPage(tab) {
+  console.log('[annotate] annotateCurrentPage tab=', tab?.id, 'el=', tab?.el?.tagName, 'url=', tab?.url);
   if (!tab || !tab.el) return;
   const url = tab.url || '';
 
@@ -6446,7 +6448,7 @@ async function _extractTextFromFrame(tab) {
     } else if (frame.tagName === 'IFRAME') {
       return frame.contentDocument.body.innerText || '';
     }
-  } catch { /* cross-origin */ }
+  } catch (err) { console.error('[annotate] _extractTextFromFrame error:', err); }
   return '';
 }
 
@@ -6499,7 +6501,29 @@ function _showAnnotationTooltip(data, frame) {
   const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + '">' + (data.label || data.type) + confBadge + '</div>';
   const explEl = '<div class="aether-ann-explanation">' + data.explanation + '</div>';
   const conflictEl = data.conflictsWith ? '<div class="aether-ann-conflict">Conflicts with: ' + data.conflictsWith + '</div>' : '';
-  tip.innerHTML = labelEl + explEl + conflictEl;
+  const rateEl = '<div class="aether-ann-rate" style="display:flex;gap:4px;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1)">'
+    + '<button class="ann-rate-btn" data-ann-tip-rate="good" style="background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;cursor:pointer;padding:2px 8px;font-size:11px;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:3px" title="Good annotation">&#x1F44D; Good</button>'
+    + '<button class="ann-rate-btn" data-ann-tip-rate="bad" style="background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;cursor:pointer;padding:2px 8px;font-size:11px;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:3px" title="Bad annotation">&#x1F44E; Bad</button>'
+    + '</div>';
+  tip.innerHTML = labelEl + explEl + conflictEl + rateEl;
+  // Wire rating buttons
+  tip.querySelectorAll('[data-ann-tip-rate]').forEach(function(btn) {
+    btn.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      var rating = btn.getAttribute('data-ann-tip-rate');
+      var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+      fetch('/api/annotation-feedback', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
+        body: JSON.stringify({ quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
+      }).catch(function() {});
+      btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
+      btn.textContent = '\u2713 Rated';
+      btn.disabled = true;
+      var sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
+      if (sibling) sibling.style.display = 'none';
+    });
+  });
   tip.style.opacity = '1';
   const fRect = frame.getBoundingClientRect();
   const cx = data.x + fRect.left;
@@ -6528,6 +6552,12 @@ function injectAnnotations(tab, annotations) {
     AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
+  // Extend with custom annotation categories
+  if (typeof _customAnnotationCategories !== 'undefined') {
+    for (const cc of _customAnnotationCategories) {
+      colorMap[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
+    }
+  }
 
   const annotationsJSON = JSON.stringify(annotations).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const colorMapJSON = JSON.stringify(colorMap).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -6542,7 +6572,7 @@ function injectAnnotations(tab, annotations) {
       var _hoveredAnn = null;
       function showTooltip(mark, ann) {
         var c = colorMap[ann.type] || colorMap.ALPHA;
-        _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null };
+        _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null, quote: ann.quote || '' };
       }
 
       function hideTooltip() {
@@ -6552,7 +6582,7 @@ function injectAnnotations(tab, annotations) {
 
       document.addEventListener('mousemove', function(e) {
         if (!_hoveredAnn) return;
-        console.log('__AETHER_ANN_MOVE__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: _hoveredAnn.type, label: _hoveredAnn.label, labelColor: _hoveredAnn.labelColor, explanation: _hoveredAnn.explanation, conflictsWith: _hoveredAnn.conflictsWith, confidence: _hoveredAnn.confidence }));
+        console.log('__AETHER_ANN_MOVE__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: _hoveredAnn.type, label: _hoveredAnn.label, labelColor: _hoveredAnn.labelColor, explanation: _hoveredAnn.explanation, conflictsWith: _hoveredAnn.conflictsWith, confidence: _hoveredAnn.confidence, quote: _hoveredAnn.quote }));
       });
 
       // Build concatenated text from all text nodes with position mapping
