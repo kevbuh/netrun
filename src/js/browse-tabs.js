@@ -335,23 +335,10 @@ function switchWindowDown() {
 }
 
 function _animateWindowSwitch(direction, callback) {
-  const content = document.getElementById('browse-content');
+  var content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
-
-  const offY = direction === 'up' ? 30 : -30;
-  const inY = direction === 'up' ? -30 : 30;
-
-  Motion.animate(content, {
-    spring: 'smooth', duration: 150,
-    from: { y: 0, opacity: 1 }, to: { y: offY, opacity: 0 },
-    onFinish: function() {
-      callback();
-      Motion.animate(content, {
-        spring: 'smooth', duration: 200,
-        from: { y: inY, opacity: 0 }, to: { y: 0, opacity: 1 }
-      });
-    }
-  });
+  var dist = direction === 'up' ? 30 : -30;
+  Motion.swap(content, 'y', callback, { distance: dist });
 }
 
 let _browseReturnView = localStorage.getItem('_browseReturnView') || null; // set by openPaper/inbox to enable "back to feed/inbox" button
@@ -5272,23 +5259,10 @@ function _switchTabRight() {
 }
 
 function _animateTabSwitch(direction, callback) {
-  const content = document.getElementById('browse-content');
+  var content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
-
-  const offX = direction === 'left' ? 30 : -30;
-  const inX = direction === 'left' ? -30 : 30;
-
-  Motion.animate(content, {
-    spring: 'smooth', duration: 120,
-    from: { x: 0, opacity: 1 }, to: { x: offX, opacity: 0.5 },
-    onFinish: function() {
-      callback();
-      Motion.animate(content, {
-        spring: 'smooth', duration: 150,
-        from: { x: inX, opacity: 0.5 }, to: { x: 0, opacity: 1 }
-      });
-    }
-  });
+  var dist = direction === 'left' ? 30 : -30;
+  Motion.swap(content, 'x', callback, { distance: dist, outOpacity: 0.5 });
 }
 
 function _browseRemoveKeyGuard() {

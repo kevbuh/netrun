@@ -967,14 +967,7 @@ function setSidebarActive(id) {
 }
 
 function setSidebarLoading(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  // Reset animation by removing and re-adding class
-  el.classList.remove('sb-loading');
-  void el.offsetWidth; // Force reflow
-  el.classList.add('sb-loading');
-  // Remove class after animation completes
-  setTimeout(() => el.classList.remove('sb-loading'), 350);
+  Motion.retrigger(document.getElementById(id), 'sb-loading', 350);
 }
 
 // ── Sidebar Keyboard Navigation ──
@@ -1540,10 +1533,7 @@ function wmOpen(key) {
     // Already on this view — wiggle the sidebar icon
     const btn = document.getElementById(meta.sidebarId);
     if (btn) {
-      btn.classList.remove('sb-wiggle');
-      void btn.offsetWidth;
-      btn.classList.add('sb-wiggle');
-      setTimeout(() => btn.classList.remove('sb-wiggle'), 400);
+      Motion.retrigger(btn, 'sb-wiggle', 400);
     }
     setSidebarLoading(meta.sidebarId);
     return;

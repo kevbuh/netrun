@@ -310,7 +310,43 @@
   }
 
 
-  // ─── 7. FLIP Helper ────────────────────────────────────────
+  // ─── 7. Swap + Retrigger ─────────────────────────────────
+
+  function _swap(el, axis, callback, config) {
+    if (!el) { if (callback) callback(); return; }
+    config = config || {};
+    var dist = config.distance || 30;
+    var outDur = config.outDuration || (axis === 'y' ? 150 : 120);
+    var inDur = config.inDuration || (axis === 'y' ? 200 : 150);
+    var outOpacity = config.outOpacity != null ? config.outOpacity : 0;
+    var inOpacity = config.inOpacity != null ? config.inOpacity : outOpacity;
+    var outVal = axis === 'y' ? { y: dist } : { x: dist };
+    var inVal = axis === 'y' ? { y: -dist } : { x: -dist };
+    var fromOut = { opacity: 1 }; fromOut[axis] = 0;
+    var toOut = { opacity: outOpacity }; toOut[axis] = outVal[axis];
+    var fromIn = { opacity: inOpacity }; fromIn[axis] = inVal[axis];
+    var toIn = { opacity: 1 }; toIn[axis] = 0;
+
+    _animate(el, {
+      spring: 'smooth', duration: outDur,
+      from: fromOut, to: toOut,
+      onFinish: function() {
+        if (callback) callback();
+        _animate(el, { spring: 'smooth', duration: inDur, from: fromIn, to: toIn });
+      }
+    });
+  }
+
+  function _retrigger(el, className, durationMs) {
+    if (!el) return;
+    el.classList.remove(className);
+    void el.offsetWidth;
+    el.classList.add(className);
+    setTimeout(function() { el.classList.remove(className); }, durationMs || 400);
+  }
+
+
+  // ─── 8. FLIP Helper ────────────────────────────────────────
 
   function _flip(el, callback, config) {
     var first = el.getBoundingClientRect();
@@ -456,6 +492,10 @@
     flash: _flash,
     toast: _toast,
     injectTokens: _injectTokens,
+
+    // Transitions
+    swap: _swap,
+    retrigger: _retrigger,
 
     // FLIP
     flip: _flip

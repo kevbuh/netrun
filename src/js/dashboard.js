@@ -1651,30 +1651,72 @@ function _devRenderFileTree(nodes, edges) {
   });
 
   let html = '<div style="color:var(--text-primary)">';
+  html += `<div style="margin-bottom:12px;display:flex;gap:8px">`;
+  html += `<button onclick="_devExpandAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
+  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
+  html += `</div>`;
+
   nodes.forEach((node, i) => {
     const isLast = i === nodes.length - 1;
+    const isCollapsed = _devCollapsedFiles.has(node.id);
     const nodeDeps = deps.get(node.id) || [];
 
-    html += `<div style="margin-bottom:2px">`;
-    html += `<span style="color:var(--accent)">●</span> `;
+    html += `<div style="margin-bottom:4px">`;
+    html += `<div onclick="_devToggleFileInFileView('${node.id}')" style="cursor:pointer">`;
+    html += `<span style="color:var(--accent)">${isCollapsed ? '▶' : '▼'}</span> `;
     html += `<span style="color:var(--text-primary);font-weight:600">${node.id}</span>`;
     html += `<span style="color:var(--text-dimmer);margin-left:12px;font-size:11px">${node.functions} funcs, ${node.loc} LOC</span>`;
+    html += `</div>`;
 
-    if (nodeDeps.length > 0) {
-      const topDeps = nodeDeps.slice(0, 3);
-      html += `<div style="margin-left:24px;color:var(--text-dimmer);font-size:11px">`;
+    if (!isCollapsed && nodeDeps.length > 0) {
+      const topDeps = nodeDeps.slice(0, 5);
+      html += `<div style="margin-left:24px;color:var(--text-dimmer);font-size:11px;margin-top:2px">`;
       topDeps.forEach((dep, j) => {
-        html += `→ ${dep.target} (${dep.calls}×)`;
-        if (j < topDeps.length - 1) html += ', ';
+        html += `<div>→ ${dep.target} <span style="opacity:0.7">(${dep.calls}× calls)</span></div>`;
       });
-      if (nodeDeps.length > 3) html += ` +${nodeDeps.length - 3} more`;
+      if (nodeDeps.length > 5) html += `<div>→ +${nodeDeps.length - 5} more dependencies...</div>`;
       html += `</div>`;
     }
     html += `</div>`;
+
     if (!isLast) html += `<div style="color:var(--border-card);margin-left:5px">│</div>`;
   });
   html += '</div>';
   container.innerHTML = html;
+}
+
+function _devToggleFileInFileView(file) {
+  if (_devCollapsedFiles.has(file)) {
+    _devCollapsedFiles.delete(file);
+  } else {
+    _devCollapsedFiles.add(file);
+  }
+  if (_devGraphData && _devGraphLevel === 'file') {
+    _devRenderFileTree(_devGraphData.nodes, _devGraphData.edges);
+  }
+}
+
+function _devExpandAllFiles() {
+  _devCollapsedFiles.clear();
+  if (_devGraphData) {
+    if (_devGraphLevel === 'file') {
+      _devRenderFileTree(_devGraphData.nodes, _devGraphData.edges);
+    } else {
+      _devRenderFunctionTree(_devGraphData.nodes, _devGraphData.edges);
+    }
+  }
+}
+
+function _devCollapseAllFiles() {
+  if (_devGraphData) {
+    if (_devGraphLevel === 'file') {
+      _devGraphData.nodes.forEach(n => _devCollapsedFiles.add(n.id));
+      _devRenderFileTree(_devGraphData.nodes, _devGraphData.edges);
+    } else {
+      _devGraphData.nodes.forEach(n => _devCollapsedFiles.add(n.file));
+      _devRenderFunctionTree(_devGraphData.nodes, _devGraphData.edges);
+    }
+  }
 }
 
 function _devRenderFunctionTree(allNodes, allEdges) {
@@ -1696,6 +1738,11 @@ function _devRenderFunctionTree(allNodes, allEdges) {
     fileGroups[node.file].push(node);
   });
 
+  // Default all files to collapsed on first render
+  if (_devCollapsedFiles.size === 0) {
+    Object.keys(fileGroups).forEach(file => _devCollapsedFiles.add(file));
+  }
+
   const edges = allEdges.filter(e => {
     const src = nodes.find(n => n.id === e.source);
     const tgt = nodes.find(n => n.id === e.target);
@@ -1709,6 +1756,11 @@ function _devRenderFunctionTree(allNodes, allEdges) {
   });
 
   let html = '<div style="color:var(--text-primary)">';
+  html += `<div style="margin-bottom:12px;display:flex;gap:8px">`;
+  html += `<button onclick="_devExpandAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
+  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
+  html += `</div>`;
+
   Object.keys(fileGroups).sort().forEach((file) => {
     const isCollapsed = _devCollapsedFiles.has(file);
     const funcs = fileGroups[file];
