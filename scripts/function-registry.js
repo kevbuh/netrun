@@ -173,7 +173,11 @@ function findCallSites(content, filename, allFunctions) {
 }
 
 function analyzeCodebase() {
-  console.log('🔍 Scanning JavaScript files...\n');
+  // Only log if not in JSON output mode
+  const jsonOutput = process.argv.includes('--json');
+  if (!jsonOutput) {
+    console.log('🔍 Scanning JavaScript files...\n');
+  }
 
   const files = getJSFiles();
   const allFunctions = new Map();
