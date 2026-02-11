@@ -177,7 +177,6 @@ class TestBlockedTitles:
             persistence.BLOCKED_TITLES_FILE = original
 
 
-@pytest.mark.skip(reason="Database tests require more complex mocking - TODO")
 class TestDatabase:
     """Test database initialization and connection."""
 
@@ -185,17 +184,17 @@ class TestDatabase:
         """Test that init_db creates required tables."""
         import persistence
 
-        # Create temp database
+        # Create temp database path
         db_path = tmp_path / 'test.db'
-        conn = sqlite3.connect(str(db_path))
 
-        # Mock _get_db to return our test connection
-        monkeypatch.setattr(persistence, '_get_db', lambda: conn)
+        # Mock DB_PATH to use our temp database
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
         monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
 
         init_db()
 
-        # Check that tables exist
+        # Now connect and check tables
+        conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
@@ -206,6 +205,8 @@ class TestDatabase:
         assert 'feed_items' in tables
         assert 'embeddings' in tables
         assert 'quality_cache' in tables
+        assert 'teams' in tables
+        assert 'user_data' in tables
 
         conn.close()
 
@@ -214,13 +215,12 @@ class TestDatabase:
         import persistence
 
         db_path = tmp_path / 'test.db'
-        conn = sqlite3.connect(str(db_path))
-
-        monkeypatch.setattr(persistence, '_get_db', lambda: conn)
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
         monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
 
         init_db()
 
+        conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(users)")
         columns = {row[1]: row[2] for row in cursor.fetchall()}
@@ -238,13 +238,12 @@ class TestDatabase:
         import persistence
 
         db_path = tmp_path / 'test.db'
-        conn = sqlite3.connect(str(db_path))
-
-        monkeypatch.setattr(persistence, '_get_db', lambda: conn)
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
         monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
 
         init_db()
 
+        conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(feed_items)")
         columns = {row[1]: row[2] for row in cursor.fetchall()}
@@ -255,6 +254,7 @@ class TestDatabase:
         assert 'title' in columns
         assert 'link' in columns
         assert 'pub_date' in columns
+        assert 'fetched_at' in columns
 
         conn.close()
 
@@ -263,13 +263,12 @@ class TestDatabase:
         import persistence
 
         db_path = tmp_path / 'test.db'
-        conn = sqlite3.connect(str(db_path))
-
-        monkeypatch.setattr(persistence, '_get_db', lambda: conn)
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
         monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
 
         init_db()
 
+        conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
 
         # Insert first item
@@ -277,16 +276,18 @@ class TestDatabase:
             INSERT INTO feed_items (source, title, link, fetched_at)
             VALUES (?, ?, ?, ?)
         """, ('arxiv', 'Test Title', 'https://example.com/1', 1234567890))
+        conn.commit()
 
-        # Try to insert duplicate (should fail or update)
+        # Try to insert duplicate (should fail or update due to UNIQUE constraint)
         try:
             cursor.execute("""
                 INSERT INTO feed_items (source, title, link, fetched_at)
                 VALUES (?, ?, ?, ?)
             """, ('arxiv', 'Different Title', 'https://example.com/1', 1234567890))
+            conn.commit()
 
             # If we get here, it's using REPLACE or INSERT OR IGNORE
-            # Just verify only one row exists
+            # Verify only one row exists
             cursor.execute("""
                 SELECT COUNT(*) FROM feed_items
                 WHERE source = ? AND link = ?
@@ -319,7 +320,6 @@ class TestCachedFetch:
             assert isinstance(e, (ValueError, urllib.error.URLError))
 
 
-@pytest.mark.skip(reason="Quality cache tests require database - TODO")
 class TestQualityCache:
     """Test quality cache operations."""
 
@@ -329,9 +329,7 @@ class TestQualityCache:
         import persistence
 
         db_path = tmp_path / 'test.db'
-        conn = sqlite3.connect(str(db_path))
-
-        monkeypatch.setattr(persistence, '_get_db', lambda: conn)
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
         monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
 
         init_db()
@@ -339,10 +337,9 @@ class TestQualityCache:
         # Get from empty cache
         result = quality_cache_get(['Test Title'], 'prompt_hash_123')
 
-        # Should return dict with titles as keys
+        # Should return empty dict for cache misses
         assert isinstance(result, dict)
-
-        conn.close()
+        assert len(result) == 0
 
     def test_quality_cache_set_and_get(self, tmp_path, monkeypatch):
         """Test setting and getting quality cache entries."""
@@ -350,9 +347,7 @@ class TestQualityCache:
         import persistence
 
         db_path = tmp_path / 'test.db'
-        conn = sqlite3.connect(str(db_path))
-
-        monkeypatch.setattr(persistence, '_get_db', lambda: conn)
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
         monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
 
         init_db()
@@ -365,14 +360,36 @@ class TestQualityCache:
 
         quality_cache_set(entries, 'prompt_hash_456')
 
-        # Get cache entries
+        # Get cache entries back
         result = quality_cache_get(['Title 1', 'Title 2'], 'prompt_hash_456')
 
         # Should return the cached values
         assert isinstance(result, dict)
-        # Exact format depends on implementation
+        assert len(result) == 2
+        assert result['Title 1']['v'] == 'KEEP'
+        assert result['Title 1']['s'] == 85
+        assert result['Title 2']['v'] == 'SKIP'
+        assert result['Title 2']['s'] == 15
 
-        conn.close()
+    def test_quality_cache_prompt_hash_isolation(self, tmp_path, monkeypatch):
+        """Test that different prompt hashes are isolated."""
+        from persistence import quality_cache_set, quality_cache_get
+        import persistence
+
+        db_path = tmp_path / 'test.db'
+        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+
+        init_db()
+
+        # Set with one prompt hash
+        quality_cache_set({'Title': {'v': 'KEEP', 's': 90}}, 'hash_a')
+
+        # Query with different prompt hash
+        result = quality_cache_get(['Title'], 'hash_b')
+
+        # Should not find the entry
+        assert len(result) == 0
 
 
 @pytest.mark.skip(reason="Requires actual vault directory")

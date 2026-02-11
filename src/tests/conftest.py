@@ -21,25 +21,39 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 @pytest.fixture
-def app():
+def app(monkeypatch, tmp_path):
     """Create and configure a Flask app instance for testing."""
-    from app import app as flask_app
+    # Create temp directory for test data
+    test_data_dir = tmp_path / 'test_data'
+    test_data_dir.mkdir()
+    test_db_path = test_data_dir / 'test.db'
 
-    # Create a temporary database for testing
-    db_fd, db_path = tempfile.mkstemp()
+    # Mock sys.argv to prevent argparse conflicts with pytest
+    monkeypatch.setattr(sys, 'argv', ['app.py', '--data-dir', str(test_data_dir)])
+
+    # Set environment variable before importing persistence
+    monkeypatch.setenv('ARXIV_DATA_DIR', str(test_data_dir))
+
+    # Import app after mocking argv
+    from app import app as flask_app
+    import persistence
+
+    # Also patch persistence DB_PATH to use test database
+    monkeypatch.setattr(persistence, 'DB_PATH', str(test_db_path))
+
+    # Initialize the test database
+    persistence.init_db()
 
     flask_app.config.update({
         'TESTING': True,
-        'DATABASE': db_path,
+        'DATABASE': str(test_db_path),
         'SECRET_KEY': 'test-secret-key',
         'WTF_CSRF_ENABLED': False,  # Disable CSRF for testing
     })
 
     yield flask_app
 
-    # Cleanup
-    os.close(db_fd)
-    os.unlink(db_path)
+    # Cleanup is automatic with tmp_path
 
 
 @pytest.fixture
