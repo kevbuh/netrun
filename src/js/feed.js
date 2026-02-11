@@ -44,20 +44,20 @@ function updateSavedBadge() {
 
 // ── Feed Notifications ──
 function _getSeenPostLinks() {
-  try { return new Set(JSON.parse(localStorage.getItem('seenPostLinks') || '[]')); } catch { return new Set(); }
+  return new Set(getLS('seenPostLinks', []));
 }
 function _setSeenPostLinks(set) {
-  localStorage.setItem('seenPostLinks', JSON.stringify([...set]));
+  setLS('seenPostLinks', [...set]);
 }
 function _getFeedNotifications() {
-  try { return JSON.parse(localStorage.getItem('feedNotifications') || '[]'); } catch { return []; }
+  return getLS('feedNotifications', []);
 }
 function _setFeedNotifications(arr) {
-  localStorage.setItem('feedNotifications', JSON.stringify(arr));
+  setLS('feedNotifications', arr);
 }
 
 function _getFeedNotifSources() {
-  try { return JSON.parse(localStorage.getItem('feedNotifSources') || '{}'); } catch { return {}; }
+  return getLS('feedNotifSources', {});
 }
 
 function _detectNewPosts() {
@@ -117,14 +117,14 @@ function clearAllFeedNotifications() {
 }
 
 function getHiddenPosts() {
-  try { return JSON.parse(localStorage.getItem('hiddenPosts') || '[]'); } catch { return []; }
+  return getLS('hiddenPosts', []);
 }
 function getReadPosts() {
-  try { return JSON.parse(localStorage.getItem('readPosts') || '[]'); } catch { return []; }
+  return getLS('readPosts', []);
 }
 function markPostAsRead(link) {
   const read = getReadPosts();
-  if (!read.includes(link)) { read.push(link); localStorage.setItem('readPosts', JSON.stringify(read)); }
+  if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
   _embedPost(link);
 }
 
@@ -196,14 +196,14 @@ function hidePost(link, title, event) {
   renderPapers();
 }
 function getTestTitles() {
-  try { return JSON.parse(localStorage.getItem('qualityTestTitles') || '[]'); } catch { return []; }
+  return getLS('qualityTestTitles', []);
 }
 async function fetchTestTitlesFromServer() {
   try {
     const resp = await fetch('/api/blocked-titles');
     if (resp.ok) {
       const titles = await resp.json();
-      localStorage.setItem('qualityTestTitles', JSON.stringify(titles));
+      setLS('qualityTestTitles', titles);
       return titles;
     }
   } catch {}
@@ -211,7 +211,7 @@ async function fetchTestTitlesFromServer() {
 }
 function addTestTitle(title) {
   const titles = getTestTitles();
-  if (!titles.includes(title)) { titles.push(title); localStorage.setItem('qualityTestTitles', JSON.stringify(titles)); }
+  if (!titles.includes(title)) { titles.push(title); setLS('qualityTestTitles', titles); }
   fetch('/api/blocked-titles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -222,11 +222,11 @@ function isPostHidden(link) { return getHiddenPosts().includes(link); }
 
 // ── User Quotes ──
 function _getUserQuotes() {
-  try { return JSON.parse(localStorage.getItem('userQuotes') || '[]'); } catch { return []; }
+  return getLS('userQuotes', []);
 }
 function deleteUserQuote(id) {
   const quotes = _getUserQuotes().filter(q => q.id !== id);
-  localStorage.setItem('userQuotes', JSON.stringify(quotes));
+  setLS('userQuotes', quotes);
   allPapers = allPapers.filter(p => p._quoteId !== id);
   renderPapers();
 }
@@ -282,7 +282,7 @@ function _renderSemanticResults(container, results, heading) {
 
 // ── Blocked Words ──
 function getBlockedWords() {
-  try { return JSON.parse(localStorage.getItem('blockedWords') || '[]'); } catch { return []; }
+  return getLS('blockedWords', []);
 }
 function setBlockedWords(words) {
   localStorage.setItem('blockedWords', JSON.stringify(words));

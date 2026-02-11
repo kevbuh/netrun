@@ -1448,7 +1448,9 @@ async function renderDevStats() {
   // Stat cards
   const stats = [
     { value: (data.project_age_days || 0) + 'd', label: 'Project Age' },
-    { value: data.total_loc.toLocaleString(), label: 'Lines of Code' },
+    { value: data.total_loc.toLocaleString(), label: 'Total Lines' },
+    { value: (data.core_loc || 0).toLocaleString(), label: 'Core Lines' },
+    { value: (data.test_loc || 0).toLocaleString(), label: 'Test Lines' },
     { value: data.files, label: 'Files' },
     { value: (data.total_commits || 0).toLocaleString(), label: 'Total Commits' },
     { value: data.commits_today, label: 'Commits Today' },

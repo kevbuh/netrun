@@ -148,31 +148,31 @@ var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span
 
 function _islandRenderPill(a) {
   if (a.type === 'feed-notif') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + _escHtml(a.label || '') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.done) {
-    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(a.label || 'Done') + '</span>';
+    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + escapeHtml(a.label || 'Done') + '</span>';
   } else if (a.type === 'download') {
     var pct = a.progress || 0;
     var circ = 2 * Math.PI * 6;
     var offset = circ * (1 - pct / 100);
     var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-    return ring + '<span>' + _escHtml(a.label || pct + '%') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+    return ring + '<span>' + escapeHtml(a.label || pct + '%') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
     var ttsIconC = a.paused
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
       : _islandWaveformBars;
-    return ttsIconC + '<span>' + _escHtml(a.label || '') + '</span>';
+    return ttsIconC + '<span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'audio') {
-    return _islandAudioBars + '<span>' + _escHtml(a.label || '') + '</span>';
+    return _islandAudioBars + '<span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'ai') {
-    return '<span class="island-ai-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
+    return '<span class="island-ai-dot"></span><span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg>';
   } else if (a.type === 'rss') {
     var rssIcon = a.subscribed
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
       : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>';
-    return rssIcon + '<span style="color:' + (a.subscribed ? '#22c55e' : 'var(--aether-text)') + '">' + _escHtml(a.label || '') + '</span>';
+    return rssIcon + '<span style="color:' + (a.subscribed ? '#22c55e' : 'var(--aether-text)') + '">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'tabs') {
     var tabItems = a.items || [];
     var _globePath = 'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418';
@@ -196,9 +196,9 @@ function _islandRenderPill(a) {
     for (var ti = 0; ti < visible.length; ti++) {
       var t = visible[ti];
       var cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
-      var tipAttr = ' title="' + _escHtml(t.title || 'Tab') + '"';
+      var tipAttr = ' title="' + escapeHtml(t.title || 'Tab') + '"';
       if (t.favicon) {
-        html += '<img class="' + cls + '" src="' + _escHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'<svg class=&quot;' + cls + '&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;1.5&quot;><path stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; d=&quot;' + _globePath + '&quot;/></svg>\'">';
+        html += '<img class="' + cls + '" src="' + escapeHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'<svg class=&quot;' + cls + '&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;1.5&quot;><path stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; d=&quot;' + _globePath + '&quot;/></svg>\'">';
       } else {
         html += _globeIcon(cls, tipAttr + ' data-island-tab="' + t.id + '"');
       }
@@ -209,84 +209,84 @@ function _islandRenderPill(a) {
   } else if (a.type === 'annotate') {
     var annPenIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     if (a.offer) {
-      return annPenIcon + '<span>' + _escHtml(a.label || 'Annotate') + '</span>';
+      return annPenIcon + '<span>' + escapeHtml(a.label || 'Annotate') + '</span>';
     }
     if (a.loading) {
-      return '<span class="island-annotate-dot"></span><span>' + _escHtml(a.label || 'Annotating…') + '</span>';
+      return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Annotating…') + '</span>';
     }
     var _annModeColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    return annIcon + '<span style="color:var(--aether-text)">' + _escHtml(a.label || '') + '</span>';
+    return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'calendar') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + _escHtml(a.label || '') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
   } else if (a.type === 'context') {
-    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.label || '') + '</span>';
+    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.label || '') + '</span>';
   }
-  return '<span class="island-dot"></span><span>' + _escHtml(a.label || '') + '</span>';
+  return '<span class="island-dot"></span><span>' + escapeHtml(a.label || '') + '</span>';
 }
 
 function _islandRenderPillExpanded(a) {
   if (a.type === 'feed-notif') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + _escHtml(a.detail || a.label || '') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + escapeHtml(a.detail || a.label || '') + '</span>';
   } else if (a.done) {
-    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + _escHtml(a.label || 'Done') + '</span>';
+    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + escapeHtml(a.label || 'Done') + '</span>';
   } else if (a.type === 'download') {
     var pct = a.progress || 0;
     var circ = 2 * Math.PI * 6;
     var offset = circ * (1 - pct / 100);
     var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-    return ring + '<span>' + _escHtml(a.detail || a.label || 'Downloading') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+    return ring + '<span>' + escapeHtml(a.detail || a.label || 'Downloading') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
     var ttsIcon = a.paused
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
       : _islandWaveformBars;
     var ttsTime = (typeof _ttsTimeDetail === 'function') ? _ttsTimeDetail() : '';
-    return ttsIcon + '<span>' + _escHtml(ttsTime || a.detail || a.label || '') + '</span>';
+    return ttsIcon + '<span>' + escapeHtml(ttsTime || a.detail || a.label || '') + '</span>';
   } else if (a.type === 'audio') {
-    return _islandAudioBars + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+    return _islandAudioBars + '<span>' + escapeHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'ai') {
-    return '<span class="island-ai-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
+    return '<span class="island-ai-dot"></span><span>' + escapeHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#e8d5a0;font-weight:600">' + _escHtml(a.label || 'Unlocked!') + '</span><span style="color:rgba(202,161,42,0.55);margin-left:2px">' + _escHtml(a.detail || '') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#e8d5a0;font-weight:600">' + escapeHtml(a.label || 'Unlocked!') + '</span><span style="color:rgba(202,161,42,0.55);margin-left:2px">' + escapeHtml(a.detail || '') + '</span>';
   } else if (a.type === 'rss') {
     var rssIconExp = a.subscribed
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
       : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>';
     var rssHoverLabel = a.subscribed ? 'Subscribed' : 'Subscribe';
     var rssColor = a.subscribed ? '#22c55e' : 'var(--aether-text)';
-    return rssIconExp + '<span style="color:' + rssColor + '">' + _escHtml(rssHoverLabel) + '</span>';
+    return rssIconExp + '<span style="color:' + rssColor + '">' + escapeHtml(rssHoverLabel) + '</span>';
   } else if (a.type === 'tabs') {
-    var favHtml = a.favicon ? '<img class="island-tab-favicon" src="' + _escHtml(a.favicon) + '" onerror="this.style.display=\'none\'">' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
+    var favHtml = a.favicon ? '<img class="island-tab-favicon" src="' + escapeHtml(a.favicon) + '" onerror="this.style.display=\'none\'">' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
     var titleText = a.detail || 'Browse';
     if (titleText.length > 30) titleText = titleText.slice(0, 28) + '\u2026';
-    return favHtml + '<span>' + _escHtml(titleText) + '</span>';
+    return favHtml + '<span>' + escapeHtml(titleText) + '</span>';
   } else if (a.type === 'annotate') {
     var annPenIcon2 = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     if (a.offer) {
-      return annPenIcon2 + '<span style="color:var(--aether-text)">' + _escHtml(a.label || 'Annotate') + '</span>';
+      return annPenIcon2 + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || 'Annotate') + '</span>';
     }
     if (a.loading) {
       if (a.showCancel) {
         var annStopBtn = '<span class="island-dismiss" data-island-dismiss="annotate" style="cursor:pointer;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg><span style="color:#ef5350;font-weight:600">Cancel</span></span>';
         return annStopBtn;
       }
-      return annPenIcon2 + '<span style="color:var(--aether-text)">' + _escHtml(a.label || 'Annotating…') + '</span>';
+      return annPenIcon2 + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || 'Annotating…') + '</span>';
     }
     var _annModeColors2 = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
     var annColor2 = _annModeColors2[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor2 + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    return annIcon + '<span>' + _escHtml(a.detail || a.label || '') + '</span>';
+    return annIcon + '<span>' + escapeHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'calendar') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + _escHtml(a.detail || a.label || '') + '</span>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + escapeHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
   } else if (a.type === 'context') {
-    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + _escHtml(a.detail || a.label || '') + '</span>';
+    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.detail || a.label || '') + '</span>';
   }
-  return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
+  return '<span class="island-dot"></span><span>' + escapeHtml(a.detail || a.label || '') + '</span>';
 }
 
 // Build tray HTML for context/download/annotate/achievement/tabs pills
@@ -301,9 +301,9 @@ function _islandBuildTray(a, isBrowse) {
       var item = a.items[ti];
       var t = item.title || 'New Tab';
       if (t.length > 36) t = t.slice(0, 34) + '\u2026';
-      var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+      var fav = item.favicon ? '<img src="' + escapeHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
       var closeBtn = isBrowse ? '<button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button>' : '';
-      trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span>' + closeBtn + '</div>';
+      trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t) + '</span>' + closeBtn + '</div>';
     }
     return trayHtml;
   } else if (a.type === 'download' && a.items && a.items.length) {
@@ -321,10 +321,10 @@ function _islandBuildTray(a, isBrowse) {
       var progressHtml = item.state === 'progressing'
         ? '<div class="island-dl-progress"><div class="island-dl-progress-bar" style="width:' + item.pct + '%"></div></div>'
         : '';
-      trayHtml += '<div class="island-dl-item" data-island-dl="' + _escHtml(item.id) + '">'
+      trayHtml += '<div class="island-dl-item" data-island-dl="' + escapeHtml(item.id) + '">'
         + '<div class="island-dl-icon">' + dlIcon + '</div>'
-        + '<div class="island-dl-info"><div class="island-dl-name">' + _escHtml(fname) + '</div><div class="island-dl-status">' + _escHtml(dlStatus) + '</div>' + progressHtml + '</div>'
-        + '<button class="island-dl-remove" data-island-dl-remove="' + _escHtml(item.id) + '" title="Remove">&times;</button>'
+        + '<div class="island-dl-info"><div class="island-dl-name">' + escapeHtml(fname) + '</div><div class="island-dl-status">' + escapeHtml(dlStatus) + '</div>' + progressHtml + '</div>'
+        + '<button class="island-dl-remove" data-island-dl-remove="' + escapeHtml(item.id) + '" title="Remove">&times;</button>'
         + '</div>';
     }
     return trayHtml;
@@ -339,9 +339,9 @@ function _islandBuildTray(a, isBrowse) {
       var quote = ann.quote || '';
       if (quote.length > 60) quote = quote.slice(0, 58) + '\u2026';
       trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '" style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
-      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + _escHtml(al) + '</span></div>';
-      trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + _escHtml(quote) + '</div>';
-      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + _escHtml(ann.explanation) + '</div>';
+      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span></div>';
+      trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(quote) + '</div>';
+      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
       trayHtml += '</div>';
     }
     return trayHtml;
@@ -350,8 +350,8 @@ function _islandBuildTray(a, isBrowse) {
       + '<div class="island-ach-tray-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg></div>'
       + '<div class="island-ach-tray-info">'
       + '<div class="island-ach-tray-subtitle">Achievement Unlocked</div>'
-      + '<div class="island-ach-tray-name">' + _escHtml(a.label || 'Unlocked!') + '</div>'
-      + '<div class="island-ach-tray-desc">' + _escHtml(a.detail || '') + '</div>'
+      + '<div class="island-ach-tray-name">' + escapeHtml(a.label || 'Unlocked!') + '</div>'
+      + '<div class="island-ach-tray-desc">' + escapeHtml(a.detail || '') + '</div>'
       + '</div></div>';
   } else if (a.type === 'tabs' && a.items && a.items.length) {
     var trayHtml = '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div><div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
@@ -362,9 +362,9 @@ function _islandBuildTray(a, isBrowse) {
         var pItem = pinnedItems[pi];
         var pTitle = pItem.title || 'New Tab';
         if (pTitle.length > 32) pTitle = pTitle.slice(0, 30) + '\u2026';
-        var pFav = pItem.favicon ? '<img src="' + _escHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+        var pFav = pItem.favicon ? '<img src="' + escapeHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
         var pAudio = pItem.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
-        trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(pTitle) + '</span></div>';
+        trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pTitle) + '</span></div>';
       }
       if (unpinnedItems.length) trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
     }
@@ -372,9 +372,9 @@ function _islandBuildTray(a, isBrowse) {
       var item = unpinnedItems[ti];
       var t = item.title || 'New Tab';
       if (t.length > 32) t = t.slice(0, 30) + '\u2026';
-      var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+      var fav = item.favicon ? '<img src="' + escapeHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
       var audioIcon = item.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
-      trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
+      trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
     }
     return trayHtml;
   }
@@ -2132,67 +2132,60 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── Route table — exact hash → action ──
+var _ROUTE_TABLE = {
+  '#research':    () => { openResearch(); },
+  '#experiments': () => wmOpen('vault'),
+  '#settings':    () => wmOpen('settings'),
+  '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); },
+  '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); },
+  '#calendar':    () => wmOpen('dashboard'),
+  '#inbox':       () => wmOpen('inbox'),
+  '#teams':       () => openTeams(),
+  '#vault':       () => wmOpen('vault'),
+  '#profile':     () => openUserProfile(''),
+  '#saved-all':   () => openAllSaved(),
+  '#saved':       () => wmOpen('dashboard'),
+  '#browse':      () => wmOpen('browse'),
+  '#search':      () => { openResearch('search'); },
+  '#terminal':    () => { openTerminal(); },
+  '#neuralook':   () => wmOpen('neuralook'),
+  '#dev':         () => wmOpen('dev'),
+  '#graph':       () => wmOpen('graph'),
+  '#vibe':        () => wmOpen('vault'),
+  '#feed':        () => wmOpen('feed'),
+};
+
+// ── Prefix route handlers — hash prefix → handler(remainder) ──
+var _ROUTE_PREFIX_HANDLERS = [
+  ['#blog/',       (rest) => { const parts = rest.split('/'); if (parts.length >= 2) { const username = decodeURIComponent(parts[0]); const slug = decodeURIComponent(parts.slice(1).join('/')); if (typeof openBlogPost === 'function') openBlogPost(username, slug); } }],
+  ['#team/',       (rest) => { const teamId = parseInt(rest, 10); if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId); }],
+  ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
+  ['#experiment/', (rest) => { const qIdx = rest.indexOf('?'); const expId = qIdx >= 0 ? decodeURIComponent(rest.slice(0, qIdx)) : decodeURIComponent(rest); const params = qIdx >= 0 ? new URLSearchParams(rest.slice(qIdx)) : null; const autoFile = params && params.get('file'); wmOpen('vault'); setTimeout(() => { if (typeof vaultExpandProject === 'function') vaultExpandProject(expId); if (autoFile && typeof vaultOpenProjectFile === 'function') vaultOpenProjectFile(expId, decodeURIComponent(autoFile)); }, 300); }],
+  ['#paper/',      (rest) => openPaperByUrl(decodeURIComponent(rest))],
+  ['#view/',       (rest) => openPaperByUrl(decodeURIComponent(rest))],
+  ['#author/',     (rest) => openAuthorProfile(rest)],
+];
+
 function routeFromHash() {
   const hash = window.location.hash;
   const _oldHash = _currentRouteHash || '';
   _currentRouteHash = hash;
   _prevRouteHash = _oldHash;
   _navPush(hash);
-  if (hash === '#research') { openResearch(); return; }
-  else if (hash === '#experiments') wmOpen('vault'); // Legacy redirect — experiments now in vault
-  else if (hash === '#settings') wmOpen('settings');
-  else if (hash === '#quality') { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
-  else if (hash === '#algorithm') { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); }
-  else if (hash === '#calendar') wmOpen('dashboard');
-  else if (hash === '#inbox') wmOpen('inbox');
-  else if (hash === '#teams') openTeams();
-  else if (hash === '#vault') wmOpen('vault');
-  else if (hash.startsWith('#blog/')) {
-    const parts = hash.slice('#blog/'.length).split('/');
-    if (parts.length >= 2) {
-      const username = decodeURIComponent(parts[0]);
-      const slug = decodeURIComponent(parts.slice(1).join('/'));
-      if (typeof openBlogPost === 'function') openBlogPost(username, slug);
-    }
+
+  // Exact match
+  const exactHandler = _ROUTE_TABLE[hash];
+  if (exactHandler) { exactHandler(); return; }
+
+  // Prefix match
+  for (let i = 0; i < _ROUTE_PREFIX_HANDLERS.length; i++) {
+    const [prefix, handler] = _ROUTE_PREFIX_HANDLERS[i];
+    if (hash.startsWith(prefix)) { handler(hash.slice(prefix.length)); return; }
   }
-  else if (hash.startsWith('#team/')) {
-    const teamId = parseInt(hash.slice('#team/'.length), 10);
-    if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId);
-  }
-  else if (hash === '#profile') openUserProfile('');
-  else if (hash.startsWith('#profile/')) {
-    const profileUser = decodeURIComponent(hash.slice('#profile/'.length));
-    openUserProfile(profileUser);
-  }
-  else if (hash === '#saved-all') openAllSaved();
-  else if (hash === '#saved') wmOpen('dashboard');
-  else if (hash === '#browse') wmOpen('browse');
-  else if (hash === '#search') { openResearch('search'); return; } // Legacy redirect
-  else if (hash === '#terminal') { openTerminal(); return; }
-  else if (hash === '#neuralook') wmOpen('neuralook');
-  else if (hash === '#dev') wmOpen('dev');
-  else if (hash === '#graph') wmOpen('graph');
-  else if (hash === '#vibe') wmOpen('vault'); // legacy redirect
-  else if (hash === '#feed') wmOpen('feed');
-  else if (hash.startsWith('#experiment/')) {
-    const expPart = hash.slice('#experiment/'.length);
-    const qIdx = expPart.indexOf('?');
-    const expId = qIdx >= 0 ? decodeURIComponent(expPart.slice(0, qIdx)) : decodeURIComponent(expPart);
-    const params = qIdx >= 0 ? new URLSearchParams(expPart.slice(qIdx)) : null;
-    const autoFile = params && params.get('file');
-    // Open vault and expand the project folder in-place
-    wmOpen('vault');
-    setTimeout(() => {
-      if (typeof vaultExpandProject === 'function') vaultExpandProject(expId);
-      if (autoFile && typeof vaultOpenProjectFile === 'function') {
-        vaultOpenProjectFile(expId, decodeURIComponent(autoFile));
-      }
-    }, 300);
-  }
-  else if (hash.startsWith('#paper/')) openPaperByUrl(decodeURIComponent(hash.slice('#paper/'.length)));
-  else if (hash.startsWith('#view/')) openPaperByUrl(decodeURIComponent(hash.slice('#view/'.length)));
-  else if (hash.startsWith('#author/')) openAuthorProfile(hash.slice('#author/'.length));
-  else wmOpen('dashboard');
+
+  // Default
+  wmOpen('dashboard');
 }
 
 // Save hash to localStorage for "remember where we left off"
@@ -2821,7 +2814,7 @@ function _normalizeRatingKey(link) {
       u.pathname = u.pathname.replace(/^\/pdf\//, '/abs/');
       k = u.origin + u.pathname;
     }
-  } catch {}
+  } catch (e) { /* fire-and-forget */ }
   return k;
 }
 function getPaperRating(link) {
@@ -3015,7 +3008,7 @@ function _sidebarEl(id) {
 
 function applySidebarVisibility() {
   let hidden = [];
-  try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch {}
+  try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch (e) { /* fire-and-forget */ }
   SIDEBAR_ICON_IDS.forEach(id => {
     const el = _sidebarEl(id);
     if (el) el.style.display = hidden.includes(id) ? 'none' : '';
@@ -3030,7 +3023,7 @@ function getSidebarOrder() {
       const full = SIDEBAR_ICON_IDS.filter(id => !saved.includes(id));
       return [...saved.filter(id => SIDEBAR_ICON_IDS.includes(id)), ...full];
     }
-  } catch {}
+  } catch (e) { /* fire-and-forget */ }
   return [...SIDEBAR_ICON_IDS];
 }
 
@@ -3075,7 +3068,7 @@ function applySidebarOrder() {
       btns.forEach(b => {
         if (!order.includes(b.id)) nav.insertBefore(b, spacer);
       });
-    } catch {}
+    } catch (e) { /* fire-and-forget */ }
   }
 
   function saveOrder() {
@@ -3209,7 +3202,7 @@ function applySidebarOrder() {
         cur = cur.filter(id => document.getElementById(id));
         if (cur.length !== before) changed = true;
         if (changed) localStorage.setItem('browseBarOverflow', JSON.stringify(cur));
-      } catch {}
+      } catch (e) { /* fire-and-forget */ }
     }
     const saved = localStorage.getItem('browseBarOrder');
     if (!saved) {
@@ -3247,7 +3240,7 @@ function applySidebarOrder() {
       const menuDiv = document.getElementById('browse-more-menu');
       if (menuDiv) { ref.after(menuDiv); ref = menuDiv; }
       if (sidebarEl) { ref.after(sidebarEl); }
-    } catch {}
+    } catch (e) { /* fire-and-forget */ }
     // Hide any buttons in overflow
     const overflow = getOverflowIds();
     overflow.forEach(id => {
@@ -3438,7 +3431,7 @@ function playClickSound() {
     const type = localStorage.getItem('clickSoundType') || 'thud';
     const preset = CLICK_SOUND_PRESETS[type] || CLICK_SOUND_PRESETS.tap;
     preset.play(ctx, t);
-  } catch {}
+  } catch (e) { /* fire-and-forget */ }
 }
 
 // Global click listener for interactive elements
@@ -3804,6 +3797,25 @@ function _authHeaders() {
   return h;
 }
 
+// ── localStorage helpers (reduce try/parse/default boilerplate) ──
+function getLS(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+function setLS(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+// ── Auth fetch helper (reduces fetch+auth+error boilerplate) ──
+async function authFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, _authHeaders(), opts.headers || {});
+  const r = await fetch(url, opts);
+  if (r.status === 401 && typeof _showLoginGate === 'function') {
+    _authToken = null;
+    localStorage.removeItem('authToken');
+    _showLoginGate();
+  }
+  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+  return r;
+}
+
 // ── Login gate ──
 
 // ── Login gate ──
@@ -4023,11 +4035,11 @@ function _onLoginSuccess() {
 async function authLogout() {
   if (_authToken) {
     // Push latest settings before logging out
-    await syncToServer(true).catch(() => {});
+    await syncToServer(true).catch((e) => { /* fire-and-forget */ });
     fetch('/api/auth/logout', {
       method: 'POST',
       headers: _authHeaders()
-    }).catch(() => {});
+    }).catch((e) => { /* fire-and-forget */ });
   }
   _authToken = null;
   _authUser = null;

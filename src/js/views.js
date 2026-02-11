@@ -85,8 +85,8 @@ function _renderTwitterThread(container, data) {
   header.innerHTML = `
     <div class="tweet-avatar">${(author.name || '?')[0].toUpperCase()}</div>
     <div>
-      <div class="tweet-author-name">${_escHtml(author.name || 'Thread')}</div>
-      ${author.handle ? `<div class="tweet-author-handle">${_escHtml(author.handle)}</div>` : ''}
+      <div class="tweet-author-name">${escapeHtml(author.name || 'Thread')}</div>
+      ${author.handle ? `<div class="tweet-author-handle">${escapeHtml(author.handle)}</div>` : ''}
     </div>
   `;
   div.appendChild(header);
@@ -145,10 +145,6 @@ function _renderTwitterThread(container, data) {
 
   container.innerHTML = '';
   container.appendChild(div);
-}
-
-function _escHtml(s) {
-  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
 }
 
 function _renderReaderView(container, data) {

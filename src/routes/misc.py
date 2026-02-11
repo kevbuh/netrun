@@ -273,6 +273,8 @@ def dev_stats():
         active_sessions = conn.execute('SELECT COUNT(*) FROM sessions WHERE expires > ?', (time.time(),)).fetchone()[0]
         conn.close()
         total_loc = 0
+        core_loc = 0
+        test_loc = 0
         file_count = 0
         for root, dirs, files in os.walk(DIR):
             dirs[:] = [d for d in dirs if d not in ('node_modules', '.git', '__pycache__', 'experiments', 'uploads')]
@@ -280,8 +282,14 @@ def dev_stats():
                 if f.endswith(('.js', '.py', '.css', '.html')):
                     try:
                         with open(os.path.join(root, f), 'r', errors='ignore') as fh:
-                            total_loc += sum(1 for _ in fh)
+                            lines = sum(1 for _ in fh)
+                        total_loc += lines
                         file_count += 1
+                        rel = os.path.relpath(os.path.join(root, f), DIR)
+                        if rel.startswith('tests') or '.test.' in f or '.spec.' in f or f.startswith('test_'):
+                            test_loc += lines
+                        else:
+                            core_loc += lines
                     except Exception:
                         pass
         commits_today = 0
@@ -443,6 +451,8 @@ def dev_stats():
             'users': users,
             'active_sessions': active_sessions,
             'total_loc': total_loc,
+            'core_loc': core_loc,
+            'test_loc': test_loc,
             'files': file_count,
             'commits_today': commits_today,
             'total_commits': total_commits,
