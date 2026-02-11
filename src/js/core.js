@@ -104,6 +104,25 @@ window.addEventListener('resize', function() {
   if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
 });
 
+// Register pulse pill + wire updates from Motion.pulse
+(function() {
+  function _initPulse() {
+    islandUpdate('pulse', { type: 'pulse', label: '' });
+    if (typeof Motion !== 'undefined' && Motion.pulse) {
+      var _pulseThrottle = null;
+      Motion.pulse.on(function() {
+        if (_pulseThrottle) return;
+        _pulseThrottle = setTimeout(function() {
+          _pulseThrottle = null;
+          islandUpdate('pulse', { type: 'pulse', label: '' });
+        }, 500);
+      });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initPulse);
+  else setTimeout(_initPulse, 0);
+})();
+
 function islandUpdate(id, data) {
   _islandActivities[id] = Object.assign(_islandActivities[id] || {}, data, { _ts: Date.now() });
   _islandRender();
@@ -222,6 +241,10 @@ function _islandRenderPill(a) {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+  } else if (a.type === 'pulse') {
+    var pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
+    var pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
+    return '<span class="island-pulse-dot ' + pulseClass + '" style="--pulse-intensity:' + pulseIntensity.toFixed(2) + '"></span>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.label || '') + '</span>';
   }
@@ -283,6 +306,17 @@ function _islandRenderPillExpanded(a) {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + escapeHtml(a.detail || a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+  } else if (a.type === 'pulse') {
+    var ps = (typeof Motion !== 'undefined') ? Motion.pulse.stats : {};
+    var parts = [];
+    if (ps.ai) parts.push(ps.ai + ' AI');
+    if (ps.network) parts.push(ps.network + ' net');
+    if (ps.embed) parts.push(ps.embed + ' embed');
+    if (ps.feed) parts.push(ps.feed + ' feed');
+    if (ps.quality) parts.push(ps.quality + ' qf');
+    var pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
+    var pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
+    return '<span class="island-pulse-dot ' + pulseClass + '" style="--pulse-intensity:' + pulseIntensity.toFixed(2) + '"></span><span style="opacity:0.6;font-size:0.65rem">' + (parts.join(' \u00B7 ') || 'idle') + '</span>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.detail || a.label || '') + '</span>';
   }
@@ -376,6 +410,22 @@ function _islandBuildTray(a, isBrowse) {
       var audioIcon = item.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
       trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
     }
+    return trayHtml;
+  }
+  if (a.type === 'pulse') {
+    var recent = (typeof Motion !== 'undefined') ? Motion.pulse.recent : [];
+    var trayHtml = '<div style="padding:6px 8px;font-size:0.6rem;opacity:0.4;text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
+    var start = Math.max(0, recent.length - 30);
+    for (var ri = recent.length - 1; ri >= start; ri--) {
+      var ev = recent[ri];
+      var catColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+      var col = catColors[ev.category] || '#94a3b8';
+      var age = Math.round((Date.now() - ev.timestamp) / 1000);
+      var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
+      var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
+      trayHtml += '<div class="island-ctx-item" style="font-size:0.65rem;gap:6px;padding:3px 8px"><span style="width:4px;height:4px;border-radius:50%;background:' + statusDot + ';flex-shrink:0"></span><span style="color:' + col + ';min-width:36px">' + escapeHtml(ev.category) + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.7">' + escapeHtml(ev.label) + '</span><span style="opacity:0.35;flex-shrink:0">' + ageStr + '</span></div>';
+    }
+    if (!recent.length) trayHtml += '<div style="padding:8px;opacity:0.3;font-size:0.65rem;text-align:center">No events yet</div>';
     return trayHtml;
   }
   return '';
@@ -519,7 +569,7 @@ function _islandRender() {
   // Tabs/nowplaying pill always first (far left): remove by ID, sort rest, prepend
   var firstPillId = ids.indexOf('tabs') !== -1 ? 'tabs' : (ids.indexOf('nowplaying') !== -1 ? 'nowplaying' : null);
   if (firstPillId) ids.splice(ids.indexOf(firstPillId), 1);
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0, pulse: -1 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;
@@ -593,7 +643,7 @@ function _islandRender() {
       tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
     var hasItems = !!(a.items && a.items.length);
-    var hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'annotate')) || a.type === 'achievement';
+    var hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'annotate')) || a.type === 'achievement' || a.type === 'pulse';
     pill.classList.toggle('island-context', a.type === 'context');
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');

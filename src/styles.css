@@ -1113,6 +1113,37 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.4; transform: scale(0.8); }
     }
+    .pill-island .island-pulse-dot {
+      width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+      background: var(--text-secondary, #666);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .pill-island .island-pulse-dot-idle {
+      opacity: 0.25;
+      animation: pulse-breathe 3s ease-in-out infinite;
+    }
+    .pill-island .island-pulse-dot-active {
+      opacity: 1;
+      background: var(--accent);
+      box-shadow: 0 0 4px var(--accent);
+      animation: island-pulse calc(1.5s - var(--pulse-intensity, 0) * 1s) ease-in-out infinite;
+    }
+    @keyframes pulse-breathe {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.35; }
+    }
+    .pill-island[data-island-id="pulse"] .pill-goo-bg { display: none; }
+    .pill-island[data-island-id="pulse"].island-has-items { background: var(--aether-bg) !important; }
+    .pill-island[data-island-id="pulse"] .island-ctx-tray {
+      left: 0;
+      right: auto;
+      border-radius: 0 14px 14px 14px;
+      min-width: 240px;
+      max-width: 300px;
+      max-height: 320px;
+      background: var(--aether-bg) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
     /* Phase 4: Idle breathing */
     @keyframes pill-breathe { 0%,100% { scale:1; } 50% { scale:1.015; } }
     .pill-island.island-active:not(:hover):not(.island-tray-open):not(.island-entering):not(.island-exiting) {

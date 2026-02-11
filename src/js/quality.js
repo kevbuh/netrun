@@ -259,6 +259,7 @@ async function _qualityFilterPapersInner() {
         const updated = getQualityCache();
         for (const [title, v] of Object.entries(verdicts)) {
           updated[title] = { v };
+          if (typeof Motion !== 'undefined') Motion.pulse.emit('quality', { label: v === 'keep' ? 'KEEP' : 'SKIP', detail: title.slice(0, 60) });
         }
         saveQualityCacheData(updated);
         _qfRemaining = Math.max(0, needVerdict.length - i - batch.length);

@@ -1853,6 +1853,7 @@ function renderPapers() {
   _renderPapersRafId = requestAnimationFrame(() => {
     _renderPapersRafId = 0;
     _renderPapersNow();
+    if (typeof Motion !== 'undefined') Motion.pulse.emit('feed', { label: 'render', detail: allPapers.length + ' posts' });
   });
 }
 

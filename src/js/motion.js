@@ -284,6 +284,7 @@
         _modelActive = !!(data && data.models && data.models.length > 0);
         if (_modelActive !== wasActive) {
           _layerBudget = _modelActive ? 8 : 30;
+          _pulseEmit('system', { label: 'ollama', detail: _modelActive ? 'model active' : 'model idle' });
         }
       })
       .catch(function() {
@@ -455,6 +456,110 @@
   }
 
 
+  // ─── 9. Live Pulse — Event Bus ────────────────────────────
+
+  var _pulseListeners = [];
+  var _pulseRecent = [];
+  var _PULSE_MAX = 50;
+  var _pulseStats = { ai: 0, network: 0, embed: 0, feed: 0, quality: 0, system: 0 };
+  var _pulseStatsWindow = [];  // timestamps for events/sec calc
+  var _PULSE_WINDOW_MS = 3000;
+
+  var _pulseUrlMap = [
+    { prefix: '/api/doc-chat', cat: 'ai' },
+    { prefix: '/api/panel-suggest', cat: 'ai' },
+    { prefix: '/api/search-suggest', cat: 'ai' },
+    { prefix: '/api/embed-content', cat: 'embed' },
+    { prefix: '/api/semantic-search', cat: 'embed' },
+    { prefix: '/api/find-similar', cat: 'embed' },
+    { prefix: '/api/quality-filter', cat: 'quality' },
+    { prefix: '/api/quality-prompt', cat: 'quality' },
+    { prefix: '/api/blocked-titles', cat: 'quality' },
+    { prefix: '/api/feed-items', cat: 'feed' },
+    { prefix: '/feed', cat: 'feed' },
+    { prefix: '/hn-feed', cat: 'feed' },
+    { prefix: '/polymarket-feed', cat: 'feed' },
+    { prefix: '/api/rss-proxy', cat: 'feed' }
+  ];
+
+  function _classifyUrl(url) {
+    var path = url;
+    try { path = new URL(url, location.origin).pathname; } catch(e) {}
+    for (var i = 0; i < _pulseUrlMap.length; i++) {
+      if (path.indexOf(_pulseUrlMap[i].prefix) === 0) return _pulseUrlMap[i].cat;
+    }
+    if (path.indexOf('/api/') === 0) return 'network';
+    return null;  // non-api, skip
+  }
+
+  function _shortUrl(url) {
+    var path = url;
+    try { path = new URL(url, location.origin).pathname; } catch(e) {}
+    // Strip /api/ prefix for brevity
+    if (path.indexOf('/api/') === 0) return path.slice(5);
+    return path.slice(1);
+  }
+
+  function _pulseEmit(category, data) {
+    var now = Date.now();
+    var evt = {
+      category: category,
+      label: (data && data.label) || '',
+      detail: (data && data.detail) || '',
+      timestamp: now,
+      duration: null,
+      ok: null,
+      done: function(success) {
+        evt.duration = Date.now() - now;
+        evt.ok = success;
+      }
+    };
+    _pulseRecent.push(evt);
+    if (_pulseRecent.length > _PULSE_MAX) _pulseRecent.shift();
+    _pulseStats[category] = (_pulseStats[category] || 0) + 1;
+    _pulseStatsWindow.push(now);
+    // Trim old window entries
+    while (_pulseStatsWindow.length && _pulseStatsWindow[0] < now - _PULSE_WINDOW_MS) _pulseStatsWindow.shift();
+    for (var i = 0; i < _pulseListeners.length; i++) {
+      try { _pulseListeners[i](evt); } catch(e) {}
+    }
+    return evt;
+  }
+
+  function _pulseRate() {
+    var now = Date.now();
+    while (_pulseStatsWindow.length && _pulseStatsWindow[0] < now - _PULSE_WINDOW_MS) _pulseStatsWindow.shift();
+    return _pulseStatsWindow.length / (_PULSE_WINDOW_MS / 1000);
+  }
+
+  // Monkey-patch fetch
+  var _origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    var urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
+    // Skip Ollama polling — too noisy
+    if (urlStr.indexOf('localhost:11434') !== -1) return _origFetch.apply(this, arguments);
+    var category = _classifyUrl(urlStr);
+    if (!category) return _origFetch.apply(this, arguments);
+    var evt = _pulseEmit(category, { label: _shortUrl(urlStr), detail: (opts && opts.method) || 'GET' });
+    return _origFetch.apply(this, arguments).then(function(resp) {
+      evt.done(resp.ok);
+      return resp;
+    }).catch(function(err) {
+      evt.done(false);
+      throw err;
+    });
+  };
+
+  var _pulse = {
+    emit: _pulseEmit,
+    on: function(fn) { _pulseListeners.push(fn); },
+    off: function(fn) { var i = _pulseListeners.indexOf(fn); if (i !== -1) _pulseListeners.splice(i, 1); },
+    get stats() { return _pulseStats; },
+    get recent() { return _pulseRecent; },
+    get rate() { return _pulseRate(); }
+  };
+
+
   // ─── Public API ────────────────────────────────────────────
 
   window.Motion = {
@@ -498,7 +603,10 @@
     retrigger: _retrigger,
 
     // FLIP
-    flip: _flip
+    flip: _flip,
+
+    // Live Pulse
+    pulse: _pulse
   };
 
 })();
