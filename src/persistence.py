@@ -510,6 +510,20 @@ def init_db():
             cached_at REAL NOT NULL
         )
     """)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS chat_memories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            summary TEXT NOT NULL,
+            topics TEXT DEFAULT '',
+            page_url TEXT DEFAULT '',
+            page_title TEXT DEFAULT '',
+            message_count INTEGER DEFAULT 0,
+            embedding BLOB,
+            dim INTEGER DEFAULT 0,
+            created_at REAL NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_chatmem_created ON chat_memories(created_at DESC);
+    """)
     conn.commit()
     conn.close()
 
@@ -677,6 +691,42 @@ def search_embeddings(query_vec, content_type=None, limit=20, exclude_link=None)
         vec = _unpack_embedding(row['embedding'], row['dim'])
         score = _cosine_similarity(query_vec, vec)
         results.append({'title': row['title'], 'link': row['link'], 'source': row['source'], 'score': round(score, 4)})
+    results.sort(key=lambda x: x['score'], reverse=True)
+    return results[:limit]
+
+
+def store_chat_memory(summary, topics, page_url='', page_title='', message_count=0):
+    """Embed a chat summary and store in chat_memories table."""
+    vec = embed_text_ollama(summary)
+    blob = _pack_embedding(vec) if vec else None
+    dim = len(vec) if vec else 0
+    conn = _get_db()
+    conn.execute(
+        "INSERT INTO chat_memories (summary, topics, page_url, page_title, message_count, embedding, dim, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (summary, topics, page_url, page_title, message_count, blob, dim, time.time())
+    )
+    conn.commit()
+    conn.close()
+
+
+def search_chat_memories(query_vec, limit=3):
+    """Cosine search over recent chat memories. Returns top N {id, summary, topics, page_title, score}."""
+    conn = _get_db()
+    rows = conn.execute(
+        "SELECT id, summary, topics, page_title, embedding, dim FROM chat_memories WHERE embedding IS NOT NULL ORDER BY created_at DESC LIMIT 100"
+    ).fetchall()
+    conn.close()
+    results = []
+    for row in rows:
+        vec = _unpack_embedding(row['embedding'], row['dim'])
+        score = _cosine_similarity(query_vec, vec)
+        results.append({
+            'id': row['id'],
+            'summary': row['summary'],
+            'topics': row['topics'],
+            'page_title': row['page_title'],
+            'score': round(score, 4)
+        })
     results.sort(key=lambda x: x['score'], reverse=True)
     return results[:limit]
 

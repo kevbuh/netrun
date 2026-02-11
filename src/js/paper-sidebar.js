@@ -851,6 +851,7 @@ function _renderBrowsePanes(container) {
         '<div class="insight-section" id="insight-drop-smart"><div class="insight-section-title" style="display:flex;align-items:center;gap:6px">Smart Highlights</div><div class="insight-section-body" id="insight-pane-smart"></div></div>' +
         '<div class="insight-section" id="insight-drop-references"><div class="insight-section-title">References</div><div class="insight-section-body" id="insight-pane-references"></div></div>' +
         '<div class="insight-section" id="insight-drop-links"><div class="insight-section-title">Links</div><div class="insight-section-body" id="insight-pane-links"><div id="pdf-links-section"></div></div></div>' +
+        '<div class="insight-section" id="insight-drop-connections"><div class="insight-section-title">You Might Recall</div><div class="insight-section-body" id="reading-connections-container"></div></div>' +
       '</div>' +
     '</div>' +
     '<div data-pane-id="notes" id="sidebar-pane-notes" class="flex flex-col flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4" style="display:none">' +
@@ -868,8 +869,54 @@ function _onBrowseTabSwitch(oldTab, newTab) {
   if (newTab === 'insights' && !_paperInsightsLoaded && _currentPaperViewPaper) {
     fetchPaperInsights(_currentPaperViewPaper.link);
   }
+  if (newTab === 'insights' && !_readingConnectionsLoaded && _currentPaperViewPaper) {
+    _loadReadingConnections(_currentPaperViewPaper);
+  }
   if (newTab === 'terminal') _initSidebarTerminal();
   localStorage.setItem('sidebarTab', newTab);
+}
+
+// ── Reading Connections ("You Might Recall") ──
+let _readingConnectionsLoaded = false;
+let _readingConnectionsPaper = null;
+
+function _loadReadingConnections(paper) {
+  if (!paper || !paper.title) return;
+  // Reset if paper changed
+  if (_readingConnectionsPaper !== paper.link) {
+    _readingConnectionsLoaded = false;
+    _readingConnectionsPaper = paper.link;
+  }
+  if (_readingConnectionsLoaded) return;
+  _readingConnectionsLoaded = true;
+  const container = document.getElementById('reading-connections-container');
+  if (!container) return;
+  container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Searching your reading history...</div>';
+  // Collect read + saved post links
+  const readPosts = getLS('readPosts', {});
+  const savedPosts = getLS('savedPosts', []);
+  const savedLinks = savedPosts.map(p => typeof p === 'string' ? p : (p.link || ''));
+  const readLinks = [...new Set([...Object.keys(readPosts), ...savedLinks])].filter(l => l && l !== paper.link);
+  if (!readLinks.length) {
+    container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Read more posts to see connections.</div>';
+    return;
+  }
+  fetch('/api/reading-connections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+    body: JSON.stringify({ title: paper.title, description: paper.description || '', readLinks: readLinks.slice(0, 200) })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.results && data.results.length) {
+      _renderSemanticResults(container, data.results, 'Related to your reading');
+    } else {
+      container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">No connections found yet.</div>';
+    }
+  })
+  .catch(() => {
+    container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Could not load connections.</div>';
+  });
 }
 
 // ── Smart Highlights ──

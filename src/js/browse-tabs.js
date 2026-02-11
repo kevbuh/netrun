@@ -4177,7 +4177,8 @@ function _browseCaptureWindowPreview(windowId) {
   var activeTab = bw.tabs.find(function(t) { return t.id === bw.activeTab; });
   if (!activeTab || !activeTab.el) return;
   var frame = activeTab.el;
-  var wcId = typeof frame.getWebContentsId === 'function' ? frame.getWebContentsId() : null;
+  var wcId = null;
+  try { wcId = typeof frame.getWebContentsId === 'function' ? frame.getWebContentsId() : null; } catch(e) { return; }
   if (!wcId) return;
   window.electronAPI.captureWebview(wcId).then(function(base64) {
     if (base64) _browseWindowPreviews[windowId] = 'data:image/png;base64,' + base64;

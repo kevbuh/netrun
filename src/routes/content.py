@@ -24,6 +24,8 @@ from persistence import (
     store_embedding, embed_text_ollama, search_embeddings,
     pairwise_similarities,
     smart_highlights_get, smart_highlights_set,
+    store_chat_memory, search_chat_memories,
+    _pack_embedding, _unpack_embedding, _cosine_similarity,
 )
 
 bp = Blueprint('content', __name__)
@@ -1217,6 +1219,109 @@ def find_similar():
     limit = min(body.get('limit', 20), 50)
     results = search_embeddings(query_vec, limit=limit, exclude_link=link)
     return jsonify({'results': results})
+
+
+@bp.route('/api/chat-memory', methods=['POST'])
+def save_chat_memory():
+    """Save a chat conversation summary for future recall. Fire-and-forget."""
+    body = request.get_json(force=True, silent=True) or {}
+    messages = body.get('messages', [])
+    page_url = body.get('pageUrl', '')
+    page_title = body.get('pageTitle', '')
+    if len(messages) < 2:
+        return jsonify({'ok': True})
+
+    def _summarize_and_store():
+        try:
+            conversation = '\n'.join(
+                f"{m['role'].upper()}: {m.get('content', '')}" for m in messages[:20]
+            )
+            prompt = (
+                "Summarize this conversation in 2-3 sentences. Focus on the key topics discussed "
+                "and any conclusions or insights reached. Then list the main topics as comma-separated keywords.\n\n"
+                "Format:\nSUMMARY: <summary>\nTOPICS: <topic1, topic2, ...>\n\n"
+                + conversation[:4000]
+            )
+            payload = json.dumps({
+                "model": "qwen2.5:1.5b",
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False
+            }).encode()
+            req = urllib.request.Request(
+                "http://localhost:11434/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read())
+            reply = data.get('message', {}).get('content', '')
+            summary = reply
+            topics = ''
+            if 'SUMMARY:' in reply:
+                parts = reply.split('TOPICS:')
+                summary = parts[0].replace('SUMMARY:', '').strip()
+                if len(parts) > 1:
+                    topics = parts[1].strip()
+            store_chat_memory(summary, topics, page_url, page_title, len(messages))
+        except Exception:
+            pass
+
+    threading.Thread(target=_summarize_and_store, daemon=True).start()
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/chat-memories', methods=['GET'])
+def get_chat_memories():
+    """Search past chat memories by semantic similarity."""
+    query = request.args.get('query', '').strip()
+    if not query:
+        return jsonify({'memories': []})
+    if not _check_embed_model():
+        return jsonify({'memories': []})
+    query_vec = embed_text_ollama(query)
+    if not query_vec:
+        return jsonify({'memories': []})
+    results = search_chat_memories(query_vec, limit=3)
+    filtered = [r for r in results if r['score'] > 0.5]
+    return jsonify({'memories': filtered})
+
+
+@bp.route('/api/reading-connections', methods=['POST'])
+def reading_connections():
+    """Find connections between current paper and previously read papers."""
+    body = request.get_json(force=True, silent=True) or {}
+    title = body.get('title', '').strip()
+    description = body.get('description', '')
+    read_links = body.get('readLinks', [])
+    if not title or not read_links:
+        return jsonify({'results': []})
+    if not _check_embed_model():
+        return jsonify({'results': []})
+    text = f"{title}. {description[:500]}" if description else title
+    query_vec = embed_text_ollama(text)
+    if not query_vec:
+        return jsonify({'results': []})
+    from persistence import _get_db
+    conn = _get_db()
+    placeholders = ','.join('?' * len(read_links[:200]))
+    rows = conn.execute(
+        f"SELECT title, link, source, embedding, dim FROM embeddings WHERE link IN ({placeholders})",
+        read_links[:200]
+    ).fetchall()
+    conn.close()
+    results = []
+    for row in rows:
+        vec = _unpack_embedding(row['embedding'], row['dim'])
+        score = _cosine_similarity(query_vec, vec)
+        if score > 0.4:
+            results.append({
+                'title': row['title'],
+                'link': row['link'],
+                'source': row['source'],
+                'score': round(score, 4)
+            })
+    results.sort(key=lambda x: x['score'], reverse=True)
+    return jsonify({'results': results[:10]})
 
 
 @bp.route('/api/annotate', methods=['POST'])

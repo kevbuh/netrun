@@ -1026,7 +1026,7 @@
       cursor: default;
       flex-shrink: 0;
       position: relative;
-      padding: 0 10px;
+      padding: 0 6px;
       opacity: 0;
       scale: 0.5;
       contain: layout style;
@@ -1063,24 +1063,6 @@
       font-size: 0.65rem;
       color: var(--aether-text);
       transition: opacity 0.18s ease, transform 0.25s var(--motion-snappy);
-    }
-    .pill-island-expanded {
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateX(6px);
-      transition: opacity 0.22s ease 0.04s, transform 0.28s var(--motion-snappy) 0.04s;
-    }
-    .pill-island.island-active:hover .pill-island-content:not(.pill-island-expanded) {
-      opacity: 0;
-      transform: translateX(-6px);
-    }
-    .pill-island.island-active:hover .pill-island-expanded {
-      opacity: 1;
-      transform: translateX(0);
-      pointer-events: auto;
     }
     .pill-island .island-dot {
       width: 6px;
@@ -1195,7 +1177,7 @@
       0%   { opacity:0; scale:0.5; max-width:0; padding:0; }
       50%  { opacity:1; scale:1.06; }
       75%  { scale:0.98; }
-      100% { opacity:1; scale:1; max-width:400px; padding:0 10px; }
+      100% { opacity:1; scale:1; max-width:400px; padding:0 6px; }
     }
     .pill-island.island-entering {
       animation: pill-enter 0.45s var(--motion-snappy) forwards;
@@ -1206,7 +1188,7 @@
       0%   { opacity:0; scale:0.5; max-width:0; padding:0; }
       50%  { opacity:1; scale:1.06; }
       75%  { scale:0.98; }
-      100% { opacity:1; scale:1; max-width:200px; padding:0 10px; }
+      100% { opacity:1; scale:1; max-width:200px; padding:0 6px; }
     }
     .browse-mode .pill-island.island-entering {
       animation: pill-enter-browse 0.4s ease-out forwards;
@@ -1223,13 +1205,13 @@
     /* Enter into tabs anchor — no scale overshoot, merge into capsule */
     @keyframes pill-enter-anchor {
       0%   { opacity:0; max-width:0; padding:0; }
-      100% { opacity:1; max-width:200px; padding:0 10px; }
+      100% { opacity:1; max-width:200px; padding:0 6px; }
     }
     #pill-island-tabs-anchor .pill-island.island-entering {
       animation: pill-enter-anchor 0.35s ease-out forwards;
     }
     @keyframes pill-exit {
-      0%   { opacity:1; scale:1; max-width:400px; padding:0 10px; }
+      0%   { opacity:1; scale:1; max-width:400px; padding:0 6px; }
       100% { opacity:0; scale:0.4; max-width:0; padding:0; gap:0; }
     }
     .pill-island.island-exiting {
@@ -1261,22 +1243,13 @@
                   background 0.25s ease,
                   box-shadow 0.25s ease;
     }
-    .pill-island.island-has-items .pill-island-expanded {
-      display: none;
-    }
     .pill-island[data-island-id="tabs"] { cursor: pointer; }
-    .pill-island.island-has-items.island-active:hover .pill-island-content:not(.pill-island-expanded) {
-      opacity: 1;
-    }
     .pill-island[data-island-id="annotate"] {
       cursor: pointer;
     }
     /* On hover: pill becomes the top of a connected card (goo layer handles visual merge) */
     .pill-island.island-has-items.island-active.island-tray-open {
       box-shadow: none;
-    }
-    .pill-island.island-has-items.island-active.island-tray-open .pill-island-content:not(.pill-island-expanded) {
-      opacity: 1;
     }
     /* Tray — absolutely positioned below pill, same surface */
     .island-ctx-tray {
@@ -1338,7 +1311,7 @@
       opacity: 0;
     }
     .pill-island.island-tray-open .goo-tray-shape {
-      height: var(--goo-tray-h, 200px);
+      height: var(--goo-tray-h, 0px);
       opacity: 1;
     }
     .pill-island.island-tray-open .pill-goo-bg {
@@ -1358,17 +1331,24 @@
       background: var(--aether-bg);
     }
     .pill-island:not(.island-has-items) .pill-goo-bg,
-    .pill-island[data-island-id="achievement"] .pill-goo-bg {
+    .pill-island[data-island-id="achievement"] .pill-goo-bg,
+    .pill-island[data-island-id="annotate"] .pill-goo-bg {
       display: none;
     }
-    .pill-island.island-has-items:not([data-island-id="achievement"]) {
+    .pill-island.island-has-items:not([data-island-id="achievement"]):not([data-island-id="annotate"]) {
       background: transparent !important;
     }
-    .pill-island.island-has-items:not([data-island-id="achievement"]) .island-ctx-tray {
+    .pill-island.island-has-items:not([data-island-id="achievement"]):not([data-island-id="annotate"]) .island-ctx-tray {
       background: transparent;
     }
-    .pill-island .pill-island-content,
-    .pill-island .pill-island-expanded {
+    .pill-island[data-island-id="annotate"].island-has-items.island-tray-open {
+      border-radius: 12px 12px 0 0;
+    }
+    .pill-island[data-island-id="annotate"] .island-ctx-tray {
+      background: var(--aether-bg);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    .pill-island .pill-island-content {
       position: relative;
       z-index: 1;
     }
@@ -2225,7 +2205,7 @@
     }
     /* ── Island tab tray ── */
     .pill-island[data-island-id="bookmark"].island-active { max-width: 34px; padding: 0 5px; cursor: pointer; }
-    .pill-island[data-island-id="bookmark"].island-active:hover { max-width: 200px; padding: 0 10px; }
+    .pill-island[data-island-id="bookmark"].island-active:hover { max-width: 200px; padding: 0 6px; }
     /* Phase 6: Bookmark satisfying pulse on save */
     @keyframes bookmark-pop {
       0%   { scale:1; filter: drop-shadow(0 0 0 transparent); }
@@ -2238,7 +2218,7 @@
       transition: max-width 0.45s var(--motion-snappy), padding 0.3s ease, opacity 0.3s ease;
     }
     .pill-island[data-island-id="annotate"].island-compact.island-active .pill-island-content span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width 0.3s ease, opacity 0.2s ease; }
-    .pill-island[data-island-id="annotate"].island-compact.island-active:hover { max-width: 400px; padding: 0 10px; }
+    .pill-island[data-island-id="annotate"].island-compact.island-active:hover { max-width: 400px; padding: 0 6px; }
     .pill-island[data-island-id="annotate"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
     .pill-island[data-island-id="rss"] { cursor: pointer; }
     .pill-island[data-island-id="rss"].island-compact.island-active {
@@ -2246,7 +2226,7 @@
       transition: max-width 0.45s var(--motion-snappy), padding 0.3s ease, opacity 0.3s ease;
     }
     .pill-island[data-island-id="rss"].island-compact.island-active .pill-island-content span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width 0.3s ease, opacity 0.2s ease; }
-    .pill-island[data-island-id="rss"].island-compact.island-active:hover { max-width: 400px; padding: 0 10px; }
+    .pill-island[data-island-id="rss"].island-compact.island-active:hover { max-width: 400px; padding: 0 6px; }
     .pill-island[data-island-id="rss"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
 
     .island-favicon-strip { display: flex; align-items: center; gap: 3px; }

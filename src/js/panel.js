@@ -4,6 +4,25 @@ let _popupChatMessages = [];
 let _popupChatAbort = null;
 let _chatStreamStart = 0;
 let _aetherBackgroundStreaming = false;
+let _chatMemoryRetrieved = false;
+
+function _saveChatMemory() {
+  if (_popupChatMessages.length < 2) return;
+  // Skip search-only interactions (all user messages start with web search prefix)
+  const userMsgs = _popupChatMessages.filter(m => m.role === 'user');
+  if (!userMsgs.length) return;
+  const msgs = _popupChatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content || '' }));
+  const paper = typeof _currentPaperViewPaper !== 'undefined' ? _currentPaperViewPaper : null;
+  const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+    ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+  const pageUrl = (paper && paper.link) || (browseTab && browseTab.url) || '';
+  const pageTitle = (paper && paper.title) || (browseTab && browseTab.title) || '';
+  fetch('/api/chat-memory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+    body: JSON.stringify({ messages: msgs, pageUrl, pageTitle })
+  }).catch(() => {});
+}
 let _aetherTrackModeVal = false;
 Object.defineProperty(window, '_aetherTrackMode', {
   get() { return _aetherTrackModeVal; },
@@ -913,6 +932,25 @@ function _sendPopupChatMessage(popup, capturedText) {
           ).join('\n\n');
           ctx = ctx ? ctx + '\n\n' + fileCtx : fileCtx;
         }
+        // Retrieve relevant past conversations on first exchange
+        if (!_chatMemoryRetrieved && _popupChatMessages.length <= 2) {
+          _chatMemoryRetrieved = true;
+          try {
+            const userMsg = _popupChatMessages.find(m => m.role === 'user');
+            if (userMsg) {
+              const memResp = await fetch('/api/chat-memories?query=' + encodeURIComponent(userMsg.content),
+                { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }, signal: _popupChatAbort.signal });
+              if (memResp.ok) {
+                const memData = await memResp.json();
+                if (memData.memories && memData.memories.length) {
+                  const memCtx = '\n\nRELEVANT PAST CONVERSATIONS:\n' +
+                    memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
+                  ctx = ctx ? ctx + memCtx : memCtx;
+                }
+              }
+            }
+          } catch (e) { /* memory retrieval is best-effort */ }
+        }
         body.context = ctx;
       }
       _chatStreamStart = Date.now();
@@ -1351,7 +1389,9 @@ function _sendPopupChatToSidebar() {
   // Dismiss popup
   const popup = document.getElementById('doc-chat-ask-float');
   if (popup) popup.remove();
+  _saveChatMemory();
   _popupChatMessages = [];
+  _chatMemoryRetrieved = false;
   _pendingScreenshots = [];
   _pendingNoteContexts = [];
   _pendingTabContexts = [];
@@ -4040,7 +4080,9 @@ function _panelBuildTopBar(popup) {
   clearBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   clearBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
+    _saveChatMemory();
     _popupChatMessages = [];
+    _chatMemoryRetrieved = false;
     _chatStreamStart = 0;
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     const cm = popup.querySelector('.doc-popup-chat-messages');
@@ -4704,7 +4746,9 @@ function _showPanel(config) {
 
   // Reset shared state for new panel (unless preview)
   if (finalized) {
+    _saveChatMemory();
     _popupChatMessages = [];
+    _chatMemoryRetrieved = false;
     _pendingScreenshots = [];
     _pendingNoteContexts = [];
     _pendingTabContexts = [];

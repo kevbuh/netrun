@@ -251,78 +251,6 @@ function _islandRenderPill(a) {
   return '<span class="island-dot"></span><span>' + escapeHtml(a.label || '') + '</span>';
 }
 
-function _islandRenderPillExpanded(a) {
-  if (a.type === 'feed-notif') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + escapeHtml(a.detail || a.label || '') + '</span>';
-  } else if (a.done) {
-    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + escapeHtml(a.label || 'Done') + '</span>';
-  } else if (a.type === 'download') {
-    var pct = a.progress || 0;
-    var circ = 2 * Math.PI * 6;
-    var offset = circ * (1 - pct / 100);
-    var ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-    return ring + '<span>' + escapeHtml(a.detail || a.label || 'Downloading') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
-  } else if (a.type === 'tts') {
-    var ttsIcon = a.paused
-      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
-      : _islandWaveformBars;
-    var ttsTime = (typeof _ttsTimeDetail === 'function') ? _ttsTimeDetail() : '';
-    return ttsIcon + '<span>' + escapeHtml(ttsTime || a.detail || a.label || '') + '</span>';
-  } else if (a.type === 'audio') {
-    return _islandAudioBars + '<span>' + escapeHtml(a.detail || a.label || '') + '</span>';
-  } else if (a.type === 'ai') {
-    return '<span class="island-ai-dot"></span><span>' + escapeHtml(a.detail || a.label || '') + '</span>';
-  } else if (a.type === 'achievement') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg><span style="color:#e8d5a0;font-weight:600">' + escapeHtml(a.label || 'Unlocked!') + '</span><span style="color:rgba(202,161,42,0.55);margin-left:2px">' + escapeHtml(a.detail || '') + '</span>';
-  } else if (a.type === 'rss') {
-    var rssIconExp = a.subscribed
-      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>';
-    var rssHoverLabel = a.subscribed ? 'Subscribed' : 'Subscribe';
-    var rssColor = a.subscribed ? '#22c55e' : 'var(--aether-text)';
-    return rssIconExp + '<span style="color:' + rssColor + '">' + escapeHtml(rssHoverLabel) + '</span>';
-  } else if (a.type === 'tabs') {
-    var favHtml = a.favicon ? '<img class="island-tab-favicon" src="' + escapeHtml(a.favicon) + '" onerror="this.style.display=\'none\'">' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>';
-    var titleText = a.detail || 'Browse';
-    if (titleText.length > 30) titleText = titleText.slice(0, 28) + '\u2026';
-    return favHtml + '<span>' + escapeHtml(titleText) + '</span>';
-  } else if (a.type === 'annotate') {
-    var annPenIcon2 = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    if (a.offer) {
-      return annPenIcon2 + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || 'Annotate') + '</span>';
-    }
-    if (a.loading) {
-      if (a.showCancel) {
-        var annStopBtn = '<span class="island-dismiss" data-island-dismiss="annotate" style="cursor:pointer;display:flex;align-items:center;gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg><span style="color:#ef5350;font-weight:600">Cancel</span></span>';
-        return annStopBtn;
-      }
-      return annPenIcon2 + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || 'Annotating…') + '</span>';
-    }
-    var _annModeColors2 = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
-    var annColor2 = _annModeColors2[a.modeType] || '#4caf50';
-    var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor2 + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    return annIcon + '<span>' + escapeHtml(a.detail || a.label || '') + '</span>';
-  } else if (a.type === 'calendar') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + escapeHtml(a.detail || a.label || '') + '</span>';
-  } else if (a.type === 'bookmark') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
-  } else if (a.type === 'pulse') {
-    var ps = (typeof Motion !== 'undefined') ? Motion.pulse.stats : {};
-    var parts = [];
-    if (ps.ai) parts.push(ps.ai + ' AI');
-    if (ps.network) parts.push(ps.network + ' net');
-    if (ps.embed) parts.push(ps.embed + ' embed');
-    if (ps.feed) parts.push(ps.feed + ' feed');
-    if (ps.quality) parts.push(ps.quality + ' qf');
-    var pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
-    var pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
-    return '<span class="island-pulse-dot ' + pulseClass + '" style="--pulse-intensity:' + pulseIntensity.toFixed(2) + '"></span><span style="opacity:0.6;font-size:0.65rem">' + (parts.join(' \u00B7 ') || 'idle') + '</span>';
-  } else if (a.type === 'context') {
-    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.detail || a.label || '') + '</span>';
-  }
-  return '<span class="island-dot"></span><span>' + escapeHtml(a.detail || a.label || '') + '</span>';
-}
-
 // Build tray HTML for context/download/annotate/achievement/tabs pills
 function _islandBuildTray(a, isBrowse) {
   if (a.type === 'context' && a.items && a.items.length) {
@@ -619,24 +547,18 @@ function _islandRender() {
       pill.appendChild(gooBg);
       var compactDiv = document.createElement('div');
       compactDiv.className = 'pill-island-content';
-      var expandedDiv = document.createElement('div');
-      expandedDiv.className = 'pill-island-content pill-island-expanded';
       pill.appendChild(compactDiv);
-      pill.appendChild(expandedDiv);
       // Items tray for context pills (morphs inside the pill)
       var itemsTray = document.createElement('div');
       itemsTray.className = 'island-ctx-tray';
       pill.appendChild(itemsTray);
     }
     delete existingEls[id];
-    var compact = pill.querySelector('.pill-island-content:not(.pill-island-expanded)');
-    var expanded = pill.querySelector('.pill-island-expanded');
+    var compact = pill.querySelector('.pill-island-content');
     var tray = pill.querySelector('.island-ctx-tray');
     // Smart content diffing: skip innerHTML if content unchanged
     var newCompactHtml = _islandRenderPill(a);
-    var newExpandedHtml = _islandRenderPillExpanded(a);
     if (compact._lastHtml !== newCompactHtml) { compact.innerHTML = newCompactHtml; compact._lastHtml = newCompactHtml; }
-    if (expanded._lastHtml !== newExpandedHtml) { expanded.innerHTML = newExpandedHtml; expanded._lastHtml = newExpandedHtml; }
     // Download completion burst
     if (a.type === 'download' && a.progress >= 100 && !pill._dlCompleteFired) {
       pill._dlCompleteFired = true;
@@ -663,21 +585,32 @@ function _islandRender() {
     // Sync goo tray dimensions with actual tray content
     if (hasTray && tray && tray.innerHTML) {
       var syncGoo = function() {
-        var h = tray.scrollHeight;
-        var w = tray.scrollWidth || tray.offsetWidth;
-        // +28 accounts for overlap offset (10px) + tray padding (12px) + breathing room
-        if (h > 0) pill.style.setProperty('--goo-tray-h', (h + 28) + 'px');
+        // Measure actual tray content height from children
+        var h = 0;
+        for (var ci = 0; ci < tray.children.length; ci++) {
+          h += tray.children[ci].offsetHeight;
+        }
+        if (tray.children.length > 1) h += (tray.children.length - 1) * 1; // 1px gap
+        h += 12; // tray padding (6px top + 6px bottom)
+        var w = 0;
+        for (var wi = 0; wi < tray.children.length; wi++) {
+          var cw = tray.children[wi].offsetWidth;
+          if (cw > w) w = cw;
+        }
+        w += 12; // tray padding
+        if (h > 0) pill.style.setProperty('--goo-tray-h', h + 'px');
         if (w > 0) pill.style.setProperty('--goo-tray-w', w + 'px');
       };
-      requestAnimationFrame(syncGoo);
-      // Re-sync after tray opens (content may reflow with padding)
       if (!pill._gooSyncBound) {
         pill._gooSyncBound = true;
         var obs = new MutationObserver(function() {
-          if (pill.classList.contains('island-tray-open')) requestAnimationFrame(syncGoo);
+          if (pill.classList.contains('island-tray-open')) {
+            setTimeout(function() { requestAnimationFrame(syncGoo); }, 50);
+          }
         });
         obs.observe(pill, { attributes: true, attributeFilter: ['class'] });
       }
+      requestAnimationFrame(syncGoo);
     }
 
     // Animate in
