@@ -1223,7 +1223,8 @@ function _renderPopupChat(popup, final) {
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
       const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
-      return `<div class="doc-msg-user">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}${escapeHtml(display)}</div>`;
+      const editBtn = `<button class="doc-msg-edit-btn" data-msg-idx="${i}" title="Edit and resend"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+      return `<div class="doc-msg-user" data-msg-idx="${i}">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}<span class="doc-msg-user-text">${escapeHtml(display)}</span>${editBtn}</div>`;
     }
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
@@ -1282,8 +1283,9 @@ function _renderPopupChat(popup, final) {
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
+    const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
     const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
-    return `<div class="doc-msg-ai">${thinkingBlock}${content}${speakBtn}</div>`;
+    return `<div class="doc-msg-ai">${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}</div></div>`;
   }).join('');
   // Render LaTeX in AI messages
   if (typeof katex !== 'undefined') {
@@ -1370,6 +1372,44 @@ function _renderPopupChat(popup, final) {
         audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); URL.revokeObjectURL(url); _ttsAudio = null; _ttsStopWaveform(); islandRemove('tts'); };
         audio.play();
       }).catch(() => { btn.classList.remove('doc-msg-speaking'); islandRemove('tts'); });
+    });
+  });
+  // Attach copy button handlers
+  container.querySelectorAll('.doc-msg-copy-btn').forEach(btn => {
+    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      const msgEl = btn.closest('.doc-msg-ai');
+      if (!msgEl) return;
+      const text = msgEl.textContent.replace(/Copy message|Read aloud/g, '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 1000);
+      }).catch(() => {});
+    });
+  });
+  // Attach edit button handlers
+  container.querySelectorAll('.doc-msg-edit-btn').forEach(btn => {
+    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      const msgIdx = parseInt(btn.getAttribute('data-msg-idx'));
+      if (isNaN(msgIdx) || msgIdx < 0 || msgIdx >= _popupChatMessages.length) return;
+      const msg = _popupChatMessages[msgIdx];
+      if (msg.role !== 'user') return;
+
+      // Put the message content back in the input
+      const input = popup.querySelector('.doc-ask-inline-input');
+      if (!input) return;
+      input.value = msg.content;
+      input.focus();
+
+      // Remove all messages from this point forward
+      _popupChatMessages.splice(msgIdx);
+      _renderPopupChat(popup, true);
     });
   });
   // Update send/stop button state
