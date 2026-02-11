@@ -2022,7 +2022,7 @@ function _renderPapersNow() {
     var _feedNewIdx = 0;
     container.querySelectorAll('[data-link]').forEach(el => {
       if (!prevLinks.has(el.dataset.link)) {
-        Motion.animate(el, { spring: 'smooth', from: { opacity: 0, y: 8 }, to: { opacity: 1, y: 0 }, delay: _feedNewIdx * Motion.stagger.tight });
+        Motion.fadeIn(el, { y: 8, delay: _feedNewIdx * Motion.stagger.tight });
         _feedNewIdx++;
         // Add a notification dot that fades after 10s
         const dot = document.createElement('span');

@@ -159,7 +159,9 @@ Key globals: `_ytAdBlockCSS` (shared CSS string), `_browseInjectYouTubeCSS(frame
 
 **Core:** `Motion.animate(el, { spring, from, to, duration, delay, onFinish })` — Web Animations API, auto GPU promote/demote, interruptible (cancels previous on same element). Shorthand transform props: `x`, `y`, `scale`, `rotate`. Spring keyframes generated via damped harmonic oscillator (cached, 64 entries).
 
-**Helpers:** `Motion.sequence([steps])` chains animations, `Motion.staggerFn(selector, config)` staggers across elements, `Motion.flip(el, callback)` for FLIP layout animations.
+**Helpers:** `Motion.fadeIn(el, {y, delay})` / `Motion.fadeOut(el, {y, remove})` for common opacity+slide. `Motion.flash(el, holdMs)` for save indicators. `Motion.toast(text, {position, duration})` creates/animates/removes toast elements. `Motion.sequence([steps])` chains animations, `Motion.staggerFn(selector, config)` staggers across elements, `Motion.flip(el, callback)` for FLIP layout animations.
+
+**CSS tokens:** Auto-injected on load as custom properties: `--motion-snappy`, `--motion-smooth`, `--motion-gentle`, `--motion-bouncy`, `--motion-ease-out`, `--motion-instant/fast/normal/slow`. All 27 spring easing references in `styles.css` use `var(--motion-snappy)` etc. — single source of truth.
 
 **GPU management:** `Motion.promote(el)` / `Motion.demote(el)`, budget of 30 layers (8 when Ollama active). Auto-demote after animation ends.
 

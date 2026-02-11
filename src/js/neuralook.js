@@ -939,7 +939,7 @@ function _nlShowTrainPill() {
   document.body.appendChild(pill);
   pillStackAdd('nl-train-pill');
   _nlTrainPill = pill;
-  Motion.animate(pill, { spring: 'smooth', from: { opacity: 0, y: 10 }, to: { opacity: 1, y: 0 } });
+  Motion.fadeIn(pill, { y: 10 });
 
   // Add spinner keyframes if not already present
   if (!document.getElementById('nl-pill-spin-style')) {
@@ -1024,7 +1024,7 @@ function _nlDismissTrainPill() {
   pillStackRemove('nl-train-pill');
   const p = _nlTrainPill;
   _nlTrainPill = null;
-  Motion.animate(p, { spring: 'smooth', from: { opacity: 1, y: 0 }, to: { opacity: 0, y: 10 }, onFinish: function() { p.remove(); } });
+  Motion.fadeOut(p, { y: 10, remove: true });
 }
 
 async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
@@ -1629,7 +1629,7 @@ function _nlShowClickFeedback(x, y, accepted, detail) {
   });
   el.textContent = accepted ? `+${detail}` : detail;
   document.body.appendChild(el);
-  Motion.animate(el, { duration: 800, spring: 'gentle', from: { opacity: 1, y: 0 }, to: { opacity: 0, y: -16 }, onFinish: function() { el.remove(); } });
+  Motion.fadeOut(el, { y: -16, duration: 800, spring: 'gentle', remove: true });
 }
 
 function _nlShowModelUpdatedPill(version, valErrorPx) {
@@ -1657,14 +1657,14 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
   pill.onclick = () => { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-model-updated-pill'); pill.remove(); };
   document.body.appendChild(pill);
   pillStackAdd('nl-model-updated-pill');
-  Motion.animate(pill, { spring: 'smooth', from: { opacity: 0, y: 10 }, to: { opacity: 1, y: 0 } });
+  Motion.fadeIn(pill, { y: 10 });
   pill.animate([
     { boxShadow: '0 0 0 0 rgba(96,165,250,0.4)', transform: 'translateY(0) scale(1)' },
     { boxShadow: '0 0 20px 8px rgba(96,165,250,0.25)', transform: 'translateY(-2px) scale(1.03)' },
     { boxShadow: '0 0 0 0 rgba(96,165,250,0)', transform: 'translateY(0) scale(1)' }
   ], { duration: 600, iterations: 2, easing: 'ease-in-out' });
   setTimeout(() => {
-    Motion.animate(pill, { spring: 'smooth', from: { opacity: 1, y: 0 }, to: { opacity: 0, y: 10 }, onFinish: function() { pillStackRemove('nl-model-updated-pill'); pill.remove(); } });
+    Motion.fadeOut(pill, { y: 10, onFinish: function() { pillStackRemove('nl-model-updated-pill'); pill.remove(); } });
   }, 5000);
 }
 

@@ -1636,215 +1636,51 @@ async function _devLoadDependencyGraph() {
 
 var _devCollapsedFiles = new Set();
 
-function _devRenderFileGraph(nodes, edges) {
-  const svg = d3.select('#dev-dep-graph-svg');
+function _devRenderFileTree(nodes, edges) {
   const container = document.getElementById('dev-dep-graph-container');
-  const width = container.clientWidth;
-  const height = Math.max(600, nodes.length * 30 + 100);
+  if (!container) return;
 
-  // Update SVG height for scrolling
-  svg.style('height', height + 'px');
-
-  // Clear previous graph
-  svg.selectAll('*').remove();
-
-  // Create main group for zoom/pan
-  const g = svg.append('g');
-
-  // Setup zoom
-  _devGraphZoom = d3.zoom()
-    .scaleExtent([0.5, 2])
-    .on('zoom', (event) => {
-      g.attr('transform', event.transform);
-    });
-
-  svg.call(_devGraphZoom);
-
-  // Severity color mapping
-  const severityColor = {
-    'ERROR': '#ef4444',
-    'WARNING': '#f59e0b',
-    'INFO': '#60a5fa',
-    null: 'var(--text-dimmer)'
-  };
-
-  // Sort nodes by load order
   nodes.sort((a, b) => a.order - b.order);
 
-  // Simple vertical layout (like git log --graph)
-  const verticalSpacing = 28;
-  const leftMargin = 80;
-  const dotX = leftMargin;
+  const deps = new Map();
+  edges.forEach(e => {
+    const src = e.source.id || e.source;
+    const tgt = e.target.id || e.target;
+    if (!deps.has(src)) deps.set(src, []);
+    deps.get(src).push({ target: tgt, calls: e.calls });
+  });
 
-  // Assign positions: single vertical column
+  let html = '<div style="color:var(--text-primary)">';
   nodes.forEach((node, i) => {
-    node.x = dotX;
-    node.y = 40 + i * verticalSpacing;
-    node.fx = node.x;
-    node.fy = node.y;
-  });
+    const isLast = i === nodes.length - 1;
+    const nodeDeps = deps.get(node.id) || [];
 
-  // Build dependency map for branch visualization
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-  const outgoingEdges = new Map();
-  const incomingEdges = new Map();
+    html += `<div style="margin-bottom:2px">`;
+    html += `<span style="color:var(--accent)">●</span> `;
+    html += `<span style="color:var(--text-primary);font-weight:600">${node.id}</span>`;
+    html += `<span style="color:var(--text-dimmer);margin-left:12px;font-size:11px">${node.functions} funcs, ${node.loc} LOC</span>`;
 
-  edges.forEach(e => {
-    const sourceId = e.source.id || e.source;
-    const targetId = e.target.id || e.target;
-
-    if (!outgoingEdges.has(sourceId)) outgoingEdges.set(sourceId, []);
-    if (!incomingEdges.has(targetId)) incomingEdges.set(targetId, []);
-
-    outgoingEdges.get(sourceId).push({ target: targetId, severity: e.severity, calls: e.calls });
-    incomingEdges.get(targetId).push({ source: sourceId, severity: e.severity, calls: e.calls });
-  });
-
-  // Stop any simulation
-  _devGraphSimulation = null;
-
-  // Draw vertical backbone line
-  g.append('line')
-    .attr('x1', dotX)
-    .attr('y1', nodes[0].y)
-    .attr('x2', dotX)
-    .attr('y2', nodes[nodes.length - 1].y)
-    .attr('stroke', 'var(--border-card)')
-    .attr('stroke-width', 2)
-    .attr('stroke-opacity', 0.5);
-
-  // Draw dependency branches (orthogonal lines)
-  const branchLines = [];
-  edges.forEach(e => {
-    const sourceId = e.source.id || e.source;
-    const targetId = e.target.id || e.target;
-    const source = nodeMap.get(sourceId);
-    const target = nodeMap.get(targetId);
-
-    if (source && target && source !== target) {
-      // Don't draw if it's just the next node in sequence
-      if (Math.abs(source.order - target.order) > 1) {
-        branchLines.push({
-          source,
-          target,
-          severity: e.severity,
-          calls: e.calls
-        });
-      }
-    }
-  });
-
-  // Draw branch lines (simple orthogonal paths)
-  const branches = g.append('g')
-    .selectAll('path')
-    .data(branchLines)
-    .join('path')
-    .attr('fill', 'none')
-    .attr('stroke', d => severityColor[d.severity] || severityColor[null])
-    .attr('stroke-opacity', 0.4)
-    .attr('stroke-width', 1.5)
-    .attr('d', d => {
-      const branchOffset = 25;
-      // Draw orthogonal path: out right, down/up, then back left
-      return `M ${d.source.x},${d.source.y}
-              L ${d.source.x + branchOffset},${d.source.y}
-              L ${d.source.x + branchOffset},${d.target.y}
-              L ${d.target.x},${d.target.y}`;
-    });
-
-  // Draw nodes (simple dots like git log)
-  const node = g.append('g')
-    .selectAll('circle')
-    .data(nodes)
-    .join('circle')
-    .attr('r', 5)
-    .attr('fill', d => {
-      const computed = getComputedStyle(document.documentElement);
-      const accent = computed.getPropertyValue('--accent').trim();
-      const dimmer = computed.getPropertyValue('--text-dimmer').trim();
-      return d3.interpolateRgb(accent, dimmer)(d.order / Math.max(1, nodes.length - 1));
-    })
-    .attr('stroke', 'var(--bg-card)')
-    .attr('stroke-width', 2)
-    .style('cursor', 'pointer')
-    .on('click', function(event, d) {
-      // Highlight connected nodes
-      const connectedNodeIds = new Set();
-      connectedNodeIds.add(d.id);
-
-      branchLines.forEach(b => {
-        if (b.source.id === d.id) connectedNodeIds.add(b.target.id);
-        if (b.target.id === d.id) connectedNodeIds.add(b.source.id);
+    if (nodeDeps.length > 0) {
+      const topDeps = nodeDeps.slice(0, 3);
+      html += `<div style="margin-left:24px;color:var(--text-dimmer);font-size:11px">`;
+      topDeps.forEach((dep, j) => {
+        html += `→ ${dep.target} (${dep.calls}×)`;
+        if (j < topDeps.length - 1) html += ', ';
       });
-
-      node.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
-      branches.attr('opacity', b =>
-        (b.source.id === d.id || b.target.id === d.id) ? 0.8 : 0.1
-      );
-      label.attr('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.3);
-    })
-    .on('dblclick', function() {
-      // Reset highlighting
-      node.attr('opacity', 1);
-      branches.attr('opacity', 0.4);
-      label.attr('opacity', 1);
-    });
-
-  // Add labels (to the right of dots, like git log)
-  const label = g.append('g')
-    .selectAll('text')
-    .data(nodes)
-    .join('text')
-    .text(d => d.id.replace('.js', ''))
-    .attr('font-size', 13)
-    .attr('font-family', 'monospace')
-    .attr('fill', 'var(--text-primary)')
-    .attr('text-anchor', 'start')
-    .attr('x', d => d.x + 15)
-    .attr('y', d => d.y)
-    .attr('dy', '0.35em')
-    .style('pointer-events', 'none')
-    .style('user-select', 'none');
-
-  // Add tooltips
-  const tooltip = d3.select('body').append('div')
-    .style('position', 'absolute')
-    .style('background', 'var(--bg-card)')
-    .style('border', '1px solid var(--border-card)')
-    .style('border-radius', '6px')
-    .style('padding', '8px 12px')
-    .style('font-size', '0.7rem')
-    .style('pointer-events', 'none')
-    .style('opacity', 0)
-    .style('z-index', 10000);
-
-  node.on('mouseover', function(event, d) {
-    tooltip.transition().duration(200).style('opacity', 1);
-    tooltip.html(`
-      <strong>${d.id}</strong><br/>
-      Functions: ${d.functions}<br/>
-      LOC: ${d.loc.toLocaleString()}<br/>
-      Load order: #${d.order + 1}
-    `)
-    .style('left', (event.pageX + 10) + 'px')
-    .style('top', (event.pageY - 10) + 'px');
-  })
-  .on('mouseout', function() {
-    tooltip.transition().duration(200).style('opacity', 0);
+      if (nodeDeps.length > 3) html += ` +${nodeDeps.length - 3} more`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+    if (!isLast) html += `<div style="color:var(--border-card);margin-left:5px">│</div>`;
   });
-
-  // Position nodes (simple dots in vertical line)
-  node
-    .attr('cx', d => d.x)
-    .attr('cy', d => d.y);
+  html += '</div>';
+  container.innerHTML = html;
 }
 
-function _devRenderFunctionGraph(allNodes, allEdges) {
-  const svg = d3.select('#dev-dep-graph-svg');
+function _devRenderFunctionTree(allNodes, allEdges) {
   const container = document.getElementById('dev-dep-graph-container');
-  const width = container.clientWidth;
+  if (!container) return;
 
-  // Filter nodes: show only functions with calls or being called (skip unused by default)
   const showUnused = document.getElementById('dev-graph-show-unused')?.checked || false;
   const fileFilter = document.getElementById('dev-graph-file-filter')?.value || '';
 
@@ -1854,175 +1690,86 @@ function _devRenderFunctionGraph(allNodes, allEdges) {
     return true;
   });
 
-  let edges = allEdges.filter(e => {
-    const sourceExists = nodes.find(n => n.id === e.source);
-    const targetExists = nodes.find(n => n.id === e.target);
-    return sourceExists && targetExists;
-  });
-
-  // Group by file for hierarchical layout
   const fileGroups = {};
   nodes.forEach(node => {
     if (!fileGroups[node.file]) fileGroups[node.file] = [];
     fileGroups[node.file].push(node);
   });
 
-  const files = Object.keys(fileGroups).sort();
-  const height = Math.max(600, files.length * 200);
-
-  svg.style('height', height + 'px');
-  svg.selectAll('*').remove();
-
-  const g = svg.append('g');
-
-  // Setup zoom
-  _devGraphZoom = d3.zoom()
-    .scaleExtent([0.3, 3])
-    .on('zoom', (event) => {
-      g.attr('transform', event.transform);
-    });
-
-  svg.call(_devGraphZoom);
-
-  // Layout: group functions by file vertically
-  const fileSpacing = 180;
-  const funcSpacing = 22;
-  const leftMargin = 100;
-  const funcIndent = 30;
-
-  nodes.forEach((node) => {
-    // Position within file group
-    const fileIndex = files.indexOf(node.file);
-    const fileStart = 40 + fileIndex * fileSpacing;
-    const fileNodes = fileGroups[node.file];
-    const funcIndex = fileNodes.indexOf(node);
-
-    node.x = leftMargin + funcIndent;
-    node.y = fileStart + 30 + funcIndex * funcSpacing;
+  const edges = allEdges.filter(e => {
+    const src = nodes.find(n => n.id === e.source);
+    const tgt = nodes.find(n => n.id === e.target);
+    return src && tgt;
   });
 
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-  // Draw file group labels and boxes
-  files.forEach((file, i) => {
-    const fileY = 40 + i * fileSpacing;
-    g.append('text')
-      .attr('x', leftMargin)
-      .attr('y', fileY)
-      .attr('font-size', 12)
-      .attr('font-weight', 600)
-      .attr('font-family', 'monospace')
-      .attr('fill', 'var(--accent)')
-      .text(file.replace('.js', ''));
-
-    // File group box
-    const fileNodeCount = fileGroups[file].length;
-    g.append('rect')
-      .attr('x', leftMargin - 10)
-      .attr('y', fileY + 10)
-      .attr('width', width - leftMargin - 50)
-      .attr('height', fileNodeCount * funcSpacing + 30)
-      .attr('fill', 'none')
-      .attr('stroke', 'var(--border-card)')
-      .attr('stroke-width', 1)
-      .attr('stroke-dasharray', '3,3')
-      .attr('rx', 6);
+  const deps = new Map();
+  edges.forEach(e => {
+    if (!deps.has(e.source)) deps.set(e.source, []);
+    deps.get(e.source).push({ target: e.target, calls: e.calls });
   });
 
-  // Draw edges
-  const link = g.append('g')
-    .selectAll('path')
-    .data(edges)
-    .join('path')
-    .attr('fill', 'none')
-    .attr('stroke', d => {
-      const source = nodeMap.get(d.source);
-      const target = nodeMap.get(d.target);
-      return source && target && source.file !== target.file ? '#60a5fa' : 'var(--text-dimmer)';
-    })
-    .attr('stroke-opacity', 0.3)
-    .attr('stroke-width', d => Math.min(3, Math.max(0.5, Math.sqrt(d.calls))))
-    .attr('d', d => {
-      const source = nodeMap.get(d.source);
-      const target = nodeMap.get(d.target);
-      if (!source || !target) return '';
+  let html = '<div style="color:var(--text-primary)">';
+  Object.keys(fileGroups).sort().forEach((file) => {
+    const isCollapsed = _devCollapsedFiles.has(file);
+    const funcs = fileGroups[file];
 
-      const sx = source.x;
-      const sy = source.y;
-      const tx = target.x;
-      const ty = target.y;
-      const midX = (sx + tx) / 2;
+    html += `<div style="margin-bottom:8px">`;
+    html += `<div onclick="_devToggleFile('${file}')" style="cursor:pointer;color:var(--accent);font-weight:600;margin-bottom:4px">`;
+    html += `${isCollapsed ? '▶' : '▼'} 📁 ${file} <span style="font-weight:normal;color:var(--text-dimmer);font-size:11px">(${funcs.length} functions)</span>`;
+    html += `</div>`;
 
-      return `M ${sx},${sy} C ${midX},${sy} ${midX},${ty} ${tx},${ty}`;
-    });
+    if (!isCollapsed) {
+      funcs.forEach((func, i) => {
+        const isLast = i === funcs.length - 1;
+        const prefix = isLast ? '└─' : '├─';
+        const funcDeps = deps.get(func.id) || [];
+        const crossFileDeps = funcDeps.filter(d => {
+          const target = allNodes.find(n => n.id === d.target);
+          return target && target.file !== func.file;
+        });
 
-  // Draw nodes
-  const node = g.append('g')
-    .selectAll('circle')
-    .data(nodes)
-    .join('circle')
-    .attr('cx', d => d.x)
-    .attr('cy', d => d.y)
-    .attr('r', 3)
-    .attr('fill', d => d.callCount > 10 ? 'var(--accent)' : 'var(--text-dimmer)')
-    .attr('stroke', 'var(--bg-card)')
-    .attr('stroke-width', 1)
-    .style('cursor', 'pointer')
-    .on('click', function(event, d) {
-      const connectedIds = new Set([d.id]);
-      edges.forEach(e => {
-        if (e.source === d.id) connectedIds.add(e.target);
-        if (e.target === d.id) connectedIds.add(e.source);
+        html += `<div style="margin-left:16px;margin-bottom:2px">`;
+        html += `<span style="color:var(--border-card)">${prefix}</span> `;
+        html += `<span style="color:${func.callCount > 10 ? 'var(--accent)' : 'var(--text-primary)'}">${func.id}</span>`;
+        html += `<span style="color:var(--text-dimmer);margin-left:8px;font-size:10px">`;
+        html += `${func.callCount}× called`;
+        if (crossFileDeps.length > 0) {
+          html += ` • ${crossFileDeps.length} cross-file`;
+        }
+        html += `</span>`;
+
+        if (crossFileDeps.length > 0) {
+          const topDeps = crossFileDeps.slice(0, 2);
+          html += `<div style="margin-left:32px;color:var(--text-dimmer);font-size:10px">`;
+          topDeps.forEach(dep => {
+            const target = allNodes.find(n => n.id === dep.target);
+            html += `🔴 → ${dep.target} <span style="opacity:0.7">(${target?.file})</span> `;
+          });
+          if (crossFileDeps.length > 2) html += `+${crossFileDeps.length - 2} more`;
+          html += `</div>`;
+        }
+        html += `</div>`;
+
+        if (!isLast) {
+          html += `<div style="margin-left:16px;color:var(--border-card)">│</div>`;
+        }
       });
-
-      node.attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.2);
-      link.attr('opacity', e => (e.source === d.id || e.target === d.id) ? 0.8 : 0.05);
-      label.attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.2);
-    })
-    .on('dblclick', function() {
-      node.attr('opacity', 1);
-      link.attr('opacity', 0.3);
-      label.attr('opacity', 1);
-    });
-
-  // Draw labels
-  const label = g.append('g')
-    .selectAll('text')
-    .data(nodes)
-    .join('text')
-    .attr('x', d => d.x + 8)
-    .attr('y', d => d.y)
-    .attr('dy', '0.35em')
-    .attr('font-size', 10)
-    .attr('font-family', 'monospace')
-    .attr('fill', 'var(--text-primary)')
-    .text(d => d.id)
-    .style('pointer-events', 'none');
-
-  // Tooltips
-  const tooltip = d3.select('body').selectAll('.dev-graph-tooltip').data([0]).join('div')
-    .attr('class', 'dev-graph-tooltip')
-    .style('position', 'absolute')
-    .style('background', 'var(--bg-card)')
-    .style('border', '1px solid var(--border-card)')
-    .style('border-radius', '6px')
-    .style('padding', '6px 10px')
-    .style('font-size', '0.7rem')
-    .style('pointer-events', 'none')
-    .style('opacity', 0)
-    .style('z-index', 10000);
-
-  node.on('mouseover', function(event, d) {
-    tooltip.transition().duration(100).style('opacity', 1);
-    tooltip.html(`<strong>${d.id}</strong><br/>File: ${d.file}<br/>Called: ${d.callCount}x<br/>Type: ${d.type}`)
-    .style('left', (event.pageX + 10) + 'px')
-    .style('top', (event.pageY - 10) + 'px');
-  })
-  .on('mouseout', function() {
-    tooltip.transition().duration(100).style('opacity', 0);
+    }
+    html += `</div>`;
   });
+  html += '</div>';
+  container.innerHTML = html;
+}
 
-  svg.call(_devGraphZoom.transform, d3.zoomIdentity.translate(20, 0).scale(1));
+function _devToggleFile(file) {
+  if (_devCollapsedFiles.has(file)) {
+    _devCollapsedFiles.delete(file);
+  } else {
+    _devCollapsedFiles.add(file);
+  }
+  if (_devGraphData && _devGraphLevel === 'function') {
+    _devRenderFunctionTree(_devGraphData.nodes, _devGraphData.edges);
+  }
 }
 
 function _devGraphSearch(query) {

@@ -18,10 +18,11 @@
   var _staggers  = { tight: 20, normal: 40, relaxed: 80 };
 
   var _springCSSMap = {
-    snappy:  'cubic-bezier(0.34, 1.56, 0.64, 1)',
-    smooth:  'cubic-bezier(0.25, 1.0, 0.5, 1.0)',
-    gentle:  'cubic-bezier(0.22, 1.2, 0.36, 1.0)',
-    bouncy:  'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+    snappy:   'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    smooth:   'cubic-bezier(0.25, 1.0, 0.5, 1.0)',
+    gentle:   'cubic-bezier(0.22, 1.2, 0.36, 1.0)',
+    bouncy:   'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    'ease-out': 'cubic-bezier(0.22, 1, 0.36, 1)'
   };
 
 
@@ -335,7 +336,59 @@
   }
 
 
-  // ─── 8. Flash + Toast Helpers ─────────────────────────────
+  // ─── 8. CSS Token Injection ──────────────────────────────
+
+  function _injectTokens() {
+    var root = document.documentElement.style;
+    for (var name in _springCSSMap) {
+      root.setProperty('--motion-' + name, _springCSSMap[name]);
+    }
+    for (var d in _durations) {
+      root.setProperty('--motion-' + d, _durations[d] + 'ms');
+    }
+  }
+
+  // Inject on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _injectTokens);
+  } else {
+    _injectTokens();
+  }
+
+
+  // ─── 9. fadeIn / fadeOut ─────────────────────────────────
+
+  function _fadeIn(el, config) {
+    if (!el) return null;
+    config = config || {};
+    return _animate(el, {
+      spring: config.spring || 'smooth',
+      duration: config.duration || _durations.fast,
+      from: { opacity: 0, y: config.y || 0 },
+      to: { opacity: 1, y: 0 },
+      delay: config.delay || 0,
+      onFinish: config.onFinish
+    });
+  }
+
+  function _fadeOut(el, config) {
+    if (!el) return null;
+    config = config || {};
+    return _animate(el, {
+      spring: config.spring || 'smooth',
+      duration: config.duration || _durations.fast,
+      from: { opacity: 1, y: 0 },
+      to: { opacity: 0, y: config.y || 0 },
+      delay: config.delay || 0,
+      onFinish: function() {
+        if (config.remove) el.remove();
+        if (config.onFinish) config.onFinish();
+      }
+    });
+  }
+
+
+  // ─── 10. Flash + Toast Helpers ──────────────────────────
 
   function _flash(el, holdMs) {
     if (!el) return;
@@ -398,8 +451,11 @@
     get reducedMotion() { return _reducedMotion(); },
 
     // Helpers
+    fadeIn:  _fadeIn,
+    fadeOut: _fadeOut,
     flash: _flash,
     toast: _toast,
+    injectTokens: _injectTokens,
 
     // FLIP
     flip: _flip
