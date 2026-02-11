@@ -92,6 +92,8 @@ function _browseSaveTabsNow() {
       if (t.lastVisited) saved.lastVisited = t.lastVisited;
       if (t.pinned) saved.pinned = true;
       if (t.groupId != null) saved.groupId = t.groupId;
+      if (t.backStack && t.backStack.length) saved.backStack = t.backStack.slice(-50);
+      if (t.forwardStack && t.forwardStack.length) saved.forwardStack = t.forwardStack.slice(-50);
       return saved;
     })
   }));
@@ -133,7 +135,7 @@ function _browseRestoreTabs() {
         const win = { id: savedWin.id, name: savedWin.name, tabs: [], activeTab: savedWin.activeTab, groups: savedWin.groups || [], splitPanes: savedWin.splitPanes || [], focusedPane: savedWin.focusedPane || null };
         for (const saved of savedWin.tabs) {
           if (saved.blank) {
-            const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true, lastVisited: saved.lastVisited || 0 };
+            const tab = { id: saved.id, url: '', title: 'New Tab', favicon: '', el: null, blank: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -141,7 +143,7 @@ function _browseRestoreTabs() {
           }
           // History page tab — restore as special tab (content renders on select)
           if (saved._historyPage) {
-            const tab = { id: saved.id, url: 'aether://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true, lastVisited: saved.lastVisited || 0 };
+            const tab = { id: saved.id, url: 'aether://history', title: 'History', favicon: '', el: null, blank: false, _historyPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -149,7 +151,7 @@ function _browseRestoreTabs() {
           }
           // Help page tab
           if (saved._helpPage) {
-            const tab = { id: saved.id, url: 'aether://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true, lastVisited: saved.lastVisited || 0 };
+            const tab = { id: saved.id, url: 'aether://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -162,7 +164,7 @@ function _browseRestoreTabs() {
             el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;display:none;overflow:hidden;';
             container.appendChild(el);
             const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false,
-                          paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null, lastVisited: saved.lastVisited || 0 };
+                          paper: saved.paper, contentType: saved.contentType, arxivId: saved.arxivId || null, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.localPath) { tab.localPath = saved.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.localPath); }
             else if (saved.paper && saved.paper.localPath) { tab.localPath = saved.paper.localPath; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(saved.paper.localPath); }
             else if (saved.paper && saved.paper.pdfUrl) { tab.pdfUrl = saved.paper.pdfUrl; }
@@ -181,7 +183,7 @@ function _browseRestoreTabs() {
             el.style.display = 'none';
             container.appendChild(el);
           }
-          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, deferred: shouldDefer, lastVisited: saved.lastVisited || 0 };
+          const tab = { id: saved.id, url: saved.url, title: saved.title || _browseTitleFromUrl(saved.url), favicon: _browseFaviconUrl(saved.url), el, blank: false, deferred: shouldDefer, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
           if (saved.pinned) tab.pinned = true;
           if (saved.groupId != null) tab.groupId = saved.groupId;
           win.tabs.push(tab);
@@ -1805,11 +1807,18 @@ function _browseInjectContentScripts(tab, frame) {
         });
         _browseUpdateRssPill(tab);
       } catch (err) {}
+    } else if (e.message && e.message.startsWith('__AETHER_ANN_CLICK__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__AETHER_ANN_CLICK__'.length));
+        _showAnnotationTooltip(data, frame, true);
+      } catch (err) {}
     } else if (e.message && e.message.startsWith('__AETHER_ANN_MOVE__')) {
       try {
         const data = JSON.parse(e.message.slice('__AETHER_ANN_MOVE__'.length));
         _showAnnotationTooltip(data, frame);
       } catch (err) {}
+    } else if (e.message === '__AETHER_ANN_DISMISS__') {
+      _hideAnnotationTooltip(true);
     } else if (e.message === '__AETHER_ANN_LEAVE__') {
       _hideAnnotationTooltip();
     } else if (e.message === '__AETHER_PW_FIELDS__') {
@@ -3409,6 +3418,8 @@ function _pillSyncUrl() {
     input.style.pointerEvents = isBlankNtp ? 'none' : '';
     const reload = document.getElementById('pill-browse-reload');
     if (reload) reload.style.display = isBlankNtp ? 'none' : '';
+    const closeBtn = document.getElementById('pill-close-tab-btn');
+    if (closeBtn) closeBtn.style.display = isBlankNtp ? 'none' : '';
     const pill = document.getElementById('sidebar-nav');
     if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
   }
@@ -3422,25 +3433,83 @@ function _pillSyncUrl() {
 
 function _updateIslandNavButtons() {
   try {
-    const backBtn = document.getElementById('pill-browse-back');
-    const fwdBtn = document.getElementById('pill-browse-fwd');
-    if (!backBtn && !fwdBtn) return;
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
     const hasBackHistory = tab && tab.backStack && tab.backStack.length > 0;
     let hasElBack = false, hasElFwd = false;
     try { hasElBack = _browseIsElectron && tab && tab.el && tab.el.canGoBack && tab.el.canGoBack(); } catch(e) {}
     const hasFwdHistory = tab && tab.forwardStack && tab.forwardStack.length > 0;
     try { hasElFwd = _browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
-    if (backBtn) {
-      const hasNavBack = typeof _navHistory !== 'undefined' && _navHistory.length > 1;
-      const hasPageBack = hasBackHistory || hasElBack;
-      backBtn.style.display = '';
-    }
-    if (fwdBtn) {
-      const hasNavFwd = typeof _navForward !== 'undefined' && _navForward.length > 0;
-      fwdBtn.style.display = (hasFwdHistory || hasElFwd || hasNavFwd) ? '' : 'none';
-    }
+    const showBack = hasBackHistory || hasElBack;
+    const showFwd = hasFwdHistory || hasElFwd;
+    // Pill bar buttons
+    const pillBack = document.getElementById('pill-browse-back');
+    const pillFwd = document.getElementById('pill-browse-fwd');
+    if (pillBack) pillBack.style.display = showBack ? '' : 'none';
+    if (pillFwd) pillFwd.style.display = showFwd ? '' : 'none';
+    // Browse bar buttons
+    const barBack = document.getElementById('browse-bar-back');
+    const barFwd = document.getElementById('browse-bar-fwd');
+    if (barBack) barBack.style.display = showBack ? '' : 'none';
+    if (barFwd) barFwd.style.display = showFwd ? '' : 'none';
   } catch(e) {}
+}
+
+/* ── History dropdown on hover ── */
+let _historyDropdownEl = null;
+let _historyDropdownHideTimer = 0;
+
+function _showHistoryDropdown(direction, buttonEl) {
+  clearTimeout(_historyDropdownHideTimer);
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab) return;
+  const stack = direction === 'back' ? (tab.backStack || []) : (tab.forwardStack || []);
+  if (!stack.length) return;
+  _hideHistoryDropdownNow();
+  const dd = document.createElement('div');
+  dd.className = 'browse-history-dropdown';
+  dd.onmouseenter = () => clearTimeout(_historyDropdownHideTimer);
+  dd.onmouseleave = () => _scheduleHideHistoryDropdown();
+  // Show most recent first
+  const items = stack.slice().reverse().slice(0, 15);
+  items.forEach((url, i) => {
+    const row = document.createElement('div');
+    row.className = 'browse-history-dropdown-item';
+    const fav = document.createElement('img');
+    fav.src = _browseFaviconUrl(url);
+    fav.width = 14; fav.height = 14;
+    fav.style.cssText = 'border-radius:2px;flex-shrink:0;';
+    fav.onerror = function() { this.style.display = 'none'; };
+    const label = document.createElement('span');
+    label.textContent = _browseTitleFromUrl(url);
+    label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    row.appendChild(fav);
+    row.appendChild(label);
+    row.onclick = () => { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); };
+    dd.appendChild(row);
+  });
+  document.body.appendChild(dd);
+  _historyDropdownEl = dd;
+  // Position below the button
+  const rect = buttonEl.getBoundingClientRect();
+  dd.style.top = rect.bottom + 4 + 'px';
+  dd.style.left = Math.max(4, rect.left - 60) + 'px';
+}
+
+function _scheduleHideHistoryDropdown() {
+  clearTimeout(_historyDropdownHideTimer);
+  _historyDropdownHideTimer = setTimeout(_hideHistoryDropdownNow, 200);
+}
+
+function _hideHistoryDropdownNow() {
+  clearTimeout(_historyDropdownHideTimer);
+  if (_historyDropdownEl) { _historyDropdownEl.remove(); _historyDropdownEl = null; }
+}
+
+function _historyDropdownNavigate(direction, steps) {
+  for (let i = 0; i < steps; i++) {
+    if (direction === 'back') browseBack();
+    else browseForward();
+  }
 }
 
 /* Keydown for pill URL input */
@@ -4746,9 +4815,11 @@ function browseNavigate(input) {
     delete tab._helpPage;
   }
   // Push current URL onto back stack for navigation history
-  if (tab.url && !tab.blank) {
+  // Skip hash routes (app views like #feed, #settings) and blank/empty URLs
+  if (tab.url && !tab.blank && !/^#/.test(tab.url) && !/^about:/.test(tab.url)) {
     if (!tab.backStack) tab.backStack = [];
     tab.backStack.push(tab.url);
+    if (tab.backStack.length > 50) tab.backStack = tab.backStack.slice(-50);
     tab.forwardStack = [];
   }
   // Clear annotations on navigation
@@ -4782,6 +4853,7 @@ function browseNavigate(input) {
   _browseSaveTabs();
   _browseUpdateAdBlockBtn();
   _browseUpdateNewTabPage(tab);
+  _updateIslandNavButtons();
   // Update sidebar for the navigated URL
   if (typeof _initSidebarForUrl === 'function') {
     _initSidebarForUrl(url);
@@ -4836,13 +4908,11 @@ function browseBack() {
     _browseRenderTabs();
     _browseUpdateSaveBtn();
     _browseSaveTabs();
+    _updateIslandNavButtons();
     return;
   }
-  // No in-tab history — fall back to returning to the previous view (feed, inbox, etc.)
-  if (_browseReturnView) { _browseGoBack(); return; }
-  // Last resort: nav history, then always go home
-  if (typeof navBack === 'function' && navBack()) return;
-  goHome();
+  // No in-tab history and no Electron back — do nothing.
+  // The "Back to Feed" button (#browse-return-btn) handles app-level nav.
 }
 
 function browseForward() {
@@ -4867,6 +4937,7 @@ function browseForward() {
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   _browseSaveTabs();
+  _updateIslandNavButtons();
 }
 
 function browseReload() {
@@ -5522,7 +5593,7 @@ function _renderTabStateDropdown() {
       const winCount = s.windows ? s.windows.length : 1;
       const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const subtitle = winCount > 1 ? `${winCount} windows · ${count} tabs · ${date}` : `${count} tab${count !== 1 ? 's' : ''} · ${date}`;
-      html += `<div class="tab-session-row" style="display:flex;align-items:center;gap:6px;padding:6px 12px;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+      html += `<div class="tab-session-row" style="display:flex;align-items:center;gap:6px;padding:6px 12px;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
         <button onclick="loadTabSession(${i})" style="flex:1;min-width:0;text-align:left;border:none;background:none;cursor:pointer;padding:0;display:flex;flex-direction:column;gap:1px;">
           <span style="font-size:0.8rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${escapeHtml(s.name)}</span>
           <span style="font-size:0.68rem;color:var(--text-dimmer)">${subtitle}</span>
@@ -5785,23 +5856,23 @@ function toggleBrowseMoreMenu() {
 
   // Build overflow rows for buttons hidden in the bar
   let overflowRows = '';
-  const btnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;`;
-  const navBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
+  const btnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--aether-text);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;`;
+  const navBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--aether-text)' : 'var(--aether-text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
 
   // In island mode, all bar buttons are hidden — add nav + toolbar buttons to menu
   if (isIsland) {
-    overflowRows += `<button onclick="browseBack();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg> Back</button>`;
-    overflowRows += `<button onclick="browseForward();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg> Forward</button>`;
-    overflowRows += `<button onclick="browseReload();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Reload</button>`;
+    overflowRows += `<button onclick="browseBack();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg> Back</button>`;
+    overflowRows += `<button onclick="browseForward();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg> Forward</button>`;
+    overflowRows += `<button onclick="browseReload();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Reload</button>`;
     const isSaved = hasTab && isPostSaved(tab.url);
-    overflowRows += `<button onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
-    overflowRows += `<button onclick="browseShare();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg> Share</button>`;
+    overflowRows += `<button onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
+    overflowRows += `<button onclick="browseShare();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg> Share</button>`;
     const _adOn = localStorage.getItem('adBlockEnabled') === 'true';
-    overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_adOn ? 'color:var(--accent);' : ''}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker <span style="margin-left:auto;font-size:0.7rem;color:var(--text-dimmest)">${_adOn ? 'On' : 'Off'}</span></button>`;
+    overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_adOn ? 'color:var(--accent);' : ''}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker <span style="margin-left:auto;font-size:0.7rem;color:var(--aether-text-dimmest)">${_adOn ? 'On' : 'Off'}</span></button>`;
     const _annEnabled = tab && _annotationsEnabled.get(tab.id);
-    overflowRows += `<button onclick="toggleAnnotations();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_annEnabled ? 'color:var(--accent);' : ''}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg> ${_annEnabled ? 'Remove Annotations' : 'Annotate Page'}</button>`;
-    overflowRows += `<button onclick="openSearchHistoryPage();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg> Search History</button>`;
-    overflowRows += `<button onclick="toggleBrowseSidebar();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg> Toggle Sidebar</button>`;
+    overflowRows += `<button onclick="toggleAnnotations();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_annEnabled ? 'color:var(--accent);' : ''}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg> ${_annEnabled ? 'Remove Annotations' : 'Annotate Page'}</button>`;
+    overflowRows += `<button onclick="openSearchHistoryPage();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg> Search History</button>`;
+    overflowRows += `<button onclick="toggleBrowseSidebar();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg> Toggle Sidebar</button>`;
   } else {
   const overflowIds = typeof getBarOverflowIds === 'function' ? getBarOverflowIds() : [];
   overflowIds.forEach(id => {
@@ -5815,34 +5886,34 @@ function toggleBrowseMoreMenu() {
     if (id === 'browse-save-btn') {
       const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
       icon = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
-      overflowRows += `<button data-overflow-id="${id}" onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
+      overflowRows += `<button data-overflow-id="${id}" onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">${icon} ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
     } else {
       // Click executes the button's action; long-press drag restores to bar
       const onclick = el.getAttribute('onclick') || '';
-      overflowRows += `<button data-overflow-id="${id}" onclick="document.getElementById('browse-more-menu').style.display='none';${onclick.replace(/"/g, '&quot;')}" style="${btnStyle}" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
+      overflowRows += `<button data-overflow-id="${id}" onclick="document.getElementById('browse-more-menu').style.display='none';${onclick.replace(/"/g, '&quot;')}" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">${icon} ${label}</button>`;
     }
   });
   }
 
-  const fixedBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--text-primary)' : 'var(--text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
+  const fixedBtnStyle = `width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:${hasTab ? 'var(--aether-text)' : 'var(--aether-text-dimmest)'};font-size:0.78rem;cursor:${hasTab ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;`;
   const fixedItems = `
-    <div style="border-top:1px solid var(--border-card);margin:2px 0;"></div>
-    <button onclick="_togglePermissionsInMenu(event)" style="${fixedBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+    <div style="border-top:1px solid var(--aether-border);margin:2px 0;"></div>
+    <button onclick="_togglePermissionsInMenu(event)" style="${fixedBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
       Site Permissions
-      <svg id="browse-menu-perms-arrow" class="w-3 h-3" style="margin-left:auto;color:var(--text-dimmest);transition:transform .15s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
+      <svg id="browse-menu-perms-arrow" class="w-3 h-3" style="margin-left:auto;color:var(--aether-text-dimmest);transition:transform .15s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
     </button>
-    <div id="browse-menu-perms-panel" style="display:none;border-top:1px solid var(--border-subtle);"></div>
-    <button onclick="browsePrintPage();document.getElementById('browse-more-menu').style.display='none';" style="${fixedBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+    <div id="browse-menu-perms-panel" style="display:none;border-top:1px solid var(--aether-border);"></div>
+    <button onclick="browsePrintPage();document.getElementById('browse-more-menu').style.display='none';" style="${fixedBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>
       Print page
     </button>
-    <button onclick="toggleBrowseTabLayout();document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+    <button onclick="toggleBrowseTabLayout();document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--aether-text);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
       ${_browseTabLayout === 'island'
         ? '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h16v5H4V3zM4 3h16v18H4V3z"/></svg> Horizontal Tabs'
         : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg> Island Mode'}
     </button>
-    <button onclick="location.hash='#settings';document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--text-primary);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='none'">
+    <button onclick="location.hash='#settings';document.getElementById('browse-more-menu').style.display='none';" style="width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:var(--aether-text);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       Settings
     </button>`;
@@ -5854,7 +5925,7 @@ function toggleBrowseMoreMenu() {
   const menuPos = isIsland
     ? `right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px`
     : `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
-  dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">
+  dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--aether-bg);border:1px solid var(--aether-border);border-radius:10px;box-shadow:0 8px 32px var(--aether-shadow);z-index:10000;padding:4px 0;">
     ${overflowRows}${fixedItems}
   </div>`;
   dd.style.display = '';
@@ -5866,10 +5937,10 @@ function toggleBrowseMoreMenu() {
     const handler = (e) => {
       if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleBrowseMoreMenu"]') && !e.target.closest('#pill-browse-more')) {
         dd.style.display = 'none';
-        document.removeEventListener('mousedown', handler);
+        document.removeEventListener('mousedown', handler, true);
       }
     };
-    document.addEventListener('mousedown', handler);
+    document.addEventListener('mousedown', handler, true);
   }, 0);
 }
 
@@ -6489,42 +6560,59 @@ async function _readPageAloud() {
   _ttsFetchAndQueue();
 }
 
-function _showAnnotationTooltip(data, frame) {
+var _annTooltipPinned = false;
+
+function _showAnnotationTooltip(data, frame, pinned) {
   let tip = document.getElementById('aether-annotation-tooltip');
+  if (_annTooltipPinned && !pinned) return; // don't overwrite pinned tooltip with hover
   if (!tip) {
     tip = document.createElement('div');
     tip.id = 'aether-annotation-tooltip';
     tip.className = 'doc-selection-popup aether-ann-tooltip';
+    tip.style.zIndex = '999999';
+    tip.style.pointerEvents = 'auto';
+    tip.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
     document.body.appendChild(tip);
   }
+  _annTooltipPinned = !!pinned;
   const confBadge = data.confidence != null ? '<span class="aether-ann-confidence">' + data.confidence + '%</span>' : '';
-  const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + '">' + (data.label || data.type) + confBadge + '</div>';
+  // Rate buttons — small icons, top-right
+  const rateEl = '<div style="position:absolute;top:6px;right:6px;display:flex;gap:2px">'
+    + '<button data-ann-tip-rate="good" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:rgba(255,255,255,0.7)" title="Good" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'rgba(255,255,255,0.7)\'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button>'
+    + '<button data-ann-tip-rate="bad" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:rgba(255,255,255,0.7)" title="Bad" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'rgba(255,255,255,0.7)\'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg></button>'
+    + '</div>';
+  const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + ';padding-right:36px">' + (data.label || data.type) + confBadge + '</div>';
   const explEl = '<div class="aether-ann-explanation">' + data.explanation + '</div>';
   const conflictEl = data.conflictsWith ? '<div class="aether-ann-conflict">Conflicts with: ' + data.conflictsWith + '</div>' : '';
-  const rateEl = '<div class="aether-ann-rate" style="display:flex;gap:4px;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1)">'
-    + '<button class="ann-rate-btn" data-ann-tip-rate="good" style="background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;cursor:pointer;padding:2px 8px;font-size:11px;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:3px" title="Good annotation"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg> Good</button>'
-    + '<button class="ann-rate-btn" data-ann-tip-rate="bad" style="background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;cursor:pointer;padding:2px 8px;font-size:11px;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:3px" title="Bad annotation"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg> Bad</button>'
-    + '</div>';
-  tip.innerHTML = labelEl + explEl + conflictEl + rateEl;
+  tip.style.position = 'fixed';
+  tip.innerHTML = rateEl + labelEl + explEl + conflictEl;
   // Wire rating buttons
   tip.querySelectorAll('[data-ann-tip-rate]').forEach(function(btn) {
+    btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
     btn.addEventListener('click', function(ev) {
-      ev.stopPropagation();
+      ev.stopPropagation(); ev.preventDefault();
+      if (btn.disabled) return;
       var rating = btn.getAttribute('data-ann-tip-rate');
       var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
       fetch('/api/annotation-feedback', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
         body: JSON.stringify({ quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
-      }).catch(function() {});
-      btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
-      btn.textContent = '\u2713 Rated';
-      btn.disabled = true;
-      var sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
-      if (sibling) sibling.style.display = 'none';
+      }).then(function(r) {
+        if (!r.ok) throw new Error();
+        btn.style.opacity = '1';
+        btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
+        btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.disabled = true;
+        var sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
+        if (sibling) sibling.style.display = 'none';
+      }).catch(function() {
+        btn.style.opacity = '0.5';
+      });
     });
   });
   tip.style.opacity = '1';
+  tip.style.pointerEvents = 'auto';
   const fRect = frame.getBoundingClientRect();
   const cx = data.x + fRect.left;
   const cy = data.y + fRect.top;
@@ -6537,10 +6625,20 @@ function _showAnnotationTooltip(data, frame) {
   tip.style.top = top + 'px';
 }
 
-function _hideAnnotationTooltip() {
+function _hideAnnotationTooltip(force) {
+  if (_annTooltipPinned && !force) return;
+  _annTooltipPinned = false;
   const tip = document.getElementById('aether-annotation-tooltip');
-  if (tip) tip.style.opacity = '0';
+  if (tip) { tip.style.opacity = '0'; tip.style.pointerEvents = 'none'; }
 }
+
+// Dismiss pinned tooltip on click outside
+document.addEventListener('mousedown', function(ev) {
+  if (!_annTooltipPinned) return;
+  var tip = document.getElementById('aether-annotation-tooltip');
+  if (tip && tip.contains(ev.target)) return;
+  _hideAnnotationTooltip(true);
+});
 
 function injectAnnotations(tab, annotations) {
   if (!tab || !tab.el || !annotations.length) return;
@@ -6570,18 +6668,54 @@ function injectAnnotations(tab, annotations) {
       const colorMap = JSON.parse('${colorMapJSON}');
 
       var _hoveredAnn = null;
+      var _clickedAnn = false;
       function showTooltip(mark, ann) {
         var c = colorMap[ann.type] || colorMap.ALPHA;
         _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null, quote: ann.quote || '' };
       }
 
       function hideTooltip() {
+        if (_clickedAnn) return;
         _hoveredAnn = null;
         console.log('__AETHER_ANN_LEAVE__');
       }
 
+      var _clickedMark = null;
+      function clickTooltip(mark, ann, e) {
+        var c = colorMap[ann.type] || colorMap.ALPHA;
+        // Remove previous clicked state
+        if (_clickedMark && _clickedMark !== mark) {
+          _clickedMark.style.outline = '';
+          _clickedMark.style.outlineOffset = '';
+          _clickedMark.style.opacity = _clickedMark._origOpacity || '';
+        }
+        _clickedAnn = true;
+        _clickedMark = mark;
+        // Visual affordance: outline + full opacity
+        mark._origOpacity = mark.style.opacity;
+        mark.style.opacity = '1';
+        mark.style.outline = '1.5px solid ' + c.border;
+        mark.style.outlineOffset = '1px';
+        console.log('__AETHER_ANN_CLICK__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null, quote: ann.quote || '' }));
+      }
+
+      document.addEventListener('mousedown', function(e) {
+        if (_clickedAnn && !e.target.closest('.aether-annotation')) {
+          // Remove clicked visual state
+          if (_clickedMark) {
+            _clickedMark.style.outline = '';
+            _clickedMark.style.outlineOffset = '';
+            _clickedMark.style.opacity = _clickedMark._origOpacity || '';
+            _clickedMark = null;
+          }
+          _clickedAnn = false;
+          _hoveredAnn = null;
+          console.log('__AETHER_ANN_DISMISS__');
+        }
+      });
+
       document.addEventListener('mousemove', function(e) {
-        if (!_hoveredAnn) return;
+        if (!_hoveredAnn || _clickedAnn) return;
         console.log('__AETHER_ANN_MOVE__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: _hoveredAnn.type, label: _hoveredAnn.label, labelColor: _hoveredAnn.labelColor, explanation: _hoveredAnn.explanation, conflictsWith: _hoveredAnn.conflictsWith, confidence: _hoveredAnn.confidence, quote: _hoveredAnn.quote }));
       });
 
@@ -6642,6 +6776,7 @@ function injectAnnotations(tab, annotations) {
           mark.textContent = matchText;
           mark.addEventListener('mouseover', function() { showTooltip(mark, ann); });
           mark.addEventListener('mouseout', hideTooltip);
+          mark.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); clickTooltip(mark, ann, e); });
 
           const parent = node.parentNode;
           if (before) parent.insertBefore(document.createTextNode(before), node);
@@ -6674,6 +6809,7 @@ function injectAnnotations(tab, annotations) {
           if (isFirst) { wrapMark = mark; isFirst = false; }
           mark.addEventListener('mouseover', function() { showTooltip(wrapMark || mark, ann); });
           mark.addEventListener('mouseout', hideTooltip);
+          mark.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); clickTooltip(wrapMark || mark, ann, e); });
 
           const parent = node.parentNode;
           if (before) parent.insertBefore(document.createTextNode(before), node);
@@ -6719,6 +6855,51 @@ function clearAnnotations(tab) {
     try {
       frame.contentWindow.eval(script);
     } catch { /* cross-origin */ }
+  }
+}
+
+function injectSingleAnnotation(tab, ann) {
+  if (!tab || !tab.el) return;
+  const frame = tab.el;
+  const colorMap = {
+    ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50' },
+    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350' },
+    AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800' },
+    CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3' }
+  };
+  if (typeof _customAnnotationCategories !== 'undefined') {
+    for (const cc of _customAnnotationCategories) {
+      colorMap[cc.key] = { bg: cc.color + '40', border: cc.color };
+    }
+  }
+  const c = colorMap[ann.type] || { bg: 'rgba(136,136,136,0.25)', border: '#888' };
+  const quoteEsc = JSON.stringify(ann.quote).slice(1, -1).replace(/'/g, "\\'");
+  const bgEsc = c.bg.replace(/'/g, "\\'");
+  const borderEsc = c.border.replace(/'/g, "\\'");
+  const script = `(function(){
+    var quote='${quoteEsc}';if(!quote)return;
+    var skip=new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
+    function collect(el){var r=[];if(skip.has(el.tagName))return r;for(var ch of el.childNodes){if(ch.nodeType===3)r.push(ch);else if(ch.nodeType===1)r.push.apply(r,collect(ch));}return r;}
+    var nodes=collect(document.body),full='';var map=[];
+    for(var n of nodes){var s=full.length;full+=n.textContent;map.push({node:n,start:s,end:full.length});}
+    var fl=full.toLowerCase(),ql=quote.toLowerCase(),mi=fl.indexOf(ql);if(mi===-1)return;
+    var me=mi+quote.length;
+    for(var nm of map){if(nm.end<=mi||nm.start>=me)continue;var node=nm.node;if(!node.parentNode)continue;
+      if(node.parentNode.closest&&node.parentNode.closest('.aether-annotation'))continue;
+      var os=Math.max(mi,nm.start)-nm.start,oe=Math.min(me,nm.end)-nm.start;
+      var nt=node.textContent,before=nt.substring(0,os),mt=nt.substring(os,oe),after=nt.substring(oe);
+      var mark=document.createElement('mark');mark.className='aether-annotation';
+      mark.style.cssText='background:${bgEsc};border-bottom:2px solid ${borderEsc};padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;';
+      mark.textContent=mt;
+      var p=node.parentNode;if(before)p.insertBefore(document.createTextNode(before),node);
+      p.insertBefore(mark,node);if(after)p.insertBefore(document.createTextNode(after),node);
+      p.removeChild(node);break;
+    }
+  })();`;
+  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+    frame.executeJavaScript(script).catch(() => {});
+  } else if (frame.tagName === 'IFRAME') {
+    try { frame.contentWindow.eval(script); } catch {}
   }
 }
 

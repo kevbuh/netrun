@@ -4218,6 +4218,11 @@ function _panelBuildSelectionUI(popup, config) {
           headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
           body: JSON.stringify({ quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle })
         }).catch(() => {});
+        // Inject highlight on the page
+        if (typeof injectSingleAnnotation === 'function' && typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+          const hlTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
+          if (hlTab) injectSingleAnnotation(hlTab, { type: t.key, quote: capturedText });
+        }
         dropdown.remove();
         annotateBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + t.color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         annotateBtn.disabled = true;

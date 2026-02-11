@@ -1747,15 +1747,15 @@ function _renderSitePermissionsDropdown(container) {
   const domain = _getCurrentBrowseDomain();
 
   if (!domain) {
-    dd.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.78rem;color:var(--text-dim);">Navigate to a site first</div>';
+    dd.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.78rem;color:var(--aether-text-dim);">Navigate to a site first</div>';
     return;
   }
 
   const perms = _getSitePermissions(domain);
   const effective = _getEffectivePermissions(domain);
   let html = '';
-  html += '<div style="padding:6px 8px 4px;font-size:0.72rem;color:var(--text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</div>';
-  html += '<div style="padding:0 8px 4px;font-size:0.65rem;color:var(--text-dimmest);line-height:1.3;">Blocked by default. Click Allow to grant access.</div>';
+  html += '<div style="padding:6px 8px 4px;font-size:0.72rem;color:var(--aether-text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</div>';
+  html += '<div style="padding:0 8px 4px;font-size:0.65rem;color:var(--aether-text-dimmest);line-height:1.3;">Blocked by default. Click Allow to grant access.</div>';
 
   for (const key of _SITE_PERM_KEYS) {
     const current = effective[key] || 'ask';
@@ -1763,16 +1763,16 @@ function _renderSitePermissionsDropdown(container) {
     const icon = _SITE_PERM_ICONS[key];
     const isSession = !perms[key] && (_sessionPermissions[domain] || {})[key];
     html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;">';
-    html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
-    html += '<span style="flex:1;font-size:0.75rem;color:var(--text-primary);">' + label + '</span>';
+    html += '<span style="color:var(--aether-text-dimmer);flex-shrink:0;">' + icon + '</span>';
+    html += '<span style="flex:1;font-size:0.75rem;color:var(--aether-text);">' + label + '</span>';
     if (isSession) {
-      html += '<span style="font-size:0.58rem;color:var(--text-dimmest);margin-right:2px;">session</span>';
+      html += '<span style="font-size:0.58rem;color:var(--aether-text-dimmest);margin-right:2px;">session</span>';
     }
-    html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
+    html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--aether-border);">';
     for (const val of ['ask', 'allow', 'block']) {
       const active = current === val;
-      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
-      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
+      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-bg))' : 'color-mix(in srgb, var(--accent) 20%, var(--aether-bg))') : 'var(--aether-bg)';
+      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--aether-text-dimmer)';
       const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
       const onclick = val === 'allow'
         ? '_showPermissionPrompt(\'' + safeDomain + '\',\'' + key + '\');'
@@ -1783,8 +1783,8 @@ function _renderSitePermissionsDropdown(container) {
   }
 
   const safeDomain2 = escapeHtml(domain).replace(/'/g, "\\'");
-  html += '<div style="padding:4px 8px 6px;border-top:1px solid var(--border-card);margin-top:2px;">';
-  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.72rem;cursor:pointer;">Reset all to default</button>';
+  html += '<div style="padding:4px 8px 6px;border-top:1px solid var(--aether-border);margin-top:2px;">';
+  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-bg);color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;">Reset all to default</button>';
   html += '</div>';
 
   dd.innerHTML = html;
