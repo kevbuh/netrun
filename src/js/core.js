@@ -233,7 +233,7 @@ function _islandRenderPill(a) {
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Annotating…') + '</span>';
     }
-    var _annModeColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
+    var _annModeColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107', STATISTIC: '#2196f3', DEFINITION: '#9c27b0', BIAS: '#ff9800', METHODOLOGY: '#009688', CONNECTION: '#ab47bc' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
@@ -291,18 +291,21 @@ function _islandBuildTray(a, isBrowse) {
     }
     return trayHtml;
   } else if (a.type === 'annotate' && a.items && a.items.length) {
-    var annColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
-    var annLabels = { KEY_FINDING: 'Key Finding', CONTRADICTION: 'Contradiction', VERIFY: 'Verify' };
+    var annColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107', STATISTIC: '#2196f3', DEFINITION: '#9c27b0', BIAS: '#ff9800', METHODOLOGY: '#009688', CONNECTION: '#ab47bc' };
+    var annLabels = { KEY_FINDING: 'Key Finding', CONTRADICTION: 'Contradiction', VERIFY: 'Verify', STATISTIC: 'Statistic', DEFINITION: 'Definition', BIAS: 'Bias', METHODOLOGY: 'Methodology', CONNECTION: 'Connection' };
     var trayHtml = '';
     for (var ai = 0; ai < a.items.length; ai++) {
       var ann = a.items[ai];
       var ac = annColors[ann.type] || '#888';
       var al = annLabels[ann.type] || ann.type;
       var quote = ann.quote || '';
-      if (quote.length > 60) quote = quote.slice(0, 58) + '\u2026';
-      trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '" style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
-      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span></div>';
-      trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(quote) + '</div>';
+      var isConnection = ann.type === 'CONNECTION';
+      var displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : quote;
+      if (displayText.length > 60) displayText = displayText.slice(0, 58) + '\u2026';
+      var confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--text-dimmer);margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
+      trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + ' style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
+      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge + '</div>';
+      trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(displayText) + '</div>';
       if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
       trayHtml += '</div>';
     }
@@ -396,8 +399,13 @@ function _islandAttachHandlers(pill, a, hasTray) {
     var annItem = e.target.closest('[data-island-ann]');
     if (annItem) {
       e.stopPropagation();
-      var annIdx = +annItem.getAttribute('data-island-ann');
-      if (typeof scrollToAnnotation === 'function') scrollToAnnotation(annIdx);
+      var annUrl = annItem.getAttribute('data-island-ann-url');
+      if (annUrl && typeof browseNewTab === 'function') {
+        browseNewTab(annUrl);
+      } else {
+        var annIdx = +annItem.getAttribute('data-island-ann');
+        if (typeof scrollToAnnotation === 'function') scrollToAnnotation(annIdx);
+      }
       return;
     }
     var dlClear = e.target.closest('[data-island-dl-clear]');

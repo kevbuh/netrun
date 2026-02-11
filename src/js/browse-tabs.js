@@ -6331,10 +6331,11 @@ async function annotateCurrentPage(tab) {
 
     // Call annotate API (current tab only — no cross-tab context)
     const model = localStorage.getItem('summaryModel') || '';
+    const interestCtx = typeof buildInterestContext === 'function' ? buildInterestContext() : '';
     const resp = await fetch('/api/annotate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, text: pageText, otherTabs: [], model }),
+      body: JSON.stringify({ url, text: pageText, otherTabs: [], model, interest_context: interestCtx }),
       signal: abortCtrl.signal
     });
     const data = await resp.json();
@@ -6451,7 +6452,8 @@ function _showAnnotationTooltip(data, frame) {
     tip.className = 'doc-selection-popup aether-ann-tooltip';
     document.body.appendChild(tip);
   }
-  const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + '">' + (data.label || data.type) + '</div>';
+  const confBadge = data.confidence != null ? '<span class="aether-ann-confidence">' + data.confidence + '%</span>' : '';
+  const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + '">' + (data.label || data.type) + confBadge + '</div>';
   const explEl = '<div class="aether-ann-explanation">' + data.explanation + '</div>';
   const conflictEl = data.conflictsWith ? '<div class="aether-ann-conflict">Conflicts with: ' + data.conflictsWith + '</div>' : '';
   tip.innerHTML = labelEl + explEl + conflictEl;
@@ -6480,7 +6482,12 @@ function injectAnnotations(tab, annotations) {
   const colorMap = {
     KEY_FINDING: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Key Finding', labelColor: '#4caf50' },
     CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
-    VERIFY: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Verify', labelColor: '#ffc107' }
+    VERIFY: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Verify', labelColor: '#ffc107' },
+    STATISTIC: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Statistic', labelColor: '#2196f3' },
+    DEFINITION: { bg: 'rgba(156, 39, 176, 0.25)', border: '#9c27b0', label: 'Definition', labelColor: '#9c27b0' },
+    BIAS: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Bias', labelColor: '#ff9800' },
+    METHODOLOGY: { bg: 'rgba(0, 150, 136, 0.25)', border: '#009688', label: 'Methodology', labelColor: '#009688' },
+    CONNECTION: { bg: 'rgba(171, 71, 188, 0.25)', border: '#ab47bc', label: 'Connection', labelColor: '#ab47bc' }
   };
 
   const annotationsJSON = JSON.stringify(annotations).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -6496,7 +6503,7 @@ function injectAnnotations(tab, annotations) {
       var _hoveredAnn = null;
       function showTooltip(mark, ann) {
         var c = colorMap[ann.type] || colorMap.KEY_FINDING;
-        _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '' };
+        _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null };
       }
 
       function hideTooltip() {
@@ -6506,7 +6513,7 @@ function injectAnnotations(tab, annotations) {
 
       document.addEventListener('mousemove', function(e) {
         if (!_hoveredAnn) return;
-        console.log('__AETHER_ANN_MOVE__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: _hoveredAnn.type, label: _hoveredAnn.label, labelColor: _hoveredAnn.labelColor, explanation: _hoveredAnn.explanation, conflictsWith: _hoveredAnn.conflictsWith }));
+        console.log('__AETHER_ANN_MOVE__' + JSON.stringify({ x: e.clientX, y: e.clientY, type: _hoveredAnn.type, label: _hoveredAnn.label, labelColor: _hoveredAnn.labelColor, explanation: _hoveredAnn.explanation, conflictsWith: _hoveredAnn.conflictsWith, confidence: _hoveredAnn.confidence }));
       });
 
       // Build concatenated text from all text nodes with position mapping
@@ -6548,6 +6555,7 @@ function injectAnnotations(tab, annotations) {
         if (!affectedNodes.length) continue;
 
         // Single-node match (most common)
+        var annOpacity = ann.confidence != null ? Math.max(0.4, ann.confidence / 100) : 1;
         if (affectedNodes.length === 1) {
           const nm = affectedNodes[0];
           const node = nm.node;
@@ -6561,7 +6569,7 @@ function injectAnnotations(tab, annotations) {
 
           const mark = document.createElement('mark');
           mark.className = 'aether-annotation';
-          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;';
+          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;opacity:' + annOpacity + ';';
           mark.textContent = matchText;
           mark.addEventListener('mouseover', function() { showTooltip(mark, ann); });
           mark.addEventListener('mouseout', hideTooltip);
@@ -6592,7 +6600,7 @@ function injectAnnotations(tab, annotations) {
 
           const mark = document.createElement('mark');
           mark.className = 'aether-annotation';
-          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;';
+          mark.style.cssText = 'background:' + c.bg + ';border-bottom:2px solid ' + c.border + ';padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;opacity:' + annOpacity + ';';
           mark.textContent = matchText;
           if (isFirst) { wrapMark = mark; isFirst = false; }
           mark.addEventListener('mouseover', function() { showTooltip(wrapMark || mark, ann); });

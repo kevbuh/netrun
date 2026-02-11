@@ -22,7 +22,7 @@ Flask server (`app.py`) with route blueprints in `src/routes/`:
 - `feed.py` (14) — feeds, RSS proxy, quality filter, models, feed-items
 - `experiments.py` (29) — experiment CRUD, files, runs, kernel, venv, execute (SSE)
 - `social.py` (52) — teams, users, messages, comments, blog, achievements
-- `content.py` (16) — doc-chat (SSE), extract-text/links, paper-insights, citations, author/reference lookups, panel/search suggest, annotate, knowledge-graph
+- `content.py` (16) — doc-chat (SSE), extract-text/links, citations, author/reference lookups, panel/search suggest, annotate, knowledge-graph, chat-memories
 - `browse.py` (6) — web-search, browse-proxy, image-proxy, link-preview, stock-quote, check-embed
 - `vault.py` (11) — notes CRUD, marimo start/stop, vault path/tree
 - `misc.py` (31) — neuralook (SSE + calibration + training + predict + implicit-samples + refine), transcribe, vibe/git, todos, calendar, images, saved-content, function-registry, dev-stats
@@ -32,7 +32,8 @@ Helper modules: `helpers.py` (auth, SSE, chat tools, arxiv), `vault_helpers.py` 
 **Key API groups:**
 - **Feeds:** `/feed`, `/hn-feed`, `/polymarket-feed`, `/api/feed-items`, `/api/feed-items/custom`, `/api/rss-proxy?url=`, `/api/arxiv-search`, `/api/citations`
 - **Quality:** `/api/quality-filter` (POST, verdict KEEP/SKIP or score 0-100, optional `interest_context`), `/api/quality-prompt` (GET/PUT), `/api/blocked-titles` (GET/POST/DELETE)
-- **Content:** `/api/doc-chat` (SSE, optional `vision:true`), `/api/extract-text`, `/api/extract-links`, `/api/paper-insights`, `/api/author-details`, `/api/citation-lookup`, `/api/paper-references`, `/api/author-lookup`, `/api/panel-suggest`, `/api/search-suggest`, `/api/annotate`, `/api/knowledge-graph/similarities`
+- **Content:** `/api/doc-chat` (SSE, optional `vision:true`), `/api/extract-text`, `/api/extract-links`, `/api/author-details`, `/api/citation-lookup`, `/api/paper-references`, `/api/author-lookup`, `/api/panel-suggest`, `/api/search-suggest`, `/api/annotate`, `/api/knowledge-graph/similarities`
+- **Memories:** `/api/chat-memory` (POST, fire-and-forget save), `/api/chat-memories` (GET, semantic search), `/api/chat-memories/list`, `/api/chat-memories/<id>` (DELETE), `/api/chat-memories/stats`
 - **Embeddings:** `/api/embed-content` (fire-and-forget), `/api/semantic-search`, `/api/find-similar`
 - **Browse:** `/api/web-search?q=`, `/api/check-embed`, `/api/browse-proxy`, `/api/image-proxy`, `/api/link-preview`, `/api/stock-quote`
 - **Experiments:** `/api/experiments` (CRUD, stored as `experiments/{slug}/meta.json`)
@@ -42,7 +43,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 
 ### Frontend — `src/index.html` + `js/` + `styles.css`
 
-27 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
+26 JS files, 16 HTML templates in `views/` (lazy-loaded via `VIEW_REGISTRY`). Hash routing:
 
 | Route | View |
 |-------|------|
@@ -50,7 +51,6 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 | `#feed` | Multi-source feed (masonry, sorting, trends, infinite scroll) |
 | `#saved` | Dashboard (heatmap, reading list, experiments, quotes) |
 | `#research` | Browse with blank tab + search tabs |
-| `#view/`, `#paper/` | Paper viewer (iframe + sidebar) |
 | `#browse` | Built-in browser (tabs, URL bar, ad blocker) |
 | `#experiment/{id}` | Experiment detail (editors, kernel, venv) |
 | `#calendar` | Calendar (month grid, event CRUD) |
@@ -65,7 +65,7 @@ Server-side files: `quality_prompt.txt` (custom verdict prompt), `blocked_titles
 | `#blog/{id}`, `#profile/{username}`, `#author/{id}`, `#dev` | Content views |
 | `#vibe`, `#experiments`, `#search` | Legacy redirects → vault/research |
 
-**Script load order** (order matters — all global): `core.js` → `motion.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `paper-sidebar.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `knowledge-graph.js` → `vibe.js` → `neuralook.js`
+**Script load order** (order matters — all global): `core.js` → `motion.js` → `pixel-pet.js` → `feed.js` → `quality.js` → `settings.js` → `dashboard.js` → `views.js` → `chat-threads.js` → `panel.js` → `browse-tabs.js` → `browse-urlbar.js` → `search.js` → `calendar.js` → `whiteboard.js` → `teams.js` → `experiments.js` → `editors.js` → `notebook-editor.js` → `draw-editor.js` → `slides-editor.js` → `terminal.js` → `vault.js` → `knowledge-graph.js` → `vibe.js` → `neuralook.js`
 
 **Electron:** `electron/main.js` (main process, IPC, Python server lifecycle), `electron/preload.js` (context bridge), `electron/password-store.js` (encrypted passwords via safeStorage). Tests: `tests/password-store.test.js` (node:test + node:assert).
 
@@ -118,7 +118,7 @@ Pill types: `download` (progress ring), `tts` (waveform), `audio` (animated bars
 
 **Bookmark pill:** Fires on save via `toggleSavePost()` (feed.js) and `browseSaveToReadingList()` (browse-tabs.js). Shows "Saved" with truncated title on hover. Flying bookmark icon animates to pill island. Auto-dismisses after 2.5s.
 
-API: `islandUpdate(id, data)`, `islandRemove(id)`, `_islandRender()`. Wired from `quality.js`, `browse-tabs.js`, `feed.js`, `panel.js`, `vault.js`, `neuralook.js`, `dashboard.js`, `search.js`, `paper-sidebar.js`.
+API: `islandUpdate(id, data)`, `islandRemove(id)`, `_islandRender()`. Wired from `quality.js`, `browse-tabs.js`, `feed.js`, `panel.js`, `vault.js`, `neuralook.js`, `dashboard.js`, `search.js`.
 
 ### Aether Panel
 
@@ -181,13 +181,27 @@ Webcam gaze prediction with dual-model support (CNN/MobileNet). Calibration → 
 
 State in `neuralook.js`: `_nlModelType`, `_nlModelState`, `_nlAutoRefineEnabled`, `_nlRefinementHistory`, `_nlAdaptiveRadius`.
 
+### Conversational Memory
+
+Chat conversations are automatically summarized and embedded for future recall. Backend uses Ollama (`qwen2.5:1.5b`) to extract summary + topics, then embeds with `nomic-embed-text` into `chat_memories` table.
+
+**Flow:**
+- **Save:** On chat close, `_saveChatMemory()` (panel.js) POSTs to `/api/chat-memory` → background thread summarizes + embeds → stored in SQLite
+- **Retrieve:** On first message of new chat, semantic search via `/api/chat-memories?query=...` → relevant memories injected into context as `RELEVANT PAST CONVERSATIONS:`
+- **UI:** Settings > Memory shows list of memories with topics, stats, delete/clear actions
+- **Cross-feature wiring:** Memory topics feed into interest profile (`computeInterestProfile()` in quality.js with weight 2), memory nodes appear in knowledge graph (purple, connected to papers/topics)
+
+Persistence: `list_chat_memories()`, `delete_chat_memory()`, `get_memory_stats()` in `persistence.py`. 5-min cache aligned with interest profile.
+
 ### Knowledge Graph
 
-Force-directed canvas visualization of papers, authors, topics, and notes. Nodes connected by similarity edges (via `/api/knowledge-graph/similarities`). View at `#graph`, implemented in `knowledge-graph.js` with `knowledge-graph.html` template.
+Force-directed canvas visualization of papers, authors, topics, notes, and memories. Nodes connected by similarity edges (via `/api/knowledge-graph/similarities`). View at `#graph`, implemented in `knowledge-graph.js` with `knowledge-graph.html` template.
+
+**Node types:** paper (accent color), author (blue), topic (green diamond), note (orange square), memory (purple circle). Memories connect to papers via `page_url` (discussed edge) and topics via keyword match (has_topic edge).
 
 ### Database Schema (SQLite — `aether.db`)
 
-25 tables, auto-created:
+26 tables, auto-created:
 - **Auth:** `users`, `sessions` (30-day TTL), `user_data` (per-user key-value sync)
 - **Teams:** `teams`, `team_members`, `team_invites`, `experiment_teams`
 - **Content:** `experiment_owners`, `calendar_events`, `todos`, `comments` (threaded)
@@ -195,7 +209,7 @@ Force-directed canvas visualization of papers, authors, topics, and notes. Nodes
 - **Social:** `message_reactions`, `reposts`, `blog_votes`, `achievements`
 - **Caching:** `reference_cache`, `author_cache`, `quality_cache`, `smart_highlights_cache`
 - **Feeds:** `feed_items` (indexed on source, unique on source+link)
-- **Embeddings:** `embeddings` (content_hash PK, BLOB, indexed on content_type)
+- **Embeddings:** `embeddings` (content_hash PK, BLOB, indexed on content_type), `chat_memories` (summary, topics, page_url/title, embedding BLOB, created_at)
 - **Analytics:** `usage_log`
 
 ### localStorage Keys (100+)
@@ -203,6 +217,7 @@ Force-directed canvas visualization of papers, authors, topics, and notes. Nodes
 **Auth:** `authToken`, `authUser`, `authUserInfo`
 **Feed & Quality:** `feedSources`, `customFeeds`, `qualityFilter`, `qualityPrompt`, `qualityThreshold`, `qualityCache`, `qualityBypass`, `qualityTestTitles`, `hiddenPosts`, `savedPosts`, `readPosts`, `paperRatings`, `blockedWords`, `seenPostLinks`, `repostedLinks`, `offlineCached`, `userQuotes`, `searchHistory`
 **Personalization:** `interestProfile`, `maxPerCategoryRun`, `fyWeightBase`, `fyWeightAffinity`, `fyWeightRecency`
+**Memories:** Chat memory retrieval flag managed per-session
 **Appearance:** `theme`, `accentColor`, `aetherColor`, `spinner`, `editorTheme`, `iconSize`, `pixelPet`, `pixelPetType`, `pixelPetMode`
 **UI State:** `userName`, `sidebarOrder`, `sidebarTab`, `lastHash`, `universalPanelVisible/Width`, `expSidebarWidth/Collapsed`, `teamSidebarCollapsed`, `dismissedInboxTasks`, `downloadBannerDismissed`, `_browseReturnView`, `_lastActiveView`, `_navHistory`, `_navForward`
 **Sound & TTS:** `clickSound`, `clickSoundType`, `clickAether`, `rainOn`, `rainVolume`, `rainNoiseType`, `rainFreq`, `rainSidebarVisible`, `ttsHighlight`, `ttsSpeed`, `voiceAutoSend`
@@ -227,7 +242,7 @@ arXiv (RSS + API), Hacker News, Semantic Scholar, Ollama (`localhost:11434`), Du
 
 ### Function Registry
 
-Tool for analyzing global function definitions, call sites, and dependencies across all 26 vanilla JS files. Includes scope-aware duplicate detection and script load order validation.
+Tool for analyzing global function definitions, call sites, and dependencies across all 26 vanilla JS files (paper-sidebar.js removed as of 2026-02-11). Includes scope-aware duplicate detection and script load order validation.
 
 **Usage:**
 ```bash

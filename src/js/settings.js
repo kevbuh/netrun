@@ -1021,7 +1021,7 @@ function _renderAgentSettings() {
       <div class="flex items-center justify-between mb-3">
         <div>
           <h3 class="text-white_ text-sm font-semibold">Auto Annotate</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Automatically annotate pages when you navigate in the browser. Highlights key findings, contradictions, and claims to verify.</p>
+          <p class="text-dim text-[0.8rem] mt-0.5">Automatically annotate pages when you navigate in the browser. Highlights key findings, contradictions, claims to verify, statistics, definitions, bias, and methodology.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">

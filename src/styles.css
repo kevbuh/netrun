@@ -4168,6 +4168,16 @@
       font-size: 0.65rem;
       letter-spacing: 0.5px;
       margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .aether-ann-confidence {
+      font-size: 0.6rem;
+      font-weight: 500;
+      opacity: 0.7;
+      text-transform: none;
+      letter-spacing: 0;
     }
     .aether-ann-explanation {
       line-height: 1.4;

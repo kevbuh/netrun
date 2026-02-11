@@ -2,6 +2,7 @@
 author-details, citation-lookup, paper-references, author-lookup, citations,
 panel-suggest, search-suggest."""
 import concurrent.futures
+import hashlib
 import json
 import os
 import re
@@ -1107,12 +1108,14 @@ def annotate_page():
         text = (body.get('text') or '').strip()
         url = (body.get('url') or '').strip()
         other_tabs = body.get('otherTabs') or []
+        interest_context = (body.get('interest_context') or '').strip()
         if not text:
             return jsonify({'error': 'text required'}), 400
 
         # Check in-memory cache (5 min TTL)
         now = time.time()
-        cache_key = f'annotate:{url}' if url else None
+        interest_hash = hashlib.sha256(interest_context.encode()).hexdigest()[:8] if interest_context else ''
+        cache_key = f'annotate:{url}:{interest_hash}' if url else None
         if cache_key and cache_key in _annotate_cache:
             entry = _annotate_cache[cache_key]
             if now - entry['ts'] < 300:
@@ -1128,22 +1131,32 @@ def annotate_page():
                 tab_context += f'\n\n--- OTHER TAB: "{t_title}" ---\n{t_text}\n--- END TAB ---'
 
         prompt = (
-            "You are a critical reading assistant. Analyze the following web page text and find 5-12 passages that are:\n"
-            "1. KEY_FINDING — important facts, conclusions, or data worth highlighting\n"
-            "2. CONTRADICTION — statements that conflict with content from the other open tabs listed below\n"
-            "3. VERIFY — claims that are unsubstantiated, surprising, or need fact-checking\n\n"
+            "You are a critical reading assistant. Analyze the following web page text and find 5-12 passages worth annotating.\n\n"
+            "Annotation types (use a diverse mix):\n"
+            "- KEY_FINDING — important facts, conclusions, or significant data\n"
+            "- CONTRADICTION — conflicts with content from other open tabs listed below\n"
+            "- VERIFY — unsubstantiated, surprising, or dubious claims needing fact-checking\n"
+            "- STATISTIC — specific numbers, percentages, metrics, or quantitative data\n"
+            "- DEFINITION — key terms being defined or explained\n"
+            "- BIAS — language showing bias, spin, or one-sided framing\n"
+            "- METHODOLOGY — descriptions of methods, study design, or experimental approach\n\n"
             "For each annotation provide a JSON object with:\n"
-            "- \"type\": one of \"KEY_FINDING\", \"CONTRADICTION\", \"VERIFY\"\n"
-            "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase, reword, or summarize. Copy-paste the exact characters.\n"
+            "- \"type\": one of the types above\n"
+            "- \"quote\": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n"
             "- \"explanation\": a short reason (1 sentence)\n"
+            "- \"confidence\": 0-100 how confident you are this annotation is correct and useful\n"
             "- \"conflictsWith\": (only for CONTRADICTION) the title of the other tab it conflicts with\n\n"
             "Rules:\n"
-            "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change any words, punctuation, or capitalization.\n"
+            "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change any words.\n"
             "- Only use CONTRADICTION if there is an actual conflict with another tab\n"
             "- If no other tabs are provided, do not use CONTRADICTION type\n"
+            "- Use diverse annotation types — don't only use KEY_FINDING\n"
+            "- Prioritize passages most relevant to the user's interests\n"
             "- Respond ONLY with a JSON array, no other text\n\n"
-            "--- MAIN PAGE TEXT ---\n" + main_text + "\n--- END PAGE TEXT ---"
         )
+        if interest_context:
+            prompt += "USER INTERESTS:\n" + interest_context + "\n\n"
+        prompt += "--- MAIN PAGE TEXT ---\n" + main_text + "\n--- END PAGE TEXT ---"
         if tab_context:
             prompt += tab_context
 
@@ -1154,7 +1167,7 @@ def annotate_page():
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
             "think": False,
-            "options": {"temperature": 0, "num_predict": 4000}
+            "options": {"temperature": 0, "num_predict": 6000}
         }).encode()
         llm_req = urllib.request.Request(
             "http://localhost:11434/api/chat",
@@ -1178,7 +1191,7 @@ def annotate_page():
             json_str = arr_match.group()
         parsed = json.loads(json_str)
 
-        valid_types = {'KEY_FINDING', 'CONTRADICTION', 'VERIFY'}
+        valid_types = {'KEY_FINDING', 'CONTRADICTION', 'VERIFY', 'STATISTIC', 'DEFINITION', 'BIAS', 'METHODOLOGY'}
         text_lower = text.lower()
         annotations = []
         if isinstance(parsed, list):
@@ -1194,10 +1207,49 @@ def annotate_page():
                 snapped = _snap_quote_to_text(quote, text, text_lower)
                 if not snapped:
                     continue
-                ann = {'type': atype, 'quote': snapped[:500], 'explanation': explanation[:300]}
+                # Parse and clamp confidence
+                confidence = 70
+                try:
+                    conf_val = int(item.get('confidence', 70))
+                    confidence = max(0, min(100, conf_val))
+                except (ValueError, TypeError):
+                    pass
+                ann = {'type': atype, 'quote': snapped[:500], 'explanation': explanation[:300], 'confidence': confidence}
                 if atype == 'CONTRADICTION' and item.get('conflictsWith'):
                     ann['conflictsWith'] = item['conflictsWith'][:200]
                 annotations.append(ann)
+
+        # Cross-reference search: find related saved posts and memories
+        try:
+            snippet = text[:1500]
+            xref_vec = embed_text_ollama(snippet)
+            if xref_vec:
+                connections = []
+                # Search saved posts
+                saved_results = search_embeddings(xref_vec, content_type='post', limit=3, exclude_link=url)
+                for r in saved_results:
+                    if r['score'] > 0.5 and len(connections) < 5:
+                        connections.append({
+                            'type': 'CONNECTION',
+                            'explanation': f"Related to saved post (similarity {int(r['score']*100)}%)",
+                            'confidence': int(r['score'] * 100),
+                            'linkedTitle': (r.get('title') or '')[:120],
+                            'linkedUrl': r.get('link') or ''
+                        })
+                # Search chat memories
+                mem_results = search_chat_memories(xref_vec, limit=2)
+                for r in mem_results:
+                    if r['score'] > 0.5 and len(connections) < 5:
+                        connections.append({
+                            'type': 'CONNECTION',
+                            'explanation': f"Related conversation: {(r.get('topics') or '')[:80]}",
+                            'confidence': int(r['score'] * 100),
+                            'linkedTitle': (r.get('page_title') or r.get('summary', '')[:60]),
+                            'linkedUrl': r.get('page_url') or ''
+                        })
+                annotations.extend(connections)
+        except Exception as xref_err:
+            print(f"[annotate] Cross-reference search failed: {xref_err}")
 
         # Cache result
         if cache_key:
