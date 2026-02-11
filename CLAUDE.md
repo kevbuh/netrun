@@ -211,15 +211,18 @@ arXiv (RSS + API), Hacker News, Semantic Scholar, Ollama (`localhost:11434`), Du
 
 ### Function Registry
 
-Tool for analyzing global function definitions, call sites, and dependencies across all 26 vanilla JS files.
+Tool for analyzing global function definitions, call sites, and dependencies across all 26 vanilla JS files. Includes scope-aware duplicate detection and script load order validation.
 
 **Usage:**
 ```bash
-npm run function-registry              # CLI analysis + generates reports
+npm run function-registry              # Full analysis + generates reports
+npm run validate-feeds                 # Check feed catalog sync
+npm run validate-load-order            # Check script load order
+npm run suggest-reorder                # Suggest load order improvements
 ```
 
 **In-app:** Dev panel (`#dev`) has "Analyze Functions" button that runs `/api/function-registry` and displays:
-- Total functions, duplicates, unused functions, file count
+- Total functions, duplicates (by severity), unused functions, file count
 - Top 5 duplicate function definitions (with locations)
 - First 10 unused functions (potential dead code)
 - Top 5 most-called functions
@@ -228,15 +231,34 @@ npm run function-registry              # CLI analysis + generates reports
 - `coverage/function-registry.json` - Full machine-readable report with all functions, call sites, dependencies
 - `coverage/function-registry.html` - Interactive HTML report with searchable tables, filterable views, file-by-file breakdown
 
-**Reports include:**
-- Function definitions (type, file, line number)
+**Function Registry Reports Include:**
+- Function definitions (type, file, line number, scope/nesting)
 - Call counts and call sites
-- Duplicate function names (same name in multiple scopes)
+- **Scope-aware duplicates** - Classified by severity:
+  - **ERROR**: Multiple global definitions (real naming conflict)
+  - **WARNING**: Multiple definitions at same scope level (possible bug)
+  - **INFO**: Nested in different functions (intentional, e.g., `onMove`, `handler`)
 - Unused functions (defined but never called)
 - Cross-file dependencies (what each file calls from others)
 - Most-called functions ranking
 
-Script location: `scripts/function-registry.js`
+**Feed Catalog Validator (`validate-feeds`):**
+- Validates `FEED_CATALOG` sync between `src/js/core.js` and `src/feed_catalog.py`
+- Checks that `key`, `url`, and `special` fields match exactly
+- Reports: MISSING_IN_PY, MISSING_IN_JS, URL_MISMATCH, SPECIAL_MISMATCH
+- Exit code 0 = in sync, 1 = mismatches found (suitable for CI/CD)
+- Supports `--json` flag for machine-readable output
+
+**Script Load Order Validator (`validate-load-order`):**
+- Parses script order from `src/index.html`
+- Detects forward references (file A calls function before file B defines it)
+- Classifies by severity:
+  - **WARNING**: Top-level immediate execution (risky, may fail at runtime)
+  - **INFO**: Inside function or deferred (safe with `defer` attribute)
+- Detects circular dependencies (acceptable with `defer`)
+- Shows dependency graph between files
+
+Script locations: `scripts/function-registry.js`, `scripts/validate-feeds.js`
 
 ## Key Conventions
 

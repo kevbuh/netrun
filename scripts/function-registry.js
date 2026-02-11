@@ -10,6 +10,7 @@ const path = require('path');
 
 const JS_DIR = path.join(__dirname, '../src/js');
 const OUTPUT_DIR = path.join(__dirname, '../coverage');
+const INDEX_HTML = path.join(__dirname, '../src/index.html');
 
 // Patterns to match function definitions
 const PATTERNS = {
@@ -36,13 +37,55 @@ function getJSFiles() {
 
 function extractFunctions(content, filename) {
   const functions = new Map();
-
-  // Track line numbers
   const lines = content.split('\n');
 
+  // Track brace depth and parent functions for scope analysis
+  const braceDepthAtLine = [];
+  const functionStackAtLine = [];
+  let braceDepth = 0;
+  let functionStack = [];
+
+  // First pass: calculate brace depth and function stack at each line
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check for function definitions BEFORE updating depth
+    // (so we capture the depth where the function is defined)
+    let foundFunc = null;
+    for (const [type, pattern] of Object.entries(PATTERNS)) {
+      pattern.lastIndex = 0;
+      const match = pattern.exec(line);
+      if (match) {
+        foundFunc = match[1];
+        break;
+      }
+    }
+
+    braceDepthAtLine[i] = braceDepth;
+    functionStackAtLine[i] = [...functionStack];
+
+    // If we found a function on this line, push it to stack
+    if (foundFunc) {
+      functionStack.push(foundFunc);
+    }
+
+    // Update brace depth based on braces in line
+    for (const char of line) {
+      if (char === '{') braceDepth++;
+      if (char === '}') {
+        braceDepth--;
+        // Pop function stack when exiting a function scope
+        if (braceDepth < braceDepthAtLine[i] && functionStack.length > 0) {
+          functionStack.pop();
+        }
+      }
+    }
+  }
+
+  // Second pass: extract functions with scope information
   Object.entries(PATTERNS).forEach(([type, pattern]) => {
     let match;
-    pattern.lastIndex = 0; // Reset regex
+    pattern.lastIndex = 0;
 
     while ((match = pattern.exec(content)) !== null) {
       const name = match[1];
@@ -52,12 +95,18 @@ function extractFunctions(content, filename) {
       let lineNum = 1;
       let charCount = 0;
       for (let i = 0; i < lines.length; i++) {
-        charCount += lines[i].length + 1; // +1 for newline
+        charCount += lines[i].length + 1;
         if (charCount > position) {
           lineNum = i + 1;
           break;
         }
       }
+
+      const lineIdx = lineNum - 1;
+      const nestLevel = braceDepthAtLine[lineIdx] || 0;
+      const parentFunc = functionStackAtLine[lineIdx].length > 0
+        ? functionStackAtLine[lineIdx][functionStackAtLine[lineIdx].length - 1]
+        : null;
 
       if (!functions.has(name)) {
         functions.set(name, []);
@@ -67,7 +116,10 @@ function extractFunctions(content, filename) {
         type,
         file: filename,
         line: lineNum,
-        position
+        position,
+        nestLevel,
+        parentFunc,
+        isGlobal: nestLevel === 0
       });
     }
   });
@@ -160,6 +212,64 @@ function analyzeCodebase() {
   return { files, allFunctions, allCallSites, fileContents };
 }
 
+/**
+ * Classify duplicate functions by severity based on scope
+ */
+function classifyDuplicates(defs, name) {
+  // ERROR: Multiple global definitions (real bug)
+  const globalDefs = defs.filter(d => d.isGlobal);
+  if (globalDefs.length > 1) {
+    return {
+      severity: 'ERROR',
+      reason: `${globalDefs.length} global definitions - naming conflict`,
+      defs: globalDefs
+    };
+  }
+
+  // WARNING: Multiple definitions in same file (possible bug)
+  const fileGroups = {};
+  defs.forEach(d => {
+    if (!fileGroups[d.file]) fileGroups[d.file] = [];
+    fileGroups[d.file].push(d);
+  });
+  const sameScopeInFile = Object.values(fileGroups).find(group => {
+    if (group.length <= 1) return false;
+    // Check if any two are at same nest level
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        if (group[i].nestLevel === group[j].nestLevel) {
+          return true;
+        }
+      }
+    }
+    return false;
+  });
+  if (sameScopeInFile) {
+    return {
+      severity: 'WARNING',
+      reason: 'Multiple definitions at same scope level in one file',
+      defs: sameScopeInFile
+    };
+  }
+
+  // INFO: Nested in different functions (intentional, common names)
+  const nestedDefs = defs.filter(d => !d.isGlobal);
+  if (nestedDefs.length === defs.length) {
+    return {
+      severity: 'INFO',
+      reason: 'Nested in different parent functions (common helper name)',
+      defs: nestedDefs
+    };
+  }
+
+  // Default: INFO
+  return {
+    severity: 'INFO',
+    reason: 'Multiple definitions in different scopes',
+    defs
+  };
+}
+
 function generateReport(data) {
   const { files, allFunctions, allCallSites } = data;
 
@@ -168,6 +278,9 @@ function generateReport(data) {
       totalFiles: files.length,
       totalFunctions: allFunctions.size,
       duplicateFunctions: 0,
+      duplicatesError: 0,
+      duplicatesWarning: 0,
+      duplicatesInfo: 0,
       unusedFunctions: 0,
       timestamp: new Date().toISOString()
     },
@@ -210,12 +323,21 @@ function generateReport(data) {
       }
     });
 
-    // Detect duplicates
+    // Detect duplicates with severity classification
     if (defs.length > 1) {
       report.summary.duplicateFunctions++;
+      const classification = classifyDuplicates(defs, name);
+
+      // Count by severity
+      if (classification.severity === 'ERROR') report.summary.duplicatesError++;
+      else if (classification.severity === 'WARNING') report.summary.duplicatesWarning++;
+      else report.summary.duplicatesInfo++;
+
       report.issues.duplicates.push({
         name,
-        definitions: defs
+        definitions: defs,
+        severity: classification.severity,
+        reason: classification.reason
       });
     }
 
@@ -274,14 +396,43 @@ function printConsoleReport(report) {
 
   // Duplicates
   if (report.issues.duplicates.length > 0) {
-    console.log('⚠️  Duplicate Function Definitions:');
-    report.issues.duplicates.slice(0, 10).forEach(dup => {
-      console.log(`  ${dup.name}():`);
-      dup.definitions.forEach(def => {
-        console.log(`    - ${def.file}:${def.line} (${def.type})`);
+    const errorDups = report.issues.duplicates.filter(d => d.severity === 'ERROR');
+    const warningDups = report.issues.duplicates.filter(d => d.severity === 'WARNING');
+    const infoDups = report.issues.duplicates.filter(d => d.severity === 'INFO');
+
+    console.log(`⚠️  Duplicate Function Definitions (${report.issues.duplicates.length} total):`);
+    console.log(`   ${errorDups.length} ERROR, ${warningDups.length} WARNING, ${infoDups.length} INFO\n`);
+
+    // Show ERROR duplicates first
+    if (errorDups.length > 0) {
+      console.log('  [ERROR] Global naming conflicts:');
+      errorDups.slice(0, 5).forEach(dup => {
+        console.log(`    ${dup.name}() - ${dup.reason}`);
+        dup.definitions.forEach(def => {
+          console.log(`      ${def.file}:${def.line} (${def.isGlobal ? 'global' : 'nested'})`);
+        });
       });
-    });
-    console.log();
+      console.log();
+    }
+
+    // Show WARNING duplicates
+    if (warningDups.length > 0) {
+      console.log('  [WARNING] Same scope conflicts:');
+      warningDups.slice(0, 3).forEach(dup => {
+        console.log(`    ${dup.name}() - ${dup.reason}`);
+        dup.definitions.slice(0, 3).forEach(def => {
+          console.log(`      ${def.file}:${def.line} (nest level ${def.nestLevel})`);
+        });
+      });
+      console.log();
+    }
+
+    // Show INFO duplicates (less verbose)
+    if (infoDups.length > 0) {
+      console.log(`  [INFO] Nested helpers (${infoDups.length} functions):`);
+      console.log(`    Common names: ${infoDups.slice(0, 10).map(d => d.name).join(', ')}${infoDups.length > 10 ? '...' : ''}`);
+      console.log();
+    }
   }
 
   // Unused (limit to 20)
@@ -535,20 +686,40 @@ function generateHTMLReport(report) {
 
       ${report.issues.duplicates.length > 0 ? `
         <h3>Duplicate Functions (${report.issues.duplicates.length})</h3>
+        <p style="color: #999; margin-bottom: 15px;">
+          <span class="badge badge-error">${report.summary.duplicatesError} ERROR</span>
+          <span class="badge badge-warning">${report.summary.duplicatesWarning} WARNING</span>
+          <span class="badge badge-info">${report.summary.duplicatesInfo} INFO</span>
+        </p>
         <table>
           <thead>
             <tr>
+              <th>Severity</th>
               <th>Function</th>
+              <th>Reason</th>
               <th>Definitions</th>
             </tr>
           </thead>
           <tbody>
-            ${report.issues.duplicates.map(dup => `
+            ${report.issues.duplicates
+              .sort((a, b) => {
+                const order = { ERROR: 0, WARNING: 1, INFO: 2 };
+                return order[a.severity] - order[b.severity];
+              })
+              .map(dup => `
               <tr>
+                <td>
+                  <span class="badge ${
+                    dup.severity === 'ERROR' ? 'badge-error' :
+                    dup.severity === 'WARNING' ? 'badge-warning' :
+                    'badge-info'
+                  }">${dup.severity}</span>
+                </td>
                 <td><span class="func-name">${dup.name}()</span></td>
+                <td style="font-size: 12px; color: #999;">${dup.reason}</td>
                 <td>
                   ${dup.definitions.map(def =>
-                    `<a href="#" class="file-link">${def.file}:${def.line}</a>`
+                    `<a href="#" class="file-link">${def.file}:${def.line}</a>${def.isGlobal ? ' <span style="color: #ef4444;">(global)</span>' : ` (nest ${def.nestLevel})`}`
                   ).join('<br>')}
                 </td>
               </tr>
@@ -648,7 +819,291 @@ function generateHTMLReport(report) {
   return html;
 }
 
+/**
+ * Parse script load order from index.html
+ */
+function parseScriptOrder() {
+  const content = fs.readFileSync(INDEX_HTML, 'utf8');
+  const scripts = [];
+  const scriptRegex = /<script\s+defer\s+src="\/js\/([^"]+)"><\/script>/g;
+
+  let match;
+  while ((match = scriptRegex.exec(content)) !== null) {
+    scripts.push(match[1]);
+  }
+
+  return scripts;
+}
+
+/**
+ * Build dependency graph showing which files call functions from other files
+ */
+function buildDependencyGraph(allFunctions, allCallSites, files) {
+  const graph = {};
+
+  files.forEach(filename => {
+    graph[filename] = new Set();
+  });
+
+  // For each function, find which files call it
+  allFunctions.forEach((defs, funcName) => {
+    const callSites = allCallSites.get(funcName) || [];
+
+    callSites.forEach(site => {
+      // Find where this function is defined
+      const definedIn = defs.map(d => d.file);
+
+      // If called from different file, it's a dependency
+      if (!definedIn.includes(site.file)) {
+        definedIn.forEach(defFile => {
+          graph[site.file].add(defFile);
+        });
+      }
+    });
+  });
+
+  // Convert Sets to Arrays
+  Object.keys(graph).forEach(file => {
+    graph[file] = Array.from(graph[file]);
+  });
+
+  return graph;
+}
+
+/**
+ * Detect forward references in script load order
+ */
+function detectForwardReferences(scriptOrder, allFunctions, allCallSites) {
+  const forwardRefs = [];
+  const scriptIndex = {};
+
+  scriptOrder.forEach((script, idx) => {
+    scriptIndex[script] = idx;
+  });
+
+  // For each function, check if it's called before it's defined
+  allFunctions.forEach((defs, funcName) => {
+    const callSites = allCallSites.get(funcName) || [];
+
+    callSites.forEach(site => {
+      defs.forEach(def => {
+        // Skip if call is in same file as definition
+        if (site.file === def.file) return;
+
+        const callIdx = scriptIndex[site.file];
+        const defIdx = scriptIndex[def.file];
+
+        // Forward reference: call happens in file loaded BEFORE definition
+        if (callIdx < defIdx) {
+          forwardRefs.push({
+            funcName,
+            callFile: site.file,
+            callLine: site.line,
+            callOrder: callIdx,
+            defFile: def.file,
+            defLine: def.line,
+            defOrder: defIdx
+          });
+        }
+      });
+    });
+  });
+
+  return forwardRefs;
+}
+
+/**
+ * Classify forward reference as safe or risky
+ */
+function classifyForwardRef(ref, fileContents) {
+  // Get the line of code where the call happens
+  const content = fileContents.get(ref.callFile);
+  if (!content) return 'INFO';
+
+  const lines = content.split('\n');
+  const callLine = lines[ref.callLine - 1] || '';
+
+  // Check context: is this call inside a function?
+  // Count brace depth up to this line
+  let braceDepth = 0;
+  for (let i = 0; i < ref.callLine - 1; i++) {
+    const line = lines[i];
+    for (const char of line) {
+      if (char === '{') braceDepth++;
+      if (char === '}') braceDepth--;
+    }
+  }
+
+  // If we're inside braces (inside a function), it's deferred execution
+  if (braceDepth > 0) {
+    return 'INFO';
+  }
+
+  // Top-level code - check for safe patterns
+  const safePatterns = [
+    /VIEW_REGISTRY\[/,              // VIEW_REGISTRY['feed'] = { load: ... }
+    /\.addEventListener\(/,          // element.addEventListener('click', ...)
+    /setTimeout/,                    // setTimeout(() => ...)
+    /setInterval/,                   // setInterval(() => ...)
+    /requestAnimationFrame/,         // requestAnimationFrame(...)
+    /\.then\(/,                      // promise.then(...)
+    /\.catch\(/,                     // promise.catch(...)
+  ];
+
+  if (safePatterns.some(pattern => pattern.test(callLine))) {
+    return 'INFO';
+  }
+
+  // Top-level risky patterns (immediate execution)
+  const riskyPatterns = [
+    /^\s*(?:const|let|var)\s+\w+\s*=\s*\w+\(/,  // const x = func()
+    /^\s*\w+\(/,                                  // func() at top level
+    /\(\s*function\s*\(/,                         // IIFE
+  ];
+
+  if (riskyPatterns.some(pattern => pattern.test(callLine))) {
+    return 'WARNING';
+  }
+
+  return 'INFO';
+}
+
+/**
+ * Detect circular dependencies
+ */
+function detectCycles(graph) {
+  const cycles = [];
+  const visited = new Set();
+  const recStack = new Set();
+
+  function dfs(node, path) {
+    visited.add(node);
+    recStack.add(node);
+    path.push(node);
+
+    const neighbors = graph[node] || [];
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        if (dfs(neighbor, path)) {
+          return true;
+        }
+      } else if (recStack.has(neighbor)) {
+        // Found cycle
+        const cycleStart = path.indexOf(neighbor);
+        const cycle = path.slice(cycleStart);
+        cycles.push([...cycle, neighbor]);
+        return false; // Continue searching for more cycles
+      }
+    }
+
+    recStack.delete(node);
+    path.pop();
+    return false;
+  }
+
+  Object.keys(graph).forEach(node => {
+    if (!visited.has(node)) {
+      dfs(node, []);
+    }
+  });
+
+  return cycles;
+}
+
+/**
+ * Analyze script load order
+ */
+function analyzeLoadOrder(data) {
+  const { files, allFunctions, allCallSites, fileContents } = data;
+
+  const scriptOrder = parseScriptOrder();
+  const graph = buildDependencyGraph(allFunctions, allCallSites, files);
+  const forwardRefs = detectForwardReferences(scriptOrder, allFunctions, allCallSites);
+  const cycles = detectCycles(graph);
+
+  // Classify forward references
+  const classified = forwardRefs.map(ref => ({
+    ...ref,
+    severity: classifyForwardRef(ref, fileContents)
+  }));
+
+  const warnings = classified.filter(r => r.severity === 'WARNING');
+  const infos = classified.filter(r => r.severity === 'INFO');
+
+  return {
+    scriptOrder,
+    graph,
+    forwardRefs: classified,
+    warnings,
+    infos,
+    cycles
+  };
+}
+
+/**
+ * Print load order report
+ */
+function printLoadOrderReport(loadOrderData) {
+  const { scriptOrder, forwardRefs, warnings, infos, cycles } = loadOrderData;
+
+  console.log('🔗 Script Load Order Analysis\n');
+  console.log('═'.repeat(60));
+  console.log(`Script Count:     ${scriptOrder.length}`);
+  console.log(`Forward Refs:     ${forwardRefs.length} (${warnings.length} WARNING, ${infos.length} INFO)`);
+  console.log(`Circular Deps:    ${cycles.length}`);
+  console.log('═'.repeat(60));
+  console.log();
+
+  console.log('📜 Current Load Order:');
+  scriptOrder.forEach((script, idx) => {
+    console.log(`  ${idx + 1}. ${script}`);
+  });
+  console.log();
+
+  if (warnings.length > 0) {
+    console.log('⚠️  Forward References (WARNING - may cause issues):');
+    warnings.slice(0, 10).forEach(ref => {
+      console.log(`  ${ref.callFile} (order ${ref.callOrder}) calls ${ref.funcName}()`);
+      console.log(`    Defined in ${ref.defFile} (order ${ref.defOrder}) ❌ Forward reference`);
+      console.log(`    Line ${ref.callLine} in ${ref.callFile}`);
+    });
+    console.log();
+  }
+
+  if (infos.length > 0) {
+    console.log(`ℹ️  Forward References (INFO - safe, ${infos.length} total):`);
+    const grouped = {};
+    infos.forEach(ref => {
+      const key = `${ref.callFile} → ${ref.defFile}`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(ref.funcName);
+    });
+
+    Object.entries(grouped).slice(0, 5).forEach(([key, funcs]) => {
+      console.log(`  ${key}: ${funcs.slice(0, 3).join(', ')}${funcs.length > 3 ? '...' : ''}`);
+    });
+    console.log();
+  }
+
+  if (cycles.length > 0) {
+    console.log('🔄 Circular Dependencies (OK with defer):');
+    cycles.slice(0, 5).forEach(cycle => {
+      console.log(`  ${cycle.join(' → ')}`);
+    });
+    console.log();
+  }
+
+  if (warnings.length === 0 && cycles.length === 0) {
+    console.log('✅ Current load order is optimal!\n');
+  }
+}
+
 function main() {
+  // Parse CLI args
+  const args = process.argv.slice(2);
+  const checkLoadOrder = args.includes('--check-load-order');
+  const suggestReorder = args.includes('--suggest-reorder');
+
   console.time('Analysis time');
 
   const data = analyzeCodebase();
@@ -657,7 +1112,21 @@ function main() {
   console.timeEnd('Analysis time');
   console.log();
 
-  // Print console report
+  if (checkLoadOrder || suggestReorder) {
+    // Load order analysis only
+    const loadOrderData = analyzeLoadOrder(data);
+    printLoadOrderReport(loadOrderData);
+
+    if (suggestReorder && loadOrderData.warnings.length > 0) {
+      console.log('💡 Suggestion: Review forward references above.');
+      console.log('   Most are safe (deferred via VIEW_REGISTRY, event handlers).');
+      console.log('   Current order works due to script defer attribute.\n');
+    }
+
+    return;
+  }
+
+  // Standard function registry report
   printConsoleReport(report);
 
   // Save JSON report

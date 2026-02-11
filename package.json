@@ -22,7 +22,10 @@
     "test:ci": "npm run test:all",
     "test:quick": "npm run test:unit && npm run test:backend:unit",
     "dead-code": "node scripts/dead-code.js",
-    "function-registry": "node scripts/function-registry.js"
+    "function-registry": "node scripts/function-registry.js",
+    "validate-feeds": "node scripts/validate-feeds.js",
+    "validate-load-order": "node scripts/function-registry.js --check-load-order",
+    "suggest-reorder": "node scripts/function-registry.js --suggest-reorder"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
