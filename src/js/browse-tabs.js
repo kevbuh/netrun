@@ -1181,6 +1181,98 @@ function _browseHandleNavigation(tab, frame) {
     _updateAudioIndicator();
   });
 
+  // ── Error page handling (site not found, 404, etc.) ──
+  frame.addEventListener('did-fail-load', (e) => {
+    // Ignore aborted loads (user navigated away), subframe errors, and cancelled requests
+    if (e.errorCode === -3 || e.errorCode === -27 || !e.isMainFrame) return;
+    const failedUrl = e.validatedURL || tab.url || '';
+    _browseShowErrorPage(tab, frame, failedUrl, e.errorDescription || 'Site not found', e.errorCode);
+  });
+
+  // Detect HTTP error pages (404, 500, etc.) after load finishes
+  if (_browseIsElectron) {
+    frame.addEventListener('did-finish-load', () => {
+      try {
+        frame.executeJavaScript(
+          `(() => { try { return { status: document.querySelector('title')?.textContent || '', body: document.body?.innerText?.substring(0, 500) || '' }; } catch(e) { return null; } })()`
+        ).then(info => {
+          if (!info) return;
+          const title = (info.status || '').toLowerCase();
+          const body = (info.body || '').toLowerCase();
+          const is404 = /\b404\b/.test(title) || /\b404\b.*not found/.test(body) || /not found/.test(title);
+          const isError = /\b(502|503|504)\b/.test(title) || /\b(bad gateway|service unavailable|gateway timeout)\b/.test(body);
+          if (is404 || isError) {
+            const code = is404 ? 404 : 0;
+            const desc = is404 ? 'Page not found (404)' : 'Server error';
+            _browseShowErrorPage(tab, frame, tab.url, desc, code);
+          }
+        }).catch(() => {});
+      } catch {}
+    });
+  }
+
+}
+
+function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
+  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const bg = isDark ? '#1a1a2e' : '#f5f5f5';
+  const fg = isDark ? '#e0e0e0' : '#333';
+  const mutedFg = isDark ? '#888' : '#999';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const btnBg = isDark ? '#2a2a3e' : '#fff';
+  const btnBorder = isDark ? '#444' : '#ddd';
+  const safeUrl = (failedUrl || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const displayUrl = (failedUrl || '').replace(/^https?:\/\//, '');
+  const waybackUrl = 'https://web.archive.org/web/*/' + encodeURIComponent(failedUrl || '');
+  const searchUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(displayUrl);
+
+  const is404 = errorCode === 404 || /404/.test(errorDesc);
+  const icon = is404 ? '🔍' : '🌐';
+  const title = is404 ? 'Page Not Found' : 'Can\'t Reach This Site';
+  const subtitle = is404
+    ? 'The page you\'re looking for doesn\'t exist or may have been moved.'
+    : (errorDesc || 'The site could not be loaded.');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px}
+    .err-wrap{text-align:center;max-width:480px}
+    .err-icon{font-size:64px;margin-bottom:16px}
+    .err-title{font-size:22px;font-weight:600;margin-bottom:8px}
+    .err-sub{font-size:14px;color:${mutedFg};margin-bottom:6px;line-height:1.5}
+    .err-url{font-size:12px;color:${mutedFg};word-break:break-all;margin-bottom:24px;font-family:monospace}
+    .err-actions{display:flex;flex-direction:column;gap:10px;align-items:center}
+    .err-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;border:1px solid ${btnBorder};background:${btnBg};color:${fg};font-size:14px;cursor:pointer;text-decoration:none;transition:all .15s}
+    .err-btn:hover{border-color:${accent};color:${accent}}
+    .err-btn.primary{background:${accent};color:#fff;border-color:${accent}}
+    .err-btn.primary:hover{opacity:.85}
+    .err-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .err-code{font-size:11px;color:${mutedFg};margin-top:16px}
+  </style></head><body>
+  <div class="err-wrap">
+    <div class="err-icon">${icon}</div>
+    <div class="err-title">${title}</div>
+    <div class="err-sub">${subtitle}</div>
+    <div class="err-url">${safeUrl}</div>
+    <div class="err-actions">
+      <a class="err-btn primary" href="${waybackUrl}" id="wb">⏳ Search Wayback Machine</a>
+      <div class="err-row">
+        <a class="err-btn" href="${searchUrl}" id="sr">🔎 Search the Web</a>
+        <button class="err-btn" onclick="location.reload()" id="rt">↻ Retry</button>
+      </div>
+    </div>
+    ${errorCode ? `<div class="err-code">Error ${errorCode}</div>` : ''}
+  </div></body></html>`;
+
+  if (_browseIsElectron) {
+    // For webviews, load the error page as a data URL
+    try { frame.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)); } catch {}
+  } else {
+    frame.srcdoc = html;
+  }
+  tab.title = title;
+  tab.errorPage = true;
+  _browseRenderTabs();
 }
 
 var _ytAdBlockCSS =

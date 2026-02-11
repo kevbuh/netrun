@@ -289,6 +289,200 @@ function _islandRenderPillExpanded(a) {
   return '<span class="island-dot"></span><span>' + _escHtml(a.detail || a.label || '') + '</span>';
 }
 
+// Build tray HTML for context/download/annotate/achievement/tabs pills
+function _islandBuildTray(a, isBrowse) {
+  if (a.type === 'context' && a.items && a.items.length) {
+    var trayHtml = '';
+    if (isBrowse) {
+      trayHtml += '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div>';
+      trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+    }
+    for (var ti = 0; ti < a.items.length; ti++) {
+      var item = a.items[ti];
+      var t = item.title || 'New Tab';
+      if (t.length > 36) t = t.slice(0, 34) + '\u2026';
+      var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+      var closeBtn = isBrowse ? '<button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button>' : '';
+      trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span>' + closeBtn + '</div>';
+    }
+    return trayHtml;
+  } else if (a.type === 'download' && a.items && a.items.length) {
+    var trayHtml = '<div class="island-dl-header"><span>Downloads</span><span class="island-dl-clear" data-island-dl-clear="1">Clear all</span></div>';
+    for (var ti = 0; ti < a.items.length; ti++) {
+      var item = a.items[ti];
+      var fname = item.filename || 'Download';
+      if (fname.length > 40) fname = fname.slice(0, 38) + '\u2026';
+      var dlIcon = item.state === 'completed'
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#22c55e" stroke="none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+      var dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' · ' + item.size : '')
+        : item.state === 'cancelled' ? 'Cancelled'
+        : item.pct + '% · ' + item.received + (item.size ? ' / ' + item.size : '');
+      var progressHtml = item.state === 'progressing'
+        ? '<div class="island-dl-progress"><div class="island-dl-progress-bar" style="width:' + item.pct + '%"></div></div>'
+        : '';
+      trayHtml += '<div class="island-dl-item" data-island-dl="' + _escHtml(item.id) + '">'
+        + '<div class="island-dl-icon">' + dlIcon + '</div>'
+        + '<div class="island-dl-info"><div class="island-dl-name">' + _escHtml(fname) + '</div><div class="island-dl-status">' + _escHtml(dlStatus) + '</div>' + progressHtml + '</div>'
+        + '<button class="island-dl-remove" data-island-dl-remove="' + _escHtml(item.id) + '" title="Remove">&times;</button>'
+        + '</div>';
+    }
+    return trayHtml;
+  } else if (a.type === 'annotate' && a.items && a.items.length) {
+    var annColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
+    var annLabels = { KEY_FINDING: 'Key Finding', CONTRADICTION: 'Contradiction', VERIFY: 'Verify' };
+    var trayHtml = '';
+    for (var ai = 0; ai < a.items.length; ai++) {
+      var ann = a.items[ai];
+      var ac = annColors[ann.type] || '#888';
+      var al = annLabels[ann.type] || ann.type;
+      var quote = ann.quote || '';
+      if (quote.length > 60) quote = quote.slice(0, 58) + '\u2026';
+      trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '" style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
+      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + _escHtml(al) + '</span></div>';
+      trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + _escHtml(quote) + '</div>';
+      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + _escHtml(ann.explanation) + '</div>';
+      trayHtml += '</div>';
+    }
+    return trayHtml;
+  } else if (a.type === 'achievement') {
+    return '<div class="island-ach-tray-content">'
+      + '<div class="island-ach-tray-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg></div>'
+      + '<div class="island-ach-tray-info">'
+      + '<div class="island-ach-tray-subtitle">Achievement Unlocked</div>'
+      + '<div class="island-ach-tray-name">' + _escHtml(a.label || 'Unlocked!') + '</div>'
+      + '<div class="island-ach-tray-desc">' + _escHtml(a.detail || '') + '</div>'
+      + '</div></div>';
+  } else if (a.type === 'tabs' && a.items && a.items.length) {
+    var trayHtml = '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div><div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+    var pinnedItems = a.items.filter(function(it) { return it.pinned; });
+    var unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
+    if (pinnedItems.length) {
+      for (var pi = 0; pi < pinnedItems.length; pi++) {
+        var pItem = pinnedItems[pi];
+        var pTitle = pItem.title || 'New Tab';
+        if (pTitle.length > 32) pTitle = pTitle.slice(0, 30) + '\u2026';
+        var pFav = pItem.favicon ? '<img src="' + _escHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+        var pAudio = pItem.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
+        trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(pTitle) + '</span></div>';
+      }
+      if (unpinnedItems.length) trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+    }
+    for (var ti = 0; ti < unpinnedItems.length; ti++) {
+      var item = unpinnedItems[ti];
+      var t = item.title || 'New Tab';
+      if (t.length > 32) t = t.slice(0, 30) + '\u2026';
+      var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
+      var audioIcon = item.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
+      trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
+    }
+    return trayHtml;
+  }
+  return '';
+}
+
+// Attach click handlers and hover/tray behavior to pill
+function _islandAttachHandlers(pill, a, hasTray) {
+  pill.onclick = function(e) {
+    var dismissEl = e.target.closest('[data-island-dismiss]');
+    if (dismissEl) {
+      e.stopPropagation();
+      var dismissId = dismissEl.getAttribute('data-island-dismiss');
+      var act = _islandActivities[dismissId];
+      if (act && act.dismiss) act.dismiss();
+      else islandRemove(dismissId);
+      return;
+    }
+    var tabCloseBtn = e.target.closest('[data-island-tab-close]');
+    if (tabCloseBtn) {
+      e.stopPropagation();
+      var closeTabId = +tabCloseBtn.getAttribute('data-island-tab-close');
+      if (typeof browseCloseTab === 'function') browseCloseTab(closeTabId);
+      return;
+    }
+    var tabNewBtn = e.target.closest('[data-island-tab-new]');
+    if (tabNewBtn) {
+      e.stopPropagation();
+      if (typeof browseNewTab === 'function') browseNewTab();
+      pill.classList.remove('island-tray-open');
+      return;
+    }
+    var tabItem = e.target.closest('[data-island-tab]');
+    if (tabItem) {
+      e.stopPropagation();
+      var tabId = +tabItem.getAttribute('data-island-tab');
+      if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
+      pill.classList.remove('island-tray-open');
+      return;
+    }
+    var annItem = e.target.closest('[data-island-ann]');
+    if (annItem) {
+      e.stopPropagation();
+      var annIdx = +annItem.getAttribute('data-island-ann');
+      if (typeof scrollToAnnotation === 'function') scrollToAnnotation(annIdx);
+      return;
+    }
+    var dlClear = e.target.closest('[data-island-dl-clear]');
+    if (dlClear) {
+      e.stopPropagation();
+      if (typeof clearBrowseDownloads === 'function') clearBrowseDownloads();
+      islandRemove('download');
+      return;
+    }
+    var dlRemove = e.target.closest('[data-island-dl-remove]');
+    if (dlRemove) {
+      e.stopPropagation();
+      var dlId = dlRemove.getAttribute('data-island-dl-remove');
+      if (typeof removeBrowseDownload === 'function') removeBrowseDownload(dlId);
+      return;
+    }
+    var dlItem = e.target.closest('[data-island-dl]');
+    if (dlItem) {
+      e.stopPropagation();
+      var dlId = dlItem.getAttribute('data-island-dl');
+      if (typeof openDownloadFile === 'function') openDownloadFile(dlId);
+      return;
+    }
+    if (a.action) a.action();
+  };
+  pill.style.cursor = (a.action || a.type === 'annotate' || a.type === 'tabs') ? 'pointer' : 'default';
+
+  // Hover/click management for tray
+  if (hasTray) {
+    if (a.type === 'tabs') {
+      // Tabs/annotate uses click-to-toggle instead of hover
+      if (!pill._islandClickBound) {
+        pill._islandClickBound = true;
+        pill.style.cursor = 'pointer';
+        pill.addEventListener('click', function(e) {
+          if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss]')) return;
+          pill.classList.toggle('island-tray-open');
+        });
+        // Close on outside click or focus loss (webview clicks don't bubble)
+        document.addEventListener('click', function(e) {
+          if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
+        });
+        window.addEventListener('blur', function() {
+          pill.classList.remove('island-tray-open');
+        });
+        document.addEventListener('mousedown', function(e) {
+          if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
+        });
+      }
+    } else if (!pill._islandHoverBound) {
+      pill._islandHoverBound = true;
+      pill.addEventListener('mouseenter', function() {
+        if (pill._islandLeaveTimer) { clearTimeout(pill._islandLeaveTimer); pill._islandLeaveTimer = null; }
+        if (pill._islandAutoClose) { clearTimeout(pill._islandAutoClose); pill._islandAutoClose = null; }
+        pill.classList.add('island-tray-open');
+      });
+      pill.addEventListener('mouseleave', function() {
+        pill._islandLeaveTimer = setTimeout(function() { pill.classList.remove('island-tray-open'); }, 120);
+      });
+    }
+  }
+}
+
 // FLIP-animate neighboring pills when one enters/exits/compacts
 function _islandFlipNeighbors(cont) {
   if (!cont) return;
@@ -400,166 +594,19 @@ function _islandRender() {
     }
     // Fill items tray for context / download pills
     if (tray) {
-      if (a.type === 'context' && a.items && a.items.length) {
-        var isBrowse = (typeof _browseTabLayout !== 'undefined') && ((_currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
-        var trayHtml = '';
-        if (isBrowse) {
-          trayHtml += '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div>';
-          trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
-        }
-        for (var ti = 0; ti < a.items.length; ti++) {
-          var item = a.items[ti];
-          var t = item.title || 'New Tab';
-          if (t.length > 36) t = t.slice(0, 34) + '\u2026';
-          var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-          var closeBtn = isBrowse ? '<button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button>' : '';
-          trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span>' + closeBtn + '</div>';
-        }
-        tray.innerHTML = trayHtml;
-      } else if (a.type === 'download' && a.items && a.items.length) {
-        var trayHtml = '<div class="island-dl-header"><span>Downloads</span><span class="island-dl-clear" data-island-dl-clear="1">Clear all</span></div>';
-        for (var ti = 0; ti < a.items.length; ti++) {
-          var item = a.items[ti];
-          var fname = item.filename || 'Download';
-          if (fname.length > 40) fname = fname.slice(0, 38) + '\u2026';
-          var dlIcon = item.state === 'completed'
-            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#22c55e" stroke="none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
-            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
-          var dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' · ' + item.size : '')
-            : item.state === 'cancelled' ? 'Cancelled'
-            : item.pct + '% · ' + item.received + (item.size ? ' / ' + item.size : '');
-          var progressHtml = item.state === 'progressing'
-            ? '<div class="island-dl-progress"><div class="island-dl-progress-bar" style="width:' + item.pct + '%"></div></div>'
-            : '';
-          trayHtml += '<div class="island-dl-item" data-island-dl="' + _escHtml(item.id) + '">'
-            + '<div class="island-dl-icon">' + dlIcon + '</div>'
-            + '<div class="island-dl-info"><div class="island-dl-name">' + _escHtml(fname) + '</div><div class="island-dl-status">' + _escHtml(dlStatus) + '</div>' + progressHtml + '</div>'
-            + '<button class="island-dl-remove" data-island-dl-remove="' + _escHtml(item.id) + '" title="Remove">&times;</button>'
-            + '</div>';
-        }
-        tray.innerHTML = trayHtml;
-      } else if (a.type === 'annotate' && a.items && a.items.length) {
-        var annColors = { KEY_FINDING: '#4caf50', CONTRADICTION: '#ef5350', VERIFY: '#ffc107' };
-        var annLabels = { KEY_FINDING: 'Key Finding', CONTRADICTION: 'Contradiction', VERIFY: 'Verify' };
-        var trayHtml = '';
-        for (var ai = 0; ai < a.items.length; ai++) {
-          var ann = a.items[ai];
-          var ac = annColors[ann.type] || '#888';
-          var al = annLabels[ann.type] || ann.type;
-          var quote = ann.quote || '';
-          if (quote.length > 60) quote = quote.slice(0, 58) + '\u2026';
-          trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '" style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
-          trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + _escHtml(al) + '</span></div>';
-          trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + _escHtml(quote) + '</div>';
-          if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + _escHtml(ann.explanation) + '</div>';
-          trayHtml += '</div>';
-        }
-        tray.innerHTML = trayHtml;
-      } else if (a.type === 'achievement') {
-        tray.innerHTML = '<div class="island-ach-tray-content">'
-          + '<div class="island-ach-tray-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg></div>'
-          + '<div class="island-ach-tray-info">'
-          + '<div class="island-ach-tray-subtitle">Achievement Unlocked</div>'
-          + '<div class="island-ach-tray-name">' + _escHtml(a.label || 'Unlocked!') + '</div>'
-          + '<div class="island-ach-tray-desc">' + _escHtml(a.detail || '') + '</div>'
-          + '</div></div>';
-      } else if (a.type === 'tabs' && a.items && a.items.length) {
-        var trayHtml = '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div><div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
-        var pinnedItems = a.items.filter(function(it) { return it.pinned; });
-        var unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
-        if (pinnedItems.length) {
-          for (var pi = 0; pi < pinnedItems.length; pi++) {
-            var pItem = pinnedItems[pi];
-            var pTitle = pItem.title || 'New Tab';
-            if (pTitle.length > 32) pTitle = pTitle.slice(0, 30) + '\u2026';
-            var pFav = pItem.favicon ? '<img src="' + _escHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-            var pAudio = pItem.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
-            trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(pTitle) + '</span></div>';
-          }
-          if (unpinnedItems.length) trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
-        }
-        for (var ti = 0; ti < unpinnedItems.length; ti++) {
-          var item = unpinnedItems[ti];
-          var t = item.title || 'New Tab';
-          if (t.length > 32) t = t.slice(0, 30) + '\u2026';
-          var fav = item.favicon ? '<img src="' + _escHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-          var audioIcon = item.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
-          trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
-        }
-        tray.innerHTML = trayHtml;
-      } else {
-        tray.innerHTML = '';
-      }
+      var isBrowse = (typeof _browseTabLayout !== 'undefined') && ((_currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
+      tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
-    pill.onclick = function(e) {
-      var dismissEl = e.target.closest('[data-island-dismiss]');
-      if (dismissEl) {
-        e.stopPropagation();
-        var dismissId = dismissEl.getAttribute('data-island-dismiss');
-        var act = _islandActivities[dismissId];
-        if (act && act.dismiss) act.dismiss();
-        else islandRemove(dismissId);
-        return;
-      }
-      var tabCloseBtn = e.target.closest('[data-island-tab-close]');
-      if (tabCloseBtn) {
-        e.stopPropagation();
-        var closeTabId = +tabCloseBtn.getAttribute('data-island-tab-close');
-        if (typeof browseCloseTab === 'function') browseCloseTab(closeTabId);
-        return;
-      }
-      var tabNewBtn = e.target.closest('[data-island-tab-new]');
-      if (tabNewBtn) {
-        e.stopPropagation();
-        if (typeof browseNewTab === 'function') browseNewTab();
-        pill.classList.remove('island-tray-open');
-        return;
-      }
-      var tabItem = e.target.closest('[data-island-tab]');
-      if (tabItem) {
-        e.stopPropagation();
-        var tabId = +tabItem.getAttribute('data-island-tab');
-        if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
-        pill.classList.remove('island-tray-open');
-        return;
-      }
-      var annItem = e.target.closest('[data-island-ann]');
-      if (annItem) {
-        e.stopPropagation();
-        var annIdx = +annItem.getAttribute('data-island-ann');
-        if (typeof scrollToAnnotation === 'function') scrollToAnnotation(annIdx);
-        return;
-      }
-      var dlClear = e.target.closest('[data-island-dl-clear]');
-      if (dlClear) {
-        e.stopPropagation();
-        if (typeof clearBrowseDownloads === 'function') clearBrowseDownloads();
-        islandRemove('download');
-        return;
-      }
-      var dlRemove = e.target.closest('[data-island-dl-remove]');
-      if (dlRemove) {
-        e.stopPropagation();
-        var dlId = dlRemove.getAttribute('data-island-dl-remove');
-        if (typeof removeBrowseDownload === 'function') removeBrowseDownload(dlId);
-        return;
-      }
-      var dlItem = e.target.closest('[data-island-dl]');
-      if (dlItem) {
-        e.stopPropagation();
-        var dlId = dlItem.getAttribute('data-island-dl');
-        if (typeof openDownloadFile === 'function') openDownloadFile(dlId);
-        return;
-      }
-      if (a.action) a.action();
-    };
-    pill.style.cursor = (a.action || a.type === 'annotate' || a.type === 'tabs') ? 'pointer' : 'default';
     var hasItems = !!(a.items && a.items.length);
     var hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'annotate')) || a.type === 'achievement';
     pill.classList.toggle('island-context', a.type === 'context');
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');
     pill.classList.toggle('island-has-items', hasTray);
+
+    // Attach event handlers
+    _islandAttachHandlers(pill, a, hasTray);
+
     // Sync goo tray dimensions with actual tray content
     if (hasTray && tray && tray.innerHTML) {
       var syncGoo = function() {
@@ -577,41 +624,6 @@ function _islandRender() {
           if (pill.classList.contains('island-tray-open')) requestAnimationFrame(syncGoo);
         });
         obs.observe(pill, { attributes: true, attributeFilter: ['class'] });
-      }
-    }
-
-    // Hover/click management for tray
-    if (hasTray) {
-      if (a.type === 'tabs') {
-        // Tabs/annotate uses click-to-toggle instead of hover
-        if (!pill._islandClickBound) {
-          pill._islandClickBound = true;
-          pill.style.cursor = 'pointer';
-          pill.addEventListener('click', function(e) {
-            if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss]')) return;
-            pill.classList.toggle('island-tray-open');
-          });
-          // Close on outside click or focus loss (webview clicks don't bubble)
-          document.addEventListener('click', function(e) {
-            if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
-          });
-          window.addEventListener('blur', function() {
-            pill.classList.remove('island-tray-open');
-          });
-          document.addEventListener('mousedown', function(e) {
-            if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
-          });
-        }
-      } else if (!pill._islandHoverBound) {
-        pill._islandHoverBound = true;
-        pill.addEventListener('mouseenter', function() {
-          if (pill._islandLeaveTimer) { clearTimeout(pill._islandLeaveTimer); pill._islandLeaveTimer = null; }
-          if (pill._islandAutoClose) { clearTimeout(pill._islandAutoClose); pill._islandAutoClose = null; }
-          pill.classList.add('island-tray-open');
-        });
-        pill.addEventListener('mouseleave', function() {
-          pill._islandLeaveTimer = setTimeout(function() { pill.classList.remove('island-tray-open'); }, 120);
-        });
       }
     }
 
