@@ -7,12 +7,20 @@
     "postinstall": "node scripts/rename-electron.js",
     "start": "electron .",
     "server": "venv/bin/python3 src/app.py",
-    "test": "npm run test:electron && npm run test:unit",
+    "test": "npm run test:electron && npm run test:unit && npm run test:backend",
     "test:electron": "node --test 'tests/**/*.test.js'",
     "test:unit": "vitest run",
+    "test:backend": "venv/bin/pytest src/tests -v",
+    "test:backend:unit": "venv/bin/pytest src/tests/unit -v",
+    "test:backend:integration": "venv/bin/pytest src/tests/integration -v -m integration",
     "test:watch": "vitest",
+    "test:watch:backend": "venv/bin/pytest-watch src/tests",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:backend": "venv/bin/pytest src/tests --cov=src --cov-report=html --cov-report=term",
+    "test:all": "npm run test:electron && npm run test:unit && npm run test:backend",
+    "test:ci": "npm run test:all",
+    "test:quick": "npm run test:unit && npm run test:backend:unit"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
