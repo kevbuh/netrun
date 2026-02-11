@@ -856,8 +856,7 @@ function dismissDownloadBanner() {
   localStorage.setItem('downloadBannerDismissed', 'true');
   const banner = document.getElementById('download-app-banner');
   if (banner) {
-    banner.style.animation = 'slideUp 0.3s ease-out';
-    setTimeout(() => banner.classList.add('hidden'), 300);
+    Motion.animate(banner, { spring: 'smooth', duration: 300, from: { opacity: 1, y: 0 }, to: { opacity: 0, y: -20 }, onFinish: function() { banner.classList.add('hidden'); } });
   }
 }
 

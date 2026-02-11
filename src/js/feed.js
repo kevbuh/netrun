@@ -2019,9 +2019,11 @@ function _renderPapersNow() {
   const prevLinks = _renderedLinks;
   _renderedLinks = new Set(visible.map(p => p.link));
   if (prevLinks.size > 0) {
+    var _feedNewIdx = 0;
     container.querySelectorAll('[data-link]').forEach(el => {
       if (!prevLinks.has(el.dataset.link)) {
-        el.classList.add('feed-enter');
+        Motion.animate(el, { spring: 'smooth', from: { opacity: 0, y: 8 }, to: { opacity: 1, y: 0 }, delay: _feedNewIdx * Motion.stagger.tight });
+        _feedNewIdx++;
         // Add a notification dot that fades after 10s
         const dot = document.createElement('span');
         dot.className = 'feed-new-dot';

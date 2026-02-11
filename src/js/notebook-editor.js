@@ -503,7 +503,7 @@ async function saveNotebook() {
     body: JSON.stringify({content: JSON.stringify(nbData, null, 2)})
   });
   const ind = document.getElementById('nb-save-ind');
-  if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
 }
 
 function addNbCell(type) {

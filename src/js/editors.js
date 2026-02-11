@@ -110,7 +110,7 @@ async function saveMarkdown() {
     body: JSON.stringify({content})
   });
   const ind = document.getElementById('md-save-ind');
-  if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
 }
 
 // ── Markdown Toolbar Helpers ──
@@ -561,7 +561,7 @@ async function saveLatex() {
     body: JSON.stringify({content})
   });
   const ind = document.getElementById('tex-save-ind');
-  if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
 }
 
 async function compileLatex() {
@@ -826,7 +826,7 @@ async function saveMermaid() {
     body: JSON.stringify({content: content})
   });
   var ind = document.getElementById('mermaid-save-ind');
-  if (ind) { ind.style.opacity='1'; setTimeout(function(){ind.style.opacity='0';},1500); }
+  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
 }
 
 function startRenameMermaidFile(fname) {
@@ -1490,6 +1490,6 @@ async function savePythonFile() {
     body: JSON.stringify({content})
   });
   const ind = document.getElementById('py-save-ind');
-  if (ind) { ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
+  if (ind) { Motion.animate(ind, { duration: 200, from: { opacity: 0 }, to: { opacity: 1 } }); setTimeout(function() { Motion.animate(ind, { duration: 300, from: { opacity: 1 }, to: { opacity: 0 } }); }, 1200); }
 }
 

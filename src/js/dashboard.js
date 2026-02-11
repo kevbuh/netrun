@@ -1170,6 +1170,8 @@ const DEV_SECTIONS = [
 
 var _devActiveSection = null;
 var _devD3Loaded = false;
+var _devGraphLevel = 'file'; // 'file' or 'function'
+var _devGraphData = null;
 
 function _devLineChart(hist, yKey, label, color, tooltipFn) {
   if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
@@ -1511,12 +1513,32 @@ function _renderDevDependencyGraph() {
   contentPane.innerHTML = `
     <h2 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Dependency Graph</h2>
     <p style="color:var(--text-dimmer);font-size:0.75rem;margin-bottom:16px">
-      Git-style hierarchical view of file dependencies. Files arranged by load order (top to bottom). Zoom/pan, click to highlight.
+      Interactive dependency visualization. Switch between file-level and function-level views.
     </p>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+
+    <!-- Controls Row 1: Load & Level Toggle -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="_devLoadDependencyGraph()" id="dev-dep-graph-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Load Graph</button>
+
+      <div style="display:flex;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;overflow:hidden">
+        <button onclick="_devSetGraphLevel('file')" id="dev-graph-level-file" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer">Files</button>
+        <button onclick="_devSetGraphLevel('function')" id="dev-graph-level-function" style="background:transparent;color:var(--text-primary);border:none;padding:6px 14px;font-size:0.75rem;cursor:pointer">Functions</button>
+      </div>
+
       <button onclick="_devResetGraphZoom()" id="dev-graph-reset-btn" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 14px;font-size:0.75rem;cursor:pointer;display:none">Reset Zoom</button>
       <span id="dev-dep-graph-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+    </div>
+
+    <!-- Controls Row 2: Search & Filters (for function view) -->
+    <div id="dev-graph-function-controls" style="display:none;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+      <input type="text" id="dev-graph-search" placeholder="Search functions..." style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 12px;font-size:0.75rem;width:250px" oninput="_devGraphSearch(this.value)">
+      <select id="dev-graph-file-filter" onchange="_devGraphFilterByFile(this.value)" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 12px;font-size:0.75rem">
+        <option value="">All Files</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--text-dimmer)">
+        <input type="checkbox" id="dev-graph-show-unused" onchange="_devGraphToggleUnused(this.checked)">
+        Show unused
+      </label>
     </div>
 
     <!-- Legend -->
@@ -1534,6 +1556,34 @@ function _renderDevDependencyGraph() {
       <svg id="dev-dep-graph-svg" style="width:100%;height:600px"></svg>
     </div>
   `;
+}
+
+function _devSetGraphLevel(level) {
+  _devGraphLevel = level;
+
+  // Update button styles
+  const fileBtn = document.getElementById('dev-graph-level-file');
+  const funcBtn = document.getElementById('dev-graph-level-function');
+  const funcControls = document.getElementById('dev-graph-function-controls');
+
+  if (level === 'file') {
+    fileBtn.style.background = 'var(--accent)';
+    fileBtn.style.color = '#fff';
+    funcBtn.style.background = 'transparent';
+    funcBtn.style.color = 'var(--text-primary)';
+    funcControls.style.display = 'none';
+  } else {
+    fileBtn.style.background = 'transparent';
+    fileBtn.style.color = 'var(--text-primary)';
+    funcBtn.style.background = 'var(--accent)';
+    funcBtn.style.color = '#fff';
+    funcControls.style.display = 'flex';
+  }
+
+  // Reload if data already loaded
+  if (_devGraphData) {
+    _devLoadDependencyGraph();
+  }
 }
 
 async function _devLoadDependencyGraph() {
@@ -1563,7 +1613,7 @@ async function _devLoadDependencyGraph() {
       });
     }
 
-    const res = await fetch('/api/dependency-graph', { headers: _authHeaders() });
+    const res = await fetch(`/api/dependency-graph?level=${_devGraphLevel}`, { headers: _authHeaders() });
     const data = await res.json();
 
     if (data.status === 'error') {
@@ -1572,12 +1622,27 @@ async function _devLoadDependencyGraph() {
       return;
     }
 
-    status.textContent = `${data.nodes.length} files, ${data.edges.length} dependencies`;
+    _devGraphData = data;
+
+    // Update file filter dropdown for function view
+    if (_devGraphLevel === 'function') {
+      const fileFilter = document.getElementById('dev-graph-file-filter');
+      const files = [...new Set(data.nodes.map(n => n.file))].sort();
+      fileFilter.innerHTML = '<option value="">All Files</option>' +
+        files.map(f => `<option value="${f}">${f}</option>`).join('');
+    }
+
+    const nodeLabel = _devGraphLevel === 'file' ? 'files' : 'functions';
+    status.textContent = `${data.nodes.length} ${nodeLabel}, ${data.edges.length} dependencies`;
     status.style.color = 'var(--text-success)';
     resetBtn.style.display = 'inline-block';
 
     // Render the graph
-    _devRenderD3Graph(data.nodes, data.edges);
+    if (_devGraphLevel === 'file') {
+      _devRenderFileGraph(data.nodes, data.edges);
+    } else {
+      _devRenderFunctionGraph(data.nodes, data.edges);
+    }
 
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
@@ -1598,7 +1663,7 @@ function _devResetGraphZoom() {
   }
 }
 
-function _devRenderD3Graph(nodes, edges) {
+function _devRenderFileGraph(nodes, edges) {
   const svg = d3.select('#dev-dep-graph-svg');
   const container = document.getElementById('dev-dep-graph-container');
   const width = container.clientWidth;
@@ -1799,6 +1864,223 @@ function _devRenderD3Graph(nodes, edges) {
   node
     .attr('cx', d => d.x)
     .attr('cy', d => d.y);
+}
+
+function _devRenderFunctionGraph(allNodes, allEdges) {
+  const svg = d3.select('#dev-dep-graph-svg');
+  const container = document.getElementById('dev-dep-graph-container');
+  const width = container.clientWidth;
+
+  // Filter nodes: show only functions with calls or being called (skip unused by default)
+  const showUnused = document.getElementById('dev-graph-show-unused')?.checked || false;
+  const fileFilter = document.getElementById('dev-graph-file-filter')?.value || '';
+
+  let nodes = allNodes.filter(n => {
+    if (fileFilter && n.file !== fileFilter) return false;
+    if (!showUnused && n.callCount === 0) return false;
+    return true;
+  });
+
+  let edges = allEdges.filter(e => {
+    const sourceExists = nodes.find(n => n.id === e.source);
+    const targetExists = nodes.find(n => n.id === e.target);
+    return sourceExists && targetExists;
+  });
+
+  // Group by file for hierarchical layout
+  const fileGroups = {};
+  nodes.forEach(node => {
+    if (!fileGroups[node.file]) fileGroups[node.file] = [];
+    fileGroups[node.file].push(node);
+  });
+
+  const files = Object.keys(fileGroups).sort();
+  const height = Math.max(600, files.length * 200);
+
+  svg.style('height', height + 'px');
+  svg.selectAll('*').remove();
+
+  const g = svg.append('g');
+
+  // Setup zoom
+  _devGraphZoom = d3.zoom()
+    .scaleExtent([0.3, 3])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    });
+
+  svg.call(_devGraphZoom);
+
+  // Layout: group functions by file vertically
+  const fileSpacing = 180;
+  const funcSpacing = 22;
+  const leftMargin = 100;
+  const funcIndent = 30;
+
+  nodes.forEach((node) => {
+    // Position within file group
+    const fileIndex = files.indexOf(node.file);
+    const fileStart = 40 + fileIndex * fileSpacing;
+    const fileNodes = fileGroups[node.file];
+    const funcIndex = fileNodes.indexOf(node);
+
+    node.x = leftMargin + funcIndent;
+    node.y = fileStart + 30 + funcIndex * funcSpacing;
+  });
+
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+  // Draw file group labels and boxes
+  files.forEach((file, i) => {
+    const fileY = 40 + i * fileSpacing;
+    g.append('text')
+      .attr('x', leftMargin)
+      .attr('y', fileY)
+      .attr('font-size', 12)
+      .attr('font-weight', 600)
+      .attr('font-family', 'monospace')
+      .attr('fill', 'var(--accent)')
+      .text(file.replace('.js', ''));
+
+    // File group box
+    const fileNodeCount = fileGroups[file].length;
+    g.append('rect')
+      .attr('x', leftMargin - 10)
+      .attr('y', fileY + 10)
+      .attr('width', width - leftMargin - 50)
+      .attr('height', fileNodeCount * funcSpacing + 30)
+      .attr('fill', 'none')
+      .attr('stroke', 'var(--border-card)')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,3')
+      .attr('rx', 6);
+  });
+
+  // Draw edges
+  const link = g.append('g')
+    .selectAll('path')
+    .data(edges)
+    .join('path')
+    .attr('fill', 'none')
+    .attr('stroke', d => {
+      const source = nodeMap.get(d.source);
+      const target = nodeMap.get(d.target);
+      return source && target && source.file !== target.file ? '#60a5fa' : 'var(--text-dimmer)';
+    })
+    .attr('stroke-opacity', 0.3)
+    .attr('stroke-width', d => Math.min(3, Math.max(0.5, Math.sqrt(d.calls))))
+    .attr('d', d => {
+      const source = nodeMap.get(d.source);
+      const target = nodeMap.get(d.target);
+      if (!source || !target) return '';
+
+      const sx = source.x;
+      const sy = source.y;
+      const tx = target.x;
+      const ty = target.y;
+      const midX = (sx + tx) / 2;
+
+      return `M ${sx},${sy} C ${midX},${sy} ${midX},${ty} ${tx},${ty}`;
+    });
+
+  // Draw nodes
+  const node = g.append('g')
+    .selectAll('circle')
+    .data(nodes)
+    .join('circle')
+    .attr('cx', d => d.x)
+    .attr('cy', d => d.y)
+    .attr('r', 3)
+    .attr('fill', d => d.callCount > 10 ? 'var(--accent)' : 'var(--text-dimmer)')
+    .attr('stroke', 'var(--bg-card)')
+    .attr('stroke-width', 1)
+    .style('cursor', 'pointer')
+    .on('click', function(event, d) {
+      const connectedIds = new Set([d.id]);
+      edges.forEach(e => {
+        if (e.source === d.id) connectedIds.add(e.target);
+        if (e.target === d.id) connectedIds.add(e.source);
+      });
+
+      node.attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.2);
+      link.attr('opacity', e => (e.source === d.id || e.target === d.id) ? 0.8 : 0.05);
+      label.attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.2);
+    })
+    .on('dblclick', function() {
+      node.attr('opacity', 1);
+      link.attr('opacity', 0.3);
+      label.attr('opacity', 1);
+    });
+
+  // Draw labels
+  const label = g.append('g')
+    .selectAll('text')
+    .data(nodes)
+    .join('text')
+    .attr('x', d => d.x + 8)
+    .attr('y', d => d.y)
+    .attr('dy', '0.35em')
+    .attr('font-size', 10)
+    .attr('font-family', 'monospace')
+    .attr('fill', 'var(--text-primary)')
+    .text(d => d.id)
+    .style('pointer-events', 'none');
+
+  // Tooltips
+  const tooltip = d3.select('body').selectAll('.dev-graph-tooltip').data([0]).join('div')
+    .attr('class', 'dev-graph-tooltip')
+    .style('position', 'absolute')
+    .style('background', 'var(--bg-card)')
+    .style('border', '1px solid var(--border-card)')
+    .style('border-radius', '6px')
+    .style('padding', '6px 10px')
+    .style('font-size', '0.7rem')
+    .style('pointer-events', 'none')
+    .style('opacity', 0)
+    .style('z-index', 10000);
+
+  node.on('mouseover', function(event, d) {
+    tooltip.transition().duration(100).style('opacity', 1);
+    tooltip.html(`<strong>${d.id}</strong><br/>File: ${d.file}<br/>Called: ${d.callCount}x<br/>Type: ${d.type}`)
+    .style('left', (event.pageX + 10) + 'px')
+    .style('top', (event.pageY - 10) + 'px');
+  })
+  .on('mouseout', function() {
+    tooltip.transition().duration(100).style('opacity', 0);
+  });
+
+  svg.call(_devGraphZoom.transform, d3.zoomIdentity.translate(20, 0).scale(1));
+}
+
+function _devGraphSearch(query) {
+  if (!_devGraphData || _devGraphLevel !== 'function') return;
+
+  query = query.toLowerCase().trim();
+  if (!query) {
+    _devRenderFunctionGraph(_devGraphData.nodes, _devGraphData.edges);
+    return;
+  }
+
+  const filtered = _devGraphData.nodes.filter(n =>
+    n.id.toLowerCase().includes(query)
+  );
+
+  const filteredIds = new Set(filtered.map(n => n.id));
+  const edges = _devGraphData.edges.filter(e =>
+    filteredIds.has(e.source) && filteredIds.has(e.target)
+  );
+
+  _devRenderFunctionGraph(filtered, edges);
+}
+
+function _devGraphFilterByFile(file) {
+  if (!_devGraphData || _devGraphLevel !== 'function') return;
+  _devRenderFunctionGraph(_devGraphData.nodes, _devGraphData.edges);
+}
+
+function _devGraphToggleUnused(show) {
+  if (!_devGraphData || _devGraphLevel !== 'function') return;
+  _devRenderFunctionGraph(_devGraphData.nodes, _devGraphData.edges);
 }
 
 // ── Git Log Section ──

@@ -611,129 +611,252 @@ def validate_load_order(google_id):
 @require_auth
 def dependency_graph(google_id):
     """
-    Generate dependency graph data for D3.js visualization.
+    Generate function-level dependency graph data for D3.js visualization.
+
+    Query params:
+        ?level=file (default) - File-level dependencies
+        ?level=function - Function-level dependencies
 
     Returns:
         {
             "status": "ok",
-            "nodes": [{"id": "core.js", "functions": 150, "loc": 6000, "order": 0}, ...],
-            "edges": [{"source": "core.js", "target": "feed.js", "calls": 45, "severity": "INFO"}, ...]
+            "level": "file" | "function",
+            "nodes": [...],
+            "edges": [...]
         }
     """
     try:
-        import json
-        # Run function registry analysis
-        script_path = os.path.join(os.path.dirname(DIR), 'scripts', 'function-registry.js')
-        result = subprocess.run(
-            ['node', script_path],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        level = request.args.get('level', 'file')
 
-        if result.returncode != 0:
-            return jsonify({'status': 'error', 'message': f'Script failed: {result.stderr}'}), 500
-
-        # Read the generated JSON report
-        json_path = os.path.join(os.path.dirname(DIR), 'coverage', 'function-registry.json')
-        if not os.path.exists(json_path):
-            return jsonify({'status': 'error', 'message': 'Report file not found'}), 500
-
-        with open(json_path, 'r') as f:
-            data = json.load(f)
-
-        # Also get load order data for severity info
-        load_result = subprocess.run(
-            ['node', script_path, '--check-load-order', '--json'],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        load_data = {}
-        if load_result.returncode == 0:
-            try:
-                load_data = json.loads(load_result.stdout)
-            except json.JSONDecodeError:
-                pass
-
-        # Build nodes (files)
-        nodes = []
-        file_stats = data.get('files', {})
-        script_order = load_data.get('scriptOrder', [])
-
-        for filename, stats in file_stats.items():
-            nodes.append({
-                'id': filename,
-                'functions': stats.get('functionCount', 0),
-                'loc': stats.get('loc', 0),
-                'order': script_order.index(filename) if filename in script_order else 999
-            })
-
-        # Build edges (dependencies)
-        edges = []
-        edge_map = {}  # Track (source, target) -> {calls, severity}
-
-        # Process forward references to get severity
-        forward_refs = load_data.get('forwardRefs', [])
-        for ref in forward_refs:
-            source = ref.get('callFile')
-            target = ref.get('defFile')
-            severity = ref.get('severity', 'INFO')
-
-            if source and target and source != target:
-                key = (source, target)
-                if key not in edge_map:
-                    edge_map[key] = {'calls': 0, 'severity': severity}
-                edge_map[key]['calls'] += 1
-                # Keep highest severity (ERROR > WARNING > INFO)
-                if severity == 'ERROR' or (severity == 'WARNING' and edge_map[key]['severity'] == 'INFO'):
-                    edge_map[key]['severity'] = severity
-
-        # Process all cross-file function calls to get call counts
-        functions = data.get('functions', {})
-        for func_name, func_data in functions.items():
-            defs = func_data.get('definitions', [])
-            call_sites = func_data.get('callSites', [])
-
-            if not defs or not call_sites:
-                continue
-
-            # Get all files where function is defined
-            def_files = set(d.get('file') for d in defs if d.get('file'))
-
-            # Count calls from other files
-            for site in call_sites:
-                source = site.get('file')
-                if not source:
-                    continue
-
-                # If calling from different file, it's a dependency
-                for target in def_files:
-                    if source != target:
-                        key = (source, target)
-                        if key not in edge_map:
-                            edge_map[key] = {'calls': 0, 'severity': None}
-                        edge_map[key]['calls'] += 1
-
-        # Convert edge_map to array
-        for (source, target), data in edge_map.items():
-            edges.append({
-                'source': source,
-                'target': target,
-                'calls': data['calls'],
-                'severity': data['severity']
-            })
-
-        return jsonify({
-            'status': 'ok',
-            'nodes': nodes,
-            'edges': edges
-        })
+        if level == 'function':
+            return _build_function_level_graph()
+        else:
+            return _build_file_level_graph()
 
     except subprocess.TimeoutExpired:
         return jsonify({'status': 'error', 'message': 'Analysis timed out'}), 500
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+def _build_function_level_graph():
+    """Build function-level dependency graph"""
+    import json
+
+    # Run function registry analysis
+    script_path = os.path.join(os.path.dirname(DIR), 'scripts', 'function-registry.js')
+    result = subprocess.run(
+        ['node', script_path],
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+
+    if result.returncode != 0:
+        return jsonify({'status': 'error', 'message': f'Script failed: {result.stderr}'}), 500
+
+    # Read the generated JSON report
+    json_path = os.path.join(os.path.dirname(DIR), 'coverage', 'function-registry.json')
+    if not os.path.exists(json_path):
+        return jsonify({'status': 'error', 'message': 'Report file not found'}), 500
+
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+
+    # Build function nodes
+    nodes = []
+    functions = data.get('functions', {})
+
+    for func_name, func_data in functions.items():
+        defs = func_data.get('definitions', [])
+        call_count = func_data.get('callCount', 0)
+
+        # Skip if no definitions
+        if not defs:
+            continue
+
+        # Use first definition for metadata
+        primary_def = defs[0]
+        file_name = primary_def.get('file', '')
+        line_num = primary_def.get('line', 0)
+
+        nodes.append({
+            'id': func_name,
+            'file': file_name,
+            'line': line_num,
+            'callCount': call_count,
+            'type': primary_def.get('type', 'function'),
+            'isGlobal': primary_def.get('isGlobal', False),
+            'definitionCount': len(defs)
+        })
+
+    # Build function edges (who calls whom)
+    edges = []
+    edge_map = {}  # Track (caller, callee) -> count
+
+    for func_name, func_data in functions.items():
+        call_sites = func_data.get('callSites', [])
+
+        for site in call_sites:
+            caller_file = site.get('file')
+            caller_line = site.get('line')
+
+            # Find which function contains this call site
+            caller_func = _find_function_at_line(functions, caller_file, caller_line)
+
+            if caller_func and caller_func != func_name:
+                key = (caller_func, func_name)
+                if key not in edge_map:
+                    edge_map[key] = 0
+                edge_map[key] += 1
+
+    # Convert edge_map to array
+    for (source, target), count in edge_map.items():
+        edges.append({
+            'source': source,
+            'target': target,
+            'calls': count
+        })
+
+    return jsonify({
+        'status': 'ok',
+        'level': 'function',
+        'nodes': nodes,
+        'edges': edges
+    })
+
+
+def _find_function_at_line(functions, file_name, line_num):
+    """Find which function contains a given line number"""
+    # Simple heuristic: find function in same file with line <= target
+    candidates = []
+
+    for func_name, func_data in functions.items():
+        for defn in func_data.get('definitions', []):
+            if defn.get('file') == file_name:
+                func_line = defn.get('line', 0)
+                if func_line <= line_num:
+                    candidates.append((func_name, func_line, line_num - func_line))
+
+    # Return function with smallest distance
+    if candidates:
+        candidates.sort(key=lambda x: x[2])
+        return candidates[0][0]
+
+    return None
+
+
+def _build_file_level_graph():
+    """Build file-level dependency graph"""
+    import json
+    # Run function registry analysis
+    script_path = os.path.join(os.path.dirname(DIR), 'scripts', 'function-registry.js')
+    result = subprocess.run(
+        ['node', script_path],
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+
+    if result.returncode != 0:
+        return jsonify({'status': 'error', 'message': f'Script failed: {result.stderr}'}), 500
+
+    # Read the generated JSON report
+    json_path = os.path.join(os.path.dirname(DIR), 'coverage', 'function-registry.json')
+    if not os.path.exists(json_path):
+        return jsonify({'status': 'error', 'message': 'Report file not found'}), 500
+
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+
+    # Also get load order data for severity info
+    load_result = subprocess.run(
+        ['node', script_path, '--check-load-order', '--json'],
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+    load_data = {}
+    if load_result.returncode == 0:
+        try:
+            load_data = json.loads(load_result.stdout)
+        except json.JSONDecodeError:
+            pass
+
+    # Build nodes (files)
+    nodes = []
+    file_stats = data.get('files', {})
+    script_order = load_data.get('scriptOrder', [])
+
+    for filename, stats in file_stats.items():
+        nodes.append({
+            'id': filename,
+            'functions': stats.get('functionCount', 0),
+            'loc': stats.get('loc', 0),
+            'order': script_order.index(filename) if filename in script_order else 999
+        })
+
+    # Build edges (dependencies)
+    edges = []
+    edge_map = {}  # Track (source, target) -> {calls, severity}
+
+    # Process forward references to get severity
+    forward_refs = load_data.get('forwardRefs', [])
+    for ref in forward_refs:
+        source = ref.get('callFile')
+        target = ref.get('defFile')
+        severity = ref.get('severity', 'INFO')
+
+        if source and target and source != target:
+            key = (source, target)
+            if key not in edge_map:
+                edge_map[key] = {'calls': 0, 'severity': severity}
+            edge_map[key]['calls'] += 1
+            # Keep highest severity (ERROR > WARNING > INFO)
+            if severity == 'ERROR' or (severity == 'WARNING' and edge_map[key]['severity'] == 'INFO'):
+                edge_map[key]['severity'] = severity
+
+    # Process all cross-file function calls to get call counts
+    functions = data.get('functions', {})
+    for func_name, func_data in functions.items():
+        defs = func_data.get('definitions', [])
+        call_sites = func_data.get('callSites', [])
+
+        if not defs or not call_sites:
+            continue
+
+        # Get all files where function is defined
+        def_files = set(d.get('file') for d in defs if d.get('file'))
+
+        # Count calls from other files
+        for site in call_sites:
+            source = site.get('file')
+            if not source:
+                continue
+
+            # If calling from different file, it's a dependency
+            for target in def_files:
+                if source != target:
+                    key = (source, target)
+                    if key not in edge_map:
+                        edge_map[key] = {'calls': 0, 'severity': None}
+                    edge_map[key]['calls'] += 1
+
+    # Convert edge_map to array
+    for (source, target), data in edge_map.items():
+        edges.append({
+            'source': source,
+            'target': target,
+            'calls': data['calls'],
+            'severity': data['severity']
+        })
+
+    return jsonify({
+        'status': 'ok',
+        'level': 'file',
+        'nodes': nodes,
+        'edges': edges
+    })
 
 
 @bp.route('/api/calendar')

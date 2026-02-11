@@ -1574,8 +1574,10 @@ function _postQuoteText(text) {
   toast.className = 'doc-selection-popup';
   toast.style.cssText = 'position:fixed;left:50%;top:20px;transform:translateX(-50%);padding:6px 14px;font-size:0.78rem;pointer-events:none;';
   toast.textContent = 'Quote posted to feed';
+  toast.style.opacity = '0';
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 1500);
+  Motion.animate(toast, { spring: 'smooth', from: { opacity: 0, y: -8 }, to: { opacity: 1, y: 0 } });
+  setTimeout(function() { Motion.animate(toast, { spring: 'smooth', from: { opacity: 1 }, to: { opacity: 0 }, onFinish: function() { toast.remove(); } }); }, 1200);
 }
 
 // Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
