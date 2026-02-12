@@ -16,9 +16,7 @@ function getQualityPrompt() {
 }
 async function fetchServerPrompt() {
   try {
-    const resp = await fetch('/api/quality-prompt');
-    if (!resp.ok) return null;
-    const data = await resp.json();
+    const data = await apiGet('/api/quality-prompt');
     if (data.prompt) {
       localStorage.setItem('qualityPrompt', data.prompt);
       return data.prompt;
@@ -39,11 +37,7 @@ async function saveQualityPrompt() {
     localStorage.removeItem('qualityPrompt');
   }
   try {
-    await fetch('/api/quality-prompt', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: val === DEFAULT_QUALITY_PROMPT ? '' : val })
-    });
+    await apiPut('/api/quality-prompt', { prompt: val === DEFAULT_QUALITY_PROMPT ? '' : val });
   } catch (e) { console.warn('saveQualityPrompt:', e); }
   localStorage.removeItem('qualityCache');
   renderPapers();
@@ -53,11 +47,7 @@ async function saveQualityPrompt() {
 }
 function resetQualityPrompt() {
   localStorage.removeItem('qualityPrompt');
-  fetch('/api/quality-prompt', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: '' })
-  }).catch((e) => { /* fire-and-forget */ });
+  apiPut('/api/quality-prompt', { prompt: '' }).catch(() => { /* fire-and-forget */ });
   const el = document.getElementById('quality-prompt-input');
   if (el) el.value = DEFAULT_QUALITY_PROMPT;
   runPromptTest();
@@ -76,13 +66,9 @@ async function runPromptTestInternal() {
   try {
     for (let i = 0; i < titles.length; i += 10) {
       const batch = titles.slice(i, i + 10);
-      const resp = await fetch('/api/quality-filter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titles: batch, prompt, mode: 'verdict' })
-      });
-      if (!resp.ok) { resultsEl.innerHTML = '<div class="text-red-400 text-[0.75rem]">API error — is Ollama running?</div>'; return []; }
-      const results = await resp.json();
+      let results;
+      try { results = await apiPost('/api/quality-filter', { titles: batch, prompt, mode: 'verdict' }); }
+      catch { resultsEl.innerHTML = '<div class="text-red-400 text-[0.75rem]">API error — is Ollama running?</div>'; return []; }
       for (const t of batch) {
         const verdict = results[t] || 'unknown';
         if (verdict !== 'skip') failures.push(t);
@@ -106,11 +92,7 @@ async function runPromptTest() {
 function resetEverything() {
   localStorage.removeItem('qualityPrompt');
   localStorage.setItem('qualityThreshold', '30');
-  fetch('/api/quality-prompt', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: '' })
-  }).catch((e) => { /* fire-and-forget */ });
+  apiPut('/api/quality-prompt', { prompt: '' }).catch(() => { /* fire-and-forget */ });
   localStorage.removeItem('qualityCache');
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
@@ -251,14 +233,8 @@ async function _qualityFilterPapersInner() {
       if (_qfAborted) return;
       const batch = needVerdict.slice(i, i + 40);
       try {
-        const resp = await fetch('/api/quality-filter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ titles: batch, prompt: getQualityPrompt(), mode: 'verdict' })
-        });
+        const verdicts = await apiPost('/api/quality-filter', { titles: batch, prompt: getQualityPrompt(), mode: 'verdict' });
         if (_qfAborted) return;
-        if (!resp.ok) continue;
-        const verdicts = await resp.json();
         const updated = getQualityCache();
         for (const [title, v] of Object.entries(verdicts)) {
           updated[title] = { v };
@@ -288,14 +264,8 @@ async function _qualityFilterPapersInner() {
       try {
         const scoreBody = { titles: batch, mode: 'score' };
         if (interestCtx) scoreBody.interest_context = interestCtx;
-        const resp = await fetch('/api/quality-filter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(scoreBody)
-        });
+        const scores = await apiPost('/api/quality-filter', scoreBody);
         if (_qfAborted) return;
-        if (!resp.ok) continue;
-        const scores = await resp.json();
         const updated = getQualityCache();
         for (const [title, s] of Object.entries(scores)) {
           if (updated[title]) updated[title].s = s;
@@ -399,11 +369,7 @@ function computeInterestProfile() {
   // Fire-and-forget fetch for next call (5min TTL same as profile)
   if (Date.now() - _memoryStatsFetchedAt > 5 * 60 * 1000) {
     _memoryStatsFetchedAt = Date.now();
-    var _hdr = {};
-    var _tk = localStorage.getItem('authToken');
-    if (_tk) _hdr['Authorization'] = 'Bearer ' + _tk;
-    fetch('/api/chat-memories/stats', { headers: _hdr })
-      .then(function(r) { return r.json(); })
+    apiGet('/api/chat-memories/stats')
       .then(function(data) { _memoryStatsCache = data; })
       .catch(function() {});
   }

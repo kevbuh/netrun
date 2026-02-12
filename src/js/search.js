@@ -164,8 +164,7 @@ async function doSearchArxiv() {
   if (!container) return;
   container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Searching arXiv...</div></div>';
   try {
-    const resp = await fetch(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=100`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const resp = await api(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=100`);
     const xml = await resp.text();
     parseSearchArxivResults(xml);
   } catch (err) {
@@ -286,9 +285,8 @@ async function fetchSearchCitations(total) {
   const ids = results.map(r => r.arxivId);
   if (!ids.length) return;
   try {
-    const resp = await fetch('/api/citations', {
+    const resp = await api('/api/citations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids })
     });
     if (resp.ok) {
@@ -418,17 +416,11 @@ async function doSemanticSearch(query) {
   if (arxivContainer) arxivContainer.innerHTML = '';
   try {
     islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
-    const resp = await fetch('/api/semantic-search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, limit: 20 })
-    });
-    islandRemove('ai-semantic');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
+    let data;
+    try { data = await apiPost('/api/semantic-search', { query, limit: 20 }); }
+    finally { islandRemove('ai-semantic'); }
     _renderSemanticResults(feedContainer, data.results || [], `Semantic results for "${query}"`);
   } catch (err) {
-    islandRemove('ai-semantic');
     if (feedContainer) feedContainer.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">${err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)}</div>`;
   }
 }

@@ -45,8 +45,7 @@ function _insertIframeWithOverlay(container, url) {
 
 function _tryRenderSavedContent(container, paper) {
   const url = paper.link;
-  fetch(`/api/saved-content?url=${encodeURIComponent(url)}`)
-    .then(r => r.ok ? r.json() : null)
+  apiGet(`/api/saved-content?url=${encodeURIComponent(url)}`)
     .then(data => {
       if (data && data.text && data.text.length > 50) {
         _renderReaderView(container, data);

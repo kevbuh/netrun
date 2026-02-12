@@ -281,11 +281,7 @@ async function _kgCollectNotes(nodeMap) {
     notes = _vaultNotes;
   } else {
     try {
-      const headers = {};
-      const token = localStorage.getItem('authToken');
-      if (token) headers['Authorization'] = 'Bearer ' + token;
-      const resp = await fetch('/api/vault/notes', { headers });
-      if (resp.ok) notes = await resp.json();
+      notes = await apiGet('/api/vault/notes');
     } catch (e) { /* ignore */ }
   }
 
@@ -305,12 +301,7 @@ async function _kgCollectNotes(nodeMap) {
 
 async function _kgCollectMemories(nodeMap) {
   try {
-    const headers = {};
-    const token = localStorage.getItem('authToken');
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const resp = await fetch('/api/chat-memories/list?limit=30', { headers });
-    if (!resp.ok) return;
-    const data = await resp.json();
+    const data = await apiGet('/api/chat-memories/list?limit=30');
     for (const mem of (data.memories || [])) {
       const id = 'm:' + mem.id;
       if (nodeMap[id]) continue;
@@ -382,16 +373,7 @@ async function _kgFetchSimilarities(papers, nodeMap) {
   const links = papers.map(p => p.link).filter(Boolean);
   if (links.length < 2) return;
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('authToken');
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const resp = await fetch('/api/knowledge-graph/similarities', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ links, threshold: 0.65 }),
-    });
-    if (!resp.ok) return;
-    const data = await resp.json();
+    const data = await apiPost('/api/knowledge-graph/similarities', { links, threshold: 0.65 });
     for (const edge of (data.edges || [])) {
       const srcId = 'p:' + edge.source;
       const tgtId = 'p:' + edge.target;
@@ -704,18 +686,11 @@ function _kgOnPointerUp(e) {
 // ── Search ──
 async function _kgSearch(query) {
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('authToken');
-    if (token) headers['Authorization'] = 'Bearer ' + token;
     islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
-    const resp = await fetch('/api/semantic-search', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query, limit: 30 }),
-    });
-    islandRemove('ai-semantic');
-    if (!resp.ok) { _kgClearHighlight(); return; }
-    const data = await resp.json();
+    let data;
+    try { data = await apiPost('/api/semantic-search', { query, limit: 30 }); }
+    finally { islandRemove('ai-semantic'); }
+    if (!data) { _kgClearHighlight(); return; }
     const matchedLinks = new Set((data.results || []).map(r => r.link));
 
     // Build highlight set: matched papers + 1-hop connected nodes

@@ -4,26 +4,20 @@ const _calendarNotifiedIds = new Set();
 
 async function fetchCalendarEvents() {
   try {
-    const evResp = await fetch('/api/calendar', { headers: _authHeaders() });
-    calendarEvents = await evResp.json();
+    calendarEvents = await apiGet('/api/calendar');
   } catch (e) { calendarEvents = []; }
 }
 
 async function addCalendarEvent(ev) {
   try {
-    const resp = await fetch('/api/calendar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify(ev)
-    });
-    const created = await resp.json();
+    const created = await apiPost('/api/calendar', ev);
     calendarEvents.push(created);
   } catch (e) { /* silently fail */ }
 }
 
 async function deleteCalendarEvent(id) {
   try {
-    await fetch('/api/calendar/' + id, { method: 'DELETE', headers: _authHeaders() });
+    await apiDelete('/api/calendar/' + id);
     calendarEvents = calendarEvents.filter(e => e.id !== id);
   } catch (e) { /* silently fail */ }
 }
