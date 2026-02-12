@@ -11,6 +11,7 @@ const path = require('path');
 const JS_DIR = path.join(__dirname, '../src/js');
 const OUTPUT_DIR = path.join(__dirname, '../coverage');
 const INDEX_HTML = path.join(__dirname, '../src/index.html');
+const VIEWS_DIR = path.join(__dirname, '../src/views');
 
 // Patterns to match function definitions
 const PATTERNS = {
@@ -28,6 +29,47 @@ const PATTERNS = {
 
 // Function call pattern (simple heuristic)
 const CALL_PATTERN = /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
+
+/**
+ * Extract function references from HTML event handlers
+ */
+function extractHTMLReferences() {
+  const references = new Set();
+
+  // Parse index.html
+  if (fs.existsSync(INDEX_HTML)) {
+    const content = fs.readFileSync(INDEX_HTML, 'utf-8');
+    extractFromHTML(content, references);
+  }
+
+  // Parse views/*.html
+  if (fs.existsSync(VIEWS_DIR)) {
+    const viewFiles = fs.readdirSync(VIEWS_DIR).filter(f => f.endsWith('.html'));
+    viewFiles.forEach(filename => {
+      const filepath = path.join(VIEWS_DIR, filename);
+      const content = fs.readFileSync(filepath, 'utf-8');
+      extractFromHTML(content, references);
+    });
+  }
+
+  return references;
+}
+
+function extractFromHTML(content, references) {
+  // Match event handlers: onclick="func()" onmouseenter="func()" etc.
+  const eventHandlerPattern = /\bon\w+="([^"]+)"/g;
+  let match;
+
+  while ((match = eventHandlerPattern.exec(content)) !== null) {
+    const handler = match[1];
+    // Extract function calls from handler code
+    const funcPattern = /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
+    let funcMatch;
+    while ((funcMatch = funcPattern.exec(handler)) !== null) {
+      references.add(funcMatch[1]);
+    }
+  }
+}
 
 function getJSFiles() {
   return fs.readdirSync(JS_DIR)
@@ -176,13 +218,16 @@ function analyzeCodebase() {
   // Only log if not in JSON output mode
   const jsonOutput = process.argv.includes('--json');
   if (!jsonOutput) {
-    console.log('🔍 Scanning JavaScript files...\n');
+    console.log('🔍 Scanning JavaScript files and HTML templates...\n');
   }
 
   const files = getJSFiles();
   const allFunctions = new Map();
   const allCallSites = new Map();
   const fileContents = new Map();
+
+  // Extract HTML event handler references
+  const htmlReferences = extractHTMLReferences();
 
   // First pass: extract all function definitions
   files.forEach(filename => {
@@ -200,7 +245,7 @@ function analyzeCodebase() {
     });
   });
 
-  // Second pass: find call sites
+  // Second pass: find call sites in JS files
   files.forEach(filename => {
     const content = fileContents.get(filename);
     const callSites = findCallSites(content, filename, allFunctions);
@@ -213,7 +258,21 @@ function analyzeCodebase() {
     });
   });
 
-  return { files, allFunctions, allCallSites, fileContents };
+  // Third pass: add HTML references as call sites
+  htmlReferences.forEach(funcName => {
+    if (allFunctions.has(funcName)) {
+      if (!allCallSites.has(funcName)) {
+        allCallSites.set(funcName, []);
+      }
+      // Add a synthetic call site from HTML
+      allCallSites.get(funcName).push({
+        file: 'HTML',
+        line: 0
+      });
+    }
+  });
+
+  return { files, allFunctions, allCallSites, fileContents, htmlReferences };
 }
 
 /**
@@ -230,7 +289,7 @@ function classifyDuplicates(defs, name) {
     };
   }
 
-  // WARNING: Multiple definitions in same file (possible bug)
+  // WARNING: Multiple definitions in same parent scope (actual conflict)
   const fileGroups = {};
   defs.forEach(d => {
     if (!fileGroups[d.file]) fileGroups[d.file] = [];
@@ -238,10 +297,14 @@ function classifyDuplicates(defs, name) {
   });
   const sameScopeInFile = Object.values(fileGroups).find(group => {
     if (group.length <= 1) return false;
-    // Check if any two are at same nest level
+    // Check if any two are in the SAME parent function (actual conflict)
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
-        if (group[i].nestLevel === group[j].nestLevel) {
+        // Same parent means same parentFunc name AND same nest level
+        // If both are top-level (parentFunc === null), that's a global conflict (already caught above)
+        if (group[i].parentFunc === group[j].parentFunc &&
+            group[i].parentFunc !== null &&
+            group[i].nestLevel === group[j].nestLevel) {
           return true;
         }
       }
@@ -251,7 +314,7 @@ function classifyDuplicates(defs, name) {
   if (sameScopeInFile) {
     return {
       severity: 'WARNING',
-      reason: 'Multiple definitions at same scope level in one file',
+      reason: 'Multiple definitions in same parent function (actual conflict)',
       defs: sameScopeInFile
     };
   }
@@ -275,7 +338,7 @@ function classifyDuplicates(defs, name) {
 }
 
 function generateReport(data) {
-  const { files, allFunctions, allCallSites } = data;
+  const { files, allFunctions, allCallSites, htmlReferences } = data;
 
   const report = {
     summary: {
@@ -286,6 +349,7 @@ function generateReport(data) {
       duplicatesWarning: 0,
       duplicatesInfo: 0,
       unusedFunctions: 0,
+      htmlReferences: htmlReferences ? htmlReferences.size : 0,
       timestamp: new Date().toISOString()
     },
     files: {},
@@ -322,6 +386,9 @@ function generateReport(data) {
     });
 
     callSites.forEach(site => {
+      // Skip HTML references (not a real file)
+      if (site.file === 'HTML') return;
+
       if (!report.files[site.file].calls.includes(name)) {
         report.files[site.file].calls.push(name);
       }
@@ -381,6 +448,7 @@ function printConsoleReport(report) {
   console.log('═'.repeat(60));
   console.log(`Total Files:      ${report.summary.totalFiles}`);
   console.log(`Total Functions:  ${report.summary.totalFunctions}`);
+  console.log(`HTML References:  ${report.summary.htmlReferences}`);
   console.log(`Duplicates:       ${report.summary.duplicateFunctions}`);
   console.log(`Unused:           ${report.summary.unusedFunctions}`);
   console.log('═'.repeat(60));
@@ -441,7 +509,8 @@ function printConsoleReport(report) {
 
   // Unused (limit to 20)
   if (report.issues.unused.length > 0) {
-    console.log(`🗑️  Unused Functions (${report.issues.unused.length} total, showing first 20):`);
+    console.log(`🗑️  Potentially Unused Functions (${report.issues.unused.length} total, showing first 20):`);
+    console.log(`   Note: May include functions used via addEventListener, setTimeout, or injected scripts\n`);
     report.issues.unused.slice(0, 20).forEach(unused => {
       console.log(`  ${unused.name}() - ${unused.definedIn}:${unused.line}`);
     });
@@ -602,6 +671,10 @@ function generateHTMLReport(report) {
         <h3>Unused</h3>
         <div class="value">${report.summary.unusedFunctions}</div>
       </div>
+      <div class="stat-card">
+        <h3>HTML References</h3>
+        <div class="value">${report.summary.htmlReferences}</div>
+      </div>
     </div>
 
     <input type="text" class="search-box" id="searchBox" placeholder="Search functions, files, or dependencies...">
@@ -631,12 +704,14 @@ function generateHTMLReport(report) {
               const def = data.definitions[0];
               const isDuplicate = data.definitions.length > 1;
               const isUnused = data.callCount === 0;
+              const isHTMLCalled = data.callSites.some(site => site.file === 'HTML');
               return `
                 <tr data-search="${name} ${def.file}">
                   <td>
                     <span class="func-name">${name}()</span>
                     ${isDuplicate ? '<span class="badge badge-warning">Duplicate</span>' : ''}
                     ${isUnused ? '<span class="badge badge-error">Unused</span>' : ''}
+                    ${isHTMLCalled ? '<span class="badge badge-info">HTML</span>' : ''}
                   </td>
                   <td><a href="#" class="file-link">${def.file}:${def.line}</a></td>
                   <td>${data.callCount}</td>
