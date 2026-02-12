@@ -114,17 +114,56 @@ window.addEventListener('resize', function() {
   if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
 });
 
-// Register pulse pill + wire updates from Motion.pulse
+// Register pulse pill — renders into #pill-live-pulse (right of audio pill)
 (function() {
+  function _renderLivePulse() {
+    var el = document.getElementById('pill-live-pulse');
+    if (!el) return;
+    var intensity = (typeof Motion !== 'undefined' && Motion.pulse) ? Math.min(Motion.pulse.rate / 5, 1) : 0;
+    var cls = intensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
+    var dot = el.querySelector('.live-pulse-dot');
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.className = 'live-pulse-dot island-pulse-dot ' + cls;
+      el.appendChild(dot);
+    } else {
+      dot.className = 'live-pulse-dot island-pulse-dot ' + cls;
+    }
+    dot.style.setProperty('--pulse-intensity', intensity.toFixed(2));
+
+    // Build dropdown tray
+    var dropdown = el.querySelector('.pulse-dropdown');
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'pulse-dropdown';
+      el.appendChild(dropdown);
+    }
+    var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
+    var html = '<div class="pulse-dropdown-inner">';
+    html += '<div style="padding:6px 8px;font-size:0.6rem;color:var(--aether-text-muted);text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
+    var catColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+    var start = Math.max(0, recent.length - 30);
+    for (var ri = recent.length - 1; ri >= start; ri--) {
+      var ev = recent[ri];
+      var col = catColors[ev.category] || '#94a3b8';
+      var age = Math.round((Date.now() - ev.timestamp) / 1000);
+      var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
+      var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
+      html += '<div class="pulse-event-row"><span class="pulse-status-dot" style="background:' + statusDot + '"></span><span class="pulse-cat" style="color:' + col + '">' + escapeHtml(ev.category) + '</span><span class="pulse-label">' + escapeHtml(ev.label) + '</span><span class="pulse-age">' + ageStr + '</span></div>';
+    }
+    if (!recent.length) html += '<div style="padding:8px;opacity:0.3;font-size:0.65rem;text-align:center">No events yet</div>';
+    html += '</div>';
+    dropdown.innerHTML = html;
+  }
   function _initPulse() {
-    islandUpdate('pulse', { type: 'pulse', label: '' });
+    _renderLivePulse();
     if (typeof Motion !== 'undefined' && Motion.pulse) {
       var _pulseThrottle = null;
       Motion.pulse.on(function() {
         if (_pulseThrottle) return;
         _pulseThrottle = setTimeout(function() {
           _pulseThrottle = null;
-          islandUpdate('pulse', { type: 'pulse', label: '' });
+          _renderLivePulse();
         }, 500);
       });
     }
@@ -280,7 +319,7 @@ function _renderAudioPill() {
     + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'
     + '<span class="audio-pill-row-label">Read aloud</span></div>';
 
-  dropdown.innerHTML = rows;
+  dropdown.innerHTML = '<div class="audio-pill-dropdown-inner">' + rows + '</div>';
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
 else setTimeout(_renderAudioPill, 0);
@@ -665,7 +704,7 @@ function _islandRender() {
 
   // Pinned pills always first (far left): pulse → tabs → nowplaying
   var pinnedLeft = [];
-  ['pulse', 'tabs', 'nowplaying'].forEach(function(pid) {
+  ['tabs', 'nowplaying'].forEach(function(pid) {
     var idx = ids.indexOf(pid);
     if (idx !== -1) { ids.splice(idx, 1); pinnedLeft.push(pid); }
   });

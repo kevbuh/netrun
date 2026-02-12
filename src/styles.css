@@ -2189,6 +2189,87 @@
       margin: 0;
     }
     /* ── Unified Audio Pill ── */
+    #pill-live-pulse {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 28px;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+      position: relative;
+      cursor: pointer;
+    }
+    .pulse-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      padding-top: 4px;
+      min-width: 240px;
+      max-height: 360px;
+      z-index: 9999;
+    }
+    .pulse-dropdown-inner {
+      background: var(--aether-bg);
+      border: 1px solid var(--aether-border);
+      border-radius: 10px;
+      padding: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    #pill-live-pulse:hover .pulse-dropdown {
+      display: block;
+    }
+    .pulse-event-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      font-size: 0.65rem;
+      border-radius: 4px;
+    }
+    .pulse-event-row:hover { background: var(--aether-hover); }
+    .pulse-status-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pulse-cat {
+      min-width: 36px;
+      flex-shrink: 0;
+    }
+    .pulse-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.7;
+    }
+    .pulse-age {
+      opacity: 0.35;
+      flex-shrink: 0;
+    }
+    .live-pulse-dot.island-pulse-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-secondary, #666);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .live-pulse-dot.island-pulse-dot-idle {
+      opacity: 0.25;
+      animation: pulse-breathe 3s ease-in-out infinite;
+    }
+    .live-pulse-dot.island-pulse-dot-active {
+      opacity: 1;
+      background: var(--accent);
+      box-shadow: 0 0 4px var(--accent);
+      animation: island-pulse calc(1.5s - var(--pulse-intensity, 0) * 1s) ease-in-out infinite;
+    }
     #pill-audio-unified {
       position: relative;
       flex-shrink: 0;
@@ -2228,13 +2309,15 @@
       position: absolute;
       top: 100%;
       right: 0;
-      margin-top: 4px;
+      padding-top: 4px;
       min-width: 180px;
+      z-index: 9999;
+    }
+    .audio-pill-dropdown-inner {
       background: var(--aether-bg);
       border: 1px solid var(--aether-border);
       border-radius: 10px;
       padding: 4px;
-      z-index: 9999;
       box-shadow: 0 8px 24px rgba(0,0,0,0.3);
     }
     #pill-audio-unified:hover .audio-pill-dropdown {
