@@ -10,10 +10,10 @@ from functools import wraps
 
 from flask import request, jsonify
 
-from persistence import (
-    get_session_user, touch_last_seen,
-    get_vault_project_dir, slugify, unique_vault_slug, cached_fetch,
-)
+from users import get_session_user, touch_last_seen
+from db import get_vault_project_dir
+from utils_persistence import slugify, unique_vault_slug
+from cache import cached_fetch
 
 
 # ── Auth decorators ──

@@ -311,6 +311,12 @@ function loadWindowState() {
 function saveWindowState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
+  // Don't save window state when in fullscreen mode (e.g., fullscreen videos)
+  if (mainWindow.isFullScreen()) {
+    console.log('[window-state] Skipping save - window is in fullscreen mode');
+    return;
+  }
+
   try {
     const bounds = mainWindow.getBounds();
     console.log('[window-state] Saving:', bounds);
