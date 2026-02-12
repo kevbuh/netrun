@@ -1,3 +1,2 @@
-# NetRun
+# Netrun
 
-Your intelligent research and development environment
