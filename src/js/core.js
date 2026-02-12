@@ -235,7 +235,7 @@ var _islandWaveformBars = '<span class="island-waveform"><span class="island-wav
 var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 
 // ── Unified Audio Pill ──
-var _audioUnifiedState = { tab: null, tts: null, cc: null };
+var _audioUnifiedState = { tab: null, tts: null, cc: null, mic: null };
 var _ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 function _ttsCycleSpeed() {
@@ -270,7 +270,9 @@ function _renderAudioPill() {
   var tab = _audioUnifiedState.tab;
   var tts = _audioUnifiedState.tts;
   var cc = _audioUnifiedState.cc;
-  var active = !!(tab || tts || cc);
+  var mic = _audioUnifiedState.mic;
+  var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
+  var active = !!(tab || tts || cc || mic || micRecording);
 
   // Build pill indicator
   var indicator = el.querySelector('.audio-pill-indicator');
@@ -280,7 +282,11 @@ function _renderAudioPill() {
     el.appendChild(indicator);
   }
 
-  if (active) {
+  if (micRecording) {
+    indicator.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    indicator.classList.add('audio-pill-active');
+    indicator.classList.remove('audio-pill-idle');
+  } else if (active) {
     indicator.innerHTML = _islandAudioBars;
     indicator.classList.add('audio-pill-active');
     indicator.classList.remove('audio-pill-idle');
@@ -347,10 +353,28 @@ function _renderAudioPill() {
       + '<span class="audio-pill-row-label">Captions</span></div>';
   }
 
-  // Mic button
-  rows += '<div class="audio-pill-row" onclick="_pillMicClick()">'
-    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
-    + '<span class="audio-pill-row-label">Voice input</span></div>';
+  // Mic — recording, transcribing, or idle
+  var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
+  if (micRecording) {
+    rows += '<div class="audio-pill-row audio-pill-mic-active" onclick="_pillMicClick()">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      + '<span class="audio-pill-row-label" style="color:#ef4444">Stop recording</span></div>';
+    // Show live transcript if available
+    var liveText = (typeof _pillMicLiveText !== 'undefined' && _pillMicLiveText) ? _pillMicLiveText : '';
+    if (liveText) {
+      rows += '<div class="audio-pill-row audio-pill-transcript">'
+        + '<span class="audio-pill-row-label" style="font-size:12px;opacity:0.7;white-space:pre-wrap;max-height:60px;overflow-y:auto">' + escapeHtml(liveText) + '</span></div>';
+    }
+  } else if (mic) {
+    // Transcribing phase (after recording stopped, waiting for Whisper)
+    rows += '<div class="audio-pill-row">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      + '<span class="audio-pill-row-label">' + escapeHtml(mic.label || 'Transcribing…') + '</span></div>';
+  } else {
+    rows += '<div class="audio-pill-row" onclick="_pillMicClick()">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      + '<span class="audio-pill-row-label">Voice input</span></div>';
+  }
 
   // Read aloud button
   rows += '<div class="audio-pill-row" onclick="_readPageAloud()">'

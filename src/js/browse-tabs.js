@@ -3525,12 +3525,16 @@ function _pillUrlKeydown(e) {
   }
 }
 
-/* Pill mic button — record audio, transcribe, open panel with result */
+/* Pill mic button — record audio, live transcription in audio pill, final Whisper result */
 let _pillMicRecorder = null;
+let _pillMicRecognition = null;
+let _pillMicTranscript = '';
+let _pillMicLiveText = '';
+
 function _pillMicClick() {
-  const micBtn = document.getElementById('pill-mic-btn');
-  if (!micBtn) return;
+  // Toggle off if already recording
   if (_pillMicRecorder) {
+    if (_pillMicRecognition) { try { _pillMicRecognition.stop(); } catch(e) {} }
     _pillMicRecorder.stop();
     return;
   }
@@ -3538,21 +3542,48 @@ function _pillMicClick() {
     const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
     const chunks = [];
     _pillMicRecorder = recorder;
-    micBtn.classList.add('pill-mic-active');
-    islandUpdate('pill-mic', { type: 'ai', label: 'Listening…' });
+    _pillMicTranscript = '';
+    _pillMicLiveText = '';
+
+    // Live speech recognition for real-time words in audio pill
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      _pillMicRecognition = recognition;
+      recognition.onresult = (event) => {
+        let interim = '', final = '';
+        for (let i = 0; i < event.results.length; i++) {
+          if (event.results[i].isFinal) final += event.results[i][0].transcript;
+          else interim += event.results[i][0].transcript;
+        }
+        _pillMicTranscript = final;
+        _pillMicLiveText = (final + interim).trim();
+        _renderAudioPill();
+      };
+      recognition.onerror = () => {};
+      recognition.onend = () => { _pillMicRecognition = null; };
+      recognition.start();
+    }
+
+    _renderAudioPill();
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     recorder.onstop = () => {
       _pillMicRecorder = null;
-      micBtn.classList.remove('pill-mic-active');
+      if (_pillMicRecognition) { try { _pillMicRecognition.stop(); } catch(e) {} _pillMicRecognition = null; }
       stream.getTracks().forEach(t => t.stop());
+      _renderAudioPill();
       const blob = new Blob(chunks, { type: 'audio/webm' });
-      islandUpdate('pill-mic', { type: 'ai', label: 'Transcribing…' });
+      _updateAudioUnified('mic', { label: 'Transcribing…' });
       fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }, body: blob })
         .then(r => r.json())
         .then(data => {
-          islandRemove('pill-mic');
+          _clearAudioUnified('mic');
           if (data.text) {
-            const rect = micBtn.getBoundingClientRect();
+            const pill = document.getElementById('pill-audio-unified');
+            const rect = pill ? pill.getBoundingClientRect() : { x: window.innerWidth / 2 - 100, bottom: 60 };
             _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
             if (localStorage.getItem('voiceAutoSend') === 'on') {
               setTimeout(() => {
@@ -3562,7 +3593,7 @@ function _pillMicClick() {
             }
           }
         })
-        .catch(() => { islandRemove('pill-mic'); });
+        .catch(() => { _clearAudioUnified('mic'); });
     };
     recorder.start();
   }).catch(() => {});

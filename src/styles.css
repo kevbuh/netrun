@@ -2382,6 +2382,22 @@
       color: #ef4444;
       animation: pill-mic-pulse 1.2s ease-in-out infinite;
     }
+    .island-mic-pulse svg {
+      animation: pill-mic-pulse 1.2s ease-in-out infinite;
+    }
+    .island-mic-text {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .audio-pill-mic-active svg {
+      animation: pill-mic-pulse 1.2s ease-in-out infinite;
+    }
+    .audio-pill-transcript {
+      cursor: default;
+    }
     #pill-browse-more {
       max-width: 0;
       opacity: 0;
