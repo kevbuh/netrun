@@ -1163,6 +1163,17 @@
       background: var(--aether-bg) !important;
       box-shadow: 0 8px 24px rgba(0,0,0,0.2);
     }
+    /* Scroll percentage pill */
+    .pill-island[data-island-id="scroll"] { min-width: 0; padding: 4px 10px; }
+    .pill-island[data-island-id="scroll"] .pill-goo-bg { display: none; }
+    .island-scroll-pct {
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      opacity: 0.9;
+    }
+
     /* Phase 4: Idle breathing */
     @keyframes pill-breathe { 0%,100% { scale:1; } 50% { scale:1.015; } }
     .pill-island.island-active:not(:hover):not(.island-tray-open):not(.island-entering):not(.island-exiting) {

@@ -474,6 +474,9 @@ function _islandRenderPill(a) {
     var pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
     var pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
     return '<span class="island-pulse-dot ' + pulseClass + '" style="--pulse-intensity:' + pulseIntensity.toFixed(2) + '"></span>';
+  } else if (a.type === 'scroll') {
+    var pct = Math.round(a.progress || 0);
+    return '<span class="island-scroll-pct">' + pct + '%</span>';
   } else if (a.type === 'context') {
     return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.label || '') + '</span>';
   }
@@ -779,7 +782,7 @@ function _islandRender() {
     var idx = ids.indexOf(pid);
     if (idx !== -1) { ids.splice(idx, 1); pinnedLeft.push(pid); }
   });
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, scroll: 1.5, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     var pa = priority[_islandActivities[a].type] || 0;
     var pb = priority[_islandActivities[b].type] || 0;

@@ -44,6 +44,9 @@ let _pwSaveDismissed = new Map(); // 'origin|username' → true
 let _pwLastSubmit = null; // { origin, username, ts } dedup
 let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 
+// ── Scroll pill state ──
+let _scrollPillTimer = null;
+
 // ── Split pane state ──
 let _browseNextPaneId = 1;
 
@@ -1091,9 +1094,10 @@ function _browseHandleNavigation(tab, frame) {
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(navUrl);
     }
-    // Clear RSS feeds on navigation
+    // Clear RSS feeds and scroll pill on navigation
     tab.rssFeeds = null;
     _browseUpdateRssPill(tab);
+    if (tab.id === _browseActiveTab) { islandRemove('scroll'); if (_scrollPillTimer) { clearTimeout(_scrollPillTimer); _scrollPillTimer = null; } }
     // Clear any existing annotation state for this tab on navigation
     _annotationsEnabled.delete(tab.id);
     _updateAnnotateButtonState();
@@ -1637,6 +1641,24 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // Scroll percentage tracking — relay to parent for pill island
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherScrollInjected)return;
+        window.__aetherScrollInjected=true;
+        var _lastPct=-1;
+        function reportScroll(){
+          var h=document.documentElement.scrollHeight-window.innerHeight;
+          var pct=h>0?Math.round((window.scrollY/h)*100):0;
+          if(pct<0)pct=0;if(pct>100)pct=100;
+          if(pct!==_lastPct){_lastPct=pct;console.log('__AETHER_SCROLL__'+pct);}
+        }
+        document.addEventListener('scroll',reportScroll,{passive:true});
+        window.addEventListener('resize',reportScroll,{passive:true});
+        setTimeout(reportScroll,500);
+      })();
+    `).catch(()=>{});
+
     // Password field detection + form submit interception
     frame.executeJavaScript(`
       (function(){
@@ -1790,6 +1812,18 @@ function _browseInjectContentScripts(tab, frame) {
     } else if (e.message && e.message.startsWith('__AETHER_OPEN_TAB__')) {
       const url = e.message.slice('__AETHER_OPEN_TAB__'.length);
       if (url) browseNewTab(url);
+    } else if (e.message && e.message.startsWith('__AETHER_SCROLL__')) {
+      if (tab.id === _browseActiveTab) {
+        var pct = parseInt(e.message.slice('__AETHER_SCROLL__'.length));
+        if (pct > 0) {
+          islandUpdate('scroll', { type: 'scroll', progress: pct });
+          // Auto-dismiss after idle
+          if (_scrollPillTimer) clearTimeout(_scrollPillTimer);
+          _scrollPillTimer = setTimeout(function() { islandRemove('scroll'); }, 1500);
+        } else {
+          islandRemove('scroll');
+        }
+      }
     } else if (e.message && e.message.startsWith('__NEURALOOK_CLICK__')) {
       if (typeof _nlHandleIframeClick === 'function') {
         const parts = e.message.slice('__NEURALOOK_CLICK__'.length).split(',');
@@ -2314,6 +2348,10 @@ function browseSelectTab(id) {
   // Stop captions when switching away from captured tab
   if (_ccTabId && _ccTabId !== id) stopCaptions();
 
+  // Clear scroll pill when switching tabs
+  islandRemove('scroll');
+  if (_scrollPillTimer) { clearTimeout(_scrollPillTimer); _scrollPillTimer = null; }
+
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
   if (tab) tab.lastVisited = Date.now();
@@ -2392,7 +2430,6 @@ function browseSelectTab(id) {
       hidePanel();
     }
     if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
-    _startScrollTracker(tab.url);
     _browseUpdateBarForTab(tab);
   } else {
     _currentPaperViewPaper = null;
