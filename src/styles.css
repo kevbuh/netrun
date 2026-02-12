@@ -850,7 +850,6 @@
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active .pill-url-divider,
-    .browse-mode.ntp-active #pill-newwin-btn,
     .browse-mode.ntp-active #pill-audio-unified,
     .browse-mode.ntp-active #pill-live-pulse {
       display: none !important;
@@ -952,8 +951,7 @@
     }
 
     /* Pill toolbar buttons — hidden by default, visible in browse mode */
-    #pill-newtab-btn,
-    #pill-newwin-btn {
+    #pill-newtab-btn {
       max-width: 0;
       opacity: 0;
       overflow: hidden;
@@ -962,15 +960,13 @@
                   opacity 0.25s ease,
                   padding 0.3s ease;
     }
-    .browse-mode #pill-newtab-btn,
-    .browse-mode #pill-newwin-btn {
+    .browse-mode #pill-newtab-btn {
       max-width: 28px;
       opacity: 1;
       padding: 0;
     }
     #pill-menu-btn:hover,
-    #pill-newtab-btn:hover,
-    #pill-newwin-btn:hover {
+    #pill-newtab-btn:hover {
       transform: none;
     }
     /* Divider between URL input and new tab button inside pill-url-wrap */

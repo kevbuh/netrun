@@ -1048,7 +1048,7 @@ function _islandRender() {
     var navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
     // Measure width of right-side buttons so pills sit to their left
     var rightBtnsW = 0;
-    ['pill-audio-unified', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
+    ['pill-audio-unified', 'pill-browse-more'].forEach(function(bid) {
       var b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) rightBtnsW += b.offsetWidth + 2; // + gap
     });
@@ -1078,7 +1078,7 @@ function _islandRender() {
     });
     // Find the left edge of the first visible right-side button
     var rightBoundary = navRect.right - 4;
-    ['pill-audio-unified', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
+    ['pill-audio-unified', 'pill-browse-more'].forEach(function(bid) {
       var b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) {
         var br = b.getBoundingClientRect();
