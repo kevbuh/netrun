@@ -20,7 +20,6 @@ _cache = {}
 FEED_CACHE_DIR = os.path.join(DIR, 'feed_cache')
 os.makedirs(FEED_CACHE_DIR, exist_ok=True)
 
-EXPERIMENTS_DIR = os.path.join(DIR, 'experiments')  # legacy — only used for migration
 BLOCKED_TITLES_FILE = os.path.join(DIR, 'blocked_titles.json')
 PROMPT_FILE = os.path.join(DIR, 'quality_prompt.txt')
 ANNOTATION_PROMPT_FILE = os.path.join(DIR, 'annotation_prompt.txt')
@@ -1311,15 +1310,6 @@ def remove_team_member(team_id, owner_google_id, target_google_id):
 
 # ── Legacy experiment ownership (kept for migration) ──
 
-def get_user_experiment_ids(google_id):
-    """Return set of experiment_ids the user owns (legacy DB). Used only for migration."""
-    conn = _get_db()
-    owned = conn.execute(
-        "SELECT experiment_id FROM experiment_owners WHERE google_id = ?",
-        (google_id,)
-    ).fetchall()
-    conn.close()
-    return set(r['experiment_id'] for r in owned)
 
 
 # ── Calendar (per-user) ──

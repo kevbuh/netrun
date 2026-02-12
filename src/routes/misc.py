@@ -13,6 +13,7 @@ import uuid
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context, send_file
 
+from logger import logger
 from helpers import require_auth, sse_event
 from persistence import (
     DIR,
@@ -206,7 +207,7 @@ def _nl_load_model(method='cnn'):
         screen_info = (meta['screen_w'], meta['screen_h'], meta['eye_w'], meta['eye_h'])
         return model, screen_info
     except Exception as e:
-        print(f'Neuralook: failed to load model checkpoint ({method}): {e}')
+        logger.error(f'Neuralook: failed to load model checkpoint ({method}): {e}')
         return None, None
 
 

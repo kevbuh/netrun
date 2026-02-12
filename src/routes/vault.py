@@ -10,7 +10,7 @@ import uuid
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from helpers import require_auth, sse_event
-from persistence import VAULT_DIR, EXPERIMENTS_DIR, get_user_data, get_user_experiment_ids, embed_text_ollama, search_embeddings
+from persistence import VAULT_DIR, get_user_data, embed_text_ollama, search_embeddings
 from vault_helpers import (
     _read_vault_md, _write_vault_md, _sanitize_vault_filename,
     _find_vault_note_by_id, _get_user_vault_path, _set_user_vault_path,
@@ -235,8 +235,6 @@ def marimo_stop(google_id):
 def vault_tree(google_id):
     """Return full recursive file tree of the user's vault."""
     user_vault = _get_user_vault_path(google_id)
-    # Auto-migrate legacy experiments on first tree request
-    _auto_migrate_experiments(google_id, user_vault)
     skip_dirs = {'venv', '.kernels', '__pycache__', 'node_modules', '.git'}
     skip_files = {'.DS_Store', 'Thumbs.db', 'meta.json'}
 
@@ -353,31 +351,3 @@ def vault_chat(google_id):
                     headers={'Cache-Control': 'no-cache', 'Connection': 'keep-alive'})
 
 
-def _auto_migrate_experiments(google_id, vault_path):
-    """Migrate legacy experiments from EXPERIMENTS_DIR to vault (one-time)."""
-    migrated_key = get_user_data(google_id, 'experiments_migrated')
-    if migrated_key:
-        return
-    if not os.path.isdir(EXPERIMENTS_DIR):
-        # No legacy experiments dir — mark as migrated
-        from persistence import set_user_data
-        set_user_data(google_id, 'experiments_migrated', 'true')
-        return
-    exp_ids = get_user_experiment_ids(google_id)
-    if not exp_ids:
-        from persistence import set_user_data
-        set_user_data(google_id, 'experiments_migrated', 'true')
-        return
-    for exp_id in exp_ids:
-        src = os.path.join(EXPERIMENTS_DIR, exp_id)
-        if not os.path.isdir(src):
-            continue
-        dst = os.path.join(vault_path, exp_id)
-        if os.path.exists(dst):
-            continue  # already exists in vault
-        try:
-            shutil.copytree(src, dst, ignore=shutil.ignore_patterns('meta.json'))
-        except Exception:
-            pass
-    from persistence import set_user_data
-    set_user_data(google_id, 'experiments_migrated', 'true')

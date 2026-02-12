@@ -1168,7 +1168,7 @@ def annotate_page():
             prompt += tab_context
 
         model = body.get('model') or 'qwen2.5:3b'
-        print(f"[annotate] url={url[:80]} model={model} text_len={len(main_text)} tabs={len(other_tabs[:3])}")
+        logger.info(f"[annotate] url={url[:80]} model={model} text_len={len(main_text)} tabs={len(other_tabs[:3])}")
         llm_payload = json.dumps({
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -1258,7 +1258,7 @@ def annotate_page():
                         })
                 annotations.extend(connections)
         except Exception as xref_err:
-            print(f"[annotate] Cross-reference search failed: {xref_err}")
+            logger.warn(f"[annotate] Cross-reference search failed: {xref_err}")
 
         # Cache result
         if cache_key:
