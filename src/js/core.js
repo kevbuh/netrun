@@ -116,20 +116,41 @@ window.addEventListener('resize', function() {
 
 // Register pulse pill — renders into #pill-live-pulse (right of audio pill)
 (function() {
+  var _pulseFlashTimer = null;
+  var _pulseLastEventTs = 0;
+  var _pulseCatColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+
   function _renderLivePulse() {
     var el = document.getElementById('pill-live-pulse');
     if (!el) return;
-    var intensity = (typeof Motion !== 'undefined' && Motion.pulse) ? Math.min(Motion.pulse.rate / 5, 1) : 0;
-    var cls = intensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
+    var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
+    var lastEvent = recent.length ? recent[recent.length - 1] : null;
     var dot = el.querySelector('.live-pulse-dot');
     if (!dot) {
       dot = document.createElement('span');
-      dot.className = 'live-pulse-dot island-pulse-dot ' + cls;
+      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
       el.appendChild(dot);
-    } else {
-      dot.className = 'live-pulse-dot island-pulse-dot ' + cls;
     }
-    dot.style.setProperty('--pulse-intensity', intensity.toFixed(2));
+
+    // Flash the color of the latest event for 3 seconds
+    if (lastEvent && lastEvent.timestamp > _pulseLastEventTs) {
+      _pulseLastEventTs = lastEvent.timestamp;
+      var col = _pulseCatColors[lastEvent.category] || '#94a3b8';
+      dot.style.background = col;
+      dot.style.boxShadow = '0 0 6px ' + col;
+      dot.className = 'live-pulse-dot island-pulse-dot pulse-flash-active';
+      if (_pulseFlashTimer) clearTimeout(_pulseFlashTimer);
+      _pulseFlashTimer = setTimeout(function() {
+        _pulseFlashTimer = null;
+        dot.style.background = '';
+        dot.style.boxShadow = '';
+        dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
+      }, 3000);
+    } else if (!_pulseFlashTimer) {
+      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
+      dot.style.background = '';
+      dot.style.boxShadow = '';
+    }
 
     // Build dropdown tray
     var dropdown = el.querySelector('.pulse-dropdown');
@@ -141,11 +162,10 @@ window.addEventListener('resize', function() {
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
     var html = '<div class="pulse-dropdown-inner">';
     html += '<div style="padding:6px 8px;font-size:0.6rem;color:var(--aether-text-muted);text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
-    var catColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
     var start = Math.max(0, recent.length - 30);
     for (var ri = recent.length - 1; ri >= start; ri--) {
       var ev = recent[ri];
-      var col = catColors[ev.category] || '#94a3b8';
+      var col = _pulseCatColors[ev.category] || '#94a3b8';
       var age = Math.round((Date.now() - ev.timestamp) / 1000);
       var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
       var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
@@ -375,10 +395,16 @@ function _islandRenderPill(a) {
       var t = visible[ti];
       var cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
       var tipAttr = ' title="' + escapeHtml(t.title || 'Tab') + '"';
+      var favHtml;
       if (t.favicon) {
-        html += '<img class="' + cls + '" src="' + escapeHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'<svg class=&quot;' + cls + '&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;1.5&quot;><path stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; d=&quot;' + _globePath + '&quot;/></svg>\'">';
+        favHtml = '<img class="' + cls + '" src="' + escapeHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'<svg class=&quot;' + cls + '&quot; data-island-tab=&quot;' + t.id + '&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;1.5&quot;><path stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; d=&quot;' + _globePath + '&quot;/></svg>\'">';
       } else {
-        html += _globeIcon(cls, tipAttr + ' data-island-tab="' + t.id + '"');
+        favHtml = _globeIcon(cls, tipAttr + ' data-island-tab="' + t.id + '"');
+      }
+      if (t.active) {
+        html += '<span class="island-strip-fav-wrap" data-island-tab="' + t.id + '">' + favHtml + '<button class="island-strip-fav-close" data-island-tab-close="' + t.id + '" title="Close tab">&times;</button></span>';
+      } else {
+        html += favHtml;
       }
     }
     html += '<span class="island-strip-overflow">' + nonBlank.length + ' tab' + (nonBlank.length !== 1 ? 's' : '') + '</span>';
@@ -500,7 +526,8 @@ function _islandBuildTray(a, isBrowse) {
         if (pTitle.length > 32) pTitle = pTitle.slice(0, 30) + '\u2026';
         var pFav = pItem.favicon ? '<img src="' + escapeHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
         var pAudio = pItem.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
-        trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pTitle) + '</span></div>';
+        var pClose = pItem.active ? '<button class="island-tab-item-close island-tab-close-hover" data-island-tab-close="' + pItem.id + '" title="Close">&times;</button>' : '';
+        trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pTitle) + '</span>' + pClose + '</div>';
       }
       if (unpinnedItems.length) trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
     }

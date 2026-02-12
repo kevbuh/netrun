@@ -850,7 +850,9 @@
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active .pill-url-divider,
-    .browse-mode.ntp-active #pill-newwin-btn {
+    .browse-mode.ntp-active #pill-newwin-btn,
+    .browse-mode.ntp-active #pill-audio-unified,
+    .browse-mode.ntp-active #pill-live-pulse {
       display: none !important;
     }
     .browse-mode.ntp-active #pill-nav-icons {
@@ -2190,7 +2192,7 @@
     }
     /* ── Unified Audio Pill ── */
     #pill-live-pulse {
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       width: 20px;
@@ -2199,6 +2201,9 @@
       -webkit-app-region: no-drag;
       position: relative;
       cursor: pointer;
+    }
+    .browse-mode #pill-live-pulse {
+      display: flex;
     }
     .pulse-dropdown {
       display: none;
@@ -2270,16 +2275,27 @@
       box-shadow: 0 0 4px var(--accent);
       animation: island-pulse calc(1.5s - var(--pulse-intensity, 0) * 1s) ease-in-out infinite;
     }
+    .live-pulse-dot.pulse-flash-active {
+      opacity: 1;
+      animation: pulse-flash-glow 1s ease-in-out infinite;
+    }
+    @keyframes pulse-flash-glow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
     #pill-audio-unified {
       position: relative;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       width: 28px;
       height: 28px;
       cursor: pointer;
+    }
+    .browse-mode #pill-audio-unified {
+      display: flex;
       margin-left: auto;
     }
     .audio-pill-indicator {
@@ -2292,15 +2308,12 @@
       transition: all 0.2s var(--motion-snappy);
     }
     .audio-pill-dot {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
-      background: var(--accent);
-      animation: audio-pill-pulse 2s ease-in-out infinite;
-    }
-    @keyframes audio-pill-pulse {
-      0%, 100% { opacity: 0.4; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.2); }
+      background: var(--text-secondary, #666);
+      opacity: 0.25;
+      animation: pulse-breathe 3s ease-in-out infinite;
     }
     .audio-pill-active .island-waveform { height: 14px; }
     .audio-pill-active .island-waveform-bar { background: var(--accent); }
@@ -2418,8 +2431,38 @@
     .island-favicon-strip { display: flex; align-items: center; gap: 3px; }
     .island-strip-fav { width: 16px; height: 16px; border-radius: 3px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; object-fit: contain; }
     .island-strip-fav:hover { transform: scale(1.15); z-index: 1; }
-    .island-strip-fav-active { box-shadow: 0 0 0 2px var(--accent); }
+    .island-strip-fav-active { transform: scale(1.25); z-index: 1; }
+    .island-strip-fav-active:hover { transform: scale(1.35); }
+    .island-favicon-strip .island-strip-fav:not(.island-strip-fav-active) { opacity: 0.55; }
+    .island-favicon-strip .island-strip-fav:not(.island-strip-fav-active):hover { opacity: 1; }
     .island-strip-fav-placeholder { display: inline-block; background: var(--aether-text-dimmest, rgba(255,255,255,0.15)); }
+    .island-strip-fav-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .island-strip-fav-close {
+      display: none;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: none;
+      background: var(--aether-bg);
+      color: var(--aether-text-muted);
+      font-size: 10px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      z-index: 2;
+      box-shadow: 0 0 2px rgba(0,0,0,0.4);
+    }
+    .island-strip-fav-wrap:hover .island-strip-fav-close { display: flex; align-items: center; justify-content: center; }
+    .island-strip-fav-close:hover { color: #ef4444; background: var(--aether-hover); }
     .island-strip-overflow { font-size: 10px; opacity: 0.6; padding: 0 2px; cursor: pointer; }
     .pill-island.island-tabs-pill, .pill-island[data-island-id="nowplaying"] { cursor: pointer; order: -9999; }
     .pill-island.island-tabs-pill .island-tab-favicon {
@@ -2428,32 +2471,23 @@
     .pill-island.island-tabs-pill .island-ctx-tray {
       min-width: 300px; max-width: 380px;
     }
-    /* Island-mode tray: drop below URL wrap, metaball shape — goo bg only */
+    /* Island-mode tray: clean dropdown style (like pulse/audio dropdowns) */
     .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
-      border-radius: 16px;
-      background: transparent !important;
-      border: none;
-      box-shadow: none;
-      /* start connected, animate to separated */
-      top: calc(100% - 4px);
-      transition: max-height 0.45s var(--motion-snappy),
+      border-radius: 10px;
+      background: var(--aether-bg) !important;
+      border: 1px solid var(--aether-border);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      top: calc(100% + 4px);
+      transition: max-height 0.35s var(--motion-snappy),
                   opacity 0.2s ease,
-                  padding 0.25s ease,
-                  top 0.5s var(--motion-ease-out);
+                  padding 0.25s ease;
     }
     .browse-mode.island-mode #pill-island-tabs-anchor .pill-island.island-tray-open .island-ctx-tray {
-      top: calc(100% + 10px);
+      top: calc(100% + 4px);
     }
-    /* Goo shape: starts overlapping pill (merged blob), separates on open */
-    .browse-mode.island-mode #pill-island-tabs-anchor .goo-tray-shape {
-      border-radius: 16px;
-      top: calc(100% - 10px);
-      transition: height 0.45s var(--motion-snappy),
-                  opacity 0.25s ease,
-                  top 0.5s var(--motion-ease-out);
-    }
-    .browse-mode.island-mode #pill-island-tabs-anchor .pill-island.island-tray-open .goo-tray-shape {
-      top: calc(100% + 6px);
+    /* Hide goo in island-mode tabs */
+    .browse-mode.island-mode #pill-island-tabs-anchor .pill-goo-bg {
+      display: none;
     }
     .island-tab-item {
       display: flex; align-items: center; gap: 8px;
