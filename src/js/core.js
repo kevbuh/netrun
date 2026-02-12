@@ -4070,20 +4070,20 @@ function _hideLoginGate() {
 let _gisRetries = 0;
 function _renderGoogleButton() {
   const container = document.getElementById('google-signin-btn');
-  if (!container) { console.warn('[auth] no google-signin-btn container'); return; }
+  if (!container) { logger.warn('auth no google-signin-btn container'); return; }
   // Wait for GIS library to load (up to ~10s)
   if (typeof google === 'undefined' || !google.accounts) {
     _gisRetries++;
-    if (_gisRetries % 10 === 1) console.log('[auth] waiting for GIS library... attempt', _gisRetries);
+    if (_gisRetries % 10 === 1) logger.debug('auth waiting for GIS library... attempt', _gisRetries);
     if (_gisRetries < 50) {
       setTimeout(_renderGoogleButton, 200);
     } else {
-      console.error('[auth] Google Identity Services failed to load after 50 attempts');
+      logger.error('auth Google Identity Services failed to load after 50 attempts');
       container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Google Sign-In failed to load. Check that accounts.google.com is reachable and the current origin is an authorized JavaScript origin in your Google Cloud Console.</p>';
     }
     return;
   }
-  console.log('[auth] GIS loaded, rendering button');
+  logger.debug('auth GIS loaded, rendering button');
   try {
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,

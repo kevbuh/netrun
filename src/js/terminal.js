@@ -547,14 +547,14 @@ function _connectTerminalWs(t, cwd) {
 
   const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${wsProto}//${location.host}/ws/terminal` + (cwd ? '?cwd=' + encodeURIComponent(cwd) : '');
-  console.log(`[terminal ${t.id}] connecting to`, wsUrl);
+  logger.debug(`terminal ${t.id} connecting to`, wsUrl);
 
   const ws = new WebSocket(wsUrl);
   ws.binaryType = 'arraybuffer';
   t.ws = ws;
 
   ws.onopen = () => {
-    console.log(`[terminal ${t.id}] ws open`);
+    logger.debug(`terminal ${t.id} ws open`);
     t.fitAddon.fit();
     const { cols, rows } = t.term;
     ws.send(JSON.stringify({ type: 'resize', cols, rows }));
@@ -570,11 +570,11 @@ function _connectTerminalWs(t, cwd) {
   };
 
   ws.onerror = (e) => {
-    console.error(`[terminal ${t.id}] ws error`, e);
+    logger.error(`terminal ${t.id} ws error`, e);
   };
 
   ws.onclose = (ev) => {
-    console.log(`[terminal ${t.id}] ws close`, ev.code, ev.reason);
+    logger.debug(`terminal ${t.id} ws close`, ev.code, ev.reason);
     if (t.term) t.term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n');
   };
 

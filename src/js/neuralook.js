@@ -1546,14 +1546,14 @@ function _nlHandleImplicitClick(e) {
   const now = performance.now();
   const age = Math.round(now - _nlLastPrediction.ts);
   if (age > 500) {
-    console.log(`[neuralook] click rejected: prediction too old (${age}ms)`);
+    logger.debug(`neuralook click rejected: prediction too old (${age}ms)`);
     _nlShowClickFeedback(e.clientX, e.clientY, false, `stale ${age}ms`);
     return;
   }
   const dx = _nlLastPrediction.x - e.clientX;
   const dy = _nlLastPrediction.y - e.clientY;
   const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-  console.log(`[neuralook] implicit click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
+  logger.debug(`neuralook implicit click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
   _nlShowClickFeedback(e.clientX, e.clientY, true, `${dist}px`);
   _nlImplicitBuffer.push({
     eyeData: Array.from(_nlLastCapture.eyeData),
@@ -1575,7 +1575,7 @@ function _nlHandleIframeClick(clientX, clientY) {
   const dx = _nlLastPrediction.x - clientX;
   const dy = _nlLastPrediction.y - clientY;
   const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-  console.log(`[neuralook] iframe click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
+  logger.debug(`neuralook iframe click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
   _nlShowClickFeedback(clientX, clientY, true, `${dist}px`);
   _nlImplicitBuffer.push({
     eyeData: Array.from(_nlLastCapture.eyeData),
@@ -1733,7 +1733,7 @@ async function _nlStartAutoRefine() {
     _nlShowModelUpdatedPill(_nlModelVersion, valPx);
     _nlRefreshTrainView();
     if (window.location.hash === '#neuralook') renderNeuralookView();
-    console.log(`[neuralook] auto-refine improved: v${_nlModelVersion}, val=${valPx}px, radius=${_nlAdaptiveRadius}px`);
+    logger.debug(`neuralook auto-refine improved: v${_nlModelVersion}, val=${valPx}px, radius=${_nlAdaptiveRadius}px`);
   } catch (e) {
     _nlTrainPhase = 'error';
     _nlTraining = false;

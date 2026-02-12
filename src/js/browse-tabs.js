@@ -6441,7 +6441,7 @@ function _restoreAnnotationPill(tab) {
 
 function toggleAnnotations() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  console.log('[annotate] toggleAnnotations tab=', tab?.id, 'blank=', tab?.blank, 'url=', tab?.url, 'el=', tab?.el?.tagName);
+  logger.debug('annotate toggleAnnotations tab=', tab?.id, 'blank=', tab?.blank, 'url=', tab?.url, 'el=', tab?.el?.tagName);
   if (!tab || tab.blank) return;
   // Clear any pending offer timer
   if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
@@ -6456,7 +6456,7 @@ function toggleAnnotations() {
 }
 
 async function annotateCurrentPage(tab) {
-  console.log('[annotate] annotateCurrentPage tab=', tab?.id, 'el=', tab?.el?.tagName, 'url=', tab?.url);
+  logger.debug('annotate annotateCurrentPage tab=', tab?.id, 'el=', tab?.el?.tagName, 'url=', tab?.url);
   if (!tab || !tab.el) return;
   const url = tab.url || '';
 
