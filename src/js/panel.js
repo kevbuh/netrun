@@ -740,39 +740,6 @@ async function _fetchSemanticPreview(text, containerDiv) {
   }
 }
 
-// ── Panel suggestion (tiny model generates a question from context) ──
-let _panelSuggestAbort = null;
-
-function _renderPanelSuggestion(popup, suggestion) {
-  let el = popup.querySelector('.aether-suggestion');
-  if (el) el.remove();
-  const askWrap = popup.querySelector('.doc-ask-inline-wrap');
-  if (!askWrap) return;
-  el = document.createElement('div');
-  el.className = 'aether-suggestion';
-  el.innerHTML = `<span class="aether-suggestion-text">${escapeHtml(suggestion)}</span>`;
-  el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  el.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    _acceptPanelSuggestion(popup, suggestion);
-  });
-  askWrap.style.position = 'relative';
-  askWrap.insertBefore(el, askWrap.firstChild);
-  // Hide placeholder when suggestion is visible
-  const input = popup.querySelector('.doc-ask-inline-input');
-  if (input) input.placeholder = '';
-  _repositionSelectionPopup();
-}
-
-function _acceptPanelSuggestion(popup, suggestion) {
-  const input = popup.querySelector('.doc-ask-inline-input');
-  if (!input) return;
-  input.value = suggestion;
-  const el = popup.querySelector('.aether-suggestion');
-  if (el) el.remove();
-  input.focus();
-}
-
 function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;

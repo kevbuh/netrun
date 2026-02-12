@@ -42,7 +42,6 @@ def get_vault_project_dir(google_id, project_id):
 
 
 def _content_path(url):
-    import hashlib
     h = hashlib.sha256(url.encode()).hexdigest()[:16]
     return os.path.join(SAVED_CONTENT_DIR, h + '.json')
 
