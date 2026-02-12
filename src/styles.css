@@ -847,7 +847,6 @@
     .browse-mode.ntp-active #pill-browse-reload,
     .browse-mode.ntp-active #pill-browse-fwd,
     .browse-mode.ntp-active #pill-browse-tabs,
-    .browse-mode.ntp-active #pill-readaloud-wrap,
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active .pill-url-divider,
@@ -2189,57 +2188,98 @@
     .browse-mode.island-mode.ntp-active #pill-url-wrap > * {
       margin: 0;
     }
-    #pill-mic-btn {
-      flex-shrink: 0;
-    }
-    #pill-readaloud-wrap {
-      display: none;
-      align-items: center;
+    /* ── Unified Audio Pill ── */
+    #pill-audio-unified {
+      position: relative;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
-      position: relative;
-    }
-    .browse-mode #pill-readaloud-wrap {
       display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
       margin-left: auto;
     }
-    #pill-readaloud-btn {
-      flex-shrink: 0;
+    .audio-pill-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      transition: all 0.2s var(--motion-snappy);
     }
-    #pill-readaloud-btn.pill-readaloud-active {
-      color: var(--accent);
-      animation: pill-mic-pulse 1.2s ease-in-out infinite;
+    .audio-pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: audio-pill-pulse 2s ease-in-out infinite;
     }
-    #pill-readaloud-btn.pill-readaloud-paused {
-      color: var(--accent);
+    @keyframes audio-pill-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
     }
-    #pill-readaloud-stop {
-      max-width: 0;
-      opacity: 0;
+    .audio-pill-active .island-waveform { height: 14px; }
+    .audio-pill-active .island-waveform-bar { background: var(--accent); }
+    .audio-pill-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      min-width: 180px;
+      background: var(--aether-bg);
+      border: 1px solid var(--aether-border);
+      border-radius: 10px;
+      padding: 4px;
+      z-index: 9999;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    #pill-audio-unified:hover .audio-pill-dropdown {
+      display: block;
+    }
+    .audio-pill-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--aether-text);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .audio-pill-row:hover {
+      background: var(--aether-hover);
+    }
+    .audio-pill-row-label {
+      flex: 1;
       overflow: hidden;
-      padding: 0;
-      transition: max-width 0.2s ease, opacity 0.2s ease;
+      text-overflow: ellipsis;
+    }
+    .audio-pill-ctrl {
+      background: none;
+      border: none;
       color: var(--aether-text-muted);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
     }
-    #pill-readaloud-wrap:hover #pill-readaloud-stop.tts-has-audio {
-      max-width: 28px;
-      opacity: 1;
-    }
-    #pill-readaloud-stop:hover {
-      color: #ef4444;
-    }
-    #pill-mic-btn:hover,
-    #pill-readaloud-btn:hover,
-    #pill-readaloud-stop:hover {
-      transform: none;
+    .audio-pill-ctrl:hover { color: var(--aether-text); }
+    .audio-pill-stop:hover { color: #ef4444; }
+    .audio-pill-source .island-waveform { height: 12px; }
+    .audio-pill-tts-status .island-waveform { height: 12px; }
+    @keyframes pill-mic-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
     }
     #pill-mic-btn.pill-mic-active {
       color: #ef4444;
       animation: pill-mic-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes pill-mic-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
     }
     #pill-browse-more {
       max-width: 0;

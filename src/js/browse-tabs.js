@@ -3040,7 +3040,7 @@ function _updateAudioIndicator() {
   _updateCCButton();
 
   if (_browseAudioTabs.size === 0) {
-    if (typeof islandRemove === 'function') islandRemove('audio');
+    if (typeof _clearAudioUnified === 'function') _clearAudioUnified('tab');
     return;
   }
 
@@ -3058,7 +3058,7 @@ function _updateAudioIndicator() {
 
   const firstTab = playingTabs[0];
   if (!firstTab) {
-    if (typeof islandRemove === 'function') islandRemove('audio');
+    if (typeof _clearAudioUnified === 'function') _clearAudioUnified('tab');
     return;
   }
 
@@ -3070,18 +3070,16 @@ function _updateAudioIndicator() {
     firstTab.tab.id === firstTab.win.activeTab;
 
   if (isCurrentTab) {
-    if (typeof islandRemove === 'function') islandRemove('audio');
+    if (typeof _clearAudioUnified === 'function') _clearAudioUnified('tab');
     return;
   }
 
   const allMuted = playingTabs.every(p => p.muted);
   const title = firstTab.tab.title.slice(0, 30) || 'Audio';
-  if (typeof islandUpdate === 'function') {
-    islandUpdate('audio', {
-      type: 'audio',
+  if (typeof _updateAudioUnified === 'function') {
+    _updateAudioUnified('tab', {
       label: allMuted ? 'Muted' : title,
-      detail: (allMuted ? 'Muted — ' : 'Playing — ') + title,
-      action: goToAudioTab
+      detail: (allMuted ? 'Muted — ' : 'Playing — ') + title
     });
   }
 }
@@ -3102,18 +3100,18 @@ function _updateCCButton() {
     ccBtn.style.color = _ccActive ? 'var(--accent)' : '';
   }
 
-  // Dynamic Island: show CC suggestion when audio detected on active tab
-  if (typeof islandUpdate === 'function') {
+  // CC state in unified audio pill
+  if (typeof _updateAudioUnified === 'function') {
     if (hasAudio && isOnBrowse && !_ccActive && !_ccPillDismissed) {
       const win = _getCurrentWindow();
       const activeHasAudio = win && _browseAudioTabs.has(win.activeTab);
       if (activeHasAudio) {
-        islandUpdate('cc', { type: 'cc', label: 'CC available', detail: 'Click to enable captions', action: toggleCaptions });
+        _updateAudioUnified('cc', { label: 'CC available' });
       } else {
-        islandRemove('cc');
+        _clearAudioUnified('cc');
       }
     } else if (!_ccActive) {
-      islandRemove('cc');
+      _clearAudioUnified('cc');
     }
   }
 }
@@ -3141,7 +3139,7 @@ async function toggleCaptions() {
   _ccCaptionLines = [];
 
   // Update island and highlight CC button
-  if (typeof islandUpdate === 'function') islandUpdate('cc', { type: 'cc', label: 'CC Live', detail: 'Listening…', action: stopCaptions });
+  if (typeof _updateAudioUnified === 'function') _updateAudioUnified('cc', { label: 'CC Live', detail: 'Listening…', active: true });
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.style.color = 'var(--accent)';
 
@@ -3272,7 +3270,7 @@ function stopCaptions() {
   // Reset CC button and island
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.style.color = '';
-  if (typeof islandRemove === 'function') islandRemove('cc');
+  if (typeof _clearAudioUnified === 'function') _clearAudioUnified('cc');
 }
 
 function _showCaption(text) {
@@ -3292,10 +3290,10 @@ function _showCaption(text) {
   overlay.textContent = _ccCaptionLines.join(' ');
   overlay.classList.remove('fade-out');
 
-  // Update island with latest caption snippet
-  if (typeof islandUpdate === 'function') {
+  // Update unified audio pill with latest caption snippet
+  if (typeof _updateAudioUnified === 'function') {
     const snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
-    islandUpdate('cc', { type: 'cc', label: 'CC Live', detail: snippet, action: stopCaptions });
+    _updateAudioUnified('cc', { label: 'CC Live', detail: snippet, active: true });
   }
 
   // Reset fade timer
@@ -6538,10 +6536,10 @@ async function _readPageAloud() {
   var btn = document.getElementById('pill-readaloud-btn');
   if (btn) btn.classList.add('pill-readaloud-active');
   _ttsTabId = tab.id;
-  islandUpdate('tts', { type: 'tts', label: 'Extracting\u2026', detail: 'Extracting page text', action: _ttsIslandAction });
+  _updateAudioUnified('tts', { label: 'Extracting\u2026', detail: 'Extracting page text' });
   var text = await _extractTextFromFrame(tab);
   if (!text || text.length < 10) {
-    islandUpdate('tts', { type: 'tts', label: 'No text', detail: 'No readable text found', done: true });
+    _updateAudioUnified('tts', { label: 'No text', detail: 'No readable text found', done: true });
     if (btn) btn.classList.remove('pill-readaloud-active');
     _ttsTabId = null;
     return;

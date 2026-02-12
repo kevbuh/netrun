@@ -175,6 +175,116 @@ function showAchievement(name, description) {
 var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 
+// ── Unified Audio Pill ──
+var _audioUnifiedState = { tab: null, tts: null, cc: null };
+
+function _updateAudioUnified(source, data) {
+  _audioUnifiedState[source] = data;
+  _renderAudioPill();
+}
+
+function _clearAudioUnified(source) {
+  _audioUnifiedState[source] = null;
+  _renderAudioPill();
+}
+
+function _renderAudioPill() {
+  var el = document.getElementById('pill-audio-unified');
+  if (!el) return;
+  var tab = _audioUnifiedState.tab;
+  var tts = _audioUnifiedState.tts;
+  var cc = _audioUnifiedState.cc;
+  var active = !!(tab || tts || cc);
+
+  // Build pill indicator
+  var indicator = el.querySelector('.audio-pill-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.className = 'audio-pill-indicator';
+    el.appendChild(indicator);
+  }
+
+  if (active) {
+    indicator.innerHTML = _islandAudioBars;
+    indicator.classList.add('audio-pill-active');
+    indicator.classList.remove('audio-pill-idle');
+  } else {
+    indicator.innerHTML = '<span class="audio-pill-dot"></span>';
+    indicator.classList.remove('audio-pill-active');
+    indicator.classList.add('audio-pill-idle');
+  }
+
+  // Build dropdown
+  var dropdown = el.querySelector('.audio-pill-dropdown');
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'audio-pill-dropdown';
+    el.appendChild(dropdown);
+  }
+
+  var rows = '';
+
+  // Tab audio source
+  if (tab) {
+    rows += '<div class="audio-pill-row audio-pill-source" onclick="if(typeof goToAudioTab===\'function\')goToAudioTab()">'
+      + _islandAudioBars
+      + '<span class="audio-pill-row-label">' + escapeHtml(tab.label || 'Tab Audio') + '</span></div>';
+  }
+
+  // TTS status
+  if (tts) {
+    var ttsIcon = tts.paused
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+      : _islandWaveformBars;
+    rows += '<div class="audio-pill-row audio-pill-tts-status">'
+      + ttsIcon
+      + '<span class="audio-pill-row-label">' + escapeHtml(tts.label || 'TTS') + '</span>';
+    // Pause/stop controls
+    rows += '<button class="audio-pill-ctrl" onclick="_ttsPauseResume()" title="' + (tts.paused ? 'Resume' : 'Pause') + '">'
+      + (tts.paused
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+        : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/></svg>')
+      + '</button>';
+    rows += '<button class="audio-pill-ctrl audio-pill-stop" onclick="_ttsStopAll()" title="Stop">'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>'
+      + '</button>';
+    rows += '</div>';
+  }
+
+  // CC row
+  if (cc) {
+    var ccIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 12h2m4 0h4"/></svg>';
+    rows += '<div class="audio-pill-row audio-pill-cc" onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
+      + ccIcon
+      + '<span class="audio-pill-row-label">' + escapeHtml(cc.label || 'CC') + '</span>';
+    if (cc.active) {
+      rows += '<button class="audio-pill-ctrl audio-pill-stop" onclick="event.stopPropagation();if(typeof stopCaptions===\'function\')stopCaptions()" title="Stop CC">'
+        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>'
+        + '</button>';
+    }
+    rows += '</div>';
+  } else if (tab) {
+    // Only show CC available option when tab audio is playing but CC isn't active
+    rows += '<div class="audio-pill-row" onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 12h2m4 0h4"/></svg>'
+      + '<span class="audio-pill-row-label">Captions</span></div>';
+  }
+
+  // Mic button
+  rows += '<div class="audio-pill-row" onclick="_pillMicClick()">'
+    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+    + '<span class="audio-pill-row-label">Voice input</span></div>';
+
+  // Read aloud button
+  rows += '<div class="audio-pill-row" onclick="_readPageAloud()">'
+    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'
+    + '<span class="audio-pill-row-label">Read aloud</span></div>';
+
+  dropdown.innerHTML = rows;
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
+else setTimeout(_renderAudioPill, 0);
+
 function _islandRenderPill(a) {
   if (a.type === 'feed-notif') {
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + escapeHtml(a.label || '') + '</span>';
@@ -828,7 +938,7 @@ function _islandRender() {
     var navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
     // Measure width of right-side buttons so pills sit to their left
     var rightBtnsW = 0;
-    ['pill-readaloud-wrap', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
+    ['pill-audio-unified', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
       var b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) rightBtnsW += b.offsetWidth + 2; // + gap
     });
@@ -858,7 +968,7 @@ function _islandRender() {
     });
     // Find the left edge of the first visible right-side button
     var rightBoundary = navRect.right - 4;
-    ['pill-readaloud-wrap', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
+    ['pill-audio-unified', 'pill-browse-more', 'pill-newwin-btn'].forEach(function(bid) {
       var b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) {
         var br = b.getBoundingClientRect();
