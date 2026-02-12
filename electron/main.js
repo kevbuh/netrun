@@ -111,6 +111,7 @@ let pythonProcess = null;
 let mainWindow = null;
 let serverPort = null;
 let _ccTargetWcId = null;
+let lastSavedBounds = null;
 
 const isDev = !app.isPackaged;
 
@@ -296,6 +297,8 @@ function loadWindowState() {
       };
     }
 
+    // Store loaded bounds to prevent redundant saves
+    lastSavedBounds = { ...state };
     return state;
   } catch (e) {
     console.log('[window-state] No saved state, using defaults');
@@ -319,8 +322,19 @@ function saveWindowState() {
 
   try {
     const bounds = mainWindow.getBounds();
+
+    // Skip save if bounds haven't changed
+    if (lastSavedBounds &&
+        lastSavedBounds.x === bounds.x &&
+        lastSavedBounds.y === bounds.y &&
+        lastSavedBounds.width === bounds.width &&
+        lastSavedBounds.height === bounds.height) {
+      return;
+    }
+
     console.log('[window-state] Saving:', bounds);
     fs.writeFileSync(getWindowStatePath(), JSON.stringify(bounds, null, 2));
+    lastSavedBounds = { ...bounds };
   } catch (e) {
     console.error('[window-state] Failed to save:', e);
   }
