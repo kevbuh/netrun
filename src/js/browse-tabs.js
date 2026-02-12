@@ -44,9 +44,6 @@ let _pwSaveDismissed = new Map(); // 'origin|username' → true
 let _pwLastSubmit = null; // { origin, username, ts } dedup
 let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 
-// ── Scroll pill state ──
-let _scrollPillTimer = null;
-
 // ── Split pane state ──
 let _browseNextPaneId = 1;
 
@@ -1097,7 +1094,7 @@ function _browseHandleNavigation(tab, frame) {
     // Clear RSS feeds and scroll pill on navigation
     tab.rssFeeds = null;
     _browseUpdateRssPill(tab);
-    if (tab.id === _browseActiveTab) { islandRemove('scroll'); if (_scrollPillTimer) { clearTimeout(_scrollPillTimer); _scrollPillTimer = null; } }
+    if (tab.id === _browseActiveTab) _browseUpdateScrollPill(-1);
     // Clear any existing annotation state for this tab on navigation
     _annotationsEnabled.delete(tab.id);
     _updateAnnotateButtonState();
@@ -1814,15 +1811,7 @@ function _browseInjectContentScripts(tab, frame) {
       if (url) browseNewTab(url);
     } else if (e.message && e.message.startsWith('__AETHER_SCROLL__')) {
       if (tab.id === _browseActiveTab) {
-        var pct = parseInt(e.message.slice('__AETHER_SCROLL__'.length));
-        if (pct > 0) {
-          islandUpdate('scroll', { type: 'scroll', progress: pct });
-          // Auto-dismiss after idle
-          if (_scrollPillTimer) clearTimeout(_scrollPillTimer);
-          _scrollPillTimer = setTimeout(function() { islandRemove('scroll'); }, 1500);
-        } else {
-          islandRemove('scroll');
-        }
+        _browseUpdateScrollPill(parseInt(e.message.slice('__AETHER_SCROLL__'.length)));
       }
     } else if (e.message && e.message.startsWith('__NEURALOOK_CLICK__')) {
       if (typeof _nlHandleIframeClick === 'function') {
@@ -2349,8 +2338,7 @@ function browseSelectTab(id) {
   if (_ccTabId && _ccTabId !== id) stopCaptions();
 
   // Clear scroll pill when switching tabs
-  islandRemove('scroll');
-  if (_scrollPillTimer) { clearTimeout(_scrollPillTimer); _scrollPillTimer = null; }
+  _browseUpdateScrollPill(-1);
 
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
@@ -3065,6 +3053,18 @@ function goToAudioTab() {
   // If not in browse view, navigate there
   if (!document.getElementById('browse-view')?.style.display || document.getElementById('browse-view').style.display === 'none') {
     openBrowse();
+  }
+}
+
+function _browseUpdateScrollPill(pct) {
+  var el = document.getElementById('pill-scroll-pct');
+  if (!el) return;
+  if (pct <= 0) {
+    el.classList.remove('active');
+    el.textContent = '';
+  } else {
+    el.textContent = pct + '%';
+    el.classList.add('active');
   }
 }
 
