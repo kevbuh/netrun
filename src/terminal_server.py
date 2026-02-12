@@ -16,10 +16,12 @@ import fcntl
 import termios
 import signal
 
+from logger import logger
+
 
 def handle_websocket_flask(ws, cwd=None):
     """Bridge a flask-sock WebSocket to a pty shell."""
-    print(f"[terminal] session started cwd={cwd}", file=sys.stderr, flush=True)
+    logger.info(f"[terminal] session started cwd={cwd}")
 
     shell = os.environ.get("SHELL", "/bin/zsh")
     master_fd, slave_fd = pty.openpty()
@@ -35,12 +37,12 @@ def handle_websocket_flask(ws, cwd=None):
             cwd=cwd,
         )
     except Exception as e:
-        print(f"[terminal] Popen failed: {e}", file=sys.stderr, flush=True)
+        logger.error(f"[terminal] Popen failed: {e}")
         os.close(master_fd)
         os.close(slave_fd)
         return
     os.close(slave_fd)
-    print(f"[terminal] shell pid={proc.pid}", file=sys.stderr, flush=True)
+    logger.info(f"[terminal] shell pid={proc.pid}")
 
     running = True
     send_lock = threading.Lock()
@@ -68,7 +70,7 @@ def handle_websocket_flask(ws, cwd=None):
                 except Exception:
                     break
         except Exception as e:
-            print(f"[terminal] pty_reader ended: {e}", file=sys.stderr, flush=True)
+            logger.debug(f"[terminal] pty_reader ended: {e}")
         finally:
             running = False
 
@@ -98,7 +100,7 @@ def handle_websocket_flask(ws, cwd=None):
             elif isinstance(msg, bytes):
                 os.write(master_fd, msg)
     except Exception as e:
-        print(f"[terminal] session ended: {e}", file=sys.stderr, flush=True)
+        logger.debug(f"[terminal] session ended: {e}")
     finally:
         running = False
         try:
@@ -111,4 +113,4 @@ def handle_websocket_flask(ws, cwd=None):
             pass
         proc.wait()
         reader_thread.join(timeout=2)
-        print(f"[terminal] session cleaned up", file=sys.stderr, flush=True)
+        logger.info(f"[terminal] session cleaned up")

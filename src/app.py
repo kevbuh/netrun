@@ -20,6 +20,7 @@ from flask_cors import CORS
 from flask_sock import Sock
 
 from persistence import DIR
+from logger import logger
 
 # Uploads directory for profile pictures and backgrounds
 UPLOADS_DIR = os.path.join(DIR, 'uploads')
@@ -198,5 +199,5 @@ def static_files(path):
 
 if __name__ == '__main__':
     PORT = _args.port
-    print(f'Serving at http://localhost:{PORT}')
+    logger.info(f'Serving at http://localhost:{PORT}')
     app.run(host='0.0.0.0', port=PORT, threaded=True, debug=False)

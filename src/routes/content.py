@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
+from logger import logger
 from helpers import (
     build_arxiv_query, CHAT_TOOLS, execute_chat_tool, sse_event,
     _extract_cache,
@@ -554,7 +555,7 @@ def _extract_smart_highlights(body):
 
     highlights = []
     model = body.get('model') or "qwen2.5:3b"
-    print(f"[smart-highlights] Extracting from {url[:80]} using model={model}, text_len={len(truncated_text)}")
+    logger.info(f"[smart-highlights] Extracting from {url[:80]} using model={model}, text_len={len(truncated_text)}")
     try:
         prompt = SMART_HIGHLIGHTS_PROMPT + truncated_text + "\n--- END ---"
         llm_payload = json.dumps({
@@ -587,9 +588,9 @@ def _extract_smart_highlights(body):
                         'text': item['text'][:500],
                         'summary': (item.get('summary') or '')[:300],
                     })
-        print(f"[smart-highlights] Extracted {len(highlights)} highlights")
+        logger.info(f"[smart-highlights] Extracted {len(highlights)} highlights")
     except Exception as e:
-        print(f"[smart-highlights] LLM extraction failed: {e}")
+        logger.error(f"[smart-highlights] LLM extraction failed: {e}")
 
     # Only cache non-empty results
     if highlights:

@@ -272,8 +272,33 @@ function getWindowStatePath() {
 function loadWindowState() {
   try {
     const data = fs.readFileSync(getWindowStatePath(), 'utf8');
-    return JSON.parse(data);
-  } catch {
+    const state = JSON.parse(data);
+    console.log('[window-state] Loaded:', state);
+
+    // Validate that window is on screen
+    const { screen } = require('electron');
+    const displays = screen.getAllDisplays();
+    const isVisible = displays.some(display => {
+      const bounds = display.bounds;
+      return state.x >= bounds.x - state.width &&
+             state.x <= bounds.x + bounds.width &&
+             state.y >= bounds.y &&
+             state.y <= bounds.y + bounds.height;
+    });
+
+    if (!isVisible) {
+      console.log('[window-state] Window off-screen, using defaults');
+      return {
+        width: state.width || 1400,
+        height: state.height || 900,
+        x: undefined,
+        y: undefined,
+      };
+    }
+
+    return state;
+  } catch (e) {
+    console.log('[window-state] No saved state, using defaults');
     return {
       width: 1400,
       height: 900,
@@ -288,9 +313,10 @@ function saveWindowState() {
 
   try {
     const bounds = mainWindow.getBounds();
+    console.log('[window-state] Saving:', bounds);
     fs.writeFileSync(getWindowStatePath(), JSON.stringify(bounds, null, 2));
   } catch (e) {
-    console.error('Failed to save window state:', e);
+    console.error('[window-state] Failed to save:', e);
   }
 }
 
@@ -321,6 +347,7 @@ async function createWindow() {
   await waitForServer(serverPort);
 
   const windowState = loadWindowState();
+  console.log('[window-state] Creating window with:', windowState);
 
   mainWindow = new BrowserWindow({
     width: windowState.width,
