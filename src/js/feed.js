@@ -131,11 +131,8 @@ function markPostAsRead(link) {
 function _embedPost(link) {
   const paper = allPapers.find(p => p.link === link) || (getSavedPosts()[link] || {}).paper;
   if (!paper) return;
-  fetch('/api/embed-content', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: paper.title, link: paper.link, source: paper.source || '', description: paper.description || '', type: 'post' })
-  }).catch((e) => { /* fire-and-forget */ });
+  apiPost('/api/embed-content', { title: paper.title, link: paper.link, source: paper.source || '', description: paper.description || '', type: 'post' })
+    .catch((e) => { /* fire-and-forget */ });
 }
 function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
@@ -201,11 +198,8 @@ function getTestTitles() {
 function addTestTitle(title) {
   const titles = getTestTitles();
   if (!titles.includes(title)) { titles.push(title); setLS('qualityTestTitles', titles); }
-  fetch('/api/blocked-titles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title })
-  }).catch((e) => { /* fire-and-forget */ });
+  apiPost('/api/blocked-titles', { title })
+    .catch((e) => { /* fire-and-forget */ });
 }
 // ── User Quotes ──
 function _getUserQuotes() {
@@ -233,14 +227,8 @@ async function findSimilarPosts(index) {
   if (input) { input.value = '~' + p.title; input.blur(); }
   try {
     islandUpdate('ai-similar', { type: 'ai', label: 'nomic-embed-text', detail: 'Finding similar \u00B7 nomic-embed-text' });
-    const resp = await fetch('/api/find-similar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: p.title, link: p.link, description: p.description || '', limit: 20 })
-    });
+    const data = await apiPost('/api/find-similar', { title: p.title, link: p.link, description: p.description || '', limit: 20 });
     islandRemove('ai-similar');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
     _renderSemanticResults(container, data.results || [], `Similar to "${p.title}"`);
   } catch (err) {
     islandRemove('ai-similar');
@@ -328,19 +316,9 @@ async function cachePostOffline(link, paper, btnEl) {
     btnEl.disabled = true;
   }
   try {
-    const resp = await fetch('/api/extract-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ url: link })
-    });
-    if (!resp.ok) throw new Error('extract failed');
-    const { text } = await resp.json();
+    const { text } = await apiPost('/api/extract-text', { url: link });
     if (!text || text.length < 50) throw new Error('no content');
-    await fetch('/api/saved-content', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ url: link, title: paper?.title || '', text, savedAt: Date.now() })
-    });
+    await apiPost('/api/saved-content', { url: link, title: paper?.title || '', text, savedAt: Date.now() });
     const cached = getOfflineCachedSet();
     cached.add(link);
     setLS('offlineCached', [...cached]);
@@ -560,9 +538,7 @@ function setSortMode(mode) {
 
 async function fetchHNFeed() {
   try {
-    const resp = await fetch('/hn-feed');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const stories = await resp.json();
+    const stories = await apiGet('/hn-feed');
     return stories.map(s => {
       const url = s.url || `https://news.ycombinator.com/item?id=${s.id}`;
       const ts = s.time ? new Date(s.time * 1000) : null;
@@ -590,9 +566,7 @@ async function fetchHNFeed() {
 
 async function fetchPolymarketFeed() {
   try {
-    const resp = await fetch('/polymarket-feed');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const markets = await resp.json();
+    const markets = await apiGet('/polymarket-feed');
     if (markets.error) return [];
     return markets.map(m => {
       const sign = m.changePct >= 0 ? '+' : '';
@@ -820,13 +794,11 @@ async function addCustomFeed() {
   let name = url;
   try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch (e) { /* fire-and-forget */ }
   try {
-    const resp = await fetch(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
-    if (resp.ok) {
-      const xml = await resp.text();
-      const doc = new DOMParser().parseFromString(xml, 'text/xml');
-      const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
-      if (feedTitle) name = feedTitle;
-    }
+    const resp = await api(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
+    const xml = await resp.text();
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
+    if (feedTitle) name = feedTitle;
   } catch (e) { /* fire-and-forget */ }
   feeds.push({ url, name, enabled: true });
   setLS('customFeeds', feeds);
@@ -1167,7 +1139,7 @@ function renderQualityView() {
 
   renderBlockedWordsList();
   _renderPersonalizationPanel();
-  fetch('/api/quality-prompt').then(r => r.json()).then(data => {
+  apiGet('/api/quality-prompt').then(data => {
     if (data.prompt) {
       localStorage.setItem('qualityPrompt', data.prompt);
       const el = document.getElementById('quality-prompt-input');
@@ -1288,8 +1260,7 @@ function _renderPersonalizationPanel() {
 
 async function fetchGenericRSS(feedUrl, sourceName) {
   try {
-    const resp = await fetch(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
-    if (!resp.ok) return [];
+    const resp = await api(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
     const xml = await resp.text();
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     const items = doc.querySelectorAll('item, entry');
@@ -1375,8 +1346,8 @@ async function loadAllFeeds() {
   // 1) Fetch catalog sources from the central poller DB
   if (enabledKeys.length > 0) {
     promises.push(
-      fetch(`/api/feed-items?sources=${enabledKeys.join(',')}&limit=500`, { signal: abort.signal })
-        .then(r => r.ok ? r.json() : [])
+      api(`/api/feed-items?sources=${enabledKeys.join(',')}&limit=500`, { signal: abort.signal })
+        .then(r => r.json())
         .catch(() => [])
     );
   } else {
@@ -1386,12 +1357,11 @@ async function loadAllFeeds() {
   // 2) Fetch custom user feeds
   if (customFeeds.length > 0) {
     promises.push(
-      fetch('/api/feed-items/custom', {
+      api('/api/feed-items/custom', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }),
         signal: abort.signal,
-      }).then(r => r.ok ? r.json() : []).catch(() => [])
+      }).then(r => r.json()).catch(() => [])
     );
   } else {
     promises.push(Promise.resolve([]));
@@ -1538,21 +1508,14 @@ async function fetchCitationsFor(papers) {
   const ids = papers.map(p => p.arxivId).filter(Boolean).filter(id => citationMap[id] === undefined);
   if (!ids.length) return;
   try {
-    const resp = await fetch('/api/citations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      Object.assign(citationMap, data);
-      for (const p of papers) {
-        if (p.arxivId && citationMap[p.arxivId] !== undefined) {
-          p.citations = citationMap[p.arxivId];
-        }
+    const data = await apiPost('/api/citations', { ids });
+    Object.assign(citationMap, data);
+    for (const p of papers) {
+      if (p.arxivId && citationMap[p.arxivId] !== undefined) {
+        p.citations = citationMap[p.arxivId];
       }
-      renderPapers();
     }
+    renderPapers();
   } catch (e) { /* silently fail */ }
 }
 
@@ -2041,8 +2004,7 @@ function _renderPapersNow() {
       const container = document.getElementById('tweet-comments-' + i);
       if (container) {
         container.style.display = 'block';
-        fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() })
-          .then(r => r.json())
+        apiGet('/api/comments?paperLink=' + encodeURIComponent(p.link))
           .then(comments => _renderTweetComments(container, comments, p.link, i))
           .catch((e) => { console.warn('loadTweetComments:', e); });
       }
@@ -2060,8 +2022,7 @@ async function _fetchTweetCommentCounts(papers) {
   if (needed.length) {
     await Promise.all(needed.map(async p => {
       try {
-        const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(p.link), { headers: _authHeaders() });
-        const comments = await resp.json();
+        const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(p.link));
         _tweetCommentCounts[p.link] = comments.length;
       } catch { _tweetCommentCounts[p.link] = 0; }
     }));
@@ -2087,8 +2048,7 @@ async function _toggleTweetComments(link, idx) {
   container.style.display = 'block';
   container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Loading...</div>';
   try {
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
-    const comments = await resp.json();
+    const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;
     // Update badge
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
@@ -2154,11 +2114,10 @@ async function _postTweetComment(link, idx) {
   if (!content) return;
   const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
   try {
-    await fetch('/api/comments', { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ paperLink: link, author, content, parentId: null }) });
+    await apiPost('/api/comments', { paperLink: link, author, content, parentId: null });
     ta.value = '';
     // Re-fetch and re-render
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
-    const comments = await resp.json();
+    const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
     if (badge) badge.textContent = comments.length || '';
@@ -2174,9 +2133,8 @@ async function _postTweetReply(parentId, link, idx) {
   if (!content) return;
   const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
   try {
-    await fetch('/api/comments', { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ paperLink: link, author, content, parentId }) });
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
-    const comments = await resp.json();
+    await apiPost('/api/comments', { paperLink: link, author, content, parentId });
+    const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
     if (badge) badge.textContent = comments.length || '';
@@ -2187,9 +2145,8 @@ async function _postTweetReply(parentId, link, idx) {
 
 async function _deleteTweetComment(commentId, link, idx) {
   try {
-    await fetch('/api/comments/' + commentId, { method: 'DELETE', headers: _authHeaders() });
-    const resp = await fetch('/api/comments?paperLink=' + encodeURIComponent(link), { headers: _authHeaders() });
-    const comments = await resp.json();
+    await apiDelete('/api/comments/' + commentId);
+    const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;
     const badge = document.querySelector(`[data-tweet-comment-count="${CSS.escape(link)}"]`);
     if (badge) badge.textContent = comments.length || '';
@@ -2231,9 +2188,8 @@ function _tweetRepost(idx, btn) {
     btn.style.color = '';
     btn.className = btn.className.replace(/(?:^|\s)text-dimmer\s+hover:text-green-400/g, '') + ' text-dimmer hover:text-green-400';
     delete btn.dataset.reposted;
-    fetch('/api/reposts', {
+    api('/api/reposts', {
       method: 'DELETE',
-      headers: _authHeaders(),
       body: JSON.stringify({ paperLink: p.link })
     }).catch(e => console.error('Unrepost error:', e));
     return;
@@ -2256,11 +2212,7 @@ function _tweetRepost(idx, btn) {
   _markReposted(p.link);
   // Save repost to server
   const username = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
-  fetch('/api/reposts', {
-    method: 'POST',
-    headers: _authHeaders(),
-    body: JSON.stringify({ paperLink: p.link, paperTitle: p.title, username })
-  }).then(r => { if (!r.ok) console.error('Repost failed:', r.status); })
+  apiPost('/api/reposts', { paperLink: p.link, paperTitle: p.title, username })
     .catch(e => console.error('Repost error:', e));
 }
 

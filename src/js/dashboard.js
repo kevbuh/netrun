@@ -13,11 +13,7 @@ function _closeDashSearch(e) {
 
 async function dashToggleTask(teamId, todoId, done) {
   try {
-    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
-      method: 'PUT',
-      headers: _authHeaders(),
-      body: JSON.stringify({ done })
-    });
+    await apiPut(`/api/teams/${teamId}/todos/${todoId}`, { done });
     renderDashboard();
   } catch (err) { /* ignore */ }
 }
@@ -125,15 +121,15 @@ async function renderDashboard() {
 
   const _uname = _authUserInfo?.username;
   const [expResp, calResp, tasksResp, teamsResp, profileResp, commentsResp, repostsResp, inboxInvites, inboxMessages] = await Promise.all([
-    fetch('/api/experiments', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/calendar', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/my-tasks', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/teams', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    _uname ? fetch('/api/users/' + encodeURIComponent(_uname), { headers: _authHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
-    _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/comments', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([]),
-    _uname ? fetch('/api/users/' + encodeURIComponent(_uname) + '/reposts', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([]),
-    fetch('/api/inbox', { headers: _authHeaders() }).then(r => r.json()).catch(() => []),
-    fetch('/api/messages', { headers: _authHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []),
+    apiGet('/api/experiments').catch(() => []),
+    apiGet('/api/calendar').catch(() => []),
+    apiGet('/api/my-tasks').catch(() => []),
+    apiGet('/api/teams').catch(() => []),
+    _uname ? apiGet('/api/users/' + encodeURIComponent(_uname)).catch(() => null) : Promise.resolve(null),
+    _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/comments').catch(() => []) : Promise.resolve([]),
+    _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/reposts').catch(() => []) : Promise.resolve([]),
+    apiGet('/api/inbox').catch(() => []),
+    apiGet('/api/messages').catch(() => []),
   ]);
 
   const experiments = expResp || [];
@@ -980,16 +976,14 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
 
   try {
     islandUpdate('ai-summary', { type: 'ai', label: model || 'default', detail: 'Day summary \u00B7 ' + (model || 'default') });
-    const resp = await fetch('/api/doc-chat', {
+    const resp = await api('/api/doc-chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
       body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
         model: model
       }),
       signal: _dashSummaryAbort.signal
     });
-    if (!resp.ok) { islandRemove('ai-summary'); el.textContent = ''; return; }
 
     let text = '';
     const reader = resp.body.getReader();
@@ -1084,12 +1078,7 @@ async function _saveStatus() {
   const emoji = selected?.dataset.pet || '';
   const text = (document.getElementById('status-text-input')?.value || '').trim().slice(0, 80);
   try {
-    var res = await fetch('/api/users/me/status', {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emoji, text })
-    });
-    var data = await res.json();
+    var data = await apiPut('/api/users/me/status', { emoji, text });
     if (data.achievement) {
       if (typeof petCelebrate === 'function') petCelebrate();
       showAchievement(data.achievement.name, data.achievement.description);
@@ -1101,11 +1090,7 @@ async function _saveStatus() {
 
 async function _clearStatus() {
   try {
-    await fetch('/api/users/me/status', {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emoji: '', text: '' })
-    });
+    await apiPut('/api/users/me/status', { emoji: '', text: '' });
     document.getElementById('dash-status-picker')?.classList.add('hidden');
     renderDashboard();
   } catch (e) { console.error('Clear status error', e); }
@@ -1375,8 +1360,7 @@ async function _renderDevOverview() {
 
   let data;
   try {
-    const res = await fetch('/api/dev-stats', { headers: _authHeaders() });
-    data = await res.json();
+    data = await apiGet('/api/dev-stats');
     if (data.error) throw new Error(data.error);
   } catch (e) {
     cards.innerHTML = `<div class="text-sm" style="color:var(--text-dimmer)">Error: ${e.message}</div>`;
@@ -1615,8 +1599,7 @@ async function _devLoadDependencyGraph() {
   status.textContent = 'Generating graph data...';
 
   try {
-    const res = await fetch(`/api/dependency-graph?level=${_devGraphLevel}`, { headers: _authHeaders() });
-    const data = await res.json();
+    const data = await apiGet(`/api/dependency-graph?level=${_devGraphLevel}`);
 
     if (data.status === 'error') {
       status.textContent = 'Error: ' + data.message;
@@ -1892,8 +1875,7 @@ async function _renderDevGitLog() {
   container.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
 
   try {
-    const res = await fetch('/api/dev-stats', { headers: _authHeaders() });
-    const data = await res.json();
+    const data = await apiGet('/api/dev-stats');
     const log = data.git_log || [];
 
     if (log.length) {
@@ -1978,8 +1960,7 @@ async function _devRunFunctionRegistry() {
   results.innerHTML = '';
 
   try {
-    const res = await fetch('/api/function-registry', { headers: _authHeaders() });
-    const data = await res.json();
+    const data = await apiGet('/api/function-registry');
 
     if (data.error) {
       status.textContent = 'Error: ' + data.error;
@@ -2138,8 +2119,7 @@ async function _devRunFeedValidator() {
   results.innerHTML = '';
 
   try {
-    const res = await fetch('/api/validate-feeds', { headers: _authHeaders() });
-    const data = await res.json();
+    const data = await apiGet('/api/validate-feeds');
 
     if (data.status === 'error' && data.message) {
       status.textContent = 'Error: ' + data.message;
@@ -2277,8 +2257,7 @@ async function _devRunLoadOrderAnalysis() {
   results.innerHTML = '';
 
   try {
-    const res = await fetch('/api/validate-load-order', { headers: _authHeaders() });
-    const data = await res.json();
+    const data = await apiGet('/api/validate-load-order');
 
     if (data.status === 'error' && data.message) {
       status.textContent = 'Error: ' + data.message;
@@ -2418,8 +2397,7 @@ async function _devLoadMoreCommits(btn) {
   btn.textContent = 'Loading…';
   btn.disabled = true;
   try {
-    const res = await fetch(`/api/dev-git-log?offset=${_devGitLogOffset}&limit=20`);
-    const data = await res.json();
+    const data = await apiGet(`/api/dev-git-log?offset=${_devGitLogOffset}&limit=20`);
     const log = data.git_log || [];
     if (log.length) {
       const list = document.getElementById('dev-git-log-list');

@@ -153,11 +153,7 @@ function openExpPaper(link, title, source) {
 function removeExpPaper(link) {
   if (!currentExp || !currentExpId) return;
   const papers = (currentExp.papers || []).filter(p => p.link !== link);
-  fetch(`/api/experiments/${currentExpId}`, {
-    method: 'PUT',
-    headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ papers })
-  }).then(() => {
+  apiPut(`/api/experiments/${currentExpId}`, { papers }).then(() => {
     currentExp.papers = papers;
     renderExpPapers();
   });
@@ -184,10 +180,7 @@ async function finishRename(input) {
   renaming = false;
   const newTitle = input.value.trim();
   if (!newTitle || !currentExpId) { cancelRename(); return; }
-  await fetch(`/api/experiments/${currentExpId}`, {
-    method: 'PUT', headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: newTitle })
-  });
+  await apiPut(`/api/experiments/${currentExpId}`, { title: newTitle });
   currentExp.title = newTitle;
   cancelRename();
 }
@@ -217,10 +210,7 @@ async function finishEditDesc(textarea) {
   if (!editingDesc) return;
   editingDesc = false;
   const newDesc = textarea.value.trim();
-  await fetch(`/api/experiments/${currentExpId}`, {
-    method: 'PUT', headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ desc: newDesc })
-  });
+  await apiPut(`/api/experiments/${currentExpId}`, { desc: newDesc });
   currentExp.desc = newDesc;
   cancelEditDesc();
 }
@@ -247,8 +237,7 @@ let _expFiles = [];
 async function fetchExpFiles() {
   if (!currentExpId) return;
   try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/files`, { headers: _authHeaders() });
-    const data = await resp.json();
+    const data = await apiGet(`/api/experiments/${currentExpId}/files`);
     // Support both old (array) and new ({ files, emptyDirs }) response shapes
     const files = Array.isArray(data) ? data : data.files || [];
     const emptyDirs = Array.isArray(data) ? [] : data.emptyDirs || [];
@@ -334,7 +323,7 @@ async function _bulkDeleteFiles() {
   if (!count || !confirm(`Delete ${count} file${count !== 1 ? 's' : ''}?`)) return;
   const files = [..._selectedFiles];
   for (const fname of files) {
-    await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { method: 'DELETE', headers: _authHeaders() });
+    await apiDelete(`/api/experiments/${currentExpId}/files/${fname}`);
     if (currentFile === fname) {
       closeFileEditor();
     }
@@ -356,13 +345,13 @@ async function _bulkMoveFiles() {
     const fileName = oldPath.includes('/') ? oldPath.split('/').pop() : oldPath;
     const newPath = targetFolder ? (targetFolder + '/' + fileName) : fileName;
     if (oldPath === newPath) continue;
-    const resp = await fetch(`/api/experiments/${currentExpId}/move-file`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oldPath, newPath })
-    });
-    if (resp.ok && currentFile === oldPath) {
-      currentFile = newPath;
+    try {
+      await apiPost(`/api/experiments/${currentExpId}/move-file`, { oldPath, newPath });
+      if (currentFile === oldPath) {
+        currentFile = newPath;
+      }
+    } catch (e) {
+      // Continue with remaining files
     }
   }
   _selectedFiles.clear();
@@ -532,14 +521,13 @@ function startRenameFileInEditor(fname) {
   async function commit() {
     const newName = input.value.trim();
     if (newName && newName !== fname) {
-      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
-        method: 'PUT', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
-        body: JSON.stringify({ rename: newName })
-      });
-      if (resp.ok) {
+      try {
+        await apiPut(`/api/experiments/${currentExpId}/files/${fname}`, { rename: newName });
         currentFile = newName;
         openFile(newName);
         return;
+      } catch (e) {
+        // Fall through to revert
       }
     }
     // Revert: put back the clickable span
@@ -578,19 +566,14 @@ async function createExpFile(ext, content, template) {
   const base = ext === '.ipynb' ? 'notebook' : ext === '.py' ? 'script' : ext === '.tex' ? 'paper' : ext === '.mermaid' ? 'diagram' : ext === '.draw' ? 'drawing' : ext === '.slides' ? 'presentation' : 'notes';
   let name = `${base}${ext}`;
   let i = 2;
-  const resp = await fetch(`/api/experiments/${currentExpId}/files`, { headers: _authHeaders() });
-  const data = await resp.json();
+  const data = await apiGet(`/api/experiments/${currentExpId}/files`);
   const existing = Array.isArray(data) ? data : data.files || [];
   const sep = ext === '.py' ? '_' : '-';
   while (existing.includes(name)) { name = `${base}${sep}${i}${ext}`; i++; }
   const payload = {name};
   if (content !== undefined) payload.content = content;
   if (template) payload.template = template;
-  const createResp = await fetch(`/api/experiments/${currentExpId}/files`, {
-    method: 'POST', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const result = await createResp.json().catch(() => null);
+  const result = await apiPost(`/api/experiments/${currentExpId}/files`, payload).catch(() => null);
   const actualName = result?.name || name;
   await fetchExpFiles();
   openFile(actualName);
@@ -630,26 +613,16 @@ async function submitCloneRepo() {
   input.disabled = true;
   errEl.classList.add('hidden');
   try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/clone-repo`, {
+    await api(`/api/experiments/${currentExpId}/clone-repo`, {
       method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
       signal: AbortSignal.timeout(120000)
     });
-    const data = await resp.json();
-    if (!resp.ok) {
-      errEl.textContent = data.error || 'Clone failed';
-      errEl.classList.remove('hidden');
-      btn.textContent = 'Clone';
-      btn.disabled = false;
-      input.disabled = false;
-      return;
-    }
     const bar = document.getElementById('clone-repo-bar');
     if (bar) bar.remove();
     fetchExpFiles();
   } catch (e) {
-    // Clone may have succeeded even if the connection dropped
+    // Clone may have succeeded even if the connection dropped, or there was an error
     const bar = document.getElementById('clone-repo-bar');
     if (bar) bar.remove();
     fetchExpFiles();
@@ -688,17 +661,7 @@ async function submitCreateFolder() {
   const name = input.value.trim();
   if (!name) return;
   try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/create-folder`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      errEl.textContent = data.error || 'Failed';
-      errEl.classList.remove('hidden');
-      return;
-    }
+    await apiPost(`/api/experiments/${currentExpId}/create-folder`, { name });
     const bar = document.getElementById('create-folder-bar');
     if (bar) bar.remove();
     fetchExpFiles();
@@ -711,16 +674,7 @@ async function submitCreateFolder() {
 async function deleteExpFolder(folder) {
   if (!confirm(`Delete folder "${folder}" and all its contents?`)) return;
   try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/delete-folder`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder })
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      alert(data.error || 'Failed to delete folder');
-      return;
-    }
+    await apiPost(`/api/experiments/${currentExpId}/delete-folder`, { folder });
     // Close editor if current file was inside this folder
     if (currentFile && currentFile.startsWith(folder + '/')) {
       if (fileSaveTimer) { clearTimeout(fileSaveTimer); fileSaveTimer = null; }
@@ -749,16 +703,10 @@ function startRenameFolder(folderName, spanEl) {
     const newName = input.value.trim();
     if (newName && newName !== folderName) {
       try {
-        const resp = await fetch(`/api/experiments/${currentExpId}/rename-folder`, {
-          method: 'POST',
-          headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ oldName: folderName, newName })
-        });
-        if (resp.ok) {
-          // Update currentFile if it was inside the renamed folder
-          if (currentFile && currentFile.startsWith(folderName + '/')) {
-            currentFile = newName + currentFile.substring(folderName.length);
-          }
+        await apiPost(`/api/experiments/${currentExpId}/rename-folder`, { oldName: folderName, newName });
+        // Update currentFile if it was inside the renamed folder
+        if (currentFile && currentFile.startsWith(folderName + '/')) {
+          currentFile = newName + currentFile.substring(folderName.length);
         }
       } catch (e) { /* silently fail */ }
     }
@@ -789,18 +737,9 @@ async function _onFolderDrop(e, targetFolder) {
   const newPath = targetFolder ? (targetFolder + '/' + fileName) : fileName;
   if (oldPath === newPath) return; // no-op: same location
   try {
-    const resp = await fetch(`/api/experiments/${currentExpId}/move-file`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oldPath, newPath })
-    });
-    if (resp.ok) {
-      if (currentFile === oldPath) currentFile = newPath;
-      fetchExpFiles();
-    } else {
-      const data = await resp.json();
-      if (data.error) alert(data.error);
-    }
+    await apiPost(`/api/experiments/${currentExpId}/move-file`, { oldPath, newPath });
+    if (currentFile === oldPath) currentFile = newPath;
+    fetchExpFiles();
   } catch (e) { /* silently fail */ }
   _draggedFile = null;
 }
@@ -809,20 +748,15 @@ async function duplicateExpFile(fname) {
   const ext = fname.includes('.') ? '.' + fname.split('.').pop() : '';
   const base = fname.includes('.') ? fname.slice(0, fname.lastIndexOf('.')) : fname;
   const newName = base + '_copy' + ext;
-  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
-  const data = await resp.json();
+  const data = await apiGet(`/api/experiments/${currentExpId}/files/${fname}`);
   if (data.error) return;
-  await fetch(`/api/experiments/${currentExpId}/files/${newName}`, {
-    method: 'PUT',
-    headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: data.content })
-  });
+  await apiPut(`/api/experiments/${currentExpId}/files/${newName}`, { content: data.content });
   fetchExpFiles();
 }
 
 async function deleteExpFile(fname) {
   if (!confirm(`Delete ${fname}?`)) return;
-  await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { method:'DELETE', headers: _authHeaders() });
+  await apiDelete(`/api/experiments/${currentExpId}/files/${fname}`);
   if (currentFile === fname) {
     closeFileEditor();
   }
@@ -837,8 +771,7 @@ async function openFile(fname) {
     cmInstances = [];
   }
   currentFile = fname;
-  const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
-  const data = await resp.json();
+  const data = await apiGet(`/api/experiments/${currentExpId}/files/${fname}`);
 
   const _dc = document.getElementById('exp-default-content');
   if (_dc) _dc.style.display = 'none';
@@ -952,11 +885,8 @@ function startRenameFileInViewer(fname) {
   async function commit() {
     const newName = input.value.trim();
     if (newName && newName !== fname) {
-      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, {
-        method: 'PUT', headers: { ..._authHeaders(), 'Content-Type':'application/json' },
-        body: JSON.stringify({ rename: newName })
-      });
-      if (resp.ok) {
+      try {
+        await apiPut(`/api/experiments/${currentExpId}/files/${fname}`, { rename: newName });
         currentFile = newName;
         // Update the header and download link in place
         const newSpan = document.createElement('span');
@@ -970,6 +900,8 @@ function startRenameFileInViewer(fname) {
         if (dl) dl.download = newName;
         fetchExpFiles();
         return;
+      } catch (e) {
+        // Fall through to revert
       }
     }
     // Revert
@@ -1213,11 +1145,7 @@ async function shareFileToTeam(teamId, el) {
   if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
   const content = '[file:' + currentExpId + '/' + currentFile + ']';
   try {
-    await fetch(`/api/teams/${teamId}/messages`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    });
+    await apiPost(`/api/teams/${teamId}/messages`, { content });
     if (el) { el.innerHTML = '<span style="color:var(--accent);font-size:11px">Shared ✓</span>'; }
     setTimeout(() => { const dd = document.getElementById('file-share-dropdown'); if (dd) dd.remove(); }, 800);
   } catch {

@@ -154,15 +154,8 @@ Happy note-taking!`;
 
   try {
     // Create Welcome note
-    const res = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Welcome', content: welcomeContent })
-    });
-    if (res.ok) {
-      const note = await res.json();
-      _vaultNotes.push(note);
-    }
+    const note = await apiPost('/api/vault/notes', { title: 'Welcome', content: welcomeContent });
+    _vaultNotes.push(note);
 
     // Create Ideas note
     const ideasContent = `# Ideas
@@ -174,15 +167,8 @@ A place for your creative thoughts and brainstorming.
 - See also [[Project Notes]]
 
 #ideas #brainstorm`;
-    const res2 = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Ideas', content: ideasContent })
-    });
-    if (res2.ok) {
-      const note = await res2.json();
-      _vaultNotes.push(note);
-    }
+    const note2 = await apiPost('/api/vault/notes', { title: 'Ideas', content: ideasContent });
+    _vaultNotes.push(note2);
 
     // Create Project Notes
     const projectContent = `# Project Notes
@@ -195,15 +181,8 @@ Document your projects here.
 - Back to [[Welcome]]
 
 #projects`;
-    const res3 = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Project Notes', content: projectContent })
-    });
-    if (res3.ok) {
-      const note = await res3.json();
-      _vaultNotes.push(note);
-    }
+    const note3 = await apiPost('/api/vault/notes', { title: 'Project Notes', content: projectContent });
+    _vaultNotes.push(note3);
 
     // Create Daily Log
     const dailyContent = `# Daily Log
@@ -217,15 +196,8 @@ Track your daily progress and thoughts.
 - Connected notes with [[Ideas]] and [[Project Notes]]
 
 #daily #log`;
-    const res4 = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Daily Log', content: dailyContent })
-    });
-    if (res4.ok) {
-      const note = await res4.json();
-      _vaultNotes.push(note);
-    }
+    const note4 = await apiPost('/api/vault/notes', { title: 'Daily Log', content: dailyContent });
+    _vaultNotes.push(note4);
   } catch (e) {
     console.error('Failed to create welcome notes', e);
   }
@@ -234,10 +206,7 @@ Track your daily progress and thoughts.
 // Load all notes from server
 async function loadVaultNotes() {
   try {
-    const res = await fetch('/api/vault/notes', { headers: _authHeaders() });
-    if (res.ok) {
-      _vaultNotes = await res.json();
-    }
+    _vaultNotes = await apiGet('/api/vault/notes');
   } catch (e) {
     console.error('Failed to load vault notes', e);
     _vaultNotes = [];
@@ -247,10 +216,7 @@ async function loadVaultNotes() {
 // Load full vault file tree (includes project folders)
 async function loadVaultTree() {
   try {
-    const res = await fetch('/api/vault/tree', { headers: _authHeaders() });
-    if (res.ok) {
-      _vaultTree = await res.json();
-    }
+    _vaultTree = await apiGet('/api/vault/tree');
   } catch (e) {
     console.error('Failed to load vault tree', e);
     _vaultTree = [];
@@ -449,16 +415,9 @@ async function vaultMoveNoteToFolder(noteId, folderName) {
   if (note.folder === folderName) return;
 
   try {
-    const res = await fetch(`/api/vault/notes/${noteId}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder: folderName })
-    });
-
-    if (res.ok) {
-      note.folder = folderName;
-      renderVaultFileTree();
-    }
+    await apiPut(`/api/vault/notes/${noteId}`, { folder: folderName });
+    note.folder = folderName;
+    renderVaultFileTree();
   } catch (e) {
     console.error('Failed to move note', e);
   }
@@ -530,20 +489,13 @@ async function vaultRenameNotePrompt(noteId) {
   if (!newName || newName.trim() === note.title) return;
 
   try {
-    const res = await fetch(`/api/vault/notes/${noteId}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newName.trim() })
-    });
-
-    if (res.ok) {
-      note.title = newName.trim();
-      renderVaultFileTree();
-      // Update title input if this note is currently open
-      if (_vaultCurrentNote?.id === noteId) {
-        const titleInput = document.getElementById('vault-title-input');
-        if (titleInput) titleInput.value = newName.trim();
-      }
+    await apiPut(`/api/vault/notes/${noteId}`, { title: newName.trim() });
+    note.title = newName.trim();
+    renderVaultFileTree();
+    // Update title input if this note is currently open
+    if (_vaultCurrentNote?.id === noteId) {
+      const titleInput = document.getElementById('vault-title-input');
+      if (titleInput) titleInput.value = newName.trim();
     }
   } catch (e) {
     console.error('Failed to rename note', e);
@@ -560,11 +512,7 @@ async function vaultRenameFolder(oldName) {
   const notesInFolder = _vaultNotes.filter(n => n.folder === oldName);
   for (const note of notesInFolder) {
     try {
-      await fetch(`/api/vault/notes/${note.id}`, {
-        method: 'PUT',
-        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder: newName.trim() })
-      });
+      await apiPut(`/api/vault/notes/${note.id}`, { folder: newName.trim() });
       note.folder = newName.trim();
     } catch (e) {
       console.error('Failed to rename folder', e);
@@ -584,11 +532,7 @@ async function vaultDeleteFolder(folderName) {
   // Move notes to root (remove folder)
   for (const note of notesInFolder) {
     try {
-      await fetch(`/api/vault/notes/${note.id}`, {
-        method: 'PUT',
-        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder: null })
-      });
+      await apiPut(`/api/vault/notes/${note.id}`, { folder: null });
       note.folder = null;
     } catch (e) {
       console.error('Failed to move note', e);
@@ -616,11 +560,7 @@ async function vaultMoveNote(noteId) {
   folderName = folderName.trim() || null;
 
   try {
-    await fetch(`/api/vault/notes/${note.id}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder: folderName })
-    });
+    await apiPut(`/api/vault/notes/${note.id}`, { folder: folderName });
     note.folder = folderName;
     renderVaultFileTree();
   } catch (e) {
@@ -715,38 +655,29 @@ async function openVaultNote(noteId) {
 
     // Start marimo server
     try {
-      const res = await fetch('/api/vault/marimo/start', {
-        method: 'POST',
-        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note_id: noteId })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        _vaultMarimoActive = true;
-        const marimoUrl = `http://localhost:${data.port}`;
-        // Poll until marimo is ready
-        let attempts = 0;
-        const poll = setInterval(async () => {
-          attempts++;
-          try {
-            const check = await fetch(marimoUrl, { mode: 'no-cors' });
-            clearInterval(poll);
-            if (loading) loading.style.display = 'none';
-            if (iframe) {
-              iframe.src = marimoUrl;
-              iframe.style.display = '';
-            }
-          } catch (e) {
-            if (attempts > 30) { // ~15 seconds
-              clearInterval(poll);
-              if (loading) loading.innerHTML = '<div class="text-dimmer text-sm">Failed to start marimo. Is it installed?</div>';
-            }
+      const data = await apiPost('/api/vault/marimo/start', { note_id: noteId });
+      _vaultMarimoActive = true;
+      const marimoUrl = `http://localhost:${data.port}`;
+      // Poll until marimo is ready
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          // raw fetch: external localhost health check with no-cors mode
+          const check = await fetch(marimoUrl, { mode: 'no-cors' });
+          clearInterval(poll);
+          if (loading) loading.style.display = 'none';
+          if (iframe) {
+            iframe.src = marimoUrl;
+            iframe.style.display = '';
           }
-        }, 500);
-      } else {
-        const err = await res.json();
-        if (loading) loading.innerHTML = `<div class="text-dimmer text-sm">${escapeHtml(err.error || 'Failed to start marimo')}</div>`;
-      }
+        } catch (e) {
+          if (attempts > 30) { // ~15 seconds
+            clearInterval(poll);
+            if (loading) loading.innerHTML = '<div class="text-dimmer text-sm">Failed to start marimo. Is it installed?</div>';
+          }
+        }
+      }, 500);
     } catch (e) {
       console.error('Failed to start marimo', e);
       const loading = document.getElementById('vault-marimo-loading');
@@ -812,18 +743,11 @@ async function saveCurrentNote() {
   _vaultCurrentNote.content = content;
 
   try {
-    await fetch(`/api/vault/notes/${_vaultCurrentNote.id}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content })
-    });
+    await apiPut(`/api/vault/notes/${_vaultCurrentNote.id}`, { title, content });
     renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
     // Embed note for semantic search (fire-and-forget)
-    fetch('/api/embed-content', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
-    }).catch((e) => { /* fire-and-forget */ });
+    apiPost('/api/embed-content', { title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
+      .catch((e) => { /* fire-and-forget */ });
   } catch (e) {
     console.error('Failed to save note', e);
   }
@@ -834,19 +758,11 @@ async function vaultNewNote(folder = null) {
   const title = 'Untitled';
 
   try {
-    const res = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content: '', folder })
-    });
-
-    if (res.ok) {
-      const note = await res.json();
-      note._isNew = true; // Mark as newly created
-      _vaultNotes.push(note);
-      renderVaultFileTree();
-      openVaultNote(note.id);
-    }
+    const note = await apiPost('/api/vault/notes', { title, content: '', folder });
+    note._isNew = true; // Mark as newly created
+    _vaultNotes.push(note);
+    renderVaultFileTree();
+    openVaultNote(note.id);
   } catch (e) {
     console.error('Failed to create note', e);
   }
@@ -893,19 +809,11 @@ if __name__ == "__main__":
 `;
 
   try {
-    const res = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content, folder, type: 'marimo' })
-    });
-
-    if (res.ok) {
-      const note = await res.json();
-      note._isNew = true;
-      _vaultNotes.push(note);
-      renderVaultFileTree();
-      openVaultNote(note.id);
-    }
+    const note = await apiPost('/api/vault/notes', { title, content, folder, type: 'marimo' });
+    note._isNew = true;
+    _vaultNotes.push(note);
+    renderVaultFileTree();
+    openVaultNote(note.id);
   } catch (e) {
     console.error('Failed to create marimo note', e);
   }
@@ -920,17 +828,10 @@ async function vaultNewProject() {
   const num = Math.floor(Math.random()*900)+100;
   const title = `${adj}-${noun}-${num}`;
   try {
-    const resp = await fetch('/api/experiments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ title, desc: '', created: Date.now() })
-    });
-    if (resp.ok) {
-      const exp = await resp.json();
-      await loadVaultTree();
-      _vaultExpandedProjects.add(exp.id);
-      renderVaultFileTree();
-    }
+    const exp = await apiPost('/api/experiments', { title, desc: '', created: Date.now() });
+    await loadVaultTree();
+    _vaultExpandedProjects.add(exp.id);
+    renderVaultFileTree();
   } catch (e) {
     console.error('Failed to create project', e);
   }
@@ -962,16 +863,10 @@ async function vaultCreateProjectFile(projectId, ext) {
   const sep = ext === '.py' ? '_' : '-';
   while (existingNames.has(name)) { name = `${base}${sep}${i}${ext}`; i++; }
   try {
-    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
-    });
-    if (resp.ok) {
-      await loadVaultTree();
-      renderVaultFileTree();
-      vaultOpenProjectFile(projectId, name);
-    }
+    await apiPost(`/api/experiments/${encodeURIComponent(projectId)}/files`, { name });
+    await loadVaultTree();
+    renderVaultFileTree();
+    vaultOpenProjectFile(projectId, name);
   } catch (e) {
     console.error('Failed to create file', e);
   }
@@ -1227,9 +1122,7 @@ function vaultShowProjectNewMenu(e, projectId) {
 async function vaultDeleteProjectFile(projectId, filePath) {
   if (!confirm(`Delete ${filePath}?`)) return;
   try {
-    await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, {
-      method: 'DELETE', headers: _authHeaders()
-    });
+    await apiDelete(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`);
     // If this file is currently open, close editor
     if (_vaultEditorMode === 'file' && currentExpId === projectId && currentFile === filePath) {
       vaultCloseFile();
@@ -1250,18 +1143,12 @@ async function vaultRenameProjectFile(projectId, filePath) {
   const newPath = dir + newName.trim();
 
   try {
-    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rename: newPath })
-    });
-    if (resp.ok) {
-      if (_vaultEditorMode === 'file' && currentExpId === projectId && currentFile === filePath) {
-        currentFile = newPath;
-      }
-      await loadVaultTree();
-      renderVaultFileTree();
+    await apiPut(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, { rename: newPath });
+    if (_vaultEditorMode === 'file' && currentExpId === projectId && currentFile === filePath) {
+      currentFile = newPath;
     }
+    await loadVaultTree();
+    renderVaultFileTree();
   } catch (e) {
     console.error('Failed to rename project file', e);
   }
@@ -1269,19 +1156,14 @@ async function vaultRenameProjectFile(projectId, filePath) {
 
 async function vaultDuplicateProjectFile(projectId, filePath) {
   try {
-    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`, { headers: _authHeaders() });
-    const data = await resp.json();
+    const data = await apiGet(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(filePath)}`);
     if (data.error) return;
 
     const ext = filePath.includes('.') ? '.' + filePath.split('.').pop() : '';
     const base = filePath.includes('.') ? filePath.slice(0, filePath.lastIndexOf('.')) : filePath;
     const newName = base + '_copy' + ext;
 
-    await fetch(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(newName)}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: data.content })
-    });
+    await apiPut(`/api/experiments/${encodeURIComponent(projectId)}/files/${encodeURIComponent(newName)}`, { content: data.content });
     await loadVaultTree();
     renderVaultFileTree();
   } catch (e) {
@@ -1293,20 +1175,14 @@ async function vaultRenameProject(projectId) {
   const newName = prompt('Rename project:', projectId);
   if (!newName || newName.trim() === projectId) return;
   try {
-    const resp = await fetch(`/api/experiments/${encodeURIComponent(projectId)}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newName.trim() })
-    });
-    if (resp.ok) {
-      // Update expanded set
-      if (_vaultExpandedProjects.has(projectId)) {
-        _vaultExpandedProjects.delete(projectId);
-        _vaultExpandedProjects.add(newName.trim());
-      }
-      await loadVaultTree();
-      renderVaultFileTree();
+    await apiPut(`/api/experiments/${encodeURIComponent(projectId)}`, { title: newName.trim() });
+    // Update expanded set
+    if (_vaultExpandedProjects.has(projectId)) {
+      _vaultExpandedProjects.delete(projectId);
+      _vaultExpandedProjects.add(newName.trim());
     }
+    await loadVaultTree();
+    renderVaultFileTree();
   } catch (e) {
     console.error('Failed to rename project', e);
   }
@@ -1315,9 +1191,7 @@ async function vaultRenameProject(projectId) {
 async function vaultDeleteProject(projectId) {
   if (!confirm(`Delete project "${projectId}" and all its files?`)) return;
   try {
-    await fetch(`/api/experiments/${encodeURIComponent(projectId)}`, {
-      method: 'DELETE', headers: _authHeaders()
-    });
+    await apiDelete(`/api/experiments/${encodeURIComponent(projectId)}`);
     _vaultExpandedProjects.delete(projectId);
     if (_vaultEditorMode === 'file' && currentExpId === projectId) {
       vaultCloseFile();
@@ -1347,11 +1221,7 @@ document.addEventListener('keydown', function(e) {
 async function _stopCurrentMarimo() {
   if (!_vaultMarimoActive || !_vaultCurrentNote) return;
   try {
-    await fetch('/api/vault/marimo/stop', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note_id: _vaultCurrentNote.id })
-    });
+    await apiPost('/api/vault/marimo/stop', { note_id: _vaultCurrentNote.id });
   } catch (e) {
     console.error('Failed to stop marimo', e);
   }
@@ -1410,19 +1280,11 @@ async function confirmVaultNewFolder() {
 
   // Create a new note in the folder
   try {
-    const res = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Untitled', content: '', folder: name })
-    });
-
-    if (res.ok) {
-      const note = await res.json();
-      note._isNew = true;
-      _vaultNotes.push(note);
-      renderVaultFileTree();
-      openVaultNote(note.id);
-    }
+    const note = await apiPost('/api/vault/notes', { title: 'Untitled', content: '', folder: name });
+    note._isNew = true;
+    _vaultNotes.push(note);
+    renderVaultFileTree();
+    openVaultNote(note.id);
   } catch (e) {
     console.error('Failed to create folder', e);
   }
@@ -1441,11 +1303,7 @@ async function vaultDeleteNote(noteId) {
   if (!confirm('Delete this note?')) return;
 
   try {
-    await fetch(`/api/vault/notes/${noteId}`, {
-      method: 'DELETE',
-      headers: _authHeaders()
-    });
-
+    await apiDelete(`/api/vault/notes/${noteId}`);
     _vaultNotes = _vaultNotes.filter(n => n.id !== noteId);
     renderVaultFileTree();
 
@@ -1593,18 +1451,10 @@ function vaultOpenLink(target) {
 
 async function vaultCreateNoteWithTitle(title) {
   try {
-    const res = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content: '' })
-    });
-
-    if (res.ok) {
-      const note = await res.json();
-      _vaultNotes.push(note);
-      renderVaultFileTree();
-      openVaultNote(note.id);
-    }
+    const note = await apiPost('/api/vault/notes', { title, content: '' });
+    _vaultNotes.push(note);
+    renderVaultFileTree();
+    openVaultNote(note.id);
   } catch (e) {
     console.error('Failed to create note', e);
   }
@@ -2011,31 +1861,23 @@ async function vaultTogglePublish() {
   }
 
   try {
-    const res = await fetch(`/api/vault/notes/${_vaultCurrentNote.id}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ published: !isPublished })
-    });
+    const note = await apiPut(`/api/vault/notes/${_vaultCurrentNote.id}`, { published: !isPublished });
+    Object.assign(_vaultCurrentNote, note);
+    updateVaultPublishButton();
 
-    if (res.ok) {
-      const note = await res.json();
-      Object.assign(_vaultCurrentNote, note);
-      updateVaultPublishButton();
-
-      if (note.published) {
-        // Show the public URL
-        const username = _authUserInfo?.username;
-        if (username) {
-          const url = `${location.origin}/#blog/${username}/${note.slug}`;
-          vaultShowPublishModal(url);
-        }
+    if (note.published) {
+      // Show the public URL
+      const username = _authUserInfo?.username;
+      if (username) {
+        const url = `${location.origin}/#blog/${username}/${note.slug}`;
+        vaultShowPublishModal(url);
       }
+    }
 
-      // Check for achievement unlock
-      if (note.achievement) {
-        if (typeof petCelebrate === 'function') petCelebrate();
-        showAchievement(note.achievement.name, note.achievement.description);
-      }
+    // Check for achievement unlock
+    if (note.achievement) {
+      if (typeof petCelebrate === 'function') petCelebrate();
+      showAchievement(note.achievement.name, note.achievement.description);
     }
   } catch (e) {
     console.error('Failed to toggle publish', e);
@@ -2124,37 +1966,29 @@ async function openBlogPost(username, slug) {
   document.getElementById('blog-date').textContent = '';
 
   try {
-    const res = await fetch(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`, {
-      headers: _authHeaders()
-    });
-    if (res.ok) {
-      const post = await res.json();
-      _currentBlogPost = post;
-      document.getElementById('blog-title').textContent = post.title;
-      document.getElementById('blog-content').innerHTML = renderBlogMarkdown(post.content);
-      document.getElementById('blog-author').innerHTML = `
-        ${post.picture ? `<img src="${escapeAttr(post.picture)}" class="blog-author-pic">` : ''}
-        <a href="#profile/${encodeURIComponent(post.author)}">${escapeHtml(post.author)}</a>
-      `;
-      if (post.published_at) {
-        document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      }
-      updateBlogBookmarkButton();
-      updateBlogVoteButtons();
-      loadBlogComments();
-      // Show unpost button if user is the author
-      const unpostBtn = document.getElementById('blog-unpost-btn');
-      const isAuthor = _authUserInfo && _authUserInfo.username === post.author;
-      if (unpostBtn) unpostBtn.style.display = isAuthor ? '' : 'none';
-    } else {
-      document.getElementById('blog-title').textContent = 'Post not found';
-      document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
-      const unpostBtn = document.getElementById('blog-unpost-btn');
-      if (unpostBtn) unpostBtn.style.display = 'none';
+    const post = await apiGet(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
+    _currentBlogPost = post;
+    document.getElementById('blog-title').textContent = post.title;
+    document.getElementById('blog-content').innerHTML = renderBlogMarkdown(post.content);
+    document.getElementById('blog-author').innerHTML = `
+      ${post.picture ? `<img src="${escapeAttr(post.picture)}" class="blog-author-pic">` : ''}
+      <a href="#profile/${encodeURIComponent(post.author)}">${escapeHtml(post.author)}</a>
+    `;
+    if (post.published_at) {
+      document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
+    updateBlogBookmarkButton();
+    updateBlogVoteButtons();
+    loadBlogComments();
+    // Show unpost button if user is the author
+    const unpostBtn = document.getElementById('blog-unpost-btn');
+    const isAuthor = _authUserInfo && _authUserInfo.username === post.author;
+    if (unpostBtn) unpostBtn.style.display = isAuthor ? '' : 'none';
   } catch (e) {
-    document.getElementById('blog-title').textContent = 'Error';
-    document.getElementById('blog-content').innerHTML = '<p>Failed to load post.</p>';
+    document.getElementById('blog-title').textContent = 'Post not found';
+    document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
+    const unpostBtn = document.getElementById('blog-unpost-btn');
+    if (unpostBtn) unpostBtn.style.display = 'none';
   }
 }
 
@@ -2230,37 +2064,29 @@ async function copyBlogToVault() {
   const checkIcon = btn.querySelector('.blog-fork-check');
 
   try {
-    const res = await fetch('/api/vault/notes', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: _currentBlogPost.title,
-        content: _currentBlogPost.content,
-        folder: 'Saved',
-        forked_from: {
-          author: author,
-          slug: slug,
-          title: _currentBlogPost.title
-        }
-      })
+    await apiPost('/api/vault/notes', {
+      title: _currentBlogPost.title,
+      content: _currentBlogPost.content,
+      folder: 'Saved',
+      forked_from: {
+        author: author,
+        slug: slug,
+        title: _currentBlogPost.title
+      }
     });
 
-    if (res.ok) {
-      // Show success animation
-      if (forkIcon) forkIcon.style.display = 'none';
-      if (checkIcon) checkIcon.style.display = '';
-      btn.classList.add('forked');
-      btn.title = 'Forked!';
+    // Show success animation
+    if (forkIcon) forkIcon.style.display = 'none';
+    if (checkIcon) checkIcon.style.display = '';
+    btn.classList.add('forked');
+    btn.title = 'Forked!';
 
-      setTimeout(() => {
-        if (forkIcon) forkIcon.style.display = '';
-        if (checkIcon) checkIcon.style.display = 'none';
-        btn.classList.remove('forking', 'forked');
-        btn.title = 'Fork to my vault';
-      }, 2000);
-    } else {
-      btn.classList.remove('forking');
-    }
+    setTimeout(() => {
+      if (forkIcon) forkIcon.style.display = '';
+      if (checkIcon) checkIcon.style.display = 'none';
+      btn.classList.remove('forking', 'forked');
+      btn.title = 'Fork to my vault';
+    }, 2000);
   } catch (e) {
     console.error('Failed to fork to vault', e);
     btn.classList.remove('forking');
@@ -2299,19 +2125,11 @@ async function voteBlog(vote) {
   }
 
   try {
-    const res = await fetch(`/api/blog/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/vote`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vote })
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      _currentBlogPost.upvotes = data.upvotes;
-      _currentBlogPost.downvotes = data.downvotes;
-      _currentBlogPost.userVote = vote;
-      updateBlogVoteButtons();
-    }
+    const data = await apiPost(`/api/blog/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/vote`, { vote });
+    _currentBlogPost.upvotes = data.upvotes;
+    _currentBlogPost.downvotes = data.downvotes;
+    _currentBlogPost.userVote = vote;
+    updateBlogVoteButtons();
   } catch (e) {
     console.error('Failed to vote', e);
   }
@@ -2328,20 +2146,12 @@ async function unpublishBlog() {
   const slug = parts[2];
 
   try {
-    const res = await fetch(`/api/blog/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/unpublish`, {
-      method: 'POST',
-      headers: _authHeaders()
-    });
-
-    if (res.ok) {
-      // Redirect to vault
-      window.location.hash = 'vault';
-    } else {
-      const data = await res.json();
-      alert(data.error || 'Failed to unpublish');
-    }
+    await apiPost(`/api/blog/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/unpublish`, {});
+    // Redirect to vault
+    window.location.hash = 'vault';
   } catch (e) {
     console.error('Failed to unpublish', e);
+    alert(e.message || 'Failed to unpublish');
   }
 }
 
@@ -2402,11 +2212,8 @@ async function loadBlogComments() {
   if (!blogLink) return;
 
   try {
-    const res = await fetch(`/api/comments?paperLink=${encodeURIComponent(blogLink)}`, { headers: _authHeaders() });
-    if (res.ok) {
-      _blogComments = await res.json();
-      renderBlogComments();
-    }
+    _blogComments = await apiGet(`/api/comments?paperLink=${encodeURIComponent(blogLink)}`);
+    renderBlogComments();
   } catch (e) {
     console.error('Failed to load blog comments', e);
   }
@@ -2492,15 +2299,9 @@ async function postBlogComment() {
   const blogLink = _getBlogLink();
 
   try {
-    const res = await fetch('/api/comments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ paperLink: blogLink, author, content, parentId: null })
-    });
-    if (res.ok) {
-      input.value = '';
-      loadBlogComments();
-    }
+    await apiPost('/api/comments', { paperLink: blogLink, author, content, parentId: null });
+    input.value = '';
+    loadBlogComments();
   } catch (e) {
     console.error('Failed to post comment', e);
   }
@@ -2516,16 +2317,10 @@ async function postBlogReply(parentId) {
   const blogLink = _getBlogLink();
 
   try {
-    const res = await fetch('/api/comments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-      body: JSON.stringify({ paperLink: blogLink, author, content, parentId })
-    });
-    if (res.ok) {
-      textarea.value = '';
-      hideBlogReplyForm(parentId);
-      loadBlogComments();
-    }
+    await apiPost('/api/comments', { paperLink: blogLink, author, content, parentId });
+    textarea.value = '';
+    hideBlogReplyForm(parentId);
+    loadBlogComments();
   } catch (e) {
     console.error('Failed to post reply', e);
   }
@@ -2533,10 +2328,8 @@ async function postBlogReply(parentId) {
 
 async function deleteBlogComment(id) {
   try {
-    const res = await fetch('/api/comments/' + id, { method: 'DELETE', headers: _authHeaders() });
-    if (res.ok) {
-      loadBlogComments();
-    }
+    await apiDelete('/api/comments/' + id);
+    loadBlogComments();
   } catch (e) {
     console.error('Failed to delete comment', e);
   }
@@ -2702,21 +2495,11 @@ async function sendVaultChatMessage() {
     const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
       role: m.role, content: m.content
     }));
-    const resp = await fetch('/api/vault-chat', {
+    const resp = await api('/api/vault-chat', {
       method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: filteredMsgs, query: q }),
       signal: _vaultChatAbort.signal
     });
-
-    if (!resp.ok) {
-      islandRemove('ai-vault');
-      _vaultChatMessages[_vaultChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
-      _vaultChatMessages[_vaultChatMessages.length - 1]._thinking = false;
-      _renderVaultChatMessages(true);
-      _saveVaultChatMessages();
-      return;
-    }
 
     let aiText = '';
     const aiIdx = _vaultChatMessages.length - 1;
@@ -2916,20 +2699,11 @@ async function _sendNtpVaultChat() {
     const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
       role: m.role, content: m.content
     }));
-    const resp = await fetch('/api/vault-chat', {
+    const resp = await api('/api/vault-chat', {
       method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: filteredMsgs, query: q }),
       signal: _vaultChatAbort.signal
     });
-
-    if (!resp.ok) {
-      _vaultChatMessages[_vaultChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
-      _vaultChatMessages[_vaultChatMessages.length - 1]._thinking = false;
-      _renderNtpVaultChatMessages(true);
-      _saveVaultChatMessages();
-      return;
-    }
 
     let aiText = '';
     const aiIdx = _vaultChatMessages.length - 1;
@@ -2995,11 +2769,8 @@ function _vaultGitBadge(status) {
 async function _ensureVaultPath() {
   if (_vaultPath) return _vaultPath;
   try {
-    const resp = await fetch('/api/vault/path', { headers: _authHeaders() });
-    if (resp.ok) {
-      const data = await resp.json();
-      _vaultPath = data.path || null;
-    }
+    const data = await apiGet('/api/vault/path');
+    _vaultPath = data.path || null;
   } catch (e) { console.warn('ensureVaultPath:', e); }
   return _vaultPath;
 }

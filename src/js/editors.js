@@ -105,10 +105,7 @@ async function saveMarkdown() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId) return;
   const content = document.getElementById('md-editor-textarea').value;
-  await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
-    method:'PUT', headers:{ ..._authHeaders(), 'Content-Type':'application/json'},
-    body: JSON.stringify({content})
-  });
+  await apiPut(`/api/experiments/${currentExpId}/files/${currentFile}`, { content });
   Motion.flash(document.getElementById('md-save-ind'));
 }
 
@@ -555,10 +552,7 @@ async function saveLatex() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId || !_texCm) return;
   var content = _texCm.getValue();
-  await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({content})
-  });
+  await apiPut('/api/experiments/' + currentExpId + '/files/' + currentFile, { content });
   Motion.flash(document.getElementById('tex-save-ind'));
 }
 
@@ -566,10 +560,7 @@ async function compileLatex() {
   if (!currentFile || !currentExpId || !_texCm) return;
   // Save first
   var content = _texCm.getValue();
-  await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({content})
-  });
+  await apiPut('/api/experiments/' + currentExpId + '/files/' + currentFile, { content });
   const btn = document.getElementById('tex-compile-btn');
   const status = document.getElementById('tex-compile-status');
   const errLog = document.getElementById('tex-error-log');
@@ -578,7 +569,8 @@ async function compileLatex() {
   status.textContent = '';
   errLog.classList.add('hidden');
   try {
-    const resp = await fetch('/api/experiments/' + currentExpId + '/compile-tex/' + currentFile);
+    // Keep raw fetch - returns blob on success, JSON on error
+    const resp = await fetch('/api/experiments/' + currentExpId + '/compile-tex/' + currentFile, { headers: _authHeaders() });
     if (!resp.ok) {
       const err = await resp.json();
       status.textContent = 'Failed';
@@ -628,10 +620,7 @@ function startRenameTexFile(fname) {
   async function commit() {
     var newName = input.value.trim();
     if (newName && newName !== fname) {
-      var resp = await fetch('/api/experiments/' + currentExpId + '/files/' + fname, {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ rename: newName })
-      });
+      await apiPut('/api/experiments/' + currentExpId + '/files/' + fname, { rename: newName });
       if (resp.ok) {
         currentFile = newName;
         fname = newName;
@@ -819,10 +808,7 @@ async function saveMermaid() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId || !_mermaidCm) return;
   var content = _mermaidCm.getValue();
-  await fetch('/api/experiments/' + currentExpId + '/files/' + currentFile, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({content: content})
-  });
+  await apiPut('/api/experiments/' + currentExpId + '/files/' + currentFile, { content });
   Motion.flash(document.getElementById('mermaid-save-ind'));
 }
 
@@ -841,10 +827,7 @@ function startRenameMermaidFile(fname) {
   async function commit() {
     var newName = input.value.trim();
     if (newName && newName !== fname) {
-      var resp = await fetch('/api/experiments/' + currentExpId + '/files/' + fname, {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ rename: newName })
-      });
+      await apiPut('/api/experiments/' + currentExpId + '/files/' + fname, { rename: newName });
       if (resp.ok) {
         currentFile = newName;
         fname = newName;
@@ -1369,8 +1352,7 @@ async function _gotoDefInProject(token) {
   const pyFiles = _expFiles.filter(f => f.endsWith('.py') && f !== currentFile);
   for (const fname of pyFiles) {
     try {
-      const resp = await fetch(`/api/experiments/${currentExpId}/files/${fname}`, { headers: _authHeaders() });
-      const data = await resp.json();
+      const data = await apiGet(`/api/experiments/${currentExpId}/files/${fname}`);
       if (data.error) continue;
       const text = data.content || '';
       const defPat = new RegExp(`^\\s*(?:def|class)\\s+${escaped}\\s*[\\(:]`, 'm');
@@ -1482,10 +1464,7 @@ async function savePythonFile() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId || !pyEditorCm) return;
   const content = pyEditorCm.getValue();
-  await fetch(`/api/experiments/${currentExpId}/files/${currentFile}`, {
-    method:'PUT', headers:{ ..._authHeaders(), 'Content-Type':'application/json'},
-    body: JSON.stringify({content})
-  });
+  await apiPut(`/api/experiments/${currentExpId}/files/${currentFile}`, { content });
   Motion.flash(document.getElementById('py-save-ind'));
 }
 

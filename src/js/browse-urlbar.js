@@ -211,9 +211,8 @@ function _browseUrlFeelingLucky() {
   _browseUrlRenderLuckyRow(dd);
   const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
   islandUpdate('ai-lucky', { type: 'ai', label: model, detail: 'Feeling Lucky \u00B7 ' + model });
-  fetch('/api/doc-chat', {
+  api('/api/doc-chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
     body: JSON.stringify({
       messages: [{ role: 'user', content: 'Give me a single interesting, surprising, or obscure topic to search on the web right now. Just reply with the search query, nothing else. No quotes. Be creative and varied — pick from science, history, art, philosophy, technology, nature, space, culture, or anything fascinating. Do not repeat yourself.' }],
       model: model
@@ -566,13 +565,11 @@ function _fetchSearchSuggestions(query) {
     const controller = new AbortController();
     _suggestAbort = controller;
     try {
-      const resp = await fetch('/api/search-suggest', {
+      const resp = await api('/api/search-suggest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
         signal: controller.signal
       });
-      if (!resp.ok) return;
       const data = await resp.json();
       const suggestions = data.suggestions || [];
       _suggestCache[query] = suggestions;
@@ -597,6 +594,7 @@ function _fetchWordDefinition(word) {
   if (_defDebounce) clearTimeout(_defDebounce);
   _defDebounce = setTimeout(async () => {
     try {
+      // External API - keep raw fetch
       const resp = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(key));
       if (!resp.ok) { _defCache[key] = null; _currentDef = null; return; }
       const data = await resp.json();
@@ -827,6 +825,7 @@ function _tryTimezoneAnswer(q) {
 
 // ── Weather (async) ──
 async function _fetchWeatherAnswer(city) {
+  // External API - keep raw fetch
   const resp = await fetch('https://wttr.in/' + encodeURIComponent(city) + '?format=j1', { signal: AbortSignal.timeout(4000) });
   if (!resp.ok) return null;
   const data = await resp.json();
@@ -912,6 +911,7 @@ async function _fetchSportsAnswer(match) {
   const espnPath = leagueMap[league];
   if (!espnPath) return null;
 
+  // External API - keep raw fetch
   const resp = await fetch('https://site.api.espn.com/apis/site/v2/sports/' + espnPath + '/scoreboard', { signal: AbortSignal.timeout(4000) });
   if (!resp.ok) return null;
   const data = await resp.json();
@@ -963,10 +963,7 @@ async function _fetchSportsAnswer(match) {
 
 // ── Stocks ──
 async function _fetchStockAnswer(ticker) {
-  // Use Yahoo Finance v8 quote endpoint
-  const resp = await fetch('/api/stock-quote?symbol=' + encodeURIComponent(ticker), { signal: AbortSignal.timeout(4000) });
-  if (!resp.ok) return null;
-  const data = await resp.json();
+  const data = await apiGet('/api/stock-quote?symbol=' + encodeURIComponent(ticker));
   if (!data.price && data.price !== 0) return null;
   const price = data.price;
   const change = data.change || 0;

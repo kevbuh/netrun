@@ -21,12 +21,7 @@ async function extractDocText(url) {
   _docTextLoading = true;
   if (_extractSpinnerInterval) clearInterval(_extractSpinnerInterval);
   try {
-    const resp = await fetch('/api/extract-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    });
-    const data = await resp.json();
+    const data = await apiPost('/api/extract-text', { url });
     if (!data.error) {
       _docText = data.text || '';
     }

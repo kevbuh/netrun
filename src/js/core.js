@@ -89,8 +89,7 @@ function _pillStackReflow() {
 var _customAnnotationCategories = [];
 
 function _loadCustomAnnotationCategories() {
-  fetch('/api/annotation-categories', { headers: typeof _authHeaders === 'function' ? _authHeaders() : {} })
-    .then(function(r) { return r.json(); })
+  apiGet('/api/annotation-categories')
     .then(function(d) { _customAnnotationCategories = d.categories || []; })
     .catch(function() {});
 }
@@ -653,11 +652,8 @@ function _islandAttachHandlers(pill, a, hasTray) {
           var rTab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
           if (rTab) { rUrl = rTab.url || ''; rTitle = rTab.title || ''; }
         }
-        fetch('/api/annotation-feedback', {
-          method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
-          body: JSON.stringify({ quote: rAnn.quote || '', explanation: rAnn.explanation || '', annType: rAnn.type || '', rating: rRating, url: rUrl, pageTitle: rTitle })
-        }).catch(function() {});
+        apiPost('/api/annotation-feedback', { quote: rAnn.quote || '', explanation: rAnn.explanation || '', annType: rAnn.type || '', rating: rRating, url: rUrl, pageTitle: rTitle })
+          .catch(function() {});
         var rBtn = rateGoodBtn || rateBadBtn;
         rBtn.style.opacity = '1';
         rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
@@ -1256,7 +1252,7 @@ function setSelectedSpinner(name) {
 }
 
 function loadSpinners() {
-  return fetch('/spinners.json').then(r => r.json()).then(data => {
+  return apiGet('/spinners.json').then(data => {
     _spinnerData = data;
     _spinnerNames = Object.keys(data);
     restartSpinners();
@@ -1779,7 +1775,7 @@ async function ensureView(viewId) {
   const config = VIEW_REGISTRY[viewId];
   if (!config) return null;
   if (!_viewTemplateCache[viewId]) {
-    const resp = await fetch(config.template);
+    const resp = await api(config.template);
     _viewTemplateCache[viewId] = await resp.text();
   }
   const div = document.createElement('div');
@@ -2109,8 +2105,7 @@ async function renderResearchUsers(query = '') {
 
   try {
     const url = query ? '/api/users?q=' + encodeURIComponent(query) : '/api/users';
-    const res = await fetch(url, { headers: _authHeaders() });
-    const users = await res.json();
+    const users = await apiGet(url);
 
     if (!users.length) {
       container.innerHTML = '<div class="text-dimmer text-sm py-4">No users found</div>';
@@ -2574,8 +2569,7 @@ async function renderUserProfile(username) {
     const allUsersEl = document.getElementById('profile-all-users');
     allUsersEl.innerHTML = '<div class="text-dimmer text-sm">Loading users...</div>';
     try {
-      const res = await fetch('/api/users', { headers: _authHeaders() });
-      const users = await res.json();
+      const users = await apiGet('/api/users');
       renderUserGrid(allUsersEl, users);
     } catch (e) {
       allUsersEl.innerHTML = '<div class="text-dimmer text-sm">Failed to load users</div>';
@@ -2597,8 +2591,7 @@ async function renderUserProfile(username) {
         }
         allUsers.style.display = 'none';
         try {
-          const res = await fetch('/api/users?q=' + encodeURIComponent(q), { headers: _authHeaders() });
-          const users = await res.json();
+          const users = await apiGet('/api/users?q=' + encodeURIComponent(q));
           if (!users.length) { results.innerHTML = '<div class="text-dimmer text-sm">No users found</div>'; return; }
           results.innerHTML = users.map(u => `
             <a href="#profile/${encodeURIComponent(u.username)}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-hover transition-colors" style="text-decoration:none">
@@ -2620,31 +2613,21 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profileRes, commentsRes, experimentsRes, teamsRes, repostsRes, feedsRes, blogRes, achievementsRes] = await Promise.all([
-      fetch('/api/users/' + encodeURIComponent(username), { headers: _authHeaders() }),
-      fetch('/api/users/' + encodeURIComponent(username) + '/comments', { headers: _authHeaders() }),
-      fetch('/api/users/' + encodeURIComponent(username) + '/experiments', { headers: _authHeaders() }),
-      fetch('/api/users/' + encodeURIComponent(username) + '/teams', { headers: _authHeaders() }),
-      fetch('/api/users/' + encodeURIComponent(username) + '/reposts', { headers: _authHeaders() }),
-      fetch('/api/users/' + encodeURIComponent(username) + '/feeds', { headers: _authHeaders() }),
-      fetch('/api/blog/' + encodeURIComponent(username)),
-      fetch('/api/achievements/' + encodeURIComponent(username)),
-    ]);
-
-    if (!profileRes.ok) {
+    const [profile, comments, experiments, teams, reposts, feeds, blog, achievementsData] = await Promise.all([
+      apiGet('/api/users/' + encodeURIComponent(username)),
+      apiGet('/api/users/' + encodeURIComponent(username) + '/comments'),
+      apiGet('/api/users/' + encodeURIComponent(username) + '/experiments'),
+      apiGet('/api/users/' + encodeURIComponent(username) + '/teams'),
+      apiGet('/api/users/' + encodeURIComponent(username) + '/reposts'),
+      apiGet('/api/users/' + encodeURIComponent(username) + '/feeds'),
+      apiGet('/api/blog/' + encodeURIComponent(username)),
+      apiGet('/api/achievements/' + encodeURIComponent(username)),
+    ]).catch(err => {
       el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">User not found</div>';
-      return;
-    }
+      throw err;
+    });
 
-    const profile = await profileRes.json();
-    const comments = await commentsRes.json();
-    const experiments = await experimentsRes.json();
-    const teams = teamsRes.ok ? await teamsRes.json() : [];
-    const reposts = repostsRes.ok ? await repostsRes.json() : [];
-    const feedsData = feedsRes.ok ? await feedsRes.json() : { catalogFeeds: [], customFeeds: [] };
-    const blogData = blogRes.ok ? await blogRes.json() : { posts: [] };
-    const blogPosts = blogData.posts || [];
-    const achievementsData = achievementsRes.ok ? await achievementsRes.json() : { achievements: [] };
+    const blogPosts = blog.posts || [];
     const achievements = achievementsData.achievements || [];
 
     // Handle private profiles
@@ -2793,8 +2776,8 @@ async function renderUserProfile(username) {
     }
 
     // Feeds section
-    const catalogFeeds = feedsData.catalogFeeds || [];
-    const customFeeds = feedsData.customFeeds || [];
+    const catalogFeeds = feeds.catalogFeeds || [];
+    const customFeeds = feeds.customFeeds || [];
     if (catalogFeeds.length || customFeeds.length) {
       const myFeedSources = typeof getFeedSources === 'function' ? getFeedSources() : {};
       html += `<div class="mb-8">
@@ -2916,12 +2899,7 @@ async function sendProfileMessage(username) {
   const content = (textarea?.value || '').trim();
   if (!content) return;
   try {
-    const res = await fetch('/api/messages', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ to_username: username, content })
-    });
-    const data = await res.json();
+    const data = await apiPost('/api/messages', { to_username: username, content });
     if (data.error) {
       if (status) { status.style.color = 'var(--text-muted)'; status.textContent = data.error; }
     } else {
@@ -2944,12 +2922,7 @@ function _uploadProfilePic() {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        const res = await fetch('/api/users/me/picture', {
-          method: 'PUT',
-          headers: _authHeaders(),
-          body: JSON.stringify({ image: reader.result })
-        });
-        const data = await res.json();
+        const data = await apiPut('/api/users/me/picture', { image: reader.result });
         if (data.picture) {
           if (_authUserInfo) _authUserInfo.picture = data.picture;
           const hash = window.location.hash;
@@ -2973,12 +2946,7 @@ function _uploadProfileBg() {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        const res = await fetch('/api/users/me/background', {
-          method: 'PUT',
-          headers: _authHeaders(),
-          body: JSON.stringify({ image: reader.result })
-        });
-        const data = await res.json();
+        const data = await apiPut('/api/users/me/background', { image: reader.result });
         if (data.profile_bg) {
           renderUserProfile(_authUserInfo?.username);
         }
@@ -4141,13 +4109,7 @@ async function _handleGoogleCredential(response) {
   const errEl = document.getElementById('auth-error');
   if (errEl) errEl.textContent = '';
   try {
-    const res = await fetch('/api/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential: response.credential })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Sign-in failed');
+    const data = await apiPost('/api/auth/google', { credential: response.credential });
     _authToken = data.token;
     _authUser = (data.name || data.email || '').split(' ')[0];
     _authUserInfo = { email: data.email, name: data.name, username: data.username || null, picture: data.picture || null };
@@ -4222,23 +4184,12 @@ async function _submitUsername() {
   btn.disabled = true;
   btn.textContent = 'Checking...';
   try {
-    const res = await fetch('/api/auth/username', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ username })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      errEl.textContent = data.error || 'Failed to set username';
-      btn.disabled = false;
-      btn.textContent = 'Continue';
-      return;
-    }
+    const data = await apiPost('/api/auth/username', { username });
     _authUserInfo.username = data.username;
     localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
     _onLoginSuccess();
   } catch (e) {
-    errEl.textContent = 'Network error, please try again';
+    errEl.textContent = e.message || 'Network error, please try again';
     btn.disabled = false;
     btn.textContent = 'Continue';
   }
@@ -4271,10 +4222,7 @@ async function authLogout() {
   if (_authToken) {
     // Push latest settings before logging out
     await syncToServer(true).catch((e) => { /* fire-and-forget */ });
-    fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: _authHeaders()
-    }).catch((e) => { /* fire-and-forget */ });
+    apiPost('/api/auth/logout', {}).catch((e) => { /* fire-and-forget */ });
   }
   _authToken = null;
   _authUser = null;
@@ -4350,13 +4298,7 @@ async function syncToServer(force) {
   if (!keysToSync.length) return; // nothing changed
   _syncDirtyKeys.clear();
   try {
-    const res = await fetch('/api/sync', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ data: _buildSyncPayload(keysToSync) })
-    });
-    if (res.status === 401) { authLogout(); return; }
-    const result = await res.json();
+    const result = await apiPost('/api/sync', { data: _buildSyncPayload(keysToSync) });
     if (result.data) _applySyncData(result.data);
   } catch (e) {
     console.warn('[sync] push failed:', e);
@@ -4369,13 +4311,7 @@ async function syncFromServer() {
   if (!_authToken) return;
   try {
     // Pull only — send empty payload so server data always wins
-    const res = await fetch('/api/sync', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ data: {} })
-    });
-    if (res.status === 401) { authLogout(); return; }
-    const result = await res.json();
+    const result = await apiPost('/api/sync', { data: {} });
     if (result.data) _applySyncData(result.data);
   } catch (e) {
     console.warn('[sync] pull failed:', e);
@@ -4401,10 +4337,7 @@ async function _doDeleteAccount() {
   if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
   if (!confirm('All your data will be permanently deleted. Continue?')) return;
   try {
-    await fetch('/api/auth/delete-account', {
-      method: 'POST',
-      headers: _authHeaders()
-    });
+    await apiPost('/api/auth/delete-account', {});
   } catch (e) { /* proceed with local cleanup regardless */ }
   _authToken = null;
   _authUser = null;
@@ -4422,11 +4355,7 @@ async function _doDeleteAccount() {
   _updateAccountUI();
   if (_authToken) {
     // Verify session is still valid
-    fetch('/api/auth/me', { headers: _authHeaders() })
-      .then(r => {
-        if (r.ok) return r.json();
-        throw new Error('expired');
-      })
+    apiGet('/api/auth/me')
       .then(data => {
         _authUser = (data.name || data.email || _authUser || '').split(' ')[0];
         _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null, picture: data.picture || null };

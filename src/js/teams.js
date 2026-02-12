@@ -120,9 +120,7 @@ function _renderFileRef(expId, filePath) {
     const el = document.getElementById(uid);
     if (!el) return;
     try {
-      const resp = await fetch(`/api/experiments/${encodeURIComponent(expId)}/files/${encodeURIComponent(filePath)}`, { headers: _authHeaders() });
-      if (!resp.ok) return;
-      const data = await resp.json();
+      const data = await apiGet(`/api/experiments/${encodeURIComponent(expId)}/files/${encodeURIComponent(filePath)}`);
       if (data.binary) { el.textContent = '(binary file)'; return; }
       const lines = (data.content || '').split('\n').slice(0, 8);
       el.textContent = lines.join('\n') + (data.content.split('\n').length > 8 ? '\n…' : '');
@@ -204,16 +202,9 @@ function renderReactionsRow(teamId, msgId, reactions) {
 
 async function toggleReaction(teamId, msgId, emoji) {
   try {
-    const resp = await fetch(`/api/teams/${teamId}/messages/${msgId}/reactions`, {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ emoji })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      const row = document.getElementById(`chat-reactions-${msgId}`);
-      if (row) row.innerHTML = renderReactionsRow(teamId, msgId, data.reactions);
-    }
+    const data = await apiPost(`/api/teams/${teamId}/messages/${msgId}/reactions`, { emoji });
+    const row = document.getElementById(`chat-reactions-${msgId}`);
+    if (row) row.innerHTML = renderReactionsRow(teamId, msgId, data.reactions);
   } catch (err) { /* ignore */ }
 }
 
@@ -256,16 +247,13 @@ async function renderInbox() {
   const container = document.getElementById('inbox-content');
   container.innerHTML = '<div class="text-center py-20 text-dim"><div class="spinner"></div></div>';
   try {
-    const [invResp, msgResp, tasksResp, chatsResp] = await Promise.all([
-      fetch('/api/inbox', { headers: _authHeaders() }),
-      fetch('/api/messages', { headers: _authHeaders() }),
-      fetch('/api/my-tasks', { headers: _authHeaders() }),
-      fetch('/api/inbox-chats', { headers: _authHeaders() }),
+    const [invites, messages, tasks, chats] = await Promise.all([
+      apiGet('/api/inbox'),
+      apiGet('/api/messages').catch(() => []),
+      apiGet('/api/my-tasks').catch(() => []),
+      apiGet('/api/inbox-chats').catch(() => []),
     ]);
-    _cachedInvites = await invResp.json();
-    const messages = msgResp.ok ? await msgResp.json() : [];
-    const tasks = tasksResp.ok ? await tasksResp.json() : [];
-    const chats = chatsResp.ok ? await chatsResp.json() : [];
+    _cachedInvites = invites;
 
     const feedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
     const dismissedTasks = JSON.parse(localStorage.getItem('dismissedInboxTasks') || '[]');
@@ -403,7 +391,7 @@ async function renderInbox() {
 
 async function markMessageRead(msgId, el) {
   try {
-    await fetch(`/api/messages/${msgId}/read`, { method: 'POST', headers: _authHeaders() });
+    await apiPost(`/api/messages/${msgId}/read`);
     if (el) {
       el.classList.remove('border-l-accent', 'border-l-2');
       const dot = el.querySelector('.bg-accent.w-2');
@@ -415,11 +403,7 @@ async function markMessageRead(msgId, el) {
 
 async function respondToInvite(id, accept) {
   try {
-    await fetch(`/api/inbox/${id}/respond`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accept })
-    });
+    await apiPost(`/api/inbox/${id}/respond`, { accept });
     renderInbox();
     refreshInboxBadge();
   } catch (err) { /* ignore */ }
@@ -427,7 +411,7 @@ async function respondToInvite(id, accept) {
 
 async function refreshInboxBadge() {
   try {
-    await fetch('/api/messages/unread-count', { headers: _authHeaders() });
+    await apiGet('/api/messages/unread-count');
   } catch (err) { /* ignore */ }
 }
 
@@ -450,7 +434,7 @@ function dismissInboxTask(taskId, btn) {
 
 async function dismissTeamChat(teamId, btn) {
   try {
-    await fetch(`/api/teams/${teamId}/chat-read`, { method: 'POST', headers: _authHeaders() });
+    await apiPost(`/api/teams/${teamId}/chat-read`);
   } catch (err) { /* ignore */ }
   const card = btn.closest('.flex');
   if (card) card.remove();
@@ -459,7 +443,7 @@ async function dismissTeamChat(teamId, btn) {
 
 async function dismissDirectMessage(msgId, btn) {
   try {
-    await fetch(`/api/messages/${msgId}`, { method: 'DELETE', headers: _authHeaders() });
+    await apiDelete(`/api/messages/${msgId}`);
   } catch (err) { /* ignore */ }
   const card = btn.closest('.flex');
   if (card) card.remove();
@@ -554,19 +538,13 @@ async function submitCreateTeamPopup() {
   if (privateCheck?.checked) body.private = true;
   if (parentSelect?.value) body.parent_id = parseInt(parentSelect.value);
   try {
-    const resp = await fetch('/api/teams', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if (resp.ok) {
-      document.getElementById('create-team-popup')?.remove();
-      if (_createTeamPopupSource === 'view' || _createTeamPopupSource === 'research') {
-        openTeams();
-      } else {
-        await fetchTeams();
-        renderTeamsSection();
-      }
+    await apiPost('/api/teams', body);
+    document.getElementById('create-team-popup')?.remove();
+    if (_createTeamPopupSource === 'view' || _createTeamPopupSource === 'research') {
+      openTeams();
+    } else {
+      await fetchTeams();
+      renderTeamsSection();
     }
   } catch (err) { /* ignore */ }
 }
@@ -574,7 +552,7 @@ async function submitCreateTeamPopup() {
 async function confirmDeleteTeamView(teamId, name) {
   if (!confirm(`Delete team "${name}"? All members will lose access.`)) return;
   try {
-    await fetch(`/api/teams/${teamId}`, { method: 'DELETE', headers: _authHeaders() });
+    await apiDelete(`/api/teams/${teamId}`);
     openTeams();
   } catch (err) { /* ignore */ }
 }
@@ -628,22 +606,17 @@ async function showTeamDetailView(teamId, e) {
   if (sidebarTabs) sidebarTabs.innerHTML = '';
 
   try {
-    const [teamResp, expResp, ownExpResp, chatResp, todosResp] = await Promise.all([
-      fetch(`/api/teams/${teamId}`, { headers: _authHeaders() }),
-      fetch('/api/team-experiments', { headers: _authHeaders() }),
-      fetch('/api/experiments', { headers: _authHeaders() }),
-      fetch(`/api/teams/${teamId}/messages`, { headers: _authHeaders() }),
-      fetch(`/api/teams/${teamId}/todos`, { headers: _authHeaders() }),
+    const [team, allTeamExps, ownExps, chatMessages, teamTodos] = await Promise.all([
+      apiGet(`/api/teams/${teamId}`),
+      apiGet('/api/team-experiments').catch(() => []),
+      apiGet('/api/experiments').catch(() => []),
+      apiGet(`/api/teams/${teamId}/messages`).catch(() => []),
+      apiGet(`/api/teams/${teamId}/todos`).catch(() => []),
     ]);
-    const team = await teamResp.json();
-    const allTeamExps = expResp.ok ? await expResp.json() : [];
-    const ownExps = ownExpResp.ok ? await ownExpResp.json() : [];
-    const chatMessages = chatResp.ok ? await chatResp.json() : [];
-    const teamTodos = todosResp.ok ? await todosResp.json() : [];
     const isOwner = team.owner_google_id === (_authUserInfo && _authUserInfo.google_id);
 
     // Mark team chat as read
-    fetch(`/api/teams/${teamId}/chat-read`, { method: 'POST', headers: _authHeaders() }).then(() => refreshInboxBadge()).catch(() => {});
+    apiPost(`/api/teams/${teamId}/chat-read`).then(() => refreshInboxBadge()).catch(() => {});
 
     // Merge: team experiments for this team + own experiments assigned to this team
     const seen = new Set();
@@ -735,14 +708,8 @@ async function finishRenameTeam(input) {
     return;
   }
   try {
-    const resp = await fetch(`/api/teams/${_teamDetailData.teamId}`, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName }),
-    });
-    if (resp.ok) {
-      _teamDetailData.team.name = newName;
-    }
+    await apiPut(`/api/teams/${_teamDetailData.teamId}`, { name: newName });
+    _teamDetailData.team.name = newName;
   } catch (e) { console.error('Rename team error', e); }
   cancelRenameTeam();
 }
@@ -960,15 +927,10 @@ async function sendTeamChatMessage(teamId) {
   const content = (input?.value || '').trim();
   if (!content) return;
   try {
-    const res = await fetch(`/api/teams/${teamId}/messages`, {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ content })
-    });
-    if (res.ok) {
-      input.value = '';
-      // Append the new message inline instead of reloading everything
-      const msg = await res.json();
+    const msg = await apiPost(`/api/teams/${teamId}/messages`, { content });
+    input.value = '';
+    // Append the new message inline instead of reloading everything
+    {
       const chatEl = document.getElementById(`team-chat-messages-${teamId}`);
       if (chatEl) {
         // Remove empty state if present
@@ -1024,11 +986,7 @@ async function saveTeamChatMsg(teamId, msgId) {
   const content = (ta?.value || '').trim();
   if (!content) return;
   try {
-    await fetch(`/api/teams/${teamId}/messages/${msgId}`, {
-      method: 'PUT',
-      headers: _authHeaders(),
-      body: JSON.stringify({ content })
-    });
+    await apiPut(`/api/teams/${teamId}/messages/${msgId}`, { content });
     showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
@@ -1036,10 +994,7 @@ async function saveTeamChatMsg(teamId, msgId) {
 async function deleteTeamChatMsg(teamId, msgId) {
   if (!confirm('Delete this message?')) return;
   try {
-    await fetch(`/api/teams/${teamId}/messages/${msgId}`, {
-      method: 'DELETE',
-      headers: _authHeaders()
-    });
+    await apiDelete(`/api/teams/${teamId}/messages/${msgId}`);
     showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
@@ -1064,12 +1019,12 @@ async function toggleFileRefPicker(teamId, btn) {
 
   // Fetch team experiments
   try {
-    const [expResp, ownResp] = await Promise.all([
-      fetch('/api/team-experiments', { headers: _authHeaders() }),
-      fetch('/api/experiments', { headers: _authHeaders() }),
+    const [allTeamExps, allOwnExps] = await Promise.all([
+      apiGet('/api/team-experiments'),
+      apiGet('/api/experiments'),
     ]);
-    const teamExps = (await expResp.json()).filter(e => e.team_id === teamId);
-    const ownExps = (await ownResp.json()).filter(e => e.team_id === teamId);
+    const teamExps = allTeamExps.filter(e => e.team_id === teamId);
+    const ownExps = allOwnExps.filter(e => e.team_id === teamId);
     const seen = new Set();
     const exps = [];
     for (const e of [...teamExps, ...ownExps]) {
@@ -1091,8 +1046,7 @@ async function fileRefPickExp(expId, teamId) {
   if (!dd) return;
   dd.innerHTML = '<div class="text-center py-4 text-dim text-xs"><div class="spinner"></div></div>';
   try {
-    const resp = await fetch(`/api/experiments/${encodeURIComponent(expId)}/files`, { headers: _authHeaders() });
-    const data = await resp.json();
+    const data = await apiGet(`/api/experiments/${encodeURIComponent(expId)}/files`);
     const files = (data.files || []).filter(f => !f.endsWith('/'));
     if (!files.length) {
       dd.innerHTML = '<div class="text-dimmer text-xs text-center py-4">No files in this experiment</div>';
@@ -1143,46 +1097,29 @@ async function addTeamTodo(teamId) {
   const body = { title, priority: priorityEl?.value || 'medium' };
   if (assignEl?.value) body.assigned_to = assignEl.value;
   try {
-    const resp = await fetch(`/api/teams/${teamId}/todos`, {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify(body)
-    });
-    if (resp.ok) {
-      input.value = '';
-      if (assignEl) assignEl.value = '';
-      showTeamDetailView(teamId);
-    }
+    await apiPost(`/api/teams/${teamId}/todos`, body);
+    input.value = '';
+    if (assignEl) assignEl.value = '';
+    showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
 
 async function assignTeamTodo(teamId, todoId, assignedTo) {
   try {
-    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
-      method: 'PUT',
-      headers: _authHeaders(),
-      body: JSON.stringify({ assigned_to: assignedTo || null })
-    });
+    await apiPut(`/api/teams/${teamId}/todos/${todoId}`, { assigned_to: assignedTo || null });
   } catch (err) { /* ignore */ }
 }
 
 async function toggleTeamTodo(teamId, todoId, done) {
   try {
-    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
-      method: 'PUT',
-      headers: _authHeaders(),
-      body: JSON.stringify({ done })
-    });
+    await apiPut(`/api/teams/${teamId}/todos/${todoId}`, { done });
     showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
 
 async function deleteTeamTodo(teamId, todoId) {
   try {
-    await fetch(`/api/teams/${teamId}/todos/${todoId}`, {
-      method: 'DELETE',
-      headers: _authHeaders()
-    });
+    await apiDelete(`/api/teams/${teamId}/todos/${todoId}`);
     showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
@@ -1190,11 +1127,7 @@ async function deleteTeamTodo(teamId, todoId) {
 async function removeTeamMemberView(teamId, googleId) {
   if (!confirm('Remove this member from the team?')) return;
   try {
-    await fetch(`/api/teams/${teamId}/remove`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ google_id: googleId })
-    });
+    await apiPost(`/api/teams/${teamId}/remove`, { google_id: googleId });
     showTeamDetailView(teamId);
   } catch (err) { /* ignore */ }
 }
@@ -1205,12 +1138,7 @@ async function inviteToTeamView(teamId) {
   const username = (input?.value || '').trim();
   if (!username) return;
   try {
-    const resp = await fetch(`/api/teams/${teamId}/invite`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    const data = await resp.json();
+    const data = await apiPost(`/api/teams/${teamId}/invite`, { username });
     if (data.error) {
       if (msg) { msg.style.color = 'var(--text-muted)'; msg.textContent = data.error; }
     } else {
@@ -1224,11 +1152,7 @@ async function inviteToTeamView(teamId) {
 
 async function toggleTeamPrivacy(teamId, isPrivate) {
   try {
-    await fetch(`/api/teams/${teamId}/privacy`, {
-      method: 'PUT',
-      headers: _authHeaders(),
-      body: JSON.stringify({ private: isPrivate })
-    });
+    await apiPut(`/api/teams/${teamId}/privacy`, { private: isPrivate });
     if (_teamDetailData && _teamDetailData.team) {
       _teamDetailData.team.private = isPrivate;
     }
@@ -1239,8 +1163,7 @@ async function toggleTeamPrivacy(teamId, isPrivate) {
 
 async function fetchTeams() {
   try {
-    const resp = await fetch('/api/teams', { headers: _authHeaders() });
-    _cachedTeams = await resp.json();
+    _cachedTeams = await apiGet('/api/teams');
   } catch (err) {
     _cachedTeams = [];
   }
@@ -1282,10 +1205,7 @@ function renderTeamsSection() {
 async function confirmDeleteTeam(teamId, name) {
   if (!confirm(`Delete team "${name}"? All members will lose access.`)) return;
   try {
-    await fetch(`/api/teams/${teamId}`, {
-      method: 'DELETE',
-      headers: _authHeaders()
-    });
+    await apiDelete(`/api/teams/${teamId}`);
     await fetchTeams();
     renderTeamsSection();
   } catch (err) { /* ignore */ }
@@ -1296,8 +1216,7 @@ async function showTeamDetail(teamId) {
   if (!container) return;
   container.innerHTML = '<div class="text-center py-4 text-dim"><div class="spinner"></div></div>';
   try {
-    const resp = await fetch(`/api/teams/${teamId}`, { headers: _authHeaders() });
-    const team = await resp.json();
+    const team = await apiGet(`/api/teams/${teamId}`);
     const isOwner = team.owner_google_id === _authUserInfo?.google_id;
 
     container.innerHTML = `
@@ -1347,12 +1266,7 @@ async function inviteToTeam(teamId) {
   const username = (input?.value || '').trim();
   if (!username) return;
   try {
-    const resp = await fetch(`/api/teams/${teamId}/invite`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    const data = await resp.json();
+    const data = await apiPost(`/api/teams/${teamId}/invite`, { username });
     if (data.error) {
       if (msg) { msg.style.color = 'var(--text-red-400, #f87171)'; msg.textContent = data.error; }
     } else {
@@ -1367,11 +1281,7 @@ async function inviteToTeam(teamId) {
 async function removeTeamMember(teamId, googleId) {
   if (!confirm('Remove this member from the team?')) return;
   try {
-    await fetch(`/api/teams/${teamId}/remove`, {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ google_id: googleId })
-    });
+    await apiPost(`/api/teams/${teamId}/remove`, { google_id: googleId });
     showTeamDetail(teamId);
   } catch (err) { /* ignore */ }
 }
@@ -1409,20 +1319,13 @@ async function renderTeamPicker(experimentId) {
 async function assignExperimentTeam(experimentId, teamId) {
   try {
     if (teamId) {
-      await fetch(`/api/experiments/${experimentId}/team`, {
-        method: 'PUT',
-        headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_id: parseInt(teamId) })
-      });
+      await apiPut(`/api/experiments/${experimentId}/team`, { team_id: parseInt(teamId) });
       // Update local cache so re-render picks up the team
       const idx = (_teamExperiments || []).findIndex(e => e.id === experimentId);
       if (idx >= 0) _teamExperiments[idx].team_id = parseInt(teamId);
       else if (typeof _teamExperiments !== 'undefined') _teamExperiments.push({ id: experimentId, team_id: parseInt(teamId) });
     } else {
-      await fetch(`/api/experiments/${experimentId}/team`, {
-        method: 'DELETE',
-        headers: _authHeaders()
-      });
+      await apiDelete(`/api/experiments/${experimentId}/team`);
       if (typeof _teamExperiments !== 'undefined') {
         const idx = _teamExperiments.findIndex(e => e.id === experimentId);
         if (idx >= 0) _teamExperiments.splice(idx, 1);

@@ -869,7 +869,7 @@ function _pwDeleteEntry(id) {
 }
 
 function _loadSettingsModels() {
-  fetch('/api/models').then(r => r.json()).then(data => {
+  apiGet('/api/models').then(data => {
     const models = data.models || [];
     document.querySelectorAll('.settings-model-select').forEach(sel => {
       const key = sel.dataset.key;
@@ -1188,11 +1188,7 @@ function _renderMemoryCard(mem) {
 }
 
 function _loadMemoryList(offset) {
-  const headers = {};
-  const token = localStorage.getItem('authToken');
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  fetch('/api/chat-memories/list?limit=30&offset=' + offset, { headers: headers })
-    .then(function(r) { return r.json(); })
+  apiGet('/api/chat-memories/list?limit=30&offset=' + offset)
     .then(function(data) {
       const list = document.getElementById('memory-list');
       const empty = document.getElementById('memory-empty');
@@ -1231,8 +1227,7 @@ function _loadMemoryList(offset) {
 
   // Also load stats
   if (offset === 0) {
-    fetch('/api/chat-memories/stats', { headers: headers })
-      .then(function(r) { return r.json(); })
+    apiGet('/api/chat-memories/stats')
       .then(function(stats) {
         var banner = document.getElementById('memory-stats-banner');
         if (!banner) return;
@@ -1254,10 +1249,7 @@ function _loadMemoryList(offset) {
 }
 
 function _deleteMemory(id) {
-  var headers = { 'Content-Type': 'application/json' };
-  var token = localStorage.getItem('authToken');
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  fetch('/api/chat-memories/' + id, { method: 'DELETE', headers: headers })
+  apiDelete('/api/chat-memories/' + id)
     .then(function() {
       var card = document.getElementById('mem-card-' + id);
       if (card) card.remove();
@@ -1274,11 +1266,8 @@ function _deleteMemory(id) {
 
 function _clearAllMemories() {
   if (!confirm('Delete all memories? This cannot be undone.')) return;
-  var headers = { 'Content-Type': 'application/json' };
-  var token = localStorage.getItem('authToken');
-  if (token) headers['Authorization'] = 'Bearer ' + token;
   var promises = _memoryListLoaded.map(function(m) {
-    return fetch('/api/chat-memories/' + m.id, { method: 'DELETE', headers: headers });
+    return apiDelete('/api/chat-memories/' + m.id);
   });
   Promise.all(promises).then(function() {
     _memoryListLoaded = [];
@@ -1340,7 +1329,7 @@ function renderSettingsView() {
   }
 
   // Load version
-  fetch('/api/version').then(r => r.json()).then(v => {
+  apiGet('/api/version').then(v => {
     const el = document.getElementById('settings-version');
     if (el && v.version) el.textContent = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
   }).catch((e) => { /* fire-and-forget */ });
@@ -1351,7 +1340,7 @@ function renderSettingsView() {
   } else if (_settingsSection === 'feed') {
     if (_settingsFeedTab === 'quality') {
       if (typeof renderBlockedWordsList === 'function') renderBlockedWordsList();
-      fetch('/api/quality-prompt').then(function(r){ return r.json(); }).then(function(data) {
+      apiGet('/api/quality-prompt').then(function(data) {
         if (data.prompt) {
           localStorage.setItem('qualityPrompt', data.prompt);
           var el = document.getElementById('quality-prompt-input');
@@ -1392,15 +1381,12 @@ async function loadVaultPath() {
   const status = document.getElementById('vault-path-status');
   if (!input) return;
   try {
-    const res = await fetch('/api/vault/path', { headers: _authHeaders() });
-    if (res.ok) {
-      const data = await res.json();
-      input.value = data.path || '';
-      input.placeholder = data.default || '';
-      if (status) {
-        status.textContent = data.isCustom ? 'Using custom path' : 'Using default path';
-        status.className = 'text-[0.75rem] mt-2 ' + (data.isCustom ? 'text-accent' : 'text-dimmer');
-      }
+    const data = await apiGet('/api/vault/path');
+    input.value = data.path || '';
+    input.placeholder = data.default || '';
+    if (status) {
+      status.textContent = data.isCustom ? 'Using custom path' : 'Using default path';
+      status.className = 'text-[0.75rem] mt-2 ' + (data.isCustom ? 'text-accent' : 'text-dimmer');
     }
   } catch (e) {
     if (status) status.textContent = 'Failed to load vault path';
@@ -1413,32 +1399,20 @@ async function saveVaultPath() {
   if (!input) return;
   const path = input.value.trim();
   try {
-    const res = await fetch('/api/vault/path', {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      input.value = data.path || '';
-      if (status) {
-        status.textContent = data.message;
-        status.className = 'text-[0.75rem] mt-2 text-green-500';
-      }
-      // Reload vault if open
-      if (window.location.hash === '#vault') {
-        loadVaultNotes();
-        renderVaultFileTree();
-      }
-    } else {
-      if (status) {
-        status.textContent = data.error || 'Failed to save';
-        status.className = 'text-[0.75rem] mt-2 text-red-400';
-      }
+    const data = await apiPut('/api/vault/path', { path });
+    input.value = data.path || '';
+    if (status) {
+      status.textContent = data.message;
+      status.className = 'text-[0.75rem] mt-2 text-green-500';
+    }
+    // Reload vault if open
+    if (window.location.hash === '#vault') {
+      loadVaultNotes();
+      renderVaultFileTree();
     }
   } catch (e) {
     if (status) {
-      status.textContent = 'Failed to save vault path';
+      status.textContent = e.error || 'Failed to save vault path';
       status.className = 'text-[0.75rem] mt-2 text-red-400';
     }
   }
@@ -1448,23 +1422,16 @@ async function resetVaultPath() {
   const input = document.getElementById('vault-path-input');
   const status = document.getElementById('vault-path-status');
   try {
-    const res = await fetch('/api/vault/path', {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: '' })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      loadVaultPath();
-      if (status) {
-        status.textContent = 'Reset to default';
-        status.className = 'text-[0.75rem] mt-2 text-green-500';
-      }
-      // Reload vault if open
-      if (window.location.hash === '#vault') {
-        loadVaultNotes();
-        renderVaultFileTree();
-      }
+    await apiPut('/api/vault/path', { path: '' });
+    loadVaultPath();
+    if (status) {
+      status.textContent = 'Reset to default';
+      status.className = 'text-[0.75rem] mt-2 text-green-500';
+    }
+    // Reload vault if open
+    if (window.location.hash === '#vault') {
+      loadVaultNotes();
+      renderVaultFileTree();
     }
   } catch (e) {
     if (status) {
@@ -1526,12 +1493,8 @@ function setTheme(theme) {
 
 async function toggleProfilePrivacy(on) {
   try {
-    const resp = await fetch('/api/users/me/privacy', {
-      method: 'PUT',
-      headers: _authHeaders(),
-      body: JSON.stringify({ profile_private: on })
-    });
-    if (resp.ok && _authUserInfo) {
+    await apiPut('/api/users/me/privacy', { profile_private: on });
+    if (_authUserInfo) {
       _authUserInfo.profile_private = on;
     }
   } catch (err) { /* ignore */ }
@@ -2187,26 +2150,25 @@ function _renderFeedbackItem(fb, currentRating) {
 
 async function _loadPromptsData() {
   try {
-    const [annRes, qualRes, fbGoodRes, fbBadRes, statsRes, catRes] = await Promise.all([
-      fetch('/api/annotation-prompt', { headers: _authHeaders() }),
-      fetch('/api/quality-prompt', { headers: _authHeaders() }),
-      fetch('/api/annotation-feedback?rating=good&limit=50', { headers: _authHeaders() }),
-      fetch('/api/annotation-feedback?rating=bad&limit=50', { headers: _authHeaders() }),
-      fetch('/api/annotation-feedback/stats', { headers: _authHeaders() }),
-      fetch('/api/annotation-categories', { headers: _authHeaders() })
+    const [annData, qualData, fbGoodData, fbBadData, statsData, catData] = await Promise.all([
+      apiGet('/api/annotation-prompt').catch(() => null),
+      apiGet('/api/quality-prompt').catch(() => null),
+      apiGet('/api/annotation-feedback?rating=good&limit=50').catch(() => null),
+      apiGet('/api/annotation-feedback?rating=bad&limit=50').catch(() => null),
+      apiGet('/api/annotation-feedback/stats').catch(() => null),
+      apiGet('/api/annotation-categories').catch(() => null)
     ]);
-    if (annRes.ok) _promptsAnnotationData = await annRes.json();
-    if (qualRes.ok) {
-      const qd = await qualRes.json();
+    if (annData) _promptsAnnotationData = annData;
+    if (qualData) {
       const vEl = document.getElementById('prompts-verdict-display');
-      if (vEl) vEl.textContent = qd.prompt || '(default)';
+      if (vEl) vEl.textContent = qualData.prompt || '(default)';
       const sEl = document.getElementById('prompts-scoring-display');
-      if (sEl && qd.scoringPrompt) sEl.textContent = qd.scoringPrompt;
+      if (sEl && qualData.scoringPrompt) sEl.textContent = qualData.scoringPrompt;
     }
-    if (fbGoodRes.ok) { const d = await fbGoodRes.json(); _promptsFeedbackGood = d.items || []; }
-    if (fbBadRes.ok) { const d = await fbBadRes.json(); _promptsFeedbackBad = d.items || []; }
-    if (statsRes.ok) _promptsFeedbackStats = await statsRes.json();
-    if (catRes.ok) { const d = await catRes.json(); _promptsCategories = d.categories || []; }
+    if (fbGoodData) _promptsFeedbackGood = fbGoodData.items || [];
+    if (fbBadData) _promptsFeedbackBad = fbBadData.items || [];
+    if (statsData) _promptsFeedbackStats = statsData;
+    if (catData) _promptsCategories = catData.categories || [];
     // Re-render with data
     if (_settingsSection === 'prompts') {
       const pane = document.getElementById('settings-content-pane');
@@ -2221,11 +2183,7 @@ async function _saveAnnotationPrompt() {
   const el = document.getElementById('ann-prompt-input');
   if (!el) return;
   try {
-    await fetch('/api/annotation-prompt', {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: el.value })
-    });
+    await apiPut('/api/annotation-prompt', { prompt: el.value });
     _promptsAnnotationEditing = false;
     _loadPromptsData();
   } catch (e) { console.warn('saveAnnotationPrompt:', e); }
@@ -2233,11 +2191,7 @@ async function _saveAnnotationPrompt() {
 
 async function _resetAnnotationPrompt() {
   try {
-    await fetch('/api/annotation-prompt', {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: '' })
-    });
+    await apiPut('/api/annotation-prompt', { prompt: '' });
     _promptsAnnotationEditing = false;
     _loadPromptsData();
   } catch (e) { console.warn('resetAnnotationPrompt:', e); }
@@ -2250,11 +2204,7 @@ async function _addAnnotationCategory() {
   const color = document.getElementById('ann-cat-color')?.value || '#888888';
   if (!key || !name || !desc) return;
   try {
-    await fetch('/api/annotation-categories', {
-      method: 'POST',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, name, description: desc, color })
-    });
+    await apiPost('/api/annotation-categories', { key, name, description: desc, color });
     _loadPromptsData();
     _loadCustomAnnotationCategories();
   } catch (e) { console.warn('addAnnotationCategory:', e); }
@@ -2262,10 +2212,7 @@ async function _addAnnotationCategory() {
 
 async function _deleteAnnotationCategory(key) {
   try {
-    await fetch('/api/annotation-categories/' + encodeURIComponent(key), {
-      method: 'DELETE',
-      headers: _authHeaders()
-    });
+    await apiDelete('/api/annotation-categories/' + encodeURIComponent(key));
     _loadPromptsData();
     _loadCustomAnnotationCategories();
   } catch (e) { console.warn('deleteAnnotationCategory:', e); }
@@ -2273,21 +2220,14 @@ async function _deleteAnnotationCategory(key) {
 
 async function _moveFeedback(id, newRating) {
   try {
-    await fetch('/api/annotation-feedback/' + id, {
-      method: 'PUT',
-      headers: { ..._authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating: newRating })
-    });
+    await apiPut('/api/annotation-feedback/' + id, { rating: newRating });
     _loadPromptsData();
   } catch (e) { console.warn('moveFeedback:', e); }
 }
 
 async function _deleteFeedback(id) {
   try {
-    await fetch('/api/annotation-feedback/' + id, {
-      method: 'DELETE',
-      headers: _authHeaders()
-    });
+    await apiDelete('/api/annotation-feedback/' + id);
     _loadPromptsData();
   } catch (e) { console.warn('deleteFeedback:', e); }
 }

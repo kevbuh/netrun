@@ -952,11 +952,8 @@ function _slidesSave() {
     _slidesSaving = true;
     _slidesSaveCurrentCanvas();
     const data = JSON.stringify(_slidesData);
-    fetch(`/api/experiments/${currentExpId}/files/${encodeURIComponent(_slidesFname)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: data }),
-    }).finally(() => { _slidesSaving = false; });
+    apiPut(`/api/experiments/${currentExpId}/files/${encodeURIComponent(_slidesFname)}`, { content: data })
+      .finally(() => { _slidesSaving = false; });
   }, 600);
 }
 

@@ -845,9 +845,8 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
     _nlTrainAbort = new AbortController();
     var _nlModelLabel = (_nlModelType || 'cnn').toUpperCase();
     islandUpdate('ai-train', { type: 'ai', label: _nlModelLabel, detail: 'Training \u00B7 ' + _nlModelLabel });
-    fetch('/api/neuralook/train', {
+    api('/api/neuralook/train', {
       method: 'POST',
-      headers: _authHeaders(),
       signal: _nlTrainAbort.signal,
       body: JSON.stringify(reqBody)
     }).then(resp => {
@@ -1034,9 +1033,8 @@ async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
     method: _nlModelType,
     screenW: window.innerWidth, screenH: window.innerHeight
   };
-  const resp = await fetch('/api/neuralook/predict', {
+  const resp = await api('/api/neuralook/predict', {
     method: 'POST',
-    headers: _authHeaders(),
     body: JSON.stringify(body)
   });
   const result = await resp.json();
@@ -1374,11 +1372,7 @@ async function _nlOnCalibrationComplete() {
       screenW: window.innerWidth, screenH: window.innerHeight,
       eyeW: _NL_EYE_W, eyeH: _NL_EYE_H
     };
-    await fetch('/api/neuralook/save-calibration', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify(calibPayload)
-    });
+    await apiPost('/api/neuralook/save-calibration', calibPayload);
     _nlCalibSaved = true;
   } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
 
@@ -1513,10 +1507,7 @@ async function _nlStartTracking() {
     return;
   }
   // Reset LSTM hidden state for fresh tracking session
-  fetch('/api/neuralook/reset-hidden', {
-    method: 'POST', headers: _authHeaders(),
-    body: JSON.stringify({ method: _nlModelType })
-  }).catch(() => {});
+  apiPost('/api/neuralook/reset-hidden', { method: _nlModelType }).catch(() => {});
   _nlTracking = true;
   _nlResetSessionStats();
   _nlUpdatePillIndicator();
@@ -1600,18 +1591,13 @@ function _nlFlushImplicitSamples() {
   if (_nlImplicitBuffer.length === 0) return Promise.resolve();
   const samples = _nlImplicitBuffer.splice(0);
   _nlImplicitLastFlush = Date.now();
-  return fetch('/api/neuralook/implicit-samples', {
-    method: 'POST',
-    headers: _authHeaders(),
-    body: JSON.stringify({ samples })
-  }).then(r => r.json()).then(data => {
+  return apiPost('/api/neuralook/implicit-samples', { samples }).then(data => {
     if (data.count != null) _nlImplicitCount = data.count;
   }).catch(() => {});
 }
 
 function _nlFetchImplicitCount() {
-  fetch('/api/neuralook/implicit-samples', { headers: _authHeaders() })
-    .then(r => r.json())
+  apiGet('/api/neuralook/implicit-samples')
     .then(data => { if (data.count != null) _nlImplicitCount = data.count; })
     .catch(() => {});
 }
@@ -1683,11 +1669,7 @@ async function _nlStartAutoRefine() {
     const samples = _nlImplicitBuffer.splice(0);
     _nlImplicitLastFlush = Date.now();
     try {
-      const resp = await fetch('/api/neuralook/implicit-samples', {
-        method: 'POST', headers: _authHeaders(),
-        body: JSON.stringify({ samples })
-      });
-      const data = await resp.json();
+      const data = await apiPost('/api/neuralook/implicit-samples', { samples });
       if (data.count != null) _nlImplicitCount = data.count;
     } catch (_) {}
   }

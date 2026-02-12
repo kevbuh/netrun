@@ -10,12 +10,7 @@ let _vibeSelectedIdx = {};
 async function _vibeGit(cmd, args) {
   const start = Date.now();
   try {
-    const resp = await fetch('/api/vibe/git', {
-      method: 'POST',
-      headers: _authHeaders(),
-      body: JSON.stringify({ cmd, ...(args || {}) })
-    });
-    const data = await resp.json();
+    const data = await apiPost('/api/vibe/git', { cmd, ...(args || {}) });
     const elapsed = Date.now() - start;
     _vibeLogCmd(cmd + (args && args.file ? ' ' + args.file : args && args.ref ? ' ' + args.ref : args && args.branch ? ' ' + args.branch : ''), elapsed);
     return data;

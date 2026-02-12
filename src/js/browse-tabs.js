@@ -991,11 +991,7 @@ function showDownloadInFolder(id) {
   if (dl.savePath && window.electronAPI) {
     window.electronAPI.showItemInFolder(dl.savePath);
   } else if (dl.filename) {
-    fetch('/api/reveal-in-finder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: dl.filename })
-    }).catch(() => {});
+    apiPost('/api/reveal-in-finder', { filename: dl.filename }).catch(() => {});
   }
 }
 
@@ -2555,7 +2551,7 @@ function _browseUpdateNewTabPage(tab) {
         </div>
         <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">netrun</div>`;
       container.appendChild(ntp);
-      fetch('/api/version').then(r => r.json()).then(v => {
+      apiGet('/api/version').then(v => {
         const el = ntp.querySelector('.browse-ntp-version');
         if (el && v.version) el.textContent = 'netrun v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
       }).catch(() => {});
@@ -3614,6 +3610,7 @@ function _pillMicClick() {
       _renderAudioPill();
       const blob = new Blob(chunks, { type: 'audio/webm' });
       _updateAudioUnified('mic', { label: 'Transcribing…' });
+      // Use raw fetch for blob upload with custom Content-Type
       fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }, body: blob })
         .then(r => r.json())
         .then(data => {
@@ -6510,9 +6507,8 @@ async function annotateCurrentPage(tab) {
     // Call annotate API (current tab only — no cross-tab context)
     const model = localStorage.getItem('annotateModel') || '';
     const interestCtx = typeof buildInterestContext === 'function' ? buildInterestContext() : '';
-    const resp = await fetch('/api/annotate', {
+    const resp = await api('/api/annotate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, text: pageText, otherTabs: [], model, interest_context: interestCtx }),
       signal: abortCtrl.signal
     });
@@ -6656,21 +6652,17 @@ function _showAnnotationTooltip(data, frame, pinned) {
       if (btn.disabled) return;
       var rating = btn.getAttribute('data-ann-tip-rate');
       var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-      fetch('/api/annotation-feedback', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
-        body: JSON.stringify({ quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
-      }).then(function(r) {
-        if (!r.ok) throw new Error();
-        btn.style.opacity = '1';
-        btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
-        btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-        btn.disabled = true;
-        var sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
-        if (sibling) sibling.style.display = 'none';
-      }).catch(function() {
-        btn.style.opacity = '0.5';
-      });
+      apiPost('/api/annotation-feedback', { quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
+        .then(function() {
+          btn.style.opacity = '1';
+          btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
+          btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          btn.disabled = true;
+          var sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
+          if (sibling) sibling.style.display = 'none';
+        }).catch(function() {
+          btn.style.opacity = '0.5';
+        });
     });
   });
   tip.style.opacity = '1';

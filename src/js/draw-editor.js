@@ -453,11 +453,8 @@ function _drawSave() {
     _drawSaving = true;
     const json = _drawCanvas.toJSON();
     const data = JSON.stringify({ version: 1, objects: json.objects });
-    fetch(`/api/experiments/${currentExpId}/files/${encodeURIComponent(_drawFname)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: data }),
-    }).finally(() => { _drawSaving = false; });
+    apiPut(`/api/experiments/${currentExpId}/files/${encodeURIComponent(_drawFname)}`, { content: data })
+      .finally(() => { _drawSaving = false; });
   }, 600);
 }
 

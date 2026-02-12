@@ -17,11 +17,7 @@ function _saveChatMemory() {
     ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
   const pageUrl = (paper && paper.link) || (browseTab && browseTab.url) || '';
   const pageTitle = (paper && paper.title) || (browseTab && browseTab.title) || '';
-  fetch('/api/chat-memory', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
-    body: JSON.stringify({ messages: msgs, pageUrl, pageTitle })
-  }).catch(() => {});
+  apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(() => {});
 }
 let _aetherTrackModeVal = false;
 Object.defineProperty(window, '_aetherTrackMode', {
@@ -446,12 +442,10 @@ function _ttsChunkText(text) {
 }
 
 async function _ttsFetchChunk(text) {
-  var r = await fetch('/api/tts', {
+  var r = await api('/api/tts', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
     body: JSON.stringify({ text: text })
   });
-  if (!r.ok) throw new Error('TTS failed');
   return await r.blob();
 }
 
@@ -701,13 +695,7 @@ async function _fetchAuthorPreview(text, containerDiv) {
   }
 
   try {
-    const resp = await fetch('/api/author-lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: text.trim() })
-    });
-    if (!resp.ok) { containerDiv.style.display = 'none'; return; }
-    const data = await resp.json();
+    const data = await apiPost('/api/author-lookup', { query: text.trim() });
     if (data.error || !data.name) { containerDiv.style.display = 'none'; return; }
     _renderAuthorPreviewHtml(data, containerDiv);
   } catch (e) {
@@ -722,14 +710,8 @@ async function _fetchSemanticPreview(text, containerDiv) {
   const minScore = (parseInt(localStorage.getItem('panelSemanticMin') || '80', 10)) / 100;
   try {
     islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
-    const resp = await fetch('/api/semantic-search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: text.trim().slice(0, 200), limit: 5 })
-    });
+    const data = await apiPost('/api/semantic-search', { query: text.trim().slice(0, 200), limit: 5 });
     islandRemove('ai-semantic');
-    if (!resp.ok) { containerDiv.style.display = 'none'; return; }
-    const data = await resp.json();
     const results = (data.results || []).filter(r => r.score >= minScore);
     if (!results.length) { containerDiv.style.display = 'none'; return; }
     let html = '<div class="doc-semantic-results">';
@@ -770,9 +752,8 @@ function _fetchPanelSuggestion(popup, text) {
   if (localStorage.getItem('panelTabComplete') === 'off') return;
   if (!text || text.length < 3) return;
   const ctrl = _panelSuggestAbort = new AbortController();
-  fetch('/api/panel-suggest', {
+  api('/api/panel-suggest', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
     signal: ctrl.signal
   })
@@ -931,8 +912,8 @@ function _sendPopupChatMessage(popup, capturedText) {
           try {
             const userMsg = _popupChatMessages.find(m => m.role === 'user');
             if (userMsg) {
-              const memResp = await fetch('/api/chat-memories?query=' + encodeURIComponent(userMsg.content),
-                { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }, signal: _popupChatAbort.signal });
+              const memResp = await api('/api/chat-memories?query=' + encodeURIComponent(userMsg.content),
+                { signal: _popupChatAbort.signal });
               if (memResp.ok) {
                 const memData = await memResp.json();
                 if (memData.memories && memData.memories.length) {
@@ -956,9 +937,8 @@ function _sendPopupChatMessage(popup, capturedText) {
         body.context = ctx;
       }
       _chatStreamStart = Date.now();
-      const resp = await fetch('/api/doc-chat', {
+      const resp = await api('/api/doc-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
         body: JSON.stringify(body),
         signal: _popupChatAbort.signal
       });
@@ -1348,14 +1328,10 @@ function _renderPopupChat(popup, final) {
       if (!text) return;
       btn.classList.add('doc-msg-speaking');
       _updateAudioUnified('tts', { label: 'Generating…', detail: 'Generating speech audio' });
-      fetch('/api/tts', {
+      api('/api/tts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
         body: JSON.stringify({ text })
-      }).then(r => {
-        if (!r.ok) throw new Error('TTS failed');
-        return r.blob();
-      }).then(blob => {
+      }).then(r => r.blob()).then(blob => {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audio.playbackRate = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
@@ -2244,12 +2220,7 @@ function _showTabContextMenu(e, tabEl) {
     fn() {
       (async () => {
         try {
-          const resp = await fetch('/api/extract-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: tab.url })
-          });
-          const data = await resp.json();
+          const data = await apiPost('/api/extract-text', { url: tab.url });
           const content = data.text || '';
           let aetherPanel = document.getElementById('doc-chat-ask-float');
           if (!aetherPanel && typeof _showPanel === 'function') {
@@ -2366,8 +2337,7 @@ async function _doAetherWebSearch(popup) {
   _repositionSelectionPopup();
 
   try {
-    const resp = await fetch('/api/web-search?q=' + encodeURIComponent(q));
-    const data = await resp.json();
+    const data = await apiGet('/api/web-search?q=' + encodeURIComponent(q));
     const results = data.results || [];
     const aiIdx = _popupChatMessages.length - 1;
     _popupChatMessages[aiIdx]._thinking = false;
@@ -2627,9 +2597,7 @@ async function _aetherRenderNoteDropdown(popup, query) {
     notes = _vaultNotes;
   } else {
     try {
-      const resp = await fetch('/api/vault/notes', { headers: _authHeaders() });
-      if (!resp.ok) { _aetherHideNoteDropdown(popup); return; }
-      notes = await resp.json();
+      notes = await apiGet('/api/vault/notes');
     } catch { _aetherHideNoteDropdown(popup); return; }
   }
 
@@ -2778,19 +2746,13 @@ function _aetherOpenNoteEditor(popup, note) {
     statusEl.textContent = '';
     saveTimer = setTimeout(async () => {
       try {
-        const resp = await fetch('/api/vault/notes/' + note.id, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ..._authHeaders() },
-          body: JSON.stringify({ content: textarea.value })
-        });
-        if (resp.ok) {
-          statusEl.textContent = 'Saved';
-          setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 1500);
-          // Update cached vault notes
-          if (typeof _vaultNotes !== 'undefined') {
-            const cached = _vaultNotes.find(n => n.id === note.id);
-            if (cached) cached.content = textarea.value;
-          }
+        await apiPut('/api/vault/notes/' + note.id, { content: textarea.value });
+        statusEl.textContent = 'Saved';
+        setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 1500);
+        // Update cached vault notes
+        if (typeof _vaultNotes !== 'undefined') {
+          const cached = _vaultNotes.find(n => n.id === note.id);
+          if (cached) cached.content = textarea.value;
         }
       } catch {}
     }, 600);
@@ -2907,8 +2869,7 @@ async function _doAetherModel(popup) {
   _aetherModelList = [];
   _aetherModelIdx = 0;
   try {
-    const resp = await fetch('/api/models');
-    const data = await resp.json();
+    const data = await apiGet('/api/models');
     _aetherModelList = data.models || [];
   } catch (e) {
     _aetherModelList = [];
@@ -3032,9 +2993,8 @@ async function _doAetherLinks(popup) {
   }
 
   try {
-    const resp = await fetch('/api/extract-links', {
+    const resp = await api('/api/extract-links', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: pageUrl })
     });
     const data = await resp.json();
@@ -3088,9 +3048,8 @@ async function _doAetherTab(popup) {
   if (currentTab && !_pendingTabContexts.some(t => t.tabId === currentTab.id)) {
     _aetherTabAutoAdding = true;
     try {
-      const resp = await fetch('/api/extract-text', {
+      const resp = await api('/api/extract-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: currentTab.url })
       });
       const data = await resp.json();
@@ -3166,12 +3125,7 @@ async function _aetherSelectTab(popup) {
   }
 
   try {
-    const resp = await fetch('/api/extract-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tab.url })
-    });
-    const data = await resp.json();
+    const data = await apiPost('/api/extract-text', { url: tab.url });
     _addTabContextToPanel(popup, { tabId: tab.id, title: tab.title, url: tab.url, content: data.text || '' });
   } catch (e) {
     if (el) {
@@ -3492,8 +3446,7 @@ async function _doAetherPaperSearch(popup, query) {
   _repositionSelectionPopup();
 
   try {
-    const resp = await fetch('/api/arxiv-search?q=' + encodeURIComponent(query) + '&max_results=8');
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const resp = await api('/api/arxiv-search?q=' + encodeURIComponent(query) + '&max_results=8');
     const xml = await resp.text();
     const parser = new DOMParser();
     const doc = parser.parseFromString(xml, 'text/xml');
@@ -3555,9 +3508,7 @@ async function _doAetherNoteSearch(popup, query) {
     if (typeof _vaultNotes !== 'undefined' && _vaultNotes.length > 0) {
       notes = _vaultNotes;
     } else {
-      const resp = await fetch('/api/vault/notes', { headers: _authHeaders() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      notes = await resp.json();
+      notes = await apiGet('/api/vault/notes');
     }
 
     const q = query.toLowerCase();
@@ -3601,11 +3552,7 @@ async function _doAetherUserSearch(popup, query) {
   _repositionSelectionPopup();
 
   try {
-    const resp = await fetch('/api/users?q=' + encodeURIComponent(query), {
-      headers: _authHeaders()
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const users = await resp.json();
+    const users = await apiGet('/api/users?q=' + encodeURIComponent(query));
 
     const aiIdx = _popupChatMessages.length - 1;
     _popupChatMessages[aiIdx]._thinking = false;
@@ -3782,8 +3729,7 @@ function _panelBuildLinkContextMenu(popup, config) {
   if (contextMenu.linkUrl) {
     const previewDiv = document.createElement('div');
     previewDiv.className = 'doc-link-preview';
-    fetch('/api/link-preview?url=' + encodeURIComponent(contextMenu.linkUrl))
-      .then(r => r.json())
+    apiGet('/api/link-preview?url=' + encodeURIComponent(contextMenu.linkUrl))
       .then(data => {
         if (!popup.isConnected) return;
         if (!data.title && !data.description) return;
@@ -4205,11 +4151,7 @@ function _panelBuildSelectionUI(popup, config) {
           const fTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
           if (fTab) { feedbackUrl = fTab.url || ''; feedbackTitle = fTab.title || ''; }
         }
-        fetch('/api/annotation-feedback', {
-          method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, typeof _authHeaders === 'function' ? _authHeaders() : {}),
-          body: JSON.stringify({ quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle })
-        }).catch(() => {});
+        apiPost('/api/annotation-feedback', { quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle }).catch(() => {});
         // Inject highlight on the page
         if (typeof injectSingleAnnotation === 'function' && typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
           const hlTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
@@ -4713,7 +4655,8 @@ function _panelBuildChatInput(popup, config) {
         const prevPlaceholder = askInput.placeholder;
         askInput.placeholder = 'Transcribing…';
         islandUpdate('ai-transcribe', { type: 'ai', label: 'whisper', detail: 'Transcribing \u00B7 whisper' });
-        fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob })
+        // raw fetch: audio/webm upload (non-JSON Content-Type)
+        fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm', ..._authHeaders() }, body: blob })
           .then(r => r.json())
           .then(data => {
             islandRemove('ai-transcribe');
