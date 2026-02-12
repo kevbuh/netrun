@@ -41,7 +41,9 @@ from routes.social import bp as social_bp
 from routes.content import bp as content_bp
 from routes.browse import bp as browse_bp
 from routes.vault import bp as vault_bp
-from routes.misc import bp as misc_bp
+from routes.neuralook import bp as neuralook_bp
+from routes.media import bp as media_bp
+from routes.dev import bp as dev_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(feed_bp)
@@ -50,7 +52,9 @@ app.register_blueprint(social_bp)
 app.register_blueprint(content_bp)
 app.register_blueprint(browse_bp)
 app.register_blueprint(vault_bp)
-app.register_blueprint(misc_bp)
+app.register_blueprint(neuralook_bp)
+app.register_blueprint(media_bp)
+app.register_blueprint(dev_bp)
 
 # ── Start background feed poller ──
 from feed_poller import start_poller
@@ -101,13 +105,13 @@ def captions_ws(ws):
                        '[ Silence ]', '(silence)', '...', '[MUSIC]',
                        '[NO SPEECH]', '[no speech]', '[inaudible]'}
 
-    from routes.misc import _whisper_model
+    from routes.media import _whisper_model
     try:
         from pywhispercpp.model import Model as WhisperModel
-        import routes.misc as _misc_mod
-        if _misc_mod._whisper_model is None:
-            _misc_mod._whisper_model = WhisperModel('tiny')
-        model = _misc_mod._whisper_model
+        import routes.media as _media_mod
+        if _media_mod._whisper_model is None:
+            _media_mod._whisper_model = WhisperModel('tiny')
+        model = _media_mod._whisper_model
     except Exception as e:
         ws.send(json.dumps({'error': f'Whisper init failed: {e}'}))
         return
