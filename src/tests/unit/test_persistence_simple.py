@@ -122,59 +122,44 @@ class TestEmbeddingHash:
 class TestBlockedTitles:
     """Test blocked titles file operations."""
 
-    def test_read_blocked_titles_empty(self, tmp_path):
+    def test_read_blocked_titles_empty(self, tmp_path, monkeypatch):
         """Test reading non-existent file returns empty list."""
-        # Save original path
-        import persistence
-        original = persistence.BLOCKED_TITLES_FILE
+        # Monkeypatch the original module where the constant lives
+        import annotations
+        monkeypatch.setattr(annotations, 'BLOCKED_TITLES_FILE', str(tmp_path / 'nonexistent.json'))
 
-        # Use temp path
-        persistence.BLOCKED_TITLES_FILE = str(tmp_path / 'nonexistent.json')
+        result = read_blocked_titles()
+        assert result == []
 
-        try:
-            result = read_blocked_titles()
-            assert result == []
-        finally:
-            persistence.BLOCKED_TITLES_FILE = original
-
-    def test_write_and_read_blocked_titles(self, tmp_path):
+    def test_write_and_read_blocked_titles(self, tmp_path, monkeypatch):
         """Test writing and reading blocked titles."""
-        import persistence
-        original = persistence.BLOCKED_TITLES_FILE
-
+        import annotations
         test_file = tmp_path / 'blocked.json'
-        persistence.BLOCKED_TITLES_FILE = str(test_file)
+        monkeypatch.setattr(annotations, 'BLOCKED_TITLES_FILE', str(test_file))
 
-        try:
-            titles = ['Title 1', 'Title 2', 'Title 3']
-            write_blocked_titles(titles)
+        titles = ['Title 1', 'Title 2', 'Title 3']
+        write_blocked_titles(titles)
 
-            result = read_blocked_titles()
-            assert result == titles
-        finally:
-            persistence.BLOCKED_TITLES_FILE = original
+        result = read_blocked_titles()
+        assert result == titles
 
-    def test_blocked_titles_json_format(self, tmp_path):
+    def test_blocked_titles_json_format(self, tmp_path, monkeypatch):
         """Test that blocked titles are stored as valid JSON."""
-        import persistence
+        import annotations
         import json
 
-        original = persistence.BLOCKED_TITLES_FILE
         test_file = tmp_path / 'blocked.json'
-        persistence.BLOCKED_TITLES_FILE = str(test_file)
+        monkeypatch.setattr(annotations, 'BLOCKED_TITLES_FILE', str(test_file))
 
-        try:
-            titles = ['Test Title']
-            write_blocked_titles(titles)
+        titles = ['Test Title']
+        write_blocked_titles(titles)
 
-            # Verify it's valid JSON
-            with open(test_file, 'r') as f:
-                data = json.load(f)
+        # Verify it's valid JSON
+        with open(test_file, 'r') as f:
+            data = json.load(f)
 
-            assert isinstance(data, list)
-            assert data == titles
-        finally:
-            persistence.BLOCKED_TITLES_FILE = original
+        assert isinstance(data, list)
+        assert data == titles
 
 
 class TestDatabase:
@@ -182,14 +167,14 @@ class TestDatabase:
 
     def test_init_db_creates_tables(self, tmp_path, monkeypatch):
         """Test that init_db creates required tables."""
-        import persistence
+        import db as db_module
 
         # Create temp database path
         db_path = tmp_path / 'test.db'
 
         # Mock DB_PATH to use our temp database
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
@@ -212,11 +197,11 @@ class TestDatabase:
 
     def test_users_table_schema(self, tmp_path, monkeypatch):
         """Test that users table has correct schema."""
-        import persistence
+        import db as db_module
 
         db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
@@ -235,11 +220,11 @@ class TestDatabase:
 
     def test_feed_items_table_schema(self, tmp_path, monkeypatch):
         """Test that feed_items table has correct schema."""
-        import persistence
+        import db as db_module
 
         db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
@@ -260,11 +245,11 @@ class TestDatabase:
 
     def test_feed_items_unique_constraint(self, tmp_path, monkeypatch):
         """Test that (source, link) is unique in feed_items."""
-        import persistence
+        import db as db_module
 
         db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
