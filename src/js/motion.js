@@ -70,11 +70,6 @@
     return kf;
   }
 
-  function _springDuration(preset, from, to) {
-    var frames = _simulateSpring(preset, from, to);
-    return Math.round((frames.length / 60) * 1000);
-  }
-
 
   // ─── 3. GPU Layer Manager ──────────────────────────────────
 

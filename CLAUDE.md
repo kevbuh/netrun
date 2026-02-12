@@ -46,11 +46,11 @@ npm run validate-feeds       # Validate feed catalog
 - `routes/` — Flask blueprints: auth, feed, content, experiments, social, browse, vault, misc
 
 **Frontend structure (`src/js/`):**
-- `core.js` — Global state, feed catalog, UI utilities, Dynamic Island (27K LOC)
-- `panel.js` — Unified popup/context menu system, inline chat, TTS
+- `browse-tabs.js` — Embedded webview tab manager (6,990 lines)
+- `panel.js` — Unified popup/context menu system, inline chat, TTS (4,950 lines)
+- `core.js` — Global state, feed catalog, UI utilities, Dynamic Island (4,390 lines)
 - `feed.js` — Feed browsing/filtering/search
 - `dashboard.js` — Main dashboard with widgets
-- `browse-tabs.js` — Embedded webview tab manager
 - `settings.js`, `editors.js`, `notebook-editor.js`, `experiments.js`, `teams.js`, `terminal.js` — Feature modules
 - `storage.js`, `utils.js` — Shared utilities
 

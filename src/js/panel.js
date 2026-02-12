@@ -67,10 +67,6 @@ let _ttsRemainingDurations = []; // estimated durations of queued chunks
 let _ttsPlayingChunkIdx = -1; // index of the chunk currently being read aloud
 let _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
 
-function _ttsIslandAction() {
-  if (_ttsTabId != null && typeof browseSelectTab === 'function') browseSelectTab(_ttsTabId);
-}
-
 function _ttsStartWaveform(audio) {
   if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
   var src = _ttsAudioCtx.createMediaElementSource(audio);
@@ -746,30 +742,6 @@ async function _fetchSemanticPreview(text, containerDiv) {
 
 // ── Panel suggestion (tiny model generates a question from context) ──
 let _panelSuggestAbort = null;
-
-function _fetchPanelSuggestion(popup, text) {
-  if (_panelSuggestAbort) { _panelSuggestAbort.abort(); _panelSuggestAbort = null; }
-  if (localStorage.getItem('panelTabComplete') === 'off') return;
-  if (!text || text.length < 3) return;
-  const ctrl = _panelSuggestAbort = new AbortController();
-  api('/api/panel-suggest', {
-    method: 'POST',
-    body: JSON.stringify({ text }),
-    signal: ctrl.signal
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (ctrl.signal.aborted || !popup.isConnected) return;
-      const suggestion = (data.suggestion || '').trim();
-      if (!suggestion) return;
-      // Don't show if user already started typing or chatting
-      const input = popup.querySelector('.doc-ask-inline-input');
-      if (input && input.value.trim()) return;
-      if (_popupChatMessages.length) return;
-      _renderPanelSuggestion(popup, suggestion);
-    })
-    .catch(() => {});
-}
 
 function _renderPanelSuggestion(popup, suggestion) {
   let el = popup.querySelector('.aether-suggestion');
@@ -1474,27 +1446,6 @@ function _updateChatStats(popup, final) {
   // Model name
   if (lastAi._usage && lastAi._usage.model) parts.push(lastAi._usage.model);
   statsEl.textContent = parts.join(' \u00B7 ');
-}
-
-function _sendPopupChatToSidebar() {
-  // Copy popup messages into sidebar doc chat and persist
-  for (const m of _popupChatMessages) {
-    _docChatMessages.push({ role: m.role, content: m.content });
-    _appendToActiveThread(_chatUrl(), { role: m.role, content: m.content, ts: Date.now() });
-  }
-  renderDocChatMessages(true);
-  switchSidebarTab('chat');
-  // Dismiss popup
-  const popup = document.getElementById('doc-chat-ask-float');
-  if (popup) popup.remove();
-  _saveChatMemory();
-  _popupChatMessages = [];
-  _chatMemoryRetrieved = false;
-  _pendingScreenshots = [];
-  _pendingNoteContexts = [];
-  _pendingTabContexts = [];
-  _pendingFileContexts = [];
-  if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
 }
 
 function _savePopupChatToHighlight(popup) {
