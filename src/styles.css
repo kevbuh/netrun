@@ -2367,6 +2367,11 @@
     }
     .audio-pill-ctrl:hover { color: var(--aether-text); }
     .audio-pill-stop:hover { color: #ef4444; }
+    .island-tts-speed {
+      font-size: 11px; opacity: 0.45; margin-left: 3px; cursor: pointer;
+      padding: 1px 4px; border-radius: 4px; transition: opacity 0.15s, background 0.15s;
+    }
+    .island-tts-speed:hover { opacity: 1; background: rgba(255,255,255,0.1); }
     .audio-pill-source .island-waveform { height: 12px; }
     .audio-pill-tts-status .island-waveform { height: 12px; }
     @keyframes pill-mic-pulse {

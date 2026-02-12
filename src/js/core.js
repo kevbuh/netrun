@@ -236,6 +236,23 @@ var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span
 
 // ── Unified Audio Pill ──
 var _audioUnifiedState = { tab: null, tts: null, cc: null };
+var _ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+
+function _ttsCycleSpeed() {
+  var cur = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+  var next = _ttsSpeeds[0];
+  for (var i = 0; i < _ttsSpeeds.length; i++) {
+    if (_ttsSpeeds[i] > cur + 0.01) { next = _ttsSpeeds[i]; break; }
+    if (i === _ttsSpeeds.length - 1) next = _ttsSpeeds[0];
+  }
+  localStorage.setItem('ttsSpeed', next);
+  if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = next;
+  _renderAudioPill();
+  var valEl = document.getElementById('tts-speed-val');
+  if (valEl) valEl.textContent = next + 'x';
+  var slider = document.querySelector('input[oninput*="ttsSpeed"]');
+  if (slider) slider.value = next;
+}
 
 function _updateAudioUnified(source, data) {
   _audioUnifiedState[source] = data;
@@ -297,7 +314,8 @@ function _renderAudioPill() {
       : _islandWaveformBars;
     rows += '<div class="audio-pill-row audio-pill-tts-status">'
       + ttsIcon
-      + '<span class="audio-pill-row-label">' + escapeHtml(tts.label || 'TTS') + '</span>';
+      + '<span class="audio-pill-row-label">' + escapeHtml(tts.label || 'TTS') + '</span>'
+      + '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + (parseFloat(localStorage.getItem('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x</span>';
     // Pause/stop controls
     rows += '<button class="audio-pill-ctrl" onclick="_ttsPauseResume()" title="' + (tts.paused ? 'Resume' : 'Pause') + '">'
       + (tts.paused
@@ -359,7 +377,9 @@ function _islandRenderPill(a) {
     var ttsIconC = a.paused
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
       : _islandWaveformBars;
-    return ttsIconC + '<span>' + escapeHtml(a.label || '') + '</span>';
+    var spd = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+    var spdBadge = '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + spd.toFixed(1).replace(/\.0$/, '') + 'x</span>';
+    return ttsIconC + '<span>' + escapeHtml(a.label || '') + '</span>' + spdBadge;
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'ai') {
