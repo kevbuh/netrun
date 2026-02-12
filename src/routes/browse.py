@@ -1,12 +1,9 @@
 """Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote."""
-import json
-import os
-import re
-import ssl
-import urllib.request
-
-from flask import Blueprint, request, jsonify, Response
-
+from routes.common import (
+    json, os, re, ssl, urllib,
+    Blueprint, request, jsonify, Response,
+    get_ssl_context, USER_AGENT
+)
 from persistence import DIR, cached_fetch, rewrite_proxy_html
 
 bp = Blueprint('browse', __name__)

@@ -1,13 +1,9 @@
 """Feed routes: /feed, /hn-feed, /polymarket-feed, rss-proxy, arxiv-search, quality-filter, quality-prompt, blocked-titles."""
 import concurrent.futures
-import hashlib
-import json
-import re
-import ssl
-import time
-import urllib.request
-
-from flask import Blueprint, request, jsonify, Response
+from routes.common import (
+    hashlib, json, re, ssl, time, urllib,
+    Blueprint, request, jsonify, Response
+)
 
 from helpers import build_arxiv_query
 from persistence import (

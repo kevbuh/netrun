@@ -1,13 +1,8 @@
 """Social routes: teams, users, messages, comments, reposts, achievements, blog, inbox."""
-import base64
-import hashlib
-import json
-import os
-import re
-import time
-
-from flask import Blueprint, request, jsonify
-from urllib.parse import unquote as url_unquote
+from routes.common import (
+    base64, hashlib, json, os, re, time, url_unquote,
+    Blueprint, request, jsonify
+)
 
 from helpers import require_auth, optional_auth, get_user_from_request
 from persistence import (

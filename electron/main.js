@@ -264,15 +264,45 @@ async function killProcessOnPort(port) {
   });
 }
 
+// ── Window state persistence ──
+function getWindowStatePath() {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function loadWindowState() {
+  try {
+    const data = fs.readFileSync(getWindowStatePath(), 'utf8');
+    return JSON.parse(data);
+  } catch {
+    return {
+      width: 1400,
+      height: 900,
+      x: undefined,
+      y: undefined,
+    };
+  }
+}
+
+function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  try {
+    const bounds = mainWindow.getBounds();
+    fs.writeFileSync(getWindowStatePath(), JSON.stringify(bounds, null, 2));
+  } catch (e) {
+    console.error('Failed to save window state:', e);
+  }
+}
+
 async function createWindow() {
   // Must use port 8000 for Google OAuth to work (authorized origin)
   // First, kill any existing process on port 8000
   await killProcessOnPort(PREFERRED_PORT);
-  
+
   // Keep retrying until port 8000 is available
   let retries = 0;
   const maxRetries = 30;
-  
+
   while (retries < maxRetries) {
     try {
       serverPort = await tryStartPythonServer(PREFERRED_PORT);
@@ -290,9 +320,13 @@ async function createWindow() {
 
   await waitForServer(serverPort);
 
+  const windowState = loadWindowState();
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: windowState.width,
+    height: windowState.height,
+    x: windowState.x,
+    y: windowState.y,
     icon: path.join(__dirname, '..', 'build-resources', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -344,6 +378,21 @@ async function createWindow() {
   mainWindow.on('app-command', (e, cmd) => {
     if (cmd === 'browser-backward') mainWindow.webContents.send('browse-command', 'back');
     else if (cmd === 'browser-forward') mainWindow.webContents.send('browse-command', 'forward');
+  });
+
+  // Save window state on resize/move with debouncing
+  let saveTimeout;
+  const debouncedSave = () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => saveWindowState(), 500);
+  };
+
+  mainWindow.on('resize', debouncedSave);
+  mainWindow.on('move', debouncedSave);
+
+  mainWindow.on('close', () => {
+    // Save immediately on close (don't debounce)
+    saveWindowState();
   });
 
   mainWindow.on('closed', () => {

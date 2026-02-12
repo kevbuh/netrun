@@ -1,12 +1,8 @@
 """Auth routes: Google login, logout, username, delete account, me, sync."""
-import json
-import os
-import re
-import ssl
-import shutil
-import urllib.request
-
-from flask import Blueprint, request, jsonify
+from routes.common import (
+    json, os, re, ssl, shutil, urllib,
+    Blueprint, request, jsonify
+)
 
 from helpers import require_auth, get_user_from_request
 from persistence import (
