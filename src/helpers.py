@@ -378,7 +378,7 @@ def tool_create_calendar_event(title, date, time='', description='', google_id=N
         return {"error": "Title and date are required"}
     if not google_id:
         return {"error": "Not authenticated"}
-    from persistence import create_calendar_event
+    from users import create_calendar_event
     event_desc = description
     if time:
         event_desc = f"Time: {time}" + (f"\n{description}" if description else "")

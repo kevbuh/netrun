@@ -4,7 +4,9 @@ from routes.common import (
     Blueprint, request, jsonify, Response,
     get_ssl_context, USER_AGENT
 )
-from persistence import DIR, cached_fetch, rewrite_proxy_html
+from db import DIR
+from cache import cached_fetch
+from utils_persistence import rewrite_proxy_html
 
 bp = Blueprint('browse', __name__)
 
@@ -15,7 +17,7 @@ def web_search():
     if not query:
         return jsonify({'results': []})
     try:
-        from persistence import log_usage
+        from db import log_usage
         log_usage('search_chat')
     except Exception:
         pass

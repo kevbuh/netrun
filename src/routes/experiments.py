@@ -14,7 +14,8 @@ from urllib.parse import unquote as url_unquote
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from helpers import require_auth, sse_event
-from persistence import get_vault_project_dir, slugify, unique_vault_slug
+from db import get_vault_project_dir
+from utils_persistence import slugify, unique_vault_slug
 from vault_helpers import _get_user_vault_path
 from kernels import (
     _get_kernel, _kill_kernel, _get_python_path,
@@ -30,7 +31,7 @@ def _require_project_access(f):
     """Decorator: require auth + resolve exp_dir from vault. Passes google_id=, exp_id=, exp_dir=.
     Special case: exp_id='_root' maps to the vault root itself (for loose files)."""
     from functools import wraps
-    from persistence import get_session_user, touch_last_seen
+    from users import get_session_user, touch_last_seen
     @wraps(f)
     def decorated(exp_id, *args, **kwargs):
         auth = request.headers.get('Authorization', '')

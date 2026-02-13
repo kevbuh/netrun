@@ -19,7 +19,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_sock import Sock
 
-from persistence import DIR
+from db import DIR
 from logger import logger
 
 # Uploads directory for profile pictures and backgrounds

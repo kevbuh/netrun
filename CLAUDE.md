@@ -2,78 +2,54 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## What is NetRun
 
-NetRun is a hybrid desktop application for research content aggregation and exploration. It combines a vanilla JavaScript SPA frontend, a Python Flask backend, and an Electron desktop shell. Data is stored in SQLite.
+A desktop research paper management app built with Electron + Flask. Features include feed reading, web browsing with ad-blocking, experiment vaults, social collaboration, vector search, and media processing.
 
 ## Commands
 
 ```bash
-# Run
-npm start                    # Launch Electron app (spawns Flask server + desktop shell)
-npm run server               # Run Flask server only (port 8000)
+npm start              # Start Electron app (launches Flask server automatically)
+npm run server         # Start Python backend only
 
-# Test
-npm test                     # Run all tests (electron + unit + backend)
-npm run test:unit            # Vitest: src/js/*.{test,spec}.js
-npm run test:backend         # Pytest: src/tests -v
-npm run test:electron        # Node tests: tests/**/*.test.js
-npm run test:quick           # Fast subset: unit + backend unit tests
-npm run test:watch           # Vitest watch mode
-npm run test:coverage        # Frontend coverage report
-npm run test:coverage:backend # Python coverage (HTML)
+npm test               # Run all tests (Electron + Vitest + Pytest)
+npm run test:unit      # Vitest unit tests only
+npm run test:backend   # Pytest backend tests only
+npm run test:electron  # Electron integration tests (Node test runner)
+npm run test:quick     # Fast: unit + backend unit only
+npm run test:watch     # Vitest watch mode
 
-# Code quality
-npm run dead-code            # Find unused functions
-npm run function-registry    # Map all global functions
-npm run validate-feeds       # Validate feed catalog
+npm run dead-code      # Find unused code
+npm run function-registry  # Validate module exports & load order
 ```
+
+Run a single Vitest test: `npx vitest run path/to/test.js`
+Run a single Pytest test: `cd src && python -m pytest tests/unit/test_file.py::test_name`
+
+Pytest markers: `@pytest.mark.unit`, `@pytest.mark.integration`
 
 ## Architecture
 
-**Three-layer monorepo:**
-- **Electron** (`electron/main.js`) — Desktop shell, ad-blocking (adblock-rs), IPC for Keychain/passwords/screen capture, window management, spawns the Python server
-- **Flask backend** (`src/app.py`) — REST API + WebSocket server on port 8000, uses Flask Blueprints
-- **Frontend** (`src/js/`, `src/index.html`) — Vanilla JS SPA (no framework), Tailwind CSS, CodeMirror, xterm.js, KaTeX/MathJax
+**Three layers:**
+- **Electron main process** (`electron/main.js`) — window management, IPC handlers, ad-block engine, Python server lifecycle, password store
+- **Flask backend** (`src/app.py`) — API routes as blueprints, WebSocket endpoints, database, embeddings
+- **Vanilla JS frontend** (`src/js/`) — core modules + browse modules, served by Flask
 
-**Backend structure (`src/`):**
-- `app.py` — Flask app init, blueprint registration, WebSocket endpoints
-- `persistence.py` — SQLite ORM, schema, feed caching, embeddings, auth (large file, 87KB)
-- `helpers.py` — Auth decorators, SSE streaming, arXiv query builder
-- `feed_catalog.py` — 45+ feed source definitions
-- `feed_parser.py` / `feed_poller.py` — RSS parsing and background polling thread
-- `kernels.py` — Jupyter kernel management
-- `routes/` — Flask blueprints: auth, feed, content, experiments, social, browse, vault, misc
+**IPC bridge:** `electron/preload.js` exposes `window.electronAPI.*` to renderer for ad-block, downloads, screen capture, auth, passwords.
 
-**Frontend structure (`src/js/`):**
-- `browse-tabs.js` — Embedded webview tab manager (6,990 lines)
-- `panel.js` — Unified popup/context menu system, inline chat, TTS (4,950 lines)
-- `core.js` — Global state, feed catalog, UI utilities, Dynamic Island (4,390 lines)
-- `feed.js` — Feed browsing/filtering/search
-- `dashboard.js` — Main dashboard with widgets
-- `settings.js`, `editors.js`, `notebook-editor.js`, `experiments.js`, `teams.js`, `terminal.js` — Feature modules
-- `storage.js`, `utils.js` — Shared utilities
+**Backend modules (under `src/`):**
+- `routes/` — 10 Flask blueprints: auth, feed, content, browse, vault, experiments, social, neuralook, media, dev
+- `db.py` — SQLite database core
+- `users.py` — auth, sessions, teams, social features
+- `cache.py` / `embeddings.py` / `annotations.py` — split from former monolithic persistence.py
+- `persistence.py` — compatibility shim re-exporting the above
+- `feed_parser.py` / `feed_poller.py` / `feed_catalog.py` — feed system
 
-**Key patterns:**
-- Frontend uses global state (window scope variables) and event-driven UI
-- Backend streams LLM responses via Server-Sent Events (SSE)
-- Optional local Ollama integration for quality filtering, embeddings, annotations
-- Google OAuth for auth; tokens stored in Keychain via Electron safeStorage
-- WebSocket used for terminal, captions, file uploads
+**Frontend JS (`src/js/`):**
+- `core/` — 13 core modules (routing, state, auth, UI primitives)
+- `browse/` — 15 modules split from former browse-tabs.js (browse-island.js for webview management, browse-downloads.js, browse-annotations.js, browse-passwords.js, etc.)
 
-## Testing
-
-- **Frontend tests** use Vitest with Happy-DOM; setup in `src/tests/setup.js` provides mock localStorage/fetch/RAF
-- **Backend tests** use Pytest; `src/tests/conftest.py` provides fixtures and mocks for external APIs (Ollama, Semantic Scholar, arXiv)
-- Test markers: `unit`, `integration`, `slow`, `requires_ollama`, `requires_db`
-- Frontend tests live alongside source: `src/js/*.test.js`
-- Backend tests in `src/tests/unit/` and `src/tests/integration/`
-
-## Setup
-
-```bash
-./setup.sh  # Full setup: Homebrew, Python 3.11, Node, Ollama, venv, dependencies
-# Or manually:
-npm install
-venv/bin/pip install -r requirements.txt
-```
+**Test locations:**
+- `src/tests/unit/` and `src/tests/integration/` — Python tests
+- `tests/` — Electron tests (Node test runner)
+- Vitest config: `vitest.config.js` (happy-dom environment)

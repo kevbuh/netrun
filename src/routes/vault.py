@@ -10,7 +10,9 @@ import uuid
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from helpers import require_auth, sse_event
-from persistence import VAULT_DIR, get_user_data, embed_text_ollama, search_embeddings
+from db import VAULT_DIR
+from users import get_user_data
+from embeddings import embed_text_ollama, search_embeddings
 from vault_helpers import (
     _read_vault_md, _write_vault_md, _sanitize_vault_filename,
     _find_vault_note_by_id, _get_user_vault_path, _set_user_vault_path,
@@ -112,7 +114,8 @@ def create_note(google_id):
 @bp.route('/api/vault/notes/<note_id>', methods=['PUT'])
 @require_auth
 def update_note(google_id, note_id):
-    from persistence import slugify, grant_achievement
+    from utils_persistence import slugify
+    from users import grant_achievement
     user_vault = _get_user_vault_path(google_id)
     note_path, note = _find_vault_note_by_id(user_vault, note_id)
     if not note:

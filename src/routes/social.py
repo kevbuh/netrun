@@ -5,8 +5,8 @@ from routes.common import (
 )
 
 from helpers import require_auth, optional_auth, get_user_from_request
-from persistence import (
-    DIR,
+from db import DIR, _get_db
+from users import (
     get_user_info, get_public_user_info, get_user_public_stats, get_user_recent_comments,
     create_repost, delete_repost, get_user_reposts, get_user_feed_sources,
     set_blog_vote, get_blog_votes,
@@ -27,7 +27,6 @@ from persistence import (
     get_team_todos, create_team_todo, update_team_todo, delete_team_todo,
     get_my_assigned_todos,
     db_get_comments, db_create_comment, db_delete_comment,
-    _get_db,
 )
 from vault_helpers import (
     _read_vault_md, _get_user_vault_path, _find_vault_note_by_id, _write_vault_md,

@@ -12,14 +12,11 @@ import urllib.error
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from persistence import (
-    slugify,
-    _title_hash,
-    _embedding_hash,
-    read_blocked_titles,
-    write_blocked_titles,
-    init_db
-)
+from utils_persistence import slugify
+from cache import _title_hash
+from embeddings import _embedding_hash
+from annotations import read_blocked_titles, write_blocked_titles
+from db import init_db
 
 
 class TestSlugify:
@@ -293,7 +290,7 @@ class TestCachedFetch:
 
     def test_cached_fetch_url_validation(self):
         """Test that cached_fetch validates URLs."""
-        from persistence import cached_fetch
+        from cache import cached_fetch
 
         # Invalid URLs should be handled gracefully
         try:
@@ -310,12 +307,12 @@ class TestQualityCache:
 
     def test_quality_cache_get_empty(self, tmp_path, monkeypatch):
         """Test getting from empty quality cache."""
-        from persistence import quality_cache_get
-        import persistence
+        from cache import quality_cache_get
+        import db as db_module
 
         db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
@@ -328,12 +325,12 @@ class TestQualityCache:
 
     def test_quality_cache_set_and_get(self, tmp_path, monkeypatch):
         """Test setting and getting quality cache entries."""
-        from persistence import quality_cache_set, quality_cache_get
-        import persistence
+        from cache import quality_cache_set, quality_cache_get
+        import db as db_module
 
         db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
@@ -358,12 +355,12 @@ class TestQualityCache:
 
     def test_quality_cache_prompt_hash_isolation(self, tmp_path, monkeypatch):
         """Test that different prompt hashes are isolated."""
-        from persistence import quality_cache_set, quality_cache_get
-        import persistence
+        from cache import quality_cache_set, quality_cache_get
+        import db as db_module
 
         db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(persistence, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(persistence, 'DIR', str(tmp_path))
+        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
+        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
@@ -383,7 +380,7 @@ class TestVaultOperations:
 
     def test_get_vault_project_dir(self):
         """Test vault project directory resolution."""
-        from persistence import get_vault_project_dir
+        from db import get_vault_project_dir
 
         # This requires actual vault setup
         # Skipping for now

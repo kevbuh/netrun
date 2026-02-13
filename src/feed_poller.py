@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from feed_catalog import FEED_CATALOG
 from feed_parser import parse_rss, parse_arxiv, fetch_and_parse_hn, fetch_and_parse_polymarket
-from persistence import cached_fetch, _get_db
+from cache import cached_fetch
+from db import _get_db
 
 logger = logging.getLogger(__name__)
 

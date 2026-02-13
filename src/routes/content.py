@@ -20,15 +20,16 @@ from helpers import (
     build_arxiv_query, CHAT_TOOLS, execute_chat_tool, sse_event,
     _extract_cache,
 )
-from persistence import (
-    cached_fetch, get_cached_references, set_cached_references,
-    get_cached_author, set_cached_author,
+from cache import cached_fetch, smart_highlights_get, smart_highlights_set
+from utils_persistence import get_cached_references, set_cached_references, get_cached_author, set_cached_author
+from embeddings import (
     store_embedding, embed_text_ollama, search_embeddings,
     pairwise_similarities,
-    smart_highlights_get, smart_highlights_set,
     store_chat_memory, search_chat_memories,
     list_chat_memories, delete_chat_memory, get_memory_stats,
     _pack_embedding, _unpack_embedding, _cosine_similarity,
+)
+from annotations import (
     read_annotation_prompt, write_annotation_prompt, annotation_prompt_mtime,
     store_annotation_feedback, list_annotation_feedback,
     update_annotation_feedback_rating, delete_annotation_feedback,
@@ -248,7 +249,7 @@ def doc_chat():
     _chat_google_id = get_user_from_request()
 
     try:
-        from persistence import log_usage
+        from db import log_usage
         log_usage('aether_chat')
     except:
         pass
@@ -356,7 +357,7 @@ def doc_chat():
                         # Send status event to frontend
                         yield sse_event('tool_call', {"name": tool_name, "args": tool_args})
                         try:
-                            from persistence import log_usage
+                            from db import log_usage
                             log_usage('tool_call')
                         except:
                             pass
@@ -1083,7 +1084,7 @@ def reading_connections():
     query_vec = embed_text_ollama(text)
     if not query_vec:
         return jsonify({'results': []})
-    from persistence import _get_db
+    from db import _get_db
     conn = _get_db()
     placeholders = ','.join('?' * len(read_links[:200]))
     rows = conn.execute(

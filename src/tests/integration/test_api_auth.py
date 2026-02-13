@@ -91,7 +91,7 @@ class TestLogout:
     def test_logout_success(self, client):
         """Test successful logout."""
         # Create a session first
-        from persistence import create_session
+        from users import create_session
         token = create_session('google_test_123')
 
         response = client.post('/api/auth/logout', headers={
@@ -115,7 +115,7 @@ class TestSetUsername:
 
     def test_set_username_success(self, client):
         """Test setting a valid username."""
-        from persistence import upsert_google_user, create_session
+        from users import upsert_google_user, create_session
 
         # Create user and session
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
@@ -132,7 +132,7 @@ class TestSetUsername:
 
     def test_set_username_too_short(self, client):
         """Test username that's too short."""
-        from persistence import upsert_google_user, create_session
+        from users import upsert_google_user, create_session
 
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
         token = create_session('google_123')
@@ -147,7 +147,7 @@ class TestSetUsername:
 
     def test_set_username_too_long(self, client):
         """Test username that's too long."""
-        from persistence import upsert_google_user, create_session
+        from users import upsert_google_user, create_session
 
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
         token = create_session('google_123')
@@ -162,7 +162,7 @@ class TestSetUsername:
 
     def test_set_username_invalid_characters(self, client):
         """Test username with invalid characters."""
-        from persistence import upsert_google_user, create_session
+        from users import upsert_google_user, create_session
 
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
         token = create_session('google_123')
@@ -177,7 +177,7 @@ class TestSetUsername:
 
     def test_set_username_duplicate(self, client):
         """Test setting a username that's already taken."""
-        from persistence import upsert_google_user, create_session, set_username
+        from users import upsert_google_user, create_session, set_username
 
         # Create two users
         upsert_google_user('google_123', 'test1@example.com', 'User 1', '')
@@ -211,7 +211,7 @@ class TestDeleteAccount:
 
     def test_delete_account_success(self, client):
         """Test successful account deletion."""
-        from persistence import upsert_google_user, create_session, get_user_info
+        from users import upsert_google_user, create_session, get_user_info
 
         # Create user and session
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
@@ -244,7 +244,7 @@ class TestMe:
 
     def test_me_authenticated(self, client):
         """Test getting user info when authenticated."""
-        from persistence import upsert_google_user, create_session, set_username
+        from users import upsert_google_user, create_session, set_username
 
         # Create user with username
         upsert_google_user('google_123', 'test@example.com', 'Test User', 'https://pic.jpg')
@@ -276,7 +276,7 @@ class TestSync:
 
     def test_sync_client_wins_newer(self, client):
         """Test sync where client data is newer."""
-        from persistence import upsert_google_user, create_session, set_user_data_bulk
+        from users import upsert_google_user, create_session, set_user_data_bulk
 
         # Create user
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
@@ -303,7 +303,7 @@ class TestSync:
 
     def test_sync_server_wins_newer(self, client):
         """Test sync where server data is newer."""
-        from persistence import upsert_google_user, create_session, set_user_data_bulk
+        from users import upsert_google_user, create_session, set_user_data_bulk
 
         # Create user
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
@@ -330,7 +330,7 @@ class TestSync:
 
     def test_sync_merge_different_keys(self, client):
         """Test sync merging different keys from client and server."""
-        from persistence import upsert_google_user, create_session, set_user_data_bulk
+        from users import upsert_google_user, create_session, set_user_data_bulk
 
         # Create user
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')
@@ -364,7 +364,7 @@ class TestSync:
 
     def test_sync_empty_client_data(self, client):
         """Test sync with empty client data."""
-        from persistence import upsert_google_user, create_session, set_user_data_bulk
+        from users import upsert_google_user, create_session, set_user_data_bulk
 
         # Create user
         upsert_google_user('google_123', 'test@example.com', 'Test User', '')

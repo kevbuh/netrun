@@ -36,13 +36,13 @@ def app(monkeypatch, tmp_path):
 
     # Import app after mocking argv
     from app import app as flask_app
-    import persistence
+    import db as db_module
 
-    # Also patch persistence DB_PATH to use test database
-    monkeypatch.setattr(persistence, 'DB_PATH', str(test_db_path))
+    # Also patch db DB_PATH to use test database
+    monkeypatch.setattr(db_module, 'DB_PATH', str(test_db_path))
 
     # Initialize the test database
-    persistence.init_db()
+    db_module.init_db()
 
     flask_app.config.update({
         'TESTING': True,
@@ -88,7 +88,7 @@ def test_db():
 @pytest.fixture
 def init_db(test_db):
     """Initialize test database with schema."""
-    from persistence import _initialize_db
+    from db import _initialize_db
 
     cursor = test_db.cursor()
     _initialize_db(cursor)

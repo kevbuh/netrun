@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from logger import logger
 from helpers import require_auth, sse_event
-from persistence import DIR
+from db import DIR
 
 bp = Blueprint('neuralook', __name__)
 

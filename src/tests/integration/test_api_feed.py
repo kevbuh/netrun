@@ -43,7 +43,7 @@ class TestFeedItems:
 
     def test_get_feed_items_with_data(self, client):
         """Test feed items returns data from database."""
-        from persistence import _get_db
+        from db import _get_db
 
         # Insert test feed items
         conn = _get_db()
@@ -98,7 +98,7 @@ class TestFeedItems:
 
     def test_get_feed_items_multiple_sources(self, client):
         """Test feed items with multiple sources."""
-        from persistence import _get_db
+        from db import _get_db
 
         # Insert test items for different sources
         conn = _get_db()
@@ -125,7 +125,7 @@ class TestFeedItems:
 
     def test_get_feed_items_limit(self, client):
         """Test feed items respects limit parameter."""
-        from persistence import _get_db
+        from db import _get_db
 
         # Insert multiple items
         conn = _get_db()
@@ -473,7 +473,7 @@ class TestFeedWorkflows:
     @patch('urllib.request.urlopen')
     def test_complete_feed_workflow(self, mock_urlopen, client):
         """Test complete workflow: fetch feed items, filter with quality."""
-        from persistence import _get_db
+        from db import _get_db
 
         # Insert test feed items
         conn = _get_db()

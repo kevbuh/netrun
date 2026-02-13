@@ -14,9 +14,9 @@ from flask import Blueprint, request, jsonify, Response, send_file
 
 from logger import logger
 from helpers import require_auth
-from persistence import (
-    DIR,
-    read_saved_content, write_saved_content,
+from db import DIR
+from cache import read_saved_content, write_saved_content
+from users import (
     get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
     get_all_user_data, set_user_data,
 )
@@ -85,7 +85,7 @@ def dev_git_log():
 @bp.route('/api/dev-stats')
 def dev_stats():
     try:
-        from persistence import _get_db
+        from db import _get_db
         conn = _get_db()
         users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
         active_sessions = conn.execute('SELECT COUNT(*) FROM sessions WHERE expires > ?', (time.time(),)).fetchone()[0]
@@ -204,7 +204,7 @@ def dev_stats():
             pass
         usage_history = {}
         try:
-            from persistence import get_usage_history
+            from users import get_usage_history
             usage_history = get_usage_history(30)
         except Exception:
             pass

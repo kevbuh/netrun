@@ -5,10 +5,11 @@ from routes.common import (
 )
 
 from helpers import require_auth, get_user_from_request
-from persistence import (
+from db import VAULT_DIR
+from users import (
     upsert_google_user, get_user_info, create_session,
     get_session_user, delete_session, set_username, delete_user,
-    get_all_user_data, set_user_data_bulk, VAULT_DIR,
+    get_all_user_data, set_user_data_bulk,
 )
 from vault_helpers import _get_user_vault_path
 

@@ -4,7 +4,8 @@ import re
 import socket
 import subprocess
 
-from persistence import VAULT_DIR, get_user_data, set_user_data
+from db import VAULT_DIR
+from users import get_user_data, set_user_data
 
 
 def _read_vault_md(fpath):
