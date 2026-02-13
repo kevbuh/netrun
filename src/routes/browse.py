@@ -1,7 +1,8 @@
 """Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote."""
 from routes.common import (
     json, re, ssl, urllib,
-    Blueprint, request, jsonify, Response
+    Blueprint, request, jsonify, Response,
+    get_ssl_context,
 )
 from cache import cached_fetch
 from utils_persistence import rewrite_proxy_html
@@ -24,7 +25,7 @@ def web_search():
         req = urllib.request.Request(search_url, headers={
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             html = resp.read().decode('utf-8', errors='replace')
         results = []
@@ -52,7 +53,7 @@ def check_embed():
         return jsonify({'embeddable': False})
     try:
         req = urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             xfo = (resp.headers.get('X-Frame-Options') or '').upper()
             csp = resp.headers.get('Content-Security-Policy') or ''
@@ -72,7 +73,7 @@ def link_preview():
         req = urllib.request.Request(url, headers={
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
             raw = resp.read(200_000)
             html = raw.decode('utf-8', errors='replace')

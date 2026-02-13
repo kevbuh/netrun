@@ -6,10 +6,11 @@ fetchHNFeed, fetchPolymarketFeed) in Python using stdlib only.
 import concurrent.futures
 import json
 import re
-import ssl
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, UTC
+
+from routes.common import get_ssl_context
 
 
 def _strip_html(s):
@@ -219,7 +220,7 @@ def parse_arxiv(xml_bytes):
 
 def fetch_and_parse_hn():
     """Fetch top 30 HN stories and return as item dicts."""
-    ctx = ssl._create_unverified_context()
+    ctx = get_ssl_context()
     req = urllib.request.Request(
         'https://hacker-news.firebaseio.com/v0/beststories.json',
         headers={'User-Agent': 'Mozilla/5.0'}
@@ -265,7 +266,7 @@ def fetch_and_parse_hn():
 
 def fetch_and_parse_polymarket():
     """Fetch Polymarket breaking data and return as item dicts."""
-    ctx = ssl._create_unverified_context()
+    ctx = get_ssl_context()
     req = urllib.request.Request(
         'https://polymarket.com/breaking',
         headers={'User-Agent': 'Mozilla/5.0'}

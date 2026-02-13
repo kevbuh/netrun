@@ -10,6 +10,7 @@ import time
 import uuid
 
 from flask import Blueprint, request, jsonify, Response
+from routes.common import get_ssl_context
 
 from helpers import require_auth
 from db import DIR
@@ -29,6 +30,16 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 @bp.route('/api/settings')
 def settings():
     return jsonify({'ok': True})
+
+
+@bp.route('/api/client-config')
+def client_config():
+    return jsonify({
+        'googleClientId': os.environ.get(
+            'GOOGLE_CLIENT_ID',
+            '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
+        ),
+    })
 
 
 @bp.route('/api/version')
@@ -877,7 +888,6 @@ def local_file():
 
 @bp.route('/api/arxiv-pdf')
 def arxiv_pdf():
-    import ssl
     import urllib.request
     arxiv_id = request.args.get('id', '').strip()
     if not arxiv_id:
@@ -885,7 +895,7 @@ def arxiv_pdf():
     pdf_url = f'https://arxiv.org/pdf/{arxiv_id}.pdf'
     try:
         req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
             data = resp.read()
             r = Response(data, content_type='application/pdf')
@@ -898,14 +908,13 @@ def arxiv_pdf():
 
 @bp.route('/api/pdf-proxy')
 def pdf_proxy():
-    import ssl
     import urllib.request
     url = request.args.get('url', '').strip()
     if not url or not url.startswith('http'):
         return Response(status=400)
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
             data = resp.read()
             r = Response(data, content_type='application/pdf')

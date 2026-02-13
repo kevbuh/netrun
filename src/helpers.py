@@ -2,12 +2,12 @@
 import json
 import os
 import re
-import ssl
 import tempfile
 import urllib.request
 from functools import wraps
 
 from flask import request, jsonify
+from routes.common import get_ssl_context
 
 from users import get_session_user, touch_last_seen
 from db import get_vault_project_dir
@@ -248,7 +248,7 @@ def tool_web_search(query):
     req = urllib.request.Request(search_url, headers={
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
     })
-    ctx = ssl._create_unverified_context()
+    ctx = get_ssl_context()
     with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
         html = resp.read().decode('utf-8', errors='replace')
     results = []
@@ -279,7 +279,7 @@ def tool_search_papers(query):
         f'&sortBy=relevance&sortOrder=descending'
     )
     req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-    ctx = ssl._create_unverified_context()
+    ctx = get_ssl_context()
     with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
         data = resp.read().decode('utf-8', errors='replace')
     papers = []
@@ -311,7 +311,7 @@ def tool_fetch_page(url):
         if not pdf_url.endswith('.pdf'):
             pdf_url += '.pdf'
         req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
             pdf_bytes = resp.read()
         import fitz

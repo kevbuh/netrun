@@ -3,7 +3,10 @@
 
 // ── User accounts & sync ──
 
-const GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
+let GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
+fetch('/api/client-config').then(r => r.json()).then(c => {
+  if (c.googleClientId) GOOGLE_CLIENT_ID = c.googleClientId;
+}).catch(() => {});
 // Hydrate token from secure storage (macOS Keychain) if available
 if (!_authToken && window.electronAPI?.getAuthToken) {
   window.electronAPI.getAuthToken().then(t => {

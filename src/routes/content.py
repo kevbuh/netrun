@@ -5,13 +5,13 @@ import hashlib
 import json
 import os
 import re
-import ssl
 import tempfile
 import threading
 import time
 import urllib.request
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
+from routes.common import get_ssl_context
 
 from logger import logger
 from helpers import (
@@ -175,7 +175,7 @@ def _do_extract_text(url):
         if not pdf_url.endswith('.pdf'):
             pdf_url += '.pdf'
         req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
             pdf_bytes = resp.read()
         import fitz
@@ -644,7 +644,7 @@ def citation_lookup():
         # Search Semantic Scholar
         search_url = f'https://api.semanticscholar.org/graph/v1/paper/search?query={urllib.request.quote(query)}&limit=1&fields=title,authors,year,abstract,citationCount,url,venue,externalIds'
         req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             data = json.loads(resp.read())
         papers = data.get('data', [])
@@ -682,7 +682,7 @@ def paper_references():
             # Fetch paper references from Semantic Scholar
             api_url = f'https://api.semanticscholar.org/graph/v1/paper/arXiv:{arxiv_id}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds'
             req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-            ctx = ssl._create_unverified_context()
+            ctx = get_ssl_context()
             with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
                 data = json.loads(resp.read())
             references = data.get('references', [])
@@ -750,7 +750,7 @@ def author_lookup():
         try:
             search_url = f'https://api.semanticscholar.org/graph/v1/author/search?query={urllib.request.quote(query)}&limit=1&fields=name,affiliations,paperCount,citationCount,hIndex,url'
             req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-            ctx = ssl._create_unverified_context()
+            ctx = get_ssl_context()
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 data = json.loads(resp.read())
             authors = data.get('data', [])
@@ -815,7 +815,7 @@ def batch_citations():
             },
             method='POST'
         )
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
             data = json.loads(resp.read())
         result = {}

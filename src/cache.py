@@ -4,10 +4,10 @@ import os
 import json
 import hashlib
 import time
-import ssl
 import urllib.request
 
 from db import DIR, _get_db
+from routes.common import get_ssl_context
 
 # ── Cache constants ──
 
@@ -102,7 +102,7 @@ def cached_fetch(url, timeout=15):
         return data
     # 3) Network fetch
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    ctx = ssl._create_unverified_context()
+    ctx = get_ssl_context()
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         data = resp.read()
     _cache[url] = (data, now)

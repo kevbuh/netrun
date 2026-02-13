@@ -1,7 +1,8 @@
 """Auth routes: Google login, logout, username, delete account, me, sync."""
 from routes.common import (
-    json, re, ssl, urllib,
-    Blueprint, request, jsonify
+    json, os, re, ssl, urllib,
+    Blueprint, request, jsonify,
+    get_ssl_context,
 )
 
 from helpers import require_auth, get_user_from_request
@@ -14,7 +15,10 @@ from vault_helpers import _get_user_vault_path
 
 bp = Blueprint('auth', __name__)
 
-GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
+GOOGLE_CLIENT_ID = os.environ.get(
+    'GOOGLE_CLIENT_ID',
+    '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
+)
 
 
 @bp.route('/api/auth/google', methods=['POST'])
@@ -26,7 +30,7 @@ def google_login():
     try:
         verify_url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + credential
         req = urllib.request.Request(verify_url)
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             token_info = json.loads(resp.read())
         if token_info.get('aud') != GOOGLE_CLIENT_ID:

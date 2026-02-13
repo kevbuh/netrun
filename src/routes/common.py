@@ -28,7 +28,14 @@ shutil = shutil  # noqa: F401
 
 # Common SSL context for urllib requests
 def get_ssl_context():
-    """Return an unverified SSL context for urllib requests."""
+    """Return an SSL context for urllib requests.
+
+    By default, SSL verification is disabled for compatibility with
+    self-signed certs and dev environments. Set NETRUN_VERIFY_SSL=1
+    to enable full certificate verification.
+    """
+    if os.environ.get('NETRUN_VERIFY_SSL', '') == '1':
+        return ssl.create_default_context()
     return ssl._create_unverified_context()
 
 # Common user agent for web requests

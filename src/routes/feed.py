@@ -2,7 +2,8 @@
 import concurrent.futures
 from routes.common import (
     hashlib, json, re, ssl, time, urllib,
-    Blueprint, request, jsonify, Response
+    Blueprint, request, jsonify, Response,
+    get_ssl_context,
 )
 
 from helpers import build_arxiv_query
@@ -49,7 +50,7 @@ def hn_feed():
         if cached:
             stories = json.loads(cached)
         else:
-            ctx = ssl._create_unverified_context()
+            ctx = get_ssl_context()
             req = urllib.request.Request(
                 'https://hacker-news.firebaseio.com/v0/beststories.json',
                 headers={'User-Agent': 'Mozilla/5.0'}
@@ -146,7 +147,7 @@ def arxiv_search():
             f'&sortBy=relevance&sortOrder=descending'
         )
         req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = ssl._create_unverified_context()
+        ctx = get_ssl_context()
         with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
             data = resp.read()
         return Response(data, content_type='application/xml')
