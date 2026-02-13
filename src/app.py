@@ -32,7 +32,6 @@ _parser = argparse.ArgumentParser(description='NetRun server')
 _parser.add_argument('--port', type=int, default=8000, help='Port to listen on')
 _parser.add_argument('--data-dir', default=None, help='Directory for user data (DB, experiments, etc.)')
 _parser.add_argument('--static-dir', default=None, help='Directory for static files to serve')
-_parser.add_argument('--reload', action='store_true', help='Enable auto-reload on Python file changes (dev mode)')
 _args = _parser.parse_args()
 
 if _args.data_dir:
@@ -226,5 +225,4 @@ def static_files(path):
 if __name__ == '__main__':
     PORT = _args.port
     logger.info(f'Serving at http://localhost:{PORT}')
-    app.run(host='0.0.0.0', port=PORT, threaded=True,
-            debug=_args.reload, use_reloader=_args.reload)
+    app.run(host='0.0.0.0', port=PORT, threaded=True, debug=False)
