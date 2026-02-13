@@ -18,3 +18,5 @@ src/neuralook_model_gazenet_meta.json
 coverage/
 .DS_Store
 .env
+htmlcov/
+src/saved_content/
