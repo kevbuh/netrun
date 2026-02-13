@@ -372,6 +372,8 @@ async function _doDeleteAccount() {
 (function _initAuth() {
   _updateAccountUI();
   if (_authToken) {
+    // Hide login gate immediately to prevent flash while verifying session
+    _hideLoginGate();
     // Verify session is still valid
     apiGet('/api/auth/me')
       .then(data => {
