@@ -28,25 +28,25 @@ var _audioUnifiedState = { tab: null, tts: null, cc: null, mic: null };
 var _ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 // ── Layout ──
-let _boundsCache = null;
+const _boundsCache = null;
 
 // ── Spinners ──
-let _spinnerData = null;
-let _spinnerNames = [];
-let _spinnerInterval = null;
+const _spinnerData = null;
+const _spinnerNames = [];
+const _spinnerInterval = null;
 
 // ── Views ──
-let _lastActiveView = localStorage.getItem('_lastActiveView') || 'feed';
+const _lastActiveView = localStorage.getItem('_lastActiveView') || 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
-let _researchActiveTab = null;
+const _researchActiveTab = null;
 
 // ── Sidebar navigation ──
-let _sidebarFocused = false;
-let _sidebarSelectedIndex = -1;
+const _sidebarFocused = false;
+const _sidebarSelectedIndex = -1;
 var _sidebarNavClicking = false;
 
 // ── Lazy images ──
-let _lazyImageObserver = null;
+const _lazyImageObserver = null;
 
 // ── Feed catalog ──
 const ARXIV_LOGO_INLINE = '<img class="h-3.5 w-auto opacity-50 inline-block" src="/arxiv-logomark-small@2x.png" alt="arXiv" />';
@@ -54,26 +54,26 @@ const RSS_LOGO_INLINE = '<svg class="h-3.5 w-auto opacity-50 inline-block" viewB
 const SUBSTACK_LOGO_INLINE = '<svg class="h-3.5 w-auto inline-block" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.54 6.42H1.46V4.2h21.08v2.22zM1.46 9.26h21.08V7.04H1.46v2.22zM22.54 12.1H1.46v9.52l10.54-5.87 10.54 5.87V12.1z" fill="#FF6719"/></svg>';
 
 // ── Window manager ──
-let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
-let _wmFocusIndex = 0;
-let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
+const _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
+const _wmFocusIndex = 0;
+const _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
 const _wmDefaultOrder = ['dashboard','feed','vault','browse','neuralook','dev','settings'];
-let _wmLastNavTime = 0;
+const _wmLastNavTime = 0;
 
 // ── User search ──
-let _userSearchDebounce = null;
+const _userSearchDebounce = null;
 
 // ── Navigation ──
-let _expBackAction = null; // stores {fn, label} for context-aware back button
-let _prevRouteHash = ''; // the hash before the current route
-let _currentRouteHash = ''; // the current route hash
-let _navHistory = JSON.parse(localStorage.getItem('_navHistory') || '[]');
-let _navForward = JSON.parse(localStorage.getItem('_navForward') || '[]');
-let _navNavigating = false; // guard to prevent push while navigating back/forward
+const _expBackAction = null; // stores {fn, label} for context-aware back button
+const _prevRouteHash = ''; // the hash before the current route
+const _currentRouteHash = ''; // the current route hash
+const _navHistory = JSON.parse(localStorage.getItem('_navHistory') || '[]');
+const _navForward = JSON.parse(localStorage.getItem('_navForward') || '[]');
+const _navNavigating = false; // guard to prevent push while navigating back/forward
 
 // ── Auth ──
-let _authToken = localStorage.getItem('authToken') || null;
-let _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null');
+const _authToken = localStorage.getItem('authToken') || null;
+const _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null');
 
 // Auth headers helper (used by api.js)
 function _authHeaders() {

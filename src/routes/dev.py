@@ -6,13 +6,11 @@ import os
 import re
 import shutil
 import subprocess
-import tempfile
 import time
 import uuid
 
-from flask import Blueprint, request, jsonify, Response, send_file
+from flask import Blueprint, request, jsonify, Response
 
-from logger import logger
 from helpers import require_auth
 from db import DIR
 from cache import read_saved_content, write_saved_content
@@ -99,7 +97,7 @@ def dev_stats():
             for f in files:
                 if f.endswith(('.js', '.py', '.css', '.html')):
                     try:
-                        with open(os.path.join(root, f), 'r', errors='ignore') as fh:
+                        with open(os.path.join(root, f), errors='ignore') as fh:
                             lines = sum(1 for _ in fh)
                         total_loc += lines
                         file_count += 1
@@ -314,7 +312,7 @@ def function_registry(google_id):
         if not os.path.exists(json_path):
             return jsonify({'error': 'Report file not found'}), 500
 
-        with open(json_path, 'r') as f:
+        with open(json_path) as f:
             data = json.load(f)
 
         return jsonify(data)
@@ -478,7 +476,7 @@ def _build_function_level_graph():
     if not os.path.exists(json_path):
         return jsonify({'status': 'error', 'message': 'Report file not found'}), 500
 
-    with open(json_path, 'r') as f:
+    with open(json_path) as f:
         data = json.load(f)
 
     # Build function nodes
@@ -584,7 +582,7 @@ def _build_file_level_graph():
     if not os.path.exists(json_path):
         return jsonify({'status': 'error', 'message': 'Report file not found'}), 500
 
-    with open(json_path, 'r') as f:
+    with open(json_path) as f:
         data = json.load(f)
 
     # Also get load order data for severity info

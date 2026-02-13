@@ -3,7 +3,7 @@
 
 // ── Closed Captions ──
 
-let _ccPillDismissed = false;
+const _ccPillDismissed = false;
 
 function _updateCCButton() {
   const hasAudio = _browseIsElectron && _browseAudioTabs.size > 0;

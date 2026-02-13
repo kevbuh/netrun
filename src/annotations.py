@@ -60,7 +60,7 @@ _DEFAULT_SCORING_HASH = hashlib.sha256(
 def read_blocked_titles():
     if not os.path.exists(BLOCKED_TITLES_FILE):
         return []
-    with open(BLOCKED_TITLES_FILE, 'r') as f:
+    with open(BLOCKED_TITLES_FILE) as f:
         return json.load(f)
 
 
@@ -74,7 +74,7 @@ def write_blocked_titles(titles):
 def read_prompt():
     """Read the custom prompt from disk, or return None if not set."""
     if os.path.exists(PROMPT_FILE):
-        with open(PROMPT_FILE, 'r') as f:
+        with open(PROMPT_FILE) as f:
             text = f.read().strip()
             return text if text else None
     return None
@@ -93,7 +93,7 @@ def write_prompt(prompt):
 def read_annotation_prompt():
     """Read the custom annotation prompt from disk, or return None if not set."""
     if os.path.exists(ANNOTATION_PROMPT_FILE):
-        with open(ANNOTATION_PROMPT_FILE, 'r') as f:
+        with open(ANNOTATION_PROMPT_FILE) as f:
             text = f.read().strip()
             return text if text else None
     return None

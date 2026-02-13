@@ -122,7 +122,7 @@ function startRain() {
 
   if (preset.audio) {
     // Sample-based preset: loop an audio file
-    var a = new Audio(preset.audio);
+    const a = new Audio(preset.audio);
     a.loop = true;
     a.volume = _rainVolume;
     a.addEventListener('canplaythrough', function() { a.play(); }, { once: true });

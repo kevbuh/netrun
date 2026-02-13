@@ -13,9 +13,6 @@ Tests all social endpoints:
 """
 
 import pytest
-import json
-import time
-from unittest.mock import patch, Mock
 
 # Add src to path
 import sys

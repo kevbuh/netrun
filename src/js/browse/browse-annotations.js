@@ -67,7 +67,7 @@ function _offerAnnotation(tab) {
     }
     // Compact offer to icon-only after 15s
     _annotationOfferTimer = setTimeout(() => {
-      var pill = document.querySelector('.pill-island[data-island-id="annotate"]');
+      const pill = document.querySelector('.pill-island[data-island-id="annotate"]');
       if (pill) pill.classList.add('island-compact');
     }, 15000);
   }, 1500);
@@ -254,15 +254,15 @@ async function _readPageAloud() {
     _ttsStopAll();
     return;
   }
-  var win = _getCurrentWindow();
+  const win = _getCurrentWindow();
   if (!win) return;
-  var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+  const tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
   if (!tab) return;
-  var btn = document.getElementById('pill-readaloud-btn');
+  const btn = document.getElementById('pill-readaloud-btn');
   if (btn) btn.classList.add('pill-readaloud-active');
   _ttsTabId = tab.id;
   _updateAudioUnified('tts', { label: 'Extracting\u2026', detail: 'Extracting page text' });
-  var text = await _extractTextFromFrame(tab);
+  const text = await _extractTextFromFrame(tab);
   if (!text || text.length < 10) {
     _updateAudioUnified('tts', { label: 'No text', detail: 'No readable text found', done: true });
     if (btn) btn.classList.remove('pill-readaloud-active');
@@ -311,15 +311,15 @@ function _showAnnotationTooltip(data, frame, pinned) {
     btn.addEventListener('click', function(ev) {
       ev.stopPropagation(); ev.preventDefault();
       if (btn.disabled) return;
-      var rating = btn.getAttribute('data-ann-tip-rate');
-      var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+      const rating = btn.getAttribute('data-ann-tip-rate');
+      const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
       apiPost('/api/annotation-feedback', { quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
         .then(function() {
           btn.style.opacity = '1';
           btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
           btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
           btn.disabled = true;
-          var sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
+          const sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
           if (sibling) sibling.style.display = 'none';
         }).catch(function() {
           btn.style.opacity = '0.5';
@@ -350,7 +350,7 @@ function _hideAnnotationTooltip(force) {
 // Dismiss pinned tooltip on click outside
 document.addEventListener('mousedown', function(ev) {
   if (!_annTooltipPinned) return;
-  var tip = document.getElementById('aether-annotation-tooltip');
+  const tip = document.getElementById('aether-annotation-tooltip');
   if (tip && tip.contains(ev.target)) return;
   _hideAnnotationTooltip(true);
 });

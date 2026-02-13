@@ -7,17 +7,17 @@
 
   // ─── 1. Design Tokens ───────────────────────────────────────
 
-  var _springs = {
+  const _springs = {
     snappy:  { tension: 300, friction: 20, mass: 1 },
     smooth:  { tension: 170, friction: 26, mass: 1 },
     gentle:  { tension: 120, friction: 14, mass: 1 },
     bouncy:  { tension: 200, friction: 10, mass: 1 }
   };
 
-  var _durations = { instant: 100, fast: 200, normal: 350, slow: 600 };
-  var _staggers  = { tight: 20, normal: 40, relaxed: 80 };
+  const _durations = { instant: 100, fast: 200, normal: 350, slow: 600 };
+  const _staggers  = { tight: 20, normal: 40, relaxed: 80 };
 
-  var _springCSSMap = {
+  const _springCSSMap = {
     snappy:   'cubic-bezier(0.34, 1.56, 0.64, 1)',
     smooth:   'cubic-bezier(0.25, 1.0, 0.5, 1.0)',
     gentle:   'cubic-bezier(0.22, 1.2, 0.36, 1.0)',
@@ -28,24 +28,24 @@
 
   // ─── 2. Spring Physics Engine ───────────────────────────────
 
-  var _springCache = new Map();
-  var _CACHE_MAX = 64;
+  const _springCache = new Map();
+  const _CACHE_MAX = 64;
 
   function _simulateSpring(preset, from, to) {
-    var key = preset + '|' + from + '|' + to;
+    const key = preset + '|' + from + '|' + to;
     if (_springCache.has(key)) return _springCache.get(key);
 
-    var cfg = _springs[preset] || _springs.smooth;
-    var tension = cfg.tension, friction = cfg.friction, mass = cfg.mass;
-    var dt = 1 / 60;
-    var pos = from, vel = 0;
-    var target = to;
-    var frames = [from];
-    var maxFrames = 90; // 1500ms at 60fps
+    const cfg = _springs[preset] || _springs.smooth;
+    const tension = cfg.tension, friction = cfg.friction, mass = cfg.mass;
+    const dt = 1 / 60;
+    let pos = from, vel = 0;
+    const target = to;
+    const frames = [from];
+    const maxFrames = 90; // 1500ms at 60fps
 
-    for (var i = 0; i < maxFrames; i++) {
-      var disp = pos - target;
-      var accel = (-tension * disp - friction * vel) / mass;
+    for (let i = 0; i < maxFrames; i++) {
+      const disp = pos - target;
+      const accel = (-tension * disp - friction * vel) / mass;
       vel += accel * dt;
       pos += vel * dt;
       frames.push(pos);
@@ -62,9 +62,9 @@
   }
 
   function _springKeyframes(preset, from, to) {
-    var frames = _simulateSpring(preset, from, to);
-    var kf = [];
-    for (var i = 0; i < frames.length; i++) {
+    const frames = _simulateSpring(preset, from, to);
+    const kf = [];
+    for (let i = 0; i < frames.length; i++) {
       kf.push({ offset: i / (frames.length - 1), value: frames[i] });
     }
     return kf;
@@ -73,8 +73,8 @@
 
   // ─── 3. GPU Layer Manager ──────────────────────────────────
 
-  var _promotedLayers = new Set();
-  var _layerBudget = 30;
+  const _promotedLayers = new Set();
+  let _layerBudget = 30;
 
   function _promote(el) {
     if (_promotedLayers.has(el)) return;
@@ -99,7 +99,7 @@
   // ─── 4. Animation Compositor ───────────────────────────────
 
   function _buildTransformValue(props) {
-    var parts = [];
+    const parts = [];
     if (props.x != null || props.y != null) {
       parts.push('translate(' + (props.x || 0) + 'px, ' + (props.y || 0) + 'px)');
     }
@@ -117,9 +117,9 @@
   }
 
   function _standardProps(props) {
-    var result = {};
+    const result = {};
     if (props.opacity != null) result.opacity = props.opacity;
-    var tf = _buildTransformValue(props);
+    const tf = _buildTransformValue(props);
     if (tf) result.transform = tf;
     // Pass through any direct CSS props
     if (props.transform != null) result.transform = props.transform;
@@ -138,10 +138,10 @@
   function _animate(el, config) {
     if (!el || !config) return null;
 
-    var preset = config.spring || 'smooth';
-    var from = _standardProps(config.from || {});
-    var to = _standardProps(config.to || {});
-    var useSpringKeyframes = _hasTransformProps(config.from || {}) || _hasTransformProps(config.to || {});
+    const preset = config.spring || 'smooth';
+    const from = _standardProps(config.from || {});
+    const to = _standardProps(config.to || {});
+    const useSpringKeyframes = _hasTransformProps(config.from || {}) || _hasTransformProps(config.to || {});
 
     // Cancel existing animation on this element
     if (el._motionAnim) {
@@ -151,23 +151,23 @@
     // Auto-promote
     _promote(el);
 
-    var keyframes, duration, easing;
+    let keyframes, duration, easing;
 
     if (useSpringKeyframes && !_modelActive) {
       // Generate spring keyframes for transform properties
-      var fromX = (config.from && config.from.x) || 0;
-      var toX = (config.to && config.to.x) || 0;
-      var fromY = (config.from && config.from.y) || 0;
-      var toY = (config.to && config.to.y) || 0;
-      var fromScale = (config.from && config.from.scale != null) ? config.from.scale : 1;
-      var toScale = (config.to && config.to.scale != null) ? config.to.scale : 1;
-      var fromOpacity = (config.from && config.from.opacity != null) ? config.from.opacity : undefined;
-      var toOpacity = (config.to && config.to.opacity != null) ? config.to.opacity : undefined;
+      const fromX = (config.from && config.from.x) || 0;
+      const toX = (config.to && config.to.x) || 0;
+      const fromY = (config.from && config.from.y) || 0;
+      const toY = (config.to && config.to.y) || 0;
+      const fromScale = (config.from && config.from.scale != null) ? config.from.scale : 1;
+      const toScale = (config.to && config.to.scale != null) ? config.to.scale : 1;
+      const fromOpacity = (config.from && config.from.opacity != null) ? config.from.opacity : undefined;
+      const toOpacity = (config.to && config.to.opacity != null) ? config.to.opacity : undefined;
 
-      var xFrames = (fromX !== toX) ? _simulateSpring(preset, fromX, toX) : null;
-      var yFrames = (fromY !== toY) ? _simulateSpring(preset, fromY, toY) : null;
-      var sFrames = (fromScale !== toScale) ? _simulateSpring(preset, fromScale, toScale) : null;
-      var len = Math.max(
+      const xFrames = (fromX !== toX) ? _simulateSpring(preset, fromX, toX) : null;
+      const yFrames = (fromY !== toY) ? _simulateSpring(preset, fromY, toY) : null;
+      const sFrames = (fromScale !== toScale) ? _simulateSpring(preset, fromScale, toScale) : null;
+      const len = Math.max(
         xFrames ? xFrames.length : 0,
         yFrames ? yFrames.length : 0,
         sFrames ? sFrames.length : 0,
@@ -175,12 +175,12 @@
       );
 
       keyframes = [];
-      for (var i = 0; i < len; i++) {
-        var f = {};
-        var tx = xFrames ? xFrames[Math.min(i, xFrames.length - 1)] : toX;
-        var ty = yFrames ? yFrames[Math.min(i, yFrames.length - 1)] : toY;
-        var sc = sFrames ? sFrames[Math.min(i, sFrames.length - 1)] : toScale;
-        var parts = [];
+      for (let i = 0; i < len; i++) {
+        const f = {};
+        const tx = xFrames ? xFrames[Math.min(i, xFrames.length - 1)] : toX;
+        const ty = yFrames ? yFrames[Math.min(i, yFrames.length - 1)] : toY;
+        const sc = sFrames ? sFrames[Math.min(i, sFrames.length - 1)] : toScale;
+        const parts = [];
         if (fromX !== toX || fromY !== toY) parts.push('translate(' + tx + 'px, ' + ty + 'px)');
         if (fromScale !== toScale) parts.push('scale(' + sc + ')');
         if (parts.length) f.transform = parts.join(' ');
@@ -205,7 +205,7 @@
       duration = 0;
     }
 
-    var anim = el.animate(keyframes, {
+    const anim = el.animate(keyframes, {
       duration: duration,
       easing: easing,
       fill: 'forwards',
@@ -237,13 +237,13 @@
   // ─── 5. Sequence + Stagger ─────────────────────────────────
 
   function _sequence(steps) {
-    var chain = Promise.resolve();
+    let chain = Promise.resolve();
     steps.forEach(function(step) {
       chain = chain.then(function() {
         if (step.delay) {
           return new Promise(function(r) { setTimeout(r, step.delay); });
         }
-        var result = _animate(step.el, step);
+        const result = _animate(step.el, step);
         return result ? result.animation.finished : Promise.resolve();
       });
     });
@@ -251,11 +251,11 @@
   }
 
   function _staggerFn(selector, config) {
-    var els = document.querySelectorAll(selector);
-    var stagger = config.stagger || _staggers.normal;
-    var results = [];
-    for (var i = 0; i < els.length; i++) {
-      var elConfig = Object.assign({}, config, { delay: (config.delay || 0) + i * stagger });
+    const els = document.querySelectorAll(selector);
+    const stagger = config.stagger || _staggers.normal;
+    const results = [];
+    for (let i = 0; i < els.length; i++) {
+      const elConfig = Object.assign({}, config, { delay: (config.delay || 0) + i * stagger });
       delete elConfig.stagger;
       results.push(_animate(els[i], elConfig));
     }
@@ -266,16 +266,16 @@
   // ─── 6. Ollama Awareness ───────────────────────────────────
 
   var _modelActive = false;
-  var _ollamaInterval = null;
+  let _ollamaInterval = null;
 
   function _pollOllama() {
-    var ctrl = new AbortController();
-    var timer = setTimeout(function() { ctrl.abort(); }, 2000);
+    const ctrl = new AbortController();
+    const timer = setTimeout(function() { ctrl.abort(); }, 2000);
     fetch('http://localhost:11434/api/ps', { signal: ctrl.signal })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         clearTimeout(timer);
-        var wasActive = _modelActive;
+        const wasActive = _modelActive;
         _modelActive = !!(data && data.models && data.models.length > 0);
         if (_modelActive !== wasActive) {
           _layerBudget = _modelActive ? 8 : 30;
@@ -311,17 +311,17 @@
   function _swap(el, axis, callback, config) {
     if (!el) { if (callback) callback(); return; }
     config = config || {};
-    var dist = config.distance || 30;
-    var outDur = config.outDuration || (axis === 'y' ? 150 : 120);
-    var inDur = config.inDuration || (axis === 'y' ? 200 : 150);
-    var outOpacity = config.outOpacity != null ? config.outOpacity : 0;
-    var inOpacity = config.inOpacity != null ? config.inOpacity : outOpacity;
-    var outVal = axis === 'y' ? { y: dist } : { x: dist };
-    var inVal = axis === 'y' ? { y: -dist } : { x: -dist };
-    var fromOut = { opacity: 1 }; fromOut[axis] = 0;
-    var toOut = { opacity: outOpacity }; toOut[axis] = outVal[axis];
-    var fromIn = { opacity: inOpacity }; fromIn[axis] = inVal[axis];
-    var toIn = { opacity: 1 }; toIn[axis] = 0;
+    const dist = config.distance || 30;
+    const outDur = config.outDuration || (axis === 'y' ? 150 : 120);
+    const inDur = config.inDuration || (axis === 'y' ? 200 : 150);
+    const outOpacity = config.outOpacity != null ? config.outOpacity : 0;
+    const inOpacity = config.inOpacity != null ? config.inOpacity : outOpacity;
+    const outVal = axis === 'y' ? { y: dist } : { x: dist };
+    const inVal = axis === 'y' ? { y: -dist } : { x: -dist };
+    const fromOut = { opacity: 1 }; fromOut[axis] = 0;
+    const toOut = { opacity: outOpacity }; toOut[axis] = outVal[axis];
+    const fromIn = { opacity: inOpacity }; fromIn[axis] = inVal[axis];
+    const toIn = { opacity: 1 }; toIn[axis] = 0;
 
     _animate(el, {
       spring: 'smooth', duration: outDur,
@@ -345,16 +345,16 @@
   // ─── 8. FLIP Helper ────────────────────────────────────────
 
   function _flip(el, callback, config) {
-    var first = el.getBoundingClientRect();
+    const first = el.getBoundingClientRect();
 
     // Run the layout-changing callback
     if (typeof callback === 'function') callback();
 
-    var last = el.getBoundingClientRect();
-    var dx = first.left - last.left;
-    var dy = first.top - last.top;
-    var sw = first.width / (last.width || 1);
-    var sh = first.height / (last.height || 1);
+    const last = el.getBoundingClientRect();
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    const sw = first.width / (last.width || 1);
+    const sh = first.height / (last.height || 1);
 
     if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sw - 1) < 0.01 && Math.abs(sh - 1) < 0.01) {
       return null; // No meaningful change
@@ -371,11 +371,11 @@
   // ─── 8. CSS Token Injection ──────────────────────────────
 
   function _injectTokens() {
-    var root = document.documentElement.style;
-    for (var name in _springCSSMap) {
+    const root = document.documentElement.style;
+    for (const name in _springCSSMap) {
       root.setProperty('--motion-' + name, _springCSSMap[name]);
     }
-    for (var d in _durations) {
+    for (const d in _durations) {
       root.setProperty('--motion-' + d, _durations[d] + 'ms');
     }
   }
@@ -433,7 +433,7 @@
 
   function _toast(text, config) {
     config = config || {};
-    var el = document.createElement('div');
+    const el = document.createElement('div');
     el.className = config.className || 'doc-selection-popup';
     el.textContent = text;
     el.style.cssText = 'position:fixed;pointer-events:none;z-index:10002;font-size:0.78rem;padding:6px 14px;'
@@ -442,7 +442,7 @@
         : 'left:50%;top:20px;transform:translateX(-50%);');
     el.style.opacity = '0';
     document.body.appendChild(el);
-    var fromY = config.position === 'bottom' ? 8 : -8;
+    const fromY = config.position === 'bottom' ? 8 : -8;
     _animate(el, { spring: 'smooth', from: { opacity: 0, y: fromY }, to: { opacity: 1, y: 0 } });
     setTimeout(function() {
       _animate(el, { spring: 'smooth', from: { opacity: 1 }, to: { opacity: 0 }, onFinish: function() { el.remove(); } });
@@ -453,14 +453,14 @@
 
   // ─── 9. Live Pulse — Event Bus ────────────────────────────
 
-  var _pulseListeners = [];
-  var _pulseRecent = [];
-  var _PULSE_MAX = 50;
-  var _pulseStats = { ai: 0, network: 0, embed: 0, feed: 0, quality: 0, system: 0 };
-  var _pulseStatsWindow = [];  // timestamps for events/sec calc
-  var _PULSE_WINDOW_MS = 3000;
+  const _pulseListeners = [];
+  const _pulseRecent = [];
+  const _PULSE_MAX = 50;
+  const _pulseStats = { ai: 0, network: 0, embed: 0, feed: 0, quality: 0, system: 0 };
+  const _pulseStatsWindow = [];  // timestamps for events/sec calc
+  const _PULSE_WINDOW_MS = 3000;
 
-  var _pulseUrlMap = [
+  const _pulseUrlMap = [
     { prefix: '/api/doc-chat', cat: 'ai' },
     { prefix: '/api/panel-suggest', cat: 'ai' },
     { prefix: '/api/search-suggest', cat: 'ai' },
@@ -478,9 +478,9 @@
   ];
 
   function _classifyUrl(url) {
-    var path = url;
+    let path = url;
     try { path = new URL(url, location.origin).pathname; } catch(e) {}
-    for (var i = 0; i < _pulseUrlMap.length; i++) {
+    for (let i = 0; i < _pulseUrlMap.length; i++) {
       if (path.indexOf(_pulseUrlMap[i].prefix) === 0) return _pulseUrlMap[i].cat;
     }
     if (path.indexOf('/api/') === 0) return 'network';
@@ -488,7 +488,7 @@
   }
 
   function _shortUrl(url) {
-    var path = url;
+    let path = url;
     try { path = new URL(url, location.origin).pathname; } catch(e) {}
     // Strip /api/ prefix for brevity
     if (path.indexOf('/api/') === 0) return path.slice(5);
@@ -496,7 +496,7 @@
   }
 
   function _pulseEmit(category, data) {
-    var now = Date.now();
+    const now = Date.now();
     var evt = {
       category: category,
       label: (data && data.label) || '',
@@ -515,27 +515,27 @@
     _pulseStatsWindow.push(now);
     // Trim old window entries
     while (_pulseStatsWindow.length && _pulseStatsWindow[0] < now - _PULSE_WINDOW_MS) _pulseStatsWindow.shift();
-    for (var i = 0; i < _pulseListeners.length; i++) {
+    for (let i = 0; i < _pulseListeners.length; i++) {
       try { _pulseListeners[i](evt); } catch(e) {}
     }
     return evt;
   }
 
   function _pulseRate() {
-    var now = Date.now();
+    const now = Date.now();
     while (_pulseStatsWindow.length && _pulseStatsWindow[0] < now - _PULSE_WINDOW_MS) _pulseStatsWindow.shift();
     return _pulseStatsWindow.length / (_PULSE_WINDOW_MS / 1000);
   }
 
   // Monkey-patch fetch
-  var _origFetch = window.fetch;
+  const _origFetch = window.fetch;
   window.fetch = function(url, opts) {
-    var urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
+    const urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
     // Skip Ollama polling — too noisy
     if (urlStr.indexOf('localhost:11434') !== -1) return _origFetch.apply(this, arguments);
-    var category = _classifyUrl(urlStr);
+    const category = _classifyUrl(urlStr);
     if (!category) return _origFetch.apply(this, arguments);
-    var evt = _pulseEmit(category, { label: _shortUrl(urlStr), detail: (opts && opts.method) || 'GET' });
+    const evt = _pulseEmit(category, { label: _shortUrl(urlStr), detail: (opts && opts.method) || 'GET' });
     return _origFetch.apply(this, arguments).then(function(resp) {
       evt.done(resp.ok);
       return resp;
@@ -545,10 +545,10 @@
     });
   };
 
-  var _pulse = {
+  const _pulse = {
     emit: _pulseEmit,
     on: function(fn) { _pulseListeners.push(fn); },
-    off: function(fn) { var i = _pulseListeners.indexOf(fn); if (i !== -1) _pulseListeners.splice(i, 1); },
+    off: function(fn) { const i = _pulseListeners.indexOf(fn); if (i !== -1) _pulseListeners.splice(i, 1); },
     get stats() { return _pulseStats; },
     get recent() { return _pulseRecent; },
     get rate() { return _pulseRate(); }

@@ -6,7 +6,6 @@ import uuid
 
 from flask import Blueprint, request, jsonify, send_file
 
-from logger import logger
 from helpers import require_auth
 
 bp = Blueprint('media', __name__)

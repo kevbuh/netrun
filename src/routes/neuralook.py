@@ -178,7 +178,7 @@ def _nl_load_model(method='cnn'):
     if not os.path.exists(model_path) or not os.path.exists(meta_path):
         return None, None
     try:
-        with open(meta_path, 'r') as f:
+        with open(meta_path) as f:
             meta = json.load(f)
         ModelClass = _nl_get_model_class(method)
         temporal = meta.get('temporal', False)
@@ -225,7 +225,7 @@ def _nl_append_refine_history(val_err, train_err, n_samples, improved):
     history = []
     if os.path.exists(hist_path):
         try:
-            with open(hist_path, 'r') as f:
+            with open(hist_path) as f:
                 history = json.load(f)
         except Exception:
             history = []
@@ -274,7 +274,7 @@ def neuralook_train(google_id):
             if not samples:
                 calib_path = os.path.join(DIR, 'neuralook_calibration.json')
                 if os.path.exists(calib_path):
-                    with open(calib_path, 'r') as f:
+                    with open(calib_path) as f:
                         calib = json.loads(f.read())
                     samples = calib.get('samples', [])
                     body.setdefault('screenW', calib.get('screenW', 1920))
@@ -288,7 +288,7 @@ def neuralook_train(google_id):
                 impl_path = os.path.join(DIR, 'neuralook_implicit.json')
                 if os.path.exists(impl_path):
                     try:
-                        with open(impl_path, 'r') as f:
+                        with open(impl_path) as f:
                             implicit_samples = json.load(f)
                     except Exception:
                         implicit_samples = []
@@ -415,19 +415,19 @@ def neuralook_train(google_id):
             temporal_tag = ' + temporal LSTM' if model.temporal else ''
             yield sse_event('log', {'text': f'{model_name}{temporal_tag} | params: {n_params:,} ({n_trainable:,} trainable) | input: [B, 2, {eye_h}, {eye_w}]'})
             if method == 'mobilenet':
-                yield sse_event('log', {'text': f'  features: Conv2d(2→16,s=2) → BN → DSConv(16→32,s=2) → DSConv(32→64,s=2) → DSConv(64→64,s=1) → AdaptivePool(4,4)'})
+                yield sse_event('log', {'text': '  features: Conv2d(2→16,s=2) → BN → DSConv(16→32,s=2) → DSConv(32→64,s=2) → DSConv(64→64,s=1) → AdaptivePool(4,4)'})
                 if model.temporal:
-                    yield sse_event('log', {'text': f'  temporal: Flatten(1024) + aux(9) → proj Linear(1033,64) → ReLU → LSTM(64→32, 1 layer)'})
-                    yield sse_event('log', {'text': f'  head: Linear(32,16) → ReLU → Drop(0.2) → Linear(16,2)'})
+                    yield sse_event('log', {'text': '  temporal: Flatten(1024) + aux(9) → proj Linear(1033,64) → ReLU → LSTM(64→32, 1 layer)'})
+                    yield sse_event('log', {'text': '  head: Linear(32,16) → ReLU → Drop(0.2) → Linear(16,2)'})
                 else:
-                    yield sse_event('log', {'text': f'  head: Flatten(1024) + aux(9: hp+iris) → Linear(1033,128) → ReLU → Drop(0.2) → Linear(128,32) → ReLU → Drop(0.2) → Linear(32,2)'})
+                    yield sse_event('log', {'text': '  head: Flatten(1024) + aux(9: hp+iris) → Linear(1033,128) → ReLU → Drop(0.2) → Linear(128,32) → ReLU → Drop(0.2) → Linear(32,2)'})
             else:
-                yield sse_event('log', {'text': f'  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
+                yield sse_event('log', {'text': '  features: Conv2d(2→32) → BN → Pool → Conv2d(32→64) → BN → Pool → Conv2d(64→128) → BN → AdaptivePool(4,4)'})
                 if model.temporal:
-                    yield sse_event('log', {'text': f'  temporal: Flatten(2048) + aux(9) → proj Linear(2057,128) → ReLU → LSTM(128→64, 1 layer)'})
-                    yield sse_event('log', {'text': f'  head: Linear(64,32) → ReLU → Drop(0.3) → Linear(32,2)'})
+                    yield sse_event('log', {'text': '  temporal: Flatten(2048) + aux(9) → proj Linear(2057,128) → ReLU → LSTM(128→64, 1 layer)'})
+                    yield sse_event('log', {'text': '  head: Linear(64,32) → ReLU → Drop(0.3) → Linear(32,2)'})
                 else:
-                    yield sse_event('log', {'text': f'  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
+                    yield sse_event('log', {'text': '  head: Flatten(2048) + aux(9: hp+iris) → Linear(2057,256) → ReLU → Drop(0.3) → Linear(256,64) → ReLU → Drop(0.3) → Linear(64,2)'})
             yield sse_event('log', {'text': f'Adam(lr={optimizer.param_groups[0]["lr"]}, weight_decay=1e-4) + CosineAnnealingLR(T_max={max_epochs})'})
             yield sse_event('log', {'text': f'train: {int(train_mask.sum())} samples ({len(unique_targets) - n_val_points} points) | val: {int(val_mask.sum())} samples ({n_val_points} points)'})
             if model.temporal and seq_X_train is not None:
@@ -660,7 +660,7 @@ def neuralook_implicit_samples_post(google_id):
     existing = []
     if os.path.exists(impl_path):
         try:
-            with open(impl_path, 'r') as f:
+            with open(impl_path) as f:
                 existing = json.load(f)
         except Exception:
             existing = []
@@ -680,7 +680,7 @@ def neuralook_implicit_samples_get(google_id):
     count = 0
     if os.path.exists(impl_path):
         try:
-            with open(impl_path, 'r') as f:
+            with open(impl_path) as f:
                 data = json.load(f)
             count = len(data)
         except Exception:
@@ -694,7 +694,7 @@ def neuralook_refine_history(google_id):
     hist_path = os.path.join(DIR, 'neuralook_refine_history.json')
     if os.path.exists(hist_path):
         try:
-            with open(hist_path, 'r') as f:
+            with open(hist_path) as f:
                 return jsonify(json.load(f))
         except Exception:
             pass
@@ -721,7 +721,7 @@ def neuralook_auto_refine(google_id):
         calib_path = os.path.join(DIR, 'neuralook_calibration.json')
         samples = []
         if os.path.exists(calib_path):
-            with open(calib_path, 'r') as f:
+            with open(calib_path) as f:
                 calib = json.load(f)
             samples = calib.get('samples', [])
             screen_w = calib.get('screenW', screen_w)
@@ -734,7 +734,7 @@ def neuralook_auto_refine(google_id):
         implicit_samples = []
         if os.path.exists(impl_path):
             try:
-                with open(impl_path, 'r') as f:
+                with open(impl_path) as f:
                     implicit_samples = json.load(f)
             except Exception:
                 implicit_samples = []

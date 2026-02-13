@@ -140,15 +140,15 @@ document.addEventListener('mousemove', function(e) {
 }, { passive: true });
 
 function _magnifyTarget() {
-  var bv = document.getElementById('browse-view');
+  const bv = document.getElementById('browse-view');
   if (!bv || bv.style.display === 'none') return null;
   return _browseActiveEl();
 }
 
 function _magnifyApply() {
-  var el = _magnifyEl;
+  const el = _magnifyEl;
   if (!el) return;
-  var container = document.getElementById('browse-content');
+  const container = document.getElementById('browse-content');
   if (!container) return;
 
   if (_magnifyZoom <= 1.005) {
@@ -157,9 +157,9 @@ function _magnifyApply() {
     container.style.overflow = '';
     return;
   }
-  var rect = container.getBoundingClientRect();
-  var fx = _magnifyX - rect.left;
-  var fy = _magnifyY - rect.top;
+  const rect = container.getBoundingClientRect();
+  const fx = _magnifyX - rect.left;
+  const fy = _magnifyY - rect.top;
   el.style.transformOrigin = fx + 'px ' + fy + 'px';
   el.style.transform = 'scale(' + _magnifyZoom + ')';
   container.style.overflow = 'hidden';
@@ -168,7 +168,7 @@ function _magnifyApply() {
 function _magnifySnapBack() {
   clearTimeout(_magnifySnapTimer);
   _magnifyZoom = 1;
-  var el = _magnifyEl;
+  const el = _magnifyEl;
   if (el) {
     Motion.animate(el, {
       spring: 'smooth', duration: 350,
@@ -177,7 +177,7 @@ function _magnifySnapBack() {
         el.style.transformOrigin = '';
       }
     });
-    var container = document.getElementById('browse-content');
+    const container = document.getElementById('browse-content');
     if (container) container.style.overflow = '';
   }
   _magnifyEl = null;
@@ -186,14 +186,14 @@ function _magnifySnapBack() {
 // Chrome/Firefox: trackpad pinch fires wheel with ctrlKey
 document.addEventListener('wheel', function(e) {
   if (!e.ctrlKey) return;
-  var target = _magnifyTarget();
+  const target = _magnifyTarget();
   if (!target) return;
   e.preventDefault();
   e.stopPropagation();
   _magnifyEl = target;
   clearTimeout(_magnifySnapTimer);
   target.style.transition = '';
-  var delta = -e.deltaY * 0.01;
+  const delta = -e.deltaY * 0.01;
   _magnifyZoom = Math.min(5, Math.max(1, _magnifyZoom + delta));
   _magnifyApply();
   // No gestureend in Chrome — snap back after inactivity
@@ -202,7 +202,7 @@ document.addEventListener('wheel', function(e) {
 
 // Safari: native gesture events
 document.addEventListener('gesturestart', function(e) {
-  var target = _magnifyTarget();
+  const target = _magnifyTarget();
   if (!target) return;
   e.preventDefault();
   _magnifyEl = target;
@@ -357,9 +357,9 @@ function _switchTabRight() {
 }
 
 function _animateTabSwitch(direction, callback) {
-  var content = document.getElementById('browse-content');
+  const content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
-  var dist = direction === 'left' ? 30 : -30;
+  const dist = direction === 'left' ? 30 : -30;
   Motion.swap(content, 'x', callback, { distance: dist, outOpacity: 0.5 });
 }
 
@@ -512,7 +512,7 @@ function _islandSyncBookmark() {
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display !== 'none';
   if (browseOpen && tab && !tab.blank && tab.url && isPostSaved(tab.url)) {
-    var title = (tab.title || '').length > 40 ? tab.title.slice(0, 38) + '\u2026' : (tab.title || 'Saved');
+    const title = (tab.title || '').length > 40 ? tab.title.slice(0, 38) + '\u2026' : (tab.title || 'Saved');
     islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: title, action: function() { browseSaveToReadingList(); } });
   } else {
     islandRemove('bookmark');

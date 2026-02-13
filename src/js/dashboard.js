@@ -1,6 +1,6 @@
 // ── Dashboard ──
 
-let _dashSearchDebounce = null;
+const _dashSearchDebounce = null;
 
 
 function _closeDashSearch(e) {
@@ -1078,7 +1078,7 @@ async function _saveStatus() {
   const emoji = selected?.dataset.pet || '';
   const text = (document.getElementById('status-text-input')?.value || '').trim().slice(0, 80);
   try {
-    var data = await apiPut('/api/users/me/status', { emoji, text });
+    const data = await apiPut('/api/users/me/status', { emoji, text });
     if (data.achievement) {
       if (typeof petCelebrate === 'function') petCelebrate();
       showAchievement(data.achievement.name, data.achievement.description);
@@ -1729,7 +1729,7 @@ function _devRenderFunctionTree(allNodes, allEdges) {
   const showUnused = document.getElementById('dev-graph-show-unused')?.checked || false;
   const fileFilter = document.getElementById('dev-graph-file-filter')?.value || '';
 
-  let nodes = allNodes.filter(n => {
+  const nodes = allNodes.filter(n => {
     if (fileFilter && n.file !== fileFilter) return false;
     if (!showUnused && n.callCount === 0) return false;
     return true;
@@ -1934,16 +1934,16 @@ var _devAchievements = {
 };
 
 function _devTestAchievement() {
-  var sel = document.getElementById('dev-ach-select');
+  const sel = document.getElementById('dev-ach-select');
   if (!sel) return;
-  var ach = _devAchievements[sel.value];
+  const ach = _devAchievements[sel.value];
   if (!ach) return;
   islandRemove('achievement');
   setTimeout(function() { showAchievement(ach.name, ach.desc); }, 50);
 }
 
 function _devResetAchievements() {
-  var keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_its_alive', 'ach_pixel_parent', 'ach_gaze_master'];
+  const keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_its_alive', 'ach_pixel_parent', 'ach_gaze_master'];
   keys.forEach(function(k) { localStorage.removeItem(k); });
   islandRemove('achievement');
 }

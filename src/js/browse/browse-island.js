@@ -692,8 +692,8 @@ function _browseShowGroupContextMenu(e, groupId) {
 
 // ── Tab hover tooltip ──
 
-let _tabHoverTimeout = null;
-let _tabHoverDismissTimeout = null;
+const _tabHoverTimeout = null;
+const _tabHoverDismissTimeout = null;
 
 
 // ── Tab drag-to-reorder ──
@@ -900,35 +900,35 @@ let _overviewBrowseTabIdx = -1;     // -1 = window card level, >=0 = tab within 
 let _overviewTabsExpanded = false;   // true when showing tab list inside a window card
 let _overviewWasBrowseMode = false;  // pill bar was in browse-mode before overview opened
 let _overviewCaptureTimer = null;
-let _overviewCapturing = false;
-let _browseWindowPreviews = {};     // { windowId: 'data:image/png;base64,...' }
+const _overviewCapturing = false;
+const _browseWindowPreviews = {};     // { windowId: 'data:image/png;base64,...' }
 
 // Capture each browse window's active tab as a screenshot and apply to card previews.
 // Uses Electron's webContents.capturePage() via IPC — works regardless of view visibility
 // or stacking context. Captured images are cached in _browseWindowPreviews.
 function _overviewEmbedFrames() {
   if (!window.electronAPI?.captureWebview) return;
-  var overlay = document.getElementById('browse-tab-overview');
+  const overlay = document.getElementById('browse-tab-overview');
   if (!overlay) return;
-  var cards = overlay.querySelectorAll('.wov-card:not(.wov-card-new)');
+  const cards = overlay.querySelectorAll('.wov-card:not(.wov-card-new)');
 
-  for (var i = 0; i < _browseWindows.length && i < cards.length; i++) {
+  for (let i = 0; i < _browseWindows.length && i < cards.length; i++) {
     (function(idx) {
-      var bw = _browseWindows[idx];
+      const bw = _browseWindows[idx];
       if (!bw) return;
-      var activeTab = bw.tabs.find(function(t) { return t.id === bw.activeTab; });
+      const activeTab = bw.tabs.find(function(t) { return t.id === bw.activeTab; });
       if (!activeTab || !activeTab.el) return;
 
-      var frame = activeTab.el;
+      const frame = activeTab.el;
       // Get webContentsId from the webview element
-      var wcId = typeof frame.getWebContentsId === 'function' ? frame.getWebContentsId() : null;
+      const wcId = typeof frame.getWebContentsId === 'function' ? frame.getWebContentsId() : null;
       if (!wcId) return;
 
       // Apply cached preview immediately if available
-      var cached = _browseWindowPreviews[bw.id];
-      var card = cards[idx];
+      const cached = _browseWindowPreviews[bw.id];
+      const card = cards[idx];
       if (card && cached) {
-        var prev = card.querySelector('.wov-card-preview');
+        const prev = card.querySelector('.wov-card-preview');
         if (prev) {
           prev.style.backgroundImage = 'url(' + cached + ')';
           prev.classList.remove('wov-card-preview-empty');
@@ -939,15 +939,15 @@ function _overviewEmbedFrames() {
       // Capture fresh screenshot (async, updates when ready)
       window.electronAPI.captureWebview(wcId).then(function(base64) {
         if (!base64 || !_browseTabOverviewVisible) return;
-        var dataUrl = 'data:image/png;base64,' + base64;
+        const dataUrl = 'data:image/png;base64,' + base64;
         _browseWindowPreviews[bw.id] = dataUrl;
         // Update the card preview if still visible
-        var curOverlay = document.getElementById('browse-tab-overview');
+        const curOverlay = document.getElementById('browse-tab-overview');
         if (!curOverlay) return;
-        var curCards = curOverlay.querySelectorAll('.wov-card:not(.wov-card-new)');
-        var curCard = curCards[idx];
+        const curCards = curOverlay.querySelectorAll('.wov-card:not(.wov-card-new)');
+        const curCard = curCards[idx];
         if (!curCard) return;
-        var prev = curCard.querySelector('.wov-card-preview');
+        const prev = curCard.querySelector('.wov-card-preview');
         if (prev) {
           prev.style.backgroundImage = 'url(' + dataUrl + ')';
           prev.classList.remove('wov-card-preview-empty');
@@ -961,12 +961,12 @@ function _overviewEmbedFrames() {
 // Capture a window's active tab preview into the cache (fire-and-forget)
 function _browseCaptureWindowPreview(windowId) {
   if (!window.electronAPI?.captureWebview) return;
-  var bw = _browseWindows.find(function(w) { return w.id === windowId; });
+  const bw = _browseWindows.find(function(w) { return w.id === windowId; });
   if (!bw) return;
-  var activeTab = bw.tabs.find(function(t) { return t.id === bw.activeTab; });
+  const activeTab = bw.tabs.find(function(t) { return t.id === bw.activeTab; });
   if (!activeTab || !activeTab.el) return;
-  var frame = activeTab.el;
-  var wcId = null;
+  const frame = activeTab.el;
+  let wcId = null;
   try { wcId = typeof frame.getWebContentsId === 'function' ? frame.getWebContentsId() : null; } catch(e) { return; }
   if (!wcId) return;
   window.electronAPI.captureWebview(wcId).then(function(base64) {
@@ -1000,21 +1000,21 @@ function toggleBrowseTabOverview() {
 function _browseRestoreTabsLite() {
   if (_browseWindows.length) { _browseUpdateWindowBadge(); return; }
   try {
-    var raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
+    const raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
     if (!raw) return;
-    var data = JSON.parse(raw);
+    const data = JSON.parse(raw);
     if (!data.windows || !data.windows.length) return;
     _browseNextWindowId = data.nextWindowId || 1;
     _browseNextTabId = data.nextTabId || 1;
     _browseNextGroupId = data.nextGroupId || 1;
     _browseNextPaneId = data.nextPaneId || 1;
-    for (var i = 0; i < data.windows.length; i++) {
-      var sw = data.windows[i];
+    for (let i = 0; i < data.windows.length; i++) {
+      const sw = data.windows[i];
       if (!sw.tabs.length) continue;
-      var win = { id: sw.id, name: sw.name, tabs: [], activeTab: sw.activeTab, groups: sw.groups || [], splitPanes: sw.splitPanes || [], focusedPane: sw.focusedPane || null };
-      for (var j = 0; j < sw.tabs.length; j++) {
-        var st = sw.tabs[j];
-        var tab = { id: st.id, url: st.url || '', title: st.title || 'New Tab', favicon: st.url ? _browseFaviconUrl(st.url) : '', el: null, blank: !!st.blank, lastVisited: st.lastVisited || 0 };
+      const win = { id: sw.id, name: sw.name, tabs: [], activeTab: sw.activeTab, groups: sw.groups || [], splitPanes: sw.splitPanes || [], focusedPane: sw.focusedPane || null };
+      for (let j = 0; j < sw.tabs.length; j++) {
+        const st = sw.tabs[j];
+        const tab = { id: st.id, url: st.url || '', title: st.title || 'New Tab', favicon: st.url ? _browseFaviconUrl(st.url) : '', el: null, blank: !!st.blank, lastVisited: st.lastVisited || 0 };
         if (st.pinned) tab.pinned = true;
         if (st.groupId != null) tab.groupId = st.groupId;
         if (st.paper) {
@@ -1043,7 +1043,7 @@ function showBrowseTabOverview() {
   // Ensure browse windows are loaded even if Browse view hasn't been opened
   if (!_browseWindows.length) _browseRestoreTabsLite();
   // Exit browse-mode on the pill bar so app nav icons are visible
-  var pill = document.getElementById('sidebar-nav');
+  const pill = document.getElementById('sidebar-nav');
   if (pill && pill.classList.contains('browse-mode')) {
     pill.classList.remove('browse-mode');
     _overviewWasBrowseMode = true;
@@ -1054,13 +1054,13 @@ function showBrowseTabOverview() {
   _overviewTabsExpanded = false;
   _overviewBrowseTabIdx = -1;
   // Select the active browse window
-  var activeIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
+  const activeIdx = Math.max(0, _browseWindows.findIndex(function(bw) { return bw.id === _browseActiveWindow; }));
   _overviewSelectedIdx = activeIdx;
   _overviewBrowseWinIdx = activeIdx;
   overlay.style.display = 'flex'; // display before render so embed can measure dimensions
   _renderWindowOverview();
   // Instantly scroll to the active card before the fade-in
-  var activeCard = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
+  const activeCard = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
   if (activeCard) activeCard.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
   _installOverviewKeyHandler();
   requestAnimationFrame(() => {
@@ -1081,7 +1081,7 @@ function hideBrowseTabOverview() {
     _overviewWasBrowseMode = false;
     // Defer so any pending view switch (wmOpen to non-browse) can settle first
     requestAnimationFrame(function() {
-      var browseView = document.getElementById('browse-view');
+      const browseView = document.getElementById('browse-view');
       if (browseView && browseView.style.display === 'flex') {
         _applyBrowseTabLayout();
       }
@@ -1096,14 +1096,14 @@ function _installOverviewKeyHandler() {
   if (_overviewKeyHandler) return;
   _overviewKeyHandler = (e) => {
     if (!_browseTabOverviewVisible) return;
-    var total = _browseWindows.length;
+    const total = _browseWindows.length;
     // Total cards = windows + 1 (the "+ New Window" card)
-    var totalCards = total + 1;
+    const totalCards = total + 1;
 
     if (_overviewTabsExpanded) {
       // ── Tab drill-down within a window card ──
-      var curWin = _browseWindows[_overviewBrowseWinIdx];
-      var tabCount = curWin ? curWin.tabs.length : 0;
+      const curWin = _browseWindows[_overviewBrowseWinIdx];
+      const tabCount = curWin ? curWin.tabs.length : 0;
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -1141,7 +1141,7 @@ function _installOverviewKeyHandler() {
         e.preventDefault();
         if (curWin) {
           if (_overviewBrowseTabIdx >= 0) {
-            var tab = curWin.tabs[_overviewBrowseTabIdx];
+            const tab = curWin.tabs[_overviewBrowseTabIdx];
             if (tab) { browseSelectWindow(curWin.id); browseSelectTab(tab.id); }
           } else {
             browseSelectWindow(curWin.id);
@@ -1190,7 +1190,7 @@ function _installOverviewKeyHandler() {
         browseCreateWindow();
         hideBrowseTabOverview();
       } else {
-        var bw = _browseWindows[_overviewSelectedIdx];
+        const bw = _browseWindows[_overviewSelectedIdx];
         if (bw) {
           browseSelectWindow(bw.id);
           wmOpen('browse');
@@ -1202,7 +1202,7 @@ function _installOverviewKeyHandler() {
       hideBrowseTabOverview();
     } else if ((e.key === 'Backspace' || e.key === 'Delete') && _overviewSelectedIdx < total && total > 1) {
       e.preventDefault();
-      var delWin = _browseWindows[_overviewSelectedIdx];
+      const delWin = _browseWindows[_overviewSelectedIdx];
       if (delWin) browseCloseWindow(delWin.id);
       if (_overviewSelectedIdx >= _browseWindows.length) _overviewSelectedIdx = _browseWindows.length - 1;
       _overviewBrowseWinIdx = _overviewSelectedIdx;
@@ -1235,15 +1235,15 @@ function _renderWindowOverview() {
   if (!overlay) return;
   overlay.classList.remove('wov-browse-grid-mode');
 
-  var browseIcon = _wovAppIcons.browse || '';
-  var html = '<div class="wov-cards-strip">';
+  const browseIcon = _wovAppIcons.browse || '';
+  let html = '<div class="wov-cards-strip">';
 
-  for (var i = 0; i < _browseWindows.length; i++) {
-    var bw = _browseWindows[i];
-    var isActive = bw.id === _browseActiveWindow;
-    var isSelected = i === _overviewSelectedIdx;
-    var isExpanded = _overviewTabsExpanded && i === _overviewBrowseWinIdx;
-    var preview = _browseWindowPreviews[bw.id];
+  for (let i = 0; i < _browseWindows.length; i++) {
+    const bw = _browseWindows[i];
+    const isActive = bw.id === _browseActiveWindow;
+    const isSelected = i === _overviewSelectedIdx;
+    const isExpanded = _overviewTabsExpanded && i === _overviewBrowseWinIdx;
+    const preview = _browseWindowPreviews[bw.id];
 
     html += '<div class="wov-card' + (isActive ? ' wov-active' : '') + (isSelected ? ' wov-selected' : '') + (isExpanded ? ' wov-expanded' : '') + '" data-idx="' + i + '">';
 
@@ -1269,10 +1269,10 @@ function _renderWindowOverview() {
     html += '</div>';
 
     // Favicon strip (show top favicons as secondary info)
-    var favHtml = '';
-    var shownFavs = 0;
-    for (var fi = 0; fi < bw.tabs.length && shownFavs < 6; fi++) {
-      var ft = bw.tabs[fi];
+    let favHtml = '';
+    let shownFavs = 0;
+    for (let fi = 0; fi < bw.tabs.length && shownFavs < 6; fi++) {
+      const ft = bw.tabs[fi];
       if (ft.favicon) {
         favHtml += '<img src="' + escapeHtml(ft.favicon) + '" class="wov-card-fav" onerror="this.style.display=\'none\'">';
         shownFavs++;
@@ -1285,11 +1285,11 @@ function _renderWindowOverview() {
     // Expanded tab list (inline under card when drilled down)
     if (isExpanded) {
       html += '<div class="wov-card-tabs">';
-      for (var ti = 0; ti < bw.tabs.length; ti++) {
-        var tab = bw.tabs[ti];
-        var tabSelected = ti === _overviewBrowseTabIdx;
-        var tabIsActive = tab.id === bw.activeTab;
-        var fav = tab.favicon
+      for (let ti = 0; ti < bw.tabs.length; ti++) {
+        const tab = bw.tabs[ti];
+        const tabSelected = ti === _overviewBrowseTabIdx;
+        const tabIsActive = tab.id === bw.activeTab;
+        const fav = tab.favicon
           ? '<img src="' + escapeHtml(tab.favicon) + '" class="wov-bt-fav" onerror="this.style.display=\'none\'">'
           : tab.blank ? _ELL_SVG.replace('class="ell-favicon"', 'class="wov-bt-fav ell-favicon"') : '<span class="wov-bt-dot"></span>';
         html += '<div class="wov-bt' + (tabSelected ? ' wov-selected' : '') + (tabIsActive ? ' wov-bt-active' : '') + '" data-tab-idx="' + ti + '" data-win-id="' + bw.id + '">'
@@ -1304,7 +1304,7 @@ function _renderWindowOverview() {
   }
 
   // "+ New Window" card
-  var isNewSelected = _overviewSelectedIdx === _browseWindows.length;
+  const isNewSelected = _overviewSelectedIdx === _browseWindows.length;
   html += '<div class="wov-card wov-card-new' + (isNewSelected ? ' wov-selected' : '') + '" data-idx="' + _browseWindows.length + '">';
   html += '<div class="wov-card-preview wov-card-preview-empty">';
   html += '<div class="wov-card-new-icon">+</div>';
@@ -1318,7 +1318,7 @@ function _renderWindowOverview() {
 
   // Wire up click handlers on window cards
   overlay.querySelectorAll('.wov-card').forEach(function(card) {
-    var idx = parseInt(card.dataset.idx);
+    const idx = parseInt(card.dataset.idx);
     if (isNaN(idx)) return;
     card.addEventListener('click', function(e) {
       if (e.target.closest('.wov-card-close') || e.target.closest('.wov-bt')) return;
@@ -1337,7 +1337,7 @@ function _renderWindowOverview() {
   overlay.querySelectorAll('.wov-card-close').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var winId = parseInt(btn.dataset.winId);
+      const winId = parseInt(btn.dataset.winId);
       if (!isNaN(winId)) _overviewCloseBrowseWin(winId);
     });
   });
@@ -1346,9 +1346,9 @@ function _renderWindowOverview() {
   overlay.querySelectorAll('.wov-bt').forEach(function(tabEl) {
     tabEl.addEventListener('click', function(e) {
       e.stopPropagation();
-      var winId = parseInt(tabEl.dataset.winId);
-      var tabIdx = parseInt(tabEl.dataset.tabIdx);
-      var bw = _browseWindows.find(function(w) { return w.id === winId; });
+      const winId = parseInt(tabEl.dataset.winId);
+      const tabIdx = parseInt(tabEl.dataset.tabIdx);
+      const bw = _browseWindows.find(function(w) { return w.id === winId; });
       if (bw && bw.tabs[tabIdx]) {
         _overviewClickBrowseTab(bw.id, bw.tabs[tabIdx].id);
       }
@@ -1356,7 +1356,7 @@ function _renderWindowOverview() {
   });
 
   // Wire up horizontal wheel scroll
-  var strip = overlay.querySelector('.wov-cards-strip');
+  const strip = overlay.querySelector('.wov-cards-strip');
   if (strip && !strip._wheelBound) {
     strip._wheelBound = true;
     strip.addEventListener('wheel', function(e) {
@@ -1373,11 +1373,11 @@ function _renderWindowOverview() {
   });
 
   // Scroll selected into view
-  var selTab = overlay.querySelector('.wov-bt.wov-selected');
+  const selTab = overlay.querySelector('.wov-bt.wov-selected');
   if (selTab) {
     selTab.scrollIntoView({ behavior: 'instant', block: 'nearest' });
   } else {
-    var sel = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
+    const sel = overlay.querySelector('.wov-card.wov-selected') || overlay.querySelector('.wov-card.wov-active');
     if (sel) sel.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
   }
 

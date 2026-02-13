@@ -230,7 +230,7 @@ function renderSearchArxivResults(total) {
     }
   }
 
-  let sorted = [...searchResultsCache].filter(r => r && r.title);
+  const sorted = [...searchResultsCache].filter(r => r && r.title);
   if (searchSort === 'citations') {
     sorted.sort((a, b) => (b.citations || 0) - (a.citations || 0));
   } else if (searchSort === 'latest') {

@@ -4,11 +4,10 @@ import os
 import json
 import re
 import time
-import hashlib
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote as url_quote
 
-from db import DIR, _get_db
+from db import _get_db
 
 
 # ── Slugification ──

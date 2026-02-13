@@ -13,7 +13,6 @@ from cache import (
     cached_fetch,
 )
 from annotations import (
-    _DEFAULT_PROMPT_HASH, _DEFAULT_SCORING_HASH,
     read_blocked_titles, write_blocked_titles,
     read_prompt, write_prompt,
     DEFAULT_VERDICT_PROMPT, DEFAULT_SCORING_PROMPT,

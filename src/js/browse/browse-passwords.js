@@ -61,7 +61,7 @@ function _pwShowAutofillPicker(tab, frame, entries) {
   const bar = document.createElement('div');
   bar.className = 'browse-pw-save-bar';
   bar.id = 'browse-pw-bar';
-  let pills = entries.map(e =>
+  const pills = entries.map(e =>
     `<button onclick="_pwDoAutofill(_browseTabs.find(t=>t.id===${tab.id}), document.querySelector('#browse-content webview'), '${e.id}'); _pwHideSavePrompt();" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.78rem;cursor:pointer;">${escapeHtml(e.username || 'No username')}</button>`
   ).join('');
   bar.innerHTML = `<span style="font-size:0.8rem;color:var(--text-dim);">Choose account:</span> ${pills}
@@ -290,7 +290,7 @@ function browseSelectTab(id) {
     const panes = _browseGetSplitPanes();
     const paneWithTab = panes.find(p => p.tabId === id);
     win.activeTab = id;
-    var splitTab = win.tabs.find(t => t.id === id);
+    const splitTab = win.tabs.find(t => t.id === id);
     if (splitTab) splitTab.lastVisited = Date.now();
     if (paneWithTab) {
       _browseFocusPane(paneWithTab.id);

@@ -1,10 +1,8 @@
 """Browse routes: web-search, check-embed, link-preview, browse-proxy, image-proxy, stock-quote."""
 from routes.common import (
-    json, os, re, ssl, urllib,
-    Blueprint, request, jsonify, Response,
-    get_ssl_context, USER_AGENT
+    json, re, ssl, urllib,
+    Blueprint, request, jsonify, Response
 )
-from db import DIR
 from cache import cached_fetch
 from utils_persistence import rewrite_proxy_html
 

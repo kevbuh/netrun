@@ -1,7 +1,6 @@
 """Content/document routes: doc-chat, extract-text, extract-links, paper-insights,
 author-details, citation-lookup, paper-references, author-lookup, citations,
 panel-suggest, search-suggest."""
-import concurrent.futures
 import hashlib
 import json
 import os
@@ -11,13 +10,12 @@ import tempfile
 import threading
 import time
 import urllib.request
-import xml.etree.ElementTree as ET
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from logger import logger
 from helpers import (
-    build_arxiv_query, CHAT_TOOLS, execute_chat_tool, sse_event,
+    CHAT_TOOLS, execute_chat_tool, sse_event,
     _extract_cache,
 )
 from cache import cached_fetch, smart_highlights_get, smart_highlights_set
@@ -27,7 +25,7 @@ from embeddings import (
     pairwise_similarities,
     store_chat_memory, search_chat_memories,
     list_chat_memories, delete_chat_memory, get_memory_stats,
-    _pack_embedding, _unpack_embedding, _cosine_similarity,
+    _unpack_embedding, _cosine_similarity,
 )
 from annotations import (
     read_annotation_prompt, write_annotation_prompt, annotation_prompt_mtime,

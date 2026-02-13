@@ -152,7 +152,7 @@ class TestBlockedTitles:
         write_blocked_titles(titles)
 
         # Verify it's valid JSON
-        with open(test_file, 'r') as f:
+        with open(test_file) as f:
             data = json.load(f)
 
         assert isinstance(data, list)
@@ -380,7 +380,6 @@ class TestVaultOperations:
 
     def test_get_vault_project_dir(self):
         """Test vault project directory resolution."""
-        from db import get_vault_project_dir
 
         # This requires actual vault setup
         # Skipping for now

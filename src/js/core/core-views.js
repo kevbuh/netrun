@@ -325,12 +325,12 @@ function hideAllViews() {
 // Capture a preview screenshot of the current view (below the pill bar)
 async function _wmCapturePreview() {
   if (!window.electronAPI?.captureScreen) return;
-  var key = _wmWindows[_wmFocusIndex]?.key;
+  const key = _wmWindows[_wmFocusIndex]?.key;
   if (!key) return;
   try {
-    var pill = document.getElementById('sidebar-nav');
-    var top = pill ? pill.offsetTop + pill.offsetHeight : 0;
-    var base64 = await window.electronAPI.captureScreen({
+    const pill = document.getElementById('sidebar-nav');
+    const top = pill ? pill.offsetTop + pill.offsetHeight : 0;
+    const base64 = await window.electronAPI.captureScreen({
       x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
     });
     if (base64) _wmPreviews[key] = 'data:image/png;base64,' + base64;
@@ -410,31 +410,31 @@ function _wmToggleTiling() {
 
 /* ── Drag pill — horizontal drag to switch windows ── */
 (function() {
-  var STEP = 5; // px per window step
-  var _dragStartX = 0;
-  var _dragAccum = 0;
-  var _previewIdx = -1;
-  var _originIdx = -1;
-  var _icons = []; // visible sidebar icons for this drag
+  const STEP = 5; // px per window step
+  let _dragStartX = 0;
+  let _dragAccum = 0;
+  let _previewIdx = -1;
+  let _originIdx = -1;
+  let _icons = []; // visible sidebar icons for this drag
 
   function _getVisibleIcons() {
-    var nav = document.getElementById('sidebar-nav');
+    const nav = document.getElementById('sidebar-nav');
     if (!nav) return [];
-    var all = nav.querySelectorAll('.sidebar-icon');
-    var visible = [];
-    for (var i = 0; i < all.length; i++) {
+    const all = nav.querySelectorAll('.sidebar-icon');
+    const visible = [];
+    for (let i = 0; i < all.length; i++) {
       if (all[i].offsetParent !== null || all[i].offsetWidth > 0) visible.push(all[i]);
     }
     return visible;
   }
   function _iconToWmIndex(el) {
-    var id = el.id;
-    for (var i = 0; i < _wmWindows.length; i++) {
+    const id = el.id;
+    for (let i = 0; i < _wmWindows.length; i++) {
       if (_wmWindows[i].sidebarId === id) return i;
     }
     // Settings icon → settings
     if (id === 'sb-settings') {
-      for (var j = 0; j < _wmWindows.length; j++) {
+      for (let j = 0; j < _wmWindows.length; j++) {
         if (_wmWindows[j].key === 'settings') return j;
       }
     }
@@ -453,19 +453,19 @@ function _wmToggleTiling() {
     if (_icons[idx]) _icons[idx].classList.add('drag-preview');
   }
   function _currentIconIdx() {
-    for (var i = 0; i < _icons.length; i++) {
+    for (let i = 0; i < _icons.length; i++) {
       if (_icons[i].classList.contains('active')) return i;
     }
     return 0;
   }
 
   function onMove(e) {
-    var x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+    const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
     _dragAccum += x - _dragStartX;
     _dragStartX = x;
-    var steps = Math.round(_dragAccum / STEP);
-    var target = _originIdx + steps;
-    var n = _icons.length;
+    const steps = Math.round(_dragAccum / STEP);
+    let target = _originIdx + steps;
+    const n = _icons.length;
     if (n > 0) target = ((target % n) + n) % n;
     _showPreview(target);
   }
@@ -475,9 +475,9 @@ function _wmToggleTiling() {
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onUp);
     if (_previewIdx >= 0 && _previewIdx !== _originIdx) {
-      var targetIcon = _icons[_previewIdx];
+      const targetIcon = _icons[_previewIdx];
       if (targetIcon) {
-        var wmIdx = _iconToWmIndex(targetIcon);
+        const wmIdx = _iconToWmIndex(targetIcon);
         if (wmIdx >= 0) _wmActivateWindow(wmIdx);
         else targetIcon.click();
       }
@@ -494,7 +494,7 @@ function _wmToggleTiling() {
   }
 
   document.addEventListener('DOMContentLoaded', function() {
-    var pill = document.getElementById('drag-pill');
+    const pill = document.getElementById('drag-pill');
     if (!pill) return;
     pill.addEventListener('mousedown', function(e) {
       e.preventDefault();

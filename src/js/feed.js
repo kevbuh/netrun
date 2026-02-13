@@ -363,7 +363,7 @@ function toggleSavePost(paper, event) {
   if (wasAdding) {
     _embedPost(paper.link);
     if (event) _showBookmarkFly(event);
-    var _bmTitle = (paper.title || '').length > 40 ? paper.title.slice(0, 38) + '\u2026' : (paper.title || 'Saved');
+    const _bmTitle = (paper.title || '').length > 40 ? paper.title.slice(0, 38) + '\u2026' : (paper.title || 'Saved');
     islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle });
     setTimeout(function() { islandRemove('bookmark'); }, 2500);
     if (!localStorage.getItem('ach_bookworm')) {
@@ -428,12 +428,12 @@ function openSavedPaper(link, e) {
 
 // ── arXiv Feed (loads on startup) ──
 let allPapers = [];
-let allCategories = new Set();
-let citationMap = {};
+const allCategories = new Set();
+const citationMap = {};
 let currentSort = 'foryou';
 const PAGE_SIZE = 20;
 let visibleCount = PAGE_SIZE;
-let hiddenSourceFilters = new Set();
+const hiddenSourceFilters = new Set();
 let feedViewMode = 'block'; // 'block', 'verbose', 'twitter', or 'compact'
 const _viewModes = ['block', 'verbose', 'twitter', 'compact'];
 const _viewModeIcons = {
@@ -601,17 +601,17 @@ const onboardSelected = new Set();
 const onboardNotifSelected = new Set();
 
 /* === Honeycomb globals === */
-let _hcPanX = 0, _hcPanY = 0;
-let _hcDragging = false, _hcDragStartX = 0, _hcDragStartY = 0, _hcPanStartX = 0, _hcPanStartY = 0;
-let _hcDidDrag = false;
-let _hcCircleEls = [];
-let _hcPositions = []; // {x, y, key}
-let _hcRafId = 0;
-let _hcMouseX = 0, _hcMouseY = 0;
-let _hcListenersAttached = false;
+const _hcPanX = 0, _hcPanY = 0;
+const _hcDragging = false, _hcDragStartX = 0, _hcDragStartY = 0, _hcPanStartX = 0, _hcPanStartY = 0;
+const _hcDidDrag = false;
+const _hcCircleEls = [];
+const _hcPositions = []; // {x, y, key}
+const _hcRafId = 0;
+const _hcMouseX = 0, _hcMouseY = 0;
+const _hcListenersAttached = false;
 let _hcActiveCategory = null; // null = All
-let _hcHoveredIdx = -1;
-let _hcZoom = 1;
+const _hcHoveredIdx = -1;
+const _hcZoom = 1;
 
 function _renderHcCategoryTabs() {
   const container = document.getElementById('hc-category-tabs');
@@ -1646,7 +1646,7 @@ function getFilteredPapers(ctx) {
 
   // Parse structured search prefixes, quoted phrases, and title: prefix
   const parsed = parseSearchQuery(rawSearch);
-  let authorFilter = parsed.authorFilter, sourceFilter = parsed.sourceFilter, sortOverride = parsed.sortOverride;
+  const authorFilter = parsed.authorFilter, sourceFilter = parsed.sourceFilter, sortOverride = parsed.sortOverride;
   const textTokens = parsed.textTokens, exactPhrases = parsed.exactPhrases, titleTokens = parsed.titleTokens, titlePhrases = parsed.titlePhrases;
 
   let filtered = allPapers.filter(p => {
@@ -1983,7 +1983,7 @@ function _renderPapersNow() {
   const prevLinks = _renderedLinks;
   _renderedLinks = new Set(visible.map(p => p.link));
   if (prevLinks.size > 0) {
-    var _feedNewIdx = 0;
+    let _feedNewIdx = 0;
     container.querySelectorAll('[data-link]').forEach(el => {
       if (!prevLinks.has(el.dataset.link)) {
         Motion.fadeIn(el, { y: 8, delay: _feedNewIdx * Motion.stagger.tight });

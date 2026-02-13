@@ -3,7 +3,6 @@
 import argparse
 import json
 import os
-import sys
 
 # Parse args before importing persistence so ARXIV_DATA_DIR is set
 _parser = argparse.ArgumentParser(description='NetRun server')
@@ -105,7 +104,6 @@ def captions_ws(ws):
                        '[ Silence ]', '(silence)', '...', '[MUSIC]',
                        '[NO SPEECH]', '[no speech]', '[inaudible]'}
 
-    from routes.media import _whisper_model
     try:
         from pywhispercpp.model import Model as WhisperModel
         import routes.media as _media_mod

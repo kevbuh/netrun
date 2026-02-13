@@ -4,7 +4,7 @@
 // ── State ──
 let _kgNodes = [];      // { id, type, label, x, y, vx, vy, pinned, data }
 let _kgEdges = [];      // { source, target, type }
-let _kgState = {
+const _kgState = {
   zoom: 1, panX: 0, panY: 0,
   dragging: null, dragOffX: 0, dragOffY: 0,
   panning: false, panStartX: 0, panStartY: 0, panStartPanX: 0, panStartPanY: 0,
@@ -420,8 +420,8 @@ function _kgSimulate() {
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const a = nodes[i], b = nodes[j];
-      let dx = b.x - a.x, dy = b.y - a.y;
-      let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
       const force = repulsionK / (dist * dist);
       const fx = (dx / dist) * force;
       const fy = (dy / dist) * force;
@@ -438,8 +438,8 @@ function _kgSimulate() {
   for (const e of edges) {
     const a = nodeIdx[e.source], b = nodeIdx[e.target];
     if (!a || !b) continue;
-    let dx = b.x - a.x, dy = b.y - a.y;
-    let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const displacement = dist - springLen;
     const force = displacement * springK;
     const fx = (dx / dist) * force;

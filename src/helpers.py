@@ -4,7 +4,6 @@ import os
 import re
 import ssl
 import tempfile
-import time
 import urllib.request
 from functools import wraps
 

@@ -25,13 +25,20 @@
     "function-registry": "node scripts/function-registry.js",
     "validate-feeds": "node scripts/validate-feeds.js",
     "validate-load-order": "node scripts/function-registry.js --check-load-order",
-    "suggest-reorder": "node scripts/function-registry.js --suggest-reorder"
+    "suggest-reorder": "node scripts/function-registry.js --suggest-reorder",
+    "lint": "npm run lint:js && npm run lint:py",
+    "lint:js": "eslint src/js/ electron/",
+    "lint:py": "ruff check src/",
+    "lint:fix": "npm run lint:js -- --fix && npm run lint:py -- --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
+    "eslint": "^10.0.0",
+    "globals": "^17.3.0",
     "happy-dom": "^20.6.1",
     "vitest": "^4.0.18"
   },

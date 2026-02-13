@@ -4,12 +4,12 @@
 // ── Dynamic Island pill bar — browse mode ──
 
 function _islandSyncTabs() {
-  var bv = document.getElementById('browse-view');
+  const bv = document.getElementById('browse-view');
   if (!bv || bv.style.display !== 'flex') { islandRemove('tabs'); return; }
-  var win = _getCurrentWindow();
-  var tabs = win ? win.tabs : [];
-  var activeTab = win ? win.activeTab : null;
-  var active = tabs.find(function(t) { return t.id === activeTab; });
+  const win = _getCurrentWindow();
+  const tabs = win ? win.tabs : [];
+  const activeTab = win ? win.activeTab : null;
+  const active = tabs.find(function(t) { return t.id === activeTab; });
   if (!tabs.length) { islandRemove('tabs'); return; }
   islandUpdate('tabs', {
     type: 'tabs',

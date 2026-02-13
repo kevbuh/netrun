@@ -478,33 +478,33 @@ var _browseErrorMap = {
 };
 
 function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
-  var isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
-  var cs = getComputedStyle(document.documentElement);
-  var v = function(n, fb) { return cs.getPropertyValue(n).trim() || fb; };
-  var bgBody    = v('--bg-body',     isDark ? '#0a0a0a' : '#f5f5f5');
-  var bgCard    = v('--bg-card',     isDark ? '#151515' : '#fff');
-  var bgHover   = v('--bg-hover',    isDark ? '#1e1e1e' : '#f0f0f0');
-  var textPri   = v('--text-primary',isDark ? '#e0e0e0' : '#333');
-  var textMuted = v('--text-muted',  isDark ? '#777'    : '#666');
-  var textDim   = v('--text-dim',    isDark ? '#555'    : '#888');
-  var textDimmer= v('--text-dimmer', isDark ? '#444'    : '#999');
-  var borderCard= v('--border-card', isDark ? '#222'    : '#e0e0e0');
-  var borderSub = v('--border-subtle',isDark ? '#252525': '#e0e0e0');
-  var accent    = v('--accent',      '#b4451a');
-  var accentHov = v('--accent-hover','#c9562a');
+  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const cs = getComputedStyle(document.documentElement);
+  const v = function(n, fb) { return cs.getPropertyValue(n).trim() || fb; };
+  const bgBody    = v('--bg-body',     isDark ? '#0a0a0a' : '#f5f5f5');
+  const bgCard    = v('--bg-card',     isDark ? '#151515' : '#fff');
+  const bgHover   = v('--bg-hover',    isDark ? '#1e1e1e' : '#f0f0f0');
+  const textPri   = v('--text-primary',isDark ? '#e0e0e0' : '#333');
+  const textMuted = v('--text-muted',  isDark ? '#777'    : '#666');
+  const textDim   = v('--text-dim',    isDark ? '#555'    : '#888');
+  const textDimmer= v('--text-dimmer', isDark ? '#444'    : '#999');
+  const borderCard= v('--border-card', isDark ? '#222'    : '#e0e0e0');
+  const borderSub = v('--border-subtle',isDark ? '#252525': '#e0e0e0');
+  const accent    = v('--accent',      '#b4451a');
+  const accentHov = v('--accent-hover','#c9562a');
 
-  var safeUrl = (failedUrl || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  var domain = '';
+  const safeUrl = (failedUrl || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  let domain = '';
   try { domain = new URL(failedUrl).hostname; } catch(e) { domain = (failedUrl || '').replace(/^https?:\/\//, '').split('/')[0]; }
-  var safeDomain = domain.replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  var waybackUrl = 'https://web.archive.org/web/*/' + encodeURIComponent(failedUrl || '');
-  var searchUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(domain);
-  var googleCacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(failedUrl || '');
+  const safeDomain = domain.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const waybackUrl = 'https://web.archive.org/web/*/' + encodeURIComponent(failedUrl || '');
+  const searchUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(domain);
+  const googleCacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(failedUrl || '');
 
   // Look up error info
-  var errInfo = _browseErrorMap[String(errorCode)];
+  let errInfo = _browseErrorMap[String(errorCode)];
   if (!errInfo) {
-    var isSSL = errorCode <= -200 && errorCode >= -210;
+    const isSSL = errorCode <= -200 && errorCode >= -210;
     errInfo = {
       id: 'ERR_' + (errorCode || 'UNKNOWN'),
       title: isSSL ? 'Your connection is not private' : 'This site can\u2019t be reached',
@@ -513,10 +513,10 @@ function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
       suggestions: ['Check your internet connection', 'Try again later']
     };
   }
-  var desc = errInfo.desc.replace(/%DOMAIN%/g, safeDomain);
+  const desc = errInfo.desc.replace(/%DOMAIN%/g, safeDomain);
 
   // SVG icons (match app aesthetic, no emoji)
-  var icons = {
+  const icons = {
     'dns':     '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="30" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><circle cx="36" cy="36" r="4" fill="' + textDim + '"/><path d="M36 6v60M6 36h60" stroke="' + textDim + '" stroke-width="1" opacity=".25"/><ellipse cx="36" cy="36" rx="16" ry="30" stroke="' + textDim + '" stroke-width="1.2" fill="none"/><path d="M10 24h52M10 48h52" stroke="' + textDim + '" stroke-width=".8" opacity=".2"/><line x1="10" y1="10" x2="62" y2="62" stroke="' + accent + '" stroke-width="2" stroke-linecap="round"/></svg>',
     'offline': '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><path d="M14 50a24 24 0 0144 0" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".25"/><path d="M22 44a16 16 0 0128 0" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".4"/><path d="M30 38a8 8 0 0112 0" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".6"/><circle cx="36" cy="50" r="3" fill="' + textDim + '"/><line x1="12" y1="12" x2="60" y2="60" stroke="' + accent + '" stroke-width="2" stroke-linecap="round"/></svg>',
     'timeout': '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="38" r="26" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><path d="M36 20v20l12 7" stroke="' + textDim + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M28 8h16" stroke="' + textDim + '" stroke-width="1.5" stroke-linecap="round"/></svg>',
@@ -526,15 +526,15 @@ function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
     '403':     '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="28" stroke="' + accent + '" stroke-width="1.5" fill="none"/><rect x="30" y="22" width="12" height="16" rx="6" stroke="' + accent + '" stroke-width="1.5" fill="none"/><rect x="26" y="36" width="20" height="16" rx="3" stroke="' + accent + '" stroke-width="1.5" fill="none"/><circle cx="36" cy="44" r="2" fill="' + accent + '"/></svg>',
     'server':  '<svg width="72" height="72" viewBox="0 0 72 72" fill="none"><rect x="16" y="14" width="40" height="14" rx="3" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><rect x="16" y="32" width="40" height="14" rx="3" stroke="' + textDim + '" stroke-width="1.5" fill="none"/><rect x="16" y="50" width="40" height="14" rx="3" stroke="' + textDim + '" stroke-width="1.5" fill="none" opacity=".35"/><circle cx="24" cy="21" r="2" fill="' + textDim + '"/><circle cx="24" cy="39" r="2" fill="' + textDim + '"/><circle cx="24" cy="57" r="2" fill="' + textDim + '" opacity=".35"/><line x1="48" y1="21" x2="42" y2="21" stroke="' + textDim + '" stroke-width="1" stroke-linecap="round" opacity=".4"/><line x1="48" y1="39" x2="42" y2="39" stroke="' + textDim + '" stroke-width="1" stroke-linecap="round" opacity=".4"/></svg>',
   };
-  var iconSvg = icons[errInfo.icon] || icons['offline'];
+  const iconSvg = icons[errInfo.icon] || icons['offline'];
 
-  var suggestionsHtml = errInfo.suggestions.map(function(s) {
+  const suggestionsHtml = errInfo.suggestions.map(function(s) {
     return '<li>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</li>';
   }).join('');
 
-  var errId = errInfo.id || ('ERR_' + errorCode);
+  const errId = errInfo.id || ('ERR_' + errorCode);
 
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
     '*{margin:0;padding:0;box-sizing:border-box}' +
     'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
       'background:' + bgBody + ';color:' + textPri + ';display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px}' +
@@ -1100,21 +1100,21 @@ function _browseInjectContentScripts(tab, frame) {
 
 function _browseUpdateRssPill(tab) {
   if (tab.id !== _browseActiveTab || !tab.rssFeeds || !tab.rssFeeds.length) {
-    var cur = _islandActivities && _islandActivities['rss'];
+    const cur = _islandActivities && _islandActivities['rss'];
     if (!cur || !cur.subscribed) islandRemove('rss');
     return;
   }
-  var feed = tab.rssFeeds[0];
-  var feedUrl = feed.url;
+  const feed = tab.rssFeeds[0];
+  const feedUrl = feed.url;
   // Check if already subscribed (custom feeds or catalog)
-  var customFeeds = [];
+  let customFeeds = [];
   try { customFeeds = JSON.parse(localStorage.getItem('customFeeds')) || []; } catch {}
-  var isSubscribed = customFeeds.some(function(f) { return f.url === feedUrl; });
+  let isSubscribed = customFeeds.some(function(f) { return f.url === feedUrl; });
   if (!isSubscribed) {
     // Also check FEED_CATALOG urls
     isSubscribed = (typeof FEED_CATALOG !== 'undefined') && FEED_CATALOG.some(function(c) { return c.url === feedUrl; });
   }
-  var label = feed.title || (tab.rssFeeds.length > 1 ? tab.rssFeeds.length + ' feeds' : 'RSS Feed');
+  let label = feed.title || (tab.rssFeeds.length > 1 ? tab.rssFeeds.length + ' feeds' : 'RSS Feed');
   if (label.length > 24) label = label.slice(0, 22) + '\u2026';
   islandUpdate('rss', {
     type: 'rss',
@@ -1125,10 +1125,10 @@ function _browseUpdateRssPill(tab) {
     feedTitle: feed.title || '',
     action: isSubscribed ? null : function() {
       // Subscribe to feed
-      var feeds = [];
+      let feeds = [];
       try { feeds = JSON.parse(localStorage.getItem('customFeeds')) || []; } catch {}
       if (feeds.some(function(f) { return f.url === feedUrl; })) return;
-      var name = feed.title || feedUrl;
+      let name = feed.title || feedUrl;
       try { name = name || new URL(feedUrl).hostname.replace(/^www\./, ''); } catch {}
       feeds.push({ url: feedUrl, name: name, enabled: true });
       localStorage.setItem('customFeeds', JSON.stringify(feeds));
@@ -1149,7 +1149,7 @@ function _browseBindFrame(tab) {
   _browseInjectContentScripts(tab, el);
 
   // Adblock: generic ad placeholder CSS (covers common ad frameworks)
-  var _adPlaceholderCSS =
+  const _adPlaceholderCSS =
     'ins.adsbygoogle,' +
     'ins.adsbygoogle[data-ad-status],' +
     '[id^="google_ads_"],' +
@@ -1190,7 +1190,7 @@ function _browseBindFrame(tab) {
       if (localStorage.getItem('adBlockEnabled') !== 'true') return;
       if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
       window.electronAPI.adblockCosmetic(url).then(res => {
-        var extraSel = (res && res.selectors && res.selectors.length) ? res.selectors.join(', ') : '';
+        const extraSel = (res && res.selectors && res.selectors.length) ? res.selectors.join(', ') : '';
         // Hide via CSS (both EasyList selectors and generic placeholders)
         if (extraSel) {
           try { el.insertCSS(extraSel + ' { display: none !important; }'); } catch {}

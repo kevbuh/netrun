@@ -18,13 +18,13 @@ function _browseShortUrl(url) {
 
 function _browseAutoSizeUrlInput(input) {
   if (!input || input.id !== 'pill-browse-url-input') return;
-  var pill = document.getElementById('sidebar-nav');
+  const pill = document.getElementById('sidebar-nav');
   if (!pill || !pill.classList.contains('island-mode')) return;
-  var canvas = _browseAutoSizeUrlInput._c || (_browseAutoSizeUrlInput._c = document.createElement('canvas'));
-  var ctx = canvas.getContext('2d');
+  const canvas = _browseAutoSizeUrlInput._c || (_browseAutoSizeUrlInput._c = document.createElement('canvas'));
+  const ctx = canvas.getContext('2d');
   ctx.font = getComputedStyle(input).font;
-  var text = input.value || input.placeholder || '';
-  var w = Math.ceil(ctx.measureText(text).width) + 24; // 24 for padding
+  const text = input.value || input.placeholder || '';
+  const w = Math.ceil(ctx.measureText(text).width) + 24; // 24 for padding
   input.style.width = Math.min(Math.max(w, 80), 320) + 'px';
 }
 
@@ -111,14 +111,14 @@ let _browseUrlHistIdx = -1;
 let _browseUrlOriginalInput = '';
 let _suggestDebounce = null;
 let _suggestAbort = null;
-let _suggestCache = {};
+const _suggestCache = {};
 let _currentSuggestions = [];
-let _defCache = {};
+const _defCache = {};
 let _defDebounce = null;
 let _currentDef = null; // cached definition entry for current word
 let _instantAnswer = null; // { type, html } for non-definition instant answers
 let _instantDebounce = null;
-let _instantCache = {};
+const _instantCache = {};
 
 // Returns the active omnibox input & dropdown elements (NTP search or URL bar)
 function _getOmniInput() {
@@ -1301,7 +1301,7 @@ function _renderHelpPage(el) {
   el.innerHTML = html;
 }
 
-let _historyPageTab = 'browse'; // 'browse' or 'search'
+const _historyPageTab = 'browse'; // 'browse' or 'search'
 
 function _renderWebSearchHistoryPage(el) {
   if (!el) return;
@@ -1729,7 +1729,7 @@ function _showPermissionPrompt(domain, permKey) {
 }
 
 // Session-only permissions (not persisted to localStorage, cleared on tab close/navigate)
-let _sessionPermissions = {};
+const _sessionPermissions = {};
 
 // Get effective permissions: localStorage merged with session overrides
 function _getEffectivePermissions(domain) {

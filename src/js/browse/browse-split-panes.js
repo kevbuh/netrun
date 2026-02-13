@@ -134,7 +134,7 @@ function _browseEnsureTabFrame(tab) {
 }
 
 function browseUnsplitPane(paneId) {
-  let panes = _browseGetSplitPanes();
+  const panes = _browseGetSplitPanes();
   const idx = panes.findIndex(p => p.id === paneId);
   if (idx === -1) return;
   panes.splice(idx, 1);

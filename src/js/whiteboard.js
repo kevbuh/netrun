@@ -1,13 +1,13 @@
 // ── Whiteboard ──
 let _wbStrokes = [];
 let _wbRedoStack = [];
-let _wbDrawing = false;
-let _wbCurrent = null;
-let _wbCtx = null;
-let _wbCanvas = null;
-let _wbMode = 'draw'; // 'draw' | 'eraser' | 'stroke-eraser'
-let _wbInited = false;
-let _wbResizeObs = null;
+const _wbDrawing = false;
+const _wbCurrent = null;
+const _wbCtx = null;
+const _wbCanvas = null;
+const _wbMode = 'draw'; // 'draw' | 'eraser' | 'stroke-eraser'
+const _wbInited = false;
+const _wbResizeObs = null;
 let _wbCurrentId = null; // id of active whiteboard
 let _wbBoards = []; // [{id, name, createdAt}]
 

@@ -1,7 +1,7 @@
 // ── Terminal View (Multi-tab, Split Panes, Search, Themes) ──
 
 // Global state
-let _terminals = [];
+const _terminals = [];
 let _activeTerminalId = null;
 let _terminalLayout = null;
 let _termSearchTimeout = null;

@@ -2,11 +2,11 @@
 // All state variables used across browse modules
 
 // Window & tab state
-let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
-let _browseActiveWindow = null;
-let _browseNextWindowId = 1;
-let _browseNextTabId = 1;
-let _browseNextGroupId = 1;
+const _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
+const _browseActiveWindow = null;
+const _browseNextWindowId = 1;
+const _browseNextTabId = 1;
+const _browseNextGroupId = 1;
 
 // Group configuration
 const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
@@ -24,43 +24,43 @@ if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
 }
 
 // Audio tracking: { tabId: { windowId, muted } }
-let _browseAudioTabs = new Map();
-let _pillBrowseMode = false;
+const _browseAudioTabs = new Map();
+const _pillBrowseMode = false;
 
 // Closed captions state
-let _ccStream = null;
-let _ccSocket = null;
-let _ccAudioCtx = null;
-let _ccWorkletNode = null;
-let _ccActive = false;
-let _ccTabId = null;
-let _ccCaptionLines = [];
-let _ccFadeTimer = null;
+const _ccStream = null;
+const _ccSocket = null;
+const _ccAudioCtx = null;
+const _ccWorkletNode = null;
+const _ccActive = false;
+const _ccTabId = null;
+const _ccCaptionLines = [];
+const _ccFadeTimer = null;
 
 // UI state
-let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'island';
+const _browseTabLayout = localStorage.getItem('browseTabLayout') || 'island';
 
 // NTP uploaded files: { name, content, file }
-let _ntpUploadedFiles = [];
+const _ntpUploadedFiles = [];
 
 // Closed tabs for Cmd+Shift+T reopen
 const _BROWSE_CLOSED_TABS_MAX = 50;
-let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]');
+const _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]');
 
 // Password manager state
-let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
-let _pwSaveDismissed = new Map(); // 'origin|username' → true
-let _pwLastSubmit = null; // { origin, username, ts } dedup
-let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
+const _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
+const _pwSaveDismissed = new Map(); // 'origin|username' → true
+const _pwLastSubmit = null; // { origin, username, ts } dedup
+const _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 
 // Split pane state
-let _browseNextPaneId = 1;
+const _browseNextPaneId = 1;
 
 // Return view for "back" button
 let _browseReturnView = localStorage.getItem('_browseReturnView') || null;
 
 // Overview visibility flag
-let _browseTabOverviewVisible = false;
+const _browseTabOverviewVisible = false;
 
 // Convenience getters for current window's tabs (backward compatibility)
 function _getCurrentWindow() {

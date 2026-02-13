@@ -16,10 +16,7 @@ Tests vault endpoints:
 """
 
 import pytest
-import json
 import os
-import tempfile
-from unittest.mock import patch, Mock
 
 # Add src to path
 import sys

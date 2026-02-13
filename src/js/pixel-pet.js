@@ -366,7 +366,7 @@
   let _lastActivity = Date.now();
   let _lastScrollY = 0, _scrollSpeed = 0;
   let _mouseX = -1, _mouseY = -1;
-  let _fleeTimer = 0;
+  const _fleeTimer = 0;
 
   // ── Drag state ──
   let _dragging = false;

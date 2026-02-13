@@ -6,7 +6,6 @@ import time
 import struct
 import math
 import urllib.request
-from collections import defaultdict
 
 from db import _get_db
 

@@ -8,7 +8,7 @@ let _vaultGraphMode = false;
 let _vaultSaveTimeout = null;
 let _vaultMarimoActive = false; // Whether a marimo server is running for current note
 let _vaultEditorMode = 'note'; // 'note' | 'file'
-let _vaultExpandedProjects = new Set(); // project IDs currently expanded in tree
+const _vaultExpandedProjects = new Set(); // project IDs currently expanded in tree
 let _vaultGitMode = false;
 let _vaultGitStatus = {}; // { 'path/file.md': 'M' }
 let _vaultTerminal = null; // single terminal instance for right panel
@@ -2248,7 +2248,7 @@ function renderBlogComments() {
     const currentUsername = (_authUserInfo && _authUserInfo.username) || '';
     const isOwn = comment.author === currentUsername;
 
-    let html = `
+    const html = `
       <div class="blog-comment-item" data-comment-id="${comment.id}">
         <div class="blog-comment-avatar">${escapeHtml(initial)}</div>
         <div class="blog-comment-body">
@@ -2488,7 +2488,7 @@ async function sendVaultChatMessage() {
   if (sendBtn) sendBtn.disabled = true;
 
   _vaultChatAbort = new AbortController();
-  var _vcModel = localStorage.getItem('chatModel') || 'default';
+  const _vcModel = localStorage.getItem('chatModel') || 'default';
   islandUpdate('ai-vault', { type: 'ai', label: _vcModel, detail: 'Vault chat \u00B7 ' + _vcModel });
 
   try {
@@ -2692,7 +2692,7 @@ async function _sendNtpVaultChat() {
   if (sendBtn) sendBtn.disabled = true;
 
   _vaultChatAbort = new AbortController();
-  var _vcModel2 = localStorage.getItem('chatModel') || 'default';
+  const _vcModel2 = localStorage.getItem('chatModel') || 'default';
   islandUpdate('ai-vault', { type: 'ai', label: _vcModel2, detail: 'Vault chat \u00B7 ' + _vcModel2 });
 
   try {

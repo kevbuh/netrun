@@ -83,12 +83,12 @@ function _browseCollapseEmptyWindows() {
 function _browseUpdateWindowBadge() {
   const badge = document.getElementById('global-overview-badge');
   if (!badge) return;
-  var count = _browseWindows.length;
+  let count = _browseWindows.length;
   // Before browse is opened, peek at localStorage for the count
   if (!count) {
     try {
-      var raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
-      if (raw) { var d = JSON.parse(raw); count = (d.windows || []).length; }
+      const raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
+      if (raw) { const d = JSON.parse(raw); count = (d.windows || []).length; }
     } catch (e) {}
   }
   if (count > 1) {
@@ -165,9 +165,9 @@ function switchWindowDown() {
 }
 
 function _animateWindowSwitch(direction, callback) {
-  var content = document.getElementById('browse-content');
+  const content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
-  var dist = direction === 'up' ? 30 : -30;
+  const dist = direction === 'up' ? 30 : -30;
   Motion.swap(content, 'y', callback, { distance: dist });
 }
 

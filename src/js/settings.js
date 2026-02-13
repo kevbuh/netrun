@@ -344,12 +344,12 @@ function _renderAppearanceSettings() {
 }
 
 function _feedTabBtn(key, label) {
-  var active = _settingsFeedTab === key;
+  const active = _settingsFeedTab === key;
   return '<button onclick="_setSettingsFeedTab(\'' + key + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
 }
 
 function _renderFeedSettings() {
-  var tabs = '<div class="flex gap-1.5 mb-6">' + _feedTabBtn('insights', 'Insights') + _feedTabBtn('quality', 'Quality Filter') + _feedTabBtn('algorithm', 'Algorithm') + '</div>';
+  const tabs = '<div class="flex gap-1.5 mb-6">' + _feedTabBtn('insights', 'Insights') + _feedTabBtn('quality', 'Quality Filter') + _feedTabBtn('algorithm', 'Algorithm') + '</div>';
 
   if (_settingsFeedTab === 'quality') return tabs + _renderFeedQualityTab();
   if (_settingsFeedTab === 'algorithm') return tabs + _renderFeedAlgorithmTab();
@@ -661,7 +661,7 @@ function _renderBrowserSettings() {
   `;
 }
 
-let _expandedPermDomain = null;
+const _expandedPermDomain = null;
 
 function _renderSettingsSitePermissions() {
   if (typeof _getAllSitePermissions !== 'function') return '<div class="text-dimmer text-[0.75rem]">No site permissions set.</div>';
@@ -804,7 +804,7 @@ function _urlBarSectionDragSetup() {
   list.addEventListener('pointercancel', endDrag);
 }
 
-let _expandedPwDomain = null;
+const _expandedPwDomain = null;
 
 function _loadSettingsPasswords() {
   const container = document.getElementById('settings-passwords');
@@ -1209,8 +1209,8 @@ function _loadMemoryList(offset) {
       }
       if (empty) empty.style.display = 'none';
       if (countLabel) countLabel.textContent = _memoryTotal + ' memories';
-      var html = '';
-      for (var i = (offset === 0 ? 0 : _memoryListLoaded.length - (data.memories || []).length); i < _memoryListLoaded.length; i++) {
+      let html = '';
+      for (let i = (offset === 0 ? 0 : _memoryListLoaded.length - (data.memories || []).length); i < _memoryListLoaded.length; i++) {
         html += _renderMemoryCard(_memoryListLoaded[i]);
       }
       if (offset === 0) list.innerHTML = html;
@@ -1229,15 +1229,15 @@ function _loadMemoryList(offset) {
   if (offset === 0) {
     apiGet('/api/chat-memories/stats')
       .then(function(stats) {
-        var banner = document.getElementById('memory-stats-banner');
+        const banner = document.getElementById('memory-stats-banner');
         if (!banner) return;
         if (!stats.total_count) {
           banner.innerHTML = '<div class="text-dimmer text-[0.75rem]">No memories stored yet.</div>';
           return;
         }
-        var oldest = stats.oldest_ts ? new Date(stats.oldest_ts * 1000).toLocaleDateString() : '?';
-        var newest = stats.newest_ts ? new Date(stats.newest_ts * 1000).toLocaleDateString() : '?';
-        var topicChips = (stats.top_topics || []).map(function(t) {
+        const oldest = stats.oldest_ts ? new Date(stats.oldest_ts * 1000).toLocaleDateString() : '?';
+        const newest = stats.newest_ts ? new Date(stats.newest_ts * 1000).toLocaleDateString() : '?';
+        const topicChips = (stats.top_topics || []).map(function(t) {
           return '<span class="inline-block px-1.5 py-0.5 text-[0.6rem] rounded-full bg-accent/10 text-accent">' + escapeHtml(t.topic) + ' <span class="text-dimmer">(' + t.count + ')</span></span>';
         }).join(' ');
         banner.innerHTML = '<div class="flex items-center gap-3 mb-2">' +
@@ -1251,14 +1251,14 @@ function _loadMemoryList(offset) {
 function _deleteMemory(id) {
   apiDelete('/api/chat-memories/' + id)
     .then(function() {
-      var card = document.getElementById('mem-card-' + id);
+      const card = document.getElementById('mem-card-' + id);
       if (card) card.remove();
       _memoryTotal--;
       _memoryListLoaded = _memoryListLoaded.filter(function(m) { return m.id !== id; });
-      var countLabel = document.getElementById('memory-count-label');
+      const countLabel = document.getElementById('memory-count-label');
       if (countLabel) countLabel.textContent = _memoryTotal + ' memories';
       if (_memoryListLoaded.length === 0) {
-        var empty = document.getElementById('memory-empty');
+        const empty = document.getElementById('memory-empty');
         if (empty) empty.style.display = '';
       }
     }).catch(function(e) { console.warn('deleteMemory:', e); });
@@ -1266,19 +1266,19 @@ function _deleteMemory(id) {
 
 function _clearAllMemories() {
   if (!confirm('Delete all memories? This cannot be undone.')) return;
-  var promises = _memoryListLoaded.map(function(m) {
+  const promises = _memoryListLoaded.map(function(m) {
     return apiDelete('/api/chat-memories/' + m.id);
   });
   Promise.all(promises).then(function() {
     _memoryListLoaded = [];
     _memoryTotal = 0;
-    var list = document.getElementById('memory-list');
+    const list = document.getElementById('memory-list');
     if (list) list.innerHTML = '';
-    var empty = document.getElementById('memory-empty');
+    const empty = document.getElementById('memory-empty');
     if (empty) empty.style.display = '';
-    var countLabel = document.getElementById('memory-count-label');
+    const countLabel = document.getElementById('memory-count-label');
     if (countLabel) countLabel.textContent = '';
-    var banner = document.getElementById('memory-stats-banner');
+    const banner = document.getElementById('memory-stats-banner');
     if (banner) banner.innerHTML = '<div class="text-dimmer text-[0.75rem]">No memories stored yet.</div>';
   }).catch(function(e) { console.warn('clearAllMemories:', e); });
 }
@@ -1343,10 +1343,10 @@ function renderSettingsView() {
       apiGet('/api/quality-prompt').then(function(data) {
         if (data.prompt) {
           localStorage.setItem('qualityPrompt', data.prompt);
-          var el = document.getElementById('quality-prompt-input');
+          const el = document.getElementById('quality-prompt-input');
           if (el) el.value = data.prompt;
         }
-        var scoringEl = document.getElementById('scoring-prompt-display');
+        const scoringEl = document.getElementById('scoring-prompt-display');
         if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
       }).catch(function(e){ console.warn('loadQualityPrompt:', e); });
     } else if (_settingsFeedTab === 'algorithm') {

@@ -13,8 +13,7 @@ Tests eye-tracking and gaze prediction endpoints:
 """
 
 import pytest
-import json
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 # Add src to path
 import sys

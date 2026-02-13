@@ -7,10 +7,9 @@ import concurrent.futures
 import json
 import re
 import ssl
-import time
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 
 def _strip_html(s):
@@ -36,7 +35,7 @@ def _parse_date(s):
         try:
             dt = datetime.strptime(s, fmt)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             iso = dt.isoformat()
             display = _format_display_date(dt)
             return iso, display
@@ -47,7 +46,7 @@ def _parse_date(s):
 
 def _format_display_date(dt):
     """Format a datetime like the JS formatDate: 'Jan 5' or 'Jan 5, 2024'."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     m = months[dt.month - 1]
@@ -242,7 +241,7 @@ def fetch_and_parse_hn():
         if not s or s.get('type') != 'story':
             continue
         url = s.get('url') or f'https://news.ycombinator.com/item?id={s["id"]}'
-        ts = datetime.fromtimestamp(s['time'], tz=timezone.utc) if s.get('time') else None
+        ts = datetime.fromtimestamp(s['time'], tz=UTC) if s.get('time') else None
         pub_date = ts.isoformat() if ts else None
         display = _format_display_date(ts) if ts else ''
         items.append({
@@ -290,7 +289,7 @@ def fetch_and_parse_polymarket():
             break
 
     items = []
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     for m in markets:
         slug = m.get('slug', '')
         prices = m.get('outcomePrices', ['0', '0'])

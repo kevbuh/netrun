@@ -1,0 +1,34 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+# Only lint project source, not venv/node_modules
+include = ["src/**/*.py"]
+exclude = ["venv", "node_modules", "build", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+# Start conservative — catch real bugs without being noisy
+select = [
+    "E",   # pycodestyle errors (syntax issues, whitespace problems)
+    "F",   # pyflakes (unused imports, undefined names, redefined variables)
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade (modernize Python syntax)
+    "B",   # flake8-bugbear (common bug patterns)
+    "SIM", # flake8-simplify (unnecessary complexity)
+]
+ignore = [
+    "E501",   # line length — handled case by case, not globally
+    "E402",   # module-level import not at top — common in Flask apps
+    "B904",   # raise from within except — too noisy for existing code
+    "SIM108", # ternary instead of if/else — readability preference
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/tests/**/*.py" = ["B", "SIM", "E712"]  # tests can be more relaxed
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+]

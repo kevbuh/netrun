@@ -12,7 +12,7 @@ Tests all browse endpoints:
 
 import pytest
 import json
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import patch, Mock
 
 # Add src to path
 import sys

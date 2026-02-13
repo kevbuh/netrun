@@ -10,7 +10,7 @@ from users import get_user_data, set_user_data
 
 def _read_vault_md(fpath):
     """Read a vault note from .md file with YAML frontmatter."""
-    with open(fpath, 'r', encoding='utf-8') as f:
+    with open(fpath, encoding='utf-8') as f:
         content = f.read()
     if not content.startswith('---\n'):
         return None

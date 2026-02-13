@@ -1,23 +1,22 @@
 """Social routes: teams, users, messages, comments, reposts, achievements, blog, inbox."""
 from routes.common import (
-    base64, hashlib, json, os, re, time, url_unquote,
+    base64, hashlib, os, time, url_unquote,
     Blueprint, request, jsonify
 )
 
-from helpers import require_auth, optional_auth, get_user_from_request
+from helpers import require_auth, optional_auth
 from db import DIR, _get_db
 from users import (
     get_user_info, get_public_user_info, get_user_public_stats, get_user_recent_comments,
     create_repost, delete_repost, get_user_reposts, get_user_feed_sources,
     set_blog_vote, get_blog_votes,
-    ACHIEVEMENTS, get_user_achievements, grant_achievement, has_achievement,
-    get_user_shared_experiments, get_user_public_teams, search_users, list_users,
+    get_user_achievements, grant_achievement, get_user_public_teams, search_users, list_users,
     create_team, get_user_teams, get_team, delete_team,
     invite_to_team, get_pending_invites, respond_to_invite,
     remove_team_member, rename_team,
     get_user_accent_color, set_profile_private, are_teammates,
     update_user_picture, update_user_profile_bg,
-    touch_last_seen, update_user_status,
+    update_user_status,
     set_team_private, set_team_parent, get_team_children, get_team_ancestors,
     send_direct_message, get_direct_messages, mark_message_read,
     delete_direct_message, get_unread_message_count, get_user_by_username,
@@ -29,8 +28,7 @@ from users import (
     db_get_comments, db_create_comment, db_delete_comment,
 )
 from vault_helpers import (
-    _read_vault_md, _get_user_vault_path, _find_vault_note_by_id, _write_vault_md,
-    _sanitize_vault_filename,
+    _read_vault_md, _get_user_vault_path, _write_vault_md,
 )
 
 bp = Blueprint('social', __name__)

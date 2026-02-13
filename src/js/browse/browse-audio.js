@@ -40,7 +40,7 @@ function goToAudioTab() {
 }
 
 function _browseUpdateScrollPill(pct) {
-  var el = document.getElementById('pill-scroll-pct');
+  const el = document.getElementById('pill-scroll-pct');
   if (!el) return;
   if (pct <= 0) {
     el.classList.remove('active');

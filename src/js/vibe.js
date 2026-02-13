@@ -2,8 +2,8 @@
 
 let _vibeActivePane = 0;
 let _vibeData = {};
-let _vibeCmdLog = [];
-let _vibeSelectedIdx = {};
+const _vibeCmdLog = [];
+const _vibeSelectedIdx = {};
 
 // ── Git data fetching ──
 

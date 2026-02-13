@@ -10,7 +10,6 @@ import pty
 import select
 import struct
 import subprocess
-import sys
 import threading
 import fcntl
 import termios
@@ -113,4 +112,4 @@ def handle_websocket_flask(ws, cwd=None):
             pass
         proc.wait()
         reader_thread.join(timeout=2)
-        logger.info(f"[terminal] session cleaned up")
+        logger.info("[terminal] session cleaned up")

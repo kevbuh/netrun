@@ -33,8 +33,8 @@ env.close()
 `;
 
 // ── Projects (vault-backed) ──
-let allExperiments = [];
-let _teamExperiments = [];
+const allExperiments = [];
+const _teamExperiments = [];
 
 function _pixelArt(seed) {
   // Deterministic hash from string
@@ -64,12 +64,12 @@ function _pixelArt(seed) {
 }
 
 // ── Project Detail ──
-let currentExpId = null;
-let currentExp = null;
+const currentExpId = null;
+const currentExp = null;
 
 
 function _renderMetaTree(node, prefix) {
-  let lines = [];
+  const lines = [];
   const dirs = Object.keys(node.children).sort();
   const fileNames = node.files.map(f => f.split('/').pop()).sort();
   const entries = dirs.map(d => ({ name: d, isDir: true })).concat(fileNames.map(f => ({ name: f, isDir: false })));
@@ -230,7 +230,7 @@ function cancelEditDesc() {
 let currentFile = null;
 let fileSaveTimer = null;
 
-let _selectedFiles = new Set();
+const _selectedFiles = new Set();
 let _lastClickedFile = null;
 
 let _expFiles = [];
@@ -781,7 +781,7 @@ async function openFile(fname) {
   editor.style.flex = '1 1 0%';
   editor.style.minHeight = '0';
   editor.style.overflow = 'hidden';
-  var cp = document.getElementById('exp-content-pane');
+  const cp = document.getElementById('exp-content-pane');
   if (cp) {
     cp.style.overflow = 'hidden';
     cp.style.display = 'flex';
@@ -937,7 +937,7 @@ function closeFileEditor() {
     el.style.overflow = '';
     el.innerHTML = '';
   }
-  var cp = document.getElementById('exp-content-pane');
+  const cp = document.getElementById('exp-content-pane');
   if (cp) {
     cp.style.overflow = '';
     cp.style.display = '';

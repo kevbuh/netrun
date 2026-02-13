@@ -18,34 +18,34 @@ function _hideLinkPreview() {
 function _linkUrlFromElement(target) {
   if (!target || !target.closest) return null;
   // 1. Real <a> tags
-  var a = target.closest('a[href]');
+  const a = target.closest('a[href]');
   if (a) {
-    var h = a.href || a.getAttribute('href');
+    const h = a.href || a.getAttribute('href');
     if (h && h !== '#' && !h.startsWith('javascript:')) return h;
   }
   // 2. Walk up to find onclick handlers
-  var node = target;
+  let node = target;
   while (node && node !== document.body) {
-    var oc = node.getAttribute && node.getAttribute('onclick');
+    const oc = node.getAttribute && node.getAttribute('onclick');
     if (oc) {
       // Feed cards: openPaper(index, event)
-      var paperM = oc.match(/openPaper\((\d+)/);
+      const paperM = oc.match(/openPaper\((\d+)/);
       if (paperM && typeof lastFilteredPapers !== 'undefined') {
-        var paper = lastFilteredPapers[+paperM[1]];
+        const paper = lastFilteredPapers[+paperM[1]];
         if (paper) return paper.link;
       }
       // Browse tabs: browseSelectTab(id)
-      var tabM = oc.match(/browseSelectTab\((\d+)\)/);
+      const tabM = oc.match(/browseSelectTab\((\d+)\)/);
       if (tabM && typeof _browseWindows !== 'undefined') {
-        for (var wi = 0; wi < _browseWindows.length; wi++) {
-          var tabs = _browseWindows[wi].tabs;
-          for (var ti = 0; ti < tabs.length; ti++) {
+        for (let wi = 0; wi < _browseWindows.length; wi++) {
+          const tabs = _browseWindows[wi].tabs;
+          for (let ti = 0; ti < tabs.length; ti++) {
             if (tabs[ti].id === +tabM[1] && tabs[ti].url) return tabs[ti].url;
           }
         }
       }
       // Hash navigation: location.hash='#...'
-      var hashM = oc.match(/location\.hash\s*=\s*['"]([^'"]+)['"]/);
+      const hashM = oc.match(/location\.hash\s*=\s*['"]([^'"]+)['"]/);
       if (hashM) return location.origin + '/' + hashM[1];
     }
     node = node.parentElement;
@@ -53,7 +53,7 @@ function _linkUrlFromElement(target) {
   return null;
 }
 document.addEventListener('mouseover', function(e) {
-  var url = _linkUrlFromElement(e.target);
+  const url = _linkUrlFromElement(e.target);
   if (url) _showLinkPreview(url);
   else _hideLinkPreview();
 }, true);
@@ -68,14 +68,14 @@ function pillStackAdd(id) {
   requestAnimationFrame(_pillStackReflow);
 }
 function pillStackRemove(id) {
-  var i = _pillStack.indexOf(id);
+  const i = _pillStack.indexOf(id);
   if (i >= 0) _pillStack.splice(i, 1);
   _pillStackReflow();
 }
 function _pillStackReflow() {
-  var bottom = _PILL_BOTTOM;
-  for (var i = 0; i < _pillStack.length; i++) {
-    var el = document.getElementById(_pillStack[i]);
+  let bottom = _PILL_BOTTOM;
+  for (let i = 0; i < _pillStack.length; i++) {
+    const el = document.getElementById(_pillStack[i]);
     if (!el || el.style.display === 'none') continue;
     el.style.bottom = bottom + 'px';
     bottom += el.offsetHeight + _PILL_GAP;
@@ -94,31 +94,31 @@ function _loadCustomAnnotationCategories() {
 
 // Keep pill container constrained on resize/mode change
 window.addEventListener('resize', function() {
-  var cont = document.getElementById('pill-island');
-  var wrap = document.getElementById('pill-url-wrap');
-  var nav = document.getElementById('sidebar-nav');
+  const cont = document.getElementById('pill-island');
+  const wrap = document.getElementById('pill-url-wrap');
+  const nav = document.getElementById('sidebar-nav');
   if (!cont || !wrap || !nav || !nav.classList.contains('island-mode')) {
     if (cont) cont.style.removeProperty('--island-pills-max-w');
     return;
   }
-  var ur = wrap.getBoundingClientRect();
-  var cr = cont.getBoundingClientRect();
-  var avail = ur.left - cr.left - 12;
+  const ur = wrap.getBoundingClientRect();
+  const cr = cont.getBoundingClientRect();
+  const avail = ur.left - cr.left - 12;
   if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
 });
 
 // Register pulse pill — renders into #pill-live-pulse (right of audio pill)
 (function() {
-  var _pulseFlashTimer = null;
-  var _pulseLastEventTs = 0;
-  var _pulseCatColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+  let _pulseFlashTimer = null;
+  let _pulseLastEventTs = 0;
+  const _pulseCatColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
 
   function _renderLivePulse() {
-    var el = document.getElementById('pill-live-pulse');
+    const el = document.getElementById('pill-live-pulse');
     if (!el) return;
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-    var lastEvent = recent.length ? recent[recent.length - 1] : null;
-    var dot = el.querySelector('.live-pulse-dot');
+    const lastEvent = recent.length ? recent[recent.length - 1] : null;
+    let dot = el.querySelector('.live-pulse-dot');
     if (!dot) {
       dot = document.createElement('span');
       dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
@@ -146,22 +146,22 @@ window.addEventListener('resize', function() {
     }
 
     // Build dropdown tray
-    var dropdown = el.querySelector('.pulse-dropdown');
+    let dropdown = el.querySelector('.pulse-dropdown');
     if (!dropdown) {
       dropdown = document.createElement('div');
       dropdown.className = 'pulse-dropdown';
       el.appendChild(dropdown);
     }
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-    var html = '<div class="pulse-dropdown-inner">';
+    let html = '<div class="pulse-dropdown-inner">';
     html += '<div style="padding:6px 8px;font-size:0.6rem;color:var(--aether-text-muted);text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
-    var start = Math.max(0, recent.length - 30);
-    for (var ri = recent.length - 1; ri >= start; ri--) {
-      var ev = recent[ri];
+    const start = Math.max(0, recent.length - 30);
+    for (let ri = recent.length - 1; ri >= start; ri--) {
+      const ev = recent[ri];
       var col = _pulseCatColors[ev.category] || '#94a3b8';
-      var age = Math.round((Date.now() - ev.timestamp) / 1000);
-      var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
-      var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
+      const age = Math.round((Date.now() - ev.timestamp) / 1000);
+      const ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
+      const statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
       html += '<div class="pulse-event-row"><span class="pulse-status-dot" style="background:' + statusDot + '"></span><span class="pulse-cat" style="color:' + col + '">' + escapeHtml(ev.category) + '</span><span class="pulse-label">' + escapeHtml(ev.label) + '</span><span class="pulse-age">' + ageStr + '</span></div>';
     }
     if (!recent.length) html += '<div style="padding:8px;opacity:0.3;font-size:0.65rem;text-align:center">No events yet</div>';
@@ -171,7 +171,7 @@ window.addEventListener('resize', function() {
   function _initPulse() {
     _renderLivePulse();
     if (typeof Motion !== 'undefined' && Motion.pulse) {
-      var _pulseThrottle = null;
+      let _pulseThrottle = null;
       Motion.pulse.on(function() {
         if (_pulseThrottle) return;
         _pulseThrottle = setTimeout(function() {
@@ -191,15 +191,15 @@ function islandUpdate(id, data) {
 }
 
 function islandRemove(id) {
-  var el = document.querySelector('.pill-island[data-island-id="'+id+'"]');
+  let el = document.querySelector('.pill-island[data-island-id="'+id+'"]');
   if (!el) {
-    var anchor = document.getElementById('pill-island-tabs-anchor');
+    const anchor = document.getElementById('pill-island-tabs-anchor');
     if (anchor) el = anchor.querySelector('.pill-island[data-island-id="'+id+'"]');
   }
   if (_islandDismissTimers[id]) { clearTimeout(_islandDismissTimers[id]); delete _islandDismissTimers[id]; }
   delete _islandActivities[id];
   if (el && !el.classList.contains('island-exiting')) {
-    var parentCont = el.parentNode;
+    const parentCont = el.parentNode;
     _islandSnapshotRects(parentCont);
     el.classList.add('island-exiting');
     el.addEventListener('animationend', function onExit(ev) {

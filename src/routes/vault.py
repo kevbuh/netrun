@@ -1,7 +1,6 @@
 """Vault routes: notes CRUD, file tree, marimo start/stop, vault path, migration."""
 import json
 import os
-import shutil
 import subprocess
 import time
 import urllib.request
@@ -208,7 +207,7 @@ def marimo_stop(google_id):
     info = _marimo_servers.pop(note_id)
     updated_content = ''
     try:
-        with open(info['py_path'], 'r', encoding='utf-8') as f:
+        with open(info['py_path'], encoding='utf-8') as f:
             updated_content = f.read()
     except Exception:
         pass

@@ -268,7 +268,7 @@ function renderLatexEditor(fname, content) {
       '</div>' +
     '</div>' +
     '<div id="tex-error-log" class="hidden p-3 shrink-0 bg-red-500/10 border-t border-red-500/20 text-red-400 text-[0.75rem] font-mono whitespace-pre-wrap max-h-[200px] overflow-auto"></div>';
-  var ta = document.getElementById('tex-editor-textarea');
+  const ta = document.getElementById('tex-editor-textarea');
   _texCm = CodeMirror.fromTextArea(ta, {
     mode: 'stex',
     lineNumbers: true,
@@ -316,32 +316,32 @@ function _scheduleTexPreview() {
 
 function _updateTexInlinePreview() {
   if (!_texCm || !_texPreviewEl || typeof katex === 'undefined') return;
-  var cursor = _texCm.getCursor();
-  var line = cursor.line;
-  var ch = cursor.ch;
+  const cursor = _texCm.getCursor();
+  const line = cursor.line;
+  const ch = cursor.ch;
 
   // Gather context: scan outward from cursor to find math delimiters
   // Check a window of lines around the cursor for multi-line math environments
-  var totalLines = _texCm.lineCount();
-  var startLine = Math.max(0, line - 30);
-  var endLine = Math.min(totalLines - 1, line + 30);
+  const totalLines = _texCm.lineCount();
+  const startLine = Math.max(0, line - 30);
+  const endLine = Math.min(totalLines - 1, line + 30);
 
   // Build text block with line offsets
-  var lines = [];
-  var charOffset = 0;
-  var cursorAbsPos = 0;
-  for (var i = startLine; i <= endLine; i++) {
-    var lt = _texCm.getLine(i);
+  const lines = [];
+  let charOffset = 0;
+  let cursorAbsPos = 0;
+  for (let i = startLine; i <= endLine; i++) {
+    const lt = _texCm.getLine(i);
     if (i === line) cursorAbsPos = charOffset + ch;
     lines.push(lt);
     charOffset += lt.length + 1; // +1 for newline
   }
-  var text = lines.join('\n');
+  const text = lines.join('\n');
 
   // Find math region containing cursor
-  var mathRegions = _findTexMathRegions(text);
-  var region = null;
-  for (var r = 0; r < mathRegions.length; r++) {
+  const mathRegions = _findTexMathRegions(text);
+  let region = null;
+  for (let r = 0; r < mathRegions.length; r++) {
     if (cursorAbsPos >= mathRegions[r].start && cursorAbsPos <= mathRegions[r].end) {
       region = mathRegions[r];
       break;
@@ -355,7 +355,7 @@ function _updateTexInlinePreview() {
 
   // Render with KaTeX
   try {
-    var rendered = katex.renderToString(region.content, {
+    const rendered = katex.renderToString(region.content, {
       displayMode: region.display,
       throwOnError: false,
       strict: false
@@ -364,11 +364,11 @@ function _updateTexInlinePreview() {
     _texPreviewEl.style.display = '';
 
     // Position above the current line using viewport coordinates (position: fixed)
-    var coords = _texCm.cursorCoords(true, 'page');
-    var previewH = _texPreviewEl.offsetHeight;
-    var previewW = _texPreviewEl.offsetWidth;
-    var topPos = coords.top - previewH - 6;
-    var leftPos = Math.min(Math.max(8, coords.left), window.innerWidth - previewW - 8);
+    const coords = _texCm.cursorCoords(true, 'page');
+    const previewH = _texPreviewEl.offsetHeight;
+    const previewW = _texPreviewEl.offsetWidth;
+    let topPos = coords.top - previewH - 6;
+    const leftPos = Math.min(Math.max(8, coords.left), window.innerWidth - previewW - 8);
 
     // If tooltip goes above the viewport, show below instead
     if (topPos < 0) {
@@ -382,34 +382,34 @@ function _updateTexInlinePreview() {
 }
 
 function _findTexMathRegions(text) {
-  var regions = [];
+  const regions = [];
   // Order matters: match longer delimiters first
   // \[...\] display math
   // \(...\) inline math
   // $$...$$ display math
   // $...$ inline math
   // \begin{equation}...\end{equation}, \begin{align}...\end{align}, etc.
-  var patterns = [
+  const patterns = [
     { re: /\\\[([\s\S]*?)\\\]/g, display: true },
     { re: /\\\(([\s\S]*?)\\\)/g, display: false },
     { re: /\$\$([\s\S]*?)\$\$/g, display: true },
     { re: /(?<![\\$])\$(?!\$)((?:[^$\\]|\\.)+)\$/g, display: false },
     { re: /\\begin\{(equation|align|gather|multline|eqnarray)\*?\}([\s\S]*?)\\end\{\1\*?\}/g, display: true, group: 0 },
   ];
-  var used = []; // track covered ranges to avoid overlap
-  for (var p = 0; p < patterns.length; p++) {
-    var pat = patterns[p];
+  const used = []; // track covered ranges to avoid overlap
+  for (let p = 0; p < patterns.length; p++) {
+    const pat = patterns[p];
     var m;
     while ((m = pat.re.exec(text)) !== null) {
-      var start = m.index;
-      var end = m.index + m[0].length;
+      const start = m.index;
+      const end = m.index + m[0].length;
       // Skip if overlapping with already found region
-      var overlap = false;
-      for (var u = 0; u < used.length; u++) {
+      let overlap = false;
+      for (let u = 0; u < used.length; u++) {
         if (start < used[u].end && end > used[u].start) { overlap = true; break; }
       }
       if (overlap) continue;
-      var content = pat.group === 0 ? m[0] : (m[2] !== undefined ? m[2] : m[1]);
+      const content = pat.group === 0 ? m[0] : (m[2] !== undefined ? m[2] : m[1]);
       regions.push({ start: start, end: end, content: content, display: pat.display });
       used.push({ start: start, end: end });
     }
@@ -418,10 +418,10 @@ function _findTexMathRegions(text) {
 }
 
 function cycleTexMode() {
-  var wrap = document.getElementById('tex-cm-wrap');
-  var pane = document.getElementById('tex-preview-pane');
-  var handle = document.getElementById('tex-split-handle');
-  var btn = document.getElementById('tex-toggle-btn');
+  const wrap = document.getElementById('tex-cm-wrap');
+  const pane = document.getElementById('tex-preview-pane');
+  const handle = document.getElementById('tex-split-handle');
+  const btn = document.getElementById('tex-toggle-btn');
   if (_texMode === 'code') {
     _texMode = 'split';
     wrap.style.display = '';
@@ -452,20 +452,20 @@ function cycleTexMode() {
   }
 }
 function _initTexSplitDrag() {
-  var handle = document.getElementById('tex-split-handle');
+  const handle = document.getElementById('tex-split-handle');
   if (!handle) return;
   handle.addEventListener('pointerdown', function(e) {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     handle.dataset.dragging = '1';
     handle.style.background = 'var(--accent)';
-    var body = document.getElementById('tex-body');
-    var wrap = document.getElementById('tex-cm-wrap');
-    var pane = document.getElementById('tex-preview-pane');
-    var bodyRect = body.getBoundingClientRect();
+    const body = document.getElementById('tex-body');
+    const wrap = document.getElementById('tex-cm-wrap');
+    const pane = document.getElementById('tex-preview-pane');
+    const bodyRect = body.getBoundingClientRect();
     function onMove(e2) {
-      var x = e2.clientX - bodyRect.left;
-      var leftPct = (x / bodyRect.width) * 100;
+      const x = e2.clientX - bodyRect.left;
+      let leftPct = (x / bodyRect.width) * 100;
       if (leftPct < 10) {
         // Snap to preview-only
         onUp();
@@ -499,7 +499,7 @@ function _initTexSplitDrag() {
 }
 
 function toggleTexMenu() {
-  var menu = document.getElementById('tex-more-menu');
+  const menu = document.getElementById('tex-more-menu');
   if (!menu) return;
   menu.classList.toggle('hidden');
   if (!menu.classList.contains('hidden')) {
@@ -509,11 +509,11 @@ function toggleTexMenu() {
   }
 }
 function hideTexMenu() {
-  var menu = document.getElementById('tex-more-menu');
+  const menu = document.getElementById('tex-more-menu');
   if (menu) menu.classList.add('hidden');
 }
 function _closeTexMenuOutside(e) {
-  var menu = document.getElementById('tex-more-menu');
+  const menu = document.getElementById('tex-more-menu');
   if (menu && !menu.parentElement.contains(e.target)) {
     menu.classList.add('hidden');
   }
@@ -551,7 +551,7 @@ function openCompiledPdfNewTab() {
 async function saveLatex() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId || !_texCm) return;
-  var content = _texCm.getValue();
+  const content = _texCm.getValue();
   await apiPut('/api/experiments/' + currentExpId + '/files/' + currentFile, { content });
   Motion.flash(document.getElementById('tex-save-ind'));
 }
@@ -559,7 +559,7 @@ async function saveLatex() {
 async function compileLatex() {
   if (!currentFile || !currentExpId || !_texCm) return;
   // Save first
-  var content = _texCm.getValue();
+  const content = _texCm.getValue();
   await apiPut('/api/experiments/' + currentExpId + '/files/' + currentFile, { content });
   const btn = document.getElementById('tex-compile-btn');
   const status = document.getElementById('tex-compile-status');
@@ -587,7 +587,7 @@ async function compileLatex() {
       _texLastPdfBytes = new Uint8Array(buf);
       _broadcastPdf();
     });
-    var pane = document.getElementById('tex-preview-pane');
+    const pane = document.getElementById('tex-preview-pane');
     pane.innerHTML = '<iframe src="' + _texPdfUrl + '" class="w-full h-full" style="border:none"></iframe>';
     // Show preview if not visible
     if (_texMode === 'code') {
@@ -606,19 +606,19 @@ async function compileLatex() {
 }
 
 function startRenameTexFile(fname) {
-  var span = document.getElementById('tex-editor-fname');
+  const span = document.getElementById('tex-editor-fname');
   if (!span) return;
-  var input = document.createElement('input');
+  const input = document.createElement('input');
   input.type = 'text';
   input.value = fname;
   input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent';
   span.replaceWith(input);
   input.focus();
-  var dotIdx = fname.lastIndexOf('.');
+  const dotIdx = fname.lastIndexOf('.');
   input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
 
   async function commit() {
-    var newName = input.value.trim();
+    const newName = input.value.trim();
     if (newName && newName !== fname) {
       await apiPut('/api/experiments/' + currentExpId + '/files/' + fname, { rename: newName });
       if (resp.ok) {
@@ -626,7 +626,7 @@ function startRenameTexFile(fname) {
         fname = newName;
       }
     }
-    var newSpan = document.createElement('span');
+    const newSpan = document.createElement('span');
     newSpan.id = 'tex-editor-fname';
     newSpan.className = 'text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
     newSpan.title = 'Click to rename';
@@ -685,7 +685,7 @@ function renderMermaidEditor(fname, content) {
         '<div id="mermaid-preview-content" class="p-4 flex items-center justify-center w-full h-full"></div>' +
       '</div>' +
     '</div>';
-  var ta = document.getElementById('mermaid-editor-textarea');
+  const ta = document.getElementById('mermaid-editor-textarea');
   _mermaidCm = CodeMirror.fromTextArea(ta, {
     mode: null,
     lineNumbers: true,
@@ -709,28 +709,28 @@ function renderMermaidEditor(fname, content) {
 
 async function _renderMermaidPreview() {
   _ensureMermaidInit();
-  var el = document.getElementById('mermaid-preview-content');
+  const el = document.getElementById('mermaid-preview-content');
   if (!el || !_mermaidCm) return;
-  var code = _mermaidCm.getValue().trim();
+  const code = _mermaidCm.getValue().trim();
   if (!code) { el.innerHTML = '<span class="text-dimmer text-[0.85rem]">Empty diagram</span>'; return; }
   try {
     _mermaidIdCounter++;
-    var id = 'mermaid-svg-' + _mermaidIdCounter;
-    var result = await mermaid.render(id, code);
+    const id = 'mermaid-svg-' + _mermaidIdCounter;
+    const result = await mermaid.render(id, code);
     el.innerHTML = result.svg;
   } catch (e) {
     el.innerHTML = '<span class="text-red-400 text-[0.8rem]">' + escapeHtml(e.message || 'Invalid diagram syntax') + '</span>';
     // Clean up any leftover temp element mermaid may have created
-    var temp = document.getElementById('dmermaid-svg-' + _mermaidIdCounter);
+    const temp = document.getElementById('dmermaid-svg-' + _mermaidIdCounter);
     if (temp) temp.remove();
   }
 }
 
 function cycleMermaidMode() {
-  var wrap = document.getElementById('mermaid-cm-wrap');
-  var pane = document.getElementById('mermaid-preview-pane');
-  var handle = document.getElementById('mermaid-split-handle');
-  var btn = document.getElementById('mermaid-toggle-btn');
+  const wrap = document.getElementById('mermaid-cm-wrap');
+  const pane = document.getElementById('mermaid-preview-pane');
+  const handle = document.getElementById('mermaid-split-handle');
+  const btn = document.getElementById('mermaid-toggle-btn');
   if (_mermaidMode === 'code') {
     _mermaidMode = 'split';
     wrap.style.display = '';
@@ -760,20 +760,20 @@ function cycleMermaidMode() {
 }
 
 function _initMermaidSplitDrag() {
-  var handle = document.getElementById('mermaid-split-handle');
+  const handle = document.getElementById('mermaid-split-handle');
   if (!handle) return;
   handle.addEventListener('pointerdown', function(e) {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     handle.dataset.dragging = '1';
     handle.style.background = 'var(--accent)';
-    var body = document.getElementById('mermaid-body');
-    var wrap = document.getElementById('mermaid-cm-wrap');
-    var pane = document.getElementById('mermaid-preview-pane');
-    var bodyRect = body.getBoundingClientRect();
+    const body = document.getElementById('mermaid-body');
+    const wrap = document.getElementById('mermaid-cm-wrap');
+    const pane = document.getElementById('mermaid-preview-pane');
+    const bodyRect = body.getBoundingClientRect();
     function onMove(e2) {
-      var x = e2.clientX - bodyRect.left;
-      var leftPct = (x / bodyRect.width) * 100;
+      const x = e2.clientX - bodyRect.left;
+      let leftPct = (x / bodyRect.width) * 100;
       if (leftPct < 10) {
         onUp();
         _mermaidMode = 'split';
@@ -807,25 +807,25 @@ function _initMermaidSplitDrag() {
 async function saveMermaid() {
   fileSaveTimer = null;
   if (!currentFile || !currentExpId || !_mermaidCm) return;
-  var content = _mermaidCm.getValue();
+  const content = _mermaidCm.getValue();
   await apiPut('/api/experiments/' + currentExpId + '/files/' + currentFile, { content });
   Motion.flash(document.getElementById('mermaid-save-ind'));
 }
 
 function startRenameMermaidFile(fname) {
-  var span = document.getElementById('mermaid-editor-fname');
+  const span = document.getElementById('mermaid-editor-fname');
   if (!span) return;
-  var input = document.createElement('input');
+  const input = document.createElement('input');
   input.type = 'text';
   input.value = fname;
   input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent';
   span.replaceWith(input);
   input.focus();
-  var dotIdx = fname.lastIndexOf('.');
+  const dotIdx = fname.lastIndexOf('.');
   input.setSelectionRange(0, dotIdx > 0 ? dotIdx : fname.length);
 
   async function commit() {
-    var newName = input.value.trim();
+    const newName = input.value.trim();
     if (newName && newName !== fname) {
       await apiPut('/api/experiments/' + currentExpId + '/files/' + fname, { rename: newName });
       if (resp.ok) {
@@ -833,7 +833,7 @@ function startRenameMermaidFile(fname) {
         fname = newName;
       }
     }
-    var newSpan = document.createElement('span');
+    const newSpan = document.createElement('span');
     newSpan.id = 'mermaid-editor-fname';
     newSpan.className = 'text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
     newSpan.title = 'Click to rename';
@@ -1078,16 +1078,16 @@ function _attachGotoDef(cm) {
   function _updateDefLink(e) {
     _clearDefLink();
     if (!(e.metaKey || e.ctrlKey)) return;
-    var pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+    const pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
     if (pos.outside) return;
-    var word = cm.findWordAt(pos);
-    var token = cm.getRange(word.anchor, word.head).trim();
+    const word = cm.findWordAt(pos);
+    const token = cm.getRange(word.anchor, word.head).trim();
     if (!token || !/^[a-zA-Z_]\w*$/.test(token)) return;
     if (_PY_KEYWORDS.has(token)) return;
     // Check if definition exists
-    var info = _findPyDefinition(cm, token);
+    let info = _findPyDefinition(cm, token);
     if (!info && typeof cmInstances !== 'undefined') {
-      for (var i = 0; i < cmInstances.length; i++) {
+      for (let i = 0; i < cmInstances.length; i++) {
         if (cmInstances[i] && cmInstances[i] !== cm) {
           info = _findPyDefinition(cmInstances[i], token);
           if (info) break;
@@ -1118,7 +1118,7 @@ const _PY_KEYWORDS = new Set([
 ]);
 
 function _clearPyHoverMarks() {
-  for (var i = 0; i < _pyHoverMarks.length; i++) _pyHoverMarks[i].clear();
+  for (let i = 0; i < _pyHoverMarks.length; i++) _pyHoverMarks[i].clear();
   _pyHoverMarks = [];
   _pyHoverToken = null;
 }
@@ -1126,20 +1126,20 @@ function _clearPyHoverMarks() {
 function _markOccurrences(cm, token) {
   _clearPyHoverMarks();
   _pyHoverToken = token;
-  var text = cm.getValue();
-  var pat = new RegExp('\\b' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
-  var m;
+  const text = cm.getValue();
+  const pat = new RegExp('\\b' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+  let m;
   while ((m = pat.exec(text)) !== null) {
-    var from = cm.posFromIndex(m.index);
-    var to = cm.posFromIndex(m.index + token.length);
+    const from = cm.posFromIndex(m.index);
+    const to = cm.posFromIndex(m.index + token.length);
     _pyHoverMarks.push(cm.markText(from, to, { className: 'cm-hover-occurrence' }));
   }
 }
 
 function _countReferences(cm, token) {
-  var text = cm.getValue();
-  var pat = new RegExp('\\b' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
-  var count = 0;
+  const text = cm.getValue();
+  const pat = new RegExp('\\b' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+  let count = 0;
   while (pat.exec(text) !== null) count++;
   return count;
 }
@@ -1165,22 +1165,22 @@ function _initPyHover(cm) {
 
 function _extractDocstring(lines, defLineIdx) {
   // Look for a docstring on the line(s) after the def/class
-  for (var i = defLineIdx + 1; i < lines.length && i <= defLineIdx + 3; i++) {
-    var trimmed = lines[i].trim();
+  for (let i = defLineIdx + 1; i < lines.length && i <= defLineIdx + 3; i++) {
+    const trimmed = lines[i].trim();
     if (!trimmed) continue;
     // Triple-quoted docstring
-    var q = null;
+    let q = null;
     if (trimmed.startsWith('"""')) q = '"""';
     else if (trimmed.startsWith("'''")) q = "'''";
     if (!q) break;
     // Single-line docstring
-    var rest = trimmed.slice(3);
-    var closeIdx = rest.indexOf(q);
+    const rest = trimmed.slice(3);
+    const closeIdx = rest.indexOf(q);
     if (closeIdx >= 0) return rest.slice(0, closeIdx).trim();
     // Multi-line: gather up to 4 lines
-    var parts = [rest];
-    for (var j = i + 1; j < lines.length && j <= i + 4; j++) {
-      var ci = lines[j].indexOf(q);
+    const parts = [rest];
+    for (let j = i + 1; j < lines.length && j <= i + 4; j++) {
+      const ci = lines[j].indexOf(q);
       if (ci >= 0) { if (lines[j].slice(0, ci).trim()) parts.push(lines[j].slice(0, ci).trim()); break; }
       if (lines[j].trim()) parts.push(lines[j].trim());
     }
@@ -1190,37 +1190,37 @@ function _extractDocstring(lines, defLineIdx) {
 }
 
 function _findPyDefinition(cm, token) {
-  var text = cm.getValue();
-  var lines = text.split('\n');
-  var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const text = cm.getValue();
+  const lines = text.split('\n');
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // def token(params) -> returnType:
-  var defPat = new RegExp('^([ \\t]*)(async\\s+)?def\\s+' + escaped + '\\s*\\([^)]*\\)(\\s*->\\s*[^:]+)?\\s*:', 'm');
-  var m = defPat.exec(text);
+  const defPat = new RegExp('^([ \\t]*)(async\\s+)?def\\s+' + escaped + '\\s*\\([^)]*\\)(\\s*->\\s*[^:]+)?\\s*:', 'm');
+  let m = defPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
-    var typeHint = m[3] ? m[3].replace(/^\s*->\s*/, '').trim() : null;
-    var defText = m[0].trim();
+    const typeHint = m[3] ? m[3].replace(/^\s*->\s*/, '').trim() : null;
+    const defText = m[0].trim();
     // Extract params for count
-    var paramsMatch = defText.match(/\(([^)]*)\)/);
-    var params = paramsMatch ? paramsMatch[1].split(',').map(function(p){return p.trim();}).filter(function(p){return p && p !== 'self' && p !== 'cls';}) : [];
+    const paramsMatch = defText.match(/\(([^)]*)\)/);
+    const params = paramsMatch ? paramsMatch[1].split(',').map(function(p){return p.trim();}).filter(function(p){return p && p !== 'self' && p !== 'cls';}) : [];
     var docstring = _extractDocstring(lines, defLine);
     return { kind: 'function', defLine: defLine, defText: defText, typeHint: typeHint ? '-> ' + typeHint : null, params: params, docstring: docstring };
   }
 
   // class token(bases):
-  var clsPat = new RegExp('^([ \\t]*)class\\s+' + escaped + '\\s*(\\([^)]*\\))?\\s*:', 'm');
+  const clsPat = new RegExp('^([ \\t]*)class\\s+' + escaped + '\\s*(\\([^)]*\\))?\\s*:', 'm');
   m = clsPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
-    var bases = m[2] ? m[2].replace(/^\(|\)$/g, '').trim() : null;
+    const bases = m[2] ? m[2].replace(/^\(|\)$/g, '').trim() : null;
     // Count methods in class body
-    var indent = m[1].length;
-    var methodCount = 0;
-    for (var i = defLine + 1; i < lines.length; i++) {
-      var lt = lines[i];
+    const indent = m[1].length;
+    let methodCount = 0;
+    for (let i = defLine + 1; i < lines.length; i++) {
+      const lt = lines[i];
       if (lt.trim() === '') continue;
-      var li = lt.search(/\S/);
+      const li = lt.search(/\S/);
       if (li >= 0 && li <= indent) break; // left the class body
       if (/^\s+(?:async\s+)?def\s+/.test(lt)) methodCount++;
     }
@@ -1229,7 +1229,7 @@ function _findPyDefinition(cm, token) {
   }
 
   // token: Type = value
-  var annPat = new RegExp('^([ \\t]*)' + escaped + '\\s*:\\s*([^=\\n]+?)\\s*=', 'm');
+  const annPat = new RegExp('^([ \\t]*)' + escaped + '\\s*:\\s*([^=\\n]+?)\\s*=', 'm');
   m = annPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
@@ -1238,14 +1238,14 @@ function _findPyDefinition(cm, token) {
   }
 
   // token = value (simple assignment)
-  var assignPat = new RegExp('^([ \\t]*)' + escaped + '\\s*=(?!=)', 'm');
+  const assignPat = new RegExp('^([ \\t]*)' + escaped + '\\s*=(?!=)', 'm');
   m = assignPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
     var fullLine = lines[defLine].trim();
     // Try to infer type from RHS
-    var rhs = fullLine.slice(fullLine.indexOf('=') + 1).trim();
-    var inferred = null;
+    const rhs = fullLine.slice(fullLine.indexOf('=') + 1).trim();
+    let inferred = null;
     if (/^-?\d+$/.test(rhs)) inferred = 'int';
     else if (/^-?\d+\.\d*$/.test(rhs)) inferred = 'float';
     else if (/^(True|False)$/.test(rhs)) inferred = 'bool';
@@ -1258,7 +1258,7 @@ function _findPyDefinition(cm, token) {
   }
 
   // for token in ... (loop variable)
-  var forPat = new RegExp('^([ \\t]*)for\\s+' + escaped + '\\s+(in)\\s+', 'm');
+  const forPat = new RegExp('^([ \\t]*)for\\s+' + escaped + '\\s+(in)\\s+', 'm');
   m = forPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index).split('\n').length - 1;
@@ -1267,7 +1267,7 @@ function _findPyDefinition(cm, token) {
   }
 
   // import token or from ... import token
-  var impPat = new RegExp('(?:^|\\n)\\s*(?:from\\s+\\S+\\s+)?import\\s+(?:[\\w.,\\s]*\\b)' + escaped + '\\b', 'm');
+  const impPat = new RegExp('(?:^|\\n)\\s*(?:from\\s+\\S+\\s+)?import\\s+(?:[\\w.,\\s]*\\b)' + escaped + '\\b', 'm');
   m = impPat.exec(text);
   if (m) {
     var defLine = text.substring(0, m.index + (m[0].startsWith('\n') ? 1 : 0)).split('\n').length - 1;
@@ -1280,10 +1280,10 @@ function _findPyDefinition(cm, token) {
 
 function _updatePyHover(cm, e) {
   if (!_pyHoverEl) return;
-  var pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+  const pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
   if (pos.outside) { _clearPyHoverMarks(); _pyHoverEl.style.display = 'none'; return; }
-  var word = cm.findWordAt(pos);
-  var token = cm.getRange(word.anchor, word.head).trim();
+  const word = cm.findWordAt(pos);
+  const token = cm.getRange(word.anchor, word.head).trim();
   if (!token || !/^[a-zA-Z_]\w*$/.test(token)) { _clearPyHoverMarks(); _pyHoverEl.style.display = 'none'; return; }
   if (_PY_KEYWORDS.has(token)) { _clearPyHoverMarks(); _pyHoverEl.style.display = 'none'; return; }
 
@@ -1294,10 +1294,10 @@ function _updatePyHover(cm, e) {
     if (_pyHoverMarks.length) _clearPyHoverMarks();
   }
 
-  var info = _findPyDefinition(cm, token);
+  let info = _findPyDefinition(cm, token);
   // Search notebook cells if not found
   if (!info && typeof cmInstances !== 'undefined') {
-    for (var i = 0; i < cmInstances.length; i++) {
+    for (let i = 0; i < cmInstances.length; i++) {
       if (cmInstances[i] && cmInstances[i] !== cm) {
         info = _findPyDefinition(cmInstances[i], token);
         if (info) break;
@@ -1307,13 +1307,13 @@ function _updatePyHover(cm, e) {
   if (!info) { _pyHoverEl.style.display = 'none'; return; }
 
   // Count references and bytes
-  var refCount = _countReferences(cm, token);
-  var byteSize = new Blob([token]).size;
+  const refCount = _countReferences(cm, token);
+  const byteSize = new Blob([token]).size;
 
   // Render
-  var kindLabel = info.kind === 'function' ? 'function' : info.kind === 'class' ? 'class' : info.kind === 'import' ? 'import' : 'variable';
-  var kindColor = info.kind === 'function' ? '#dcdcaa' : info.kind === 'class' ? '#4ec9b0' : info.kind === 'import' ? '#c586c0' : '#9cdcfe';
-  var html = '<div class="py-hover-kind" style="color:' + kindColor + '">' + kindLabel + '</div>';
+  const kindLabel = info.kind === 'function' ? 'function' : info.kind === 'class' ? 'class' : info.kind === 'import' ? 'import' : 'variable';
+  const kindColor = info.kind === 'function' ? '#dcdcaa' : info.kind === 'class' ? '#4ec9b0' : info.kind === 'import' ? '#c586c0' : '#9cdcfe';
+  let html = '<div class="py-hover-kind" style="color:' + kindColor + '">' + kindLabel + '</div>';
   html += '<div class="py-hover-def">' + escapeHtml(info.defText) + '</div>';
   if (info.typeHint) {
     html += '<div class="py-hover-type">' + escapeHtml(info.typeHint) + '</div>';
@@ -1336,11 +1336,11 @@ function _updatePyHover(cm, e) {
   _pyHoverEl.style.display = '';
 
   // Position above hovered word
-  var coords = cm.charCoords(pos, 'page');
-  var h = _pyHoverEl.offsetHeight;
-  var w = _pyHoverEl.offsetWidth;
-  var top = coords.top - h - 6;
-  var left = Math.min(Math.max(8, coords.left), window.innerWidth - w - 8);
+  const coords = cm.charCoords(pos, 'page');
+  const h = _pyHoverEl.offsetHeight;
+  const w = _pyHoverEl.offsetWidth;
+  let top = coords.top - h - 6;
+  const left = Math.min(Math.max(8, coords.left), window.innerWidth - w - 8);
   if (top < 0) top = coords.bottom + 6;
   _pyHoverEl.style.top = top + 'px';
   _pyHoverEl.style.left = left + 'px';

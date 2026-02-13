@@ -5,9 +5,7 @@ Tests feed parsing logic from feed_parser.py which mirrors the JS parsing
 but uses Python stdlib only.
 """
 
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import patch, Mock
+from datetime import datetime, UTC
 
 import sys
 import os
@@ -78,7 +76,7 @@ class TestParseDate:
 
     def test_parse_current_year_display(self):
         """Test that dates in current year omit year."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         date_str = now.strftime('%Y-%m-%dT%H:%M:%SZ')
         iso, display = _parse_date(date_str)
 
@@ -109,7 +107,7 @@ class TestFormatDisplayDate:
 
     def test_format_current_year(self):
         """Test formatting date in current year."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         dt = now.replace(month=3, day=15)
         result = _format_display_date(dt)
 
@@ -118,7 +116,7 @@ class TestFormatDisplayDate:
 
     def test_format_different_year(self):
         """Test formatting date in different year."""
-        dt = datetime(2020, 3, 15, tzinfo=timezone.utc)
+        dt = datetime(2020, 3, 15, tzinfo=UTC)
         result = _format_display_date(dt)
 
         assert 'Mar 15' in result
@@ -130,7 +128,7 @@ class TestFormatDisplayDate:
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
         for month_num, month_name in enumerate(months, 1):
-            dt = datetime(2020, month_num, 15, tzinfo=timezone.utc)
+            dt = datetime(2020, month_num, 15, tzinfo=UTC)
             result = _format_display_date(dt)
             assert month_name in result
 
@@ -427,7 +425,7 @@ class TestFeedParserEdgeCases:
                     <description>Unicode: ñ é ü 🎉</description>
                 </item>
             </channel>
-        </rss>'''.encode('utf-8')
+        </rss>'''.encode()
 
         items = parse_rss(rss, 'test')
         assert len(items) == 1

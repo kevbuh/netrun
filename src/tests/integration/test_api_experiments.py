@@ -27,9 +27,6 @@ Tests experiment/project management endpoints:
 """
 
 import pytest
-import json
-from unittest.mock import patch, Mock
-import tempfile
 import os
 
 # Add src to path

@@ -178,7 +178,7 @@ function _renderReaderView(container, data) {
 }
 
 // ── Topbar overflow (three-dots menu) ──
-let _topbarOverflowRO = null;
+const _topbarOverflowRO = null;
 
 
 function _closeTopbarOverflow() {
@@ -193,11 +193,11 @@ function _topbarOverflowOutside(e) {
 }
 
 // ── Paper Viewer (shared) ──
-let paperViewOrigin = 'arxiv';
+const paperViewOrigin = 'arxiv';
 
-let _currentPaperViewPaper = null;
-let _paperOriginExpId = null;
-let _paperInsightsLoaded = false;
+const _currentPaperViewPaper = null;
+const _paperOriginExpId = null;
+const _paperInsightsLoaded = false;
 function togglePaperViewBookmark() {
   if (!_currentPaperViewPaper) return;
   toggleSavePost(_currentPaperViewPaper);

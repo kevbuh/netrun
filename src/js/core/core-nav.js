@@ -44,13 +44,13 @@ async function openExperimentDetail(id, e) {
 }
 
 // ── Universal Side Panel ──
-let _panelRegistry = {};
+const _panelRegistry = {};
 let _panelVisible = localStorage.getItem('universalPanelVisible') !== 'false'; // default true
 let _panelActiveView = null;
 let _panelActiveTab = null;
 let _panelWidth = parseInt(localStorage.getItem('universalPanelWidth') || '280', 10);
 let _panelScrollPositions = {};
-let _panelRenderedViews = {};
+const _panelRenderedViews = {};
 
 function registerPanelTabs(viewKey, config) {
   _panelRegistry[viewKey] = config;

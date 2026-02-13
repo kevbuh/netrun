@@ -2,8 +2,6 @@
 import os
 import json
 import re
-import uuid
-import time
 import base64
 import shutil
 import subprocess
@@ -13,7 +11,7 @@ from urllib.parse import unquote as url_unquote
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 
-from helpers import require_auth, sse_event
+from helpers import require_auth
 from db import get_vault_project_dir
 from utils_persistence import slugify, unique_vault_slug
 from vault_helpers import _get_user_vault_path
@@ -159,7 +157,7 @@ def get_file(exp_id, google_id, exp_dir, fname):
         return jsonify({'name': fname, 'content': f'data:{mime};base64,{data}', 'binary': True, 'mime': mime})
     else:
         try:
-            with open(fpath, 'r') as f:
+            with open(fpath) as f:
                 content = f.read()
             return jsonify({'name': fname, 'content': content})
         except UnicodeDecodeError:

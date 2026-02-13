@@ -47,14 +47,14 @@ let _nlShowTrainView = true; // toggle between training detail and normal view
 let _nlTrainAbort = null; // AbortController for in-flight training request
 
 // Implicit calibration (click collection)
-let _nlImplicitBuffer = [];
+const _nlImplicitBuffer = [];
 let _nlLastCapture = null;   // { eyeData, headPose, irisFeatures, ts }
 let _nlLastPrediction = null; // { x, y, ts }
 let _nlImplicitCount = 0;    // server-side count
 let _nlImplicitLastFlush = 0;
 
 // Auto-refine (continuous passive learning)
-let _nlAutoRefineEnabled = true;
+const _nlAutoRefineEnabled = true;
 let _nlLastAutoRefineTime = 0;
 let _nlAutoRefineInProgress = false;
 let _nlRefinementHistory = [];
@@ -72,7 +72,7 @@ function _nlCheckGazeMasterAchievement() {
 
 // Model type selection
 let _nlModelType = 'cnn'; // 'cnn' | 'mobilenet'
-let _nlModelState = {
+const _nlModelState = {
   cnn: { version: 0, trainError: null, valError: null, trained: false, baselineValError: null },
   mobilenet: { version: 0, trainError: null, valError: null, trained: false, baselineValError: null }
 };
@@ -532,7 +532,7 @@ function _nlDrawTrainLossGraph() {
   const trainLosses = data.map(d => d.train_loss).filter(v => v != null);
   const allLosses = valLosses.concat(trainLosses);
   const maxEpoch = data[data.length - 1].epoch || 1;
-  let min = Math.min(...allLosses);
+  const min = Math.min(...allLosses);
   let max = Math.max(...allLosses);
   if (max === min) max = min + 0.001;
   // Clamp top to avoid early huge losses crushing the rest
@@ -843,7 +843,7 @@ function _nlTrainOnServerSSE(onProgress, onLog, refine) {
     if (refine) reqBody.refine = true;
 
     _nlTrainAbort = new AbortController();
-    var _nlModelLabel = (_nlModelType || 'cnn').toUpperCase();
+    const _nlModelLabel = (_nlModelType || 'cnn').toUpperCase();
     islandUpdate('ai-train', { type: 'ai', label: _nlModelLabel, detail: 'Training \u00B7 ' + _nlModelLabel });
     api('/api/neuralook/train', {
       method: 'POST',
@@ -1973,7 +1973,7 @@ function _nlDrawGraph(canvasId, data, color, fixedMin, fixedMax) {
     ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = dpr;
     ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke(); return;
   }
-  let min = fixedMin != null ? fixedMin : Math.min(...valid);
+  const min = fixedMin != null ? fixedMin : Math.min(...valid);
   let max = fixedMax != null ? fixedMax : Math.max(...valid);
   if (max === min) max = min + 1;
   const pad = h * 0.08;

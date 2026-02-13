@@ -36,7 +36,7 @@ def read_saved_content(url):
     if not os.path.exists(path):
         return None
     try:
-        with open(path, 'r') as f:
+        with open(path) as f:
             return json.load(f)
     except (json.JSONDecodeError, ValueError):
         return None
