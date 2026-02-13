@@ -16,7 +16,7 @@ from routes.common import get_ssl_context, OLLAMA_HOST
 from logger import logger
 from helpers import (
     CHAT_TOOLS, execute_chat_tool, sse_event,
-    _extract_cache,
+    _extract_cache, require_auth,
 )
 from cache import cached_fetch, smart_highlights_get, smart_highlights_set
 from utils_persistence import get_cached_references, set_cached_references, get_cached_author, set_cached_author
@@ -981,6 +981,7 @@ def find_similar():
 
 
 @bp.route('/api/chat-memory', methods=['POST'])
+@require_auth
 def save_chat_memory():
     """Save a chat conversation summary for future recall. Fire-and-forget."""
     body = request.get_json(force=True, silent=True) or {}
@@ -1030,6 +1031,7 @@ def save_chat_memory():
 
 
 @bp.route('/api/chat-memories', methods=['GET'])
+@require_auth
 def get_chat_memories():
     """Search past chat memories by semantic similarity."""
     query = request.args.get('query', '').strip()
@@ -1046,6 +1048,7 @@ def get_chat_memories():
 
 
 @bp.route('/api/chat-memories/list', methods=['GET'])
+@require_auth
 def list_memories():
     """List all chat memories with pagination."""
     limit = int(request.args.get('limit', 50))
@@ -1055,6 +1058,7 @@ def list_memories():
 
 
 @bp.route('/api/chat-memories/<int:memory_id>', methods=['DELETE'])
+@require_auth
 def remove_memory(memory_id):
     """Delete a single chat memory."""
     delete_chat_memory(memory_id)
@@ -1062,6 +1066,7 @@ def remove_memory(memory_id):
 
 
 @bp.route('/api/chat-memories/stats', methods=['GET'])
+@require_auth
 def memory_stats():
     """Get memory stats: count, date range, top topics."""
     return jsonify(get_memory_stats())
@@ -1271,10 +1276,11 @@ def annotate_page():
 # ── Annotation Feedback ──
 
 @bp.route('/api/annotation-feedback', methods=['POST'])
+@require_auth
 def create_annotation_feedback():
     body = request.get_json(force=True, silent=True) or {}
     quote = (body.get('quote') or '').strip()
-    rating = (body.get('rating') or '').strip()
+    rating = str(body.get('rating') or '').strip()
     if not quote or rating not in ('good', 'bad'):
         return jsonify({'error': 'quote and rating (good/bad) required'}), 400
     store_annotation_feedback(
@@ -1286,6 +1292,7 @@ def create_annotation_feedback():
 
 
 @bp.route('/api/annotation-feedback', methods=['GET'])
+@require_auth
 def get_annotation_feedback():
     rating = request.args.get('rating')
     limit = min(int(request.args.get('limit', 100)), 500)
@@ -1295,14 +1302,16 @@ def get_annotation_feedback():
 
 
 @bp.route('/api/annotation-feedback/stats', methods=['GET'])
+@require_auth
 def get_feedback_stats():
     return jsonify(get_annotation_feedback_stats())
 
 
 @bp.route('/api/annotation-feedback/<int:fid>', methods=['PUT'])
+@require_auth
 def update_feedback(fid):
     body = request.get_json(force=True, silent=True) or {}
-    rating = (body.get('rating') or '').strip()
+    rating = str(body.get('rating') or '').strip()
     if rating not in ('good', 'bad'):
         return jsonify({'error': 'rating must be good or bad'}), 400
     update_annotation_feedback_rating(fid, rating)
@@ -1310,6 +1319,7 @@ def update_feedback(fid):
 
 
 @bp.route('/api/annotation-feedback/<int:fid>', methods=['DELETE'])
+@require_auth
 def delete_feedback(fid):
     delete_annotation_feedback(fid)
     return jsonify({'ok': True})
@@ -1362,11 +1372,13 @@ def set_annotation_prompt():
 # ── Annotation Categories ──
 
 @bp.route('/api/annotation-categories', methods=['GET'])
+@require_auth
 def get_annotation_categories():
     return jsonify({'categories': list_annotation_categories()})
 
 
 @bp.route('/api/annotation-categories', methods=['POST'])
+@require_auth
 def create_annotation_category():
     body = request.get_json(force=True, silent=True) or {}
     key = (body.get('key') or '').strip().upper()
@@ -1380,6 +1392,7 @@ def create_annotation_category():
 
 
 @bp.route('/api/annotation-categories/<key>', methods=['DELETE'])
+@require_auth
 def remove_annotation_category(key):
     delete_annotation_category(key)
     return jsonify({'ok': True})
