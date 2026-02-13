@@ -11,7 +11,7 @@ import time
 import urllib.request
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
-from routes.common import get_ssl_context
+from routes.common import get_ssl_context, OLLAMA_HOST
 
 from logger import logger
 from helpers import (
@@ -335,7 +335,7 @@ def doc_chat():
                         tool_payload["think"] = False
                     payload = json.dumps(tool_payload).encode()
                     req = urllib.request.Request(
-                        "http://localhost:11434/api/chat",
+                        f"{OLLAMA_HOST}/api/chat",
                         data=payload,
                         headers={"Content-Type": "application/json"}
                     )
@@ -386,7 +386,7 @@ def doc_chat():
                 stream_payload["think"] = False
             payload = json.dumps(stream_payload).encode()
             req = urllib.request.Request(
-                "http://localhost:11434/api/chat",
+                f"{OLLAMA_HOST}/api/chat",
                 data=payload,
                 headers={"Content-Type": "application/json"}
             )
@@ -564,7 +564,7 @@ def _extract_smart_highlights(body):
             "options": {"temperature": 0, "num_predict": 3000}
         }).encode()
         llm_req = urllib.request.Request(
-            "http://localhost:11434/api/chat",
+            f"{OLLAMA_HOST}/api/chat",
             data=llm_payload,
             headers={"Content-Type": "application/json"}
         )
@@ -847,7 +847,7 @@ def panel_suggest():
             "options": {"temperature": 0.7, "num_predict": 40}
         }).encode()
         req = urllib.request.Request(
-            "http://localhost:11434/api/chat",
+            f"{OLLAMA_HOST}/api/chat",
             data=payload,
             headers={"Content-Type": "application/json"}
         )
@@ -881,7 +881,7 @@ def search_suggest():
             "options": {"temperature": 0.7, "num_predict": 120}
         }).encode()
         req = urllib.request.Request(
-            "http://localhost:11434/api/chat",
+            f"{OLLAMA_HOST}/api/chat",
             data=payload,
             headers={"Content-Type": "application/json"}
         )
@@ -909,7 +909,7 @@ def _check_embed_model():
     if now - _embed_model_cache['ts'] < 300 and _embed_model_cache['available'] is not None:
         return _embed_model_cache['available']
     try:
-        req = urllib.request.Request("http://localhost:11434/api/tags")
+        req = urllib.request.Request(f"{OLLAMA_HOST}/api/tags")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
         models = data.get('models', [])
@@ -1007,7 +1007,7 @@ def save_chat_memory():
                 "stream": False
             }).encode()
             req = urllib.request.Request(
-                "http://localhost:11434/api/chat",
+                f"{OLLAMA_HOST}/api/chat",
                 data=payload,
                 headers={"Content-Type": "application/json"}
             )
@@ -1176,7 +1176,7 @@ def annotate_page():
             "options": {"temperature": 0, "num_predict": 6000}
         }).encode()
         llm_req = urllib.request.Request(
-            "http://localhost:11434/api/chat",
+            f"{OLLAMA_HOST}/api/chat",
             data=llm_payload,
             headers={"Content-Type": "application/json"}
         )

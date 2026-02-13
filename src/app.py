@@ -4,6 +4,29 @@ import argparse
 import json
 import os
 
+# Load .env file (project root or src/) if present
+def _load_dotenv():
+    for candidate in [
+        os.path.join(os.path.dirname(__file__), '..', '.env'),
+        os.path.join(os.path.dirname(__file__), '.env'),
+    ]:
+        path = os.path.realpath(candidate)
+        if os.path.isfile(path):
+            with open(path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#') or '=' not in line:
+                        continue
+                    key, _, value = line.partition('=')
+                    key, value = key.strip(), value.strip()
+                    # Strip surrounding quotes
+                    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                        value = value[1:-1]
+                    os.environ.setdefault(key, value)
+            break
+
+_load_dotenv()
+
 # Parse args before importing persistence so ARXIV_DATA_DIR is set
 _parser = argparse.ArgumentParser(description='NetRun server')
 _parser.add_argument('--port', type=int, default=8000, help='Port to listen on')

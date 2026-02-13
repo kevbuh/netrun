@@ -34,11 +34,13 @@ def settings():
 
 @bp.route('/api/client-config')
 def client_config():
+    from routes.common import OLLAMA_HOST
     return jsonify({
         'googleClientId': os.environ.get(
             'GOOGLE_CLIENT_ID',
             '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
         ),
+        'ollamaHost': OLLAMA_HOST,
     })
 
 

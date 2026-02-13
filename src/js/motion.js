@@ -267,11 +267,15 @@
 
   var _modelActive = false;
   let _ollamaInterval = null;
+  let _ollamaHost = 'http://localhost:11434';
+  fetch('/api/client-config').then(function(r) { return r.json(); }).then(function(c) {
+    if (c.ollamaHost) _ollamaHost = c.ollamaHost;
+  }).catch(function() {});
 
   function _pollOllama() {
     const ctrl = new AbortController();
     const timer = setTimeout(function() { ctrl.abort(); }, 2000);
-    fetch('http://localhost:11434/api/ps', { signal: ctrl.signal })
+    fetch(_ollamaHost + '/api/ps', { signal: ctrl.signal })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         clearTimeout(timer);
@@ -532,7 +536,7 @@
   window.fetch = function(url, opts) {
     const urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
     // Skip Ollama polling — too noisy
-    if (urlStr.indexOf('localhost:11434') !== -1) return _origFetch.apply(this, arguments);
+    if (urlStr.indexOf(_ollamaHost) !== -1) return _origFetch.apply(this, arguments);
     const category = _classifyUrl(urlStr);
     if (!category) return _origFetch.apply(this, arguments);
     const evt = _pulseEmit(category, { label: _shortUrl(urlStr), detail: (opts && opts.method) || 'GET' });

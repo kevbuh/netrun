@@ -3,7 +3,7 @@ import concurrent.futures
 from routes.common import (
     hashlib, json, re, ssl, time, urllib,
     Blueprint, request, jsonify, Response,
-    get_ssl_context,
+    get_ssl_context, OLLAMA_HOST,
 )
 
 from helpers import build_arxiv_query
@@ -196,7 +196,7 @@ def quality_filter():
                         "options": {"temperature": 0, "num_predict": 8}
                     }).encode()
                     req = urllib.request.Request(
-                        "http://localhost:11434/api/chat",
+                        f"{OLLAMA_HOST}/api/chat",
                         data=payload,
                         headers={"Content-Type": "application/json"}
                     )
@@ -300,7 +300,7 @@ def delete_blocked_titles():
 @bp.route('/api/models')
 def list_models():
     try:
-        req = urllib.request.Request("http://localhost:11434/api/tags")
+        req = urllib.request.Request(f"{OLLAMA_HOST}/api/tags")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
         models = [m['name'] for m in data.get('models', [])]

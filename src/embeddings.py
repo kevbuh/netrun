@@ -8,6 +8,7 @@ import math
 import urllib.request
 
 from db import _get_db
+from routes.common import OLLAMA_HOST
 
 
 # ── Embedding helper functions ──
@@ -40,7 +41,7 @@ def embed_text_ollama(text):
     try:
         payload = json.dumps({"model": "nomic-embed-text", "input": text[:2000]}).encode()
         req = urllib.request.Request(
-            "http://localhost:11434/api/embed",
+            f"{OLLAMA_HOST}/api/embed",
             data=payload,
             headers={"Content-Type": "application/json"}
         )

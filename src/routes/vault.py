@@ -7,6 +7,7 @@ import urllib.request
 import uuid
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
+from routes.common import OLLAMA_HOST
 
 from helpers import require_auth, sse_event
 from db import VAULT_DIR
@@ -330,7 +331,7 @@ def vault_chat(google_id):
                 "stream": True
             }).encode()
             req = urllib.request.Request(
-                "http://localhost:11434/api/chat",
+                f"{OLLAMA_HOST}/api/chat",
                 data=payload,
                 headers={"Content-Type": "application/json"}
             )

@@ -7,6 +7,7 @@ import hashlib
 import urllib.request
 
 from db import DIR, _get_db
+from routes.common import OLLAMA_HOST
 
 # ── Annotation file paths ──
 
@@ -209,7 +210,7 @@ def classify_title(title, system_msg=None):
         "options": {"temperature": 0, "num_predict": 3}
     }).encode()
     req = urllib.request.Request(
-        "http://localhost:11434/api/chat",
+        f"{OLLAMA_HOST}/api/chat",
         data=payload,
         headers={"Content-Type": "application/json"}
     )
