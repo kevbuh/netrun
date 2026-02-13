@@ -368,24 +368,125 @@
 
   <!-- Login Gate (shown when not authenticated) -->
   <div id="login-gate" class="login-gate" style="display:none">
-    <!-- Solar system background -->
-    <div class="solar-system">
-      <div class="solar-sun"></div>
-      <div class="orbit orbit-1"><div class="planet planet-mercury"></div></div>
-      <div class="orbit orbit-2"><div class="planet planet-venus"></div></div>
-      <div class="orbit orbit-3"><div class="planet planet-earth"></div></div>
-      <div class="orbit orbit-4"><div class="planet planet-mars"></div></div>
-      <div class="orbit orbit-5"><div class="planet planet-jupiter"></div></div>
-      <div class="orbit orbit-6"><div class="planet planet-saturn"><div class="saturn-ring"></div></div></div>
-      <div class="orbit orbit-7"><div class="planet planet-uranus"></div></div>
-      <div class="orbit orbit-8"><div class="planet planet-neptune"></div></div>
-      <div class="stars"></div>
-      <div class="stars stars-2"></div>
-    </div>
+    <!-- Circuit board background -->
+    <canvas id="circuit-bg" class="circuit-bg"></canvas>
+    <script>
+    (function() {
+      const canvas = document.getElementById('circuit-bg');
+      const ctx = canvas.getContext('2d');
+      let traces = [], nodes = [], pulses = [], running = false;
+      const GRID = 30;
+      const TRACE_COLOR = 'rgba(0,220,180,0.12)';
+      const NODE_COLOR = 'rgba(0,220,180,0.25)';
+      const PULSE_COLOR = '#00e0b0';
+      const DIRS = [[1,0],[0,1],[-1,0],[0,-1]];
+
+      function resize() {
+        const gate = document.getElementById('login-gate');
+        const rect = gate.getBoundingClientRect();
+        canvas.width = rect.width * devicePixelRatio;
+        canvas.height = rect.height * devicePixelRatio;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        generate(rect.width, rect.height);
+      }
+
+      function generate(cw, ch) {
+        traces = []; nodes = []; pulses = [];
+        const cols = Math.ceil(cw / GRID) + 1;
+        const rows = Math.ceil(ch / GRID) + 1;
+        const used = new Set();
+        for (let i = 0; i < 60; i++) {
+          let x = Math.floor(Math.random() * cols) * GRID;
+          let y = Math.floor(Math.random() * rows) * GRID;
+          const path = [{x, y}];
+          let dir = DIRS[Math.floor(Math.random() * 4)];
+          const len = 3 + Math.floor(Math.random() * 10);
+          for (let j = 0; j < len; j++) {
+            if (Math.random() < 0.3) dir = DIRS[Math.floor(Math.random() * 4)];
+            const nx = x + dir[0] * GRID, ny = y + dir[1] * GRID;
+            const key = `${Math.min(x,nx)},${Math.min(y,ny)},${Math.max(x,nx)},${Math.max(y,ny)}`;
+            if (nx < 0 || ny < 0 || nx > cw || ny > ch || used.has(key)) {
+              dir = DIRS[Math.floor(Math.random() * 4)]; continue;
+            }
+            used.add(key); x = nx; y = ny; path.push({x, y});
+          }
+          if (path.length > 1) traces.push(path);
+        }
+        const nodeSet = new Set();
+        traces.forEach(path => {
+          [path[0], path[path.length - 1]].forEach(p => {
+            const k = `${p.x},${p.y}`;
+            if (!nodeSet.has(k)) { nodeSet.add(k); nodes.push(p); }
+          });
+          path.forEach((p, i) => {
+            if (i > 0 && i < path.length - 1 && Math.random() < 0.15) {
+              const k = `${p.x},${p.y}`;
+              if (!nodeSet.has(k)) { nodeSet.add(k); nodes.push(p); }
+            }
+          });
+        });
+      }
+
+      function spawnPulse() {
+        if (!traces.length) return;
+        const trace = traces[Math.floor(Math.random() * traces.length)];
+        pulses.push({ trace, seg: 0, t: 0, speed: 0.015 + Math.random() * 0.02 });
+      }
+
+      function draw() {
+        const cw = canvas.width / devicePixelRatio, ch = canvas.height / devicePixelRatio;
+        ctx.clearRect(0, 0, cw, ch);
+        ctx.strokeStyle = TRACE_COLOR; ctx.lineWidth = 1;
+        traces.forEach(path => {
+          ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+          for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+          ctx.stroke();
+        });
+        nodes.forEach(n => {
+          ctx.fillStyle = NODE_COLOR; ctx.fillRect(n.x - 3, n.y - 3, 6, 6);
+          ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(n.x, n.y, 1.5, 0, Math.PI * 2); ctx.fill();
+        });
+        for (let i = pulses.length - 1; i >= 0; i--) {
+          const p = pulses[i];
+          p.t += p.speed;
+          if (p.t >= 1) { p.t = 0; p.seg++; }
+          if (p.seg >= p.trace.length - 1) { pulses.splice(i, 1); continue; }
+          const a = p.trace[p.seg], b = p.trace[p.seg + 1];
+          const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t;
+          const grad = ctx.createRadialGradient(x, y, 0, x, y, 12);
+          grad.addColorStop(0, PULSE_COLOR); grad.addColorStop(1, 'transparent');
+          ctx.fillStyle = grad; ctx.fillRect(x - 12, y - 12, 24, 24);
+          ctx.fillStyle = PULSE_COLOR; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+        }
+        if (Math.random() < 0.08) spawnPulse();
+        requestAnimationFrame(draw);
+      }
+
+      function start() {
+        if (running) return;
+        running = true;
+        resize();
+        for (let i = 0; i < 5; i++) spawnPulse();
+        draw();
+      }
+
+      // Watch for login gate becoming visible
+      const gate = document.getElementById('login-gate');
+      const obs = new MutationObserver(() => {
+        if (gate.style.display !== 'none') start();
+      });
+      obs.observe(gate, { attributes: true, attributeFilter: ['style'] });
+      // Also check immediately in case already visible
+      if (gate.style.display !== 'none') start();
+      window.addEventListener('resize', () => { if (running) resize(); });
+    })();
+    </script>
     <div class="auth-modal" style="position:relative;z-index:1;">
       <div class="text-center mb-3">
         <svg style="height:2.2rem;display:inline-block;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#e0e0e0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22a2 2 0 1 1 3.16 2.44"/></svg>
-        <p class="text-[0.82rem] mt-1 mb-1" style="color:#999">the medium to think at the speed of light</p>
+        <p class="text-[1.1rem] mt-1 mb-1" style="color:#999">netrun</p>
       </div>
       <div class="auth-error" id="auth-error" style="min-height:0"></div>
       <div id="google-signin-btn" class="flex justify-center"></div>
@@ -491,7 +592,6 @@
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button>
   </nav>
-  <div id="drag-pill" title="Drag to slide icons"></div>
   <button id="global-overview-btn" onclick="toggleBrowseTabOverview()" title="Window overview">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg>
     <span id="global-overview-badge" class="overview-badge" style="display:none;"></span>

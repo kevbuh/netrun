@@ -493,21 +493,6 @@ function _wmToggleTiling() {
     _previewIdx = -1;
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-    const pill = document.getElementById('drag-pill');
-    if (!pill) return;
-    pill.addEventListener('mousedown', function(e) {
-      e.preventDefault();
-      startDrag(e.clientX);
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-    pill.addEventListener('touchstart', function(e) {
-      startDrag(e.touches[0].clientX);
-      document.addEventListener('touchmove', onMove, { passive: true });
-      document.addEventListener('touchend', onUp);
-    }, { passive: true });
-  });
 })();
 
 function goHome() {

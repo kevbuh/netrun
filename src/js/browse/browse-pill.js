@@ -38,17 +38,14 @@ function _setPillBrowseMode(enabled) {
   _pillBrowseMode = enabled;
   const pill = document.getElementById('sidebar-nav');
   const tabRow = document.getElementById('browse-tab-row');
-  const dragPill = document.getElementById('drag-pill');
   if (enabled) {
     if (pill) { pill.classList.add('browse-mode'); pill.classList.remove('island-mode'); }
     if (tabRow) tabRow.style.display = 'none';
-    if (dragPill) dragPill.style.display = 'none';
     const bar = document.getElementById('browse-bar');
     if (bar) bar.style.display = '';
     _pillSyncTabs();
   } else {
     if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }
-    if (dragPill) dragPill.style.display = '';
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
     _closePillMenu();

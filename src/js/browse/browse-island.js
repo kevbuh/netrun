@@ -22,7 +22,6 @@ function _applyBrowseTabLayout() {
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const pill = document.getElementById('sidebar-nav');
-  const dragPill = document.getElementById('drag-pill');
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display === 'flex';
   if (_browseTabLayout === 'island') {
@@ -30,7 +29,6 @@ function _applyBrowseTabLayout() {
     if (bar) bar.style.display = 'none';
     if (browseOpen) {
       if (pill) { pill.classList.add('browse-mode'); pill.classList.add('island-mode'); }
-      if (dragPill) dragPill.style.display = 'none';
       _pillSyncUrl();
       const pillTabs = document.getElementById('pill-browse-tabs');
       if (pillTabs) pillTabs.innerHTML = '';
@@ -38,7 +36,6 @@ function _applyBrowseTabLayout() {
       _islandSyncBookmark();
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
-      if (dragPill) dragPill.style.display = '';
       islandRemove('tabs');
       islandRemove('bookmark');
     }
@@ -50,7 +47,6 @@ function _applyBrowseTabLayout() {
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
       if (tabRow) tabRow.style.display = '';
-      if (dragPill) dragPill.style.display = '';
     }
     if (_pillBrowseMode) _pillSyncTabs();
   }
