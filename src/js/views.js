@@ -195,7 +195,7 @@ function _topbarOverflowOutside(e) {
 // ── Paper Viewer (shared) ──
 const paperViewOrigin = 'arxiv';
 
-const _currentPaperViewPaper = null;
+let _currentPaperViewPaper = null;
 const _paperOriginExpId = null;
 const _paperInsightsLoaded = false;
 function togglePaperViewBookmark() {
