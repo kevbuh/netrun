@@ -1,11 +1,30 @@
 """Shared imports and utilities for route modules."""
 
 # Standard library imports used across most routes
+import base64
+import hashlib
+import json
+import os
+import re
+import shutil
 import ssl
+import subprocess
+import tempfile
+import time
 import urllib.request
+import uuid
+from urllib.parse import unquote as url_unquote
 
 # Flask imports
-from flask import jsonify
+from flask import Blueprint, request, jsonify, Response, stream_with_context, send_file
+
+# Re-export commonly used modules for convenience
+# (ruff complains these are unused, but they're imported by other route modules)
+urllib = urllib  # noqa: F401
+os = os  # noqa: F401
+json = json  # noqa: F401
+re = re  # noqa: F401
+shutil = shutil  # noqa: F401
 
 # Common SSL context for urllib requests
 def get_ssl_context():

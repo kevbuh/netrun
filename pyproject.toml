@@ -25,6 +25,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/tests/**/*.py" = ["B", "SIM", "E712"]  # tests can be more relaxed
+"src/routes/common.py" = ["F401"]  # re-exports for other route modules
 
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]

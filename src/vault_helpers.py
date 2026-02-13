@@ -197,7 +197,7 @@ def _vibe_run_git(cmd, body, vault_path):
         out = _run(['stash', 'list'])
         if isinstance(out, dict):
             return out
-        entries = [l for l in out.strip().split('\n') if l]
+        entries = [line for line in out.strip().split('\n') if line]
         return {'entries': entries}
 
     elif cmd == 'diff':
@@ -234,7 +234,7 @@ def _vibe_run_git(cmd, body, vault_path):
         out = _run(['reflog', '--format=%h\t%gd\t%gs\t%ar', '-50'])
         if isinstance(out, dict):
             return out
-        entries = [l for l in out.strip().split('\n') if l]
+        entries = [line for line in out.strip().split('\n') if line]
         return {'entries': entries}
 
     return {'error': 'Unknown command'}

@@ -1,7 +1,6 @@
-const { app, BrowserWindow, Menu, ipcMain, session, desktopCapturer, safeStorage, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, session, safeStorage, dialog } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
-const net = require('net');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -300,7 +299,7 @@ function loadWindowState() {
     // Store loaded bounds to prevent redundant saves
     lastSavedBounds = { ...state };
     return state;
-  } catch (e) {
+  } catch (_e) {
     console.log('[window-state] No saved state, using defaults');
     return {
       width: 1400,
@@ -353,7 +352,7 @@ async function createWindow() {
     try {
       serverPort = await tryStartPythonServer(PREFERRED_PORT);
       break;
-    } catch (e) {
+    } catch (_e) {
       retries++;
       if (retries >= maxRetries) {
         console.error(`Failed to start server on port ${PREFERRED_PORT} after ${maxRetries} attempts`);
@@ -555,7 +554,7 @@ app.on('web-contents-created', (event, contents) => {
             if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
               win.webContents.send(channel, data);
             }
-          } catch (e) {
+          } catch (_e) {
             // Window was destroyed, ignore
           }
         };
@@ -588,11 +587,11 @@ app.on('web-contents-created', (event, contents) => {
               state: state,
               savePath: savePath
             });
-          } catch (e) {
+          } catch (_e) {
             // Ignore errors during completion
           }
         });
-      } catch (e) {
+      } catch (_e) {
         // Silently ignore errors from destroyed objects
       }
       });
@@ -768,7 +767,7 @@ app.whenReady().then(() => {
       const image = await wc.capturePage();
       if (image.isEmpty()) return null;
       return image.toPNG().toString('base64');
-    } catch (e) { return null; }
+    } catch (_e) { return null; }
   });
 
   // Secure auth token via macOS Keychain (safeStorage)
@@ -781,7 +780,7 @@ app.whenReady().then(() => {
       if (!fs.existsSync(secureAuthPath)) return null;
       const encrypted = fs.readFileSync(secureAuthPath);
       return safeStorage.decryptString(encrypted);
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   });
@@ -791,13 +790,13 @@ app.whenReady().then(() => {
       if (!safeStorage.isEncryptionAvailable()) return;
       const encrypted = safeStorage.encryptString(token);
       fs.writeFileSync(secureAuthPath, encrypted);
-    } catch (e) { /* no-op */ }
+    } catch (_e) { /* no-op */ }
   });
 
   ipcMain.handle('delete-auth-token', async () => {
     try {
       if (fs.existsSync(secureAuthPath)) fs.unlinkSync(secureAuthPath);
-    } catch (e) { /* no-op */ }
+    } catch (_e) { /* no-op */ }
   });
 
   // ── Password Manager (encrypted via safeStorage) ──

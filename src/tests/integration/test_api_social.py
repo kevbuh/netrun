@@ -27,7 +27,7 @@ def auth_user(client):
 
     # Create user
     google_id = 'test_google_123'
-    user = upsert_google_user(google_id, 'test@example.com', 'Test User', 'https://pic.url')
+    upsert_google_user(google_id, 'test@example.com', 'Test User', 'https://pic.url')
     token = create_session(google_id)
 
     return {
@@ -45,7 +45,7 @@ def second_user(client):
     from users import upsert_google_user, create_session, set_username
 
     google_id = 'test_google_456'
-    user = upsert_google_user(google_id, 'test2@example.com', 'Test User 2', 'https://pic2.url')
+    upsert_google_user(google_id, 'test2@example.com', 'Test User 2', 'https://pic2.url')
     set_username(google_id, 'testuser2')
     token = create_session(google_id)
 

@@ -14,7 +14,7 @@ function createPasswordStore({ fs, safeStorage, filePath, crypto }) {
       const encrypted = fs.readFileSync(filePath);
       const json = safeStorage.decryptString(encrypted);
       return JSON.parse(json);
-    } catch (e) {
+    } catch {
       return { version: 1, entries: [] };
     }
   }
@@ -24,7 +24,7 @@ function createPasswordStore({ fs, safeStorage, filePath, crypto }) {
       if (!safeStorage.isEncryptionAvailable()) return;
       const encrypted = safeStorage.encryptString(JSON.stringify(data));
       fs.writeFileSync(filePath, encrypted);
-    } catch (e) { /* no-op */ }
+    } catch { /* no-op */ }
   }
 
   function _genId() {

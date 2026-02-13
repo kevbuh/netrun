@@ -72,7 +72,7 @@ class TestExtractText:
         """Test extracting text from arXiv PDF (requires PyMuPDF)."""
         # Skip if PyMuPDF not available
         try:
-            import fitz
+            import fitz  # noqa: F401
         except ImportError:
             pytest.skip("PyMuPDF not installed")
 
