@@ -982,7 +982,7 @@ def find_similar():
 
 @bp.route('/api/chat-memory', methods=['POST'])
 @require_auth
-def save_chat_memory():
+def save_chat_memory(google_id=None):
     """Save a chat conversation summary for future recall. Fire-and-forget."""
     body = request.get_json(force=True, silent=True) or {}
     messages = body.get('messages', [])
@@ -1032,7 +1032,7 @@ def save_chat_memory():
 
 @bp.route('/api/chat-memories', methods=['GET'])
 @require_auth
-def get_chat_memories():
+def get_chat_memories(google_id=None):
     """Search past chat memories by semantic similarity."""
     query = request.args.get('query', '').strip()
     if not query:
@@ -1049,7 +1049,7 @@ def get_chat_memories():
 
 @bp.route('/api/chat-memories/list', methods=['GET'])
 @require_auth
-def list_memories():
+def list_memories(google_id=None):
     """List all chat memories with pagination."""
     limit = int(request.args.get('limit', 50))
     offset = int(request.args.get('offset', 0))
@@ -1059,7 +1059,7 @@ def list_memories():
 
 @bp.route('/api/chat-memories/<int:memory_id>', methods=['DELETE'])
 @require_auth
-def remove_memory(memory_id):
+def remove_memory(memory_id, google_id=None):
     """Delete a single chat memory."""
     delete_chat_memory(memory_id)
     return jsonify({'ok': True})
@@ -1067,7 +1067,7 @@ def remove_memory(memory_id):
 
 @bp.route('/api/chat-memories/stats', methods=['GET'])
 @require_auth
-def memory_stats():
+def memory_stats(google_id=None):
     """Get memory stats: count, date range, top topics."""
     return jsonify(get_memory_stats())
 
@@ -1277,7 +1277,7 @@ def annotate_page():
 
 @bp.route('/api/annotation-feedback', methods=['POST'])
 @require_auth
-def create_annotation_feedback():
+def create_annotation_feedback(google_id=None):
     body = request.get_json(force=True, silent=True) or {}
     quote = (body.get('quote') or '').strip()
     rating = str(body.get('rating') or '').strip()
@@ -1293,7 +1293,7 @@ def create_annotation_feedback():
 
 @bp.route('/api/annotation-feedback', methods=['GET'])
 @require_auth
-def get_annotation_feedback():
+def get_annotation_feedback(google_id=None):
     rating = request.args.get('rating')
     limit = min(int(request.args.get('limit', 100)), 500)
     offset = int(request.args.get('offset', 0))
@@ -1303,13 +1303,13 @@ def get_annotation_feedback():
 
 @bp.route('/api/annotation-feedback/stats', methods=['GET'])
 @require_auth
-def get_feedback_stats():
+def get_feedback_stats(google_id=None):
     return jsonify(get_annotation_feedback_stats())
 
 
 @bp.route('/api/annotation-feedback/<int:fid>', methods=['PUT'])
 @require_auth
-def update_feedback(fid):
+def update_feedback(fid, google_id=None):
     body = request.get_json(force=True, silent=True) or {}
     rating = str(body.get('rating') or '').strip()
     if rating not in ('good', 'bad'):
@@ -1320,7 +1320,7 @@ def update_feedback(fid):
 
 @bp.route('/api/annotation-feedback/<int:fid>', methods=['DELETE'])
 @require_auth
-def delete_feedback(fid):
+def delete_feedback(fid, google_id=None):
     delete_annotation_feedback(fid)
     return jsonify({'ok': True})
 
@@ -1373,13 +1373,13 @@ def set_annotation_prompt():
 
 @bp.route('/api/annotation-categories', methods=['GET'])
 @require_auth
-def get_annotation_categories():
+def get_annotation_categories(google_id=None):
     return jsonify({'categories': list_annotation_categories()})
 
 
 @bp.route('/api/annotation-categories', methods=['POST'])
 @require_auth
-def create_annotation_category():
+def create_annotation_category(google_id=None):
     body = request.get_json(force=True, silent=True) or {}
     key = (body.get('key') or '').strip().upper()
     name = (body.get('name') or '').strip()
@@ -1393,7 +1393,7 @@ def create_annotation_category():
 
 @bp.route('/api/annotation-categories/<key>', methods=['DELETE'])
 @require_auth
-def remove_annotation_category(key):
+def remove_annotation_category(key, google_id=None):
     delete_annotation_category(key)
     return jsonify({'ok': True})
 

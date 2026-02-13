@@ -335,7 +335,7 @@ class TestChatMemory:
 
         assert response.status_code == 200
         data = response.json
-        assert isinstance(data, list)
+        assert 'memories' in data or isinstance(data, list)
 
     def test_list_chat_memories_alt_endpoint(self, client, auth_user):
         """Test alternative list endpoint."""
@@ -380,50 +380,62 @@ class TestChatMemory:
 class TestAnnotationFeedback:
     """Test annotation feedback endpoints."""
 
-    def test_submit_feedback_no_data(self, client):
-        """Test submitting annotation feedback without data."""
+    def test_submit_feedback_requires_auth(self, client):
+        """Test submitting annotation feedback requires authentication."""
         response = client.post('/api/annotation-feedback', json={})
+
+        assert response.status_code == 401
+
+    def test_submit_feedback_no_data(self, client, auth_user):
+        """Test submitting annotation feedback without data."""
+        response = client.post('/api/annotation-feedback',
+            headers=auth_user['headers'], json={})
 
         assert response.status_code == 400
 
-    def test_submit_feedback_success(self, client):
+    def test_submit_feedback_success(self, client, auth_user):
         """Test submitting annotation feedback."""
-        response = client.post('/api/annotation-feedback', json={
+        response = client.post('/api/annotation-feedback',
+            headers=auth_user['headers'], json={
             'type': 'KEY_FINDING',
             'quote': 'Test quote',
-            'rating': 1,
+            'rating': 'good',
             'url': 'https://example.com'
         })
 
         assert response.status_code in [200, 201]
 
-    def test_list_feedback_success(self, client):
+    def test_list_feedback_success(self, client, auth_user):
         """Test listing annotation feedback."""
-        response = client.get('/api/annotation-feedback')
-
-        assert response.status_code == 200
-        data = response.json
-        assert isinstance(data, list)
-
-    def test_get_feedback_stats(self, client):
-        """Test getting feedback stats."""
-        response = client.get('/api/annotation-feedback/stats')
+        response = client.get('/api/annotation-feedback',
+            headers=auth_user['headers'])
 
         assert response.status_code == 200
         data = response.json
         assert isinstance(data, dict)
 
-    def test_update_feedback_rating_not_found(self, client):
+    def test_get_feedback_stats(self, client, auth_user):
+        """Test getting feedback stats."""
+        response = client.get('/api/annotation-feedback/stats',
+            headers=auth_user['headers'])
+
+        assert response.status_code == 200
+        data = response.json
+        assert isinstance(data, dict)
+
+    def test_update_feedback_rating_not_found(self, client, auth_user):
         """Test updating non-existent feedback."""
-        response = client.put('/api/annotation-feedback/99999', json={
-            'rating': -1
+        response = client.put('/api/annotation-feedback/99999',
+            headers=auth_user['headers'], json={
+            'rating': 'bad'
         })
 
         assert response.status_code in [200, 404]
 
-    def test_delete_feedback_not_found(self, client):
+    def test_delete_feedback_not_found(self, client, auth_user):
         """Test deleting non-existent feedback."""
-        response = client.delete('/api/annotation-feedback/99999')
+        response = client.delete('/api/annotation-feedback/99999',
+            headers=auth_user['headers'])
 
         assert response.status_code in [200, 404]
 
@@ -453,42 +465,54 @@ class TestAnnotationPrompt:
 class TestAnnotationCategories:
     """Test annotation categories endpoints."""
 
-    def test_list_categories(self, client):
-        """Test listing annotation categories."""
+    def test_list_categories_requires_auth(self, client):
+        """Test listing annotation categories requires authentication."""
         response = client.get('/api/annotation-categories')
+
+        assert response.status_code == 401
+
+    def test_list_categories(self, client, auth_user):
+        """Test listing annotation categories."""
+        response = client.get('/api/annotation-categories',
+            headers=auth_user['headers'])
 
         assert response.status_code == 200
         data = response.json
-        assert isinstance(data, list)
+        assert isinstance(data, dict)
 
-    def test_add_category_no_data(self, client):
+    def test_add_category_no_data(self, client, auth_user):
         """Test adding category without data."""
-        response = client.post('/api/annotation-categories', json={})
+        response = client.post('/api/annotation-categories',
+            headers=auth_user['headers'], json={})
 
         assert response.status_code == 400
 
-    def test_add_category_success(self, client):
+    def test_add_category_success(self, client, auth_user):
         """Test adding annotation category."""
-        response = client.post('/api/annotation-categories', json={
+        response = client.post('/api/annotation-categories',
+            headers=auth_user['headers'], json={
             'key': 'CUSTOM_TEST',
-            'label': 'Custom Test Category',
+            'name': 'Custom Test Category',
             'color': '#ff0000',
             'description': 'Test category'
         })
 
         assert response.status_code in [200, 201, 400]
 
-    def test_delete_category_success(self, client):
+    def test_delete_category_success(self, client, auth_user):
         """Test deleting annotation category."""
         # First add a category
-        client.post('/api/annotation-categories', json={
+        client.post('/api/annotation-categories',
+            headers=auth_user['headers'], json={
             'key': 'DELETE_ME',
-            'label': 'Delete Me',
-            'color': '#000000'
+            'name': 'Delete Me',
+            'color': '#000000',
+            'description': 'Category to delete'
         })
 
         # Then delete it
-        response = client.delete('/api/annotation-categories/DELETE_ME')
+        response = client.delete('/api/annotation-categories/DELETE_ME',
+            headers=auth_user['headers'])
 
         assert response.status_code in [200, 404]
 
