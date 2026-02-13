@@ -466,7 +466,7 @@ async function renderResearchTeams() {
   if (!_cachedTeams.length) {
     container.innerHTML = '<div class="text-dimmer text-sm mb-4">No teams yet. Create one to start collaborating.</div>';
   } else {
-    const _lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    const _lockSvg = icon('lock', { size: 12, style: 'display:inline;vertical-align:-1px;opacity:0.5' });
     container.innerHTML = _cachedTeams.map(t => `
       <div class="flex items-center justify-between p-4 bg-card border border-border-card rounded-lg mb-2 group cursor-pointer hover:border-border-input transition-colors" onclick="showTeamDetailView(${t.id}, event)">
         <div class="flex items-center gap-3">
@@ -634,7 +634,7 @@ async function showTeamDetailView(teamId, e) {
 
     // Populate sidebar header (matches exp-detail-title style)
     if (sidebarHeader) {
-      const lockSvg = team.private ? ' <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
+      const lockSvg = team.private ? ' ' + icon('lock', { size: 13, style: 'display:inline;vertical-align:-2px;opacity:0.5' }) : '';
       const ancestorBreadcrumb = (team.ancestors && team.ancestors.length)
         ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id}, event)">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
         : '';
@@ -720,7 +720,7 @@ function cancelRenameTeam() {
   if (!sidebarHeader) return;
   const team = _teamDetailData.team;
   const isOwner = _teamDetailData.isOwner;
-  const lockSvg = team.private ? ' <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '';
+  const lockSvg = team.private ? ' ' + icon('lock', { size: 13, style: 'display:inline;vertical-align:-2px;opacity:0.5' }) : '';
   const ancestorBreadcrumb = (team.ancestors && team.ancestors.length)
     ? `<div class="text-dimmest text-[0.65rem] mb-1">${team.ancestors.map(a => `<span class="cursor-pointer hover:text-accent" onclick="showTeamDetailView(${a.id}, event)">${escapeHtml(a.name)}</span>`).join(' <span class="text-dimmer">›</span> ')} <span class="text-dimmer">›</span></div>`
     : '';
@@ -906,7 +906,7 @@ function switchTeamTab(tab) {
     }, 50);
 
   } else if (tab === 'subteams') {
-    const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    const lockSvg = icon('lock', { size: 12, style: 'display:inline;vertical-align:-1px;opacity:0.5' });
     pane.innerHTML = (teamChildren || []).length ? `
       <div class="px-4 pt-4">
         <div class="flex flex-col gap-2">
@@ -1177,7 +1177,7 @@ function renderTeamsSection() {
   if (!_cachedTeams.length) {
     container.innerHTML = '<div class="text-dimmer text-xs mb-3">No teams yet</div>';
   } else {
-    const _lockSvgSm = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;opacity:0.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    const _lockSvgSm = icon('lock', { size: 11, style: 'display:inline;vertical-align:-1px;opacity:0.5' });
     container.innerHTML = _cachedTeams.map(t => `
       <div class="flex items-center justify-between p-3 bg-card border border-border-card rounded-lg mb-2 group">
         <div class="flex items-center gap-2">
@@ -1305,7 +1305,7 @@ async function renderTeamPicker(experimentId) {
 
   const currentTeam = currentTeamId ? _cachedTeams.find(t => t.id === currentTeamId) : null;
   const teamLabel = currentTeam
-    ? `<span class="inline-flex items-center gap-1 text-[0.72rem] text-accent bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5 mr-1.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>${escapeHtml(currentTeam.name)}</span>`
+    ? `<span class="inline-flex items-center gap-1 text-[0.72rem] text-accent bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5 mr-1.5">${icon('userGroup', { size: 10, strokeWidth: '2.5' })}${escapeHtml(currentTeam.name)}</span>`
     : '';
   container.innerHTML = `
     ${teamLabel}

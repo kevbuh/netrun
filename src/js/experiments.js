@@ -137,7 +137,7 @@ function renderExpPapers() {
     const title = p.title || p.link;
     const snippet = title.length > 50 ? title.slice(0, 50) + '…' : title;
     return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors group" onclick="openExpPaper('${escapeAttr(p.link)}', '${escapeAttr(p.title || '')}', '${escapeAttr(p.source || '')}')">
-      <svg class="w-3.5 h-3.5 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+${icon('fileText', { size: 14, class: 'shrink-0 text-dimmer' })}
       <span class="text-[0.78rem] text-primary truncate flex-1">${escapeHtml(snippet)}</span>
       <button class="opacity-0 group-hover:opacity-100 bg-transparent border-none text-dimmest hover:text-red-400 cursor-pointer p-0 text-[0.85rem] leading-none shrink-0 transition-opacity" onclick="event.stopPropagation();removeExpPaper('${escapeAttr(p.link)}')" title="Remove">&times;</button>
     </div>`;
@@ -451,10 +451,10 @@ function renderFilesList(files, emptyDirs) {
       </div>
       <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 rounded-md">
         <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); duplicateExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" title="Duplicate">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          ${icon('filePlus', { size: 12 })}
         </button>
         <button draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); deleteExpFile('${escapedF}')" class="w-6 h-6 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400" title="Delete">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+${icon('trash', { size: 12 })}
         </button>
       </div>
     </div>`;
@@ -476,13 +476,13 @@ function renderFilesList(files, emptyDirs) {
       <div class="${isTopLevel ? 'mt-1' : 'mt-0.5'}" ondragover="_onFolderDragOver(event)" ondragleave="_onFolderDragLeave(event)" ondrop="_onFolderDrop(event, '${escapedFolder}')">
         <div class="flex items-center gap-1 w-full px-1 py-1 group">
           <button onclick="document.getElementById('${folderId}').classList.toggle('hidden'); this.querySelector('.chevron-icon').style.transform = document.getElementById('${folderId}').classList.contains('hidden') ? '' : 'rotate(90deg)'" class="flex items-center gap-1 flex-1 text-left bg-transparent border-none p-0 cursor-pointer text-dim hover:text-primary transition-colors min-w-0">
-            <svg class="w-3 h-3 fill-current transition-transform shrink-0 chevron-icon" style="transform:rotate(90deg)" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
-            <svg class="w-3.5 h-3.5 text-amber-400/70 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+            ${icon('chevronRightSmall', { size: 12, class: 'fill-current transition-transform shrink-0 chevron-icon', style: 'transform:rotate(90deg)' })}
+            ${icon('folderFilled', { size: 14, class: 'text-amber-400/70 shrink-0' })}
             <span class="text-[0.78rem] truncate folder-name-span" ondblclick="event.stopPropagation(); startRenameFolder('${escapedFolder}', this)">${escapeHtml(name)}</span>
           </button>
           <span class="text-[0.65rem] text-dimmer shrink-0">${count}</span>
           <button onclick="event.stopPropagation(); deleteExpFolder('${escapedFolder}')" class="w-5 h-5 rounded-md bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Delete folder">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  ${icon('trash', { size: 12 })}
           </button>
         </div>
         <div id="${folderId}" class="pl-3${isTopLevel ? '' : ''}">
@@ -824,7 +824,7 @@ function renderImageViewer(fname, dataUrl) {
       <div class="flex items-center gap-1.5">
         ${fileShareButton()}
         <a href="${dataUrl}" download="${escapeHtml(fname)}" id="img-viewer-download" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+${icon('download', { size: 14 })}
         </a>
       </div>
     </div>
@@ -844,7 +844,7 @@ function renderMediaViewer(fname, dataUrl, type) {
       <div class="flex items-center gap-1.5">
         ${fileShareButton()}
         <a href="${dataUrl}" download="${escapeHtml(fname)}" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[0.75rem] bg-transparent border-none text-muted cursor-pointer hover:text-primary transition-colors no-underline" title="Download">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+${icon('download', { size: 14 })}
         </a>
       </div>
     </div>
@@ -864,7 +864,7 @@ function renderBinaryViewer(fname, dataUrl, mime) {
       </a>
     </div>
     <div class="flex flex-col items-center justify-center p-8 min-h-[300px] gap-3 text-dimmer">
-      <svg class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+${icon('fileText', { size: 48, strokeWidth: '1.5' })}
       <div class="text-[0.85rem] text-muted">${escapeHtml(fname)}</div>
       <div class="text-[0.75rem]">${escapeHtml(mime || 'Binary file')} ${sizeInfo ? '· ' + sizeInfo : ''}</div>
     </div>`;
@@ -1102,7 +1102,7 @@ openExperimentDetail = async function(id) {
 
 // ── Share file to team chat ──
 
-const _fileShareSvg = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg>';
+const _fileShareSvg = icon('share', { size: 16, strokeWidth: '1.5' });
 
 function fileShareButton() {
   return `<button onclick="toggleFileShareDropdown(this)" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary transition-colors" title="Share to team chat">${_fileShareSvg}</button>`;

@@ -2,7 +2,7 @@
 // All state variables used across core modules
 
 // ── SVG assets ──
-var _ELL_SVG = '<svg class="ell-favicon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44"/></svg>';
+var _ELL_SVG = icon('ell', { size: 16, class: 'ell-favicon' });
 
 // ── Link preview ──
 var _linkPreviewEl = null;

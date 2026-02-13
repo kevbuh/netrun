@@ -24,7 +24,7 @@ function renderNotebookEditor(fname, contentStr) {
       <span id="venv-info" class="text-[0.68rem] text-dimmer flex items-center gap-1"></span>
       <div class="ml-auto flex items-center gap-1.5">
         ${fileShareButton()}
-        <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></button>
+        <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel">${icon('refresh', {size:15, strokeWidth:'1.5'})}</button>
         <div class="relative inline-flex items-center">
           <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="toggleVenvMenu()">Env</button>
           <div id="py-venv-menu" class="hidden absolute right-0 top-full mt-1 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[220px]">
@@ -419,10 +419,10 @@ function renderNbCells() {
         <span class="text-[0.7rem] ${isCode ? 'text-emerald-400' : 'text-blue-400'} font-medium">${isCode ? 'Code' : 'Markdown'}</span>
         <span class="text-[0.65rem] text-dimmer">[${i+1}]</span>
         <div class="ml-auto flex gap-1">
-          ${isCode ? `<button class="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></button>` : ''}
+          ${isCode ? `<button class="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" onclick="runNbCell(${i})" title="Run cell (Shift+Enter)">${icon('playFilled', {size:14, strokeWidth:'1.5'})}</button>` : ''}
           ${!isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/20 text-blue-400 border-none cursor-pointer hover:bg-blue-500/30" onclick="renderMdCell(${i})" title="Render (Shift+Enter)">Render</button>` : ''}
           ${isCode ? `<button class="px-2 py-0.5 rounded text-[0.7rem] bg-blue-500/10 text-blue-400 border-none cursor-pointer hover:bg-blue-500/20" onclick="exportCellToPy(${i})" title="Export to .py file">.py</button>` : ''}
-          <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" onclick="copyNbCell(${i})" title="Copy cell contents"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+          <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary" onclick="copyNbCell(${i})" title="Copy cell contents">${icon('copy', {size:14})}</button>
           ${i > 0 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},-1)" title="Move up">&uarr;</button>` : ''}
           ${i < nbData.cells.length-1 ? `<button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-primary text-[0.8rem]" onclick="moveNbCell(${i},1)" title="Move down">&darr;</button>` : ''}
           <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
@@ -520,7 +520,7 @@ function copyNbCell(i) {
   navigator.clipboard.writeText(src).then(() => {
     const cellEl = document.querySelector(`[data-cell="${i}"]`);
     const btn = cellEl && cellEl.querySelector('[title="Copy cell contents"]');
-    if (btn) { const orig = btn.innerHTML; btn.innerHTML = '<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>'; setTimeout(() => btn.innerHTML = orig, 1200); }
+    if (btn) { const orig = btn.innerHTML; btn.innerHTML = icon('check', {size:14, class:'text-emerald-400'}); setTimeout(() => btn.innerHTML = orig, 1200); }
   });
 }
 
@@ -616,8 +616,8 @@ function _swapToStop(cellEl, i) {
 
 let _runCooldown = false;
 
-const _nbPlayIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>';
-const _nbPauseIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg>';
+const _nbPlayIcon = icon('playFilled', {size:14, strokeWidth:'1.5'});
+const _nbPauseIcon = icon('pause', {size:14, strokeWidth:'1.5'});
 
 function _swapToRun(cellEl, i) {
   if (!cellEl) return;

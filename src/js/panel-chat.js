@@ -420,7 +420,7 @@ function _renderPopupChat(popup, final) {
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
       const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
-      const editBtn = `<button class="doc-msg-edit-btn" data-msg-idx="${i}" title="Edit and resend"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+      const editBtn = `<button class="doc-msg-edit-btn" data-msg-idx="${i}" title="Edit and resend">${icon('edit', { size: 11 })}</button>`;
       return `<div class="doc-msg-user" data-msg-idx="${i}">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}<span class="doc-msg-user-text">${escapeHtml(display)}</span>${editBtn}</div>`;
     }
     if (m._thinking) {
@@ -480,9 +480,9 @@ function _renderPopupChat(popup, final) {
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
-    const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>`;
-    const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg></button>` : '';
+    const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message">${icon('copy', { size: 12 })}</button>`;
+    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud">${icon('speaker', { size: 12 })}</button>`;
+    const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message">${icon('redo', { size: 12 })}</button>` : '';
     return `<div class="doc-msg-ai">${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
   }).join('');
   // Render LaTeX in AI messages
@@ -578,9 +578,9 @@ function _renderPopupChat(popup, final) {
       const text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
       if (!text) return;
       navigator.clipboard.writeText(text).then(() => {
-        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.innerHTML = icon('check', { size: 12 });
         setTimeout(() => {
-          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+          btn.innerHTML = icon('copy', { size: 12 });
         }, 1000);
       }).catch(() => {});
     });
@@ -631,7 +631,7 @@ function _renderPopupChat(popup, final) {
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
   if (sendBtn) {
     if (_popupChatAbort && !final) {
-      sendBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>';
+      sendBtn.innerHTML = icon('stopCircle', { size: 14 });
       sendBtn.title = 'Stop';
       sendBtn.disabled = false;
       sendBtn.classList.add('doc-ask-inline-stop');
@@ -771,7 +771,7 @@ function _addNoteContextToPanel(popup, note) {
   const chip = document.createElement('div');
   chip.className = 'doc-note-context-chip';
   chip.dataset.noteId = note.id;
-  chip.innerHTML = `<svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>` +
+  chip.innerHTML = icon('documentText', { size: 12, class: 'w-3 h-3 flex-shrink-0' }) +
     `<span class="truncate">${escapeHtml(note.title || 'Untitled')}</span>`;
 
   const removeBtn = document.createElement('button');
@@ -806,7 +806,7 @@ function _addTabContextToPanel(popup, tabInfo) {
   const domain = (() => { try { return new URL(tabInfo.url).hostname.replace('www.', ''); } catch { return ''; } })();
   const favUrl = tabInfo.url ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
   chip.innerHTML = (favUrl ? `<img src="${favUrl}" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display='none'">` :
-    `<svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>`) +
+    icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' })) +
     `<span class="truncate">${escapeHtml(tabInfo.title || domain || 'Tab')}</span>`;
 
   const removeBtn = document.createElement('button');
@@ -853,7 +853,7 @@ function _showTabContextMenu(e, tabEl) {
   // Add to assistant
   items.push({
     label: 'Add to assistant',
-    icon: '<svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>',
+    icon: icon('chatContext', { size: 14, class: 'w-3.5 h-3.5 inline', strokeWidth: '1.5' }),
     fn() {
       (async () => {
         try {

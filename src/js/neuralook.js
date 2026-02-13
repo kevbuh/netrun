@@ -219,11 +219,11 @@ function renderNeuralookView() {
           </div>
           <div id="nl-mp-status" class="flex items-center gap-2 mb-2">
             ${_nlMpModelReady
-              ? '<svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-[0.75rem] text-green-400">MediaPipe ready</span>'
+              ? icon('check', { size: 14, class: 'text-green-400 flex-shrink-0', strokeWidth: '2.5' }) + '<span class="text-[0.75rem] text-green-400">MediaPipe ready</span>'
               : _nlMpModelLoading
                 ? '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-accent">Loading face model...</span>'
                 : _nlMpCdnLoaded
-                  ? '<svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-[0.75rem] text-muted">MediaPipe loaded</span>'
+                  ? icon('check', { size: 14, class: 'text-green-400 flex-shrink-0', strokeWidth: '2.5' }) + '<span class="text-[0.75rem] text-muted">MediaPipe loaded</span>'
                   : '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-muted" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-dimmer">Loading MediaPipe...</span>'
             }
           </div>

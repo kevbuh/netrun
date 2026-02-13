@@ -333,11 +333,11 @@ async function cachePostOffline(link, paper, btnEl) {
 }
 
 function _offlineDownloadIcon() {
-  return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-dimmer"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  return icon('download', {size: 14, class: 'text-dimmer'});
 }
 
 function _offlineCachedIcon() {
-  return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  return icon('checkCircle', {size: 14, class: 'text-green-400'});
 }
 
 function getSavedPosts() {
@@ -377,23 +377,23 @@ function _showBookmarkFly(event) {
   // Flying bookmark icon from click position to pill island
   const target = document.getElementById('pill-island') || document.getElementById('sb-dashboard');
   if (target) {
-    const icon = document.createElement('div');
-    icon.innerHTML = '<svg style="width:24px;height:24px" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
-    icon.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;transition:all 0.5s cubic-bezier(0.4,0,0.2,1);';
+    const iconEl = document.createElement('div');
+    iconEl.innerHTML = window.icon('bookmark', {size: 24, fill: 'var(--accent)', stroke: 'var(--accent)'});
+    iconEl.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;transition:all 0.5s cubic-bezier(0.4,0,0.2,1);';
     const startX = event.clientX - 12;
     const startY = event.clientY - 12;
-    icon.style.left = startX + 'px';
-    icon.style.top = startY + 'px';
-    icon.style.opacity = '1';
-    document.body.appendChild(icon);
+    iconEl.style.left = startX + 'px';
+    iconEl.style.top = startY + 'px';
+    iconEl.style.opacity = '1';
+    document.body.appendChild(iconEl);
     const tr = target.getBoundingClientRect();
     requestAnimationFrame(() => {
-      icon.style.left = (tr.left + tr.width / 2 - 8) + 'px';
-      icon.style.top = (tr.top + tr.height / 2 - 8) + 'px';
-      icon.style.opacity = '0';
-      icon.style.transform = 'scale(0.3)';
+      iconEl.style.left = (tr.left + tr.width / 2 - 8) + 'px';
+      iconEl.style.top = (tr.top + tr.height / 2 - 8) + 'px';
+      iconEl.style.opacity = '0';
+      iconEl.style.transform = 'scale(0.3)';
     });
-    setTimeout(() => icon.remove(), 550);
+    setTimeout(() => iconEl.remove(), 550);
   }
 }
 
@@ -669,7 +669,7 @@ function renderOnboardGrid() {
           <div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(f.desc)}</div>
         </div>
         <div class="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${sel ? 'border-accent bg-accent' : 'border-border-input bg-transparent'}">
-          ${sel ? '<svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+          ${sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : ''}
         </div>
       </div>`;
     }
@@ -892,7 +892,7 @@ function renderQualityPanel() {
     ${getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<div class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5 mb-2.5 inline-block">Custom prompt</div>' : ''}
     <a href="#quality" onclick="toggleQualityPanel()" class="flex items-center justify-center gap-1.5 text-[0.72rem] text-accent hover:text-accent-hover cursor-pointer w-full py-1.5 rounded-md border border-border-input hover:border-accent transition-colors" style="text-decoration:none">
       Manage filters
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93s.844.083 1.178-.188l.702-.585a1.132 1.132 0 011.536.07l.774.773c.44.44.48 1.137.07 1.536l-.585.702c-.271.334-.322.773-.188 1.178.134.396.506.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.424.07-.764.383-.93.78-.135.404-.083.843.188 1.177l.585.703c.41.399.37 1.096-.07 1.536l-.774.773a1.132 1.132 0 01-1.536.07l-.702-.584c-.334-.272-.773-.323-1.178-.188-.396.133-.71.505-.78.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.404-.134-.843-.082-1.177.188l-.703.585a1.132 1.132 0 01-1.536-.07l-.773-.774a1.132 1.132 0 01-.07-1.536l.584-.702c.272-.334.322-.773.188-1.178-.133-.396-.506-.71-.929-.78l-.894-.149c-.542-.09-.94-.56-.94-1.11v-1.094c0-.55.398-1.02.94-1.11l.894-.148c.423-.071.764-.384.929-.781.135-.404.083-.843-.188-1.177l-.585-.703a1.132 1.132 0 01.07-1.536l.774-.773a1.132 1.132 0 011.536-.07l.702.584c.334.272.773.322 1.178.188.396-.133.71-.505.78-.929l.149-.894zM15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      ${icon('settings', {size: 12, class: 'w-3 h-3'})}
     </a>
     <a href="#algorithm" onclick="toggleQualityPanel()" class="flex items-center justify-center gap-1.5 text-[0.65rem] text-dimmer hover:text-dim cursor-pointer w-full py-1 transition-colors mt-1" style="text-decoration:none">
       How the algorithm works
@@ -928,7 +928,7 @@ function renderAlgorithmView() {
 
   container.innerHTML = `
     <a href="#quality" class="text-dim text-[0.72rem] hover:text-primary transition-colors inline-flex items-center gap-1 mb-4" style="text-decoration:none">
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+      ${icon('arrowLeft', {size: 12, class: 'w-3 h-3'})}
       Back to Quality Filter
     </a>
     <h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>
@@ -1121,7 +1121,7 @@ function renderQualityView() {
 
     <div class="mb-6 pt-5 border-t border-border-subtle">
       <button onclick="_toggleBlockedPostsList()" class="flex items-center gap-2 text-muted text-[0.8rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors">
-        <svg id="blocked-posts-chevron" class="w-3.5 h-3.5 transition-transform" style="transform:rotate(-90deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+        <span id="blocked-posts-chevron" style="transform:rotate(-90deg);display:inline-block" class="transition-transform">${icon('chevronDown', {size: 14, class: 'w-3.5 h-3.5'})}</span>
         Blocked Posts
       </button>
       <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>
@@ -1957,18 +1957,18 @@ function _renderPapersNow() {
             ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2">${escapeHtml(p._quoteText)}</div>` : ''}
             <div class="flex items-center justify-between mt-2.5 max-w-[400px]">
               <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+                ${icon('chatBubble', {size: 16, class: 'w-4 h-4'})}
                 <span class="text-[0.72rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${_tweetCommentCounts[p.link] || ''}</span>
               </button>
               <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ${ctx.repostedSet.has(p.link) ? '' : 'text-dimmer hover:text-green-400'}" style="${ctx.repostedSet.has(p.link) ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+                ${icon('repost', {size: 16, class: 'w-4 h-4'})}
                 <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
               </button>
               <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--text-dimmer)' : 'var(--accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                ${icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke})}
               </button>
               <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
-                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                ${icon('moreVertical', {size: 16, class: 'w-4 h-4'})}
               </button>
             </div>
             <div id="tweet-comments-${i}" style="display:${_tweetCommentsOpen.has(p.link) ? 'block' : 'none'}"></div>
@@ -2225,17 +2225,17 @@ function _cardActionRow(p, i, ctx) {
   const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
   return `<div class="flex items-center gap-3 shrink-0 ml-auto">
     <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})" title="Comments">
-      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+      ${icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'})}
       <span class="text-[0.68rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${commentCount}</span>
     </button>
     <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ${reposted ? '' : 'text-dimmer hover:text-green-400'}" style="${reposted ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)" title="Repost">
-      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      ${icon('repost', {size: 14, class: 'w-3.5 h-3.5'})}
     </button>
     <button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--text-dimmer)' : 'var(--accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}">
-      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="${bmFill}" stroke="${bmStroke}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+      ${icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke})}
     </button>
     <button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
-      <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+      ${icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'})}
     </button>
   </div>`;
 }

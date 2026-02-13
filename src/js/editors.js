@@ -22,23 +22,23 @@ function renderMarkdownEditor(fname, content) {
       <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">md</span>
       <span class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapedFname}')" title="Click to rename">${escapeHtml(fname)}</span>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdWrap('**','**')" class="md-tb-btn" title="Bold (⌘B)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg></button>
-      <button onclick="_mdWrap('*','*')" class="md-tb-btn" title="Italic (⌘I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg></button>
-      <button onclick="_mdWrap('~~','~~')" class="md-tb-btn" title="Strikethrough"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/></svg></button>
+      <button onclick="_mdWrap('**','**')" class="md-tb-btn" title="Bold (⌘B)">${icon('bold', {size:14})}</button>
+      <button onclick="_mdWrap('*','*')" class="md-tb-btn" title="Italic (⌘I)">${icon('italic', {size:14})}</button>
+      <button onclick="_mdWrap('~~','~~')" class="md-tb-btn" title="Strikethrough">${icon('strikethrough', {size:14})}</button>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
       <button onclick="_mdLinePrefix('# ')" class="md-tb-btn" title="Heading 1"><span class="text-[0.7rem] font-bold">H1</span></button>
       <button onclick="_mdLinePrefix('## ')" class="md-tb-btn" title="Heading 2"><span class="text-[0.7rem] font-bold">H2</span></button>
       <button onclick="_mdLinePrefix('### ')" class="md-tb-btn" title="Heading 3"><span class="text-[0.7rem] font-bold">H3</span></button>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdLinePrefix('- ')" class="md-tb-btn" title="Bullet list"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg></button>
-      <button onclick="_mdLinePrefix('1. ')" class="md-tb-btn" title="Numbered list"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/></svg></button>
-      <button onclick="_mdLinePrefix('- [ ] ')" class="md-tb-btn" title="Todo item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg></button>
+      <button onclick="_mdLinePrefix('- ')" class="md-tb-btn" title="Bullet list">${icon('bulletList', {size:14})}</button>
+      <button onclick="_mdLinePrefix('1. ')" class="md-tb-btn" title="Numbered list">${icon('numberedList', {size:14})}</button>
+      <button onclick="_mdLinePrefix('- [ ] ')" class="md-tb-btn" title="Todo item">${icon('todoCheck', {size:14})}</button>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdWrap('\`','\`')" class="md-tb-btn" title="Inline code (⌘E)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg></button>
+      <button onclick="_mdWrap('\`','\`')" class="md-tb-btn" title="Inline code (⌘E)">${icon('inlineCode', {size:14})}</button>
       <button onclick="_mdInsertCodeBlock()" class="md-tb-btn" title="Code block"><span class="text-[0.65rem] font-mono">{}</span></button>
-      <button onclick="_mdLinePrefix('> ')" class="md-tb-btn" title="Blockquote"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg></button>
-      <button onclick="_mdInsertLink()" class="md-tb-btn" title="Link (⌘K)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>
-      <button onclick="_mdInsertHr()" class="md-tb-btn" title="Horizontal rule"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 11h20v2H2z"/></svg></button>
+      <button onclick="_mdLinePrefix('> ')" class="md-tb-btn" title="Blockquote">${icon('blockquote', {size:14})}</button>
+      <button onclick="_mdInsertLink()" class="md-tb-btn" title="Link (⌘K)">${icon('link', {size:14})}</button>
+      <button onclick="_mdInsertHr()" class="md-tb-btn" title="Horizontal rule">${icon('horizontalRule', {size:14})}</button>
       <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity ml-auto" id="md-save-ind">Saved</span>
       ${fileShareButton()}
     </div>
@@ -250,7 +250,7 @@ function renderLatexEditor(fname, content) {
         '<button onclick="compileLatex()" id="tex-compile-btn" class="px-2.5 py-1 rounded-md text-[0.8rem] font-medium bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Compile PDF (⌘S)">Compile PDF</button>' +
         '<div class="relative">' +
           '<button onclick="toggleTexMenu()" id="tex-menu-btn" class="px-1.5 py-1 rounded-md text-[0.8rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="More options">' +
-            '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/></svg>' +
+            icon('moreVerticalSmall', {size:16}) +
           '</button>' +
           '<div id="tex-more-menu" class="hidden absolute right-0 top-full mt-1 z-50 bg-card border border-border-input rounded-lg shadow-lg py-1 min-w-[180px]">' +
             '<button onclick="openCompiledPdfNewTab(); hideTexMenu()" class="w-full text-left px-3 py-1.5 bg-transparent border-none text-[0.8rem] text-muted cursor-pointer hover:bg-hover hover:text-primary transition-colors">Open PDF in new tab</button>' +
@@ -864,7 +864,7 @@ function renderPythonEditor(fname, content) {
       <span class="text-[0.7rem] text-emerald-400 opacity-0 transition-opacity" id="py-save-ind">Saved</span>
       <div class="ml-auto flex items-center gap-1.5 shrink-0">
         ${fileShareButton()}
-        <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></button>
+        <button onclick="restartKernel()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Restart kernel">${icon('refresh', {size:15, strokeWidth:'1.5'})}</button>
         <div class="relative inline-flex items-center">
           <button class="px-1.5 py-0.5 rounded border-none bg-transparent text-muted text-[0.7rem] cursor-pointer hover:text-primary" onclick="toggleVenvMenu()">Env</button>
           <div id="py-venv-menu" class="hidden absolute right-0 top-full mt-1 z-50 bg-card border border-border-card rounded-lg shadow-lg py-1 min-w-[220px]">
@@ -895,9 +895,9 @@ function renderPythonEditor(fname, content) {
             </div>
           </div>
         </div>
-        <button onclick="togglePyOutput()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Toggle output (⌘J)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg></button>
-        <button onclick="copyPyFile()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-        <button onclick="runPythonFile()" class="w-7 h-7 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" id="py-run-btn" title="Run file (Shift+Enter)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></button>
+        <button onclick="togglePyOutput()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" title="Toggle output (⌘J)">${icon('terminal', {size:15, strokeWidth:'1.5'})}</button>
+        <button onclick="copyPyFile()" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary" id="py-copy-btn" title="Copy file contents">${icon('copy', {size:15, strokeWidth:'1.5'})}</button>
+        <button onclick="runPythonFile()" class="w-7 h-7 rounded flex items-center justify-center bg-emerald-500/20 text-emerald-400 border-none cursor-pointer hover:bg-emerald-500/30" id="py-run-btn" title="Run file (Shift+Enter)">${icon('playFilled', {size:16, strokeWidth:'1.5'})}</button>
       </div>
     </div>
     <div class="border-t border-border-dim" style="flex:1 1 0%;min-height:0;overflow:hidden;display:flex;flex-direction:column">
@@ -989,8 +989,8 @@ document.addEventListener('keydown', function(e) {
 
 let _pyRunning = false;
 
-const _pyPlayIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>';
-const _pyPauseIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg>';
+const _pyPlayIcon = icon('playFilled', {size:16, strokeWidth:'1.5'});
+const _pyPauseIcon = icon('pause', {size:16, strokeWidth:'1.5'});
 
 function _pyBtnRun() {
   const btn = document.getElementById('py-run-btn');
@@ -1366,8 +1366,8 @@ async function _gotoDefInProject(token) {
   }
 }
 
-const _copyIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
-const _checkIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const _copyIcon = icon('copy', {size:15, strokeWidth:'1.5'});
+const _checkIcon = icon('check', {size:15});
 
 function copyPyFile() {
   if (!pyEditorCm) return;

@@ -88,11 +88,11 @@ function _dashBuildStatsRow(papersRead, streak, savedCount, projectCount, taskCo
 
 function _dashBuildQuickActions() {
   const actions = [
-    { label: 'New Project', onclick: 'openExperiments()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' },
-    { label: 'Search', onclick: 'openSearch()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' },
-    { label: 'Vault', onclick: 'openVault()', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
-    { label: 'Graph', onclick: 'wmOpen(\'graph\')', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="19" r="2"/><path stroke-linecap="round" d="M6.8 7.2l3.8 9.6M17.2 7.2l-3.8 9.6M7 6h10"/></svg>' },
-    { label: 'Calendar', onclick: 'wmOpen(\'calendar\')', icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+    { label: 'New Project', onclick: 'openExperiments()', icon: icon('folder', {size: 20, class: 'w-5 h-5'}) },
+    { label: 'Search', onclick: 'openSearch()', icon: icon('search', {size: 20, class: 'w-5 h-5'}) },
+    { label: 'Vault', onclick: 'openVault()', icon: icon('file', {size: 20, class: 'w-5 h-5'}) },
+    { label: 'Graph', onclick: 'wmOpen(\'graph\')', icon: icon('graph', {size: 20, class: 'w-5 h-5'}) },
+    { label: 'Calendar', onclick: 'wmOpen(\'calendar\')', icon: icon('calendar', {size: 20, class: 'w-5 h-5'}) },
   ];
   return `<div class="grid grid-cols-2 gap-2 h-full">${actions.map(a =>
     `<button class="bento-action-btn" onclick="${a.onclick}">${a.icon}<span>${a.label}</span></button>`
@@ -207,14 +207,14 @@ async function renderDashboard() {
   const _todayDateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const _ovIcons = {
-    cal:      `<svg class="w-3.5 h-3.5" style="color:#60a5fa" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-    bookmark: `<svg class="w-3.5 h-3.5" style="color:#34d399" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>`,
-    comment:  `<svg class="w-3.5 h-3.5" style="color:#a78bfa" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
-    repost:   `<svg class="w-3.5 h-3.5" style="color:#4ade80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
-    task:     `<svg class="w-3.5 h-3.5" style="color:#fbbf24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
-    search:   `<svg class="w-3.5 h-3.5" style="color:#f97316" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
-    globe:    `<svg class="w-3.5 h-3.5" style="color:#38bdf8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`,
-    bell:     `<svg class="w-3.5 h-3.5" style="color:#fb923c" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>`,
+    cal:      icon('calendar', {class: 'w-3.5 h-3.5', style: 'color:#60a5fa'}),
+    bookmark: icon('bookmark', {class: 'w-3.5 h-3.5', style: 'color:#34d399'}),
+    comment:  icon('comment', {class: 'w-3.5 h-3.5', style: 'color:#a78bfa'}),
+    repost:   icon('repost', {class: 'w-3.5 h-3.5', style: 'color:#4ade80'}),
+    task:     icon('taskCheck', {class: 'w-3.5 h-3.5', style: 'color:#fbbf24'}),
+    search:   icon('search', {class: 'w-3.5 h-3.5', style: 'color:#f97316'}),
+    globe:    icon('globe', {class: 'w-3.5 h-3.5', style: 'color:#38bdf8'}),
+    bell:     icon('bell', {class: 'w-3.5 h-3.5', style: 'color:#fb923c'}),
   };
 
   const _ovLabels = { event: 'Event', saved: 'Saved', comment: 'Commented', repost: 'Reposted', task: 'New task', search: 'Searched', 'web-search': 'Web search', notif: 'New post' };
@@ -246,7 +246,7 @@ async function renderDashboard() {
   const _eventsHtml = _todayEvents.length ? `
     <div class="rounded-lg p-3 mb-3" style="background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.2)">
       <div class="flex items-center gap-2 mb-2">
-        <svg class="w-4 h-4 shrink-0" style="color:#60a5fa" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        ${icon('calendar', {size: 16, class: 'w-4 h-4 shrink-0', style: 'color:#60a5fa'})}
         <span class="text-[0.78rem] font-semibold" style="color:#60a5fa">Today's Events</span>
       </div>
       <div class="flex flex-col gap-1.5">
@@ -697,7 +697,7 @@ async function renderDashboard() {
     <div class="relative rounded-xl overflow-hidden mb-6" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${_pAccent}33, ${_pAccent}11)`}">
       <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--bg-body),transparent)"></div>
       <button onclick="_uploadProfileBg()" class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors" title="Change background">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        ${icon('camera', {class: 'w-3.5 h-3.5'})}
       </button>
     </div>
     <div class="flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2">
@@ -707,7 +707,7 @@ async function renderDashboard() {
           : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--bg-body);background:${_pAccent}33;color:${_pAccent}">${escapeHtml((profile.username || _authUserInfo?.username || '?')[0].toUpperCase())}</div>`
         }
         <button onclick="_uploadProfilePic()" class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">
-          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          ${icon('camera', {size: 20, class: 'w-5 h-5 text-white'})}
         </button>
       </div>
       <div>
@@ -724,7 +724,7 @@ async function renderDashboard() {
         ${_pJoinDate ? `<div class="text-dimmer text-[0.78rem] mt-0.5">Joined ${_pJoinDate}</div>` : ''}
       </div>
       <div class="ml-auto">
-        <button onclick="openSettings()" class="w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors" title="Settings"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg></button>
+        <button onclick="openSettings()" class="w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors" title="Settings">${icon('settings', {size: 16, class: 'w-4 h-4'})}</button>
       </div>
     </div>
     <div id="dash-status-picker" class="hidden mb-4"></div>
@@ -782,7 +782,7 @@ async function renderDashboard() {
   const _bentoRepostsHtml = myReposts.slice(0, 4).map(r => {
     const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
     return `<a href="#view/${encodeURIComponent(r.paperLink)}" class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors" style="text-decoration:none">
-      <svg class="w-3 h-3 text-green-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      ${icon('repost', {size: 12, class: 'w-3 h-3 text-green-400 shrink-0'})}
       <div class="text-[0.75rem] text-primary truncate flex-1">${escapeHtml(r.paperTitle || r.paperLink)}</div>
       <span class="text-[0.65rem] text-dimmest shrink-0">${timeAgo}</span>
     </a>`;
@@ -1107,7 +1107,7 @@ async function openAllSaved() {
   const container = document.getElementById('dashboard-content');
   const saved = getSavedPosts();
   const entries = Object.values(saved).sort((a, b) => b.savedAt - a.savedAt);
-  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0 mb-4" onclick="openDashboard()"><svg class="w-4 h-4 fill-current mr-1.5" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg><span class="text-[0.82rem]">Back</span></button>`;
+  const backBtn = `<button class="bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0 mb-4" onclick="openDashboard()">${icon('backArrow', {size: 16, class: 'w-4 h-4 mr-1.5'})}<span class="text-[0.82rem]">Back</span></button>`;
   const rows = entries.length ? entries.map(entry => {
     const p = entry.paper;
     const hostname = p.hostname || (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
@@ -2152,9 +2152,7 @@ async function _devRunFeedValidator() {
       ` : `
         <div style="padding:24px;text-align:center;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px">
           <div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
+            ${icon('check', {size: 24, stroke: 'white', strokeWidth: '3'})}
           </div>
           <div style="color:var(--text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div>
           <div style="color:var(--text-dimmer);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div>

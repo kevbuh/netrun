@@ -48,7 +48,7 @@ function _renderAudioPill() {
   }
 
   if (micRecording) {
-    indicator.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    indicator.innerHTML = icon('microphone', { size: 14, stroke: '#ef4444' });
     indicator.classList.add('audio-pill-active');
     indicator.classList.remove('audio-pill-idle');
   } else if (active) {
@@ -81,7 +81,7 @@ function _renderAudioPill() {
   // TTS status
   if (tts) {
     const ttsIcon = tts.paused
-      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+      ? icon('play', { size: 14 })
       : _islandWaveformBars;
     rows += '<div class="audio-pill-row audio-pill-tts-status">'
       + ttsIcon
@@ -90,31 +90,31 @@ function _renderAudioPill() {
     // Pause/stop controls
     rows += '<button class="audio-pill-ctrl" onclick="_ttsPauseResume()" title="' + (tts.paused ? 'Resume' : 'Pause') + '">'
       + (tts.paused
-        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
-        : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/></svg>')
+        ? icon('play', { size: 12, strokeWidth: '2.5' })
+        : icon('pause', { size: 12, strokeWidth: '2.5' }))
       + '</button>';
     rows += '<button class="audio-pill-ctrl audio-pill-stop" onclick="_ttsStopAll()" title="Stop">'
-      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>'
+      + icon('close', { size: 12, strokeWidth: '2.5' })
       + '</button>';
     rows += '</div>';
   }
 
   // CC row
   if (cc) {
-    const ccIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 12h2m4 0h4"/></svg>';
+    const ccIcon = icon('cc', { size: 14 });
     rows += '<div class="audio-pill-row audio-pill-cc" onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
       + ccIcon
       + '<span class="audio-pill-row-label">' + escapeHtml(cc.label || 'CC') + '</span>';
     if (cc.active) {
       rows += '<button class="audio-pill-ctrl audio-pill-stop" onclick="event.stopPropagation();if(typeof stopCaptions===\'function\')stopCaptions()" title="Stop CC">'
-        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>'
+        + icon('close', { size: 12, strokeWidth: '2.5' })
         + '</button>';
     }
     rows += '</div>';
   } else if (tab) {
     // Only show CC available option when tab audio is playing but CC isn't active
     rows += '<div class="audio-pill-row" onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 12h2m4 0h4"/></svg>'
+      + icon('cc', { size: 14 })
       + '<span class="audio-pill-row-label">Captions</span></div>';
   }
 
@@ -122,7 +122,7 @@ function _renderAudioPill() {
   var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
   if (micRecording) {
     rows += '<div class="audio-pill-row audio-pill-mic-active" onclick="_pillMicClick()">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      + icon('microphone', { size: 14, stroke: '#ef4444' })
       + '<span class="audio-pill-row-label" style="color:#ef4444">Stop recording</span></div>';
     // Show live transcript if available
     const liveText = (typeof _pillMicLiveText !== 'undefined' && _pillMicLiveText) ? _pillMicLiveText : '';
@@ -133,17 +133,17 @@ function _renderAudioPill() {
   } else if (mic) {
     // Transcribing phase (after recording stopped, waiting for Whisper)
     rows += '<div class="audio-pill-row">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      + icon('microphone', { size: 14 })
       + '<span class="audio-pill-row-label">' + escapeHtml(mic.label || 'Transcribing…') + '</span></div>';
   } else {
     rows += '<div class="audio-pill-row" onclick="_pillMicClick()">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      + icon('microphone', { size: 14 })
       + '<span class="audio-pill-row-label">Voice input</span></div>';
   }
 
   // Read aloud button
   rows += '<div class="audio-pill-row" onclick="_readPageAloud()">'
-    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'
+    + icon('speaker', { size: 14 })
     + '<span class="audio-pill-row-label">Read aloud</span></div>';
 
   dropdown.innerHTML = '<div class="audio-pill-dropdown-inner">' + rows + '</div>';
@@ -153,18 +153,18 @@ else setTimeout(_renderAudioPill, 0);
 
 function _islandRenderPill(a) {
   if (a.type === 'feed-notif') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span style="color:var(--accent)">' + escapeHtml(a.label || '') + '</span>';
+    return icon('bell', { size: 14, stroke: 'var(--accent)' }) + '<span style="color:var(--accent)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.done) {
     return '<span class="island-dot-done"></span><span style="color:#22c55e">' + escapeHtml(a.label || 'Done') + '</span>';
   } else if (a.type === 'download') {
     const pct = a.progress || 0;
     const circ = 2 * Math.PI * 6;
     const offset = circ * (1 - pct / 100);
-    const ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    const ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : icon('download', { size: 14 });
     return ring + '<span>' + escapeHtml(a.label || pct + '%') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
   } else if (a.type === 'tts') {
     const ttsIconC = a.paused
-      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+      ? icon('play', { size: 14 })
       : _islandWaveformBars;
     const spd = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
     const spdBadge = '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + spd.toFixed(1).replace(/\.0$/, '') + 'x</span>';
@@ -174,17 +174,21 @@ function _islandRenderPill(a) {
   } else if (a.type === 'ai') {
     return '<span class="island-ai-dot"></span><span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg>';
+    return icon('help', { size: 14, stroke: '#caa12a' });
   } else if (a.type === 'rss') {
     const rssIcon = a.subscribed
-      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>';
+      ? icon('check', { size: 14, stroke: '#22c55e' })
+      : icon('rssFeed', { size: 14, stroke: '#f97316' });
     return rssIcon + '<span style="color:' + (a.subscribed ? '#22c55e' : 'var(--aether-text)') + '">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'tabs') {
     const tabItems = a.items || [];
-    const _globePath = 'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418';
-    function _globeIcon(cls, attrs) { return '<svg class="' + (cls || '') + '" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"' + (attrs || '') + '><path stroke-linecap="round" stroke-linejoin="round" d="' + _globePath + '"/></svg>'; }
-    const tabIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/></svg>';
+    function _globeIcon(cls, attrs) {
+      const opts = { size: 16, strokeWidth: '1.5' };
+      if (cls) opts.class = cls;
+      // attrs should be parsed, but for simplicity we'll ignore complex attribute merging
+      return icon('globe', opts);
+    }
+    const tabIcon = icon('browserTab', { size: 14, strokeWidth: '1.5' });
     const ellIcon = _ELL_SVG;
     // Collect non-blank tabs sorted by lastVisited desc
     const nonBlank = [];
@@ -194,7 +198,7 @@ function _islandRenderPill(a) {
     nonBlank.sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
     // If no non-blank tabs (all NTP), show stacked-pages icon
     if (nonBlank.length === 0) {
-      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10"/><path d="M5 6h14"/><rect width="18" height="12" x="3" y="10" rx="2"/></svg><span style="opacity:0.4">0 tabs</span>';
+      return icon('windows', { size: 14 }) + '<span style="opacity:0.4">0 tabs</span>';
     }
     // Pick up to 2 most recently visited non-blank tabs for favicon strip
     const visible = nonBlank.slice(0, 3);
@@ -206,9 +210,10 @@ function _islandRenderPill(a) {
       const tipAttr = ' title="' + escapeHtml(t.title || 'Tab') + '"';
       var favHtml;
       if (t.favicon) {
-        favHtml = '<img class="' + cls + '" src="' + escapeHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'<svg class=&quot;' + cls + '&quot; data-island-tab=&quot;' + t.id + '&quot; width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;1.5&quot;><path stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; d=&quot;' + _globePath + '&quot;/></svg>\'">';
+        const fallbackSvg = icon('globe', { size: 16, strokeWidth: '1.5', class: cls }).replace(/"/g, '&quot;');
+        favHtml = '<img class="' + cls + '" src="' + escapeHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'' + fallbackSvg.replace('>', ' data-island-tab=&quot;' + t.id + '&quot;>') + '\'">';
       } else {
-        favHtml = _globeIcon(cls, tipAttr + ' data-island-tab="' + t.id + '"');
+        favHtml = icon('globe', { size: 16, strokeWidth: '1.5', class: cls }).replace('>', tipAttr + ' data-island-tab="' + t.id + '">');
       }
       if (t.active) {
         html += '<span class="island-strip-fav-wrap" data-island-tab="' + t.id + '">' + favHtml + '<button class="island-strip-fav-close" data-island-tab-close="' + t.id + '" title="Close tab">&times;</button></span>';
@@ -220,7 +225,7 @@ function _islandRenderPill(a) {
     html += '</span>';
     return html;
   } else if (a.type === 'annotate') {
-    const annPenIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#ffc107" stroke-width="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const annPenIcon = icon('annotationPen', { size: 14, stroke: '#ffc107' });
     if (a.offer) {
       return annPenIcon + '<span>' + escapeHtml(a.label || 'Annotate') + '</span>';
     }
@@ -229,12 +234,12 @@ function _islandRenderPill(a) {
     }
     const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annColor = _annModeColors[a.modeType] || '#4caf50';
-    const annIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="' + annColor + '" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const annIcon = icon('comment', { size: 14, stroke: annColor });
     return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'calendar') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
+    return icon('calendar', { size: 14, stroke: '#3b82f6' }) + '<span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+    return icon('bookmark', { size: 14, fill: 'var(--accent)', stroke: 'var(--accent)' });
   } else if (a.type === 'pulse') {
     const pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
     const pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
@@ -250,7 +255,7 @@ function _islandBuildTray(a, isBrowse) {
   if (a.type === 'context' && a.items && a.items.length) {
     var trayHtml = '';
     if (isBrowse) {
-      trayHtml += '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div>';
+      trayHtml += '<div class="island-tab-newtab" data-island-tab-new="1">' + icon('plus', { size: 12 }) + '<span>New tab</span></div>';
       trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
     }
     for (var ti = 0; ti < a.items.length; ti++) {
@@ -269,8 +274,8 @@ function _islandBuildTray(a, isBrowse) {
       let fname = item.filename || 'Download';
       if (fname.length > 40) fname = fname.slice(0, 38) + '\u2026';
       const dlIcon = item.state === 'completed'
-        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#22c55e" stroke="none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
-        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+        ? icon('fileCheckmark', { size: 14, fill: '#22c55e', stroke: 'none' })
+        : icon('filePlain', { size: 14 });
       const dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' · ' + item.size : '')
         : item.state === 'cancelled' ? 'Cancelled'
         : item.pct + '% · ' + item.received + (item.size ? ' / ' + item.size : '');
@@ -308,8 +313,10 @@ function _islandBuildTray(a, isBrowse) {
       trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge;
       // Rating buttons
       trayHtml += '<span style="margin-left:auto;display:flex;gap:2px">';
-      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button>';
-      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg></button>';
+      const thumbUpSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
+      const thumbDownSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
+      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'">' + thumbUpSvg + '</button>';
+      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'">' + thumbDownSvg + '</button>';
       trayHtml += '</span></div>';
       trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(displayText) + '</div>';
       if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
@@ -318,14 +325,14 @@ function _islandBuildTray(a, isBrowse) {
     return trayHtml;
   } else if (a.type === 'achievement') {
     return '<div class="island-ach-tray-content">'
-      + '<div class="island-ach-tray-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#caa12a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.27 1.772 6.003 6.003 0 01-4.27-1.772"/></svg></div>'
+      + '<div class="island-ach-tray-icon">' + icon('help', { size: 18, stroke: '#caa12a', strokeWidth: '1.5' }) + '</div>'
       + '<div class="island-ach-tray-info">'
       + '<div class="island-ach-tray-subtitle">Achievement Unlocked</div>'
       + '<div class="island-ach-tray-name">' + escapeHtml(a.label || 'Unlocked!') + '</div>'
       + '<div class="island-ach-tray-desc">' + escapeHtml(a.detail || '') + '</div>'
       + '</div></div>';
   } else if (a.type === 'tabs' && a.items && a.items.length) {
-    var trayHtml = '<div class="island-tab-newtab" data-island-tab-new="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>New tab</span></div><div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+    var trayHtml = '<div class="island-tab-newtab" data-island-tab-new="1">' + icon('plus', { size: 12 }) + '<span>New tab</span></div><div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
     const pinnedItems = a.items.filter(function(it) { return it.pinned; });
     const unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
     if (pinnedItems.length) {
@@ -334,7 +341,7 @@ function _islandBuildTray(a, isBrowse) {
         let pTitle = pItem.title || 'New Tab';
         if (pTitle.length > 32) pTitle = pTitle.slice(0, 30) + '\u2026';
         const pFav = pItem.favicon ? '<img src="' + escapeHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-        const pAudio = pItem.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
+        const pAudio = pItem.hasAudio ? icon('speakerSmall', { size: 12, style: 'flex-shrink:0;opacity:0.6' }) : '';
         const pClose = pItem.active ? '<button class="island-tab-item-close island-tab-close-hover" data-island-tab-close="' + pItem.id + '" title="Close">&times;</button>' : '';
         trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pTitle) + '</span>' + pClose + '</div>';
       }
@@ -345,7 +352,7 @@ function _islandBuildTray(a, isBrowse) {
       var t = item.title || 'New Tab';
       if (t.length > 32) t = t.slice(0, 30) + '\u2026';
       var fav = item.favicon ? '<img src="' + escapeHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-      const audioIcon = item.hasAudio ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:0.6"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>' : '';
+      const audioIcon = item.hasAudio ? icon('speakerSmall', { size: 12, style: 'flex-shrink:0;opacity:0.6' }) : '';
       trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
     }
     return trayHtml;
@@ -423,7 +430,7 @@ function _islandAttachHandlers(pill, a, hasTray) {
         const rBtn = rateGoodBtn || rateBadBtn;
         rBtn.style.opacity = '1';
         rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
-        rBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        rBtn.innerHTML = icon('check', { size: 12, strokeWidth: '2.5' });
       }
       return;
     }

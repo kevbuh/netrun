@@ -10,7 +10,7 @@ function _renderAccountSettings() {
             : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
           }
           <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            ${icon('camera', { size: 20, class: 'w-5 h-5 text-white' })}
           </div>
         </div>
         <div>
@@ -293,7 +293,7 @@ function _renderAppearanceSettings() {
           const isVisible = !hidden.includes(id);
           return '<div class="sb-icon-row flex items-center justify-between py-2" data-id="' + id + '" style="touch-action:none">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>' +
+              '<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>' +
               '<span class="text-primary text-sm">' + label + '</span>' +
             '</div>' +
             '<label class="flex items-center cursor-pointer"><span class="toggle-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + id + '\', this.checked)"><span class="slider"></span></span></label>' +
@@ -400,7 +400,7 @@ function _renderFeedQualityTab() {
 
     <div class="mb-5 pt-4 border-t border-border-subtle">
       <button onclick="_toggleBlockedPostsList()" class="flex items-center gap-2 text-muted text-[0.78rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors">
-        <svg id="blocked-posts-chevron" class="w-3.5 h-3.5 transition-transform" style="transform:rotate(-90deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+        <span id="blocked-posts-chevron" class="transition-transform" style="transform:rotate(-90deg)">${icon('chevronDown', { size: 14, class: 'w-3.5 h-3.5' })}</span>
         Blocked Posts
       </button>
       <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>
@@ -639,7 +639,7 @@ function _renderSettingsSitePermissions() {
     const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
     html += '<div style="border:1px solid var(--border-input);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
     html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPermDomain=(_expandedPermDomain===\'' + safeDomain + '\'?null:\'' + safeDomain + '\');document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();">';
-    html += '<svg style="width:12px;height:12px;color:var(--text-dimmer);transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') + '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--text-dimmer)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
     html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
     html += '<span style="font-size:0.68rem;color:var(--text-dimmer);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
     html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.7rem;cursor:pointer;">Clear</button>';
@@ -800,7 +800,7 @@ function _renderPasswordsList(container, entries) {
     const safeOrigin = escapeHtml(origin).replace(/'/g, "\\'");
     html += '<div style="border:1px solid var(--border-input);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
     html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPwDomain=(_expandedPwDomain===\'' + safeOrigin + '\'?null:\'' + safeOrigin + '\');_loadSettingsPasswords();">';
-    html += '<svg style="width:12px;height:12px;color:var(--text-dimmer);transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') + '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--text-dimmer)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
     html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);font-weight:500;">' + escapeHtml(origin) + '</span>';
     html += '<span style="font-size:0.68rem;color:var(--text-dimmer);">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>';
     html += '</div>';
@@ -808,7 +808,7 @@ function _renderPasswordsList(container, entries) {
       html += '<div style="padding:0 12px 8px;border-top:1px solid var(--border-subtle);">';
       for (const entry of items) {
         html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
-        html += '<svg style="width:14px;height:14px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+        html += icon('users', { size: 14, stroke: 'var(--text-dimmer)', style: 'flex-shrink:0;' });
         html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + escapeHtml(entry.username || '(no username)') + '</span>';
         if (entry.createdAt) {
           html += '<span style="font-size:0.65rem;color:var(--text-dimmer);">' + new Date(entry.createdAt).toLocaleDateString() + '</span>';
@@ -1145,7 +1145,7 @@ function _renderMemoryCard(mem) {
     pageInfo +
     '</div></div>' +
     '<button onclick="_deleteMemory(' + mem.id + ')" class="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all p-1" title="Delete memory">' +
-    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+    icon('close', { size: 12 }) + '</button>' +
     '</div></div>';
 }
 
@@ -1266,7 +1266,7 @@ function renderSettingsView() {
 
     if (_settingsSection === 'profile') {
       content += _renderAccountSettings();
-      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
+      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
     } else if (_settingsSection === 'appearance') {
       content += _renderAppearanceSettings();
     } else if (_settingsSection === 'feed') {

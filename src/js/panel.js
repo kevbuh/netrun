@@ -644,11 +644,11 @@ function _injectProfileItems(popup) {
   }
 
   const items = [
-    { label: 'View Profile', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z"/></svg>', fn: () => openUserProfile(username) },
-    { label: 'Settings', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>', fn: () => openSettings() },
-    { label: 'Help', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>', fn: () => { openBrowse(); setTimeout(() => openHelpPage(), 50); } },
+    { label: 'View Profile', icon: icon('profile', { size: 14 }), fn: () => openUserProfile(username) },
+    { label: 'Settings', icon: icon('settings', { size: 14 }), fn: () => openSettings() },
+    { label: 'Help', icon: icon('helpCircle', { size: 14 }), fn: () => { openBrowse(); setTimeout(() => openHelpPage(), 50); } },
     { sep: true },
-    { label: 'Sign Out', icon: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3h-9m9 0l-3-3m3 3l-3 3"/></svg>', danger: true, fn: () => _doLogout() },
+    { label: 'Sign Out', icon: icon('signOut', { size: 14 }), danger: true, fn: () => _doLogout() },
   ];
 
   for (const entry of items) {
@@ -1000,13 +1000,13 @@ function _panelBuildSelectionUI(popup, config) {
   const copyBtn = document.createElement('button');
   copyBtn.className = 'doc-selection-copy-btn';
   copyBtn.title = 'Copy';
-  copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  copyBtn.innerHTML = icon('copy', { size: 14 });
   copyBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
   copyBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     navigator.clipboard.writeText(capturedText).then(() => {
-      copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      setTimeout(() => { if (copyBtn.isConnected) copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1200);
+      copyBtn.innerHTML = icon('check', { size: 14 });
+      setTimeout(() => { if (copyBtn.isConnected) copyBtn.innerHTML = icon('copy', { size: 14 }); }, 1200);
     }).catch(() => {});
   });
   btnRow.appendChild(copyBtn);
@@ -1015,19 +1015,19 @@ function _panelBuildSelectionUI(popup, config) {
   const readBtn = document.createElement('button');
   readBtn.className = 'doc-selection-copy-btn';
   readBtn.title = 'Read aloud';
-  readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+  readBtn.innerHTML = icon('speaker', { size: 14 });
   readBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
   readBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     // If TTS is already active, toggle pause/stop
     if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
       _ttsStopAll();
-      readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+      readBtn.innerHTML = icon('speaker', { size: 14 });
       readBtn.title = 'Read aloud';
       return;
     }
     if (!capturedText || capturedText.length < 2) return;
-    readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    readBtn.innerHTML = icon('pauseRect', { size: 14 });
     readBtn.title = 'Stop';
     _ttsStopped = false;
     _ttsPaused = false;
@@ -1042,7 +1042,7 @@ function _panelBuildSelectionUI(popup, config) {
       if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
         clearInterval(checkDone);
         if (readBtn.isConnected) {
-          readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+          readBtn.innerHTML = icon('speaker', { size: 14 });
           readBtn.title = 'Read aloud';
         }
       }
@@ -1054,7 +1054,7 @@ function _panelBuildSelectionUI(popup, config) {
   if (typeof _getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
     const fromHereBtn = document.createElement('button');
     fromHereBtn.className = 'doc-selection-copy-btn';
-    fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    fromHereBtn.innerHTML = icon('play', { size: 14 });
     fromHereBtn.title = 'Read from this point to the end of the page';
     fromHereBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
     fromHereBtn.addEventListener('click', async (ev) => {
@@ -1062,9 +1062,9 @@ function _panelBuildSelectionUI(popup, config) {
       // If TTS is already active, stop it
       if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
         _ttsStopAll();
-        fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+        fromHereBtn.innerHTML = icon('play', { size: 14 });
         fromHereBtn.title = 'Read from this point to the end of the page';
-        readBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+        readBtn.innerHTML = icon('speaker', { size: 14 });
         readBtn.title = 'Read aloud';
         return;
       }
@@ -1072,11 +1072,11 @@ function _panelBuildSelectionUI(popup, config) {
       if (!win) return;
       const tab = win.tabs.find(t => t.id === win.activeTab);
       if (!tab) return;
-      fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      fromHereBtn.innerHTML = icon('pauseRect', { size: 14 });
       fromHereBtn.title = 'Stop';
       const fullText = await _extractTextFromFrame(tab);
       if (!fullText || fullText.length < 10) {
-        fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+        fromHereBtn.innerHTML = icon('play', { size: 14 });
         fromHereBtn.title = 'Read from this point to the end of the page';
         return;
       }
@@ -1099,7 +1099,7 @@ function _panelBuildSelectionUI(popup, config) {
         if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
           clearInterval(checkDone2);
           if (fromHereBtn.isConnected) {
-            fromHereBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+            fromHereBtn.innerHTML = icon('play', { size: 14 });
             fromHereBtn.title = 'Read from this point to the end of the page';
           }
         }
@@ -1112,7 +1112,7 @@ function _panelBuildSelectionUI(popup, config) {
   const annotateBtn = document.createElement('button');
   annotateBtn.className = 'doc-selection-copy-btn';
   annotateBtn.title = 'Mark as annotation';
-  annotateBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  annotateBtn.innerHTML = icon('plus', { size: 14 });
   annotateBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
   annotateBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
@@ -1153,7 +1153,7 @@ function _panelBuildSelectionUI(popup, config) {
           if (hlTab) injectSingleAnnotation(hlTab, { type: t.key, quote: capturedText });
         }
         dropdown.remove();
-        annotateBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + t.color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        annotateBtn.innerHTML = icon('check', { size: 14, stroke: t.color });
         annotateBtn.disabled = true;
       });
       dropdown.appendChild(chip);
@@ -1168,7 +1168,7 @@ function _panelBuildSelectionUI(popup, config) {
   clearBtnIcon.className = 'doc-selection-copy-btn';
   clearBtnIcon.title = 'Clear conversation';
   clearBtnIcon.style.marginLeft = 'auto';
-  clearBtnIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  clearBtnIcon.innerHTML = icon('close', { size: 14 });
   clearBtnIcon.addEventListener('mousedown', (ev) => ev.stopPropagation());
   clearBtnIcon.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
@@ -1333,11 +1333,11 @@ function _panelBuildChatInput(popup, config) {
 
     const contextIcon = document.createElement('div');
     contextIcon.className = 'aether-context-icon';
-    contextIcon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>';
+    contextIcon.innerHTML = icon('chatContext', { size: 11 });
 
     const closeIcon = document.createElement('div');
     closeIcon.className = 'aether-context-close-icon';
-    closeIcon.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    closeIcon.innerHTML = icon('close', { size: 11 });
 
     const contextContent = document.createElement('div');
     contextContent.className = 'aether-context-content';
@@ -1625,7 +1625,7 @@ function _panelBuildChatInput(popup, config) {
   // Mic button for voice input (MediaRecorder + Whisper)
   const micBtn = document.createElement('button');
   micBtn.className = 'aether-input-btn doc-ask-mic-btn';
-  micBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+  micBtn.innerHTML = icon('microphone', { size: 14 });
   micBtn.title = 'Voice input';
   let micRecorder = null;
   micBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
