@@ -176,6 +176,7 @@ function tryStartPythonServer(port) {
       '--port', String(port),
       '--data-dir', dataDir,
       '--static-dir', staticDir,
+      '--reload',
     ];
   } else {
     cmd = path.join(process.resourcesPath, 'arxiv-server', 'arxiv-server');
@@ -832,10 +833,18 @@ app.whenReady().then(() => {
   ipcMain.handle('pw-delete', (_, id) => pwStore.remove(id));
   ipcMain.handle('pw-list', () => pwStore.list());
 
-  createWindow();
+  createWindow().then(() => {
+    if (isDev && mainWindow) {
+      const { initDevReload } = require('./dev-reload');
+      initDevReload(mainWindow);
+    }
+  });
 });
 
 app.on('window-all-closed', async () => {
+  if (isDev) {
+    try { require('./dev-reload').stopDevReload(); } catch {}
+  }
   await killPython();
   app.quit();
 });
