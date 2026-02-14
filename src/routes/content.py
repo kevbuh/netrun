@@ -345,12 +345,15 @@ def doc_chat():
     def generate():
         try:
             nonlocal tools_enabled, ollama_messages, model
-            # Tool call loop (max 5 iterations)
+            # Tool call loop
+            MAX_TOOL_ITERATIONS = 25
             if tools_enabled:
                 # If DOM is already in context, exclude browser_read_page to avoid model confusion
                 _has_dom = context and '--- BROWSER TAB DOM' in context
                 _tools = [t for t in CHAT_TOOLS if not (_has_dom and t['function']['name'] == 'browser_read_page')] if _has_dom else CHAT_TOOLS
-                for _ in range(5):
+                _last_tool_call = None
+                _repeat_count = 0
+                for _ in range(MAX_TOOL_ITERATIONS):
                     tool_payload = {
                         "model": model,
                         "messages": ollama_messages,
@@ -393,6 +396,16 @@ def doc_chat():
                     if not tool_calls:
                         # No tool calls -- model produced text, break to stream
                         break
+                    # Stuck detection: if agent repeats the exact same call 3x, stop looping
+                    _current_call = json.dumps([(tc.get('function', {}).get('name'), tc.get('function', {}).get('arguments')) for tc in tool_calls], sort_keys=True)
+                    if _current_call == _last_tool_call:
+                        _repeat_count += 1
+                        if _repeat_count >= 3:
+                            yield sse_event('tool_call', {"name": "_stopped", "args": {"reason": "repeated tool call detected"}})
+                            break
+                    else:
+                        _repeat_count = 0
+                    _last_tool_call = _current_call
                     # Process each tool call
                     ollama_messages.append(msg)
                     for tc in tool_calls:
@@ -420,8 +433,8 @@ def doc_chat():
                             yield sse_event('web_sources', tool_result['results'])
                         ollama_messages.append({"role": "tool", "content": json.dumps(tool_result)})
                 else:
-                    # Exhausted iterations -- do final call without tools
-                    pass
+                    # Exhausted tool iterations -- do final streaming call
+                    yield sse_event('tool_call', {"name": "_stopped", "args": {"reason": "max iterations reached"}})
 
             # Final streaming call
             stream_payload = {

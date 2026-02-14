@@ -106,7 +106,7 @@ function _sendPopupChatMessage(popup, capturedText) {
       // Track context sources for transparency indicator
       const _ctxSources = [];
       if (hasVision) {
-        _ctxSources.push('vision');
+        _ctxSources.push({ label: 'vision' });
         body.vision = true;
         const vm = localStorage.getItem('visionModel');
         if (vm) body.model = vm;
@@ -115,26 +115,26 @@ function _sendPopupChatMessage(popup, capturedText) {
         body.think = localStorage.getItem('chatThinking') === 'on';
         // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
-        if (ctx) _ctxSources.push('doc');
+        if (ctx) _ctxSources.push({ label: 'doc', content: _docText });
         if (noteContexts.length) {
-          _ctxSources.push(noteContexts.length + ' note' + (noteContexts.length > 1 ? 's' : ''));
           const notesCtx = noteContexts.map(n =>
             `--- Note: ${n.title} ---\n${n.content}`
           ).join('\n\n');
+          _ctxSources.push({ label: noteContexts.length + ' note' + (noteContexts.length > 1 ? 's' : ''), content: notesCtx });
           ctx = ctx ? ctx + '\n\n' + notesCtx : notesCtx;
         }
         if (tabContexts.length) {
-          _ctxSources.push(tabContexts.length + ' tab' + (tabContexts.length > 1 ? 's' : ''));
           const tabCtx = tabContexts.map(t =>
             `--- Tab: ${t.title} (${t.url}) ---\n${t.content}`
           ).join('\n\n');
+          _ctxSources.push({ label: tabContexts.length + ' tab' + (tabContexts.length > 1 ? 's' : ''), content: tabCtx });
           ctx = ctx ? ctx + '\n\n' + tabCtx : tabCtx;
         }
         if (fileContexts.length) {
-          _ctxSources.push(fileContexts.length + ' file' + (fileContexts.length > 1 ? 's' : ''));
           const fileCtx = fileContexts.map(f =>
             `--- File: ${f.name} ---\n${f.content}`
           ).join('\n\n');
+          _ctxSources.push({ label: fileContexts.length + ' file' + (fileContexts.length > 1 ? 's' : ''), content: fileCtx });
           ctx = ctx ? ctx + '\n\n' + fileCtx : fileCtx;
         }
         // Retrieve relevant past conversations on first exchange
@@ -148,10 +148,9 @@ function _sendPopupChatMessage(popup, capturedText) {
               if (memResp.ok) {
                 const memData = await memResp.json();
                 if (memData.memories && memData.memories.length) {
-                  _ctxSources.push(memData.memories.length + ' memor' + (memData.memories.length > 1 ? 'ies' : 'y'));
-                  const memCtx = '\n\nRELEVANT PAST CONVERSATIONS:\n' +
-                    memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
-                  ctx = ctx ? ctx + memCtx : memCtx;
+                  const memCtx = memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
+                  _ctxSources.push({ label: memData.memories.length + ' memor' + (memData.memories.length > 1 ? 'ies' : 'y'), content: memCtx });
+                  ctx = ctx ? ctx + '\n\n' + memCtx : memCtx;
                 }
               }
             }
@@ -165,7 +164,7 @@ function _sendPopupChatMessage(popup, capturedText) {
             try {
               const domTree = await agentGetAccessibleDOM(_agentTab);
               if (domTree && domTree.elements) {
-                _ctxSources.push('page DOM (' + (domTree.elementCount || '?') + ')');
+                _ctxSources.push({ label: 'page DOM (' + (domTree.elementCount || '?') + ')', content: domTree.elements });
                 const domCtx = `\n\n--- BROWSER TAB DOM (${domTree.title}) [${domTree.url}] ---\n${domTree.elements}\n--- END DOM ---`;
                 ctx = ctx ? ctx + domCtx : domCtx;
               } else if (domTree && domTree.error) {
@@ -174,15 +173,12 @@ function _sendPopupChatMessage(popup, capturedText) {
             } catch (_e) { console.warn('[agent] DOM extraction failed:', _e); }
           }
         }
-        if (toolsOn) _ctxSources.push('tools');
+        if (toolsOn) _ctxSources.push({ label: 'tools', content: null });
         body.context = ctx;
       }
-      // Store context sources + raw context on the AI message for display
+      // Store context sources on the AI message for display
       const aiMsg = _popupChatMessages[_popupChatMessages.length - 1];
-      if (aiMsg && _ctxSources.length) {
-        aiMsg._ctxSources = _ctxSources;
-        aiMsg._ctxRaw = body.context || '';
-      }
+      if (aiMsg && _ctxSources.length) aiMsg._ctxSources = _ctxSources;
       _chatStreamStart = Date.now();
       const resp = await api('/api/doc-chat', {
         method: 'POST',
@@ -284,6 +280,9 @@ function _sendPopupChatMessage(popup, capturedText) {
               try {
                 const tc = JSON.parse(line.slice(6));
                 const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…', open_tab: 'Opening tab…', browser_read_page: 'Reading page…', browser_click: 'Clicking…', browser_type: 'Typing…', browser_scroll: 'Scrolling…', browser_navigate: 'Navigating…', browser_screenshot: 'Taking screenshot…' };
+                if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
+                const _tcLabel = tc.name + (tc.args ? '(' + Object.values(tc.args).map(v => JSON.stringify(v)).join(', ') + ')' : '()');
+                _popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
                 _popupChatMessages[aiIdx].content = '';
                 _popupChatMessages[aiIdx]._thinking = true;
                 _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
@@ -354,6 +353,10 @@ function _sendPopupChatMessage(popup, capturedText) {
           const _tc = JSON.parse(_jsonMatch[0]);
           if (_tc.name && typeof _tc.name === 'string') {
             _intercepted = true;
+            if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
+            const _iArgs = _tc.arguments || _tc.parameters || {};
+            const _iLabel = _tc.name + '(' + Object.values(_iArgs).map(v => JSON.stringify(v)).join(', ') + ')';
+            _popupChatMessages[aiIdx]._toolsCalled.push(_iLabel);
             const _tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
               ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
             const _args = _tc.arguments || _tc.parameters || {};
@@ -533,6 +536,25 @@ function _renderLatexInElement(element) {
   });
 }
 
+function _renderCtxPills(sources, msg) {
+  if (!sources || !sources.length) return '';
+  return '<div class="doc-msg-context-sources">' + sources.map(s => {
+    const label = typeof s === 'string' ? s : s.label;
+    let content = typeof s === 'object' ? s.content : null;
+    // "tools" pill shows tools that were actually called
+    if (label === 'tools' && msg && msg._toolsCalled && msg._toolsCalled.length) {
+      content = msg._toolsCalled.join('\n');
+    }
+    if (content) {
+      const truncated = content.length > 4000 ? content.slice(0, 4000) + '\n…truncated' : content;
+      return '<details class="doc-ctx-details"><summary><span class="doc-ctx-pill">' +
+        escapeHtml(label) + '</span></summary><pre class="doc-ctx-raw">' +
+        escapeHtml(truncated) + '</pre></details>';
+    }
+    return '<span class="doc-ctx-pill">' + escapeHtml(label) + '</span>';
+  }).join('') + '</div>';
+}
+
 function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
@@ -555,9 +577,7 @@ function _renderPopupChat(popup, final) {
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
       const preview = m._thinkingText ? `<div class="doc-thinking-preview">${escapeHtml(m._thinkingText.length > 200 ? '…' + m._thinkingText.slice(-200) : m._thinkingText)}</div>` : '';
-      const ctxBlock = m._ctxSources && m._ctxSources.length
-        ? `<details class="doc-ctx-details"><summary class="doc-msg-context-sources">${m._ctxSources.map(s => '<span class="doc-ctx-pill">' + escapeHtml(s) + '</span>').join('')}</summary><pre class="doc-ctx-raw">${escapeHtml((m._ctxRaw || '').slice(0, 4000))}${(m._ctxRaw || '').length > 4000 ? '\n…truncated' : ''}</pre></details>`
-        : '';
+      const ctxBlock = _renderCtxPills(m._ctxSources, m);
       return `<div class="doc-msg-ai">${ctxBlock}<span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}${preview}</div>`;
     }
     // Search results
@@ -612,9 +632,7 @@ function _renderPopupChat(popup, final) {
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
-    const ctxBlock = m._ctxSources && m._ctxSources.length
-      ? `<details class="doc-ctx-details"><summary class="doc-msg-context-sources">${m._ctxSources.map(s => '<span class="doc-ctx-pill">' + escapeHtml(s) + '</span>').join('')}</summary><pre class="doc-ctx-raw">${escapeHtml((m._ctxRaw || '').slice(0, 4000))}${(m._ctxRaw || '').length > 4000 ? '\n…truncated' : ''}</pre></details>`
-      : '';
+    const ctxBlock = _renderCtxPills(m._ctxSources, m);
     const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message">${icon('copy', { size: 12 })}</button>`;
     const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud">${icon('speaker', { size: 12 })}</button>`;
     const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message">${icon('redo', { size: 12 })}</button>` : '';
