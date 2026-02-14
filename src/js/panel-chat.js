@@ -158,6 +158,20 @@ function _sendPopupChatMessage(popup, capturedText) {
             }
           } catch (e) { /* memory retrieval is best-effort */ }
         }
+        // Auto-inject accessible DOM from active browse tab for agent tools
+        if (toolsOn && typeof agentGetAccessibleDOM === 'function') {
+          const _agentTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+            ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+          if (_agentTab && _agentTab.webview) {
+            try {
+              const domTree = await agentGetAccessibleDOM(_agentTab);
+              if (domTree && domTree.elements) {
+                const domCtx = `\n\n--- BROWSER TAB DOM (${domTree.title}) [${domTree.url}] ---\n${domTree.elements}\n--- END DOM ---`;
+                ctx = ctx ? ctx + domCtx : domCtx;
+              }
+            } catch (_e) { /* DOM extraction is best-effort */ }
+          }
+        }
         body.context = ctx;
       }
       _chatStreamStart = Date.now();
@@ -217,7 +231,7 @@ function _sendPopupChatMessage(popup, capturedText) {
             } else if (currentEvent === 'tool_call') {
               try {
                 const tc = JSON.parse(line.slice(6));
-                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…', open_tab: 'Opening tab…' };
+                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…', open_tab: 'Opening tab…', browser_read_page: 'Reading page…', browser_click: 'Clicking…', browser_type: 'Typing…', browser_scroll: 'Scrolling…', browser_navigate: 'Navigating…', browser_screenshot: 'Taking screenshot…' };
                 _popupChatMessages[aiIdx].content = '';
                 _popupChatMessages[aiIdx]._thinking = true;
                 _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
@@ -240,6 +254,20 @@ function _sendPopupChatMessage(popup, capturedText) {
                     location.hash = '#browse';
                     if (act.url) setTimeout(() => browseNewTab(act.url), 100);
                     else setTimeout(() => browseNewTab(), 100);
+                  }
+                } else if (act.type === 'agent_click') {
+                  const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+                  if (_tab) agentClick(_tab, act.element_id);
+                } else if (act.type === 'agent_type') {
+                  const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+                  if (_tab) agentType(_tab, act.element_id, act.text);
+                } else if (act.type === 'agent_scroll') {
+                  const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+                  if (_tab) agentScroll(_tab, act.direction);
+                } else if (act.type === 'agent_navigate') {
+                  if (typeof browseNavigate === 'function') {
+                    location.hash = '#browse';
+                    setTimeout(() => browseNavigate(act.url), 100);
                   }
                 }
               } catch (e) {}

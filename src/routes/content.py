@@ -288,7 +288,12 @@ def doc_chat():
                 "You have tools that perform real actions in the app. IMPORTANT: You MUST actually "
                 "call the tools to perform actions — never pretend you performed an action or describe "
                 "the result without calling the tool first. Never say you "
-                "cannot open tabs or navigate — you can, using your tools." + page_ctx + "\n\n"
+                "cannot open tabs or navigate — you can, using your tools. "
+                "You also have browser automation tools: browser_read_page (see DOM elements with IDs), "
+                "browser_click(element_id), browser_type(element_id, text), browser_scroll(direction), "
+                "browser_navigate(url). When the user asks you to interact with a web page, use "
+                "browser_click/browser_type/browser_scroll to interact. Each element has a numeric ID "
+                "like [1], [2] — use these IDs in click/type calls." + page_ctx + "\n\n"
                 "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
             ) if tools_enabled else (
                 date_str +
@@ -307,7 +312,12 @@ def doc_chat():
                 "without calling the tool first. Never say you cannot open tabs or "
                 "navigate — you can, using your tools. Available tools: web_search, search_papers, "
                 "fetch_page, save_to_reading_list, navigate, create_experiment, "
-                "create_calendar_event, open_tab." + page_ctx
+                "create_calendar_event, open_tab. "
+                "You also have browser automation tools: browser_read_page (see DOM elements with IDs), "
+                "browser_click(element_id), browser_type(element_id, text), browser_scroll(direction), "
+                "browser_navigate(url). When the user asks you to interact with a web page, use "
+                "browser_click/browser_type/browser_scroll to interact. Each element has a numeric ID "
+                "like [1], [2] — use these IDs in click/type calls." + page_ctx
             ) if tools_enabled else (date_str + "You are a helpful assistant.")
         # Inject current date/time into the last user message so the model can't miss it
         if messages:

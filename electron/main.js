@@ -770,6 +770,16 @@ app.whenReady().then(() => {
     } catch (_e) { return null; }
   });
 
+  ipcMain.handle('agent-exec-js', async (event, webContentsId, code) => {
+    try {
+      const { webContents } = require('electron');
+      const wc = webContents.fromId(webContentsId);
+      if (!wc) return { error: 'webview not found' };
+      const result = await wc.executeJavaScript(code);
+      return { result };
+    } catch (e) { return { error: e.message }; }
+  });
+
   // Secure auth token via macOS Keychain (safeStorage)
   const fs = require('fs');
   const secureAuthPath = path.join(app.getPath('userData'), 'secure-auth.enc');

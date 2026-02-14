@@ -233,6 +233,87 @@ CHAT_TOOLS = [
                 "required": []
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_read_page",
+            "description": "Read the current browser tab's DOM as an accessible tree. Returns interactive elements (links, buttons, inputs) and visible text blocks, each with a numeric ID like [1], [2]. Use these IDs with browser_click and browser_type.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_click",
+            "description": "Click an element on the current page by its numeric ID from browser_read_page.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element_id": {"type": "integer", "description": "The numeric element ID from the DOM tree (e.g. 3)"}
+                },
+                "required": ["element_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_type",
+            "description": "Type text into an input/textarea element by its numeric ID from browser_read_page.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element_id": {"type": "integer", "description": "The numeric element ID from the DOM tree"},
+                    "text": {"type": "string", "description": "The text to type into the field"}
+                },
+                "required": ["element_id", "text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_scroll",
+            "description": "Scroll the current page up or down by roughly one viewport height.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "enum": ["up", "down"], "description": "Scroll direction"}
+                },
+                "required": ["direction"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_navigate",
+            "description": "Navigate the current browser tab to a specific URL.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The URL to navigate to"}
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_screenshot",
+            "description": "Take a screenshot of the current browser tab. Returns the image for visual analysis.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
     }
 ]
 
@@ -415,6 +496,35 @@ def execute_chat_tool(name, args, stream_callback=None, google_id=None):
             return tool_create_experiment(args.get('title', ''), args.get('description', ''), google_id=google_id)
         elif name == 'create_calendar_event':
             return tool_create_calendar_event(args.get('title', ''), args.get('date', ''), args.get('time', ''), args.get('description', ''), google_id=google_id, stream_callback=stream_callback)
+        elif name == 'browser_read_page':
+            if stream_callback:
+                stream_callback('action', {"type": "agent_read_page"})
+            return {"status": "pending", "message": "Reading page DOM..."}
+        elif name == 'browser_click':
+            element_id = args.get('element_id')
+            if stream_callback:
+                stream_callback('action', {"type": "agent_click", "element_id": element_id})
+            return {"status": "ok", "message": f"Clicked element {element_id}"}
+        elif name == 'browser_type':
+            element_id = args.get('element_id')
+            text = args.get('text', '')
+            if stream_callback:
+                stream_callback('action', {"type": "agent_type", "element_id": element_id, "text": text})
+            return {"status": "ok", "message": f"Typed into element {element_id}"}
+        elif name == 'browser_scroll':
+            direction = args.get('direction', 'down')
+            if stream_callback:
+                stream_callback('action', {"type": "agent_scroll", "direction": direction})
+            return {"status": "ok", "message": f"Scrolled {direction}"}
+        elif name == 'browser_navigate':
+            url = args.get('url', '')
+            if stream_callback:
+                stream_callback('action', {"type": "agent_navigate", "url": url})
+            return {"status": "ok", "message": f"Navigating to {url}"}
+        elif name == 'browser_screenshot':
+            if stream_callback:
+                stream_callback('action', {"type": "agent_screenshot"})
+            return {"status": "pending", "message": "Taking screenshot..."}
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:
