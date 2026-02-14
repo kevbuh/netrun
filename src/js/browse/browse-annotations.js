@@ -168,12 +168,7 @@ async function annotateCurrentPage(tab) {
     // Call annotate API (current tab only — no cross-tab context)
     const model = localStorage.getItem('annotateModel') || '';
     const interestCtx = typeof buildInterestContext === 'function' ? buildInterestContext() : '';
-    const resp = await api('/api/annotate', {
-      method: 'POST',
-      body: JSON.stringify({ url, text: pageText, otherTabs: [], model, interest_context: interestCtx }),
-      signal: abortCtrl.signal
-    });
-    const data = await resp.json();
+    const data = await apiPost('/api/annotate', { url, text: pageText, otherTabs: [], model, interest_context: interestCtx });
     if (abortCtrl.signal.aborted) return;
     const annotations = data.annotations || [];
 

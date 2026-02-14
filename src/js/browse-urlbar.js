@@ -211,36 +211,25 @@ function _browseUrlFeelingLucky() {
   _browseUrlRenderLuckyRow(dd);
   const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
   islandUpdate('ai-lucky', { type: 'ai', label: model, detail: 'Feeling Lucky \u00B7 ' + model });
-  api('/api/doc-chat', {
-    method: 'POST',
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: 'Give me a single interesting, surprising, or obscure topic to search on the web right now. Just reply with the search query, nothing else. No quotes. Be creative and varied — pick from science, history, art, philosophy, technology, nature, space, culture, or anything fascinating. Do not repeat yourself.' }],
-      model: model
-    })
-  }).then(r => {
-    const reader = r.body.getReader();
-    const dec = new TextDecoder();
-    function read() {
-      reader.read().then(({ done, value }) => {
-        if (done) {
-          islandRemove('ai-lucky');
-          _feelingLuckyLoading = false;
-          _feelingLuckyQuery = _feelingLuckyQuery.replace(/^["']|["']$/g, '').trim();
-          _browseUrlRenderLuckyRow(dd);
-          return;
-        }
-        const chunk = dec.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const evt = line.slice(6).trim();
-          if (evt === '[DONE]') continue;
-          try { const token = JSON.parse(evt); if (typeof token === 'string') _feelingLuckyQuery += token; } catch (_) {}
-        }
+  apiPost('/api/doc-chat', {
+    messages: [{ role: 'user', content: 'Give me a single interesting, surprising, or obscure topic to search on the web right now. Just reply with the search query, nothing else. No quotes. Be creative and varied — pick from science, history, art, philosophy, technology, nature, space, culture, or anything fascinating. Do not repeat yourself.' }],
+    model: model
+  }).then(result => {
+    if (!result || !result._stream) { _feelingLuckyLoading = false; _browseUrlRenderLuckyRow(dd); return; }
+    const handler = (_ev, sid, evt) => {
+      if (sid !== result.sessionId) return;
+      if (evt.event === 'token') {
+        _feelingLuckyQuery += (evt.data || '');
         _browseUrlRenderLuckyRow(dd);
-        read();
-      });
-    }
-    read();
+      } else if (evt.event === 'done' || evt.event === 'error') {
+        window.electronAPI.removeDocChatEventListener(handler);
+        islandRemove('ai-lucky');
+        _feelingLuckyLoading = false;
+        _feelingLuckyQuery = _feelingLuckyQuery.replace(/^["']|["']$/g, '').trim();
+        _browseUrlRenderLuckyRow(dd);
+      }
+    };
+    window.electronAPI.onDocChatEvent(handler);
   }).catch(() => { _feelingLuckyLoading = false; _browseUrlRenderLuckyRow(dd); });
 }
 
@@ -565,12 +554,7 @@ function _fetchSearchSuggestions(query) {
     const controller = new AbortController();
     _suggestAbort = controller;
     try {
-      const resp = await api('/api/search-suggest', {
-        method: 'POST',
-        body: JSON.stringify({ query }),
-        signal: controller.signal
-      });
-      const data = await resp.json();
+      const data = await apiPost('/api/search-suggest', { query });
       const suggestions = data.suggestions || [];
       _suggestCache[query] = suggestions;
       _currentSuggestions = suggestions;

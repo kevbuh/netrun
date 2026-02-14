@@ -794,8 +794,8 @@ async function addCustomFeed() {
   let name = url;
   try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch (e) { /* fire-and-forget */ }
   try {
-    const resp = await api(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
-    const xml = await resp.text();
+    const result = await apiGet(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
+    const xml = result && result._proxy ? atob(result.data) : '';
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
     if (feedTitle) name = feedTitle;
@@ -1260,8 +1260,8 @@ function _renderPersonalizationPanel() {
 
 async function fetchGenericRSS(feedUrl, sourceName) {
   try {
-    const resp = await api(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
-    const xml = await resp.text();
+    const result = await apiGet(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
+    const xml = result && result._proxy ? atob(result.data) : '';
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     const items = doc.querySelectorAll('item, entry');
     return Array.from(items).map(item => {
@@ -1346,8 +1346,7 @@ async function loadAllFeeds() {
   // 1) Fetch catalog sources from the central poller DB
   if (enabledKeys.length > 0) {
     promises.push(
-      api(`/api/feed-items?sources=${enabledKeys.join(',')}&limit=500`, { signal: abort.signal })
-        .then(r => r.json())
+      apiGet(`/api/feed-items?sources=${enabledKeys.join(',')}&limit=500`)
         .catch(() => [])
     );
   } else {
@@ -1357,11 +1356,8 @@ async function loadAllFeeds() {
   // 2) Fetch custom user feeds
   if (customFeeds.length > 0) {
     promises.push(
-      api('/api/feed-items/custom', {
-        method: 'POST',
-        body: JSON.stringify({ feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }),
-        signal: abort.signal,
-      }).then(r => r.json()).catch(() => [])
+      apiPost('/api/feed-items/custom', { feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) })
+        .catch(() => [])
     );
   } else {
     promises.push(Promise.resolve([]));
@@ -2188,10 +2184,8 @@ function _tweetRepost(idx, btn) {
     btn.style.color = '';
     btn.className = btn.className.replace(/(?:^|\s)text-dimmer\s+hover:text-green-400/g, '') + ' text-dimmer hover:text-green-400';
     delete btn.dataset.reposted;
-    api('/api/reposts', {
-      method: 'DELETE',
-      body: JSON.stringify({ paperLink: p.link })
-    }).catch(e => console.error('Unrepost error:', e));
+    ipcRoute('/api/reposts', { method: 'DELETE', body: JSON.stringify({ paperLink: p.link }) })
+      .catch(e => console.error('Unrepost error:', e));
     return;
   }
   // Animate the repost icon

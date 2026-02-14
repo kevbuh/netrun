@@ -1123,6 +1123,18 @@ export function registerToolIPC(): void {
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
+  // ── arXiv search (returns raw XML for frontend parsing) ──
+  ipcMain.handle('db:arxiv-search-xml', async (_event, query: string, start?: number, maxResults?: number) => {
+    try {
+      const q = encodeURIComponent(query);
+      const s = start ?? 0;
+      const m = maxResults ?? 100;
+      const url = `https://export.arxiv.org/api/query?search_query=all:${q}&start=${s}&max_results=${m}&sortBy=relevance&sortOrder=descending`;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(30_000) });
+      return { xml: await resp.text() };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
   // ── Feed proxies ──
   ipcMain.handle('db:feed-arxiv', async () => {
     try {

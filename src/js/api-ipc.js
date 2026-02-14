@@ -83,6 +83,13 @@ async function ipcRoute(path, opts = {}) {
     const result = await window.electronAPI.toolExecute('web-search', body, { googleId });
     return _unwrapTool(result);
   }
+  if (pathOnly === '/api/arxiv-search' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const data = await window.electronAPI.dbQuery('arxiv-search-xml',
+      urlParams.get('q') || '', parseInt(urlParams.get('start') || '0'), parseInt(urlParams.get('max_results') || '100'));
+    if (data.error) throw new Error(data.error);
+    return data; // { xml: '...' }
+  }
   if (pathOnly === '/api/arxiv-search' && method === 'POST') {
     const result = await window.electronAPI.toolExecute('paper-search', body, { googleId });
     return _unwrapTool(result);
@@ -90,6 +97,12 @@ async function ipcRoute(path, opts = {}) {
 
   // ── Feed — via tools ──
   if (pathOnly === '/api/feed-items' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const sources = (urlParams.get('sources') || '').split(',').filter(Boolean);
+    const limit = parseInt(urlParams.get('limit') || '100');
+    if (sources.length) {
+      return await window.electronAPI.dbQuery('feed-items', sources, limit);
+    }
     const result = await window.electronAPI.toolExecute('feed-list', {}, { googleId });
     return _unwrapTool(result, 'items') ?? [];
   }

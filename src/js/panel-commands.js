@@ -866,11 +866,7 @@ async function _doAetherLinks(popup) {
   }
 
   try {
-    const resp = await api('/api/extract-links', {
-      method: 'POST',
-      body: JSON.stringify({ url: pageUrl })
-    });
-    const data = await resp.json();
+    const data = await apiPost('/api/extract-links', { url: pageUrl });
     const links = data.links || [];
     const aiIdx = _popupChatMessages.length - 1;
     _popupChatMessages[aiIdx]._thinking = false;
@@ -921,11 +917,7 @@ async function _doAetherTab(popup) {
   if (currentTab && !_pendingTabContexts.some(t => t.tabId === currentTab.id)) {
     _aetherTabAutoAdding = true;
     try {
-      const resp = await api('/api/extract-text', {
-        method: 'POST',
-        body: JSON.stringify({ url: currentTab.url })
-      });
-      const data = await resp.json();
+      const data = await apiPost('/api/extract-text', { url: currentTab.url });
       _addTabContextToPanel(popup, { tabId: currentTab.id, title: currentTab.title, url: currentTab.url, content: data.text || '' });
     } catch (e) { /* ignore */ }
     _aetherTabAutoAdding = false;
@@ -1319,10 +1311,9 @@ async function _doAetherPaperSearch(popup, query) {
   _repositionSelectionPopup();
 
   try {
-    const resp = await api('/api/arxiv-search?q=' + encodeURIComponent(query) + '&max_results=8');
-    const xml = await resp.text();
+    const result = await apiGet('/api/arxiv-search?q=' + encodeURIComponent(query) + '&max_results=8');
     const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, 'text/xml');
+    const doc = parser.parseFromString(result.xml, 'text/xml');
     const entries = doc.querySelectorAll('entry');
     const papers = [];
     entries.forEach(entry => {

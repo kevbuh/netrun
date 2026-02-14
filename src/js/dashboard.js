@@ -976,39 +976,32 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
 
   try {
     islandUpdate('ai-summary', { type: 'ai', label: model || 'default', detail: 'Day summary \u00B7 ' + (model || 'default') });
-    const resp = await api('/api/doc-chat', {
-      method: 'POST',
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: prompt }],
-        model: model
-      }),
-      signal: _dashSummaryAbort.signal
+    const result = await apiPost('/api/doc-chat', {
+      messages: [{ role: 'user', content: prompt }],
+      model: model
     });
 
     let text = '';
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7);
-        } else if (line.startsWith('data: ') && currentEvent === 'token') {
-          try {
-            text += JSON.parse(line.slice(6));
+    if (result && result._stream) {
+      await new Promise((resolve) => {
+        const handler = (_ev, sid, evt) => {
+          if (sid !== result.sessionId) return;
+          if (evt.event === 'token') {
+            text += (evt.data || '');
             el.textContent = text;
-          } catch (e) {}
-        } else if (line.startsWith('data: ') && currentEvent === 'done') {
-          break;
+          } else if (evt.event === 'done' || evt.event === 'error') {
+            window.electronAPI.removeDocChatEventListener(handler);
+            resolve();
+          }
+        };
+        window.electronAPI.onDocChatEvent(handler);
+        if (_dashSummaryAbort) {
+          _dashSummaryAbort.signal.addEventListener('abort', () => {
+            window.electronAPI.removeDocChatEventListener(handler);
+            resolve();
+          });
         }
-      }
+      });
     }
     islandRemove('ai-summary');
     if (!text.trim()) {
@@ -1018,7 +1011,7 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
     }
   } catch (e) {
     islandRemove('ai-summary');
-    if (e.name !== 'AbortError') el.textContent = '';
+    el.textContent = '';
   }
 }
 

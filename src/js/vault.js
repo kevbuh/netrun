@@ -2495,52 +2495,37 @@ async function sendVaultChatMessage() {
     const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
       role: m.role, content: m.content
     }));
-    const resp = await api('/api/vault-chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: filteredMsgs, query: q }),
-      signal: _vaultChatAbort.signal
-    });
+    const result = await apiPost('/api/vault-chat', { messages: filteredMsgs, query: q });
 
     let aiText = '';
     const aiIdx = _vaultChatMessages.length - 1;
     _vaultChatMessages[aiIdx]._thinking = false;
 
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7);
-        } else if (line.startsWith('data: ')) {
-          if (currentEvent === 'sources') {
-            try {
-              _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6));
-            } catch (e) { /* fire-and-forget */ }
-          } else if (currentEvent === 'token') {
-            try {
-              const token = JSON.parse(line.slice(6));
-              aiText += token;
-              _vaultChatMessages[aiIdx].content = aiText;
-              _renderVaultChatMessages(false);
-            } catch (e) { /* fire-and-forget */ }
-          } else if (currentEvent === 'error') {
-            try {
-              const errMsg = JSON.parse(line.slice(6));
-              _vaultChatMessages[aiIdx].content = 'Error: ' + errMsg;
-            } catch (e) { /* fire-and-forget */ }
+    if (result && result._stream) {
+      await new Promise((resolve) => {
+        const handler = (_ev, sid, evt) => {
+          if (sid !== result.sessionId) return;
+          if (evt.event === 'sources') {
+            try { _vaultChatMessages[aiIdx]._sources = typeof evt.data === 'string' ? JSON.parse(evt.data) : evt.data; } catch (e) {}
+          } else if (evt.event === 'token') {
+            aiText += (evt.data || '');
+            _vaultChatMessages[aiIdx].content = aiText;
+            _renderVaultChatMessages(false);
+          } else if (evt.event === 'error') {
+            _vaultChatMessages[aiIdx].content = 'Error: ' + (evt.data || 'unknown');
+          } else if (evt.event === 'done') {
+            window.electronAPI.removeVaultChatEventListener(handler);
+            resolve();
           }
+        };
+        window.electronAPI.onVaultChatEvent(handler);
+        if (_vaultChatAbort) {
+          _vaultChatAbort.signal.addEventListener('abort', () => {
+            window.electronAPI.removeVaultChatEventListener(handler);
+            resolve();
+          });
         }
-      }
+      });
     }
 
     _vaultChatMessages[aiIdx].content = aiText;
@@ -2699,44 +2684,37 @@ async function _sendNtpVaultChat() {
     const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
       role: m.role, content: m.content
     }));
-    const resp = await api('/api/vault-chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: filteredMsgs, query: q }),
-      signal: _vaultChatAbort.signal
-    });
+    const result = await apiPost('/api/vault-chat', { messages: filteredMsgs, query: q });
 
     let aiText = '';
     const aiIdx = _vaultChatMessages.length - 1;
     _vaultChatMessages[aiIdx]._thinking = false;
 
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7);
-        } else if (line.startsWith('data: ')) {
-          if (currentEvent === 'sources') {
-            try { _vaultChatMessages[aiIdx]._sources = JSON.parse(line.slice(6)); } catch (e) { /* fire-and-forget */ }
-          } else if (currentEvent === 'token') {
-            try {
-              aiText += JSON.parse(line.slice(6));
-              _vaultChatMessages[aiIdx].content = aiText;
-              _renderNtpVaultChatMessages(false);
-            } catch (e) { /* fire-and-forget */ }
-          } else if (currentEvent === 'error') {
-            try { _vaultChatMessages[aiIdx].content = 'Error: ' + JSON.parse(line.slice(6)); } catch (e) { /* fire-and-forget */ }
+    if (result && result._stream) {
+      await new Promise((resolve) => {
+        const handler = (_ev, sid, evt) => {
+          if (sid !== result.sessionId) return;
+          if (evt.event === 'sources') {
+            try { _vaultChatMessages[aiIdx]._sources = typeof evt.data === 'string' ? JSON.parse(evt.data) : evt.data; } catch (e) {}
+          } else if (evt.event === 'token') {
+            aiText += (evt.data || '');
+            _vaultChatMessages[aiIdx].content = aiText;
+            _renderNtpVaultChatMessages(false);
+          } else if (evt.event === 'error') {
+            _vaultChatMessages[aiIdx].content = 'Error: ' + (evt.data || 'unknown');
+          } else if (evt.event === 'done') {
+            window.electronAPI.removeVaultChatEventListener(handler);
+            resolve();
           }
+        };
+        window.electronAPI.onVaultChatEvent(handler);
+        if (_vaultChatAbort) {
+          _vaultChatAbort.signal.addEventListener('abort', () => {
+            window.electronAPI.removeVaultChatEventListener(handler);
+            resolve();
+          });
         }
-      }
+      });
     }
 
     _vaultChatMessages[aiIdx].content = aiText;

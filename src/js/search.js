@@ -164,9 +164,8 @@ async function doSearchArxiv() {
   if (!container) return;
   container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Searching arXiv...</div></div>';
   try {
-    const resp = await api(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=100`);
-    const xml = await resp.text();
-    parseSearchArxivResults(xml);
+    const data = await apiGet(`/api/arxiv-search?q=${encodeURIComponent(searchCurrentQuery)}&start=${searchCurrentStart}&max_results=100`);
+    parseSearchArxivResults(data.xml);
   } catch (err) {
     container.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">Search failed: ${err.message}</div>`;
   }
@@ -285,12 +284,8 @@ async function fetchSearchCitations(total) {
   const ids = results.map(r => r.arxivId);
   if (!ids.length) return;
   try {
-    const resp = await api('/api/citations', {
-      method: 'POST',
-      body: JSON.stringify({ ids })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
+    const data = await apiPost('/api/citations', { ids });
+    if (data) {
       for (const r of searchResultsCache) {
         if (r && r.arxivId && data[r.arxivId] !== undefined) {
           r.citations = data[r.arxivId];

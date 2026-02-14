@@ -376,11 +376,9 @@ function _ttsChunkText(text) {
 }
 
 async function _ttsFetchChunk(text) {
-  const r = await api('/api/tts', {
-    method: 'POST',
-    body: JSON.stringify({ text: text })
-  });
-  return await r.blob();
+  const data = await apiPost('/api/tts', { text });
+  if (!data || !data.audioPath) throw new Error('No audio generated');
+  return data.audioPath;
 }
 
 function _ttsPlayNext() {
@@ -465,13 +463,11 @@ async function _ttsFetchAndQueue() {
     const total = _ttsChunks.length;
     if (!_ttsAudio && !_ttsPaused) _updateAudioUnified('tts', { label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
     try {
-      const blob = await _ttsFetchChunk(_ttsChunks[idx]);
+      const audioPath = await _ttsFetchChunk(_ttsChunks[idx]);
       if (_ttsStopped) return;
-      const url = URL.createObjectURL(blob);
+      const url = 'file://' + audioPath;
       _ttsQueue.push(url);
-      // Estimate duration from blob size (24kHz 16-bit mono WAV ≈ 48000 bytes/sec, minus 44-byte header)
-      const estDuration = Math.max(0, (blob.size - 44) / 48000);
-      _ttsRemainingDurations.push(estDuration);
+      _ttsRemainingDurations.push(5);
       // Start playing as soon as first chunk is ready
       if (!_ttsAudio && !_ttsPaused) _ttsPlayNext();
     } catch (e) {
