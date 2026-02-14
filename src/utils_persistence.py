@@ -1,13 +1,9 @@
-"""Utility functions from persistence - slugify, blocked titles, proxy rewriter, reference cache."""
+"""Utility functions - slugify, proxy rewriter."""
 
 import os
-import json
 import re
-import time
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote as url_quote
-
-from db import _get_db
 
 
 # ── Slugification ──
@@ -171,67 +167,3 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
 </script>"""
 
     return link_popup_script + ''.join(output)
-
-
-# ── Reference Cache (persistent) ──
-
-def get_cached_references(arxiv_id):
-    """Get cached references for a paper. Returns list of references or None."""
-    conn = _get_db()
-    row = conn.execute(
-        "SELECT references_json FROM reference_cache WHERE arxiv_id = ?",
-        (arxiv_id,)
-    ).fetchone()
-    conn.close()
-    if not row:
-        return None
-    try:
-        return json.loads(row['references_json'])
-    except (json.JSONDecodeError, ValueError):
-        return None
-
-
-def set_cached_references(arxiv_id, references):
-    """Cache references for a paper (persistent, no TTL — references don't change)."""
-    conn = _get_db()
-    conn.execute(
-        "INSERT OR REPLACE INTO reference_cache (arxiv_id, references_json, cached_at) VALUES (?, ?, ?)",
-        (arxiv_id, json.dumps(references), time.time())
-    )
-    conn.commit()
-    conn.close()
-
-
-# ── Author Cache (persistent, stats refreshed daily) ──
-
-AUTHOR_CACHE_STATS_TTL = 86400  # 24 hours — refresh stats once a day
-
-
-def get_cached_author(query):
-    """Get cached author data. Returns (author_dict, needs_refresh) or (None, True).
-    needs_refresh is True if cached_at is older than 24 hours (stats may be stale)."""
-    conn = _get_db()
-    row = conn.execute(
-        "SELECT author_json, cached_at FROM author_cache WHERE query = ?",
-        (query.lower().strip(),)
-    ).fetchone()
-    conn.close()
-    if not row:
-        return None, True
-    try:
-        data = json.loads(row['author_json'])
-        stale = (time.time() - row['cached_at']) > AUTHOR_CACHE_STATS_TTL
-        return data, stale
-    except (json.JSONDecodeError, ValueError):
-        return None, True
-
-
-def set_cached_author(query, author_data):
-    """Cache author data."""
-    conn = _get_db()
-    conn.execute(
-        "INSERT OR REPLACE INTO author_cache (query, author_json, cached_at) VALUES (?, ?, ?)",
-        (query.lower().strip(), json.dumps(author_data), time.time())
-    )
-    conn.commit()
-    conn.close()

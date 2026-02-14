@@ -977,9 +977,19 @@ function _isFlaskRoute(pathOnly) {
  */
 async function _flaskProxy(path, opts = {}) {
   const method = (opts.method || 'GET').toUpperCase();
+  // Build headers: use global _authHeaders() but ensure token from localStorage as fallback
+  const headers = (typeof _authHeaders === 'function') ? _authHeaders() : { 'Content-Type': 'application/json' };
+  if (!headers['Authorization']) {
+    const token = _getAuthToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+  }
+  // Skip network request entirely if no auth token — avoids noisy 401s in console
+  if (!headers['Authorization']) {
+    throw new Error('Unauthorized');
+  }
   const fetchOpts = {
     method,
-    headers: _authHeaders(),
+    headers,
   };
   if (opts.body && method !== 'GET' && method !== 'HEAD') {
     fetchOpts.body = opts.body;
@@ -1001,7 +1011,7 @@ async function _flaskProxy(path, opts = {}) {
 /** Get the auth token from localStorage */
 function _getAuthToken() {
   try {
-    return localStorage.getItem('token') || null;
+    return localStorage.getItem('authToken') || null;
   } catch (e) {}
   return null;
 }

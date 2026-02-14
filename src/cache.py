@@ -1,12 +1,11 @@
-"""Caching layer - in-memory cache, disk cache, feed cache, quality cache, smart highlights."""
+"""Caching layer - in-memory + disk cache for HTTP fetches."""
 
 import os
-import json
-import hashlib
 import time
+import hashlib
 import urllib.request
 
-from db import DIR, _get_db
+from db import DIR
 from routes.common import get_ssl_context
 
 # ── Cache constants ──
@@ -19,35 +18,6 @@ _cache = {}
 # Disk-backed feed cache shared across all users / server restarts
 FEED_CACHE_DIR = os.path.join(DIR, 'feed_cache')
 os.makedirs(FEED_CACHE_DIR, exist_ok=True)
-
-SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
-os.makedirs(SAVED_CONTENT_DIR, exist_ok=True)
-
-
-# ── Saved content cache (disk) ──
-
-def _content_path(url):
-    h = hashlib.sha256(url.encode()).hexdigest()[:16]
-    return os.path.join(SAVED_CONTENT_DIR, h + '.json')
-
-
-def read_saved_content(url):
-    path = _content_path(url)
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except (json.JSONDecodeError, ValueError):
-        return None
-
-
-def write_saved_content(url, data):
-    path = _content_path(url)
-    tmp = path + '.tmp'
-    with open(tmp, 'w') as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp, path)
 
 
 # ── Feed cache (disk) ──
@@ -108,74 +78,3 @@ def cached_fetch(url, timeout=15):
     _cache[url] = (data, now)
     _disk_cache_set(url, data)
     return data
-
-
-# ── Quality cache (SQLite) ──
-
-def _title_hash(title):
-    return hashlib.sha256(title.encode()).hexdigest()[:20]
-
-
-def quality_cache_get(titles, prompt_hash):
-    """Look up cached quality results for a list of titles.
-    Returns dict of {title: {verdict, score}} for hits."""
-    if not titles:
-        return {}
-    conn = _get_db()
-    results = {}
-    for title in titles:
-        th = _title_hash(title)
-        row = conn.execute(
-            "SELECT verdict, score FROM quality_cache WHERE title_hash = ? AND prompt_hash = ?",
-            (th, prompt_hash)
-        ).fetchone()
-        if row:
-            results[title] = {'v': row['verdict'], 's': row['score']}
-    conn.close()
-    return results
-
-
-def quality_cache_set(entries, prompt_hash):
-    """Store quality results. entries = {title: {'v': verdict, 's': score|None}}"""
-    if not entries:
-        return
-    conn = _get_db()
-    now = time.time()
-    for title, data in entries.items():
-        th = _title_hash(title)
-        verdict = data.get('v')
-        score = data.get('s')
-        conn.execute(
-            "INSERT OR REPLACE INTO quality_cache (title_hash, prompt_hash, verdict, score, cached_at) VALUES (?, ?, ?, ?, ?)",
-            (th, prompt_hash, verdict, score, now)
-        )
-    conn.commit()
-    conn.close()
-
-
-# ── Smart highlights cache (SQLite) ──
-
-def smart_highlights_get(url):
-    """Look up cached smart highlights for a paper URL. Returns parsed JSON or None."""
-    url_hash = hashlib.sha256(url.encode()).hexdigest()[:20]
-    conn = _get_db()
-    row = conn.execute(
-        "SELECT highlights_json FROM smart_highlights_cache WHERE url_hash = ?",
-        (url_hash,)
-    ).fetchone()
-    conn.close()
-    if row:
-        return json.loads(row['highlights_json'])
-    return None
-
-
-def smart_highlights_set(url, data):
-    """Store smart highlights for a paper URL."""
-    url_hash = hashlib.sha256(url.encode()).hexdigest()[:20]
-    conn = _get_db()
-    conn.execute(
-        "INSERT OR REPLACE INTO smart_highlights_cache (url_hash, highlights_json, cached_at) VALUES (?, ?, ?)",
-        (url_hash, json.dumps(data), time.time())
-    )
-    conn.commit()
-    conn.close()

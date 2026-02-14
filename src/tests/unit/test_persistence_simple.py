@@ -1,5 +1,5 @@
 """
-Unit tests for persistence.py - Simple working tests
+Unit tests for persistence utilities.
 
 Tests basic utility functions and database operations.
 """
@@ -13,9 +13,6 @@ import urllib.error
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from utils_persistence import slugify
-from cache import _title_hash
-from embeddings import _embedding_hash
-from annotations import read_blocked_titles, write_blocked_titles
 from db import init_db
 
 
@@ -64,101 +61,6 @@ class TestSlugify:
         assert slugify('--test--') == 'test'
 
 
-class TestTitleHash:
-    """Test title hashing for deduplication."""
-
-    def test_title_hash_deterministic(self):
-        """Test that same title produces same hash."""
-        hash1 = _title_hash('Test Title')
-        hash2 = _title_hash('Test Title')
-        assert hash1 == hash2
-
-    def test_title_hash_different_titles(self):
-        """Test that different titles produce different hashes."""
-        hash1 = _title_hash('Title One')
-        hash2 = _title_hash('Title Two')
-        assert hash1 != hash2
-
-    def test_title_hash_case_insensitive(self):
-        """Test if title hash is case-sensitive or not."""
-        hash1 = _title_hash('Test Title')
-        hash2 = _title_hash('test title')
-        # Implementation may be case-sensitive, just verify it's consistent
-        assert isinstance(hash1, str)
-        assert isinstance(hash2, str)
-
-    def test_title_hash_length(self):
-        """Test that hash has reasonable length."""
-        hash_val = _title_hash('Any Title')
-        assert len(hash_val) > 0
-        assert len(hash_val) <= 64  # SHA256 hex is 64 chars
-
-
-class TestEmbeddingHash:
-    """Test embedding content hashing."""
-
-    def test_embedding_hash_deterministic(self):
-        """Test that same text produces same hash."""
-        hash1 = _embedding_hash('Test content')
-        hash2 = _embedding_hash('Test content')
-        assert hash1 == hash2
-
-    def test_embedding_hash_different_content(self):
-        """Test that different content produces different hashes."""
-        hash1 = _embedding_hash('Content One')
-        hash2 = _embedding_hash('Content Two')
-        assert hash1 != hash2
-
-    def test_embedding_hash_empty_string(self):
-        """Test hashing empty string."""
-        hash_val = _embedding_hash('')
-        assert isinstance(hash_val, str)
-        assert len(hash_val) > 0
-
-
-class TestBlockedTitles:
-    """Test blocked titles file operations."""
-
-    def test_read_blocked_titles_empty(self, tmp_path, monkeypatch):
-        """Test reading non-existent file returns empty list."""
-        # Monkeypatch the original module where the constant lives
-        import annotations
-        monkeypatch.setattr(annotations, 'BLOCKED_TITLES_FILE', str(tmp_path / 'nonexistent.json'))
-
-        result = read_blocked_titles()
-        assert result == []
-
-    def test_write_and_read_blocked_titles(self, tmp_path, monkeypatch):
-        """Test writing and reading blocked titles."""
-        import annotations
-        test_file = tmp_path / 'blocked.json'
-        monkeypatch.setattr(annotations, 'BLOCKED_TITLES_FILE', str(test_file))
-
-        titles = ['Title 1', 'Title 2', 'Title 3']
-        write_blocked_titles(titles)
-
-        result = read_blocked_titles()
-        assert result == titles
-
-    def test_blocked_titles_json_format(self, tmp_path, monkeypatch):
-        """Test that blocked titles are stored as valid JSON."""
-        import annotations
-        import json
-
-        test_file = tmp_path / 'blocked.json'
-        monkeypatch.setattr(annotations, 'BLOCKED_TITLES_FILE', str(test_file))
-
-        titles = ['Test Title']
-        write_blocked_titles(titles)
-
-        # Verify it's valid JSON
-        with open(test_file) as f:
-            data = json.load(f)
-
-        assert isinstance(data, list)
-        assert data == titles
-
-
 class TestDatabase:
     """Test database initialization and connection."""
 
@@ -166,22 +68,18 @@ class TestDatabase:
         """Test that init_db creates required tables."""
         import db as db_module
 
-        # Create temp database path
         db_path = tmp_path / 'test.db'
 
-        # Mock DB_PATH to use our temp database
         monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
         monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
 
         init_db()
 
-        # Now connect and check tables
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
 
-        # Verify key tables exist
         assert 'users' in tables
         assert 'sessions' in tables
         assert 'feed_items' in tables
@@ -207,7 +105,6 @@ class TestDatabase:
         cursor.execute("PRAGMA table_info(users)")
         columns = {row[1]: row[2] for row in cursor.fetchall()}
 
-        # Check expected columns exist
         assert 'google_id' in columns
         assert 'email' in columns
         assert 'username' in columns
@@ -230,7 +127,6 @@ class TestDatabase:
         cursor.execute("PRAGMA table_info(feed_items)")
         columns = {row[1]: row[2] for row in cursor.fetchall()}
 
-        # Check expected columns
         assert 'id' in columns
         assert 'source' in columns
         assert 'title' in columns
@@ -253,14 +149,12 @@ class TestDatabase:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
 
-        # Insert first item
         cursor.execute("""
             INSERT INTO feed_items (source, title, link, fetched_at)
             VALUES (?, ?, ?, ?)
         """, ('arxiv', 'Test Title', 'https://example.com/1', 1234567890))
         conn.commit()
 
-        # Try to insert duplicate (should fail or update due to UNIQUE constraint)
         try:
             cursor.execute("""
                 INSERT INTO feed_items (source, title, link, fetched_at)
@@ -268,8 +162,6 @@ class TestDatabase:
             """, ('arxiv', 'Different Title', 'https://example.com/1', 1234567890))
             conn.commit()
 
-            # If we get here, it's using REPLACE or INSERT OR IGNORE
-            # Verify only one row exists
             cursor.execute("""
                 SELECT COUNT(*) FROM feed_items
                 WHERE source = ? AND link = ?
@@ -279,7 +171,6 @@ class TestDatabase:
             assert count == 1
 
         except sqlite3.IntegrityError:
-            # Expected if strict UNIQUE constraint
             pass
 
         conn.close()
@@ -292,86 +183,11 @@ class TestCachedFetch:
         """Test that cached_fetch validates URLs."""
         from cache import cached_fetch
 
-        # Invalid URLs should be handled gracefully
         try:
             result = cached_fetch('not-a-url')
-            # Should return None or empty bytes
             assert result is None or result == b''
         except Exception as e:
-            # Or raise a specific exception
             assert isinstance(e, (ValueError, urllib.error.URLError))
-
-
-class TestQualityCache:
-    """Test quality cache operations."""
-
-    def test_quality_cache_get_empty(self, tmp_path, monkeypatch):
-        """Test getting from empty quality cache."""
-        from cache import quality_cache_get
-        import db as db_module
-
-        db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
-
-        init_db()
-
-        # Get from empty cache
-        result = quality_cache_get(['Test Title'], 'prompt_hash_123')
-
-        # Should return empty dict for cache misses
-        assert isinstance(result, dict)
-        assert len(result) == 0
-
-    def test_quality_cache_set_and_get(self, tmp_path, monkeypatch):
-        """Test setting and getting quality cache entries."""
-        from cache import quality_cache_set, quality_cache_get
-        import db as db_module
-
-        db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
-
-        init_db()
-
-        # Set cache entries
-        entries = {
-            'Title 1': {'v': 'KEEP', 's': 85},
-            'Title 2': {'v': 'SKIP', 's': 15}
-        }
-
-        quality_cache_set(entries, 'prompt_hash_456')
-
-        # Get cache entries back
-        result = quality_cache_get(['Title 1', 'Title 2'], 'prompt_hash_456')
-
-        # Should return the cached values
-        assert isinstance(result, dict)
-        assert len(result) == 2
-        assert result['Title 1']['v'] == 'KEEP'
-        assert result['Title 1']['s'] == 85
-        assert result['Title 2']['v'] == 'SKIP'
-        assert result['Title 2']['s'] == 15
-
-    def test_quality_cache_prompt_hash_isolation(self, tmp_path, monkeypatch):
-        """Test that different prompt hashes are isolated."""
-        from cache import quality_cache_set, quality_cache_get
-        import db as db_module
-
-        db_path = tmp_path / 'test.db'
-        monkeypatch.setattr(db_module, 'DB_PATH', str(db_path))
-        monkeypatch.setattr(db_module, 'DIR', str(tmp_path))
-
-        init_db()
-
-        # Set with one prompt hash
-        quality_cache_set({'Title': {'v': 'KEEP', 's': 90}}, 'hash_a')
-
-        # Query with different prompt hash
-        result = quality_cache_get(['Title'], 'hash_b')
-
-        # Should not find the entry
-        assert len(result) == 0
 
 
 @pytest.mark.skip(reason="Requires actual vault directory")
@@ -380,7 +196,4 @@ class TestVaultOperations:
 
     def test_get_vault_project_dir(self):
         """Test vault project directory resolution."""
-
-        # This requires actual vault setup
-        # Skipping for now
         pass

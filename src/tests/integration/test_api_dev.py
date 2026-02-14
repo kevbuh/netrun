@@ -1,26 +1,18 @@
 """
 Integration tests for dev/utility API routes.
 
-Tests development and utility endpoints:
+Tests remaining development and utility endpoints:
 - GET /api/settings - Get settings
-- GET /api/version - Get version info
 - GET /api/dev-git-log - Get git commit log
 - GET /api/dev-stats - Get development statistics
 - GET /api/function-registry - Get function registry info
 - GET /api/validate-feeds - Validate feed system
 - GET /api/validate-load-order - Validate module load order
 - GET /api/dependency-graph - Get dependency graph
-- GET /api/calendar - List calendar events
-- POST /api/calendar - Create calendar event
-- PUT /api/calendar/<eid> - Update calendar event
-- DELETE /api/calendar/<eid> - Delete calendar event
 - POST /api/images - Upload image
 - GET /api/images/<filename> - Serve uploaded image
-- GET /api/saved-content - Get saved content
-- POST /api/saved-content - Save content
 - POST /api/saved-posts - Save post
 - POST /api/custom-feeds - Add custom feed
-- POST /api/reveal-in-finder - Reveal file in Finder
 """
 
 import pytest
@@ -59,47 +51,6 @@ class TestSettings:
         assert response.status_code == 200
         data = response.json
         assert data['ok'] is True
-
-
-@pytest.mark.integration
-class TestVersion:
-    """Test /api/version endpoint."""
-
-    @patch('subprocess.run')
-    def test_version_success(self, mock_run, client):
-        """Test version with git info."""
-        # Mock git rev-list
-        mock_count = Mock()
-        mock_count.returncode = 0
-        mock_count.stdout = '42\n'
-
-        # Mock git rev-parse
-        mock_sha = Mock()
-        mock_sha.returncode = 0
-        mock_sha.stdout = 'abc1234\n'
-
-        mock_run.side_effect = [mock_count, mock_sha]
-
-        response = client.get('/api/version')
-
-        assert response.status_code == 200
-        data = response.json
-        assert 'version' in data
-        assert 'sha' in data
-        assert data['version'] == '0.42'
-        assert data['sha'] == 'abc1234'
-
-    @patch('subprocess.run')
-    def test_version_no_git(self, mock_run, client):
-        """Test version when git fails."""
-        mock_run.side_effect = Exception('git not found')
-
-        response = client.get('/api/version')
-
-        assert response.status_code == 200
-        data = response.json
-        assert data['version'] == '0.0'
-        assert data['sha'] == ''
 
 
 @pytest.mark.integration
@@ -157,7 +108,6 @@ class TestDevStats:
 
         assert response.status_code == 200
         data = response.json
-        # Stats may vary, just check structure
         assert isinstance(data, dict)
 
 
@@ -224,93 +174,6 @@ class TestValidation:
 
 
 @pytest.mark.integration
-class TestCalendar:
-    """Test calendar endpoints."""
-
-    def test_list_calendar_requires_auth(self, client):
-        """Test listing calendar requires authentication."""
-        response = client.get('/api/calendar')
-
-        assert response.status_code == 401
-
-    def test_list_calendar_empty(self, client, auth_user):
-        """Test listing empty calendar."""
-        response = client.get('/api/calendar', headers=auth_user['headers'])
-
-        assert response.status_code == 200
-        events = response.json
-        assert isinstance(events, list)
-
-    def test_create_calendar_event_requires_auth(self, client):
-        """Test creating event requires authentication."""
-        response = client.post('/api/calendar', json={
-            'title': 'Test Event',
-            'date': '2024-01-01'
-        })
-
-        assert response.status_code == 401
-
-    def test_create_calendar_event(self, client, auth_user):
-        """Test creating calendar event."""
-        response = client.post('/api/calendar',
-            headers=auth_user['headers'],
-            json={
-                'title': 'Test Event',
-                'date': '2024-01-01',
-                'description': 'Test description'
-            }
-        )
-
-        assert response.status_code in [200, 201]
-        data = response.json
-        # Response is the event itself, not wrapped
-        assert 'title' in data
-        assert data['title'] == 'Test Event'
-
-    def test_create_event_missing_fields(self, client, auth_user):
-        """Test creating event with missing required fields."""
-        response = client.post('/api/calendar',
-            headers=auth_user['headers'],
-            json={'title': 'Test'}
-        )
-
-        # May still create with defaults
-        assert response.status_code in [200, 201, 400]
-
-    def test_update_calendar_event(self, client, auth_user):
-        """Test updating calendar event."""
-        # Create event first
-        from users import create_calendar_event
-        event = create_calendar_event(auth_user['google_id'], {
-            'title': 'Original',
-            'date': '2024-01-01'
-        })
-        eid = event['id']
-
-        response = client.put(f'/api/calendar/{eid}',
-            headers=auth_user['headers'],
-            json={'title': 'Updated', 'date': '2024-01-02'}
-        )
-
-        assert response.status_code == 200
-
-    def test_delete_calendar_event(self, client, auth_user):
-        """Test deleting calendar event."""
-        from users import create_calendar_event
-        event = create_calendar_event(auth_user['google_id'], {
-            'title': 'To Delete',
-            'date': '2024-01-01'
-        })
-        eid = event['id']
-
-        response = client.delete(f'/api/calendar/{eid}',
-            headers=auth_user['headers']
-        )
-
-        assert response.status_code == 200
-
-
-@pytest.mark.integration
 class TestImages:
     """Test image upload and serving."""
 
@@ -351,47 +214,9 @@ class TestImages:
         assert response.status_code == 404
 
 
-
 @pytest.mark.integration
-class TestSavedContent:
-    """Test saved content endpoints."""
-
-    def test_get_saved_content_requires_auth(self, client):
-        """Test getting saved content requires authentication."""
-        response = client.get('/api/saved-content')
-
-        assert response.status_code == 401
-
-    def test_get_saved_content_empty(self, client, auth_user):
-        """Test getting saved content when empty."""
-        response = client.get('/api/saved-content?url=https://example.com',
-            headers=auth_user['headers']
-        )
-
-        # Returns 404 when not found
-        assert response.status_code in [200, 404]
-
-    def test_post_saved_content_requires_auth(self, client):
-        """Test saving content requires authentication."""
-        response = client.post('/api/saved-content', json={
-            'url': 'https://example.com',
-            'content': 'Test content'
-        })
-
-        assert response.status_code == 401
-
-    def test_post_saved_content(self, client, auth_user):
-        """Test saving content."""
-        response = client.post('/api/saved-content',
-            headers=auth_user['headers'],
-            json={
-                'url': 'https://example.com',
-                'content': 'Test content',
-                'title': 'Test Title'
-            }
-        )
-
-        assert response.status_code == 200
+class TestSavedPosts:
+    """Test saved posts endpoint."""
 
     def test_save_post_requires_auth(self, client):
         """Test saving post requires authentication."""
@@ -436,29 +261,3 @@ class TestCustomFeeds:
 
         # May succeed or fail depending on validation
         assert response.status_code in [200, 400]
-
-
-@pytest.mark.integration
-class TestFileMisc:
-    """Test miscellaneous file operations."""
-
-    def test_reveal_in_finder_requires_auth(self, client):
-        """Test reveal in finder requires authentication."""
-        response = client.post('/api/reveal-in-finder', json={
-            'path': '/tmp/test.txt'
-        })
-
-        assert response.status_code == 401
-
-    @patch('subprocess.run')
-    def test_reveal_in_finder(self, mock_run, client, auth_user):
-        """Test revealing file in Finder."""
-        mock_run.return_value = Mock()
-
-        response = client.post('/api/reveal-in-finder',
-            headers=auth_user['headers'],
-            json={'path': '/tmp/test.txt'}
-        )
-
-        # May succeed or fail depending on platform
-        assert response.status_code in [200, 400, 500]

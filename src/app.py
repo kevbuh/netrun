@@ -55,27 +55,19 @@ sock = Sock(app)
 
 _static_dir = _args.static_dir or DIR
 
-# Register blueprints
-from routes.auth import bp as auth_bp
-from routes.feed import bp as feed_bp
+# Register blueprints (auth, feed, content, media ported to TypeScript IPC)
 from routes.experiments import bp as experiments_bp
 from routes.social import bp as social_bp
-from routes.content import bp as content_bp
 from routes.browse import bp as browse_bp
 from routes.vault import bp as vault_bp
 from routes.neuralook import bp as neuralook_bp
-from routes.media import bp as media_bp
 from routes.dev import bp as dev_bp
 
-app.register_blueprint(auth_bp)
-app.register_blueprint(feed_bp)
 app.register_blueprint(experiments_bp)
 app.register_blueprint(social_bp)
-app.register_blueprint(content_bp)
 app.register_blueprint(browse_bp)
 app.register_blueprint(vault_bp)
 app.register_blueprint(neuralook_bp)
-app.register_blueprint(media_bp)
 app.register_blueprint(dev_bp)
 
 # ── Start background feed poller ──
