@@ -1534,7 +1534,7 @@ function populateCategories() {
   const select = document.getElementById('category');
   const current = select.value;
   const freq = {};
-  allPapers.forEach(p => p.categories.forEach(c => { freq[c] = (freq[c] || 0) + 1; }));
+  allPapers.forEach(p => { const cats = Array.isArray(p.categories) ? p.categories : []; cats.forEach(c => { freq[c] = (freq[c] || 0) + 1; }); });
   const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
   select.innerHTML = '<option value="">All</option>';
   sorted.forEach(([cat, count]) => {
@@ -1662,7 +1662,7 @@ function getFilteredPapers(ctx) {
       if (verdict === 'skip') return false;
       if (verdict === 'keep' && entry?.s != null && entry.s < qThreshold) return false;
     }
-    if (category && !p.categories.includes(category)) return false;
+    if (category && !(Array.isArray(p.categories) ? p.categories : []).includes(category)) return false;
     if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
     if (sourceFilter && !p.source.toLowerCase().includes(sourceFilter) && !(SOURCE_NAMES[p.source] || '').toLowerCase().includes(sourceFilter)) return false;
     const allPhrases = exactPhrases.slice();
@@ -1884,7 +1884,8 @@ function _renderPapersNow() {
       const dateChip = p.date ? `<span class="text-[0.72rem] text-dim">${escapeHtml(p.date)}</span>` : '';
       const fullDesc = isPoly ? '' : (p.description || '');
       const authors = p.authors ? `<div class="text-[0.76rem] text-dimmer mt-1">${escapeHtml(truncate(p.authors, 200))}</div>` : '';
-      const categories = p.categories && p.categories.length ? `<div class="flex gap-1 flex-wrap mt-1.5">${p.categories.slice(0, 6).map(c => `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">${escapeHtml(c)}</span>`).join('')}</div>` : '';
+      const pCats = Array.isArray(p.categories) ? p.categories : [];
+      const categories = pCats.length ? `<div class="flex gap-1 flex-wrap mt-1.5">${pCats.slice(0, 6).map(c => `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">${escapeHtml(c)}</span>`).join('')}</div>` : '';
       const nLink = _normalizeRatingKey(p.link);
       const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
       const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';

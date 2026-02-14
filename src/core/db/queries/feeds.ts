@@ -15,13 +15,23 @@ export interface FeedItem {
   fetched_at: number;
 }
 
-export function getFeedItems(sources: string[], limit = 100): FeedItem[] {
+export function getFeedItems(sources: string[], limit = 100): any[] {
   const db = getDb();
   if (sources.length === 0) return [];
   const placeholders = sources.map(() => '?').join(', ');
-  return db.prepare(
+  const rows = db.prepare(
     `SELECT * FROM feed_items WHERE source IN (${placeholders}) ORDER BY pub_date DESC LIMIT ?`
   ).all(...sources, limit) as FeedItem[];
+  return rows.map(row => ({
+    ...row,
+    categories: parseJsonField(row.categories, []),
+    extra: parseJsonField(row.extra, {}),
+  }));
+}
+
+function parseJsonField<T>(value: unknown, fallback: T): T {
+  if (typeof value !== 'string') return (value as T) ?? fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
 }
 
 export function upsertFeedItems(items: Omit<FeedItem, 'id'>[]): number {
