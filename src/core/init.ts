@@ -2,6 +2,7 @@ import { registerAllTools, toolRegistry } from './tools/index.js';
 import { providerRegistry } from './providers/registry.js';
 import { OllamaProvider } from './providers/ollama.js';
 import { registerToolIPC } from './ipc-handlers.js';
+import { initAmbient } from './ambient/index.js';
 
 /**
  * Initialize the core system: tools, providers, IPC handlers.
@@ -17,6 +18,9 @@ export function initCore(): void {
 
   // Set up IPC handlers
   registerToolIPC();
+
+  // Initialize ambient observer
+  initAmbient();
 
   console.log(
     `[core] Initialized: ${toolRegistry.names().length} tools, ` +

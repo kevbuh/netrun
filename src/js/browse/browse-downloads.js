@@ -348,6 +348,8 @@ function _browseHandleNavigation(tab, frame) {
     }
     // YouTube: inject ad-block CSS immediately on navigation (before dom-ready / first paint)
     _browseInjectYouTubeCSS(frame, navUrl);
+    // Ambient AI: dismiss current insight on navigation
+    if (typeof _ambientOnNavigate === 'function') _ambientOnNavigate();
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -435,6 +437,10 @@ function _browseHandleNavigation(tab, frame) {
           }
         }).catch(() => {});
       } catch {}
+      // Ambient AI: extract page text and send to main process
+      if (typeof _ambientExtractAndSend === 'function') {
+        _ambientExtractAndSend(tab, frame);
+      }
     });
   }
 

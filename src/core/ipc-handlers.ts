@@ -16,6 +16,7 @@ import * as feedQueries from './db/queries/feeds.js';
 import * as socialQueries from './db/queries/social.js';
 import * as embeddingQueries from './db/queries/embeddings.js';
 import * as contentQueries from './db/queries/content.js';
+import { ambientObserver } from './ambient/index.js';
 import * as socialExtQueries from './db/queries/social-extended.js';
 import { getDb } from './db/connection.js';
 
@@ -3098,6 +3099,16 @@ ch.postMessage({type:'preview-ready'});
       if (text) return { text };
       return { text: null };
     } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── Ambient AI ──
+
+  ipcMain.handle('ambient:page-loaded', (event, data) => {
+    ambientObserver.onPageLoaded(data, event.sender);
+  });
+
+  ipcMain.handle('ambient:set-enabled', (_event, enabled: boolean) => {
+    ambientObserver.setEnabled(enabled);
   });
 }
 

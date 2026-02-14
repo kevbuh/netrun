@@ -89,6 +89,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onVaultChatEvent: (callback) => ipcRenderer.on('vault-chat:event', callback),
   removeVaultChatEventListener: (callback) => ipcRenderer.removeListener('vault-chat:event', callback),
 
+  // ── Ambient AI ──
+  ambientPageLoaded: (data) => ipcRenderer.invoke('ambient:page-loaded', data),
+  ambientSetEnabled: (enabled) => ipcRenderer.invoke('ambient:set-enabled', enabled),
+  onAmbientInsight: (callback) => ipcRenderer.on('ambient:insight', callback),
+  removeAmbientInsightListener: (callback) => ipcRenderer.removeListener('ambient:insight', callback),
+
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),
 });
