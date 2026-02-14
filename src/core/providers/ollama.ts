@@ -78,29 +78,16 @@ export class OllamaProvider implements LLMProvider {
     const model = provider.chat(options.model ?? this.defaultModel);
 
     const aiMsgs = toAIMessages(options.messages);
-    console.log('[ollama] generateText roles:', options.messages.map(m => ({ role: m.role, contentLen: m.content?.length, hasToolCalls: !!m.tool_calls?.length, toolCallId: m.tool_call_id })));
     const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
-    if (convertedTools) {
-      const sample = Object.entries(convertedTools).slice(0, 2);
-      console.log('[ollama] tools sample:', JSON.stringify(sample.map(([k, v]: any) => ({ name: k, desc: v.description?.slice(0, 40), schema: v.inputSchema?.jsonSchema ?? v.inputSchema ?? v.parameters })), null, 2));
-    }
-    let result;
-    try {
-      result = await generateText({
-        model,
-        messages: aiMsgs,
-        tools: convertedTools,
-        temperature: options.temperature,
-        maxOutputTokens: options.maxTokens,
-        abortSignal: options.signal,
-      });
-    } catch (err: any) {
-      console.error('[ollama] generateText error:', err.message);
-      console.error('[ollama] statusCode:', err.statusCode);
-      console.error('[ollama] responseBody:', err.responseBody);
-      console.error('[ollama] model:', options.model ?? this.defaultModel);
-      throw err;
-    }
+
+    const result = await generateText({
+      model,
+      messages: aiMsgs,
+      tools: convertedTools,
+      temperature: options.temperature,
+      maxOutputTokens: options.maxTokens,
+      abortSignal: options.signal,
+    });
 
     const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc: any) => ({
       id: tc.toolCallId,

@@ -181,8 +181,6 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
       })),
   ];
 
-  console.log('[agent] messages to send:', JSON.stringify(messages.map(m => ({ role: m.role, contentLen: m.content?.length, hasToolCalls: !!m.tool_calls, toolCallId: m.tool_call_id })), null, 2));
-
   const toolsEnabled = context.toolsEnabled !== false;
 
   if (toolsEnabled) {
