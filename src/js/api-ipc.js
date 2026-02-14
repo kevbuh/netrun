@@ -131,16 +131,82 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('team-todos', teamId);
   }
 
-  // ── Experiments — via tools ──
+  // ── Experiments ──
   if (pathOnly === '/api/experiments' && method === 'GET') {
     if (!googleId) return null;
-    const result = await window.electronAPI.toolExecute('experiment-list', {}, { googleId });
-    return _unwrapTool(result, 'projects') ?? [];
+    return await window.electronAPI.dbQuery('exp-list', googleId);
   }
   if (pathOnly === '/api/experiments' && method === 'POST') {
     if (!googleId) return null;
-    const result = await window.electronAPI.toolExecute('experiment-create', body, { googleId });
-    return _unwrapTool(result);
+    return await window.electronAPI.dbQuery('exp-create', googleId, body.title);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+$/) && method === 'GET') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-get', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-delete', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files$/) && method === 'GET') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-files', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files\//) && method === 'GET') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const expId = decodeURIComponent(parts[3]);
+    const fname = decodeURIComponent(parts.slice(5).join('/'));
+    return await window.electronAPI.dbQuery('exp-file-get', googleId, expId, fname);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-file-create', googleId, expId, body.name, body.content);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files\//) && method === 'PUT') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const expId = decodeURIComponent(parts[3]);
+    const fname = decodeURIComponent(parts.slice(5).join('/'));
+    return await window.electronAPI.dbQuery('exp-file-update', googleId, expId, fname, body);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files\//) && method === 'DELETE') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const expId = decodeURIComponent(parts[3]);
+    const fname = decodeURIComponent(parts.slice(5).join('/'));
+    return await window.electronAPI.dbQuery('exp-file-delete', googleId, expId, fname);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/raw\//) && method === 'GET') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const expId = decodeURIComponent(parts[3]);
+    const fname = decodeURIComponent(parts.slice(5).join('/'));
+    return await window.electronAPI.dbQuery('exp-raw-file', googleId, expId, fname);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/create-folder$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-create-folder', googleId, expId, body.name);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/delete-folder$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-delete-folder', googleId, expId, body.folder);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/rename-folder$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-rename-folder', googleId, expId, body.oldName, body.newName);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/move-file$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-move-file', googleId, expId, body.oldPath, body.newPath);
   }
 
   // ── Providers / Models ──
@@ -179,7 +245,471 @@ async function ipcRoute(path, opts = {}) {
     return _unwrapTool(result);
   }
 
+  // ── Auth: logout ──
+  if (pathOnly === '/api/auth/logout' && method === 'POST') {
+    const token = _getAuthToken();
+    if (token) await window.electronAPI.dbQuery('session-delete', token);
+    return { ok: true };
+  }
+
+  // ── Auth: set username ──
+  if (pathOnly === '/api/auth/username' && method === 'POST') {
+    if (!googleId) return null;
+    const ok = await window.electronAPI.dbQuery('user-set-username', googleId, body.username);
+    if (ok) return { ok: true, username: body.username };
+    return null; // fall back to Flask for error handling
+  }
+
+  // ── Auth: delete account ──
+  if (pathOnly === '/api/auth/delete-account' && method === 'POST') {
+    if (!googleId) return null;
+    await window.electronAPI.dbQuery('user-delete', googleId);
+    return { ok: true };
+  }
+
+  // ── Auth: sync ──
+  if (pathOnly === '/api/sync' && method === 'POST') {
+    if (!googleId) return null;
+    const merged = await window.electronAPI.dbQuery('user-sync', googleId, body.data || {});
+    return { data: merged };
+  }
+
+  // ── Teams: create ──
+  if (pathOnly === '/api/teams' && method === 'POST') {
+    if (!googleId) return null;
+    const teamId = await window.electronAPI.dbQuery('team-create', body.name, googleId, { private: body.private, parentId: body.parent_id });
+    return { ok: true, id: teamId };
+  }
+
+  // ── Teams: detail (GET /api/teams/<id>) ──
+  if (pathOnly.match(/^\/api\/teams\/\d+$/) && method === 'GET') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/').pop());
+    return await window.electronAPI.dbQuery('team-detail', teamId);
+  }
+
+  // ── Teams: rename (PUT /api/teams/<id>) ──
+  if (pathOnly.match(/^\/api\/teams\/\d+$/) && method === 'PUT') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/').pop());
+    const ok = await window.electronAPI.dbQuery('team-rename', teamId, body.name, googleId);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Teams: delete (DELETE /api/teams/<id>) ──
+  if (pathOnly.match(/^\/api\/teams\/\d+$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/').pop());
+    return await window.electronAPI.dbQuery('team-delete', teamId, googleId);
+  }
+
+  // ── Teams: invite ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/invite$/) && method === 'POST') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('team-invite', teamId, googleId, body.username);
+  }
+
+  // ── Teams: remove member ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/remove$/) && method === 'POST') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/')[3]);
+    const ok = await window.electronAPI.dbQuery('team-remove-member', teamId, googleId, body.google_id);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Teams: privacy ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/privacy$/) && method === 'PUT') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/')[3]);
+    const ok = await window.electronAPI.dbQuery('team-set-private', teamId, !!body.private, googleId);
+    return ok ? { ok: true, private: !!body.private } : null;
+  }
+
+  // ── Teams: parent ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/parent$/) && method === 'PUT') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/')[3]);
+    const ok = await window.electronAPI.dbQuery('team-set-parent', teamId, body.parent_id ?? null, googleId);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Teams: chat read ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/chat-read$/) && method === 'POST') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/')[3]);
+    await window.electronAPI.dbQuery('team-chat-mark-read', teamId, googleId);
+    return { ok: true };
+  }
+
+  // ── Teams: edit message (PUT) ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/messages\/[^/]+$/) && method === 'PUT') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const teamId = parseInt(parts[3]);
+    const msgId = parts[5];
+    const ok = await window.electronAPI.dbQuery('team-message-edit', teamId, msgId, googleId, body.content);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Teams: delete message ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/messages\/[^/]+$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const teamId = parseInt(parts[3]);
+    const msgId = parts[5];
+    const ok = await window.electronAPI.dbQuery('team-message-delete', msgId, googleId);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Teams: reactions ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/messages\/[^/]+\/reactions$/) && method === 'POST') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const msgId = parts[5];
+    return await window.electronAPI.dbQuery('reaction-toggle', msgId, googleId, body.emoji);
+  }
+
+  // ── Teams: todos — create ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/todos$/) && method === 'POST') {
+    if (!googleId) return null;
+    const teamId = parseInt(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('team-todo-create', teamId, googleId, body);
+  }
+
+  // ── Teams: todos — update (PUT) ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/todos\/[^/]+$/) && method === 'PUT') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const teamId = parseInt(parts[3]);
+    const todoId = parts[5];
+    return await window.electronAPI.dbQuery('team-todo-update', teamId, todoId, body);
+  }
+
+  // ── Teams: todos — delete ──
+  if (pathOnly.match(/^\/api\/teams\/\d+\/todos\/[^/]+$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const teamId = parseInt(parts[3]);
+    const todoId = parts[5];
+    const ok = await window.electronAPI.dbQuery('team-todo-delete', teamId, todoId);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Inbox ──
+  if (pathOnly === '/api/inbox' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('pending-invites', googleId);
+  }
+
+  // ── Inbox: respond ──
+  if (pathOnly.match(/^\/api\/inbox\/\d+\/respond$/) && method === 'POST') {
+    if (!googleId) return null;
+    const inviteId = parseInt(pathOnly.split('/')[3]);
+    const ok = await window.electronAPI.dbQuery('invite-respond', inviteId, googleId, body.accept);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Inbox chats ──
+  if (pathOnly === '/api/inbox-chats' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('unread-team-chats', googleId);
+  }
+
+  // ── My tasks ──
+  if (pathOnly === '/api/my-tasks' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('my-tasks', googleId);
+  }
+
+  // ── Messages: list ──
+  if (pathOnly === '/api/messages' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('direct-messages', googleId);
+  }
+
+  // ── Messages: send ──
+  if (pathOnly === '/api/messages' && method === 'POST') {
+    if (!googleId) return null;
+    // Need to resolve username to google_id
+    const toUser = await window.electronAPI.dbQuery('user-by-username', body.to_username);
+    if (!toUser) return null; // fall back
+    return await window.electronAPI.dbQuery('direct-message-send', googleId, toUser.google_id, body.content);
+  }
+
+  // ── Messages: mark read ──
+  if (pathOnly.match(/^\/api\/messages\/[^/]+\/read$/) && method === 'POST') {
+    if (!googleId) return null;
+    const msgId = pathOnly.split('/')[3];
+    await window.electronAPI.dbQuery('dm-mark-read', googleId, msgId);
+    return { ok: true };
+  }
+
+  // ── Messages: delete ──
+  if (pathOnly.match(/^\/api\/messages\/[^/]+$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const msgId = pathOnly.split('/').pop();
+    const ok = await window.electronAPI.dbQuery('dm-delete', googleId, msgId);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Messages: unread count ──
+  if (pathOnly === '/api/messages/unread-count' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('unread-counts', googleId);
+  }
+
+  // ── Comments ──
+  if (pathOnly === '/api/comments' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const paperLink = urlParams.get('paperLink');
+    return await window.electronAPI.dbQuery('comments-get', paperLink || undefined);
+  }
+  if (pathOnly === '/api/comments' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('comment-create', googleId, body);
+  }
+  if (pathOnly.match(/^\/api\/comments\/[^/]+$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const commentId = pathOnly.split('/').pop();
+    const ok = await window.electronAPI.dbQuery('comment-delete', googleId, commentId);
+    return ok ? { ok: true } : null;
+  }
+
+  // ── Reposts ──
+  if (pathOnly === '/api/reposts' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('repost-create', googleId, body.username, body.paperLink, body.paperTitle);
+  }
+  if (pathOnly === '/api/reposts' && method === 'DELETE') {
+    if (!googleId) return null;
+    await window.electronAPI.dbQuery('repost-delete', googleId, body.paperLink);
+    return { ok: true };
+  }
+
+  // ── Achievements ──
+  if (pathOnly === '/api/achievements' && method === 'GET') {
+    if (!googleId) return null;
+    const achievements = await window.electronAPI.dbQuery('achievements', googleId);
+    return { achievements };
+  }
+  if (pathOnly === '/api/achievements/grant' && method === 'POST') {
+    if (!googleId) return null;
+    const ach = await window.electronAPI.dbQuery('achievement-grant', googleId, body.achievement_id);
+    return { achievement: ach };
+  }
+  if (pathOnly.match(/^\/api\/achievements\/[^/]+$/) && method === 'GET') {
+    const username = pathOnly.split('/').pop();
+    const userInfo = await window.electronAPI.dbQuery('public-user-info', username);
+    if (!userInfo) return null;
+    const achievements = await window.electronAPI.dbQuery('achievements', userInfo.google_id);
+    return { achievements };
+  }
+
+  // ── User profiles ──
+  if (pathOnly.match(/^\/api\/users\/[^/]+$/) && method === 'GET') {
+    if (!googleId) return null;
+    const username = decodeURIComponent(pathOnly.split('/').pop());
+    const info = await window.electronAPI.dbQuery('public-user-info', username);
+    if (!info) return null; // fall back for 404
+    if (info.profile_private && info.google_id !== googleId) {
+      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
+      if (!teammates) return { username: info.username, picture: info.picture, profile_private: true };
+    }
+    const stats = await window.electronAPI.dbQuery('user-public-stats', info.google_id);
+    const accentColor = await window.electronAPI.dbQuery('user-accent-color', info.google_id);
+    const result = { ...info, ...stats, accent_color: accentColor };
+    delete result.google_id;
+    return result;
+  }
+
+  // ── User feeds ──
+  if (pathOnly.match(/^\/api\/users\/[^/]+\/feeds$/) && method === 'GET') {
+    if (!googleId) return null;
+    const username = decodeURIComponent(pathOnly.split('/')[3]);
+    const info = await window.electronAPI.dbQuery('public-user-info', username);
+    if (!info) return null;
+    if (info.profile_private && info.google_id !== googleId) {
+      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
+      if (!teammates) return { catalogFeeds: [], customFeeds: [] };
+    }
+    const data = await window.electronAPI.dbQuery('user-feed-sources', info.google_id);
+    const catalogKeys = Object.entries(data.feedSources || {}).filter(([, v]) => v).map(([k]) => k);
+    const custom = (data.customFeeds || []).filter(f => f.enabled).map(f => ({ name: f.name || f.url || '', url: f.url || '' }));
+    return { catalogFeeds: catalogKeys, customFeeds: custom };
+  }
+
+  // ── User comments ──
+  if (pathOnly.match(/^\/api\/users\/[^/]+\/comments$/) && method === 'GET') {
+    if (!googleId) return null;
+    const username = decodeURIComponent(pathOnly.split('/')[3]);
+    const info = await window.electronAPI.dbQuery('public-user-info', username);
+    if (!info) return null;
+    if (info.profile_private && info.google_id !== googleId) {
+      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
+      if (!teammates) return [];
+    }
+    return await window.electronAPI.dbQuery('user-recent-comments', info.google_id);
+  }
+
+  // ── User reposts ──
+  if (pathOnly.match(/^\/api\/users\/[^/]+\/reposts$/) && method === 'GET') {
+    if (!googleId) return null;
+    const username = decodeURIComponent(pathOnly.split('/')[3]);
+    const info = await window.electronAPI.dbQuery('public-user-info', username);
+    if (!info) return null;
+    if (info.profile_private && info.google_id !== googleId) {
+      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
+      if (!teammates) return [];
+    }
+    return await window.electronAPI.dbQuery('user-reposts', info.google_id);
+  }
+
+  // ── User teams ──
+  if (pathOnly.match(/^\/api\/users\/[^/]+\/teams$/) && method === 'GET') {
+    if (!googleId) return null;
+    const username = decodeURIComponent(pathOnly.split('/')[3]);
+    const info = await window.electronAPI.dbQuery('public-user-info', username);
+    if (!info) return null;
+    return await window.electronAPI.dbQuery('user-public-teams', info.google_id, googleId);
+  }
+
+  // ── User experiments (stub) ──
+  if (pathOnly.match(/^\/api\/users\/[^/]+\/experiments$/) && method === 'GET') {
+    return [];
+  }
+
+  // ── Team experiments (stub) ──
+  if (pathOnly === '/api/team-experiments' && method === 'GET') {
+    return [];
+  }
+
+  // ── Annotation feedback ──
+  if (pathOnly === '/api/annotation-feedback' && method === 'POST') {
+    await window.electronAPI.dbQuery('ann-feedback-create', {
+      url: body.url, pageTitle: body.pageTitle, quote: body.quote,
+      explanation: body.explanation, annType: body.annType, rating: body.rating
+    });
+    return { ok: true };
+  }
+  if (pathOnly === '/api/annotation-feedback' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const items = await window.electronAPI.dbQuery('ann-feedback-list',
+      urlParams.get('rating') || undefined,
+      parseInt(urlParams.get('limit') || '100'),
+      parseInt(urlParams.get('offset') || '0')
+    );
+    return { items };
+  }
+  if (pathOnly === '/api/annotation-feedback/stats' && method === 'GET') {
+    return await window.electronAPI.dbQuery('ann-feedback-stats');
+  }
+  if (pathOnly.match(/^\/api\/annotation-feedback\/\d+$/) && method === 'PUT') {
+    const fid = parseInt(pathOnly.split('/').pop());
+    await window.electronAPI.dbQuery('ann-feedback-update', fid, body.rating);
+    return { ok: true };
+  }
+  if (pathOnly.match(/^\/api\/annotation-feedback\/\d+$/) && method === 'DELETE') {
+    const fid = parseInt(pathOnly.split('/').pop());
+    await window.electronAPI.dbQuery('ann-feedback-delete', fid);
+    return { ok: true };
+  }
+
+  // ── Annotation categories ──
+  if (pathOnly === '/api/annotation-categories' && method === 'GET') {
+    const categories = await window.electronAPI.dbQuery('ann-categories-list');
+    return { categories };
+  }
+  if (pathOnly === '/api/annotation-categories' && method === 'POST') {
+    await window.electronAPI.dbQuery('ann-category-add', body.key, body.name, body.description, body.color);
+    return { ok: true };
+  }
+  if (pathOnly.match(/^\/api\/annotation-categories\/[^/]+$/) && method === 'DELETE') {
+    const key = pathOnly.split('/').pop();
+    await window.electronAPI.dbQuery('ann-category-delete', key);
+    return { ok: true };
+  }
+
+  // ── Chat memory list/delete/stats ──
+  if (pathOnly === '/api/chat-memories/list' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('chat-memories-list',
+      parseInt(urlParams.get('limit') || '50'),
+      parseInt(urlParams.get('offset') || '0')
+    );
+  }
+  if (pathOnly.match(/^\/api\/chat-memories\/\d+$/) && method === 'DELETE') {
+    const memId = parseInt(pathOnly.split('/').pop());
+    await window.electronAPI.dbQuery('chat-memory-delete', memId);
+    return { ok: true };
+  }
+  if (pathOnly === '/api/chat-memories/stats' && method === 'GET') {
+    return await window.electronAPI.dbQuery('chat-memory-stats');
+  }
+
+  // ── Blog votes ──
+  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/vote$/) && method === 'POST') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    return await window.electronAPI.dbQuery('blog-vote', parts[3], parts[4], googleId, body.vote);
+  }
+
+  // ── Feed: blocked titles ──
+  if (pathOnly === '/api/blocked-titles' && method === 'GET') {
+    return await window.electronAPI.dbQuery('blocked-titles-get');
+  }
+  if (pathOnly === '/api/blocked-titles' && method === 'POST') {
+    const titles = await window.electronAPI.dbQuery('blocked-titles-get');
+    if (!titles.includes(body.title)) {
+      titles.push(body.title);
+      await window.electronAPI.dbQuery('blocked-titles-set', titles);
+    }
+    return { ok: true };
+  }
+  if (pathOnly === '/api/blocked-titles' && method === 'DELETE') {
+    await window.electronAPI.dbQuery('blocked-titles-set', []);
+    return { ok: true };
+  }
+
+  // ── Feed: quality prompt ──
+  if (pathOnly === '/api/quality-prompt' && method === 'GET') {
+    const prompt = await window.electronAPI.dbQuery('quality-prompt-get');
+    return { prompt, default: null }; // default prompts are client-side constants
+  }
+  if (pathOnly === '/api/quality-prompt' && method === 'PUT') {
+    await window.electronAPI.dbQuery('quality-prompt-set', body.prompt || null);
+    const prompt = await window.electronAPI.dbQuery('quality-prompt-get');
+    return { ok: true, prompt };
+  }
+
+  // ── User profile updates ──
+  if (pathOnly === '/api/users/me/privacy' && method === 'PUT') {
+    if (!googleId) return null;
+    await window.electronAPI.dbQuery('user-set-privacy', googleId, !!body.profile_private);
+    return { ok: true, profile_private: !!body.profile_private };
+  }
+  if (pathOnly === '/api/users/me/status' && method === 'PUT') {
+    if (!googleId) return null;
+    const emoji = (body.emoji || '').trim();
+    const text = (body.text || '').trim().slice(0, 80);
+    await window.electronAPI.dbQuery('user-set-status', googleId, emoji, text);
+    const resp = { ok: true, status_emoji: emoji || null, status_text: text || null };
+    if (emoji || text) {
+      const ach = await window.electronAPI.dbQuery('achievement-grant', googleId, 'first_status');
+      if (ach) resp.achievement = ach;
+    }
+    return resp;
+  }
+
   // Not handled — return null to fall back to HTTP
+  return null;
+}
+
+/** Get the auth token from localStorage */
+function _getAuthToken() {
+  try {
+    return localStorage.getItem('token') || null;
+  } catch (e) {}
   return null;
 }
 

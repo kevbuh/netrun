@@ -60,3 +60,44 @@ export function setQualityCache(titleHash: string, promptHash: string, verdict: 
     'INSERT OR REPLACE INTO quality_cache (title_hash, prompt_hash, verdict, score, cached_at) VALUES (?, ?, ?, ?, ?)'
   ).run(titleHash, promptHash, verdict, score, Date.now() / 1000);
 }
+
+// ── Blocked titles (file-based in Python, we use user_data) ──
+
+export function getBlockedTitles(): string[] {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM user_data WHERE google_id = '__global__' AND key = 'blockedTitles'").get() as { value: string } | undefined;
+  if (!row) return [];
+  try { return JSON.parse(row.value); } catch { return []; }
+}
+
+export function setBlockedTitles(titles: string[]): void {
+  const db = getDb();
+  db.prepare(
+    "INSERT OR REPLACE INTO user_data (google_id, key, value, updated) VALUES ('__global__', 'blockedTitles', ?, ?)"
+  ).run(JSON.stringify(titles), Date.now() / 1000);
+}
+
+// ── Quality prompt (file-based in Python, we use user_data) ──
+
+export function getQualityPrompt(): string | null {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM user_data WHERE google_id = '__global__' AND key = 'qualityPrompt'").get() as { value: string } | undefined;
+  if (!row) return null;
+  try {
+    const val = JSON.parse(row.value);
+    return val || null;
+  } catch {
+    return row.value || null;
+  }
+}
+
+export function setQualityPrompt(prompt: string | null): void {
+  const db = getDb();
+  if (!prompt) {
+    db.prepare("DELETE FROM user_data WHERE google_id = '__global__' AND key = 'qualityPrompt'").run();
+  } else {
+    db.prepare(
+      "INSERT OR REPLACE INTO user_data (google_id, key, value, updated) VALUES ('__global__', 'qualityPrompt', ?, ?)"
+    ).run(JSON.stringify(prompt), Date.now() / 1000);
+  }
+}
