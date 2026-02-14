@@ -60,16 +60,9 @@ function _pillSyncUrl() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const isBlankNtp = tab && tab.blank;
   _browseSetUrlDisplay(input, (!isBlankNtp && tab && tab.url) ? tab.url : '');
-  // Hide URL input + reload in island mode on new tab page; show nav icons
   if (_browseTabLayout === 'island') {
-    input.style.visibility = isBlankNtp ? 'hidden' : '';
-    input.style.pointerEvents = isBlankNtp ? 'none' : '';
-    const reload = document.getElementById('pill-browse-reload');
-    if (reload) reload.style.display = isBlankNtp ? 'none' : '';
-    const closeBtn = document.getElementById('pill-close-tab-btn');
-    if (closeBtn) closeBtn.style.display = isBlankNtp ? 'none' : '';
     const pill = document.getElementById('sidebar-nav');
-    if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
+    if (pill) pill.classList.remove('ntp-active');
   }
   // Safety net: ensure NTP is hidden when a non-blank tab is active in island mode
   if (!isBlankNtp) {
