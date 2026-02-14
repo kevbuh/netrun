@@ -40,8 +40,7 @@ function _repositionSelectionPopup() {
   if (popup._isAetherPanel) {
     const anchorX = popup._aetherAnchorX ?? _lastMouseX;
     const anchorY = popup._aetherAnchorY ?? _lastMouseY;
-    const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
-    const pos = _positionAtCursor(anchorX, anchorY, rect.width, rect.height, preferLeft);
+    const pos = _positionAtCursor(anchorX, anchorY, rect.width, rect.height, false);
     popup.style.top = pos.top + 'px';
     popup.style.left = pos.left + 'px';
     return;
@@ -297,8 +296,7 @@ document.addEventListener('mousemove', function(e) {
 
   popup._aetherAnchorX = e.clientX;
   popup._aetherAnchorY = e.clientY;
-  const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
-  const pos = _positionAtCursor(e.clientX, e.clientY, popup.offsetWidth, popup.offsetHeight, preferLeft);
+  const pos = _positionAtCursor(e.clientX, e.clientY, popup.offsetWidth, popup.offsetHeight, false);
   popup.style.left = pos.left + 'px';
   popup.style.top = pos.top + 'px';
 });
@@ -1778,7 +1776,7 @@ function _panelPositionAndFocus(popup, config) {
       // Offset from panel top to input's vertical center
       inputOffsetY = (inputRect.top - rect.top) + inputRect.height / 2;
     }
-    const _initLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
+    const _initLeft = false;
     // Desired panel position: input caret at (x, y)
     let left = x - inputOffsetX;
     let top = y - inputOffsetY;

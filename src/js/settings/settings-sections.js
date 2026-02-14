@@ -560,13 +560,6 @@ function _renderToolsSettings() {
           </span>
         </label>
       </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Panel Side</span>
-        <div class="flex gap-1">
-          <button onclick="localStorage.setItem('aetherPanelSide','left'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${(localStorage.getItem('aetherPanelSide') || 'left') === 'left' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Left</button>
-          <button onclick="localStorage.setItem('aetherPanelSide','right'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${(localStorage.getItem('aetherPanelSide') || 'left') === 'right' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Right</button>
-        </div>
-      </div>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Vault</h3>

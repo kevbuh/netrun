@@ -534,9 +534,6 @@
     <button id="pill-browse-fwd" class="sidebar-icon pill-island-nav" onclick="browseForward()" title="Forward" onmouseenter="_showHistoryDropdown('forward',this)" onmouseleave="_scheduleHideHistoryDropdown()">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
     </button>
-    <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" onclick="browseReload()" title="Refresh">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
-    </button>
     <div id="pill-browse-url"></div>
     <div id="pill-island" class="pill-island-container"></div>
     <div id="pill-nav-icons" onmouseenter="_cancelPillMenuClose()" onmouseleave="_closePillMenuHover()">
@@ -576,9 +573,12 @@
       </div>
     </div>
     <div id="pill-browse-tabs"></div>
-    <div id="pill-url-wrap">
+    <div id="pill-url-wrap" onmouseenter="_browseUrlOnMouseEnter(document.getElementById('pill-browse-url-input'))" onmouseleave="_browseUrlOnMouseLeave(document.getElementById('pill-browse-url-input'))">
       <div id="pill-island-tabs-anchor"></div>
-      <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…" onkeydown="_pillUrlKeydown(event)" onfocus="_browseUrlOnFocus(this);this.select()" onblur="_browseUrlOnBlur(this);_pillSyncUrl()" onmouseenter="_browseUrlOnMouseEnter(this)" onmouseleave="_browseUrlOnMouseLeave(this)">
+      <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…" onkeydown="_pillUrlKeydown(event)" onfocus="_browseUrlOnFocus(this);this.select()" onblur="_browseUrlOnBlur(this);_pillSyncUrl()">
+      <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" onclick="browseReload()" title="Refresh">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
+      </button>
       <button id="pill-close-tab-btn" class="pill-close-tab-btn" onclick="event.stopPropagation();var t=typeof _browseTabs!=='undefined'&&typeof _browseActiveTab!=='undefined'?_browseTabs.find(function(x){return x.id===_browseActiveTab}):null;if(t)browseCloseTab(t.id);" title="Close tab">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>

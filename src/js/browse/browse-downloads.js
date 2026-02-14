@@ -975,8 +975,7 @@ function _browseInjectContentScripts(tab, frame) {
       _lastMouseY = y;
       const popup = document.getElementById('doc-chat-ask-float');
       if (!popup) { _aetherTrackMode = false; return; }
-      const preferLeft = (localStorage.getItem('aetherPanelSide') || 'left') === 'left';
-      const pos = _positionAtCursor(x, y, popup.offsetWidth, popup.offsetHeight, preferLeft);
+      const pos = _positionAtCursor(x, y, popup.offsetWidth, popup.offsetHeight, false);
       popup.style.left = pos.left + 'px';
       popup.style.top = pos.top + 'px';
     } else if (e.message === '__AETHER_CLOSE_MENU__') {

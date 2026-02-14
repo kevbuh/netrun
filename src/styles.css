@@ -959,10 +959,29 @@
       flex-shrink: 0;
       margin: 0 4px;
     }
-    .browse-mode.island-mode #pill-newtab-btn {
+    .browse-mode.island-mode .pill-url-divider {
+      display: none;
+    }
+    .browse-mode.island-mode #pill-url-wrap #pill-newtab-btn {
+      width: 0;
+      height: 16px;
+      padding: 0;
+      opacity: 0;
+      overflow: hidden;
       flex-shrink: 0;
       margin: 0;
-      border-radius: 0 8px 8px 0;
+      border-radius: 50%;
+      transition: width 0.15s, opacity 0.15s, background 0.15s, color 0.15s;
+    }
+    .browse-mode.island-mode #pill-url-wrap:hover #pill-newtab-btn {
+      width: 16px;
+      opacity: 1;
+      margin-right: 6px;
+    }
+    .browse-mode.island-mode #pill-url-wrap #pill-newtab-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--aether-text);
+      transform: none;
     }
 
     /* Light theme overrides for browse mode */
@@ -1918,28 +1937,26 @@
       display: none;
     }
     .browse-mode.island-mode #pill-url-wrap .pill-close-tab-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
+      display: none;
+    }
+    .browse-mode.island-mode #pill-url-wrap #pill-browse-reload {
+      width: 0;
       height: 16px;
-      border: none;
-      background: none;
-      color: var(--aether-text-dimmer);
-      cursor: pointer;
-      border-radius: 50%;
-      flex-shrink: 0;
-      opacity: 0;
-      transition: opacity 0.15s, background 0.15s, color 0.15s;
       padding: 0;
-      margin-right: 2px;
+      opacity: 0;
+      overflow: hidden;
+      transition: width 0.15s, opacity 0.15s, background 0.15s, color 0.15s;
+      margin: 0;
     }
-    .browse-mode.island-mode #pill-url-wrap:hover .pill-close-tab-btn {
+    .browse-mode.island-mode #pill-url-wrap:hover #pill-browse-reload {
+      width: 16px;
       opacity: 1;
+      margin-right: 6px;
     }
-    .browse-mode.island-mode #pill-url-wrap .pill-close-tab-btn:hover {
+    .browse-mode.island-mode #pill-url-wrap #pill-browse-reload:hover {
       background: rgba(255, 255, 255, 0.12);
       color: var(--aether-text);
+      transform: none;
     }
     #pill-island-tabs-anchor {
       display: none;
