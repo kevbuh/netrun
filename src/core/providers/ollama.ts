@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateText, streamText, embed } from 'ai';
+import { generateText, streamText, jsonSchema } from 'ai';
 import type {
   LLMProvider,
   ChatOptions,
@@ -12,11 +12,26 @@ import type { ToolDefinition } from '../tools/types.js';
 
 /** Convert our messages to Vercel AI SDK format */
 function toAIMessages(messages: ChatMessage[]): any[] {
+  // Build a map of toolCallId -> toolName from assistant messages
+  const toolNameMap = new Map<string, string>();
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.tool_calls?.length) {
+      for (const tc of msg.tool_calls) {
+        toolNameMap.set(tc.id, tc.function.name);
+      }
+    }
+  }
+
   return messages.map(msg => {
     if (msg.role === 'tool') {
       return {
         role: 'tool' as const,
-        content: [{ type: 'tool-result', toolCallId: msg.tool_call_id!, result: msg.content }],
+        content: [{
+          type: 'tool-result',
+          toolCallId: msg.tool_call_id!,
+          toolName: toolNameMap.get(msg.tool_call_id!) ?? 'unknown',
+          output: { type: 'text', value: msg.content },
+        }],
       };
     }
     if (msg.role === 'assistant' && msg.tool_calls?.length) {
@@ -62,14 +77,30 @@ export class OllamaProvider implements LLMProvider {
     const provider = this.getProvider();
     const model = provider.chat(options.model ?? this.defaultModel);
 
-    const result = await generateText({
-      model,
-      messages: toAIMessages(options.messages),
-      tools: options.tools ? this.convertTools(options.tools) : undefined,
-      temperature: options.temperature,
-      maxOutputTokens: options.maxTokens,
-      abortSignal: options.signal,
-    });
+    const aiMsgs = toAIMessages(options.messages);
+    console.log('[ollama] generateText roles:', options.messages.map(m => ({ role: m.role, contentLen: m.content?.length, hasToolCalls: !!m.tool_calls?.length, toolCallId: m.tool_call_id })));
+    const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
+    if (convertedTools) {
+      const sample = Object.entries(convertedTools).slice(0, 2);
+      console.log('[ollama] tools sample:', JSON.stringify(sample.map(([k, v]: any) => ({ name: k, desc: v.description?.slice(0, 40), schema: v.inputSchema?.jsonSchema ?? v.inputSchema ?? v.parameters })), null, 2));
+    }
+    let result;
+    try {
+      result = await generateText({
+        model,
+        messages: aiMsgs,
+        tools: convertedTools,
+        temperature: options.temperature,
+        maxOutputTokens: options.maxTokens,
+        abortSignal: options.signal,
+      });
+    } catch (err: any) {
+      console.error('[ollama] generateText error:', err.message);
+      console.error('[ollama] statusCode:', err.statusCode);
+      console.error('[ollama] responseBody:', err.responseBody);
+      console.error('[ollama] model:', options.model ?? this.defaultModel);
+      throw err;
+    }
 
     const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc: any) => ({
       id: tc.toolCallId,
@@ -166,7 +197,7 @@ export class OllamaProvider implements LLMProvider {
     for (const tool of tools) {
       result[tool.function.name] = {
         description: tool.function.description,
-        parameters: tool.function.parameters,
+        inputSchema: jsonSchema(tool.function.parameters as any),
       };
     }
     return result;

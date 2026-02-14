@@ -45,6 +45,36 @@ function extractToolCallFromText(content: string): ToolCall[] | null {
 }
 
 /**
+ * Convert tool call/result message pairs into plain assistant/user text messages.
+ * Some models (e.g. lfm2.5-thinking via Ollama) can't handle tool-role messages.
+ */
+function flattenToolMessages(messages: ChatMessage[]): ChatMessage[] {
+  const result: ChatMessage[] = [];
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.tool_calls?.length) {
+      // Convert tool calls to text description
+      const callDescs = msg.tool_calls.map(tc => {
+        const args = JSON.parse(tc.function.arguments);
+        return `[Called ${tc.function.name}(${Object.entries(args).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')})]`;
+      }).join('\n');
+      const text = (msg.content ? msg.content + '\n' : '') + callDescs;
+      result.push({ role: 'assistant', content: text });
+    } else if (msg.role === 'tool') {
+      // Convert tool result to user message with the result
+      try {
+        const data = JSON.parse(msg.content);
+        result.push({ role: 'user', content: `Tool result: ${data.message ?? msg.content}` });
+      } catch {
+        result.push({ role: 'user', content: `Tool result: ${msg.content}` });
+      }
+    } else {
+      result.push(msg);
+    }
+  }
+  return result;
+}
+
+/**
  * Execute a single tool and return the result along with any actions.
  */
 async function executeTool(
@@ -138,16 +168,20 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
   const systemPrompt = agent.buildSystemPrompt(context);
   const model = context.model ?? agent.model;
 
-  // Build message list
+  // Build message list (filter out empty messages that break Vercel AI SDK validation)
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    ...config.messages.map(m => ({
-      role: m.role as ChatMessage['role'],
-      content: m.content,
-      tool_call_id: m.tool_call_id,
-      tool_calls: m.tool_calls,
-    })),
+    ...config.messages
+      .filter(m => m.content || m.tool_calls?.length || m.tool_call_id)
+      .map(m => ({
+        role: m.role as ChatMessage['role'],
+        content: m.content ?? '',
+        tool_call_id: m.tool_call_id,
+        tool_calls: m.tool_calls,
+      })),
   ];
+
+  console.log('[agent] messages to send:', JSON.stringify(messages.map(m => ({ role: m.role, contentLen: m.content?.length, hasToolCalls: !!m.tool_calls, toolCallId: m.tool_call_id })), null, 2));
 
   const toolsEnabled = context.toolsEnabled !== false;
 
@@ -175,12 +209,20 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
       }
 
       // Non-streaming call for tool resolution
-      const response = await provider.chat({
-        messages,
-        tools: filteredDefs,
-        model,
-        signal,
-      });
+      let response;
+      try {
+        response = await provider.chat({
+          messages,
+          tools: filteredDefs,
+          model,
+          signal,
+        });
+      } catch (toolErr: any) {
+        // Some models (e.g. lfm2.5-thinking) can't handle tool results + tool defs together.
+        // Flatten tool messages to plain text and retry without tools.
+        console.warn('[agent] tool-call chat failed, falling back to flattened messages:', toolErr.message);
+        response = await provider.chat({ messages: flattenToolMessages(messages), model, signal });
+      }
 
       let toolCalls = response.message.tool_calls;
 
@@ -273,8 +315,11 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
     return;
   }
 
+  // Flatten tool call/result messages into plain text for models that don't support them
+  const streamMessages = flattenToolMessages(messages);
+
   try {
-    for await (const event of provider.chatStream({ messages, model, signal })) {
+    for await (const event of provider.chatStream({ messages: streamMessages, model, signal })) {
       if (signal?.aborted) {
         yield { type: 'error', error: 'Cancelled' };
         return;

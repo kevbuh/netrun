@@ -77,11 +77,26 @@ function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, se
       _popupChatMessages[aiIdx].content = aiText + _visibleToken;
       _renderPopupChatLive(false);
     }
+  } else if (agentEvent.type === 'tool_result') {
+    // After a tool completes, show a brief confirmation (display-only, not accumulated into aiText)
+    const confirmations = {
+      'browser-scroll': 'Scrolled.',
+      'browser-click': 'Clicked.',
+      'browser-type': 'Typed.',
+      'browser-navigate': 'Navigating…',
+      'browser-screenshot': 'Took screenshot.',
+    };
+    if (confirmations[agentEvent.name]) {
+      _popupChatMessages[aiIdx].content = confirmations[agentEvent.name];
+      _popupChatMessages[aiIdx]._thinking = false;
+      _renderPopupChatLive(false);
+    }
   } else if (agentEvent.type === 'tool_call') {
     if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
     const tc = agentEvent;
     const _tcLabel = tc.name + (tc.args ? '(' + Object.values(tc.args).map(v => JSON.stringify(v)).join(', ') + ')' : '()');
     _popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
+    setAiText(''); // Reset accumulated text so tool_result can set confirmation
     _popupChatMessages[aiIdx].content = '';
     _popupChatMessages[aiIdx]._thinking = true;
     _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
@@ -182,7 +197,7 @@ function _sendPopupChatMessage(popup, capturedText) {
   // Check if any message has images (vision mode)
   const hasVision = _popupChatMessages.some(m => m.images && m.images.length > 0);
 
-  const filteredMsgs = _popupChatMessages.filter(m => !m._thinking).map(m => {
+  const filteredMsgs = _popupChatMessages.filter(m => !m._thinking && m.content).map(m => {
     const msg = { role: m.role, content: m.content };
     if (m.images && m.images.length) msg.images = m.images;
     return msg;
@@ -346,7 +361,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         _renderPopupChatLive(true);
       }
       _popupChatMessages[aiIdx]._thinking = false;
-      _popupChatMessages[aiIdx].content = aiText;
+      if (aiText) _popupChatMessages[aiIdx].content = aiText;
       _renderPopupChatLive(true);
     } catch (e) {
       if (e.name !== 'AbortError') {
