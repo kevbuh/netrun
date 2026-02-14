@@ -953,15 +953,20 @@ function _isFlaskRoute(pathOnly) {
   // Static files served by Flask
   if (pathOnly === '/spinners.json') return true;
   // Custom feeds POST (uses feed_poller on Python side)
-  if (pathOnly === '/api/custom-feeds' && true) return true;
+  if (pathOnly === '/api/custom-feeds') return true;
   // Saved posts
   if (pathOnly === '/api/saved-posts') return true;
   // Local file serving
   if (pathOnly === '/api/local-file') return true;
   // Images API (dev.py disk storage)
   if (pathOnly === '/api/images') return true;
+  // Profile picture/background upload (file save on Python side)
+  if (pathOnly === '/api/users/me/picture') return true;
+  if (pathOnly === '/api/users/me/background') return true;
   // Blog unpublish
   if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/unpublish$/)) return true;
+  // Browse proxy (HTML rewriting on Python side)
+  if (pathOnly === '/api/browse-proxy') return true;
 
   return false;
 }

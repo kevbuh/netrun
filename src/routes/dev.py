@@ -1,5 +1,5 @@
-"""Development and utility routes: settings, version, dev stats, function registry, validation,
-calendar, images, saved content, custom feeds, file proxies, TeX preview."""
+"""Development and utility routes: settings, dev stats, function registry, validation,
+images, custom feeds, file proxies, TeX preview."""
 import base64
 import json
 import os
@@ -10,15 +10,10 @@ import time
 import uuid
 
 from flask import Blueprint, request, jsonify, Response
-from routes.common import get_ssl_context
 
 from helpers import require_auth
 from db import DIR
-from cache import read_saved_content, write_saved_content
-from users import (
-    get_user_calendar, create_calendar_event, update_calendar_event, delete_calendar_event,
-    get_all_user_data, set_user_data,
-)
+from users import get_all_user_data, set_user_data
 from vault_helpers import _get_user_vault_path, _vibe_run_git
 
 bp = Blueprint('dev', __name__)
@@ -30,33 +25,6 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 @bp.route('/api/settings')
 def settings():
     return jsonify({'ok': True})
-
-
-@bp.route('/api/client-config')
-def client_config():
-    from routes.common import OLLAMA_HOST
-    return jsonify({
-        'googleClientId': os.environ.get(
-            'GOOGLE_CLIENT_ID',
-            '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com'
-        ),
-        'ollamaHost': OLLAMA_HOST,
-    })
-
-
-@bp.route('/api/version')
-def version():
-    try:
-        git_root = os.path.dirname(DIR)
-        r = subprocess.run(['git', 'rev-list', '--count', 'HEAD'],
-                           capture_output=True, text=True, cwd=git_root, timeout=5)
-        count = int(r.stdout.strip()) if r.returncode == 0 else 0
-        h = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
-                           capture_output=True, text=True, cwd=git_root, timeout=5)
-        sha = h.stdout.strip() if h.returncode == 0 else ''
-        return jsonify({'version': f'0.{count}', 'sha': sha})
-    except Exception:
-        return jsonify({'version': '0.0', 'sha': ''})
 
 
 @bp.route('/api/dev-git-log')
@@ -688,43 +656,6 @@ def _build_file_level_graph():
     })
 
 
-@bp.route('/api/calendar')
-@require_auth
-def list_calendar(google_id):
-    return jsonify(get_user_calendar(google_id))
-
-
-@bp.route('/api/calendar', methods=['POST'])
-@require_auth
-def create_calendar_event_route(google_id):
-    body = request.get_json(force=True, silent=True) or {}
-    title = body.get('title', '').strip()
-    if not title:
-        return jsonify({'error': 'title required'}), 400
-    event = create_calendar_event(google_id, body)
-    return jsonify(event), 201
-
-
-@bp.route('/api/calendar/<eid>', methods=['PUT'])
-@require_auth
-def update_calendar_event_route(google_id, eid):
-    body = request.get_json(force=True, silent=True) or {}
-    result = update_calendar_event(google_id, eid, body)
-    if result:
-        return jsonify(result)
-    else:
-        return jsonify({'error': 'Not found'}), 404
-
-
-@bp.route('/api/calendar/<eid>', methods=['DELETE'])
-@require_auth
-def delete_calendar_event_route(google_id, eid):
-    if delete_calendar_event(google_id, eid):
-        return jsonify({'ok': True})
-    else:
-        return jsonify({'error': 'Not found'}), 404
-
-
 @bp.route('/api/images', methods=['POST'])
 @require_auth
 def upload_image(google_id):
@@ -753,35 +684,6 @@ def serve_image(filename):
     resp = Response(data, content_type='image/png')
     resp.headers['Cache-Control'] = 'public, max-age=31536000'
     return resp
-
-
-@bp.route('/api/saved-content')
-@require_auth
-def get_saved_content(google_id):
-    url = request.args.get('url', '').strip()
-    if not url:
-        return jsonify({'error': 'url required'}), 400
-    data = read_saved_content(url)
-    if data is None:
-        return jsonify({'error': 'not found'}), 404
-    else:
-        return jsonify(data)
-
-
-@bp.route('/api/saved-content', methods=['POST'])
-@require_auth
-def post_saved_content(google_id):
-    body = request.get_json(force=True, silent=True) or {}
-    url = body.get('url', '').strip()
-    if not url:
-        return jsonify({'error': 'url required'}), 400
-    write_saved_content(url, {
-        'url': url,
-        'title': body.get('title', ''),
-        'text': body.get('text', ''),
-        'savedAt': body.get('savedAt', int(time.time() * 1000))
-    })
-    return jsonify({'ok': True})
 
 
 @bp.route('/api/saved-posts', methods=['POST'])
@@ -836,23 +738,6 @@ def add_custom_feed(google_id):
     return jsonify({'ok': True, 'name': name or url})
 
 
-@bp.route('/api/reveal-in-finder', methods=['POST'])
-@require_auth
-def reveal_in_finder(google_id):
-    body = request.get_json(force=True, silent=True) or {}
-    filename = body.get('filename', '').strip()
-    if not filename:
-        return jsonify({'error': 'Missing filename'}), 400
-    downloads_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
-    filepath = os.path.join(downloads_dir, filename)
-    if os.path.exists(filepath):
-        subprocess.Popen(['open', '-R', filepath])
-        return jsonify({'ok': True})
-    else:
-        subprocess.Popen(['open', downloads_dir])
-        return jsonify({'ok': True, 'fallback': True})
-
-
 @bp.route('/api/vibe/git', methods=['POST'])
 @require_auth
 def vibe_git(google_id):
@@ -886,45 +771,6 @@ def local_file():
         return resp
     except Exception as e:
         return Response(str(e).encode(), status=500, content_type='text/plain')
-
-
-@bp.route('/api/arxiv-pdf')
-def arxiv_pdf():
-    import urllib.request
-    arxiv_id = request.args.get('id', '').strip()
-    if not arxiv_id:
-        return Response(status=400)
-    pdf_url = f'https://arxiv.org/pdf/{arxiv_id}.pdf'
-    try:
-        req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = get_ssl_context()
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
-            data = resp.read()
-            r = Response(data, content_type='application/pdf')
-            r.headers['Content-Length'] = str(len(data))
-            r.headers['Access-Control-Allow-Origin'] = '*'
-            return r
-    except Exception as e:
-        return Response(str(e).encode(), status=502, content_type='text/plain')
-
-
-@bp.route('/api/pdf-proxy')
-def pdf_proxy():
-    import urllib.request
-    url = request.args.get('url', '').strip()
-    if not url or not url.startswith('http'):
-        return Response(status=400)
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        ctx = get_ssl_context()
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
-            data = resp.read()
-            r = Response(data, content_type='application/pdf')
-            r.headers['Content-Length'] = str(len(data))
-            r.headers['Access-Control-Allow-Origin'] = '*'
-            return r
-    except Exception as e:
-        return Response(str(e).encode(), status=502, content_type='text/plain')
 
 
 @bp.route('/tex-preview')
