@@ -1748,6 +1748,15 @@ export function registerToolIPC(): void {
   // Phase 5: Filesystem Routes + Client Config
   // ═══════════════════════════════════════════════════════════════════════
 
+  ipcMain.handle('db:read-view', (_event, viewPath: string) => {
+    // Read static HTML view templates from disk
+    const dataDir = process.env.ARXIV_DATA_DIR ?? process.cwd();
+    const filePath = path.join(dataDir, viewPath.replace(/^\//, ''));
+    try {
+      return { html: fs.readFileSync(filePath, 'utf-8') };
+    } catch { return { error: 'View not found: ' + viewPath }; }
+  });
+
   ipcMain.handle('db:client-config', () => {
     return { googleClientId: GOOGLE_CLIENT_ID, ollamaHost: OLLAMA_HOST };
   });

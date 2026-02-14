@@ -271,8 +271,13 @@ async function ensureView(viewId) {
   const config = VIEW_REGISTRY[viewId];
   if (!config) return null;
   if (!_viewTemplateCache[viewId]) {
-    const resp = await api(config.template);
-    _viewTemplateCache[viewId] = await resp.text();
+    if (window.electronAPI && window.electronAPI.coreAvailable) {
+      const result = await window.electronAPI.dbQuery('read-view', config.template);
+      _viewTemplateCache[viewId] = result.html || '';
+    } else {
+      const resp = await api(config.template);
+      _viewTemplateCache[viewId] = await resp.text();
+    }
   }
   const div = document.createElement('div');
   div.id = viewId;
