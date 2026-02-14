@@ -829,9 +829,6 @@ async function ipcRoute(path, opts = {}) {
   if (pathOnly === '/api/reading-connections' && method === 'POST') {
     return await window.electronAPI.dbQuery('reading-connections', body);
   }
-  if (pathOnly === '/api/knowledge-graph/similarities' && method === 'POST') {
-    return await window.electronAPI.dbQuery('knowledge-graph-sims', body);
-  }
 
   // ═══════════════════════════════════════════════════════════════════
   // Phase 4: Complex Ollama / Streaming

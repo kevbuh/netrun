@@ -23,14 +23,13 @@ const _wmViewMeta = {
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats' },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings' },
   calendar:   { sidebarId: 'sb-dashboard', label: 'Dashboard' },
-  graph:      { sidebarId: 'sb-graph',     label: 'Graph' },
 };
 
 const _ROUTE_TABLE_KEYS = [
   '#research', '#experiments', '#settings', '#quality', '#algorithm',
   '#calendar', '#inbox', '#teams', '#vault', '#profile', '#saved-all',
   '#saved', '#browse', '#search', '#terminal', '#neuralook', '#dev',
-  '#graph', '#vibe', '#feed',
+  '#vibe', '#feed',
 ];
 
 // ── Route-to-wmOpen mapping (what wmOpen key each route triggers) ──
@@ -43,7 +42,6 @@ const ROUTE_TO_WM_KEY = {
   '#browse':      'browse',
   '#neuralook':   'neuralook',
   '#dev':         'dev',
-  '#graph':       'graph',
   '#vibe':        'vault',
   '#feed':        'feed',
   '#saved':       'dashboard',

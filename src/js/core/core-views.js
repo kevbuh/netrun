@@ -262,7 +262,6 @@ const VIEW_REGISTRY = {
   'teams-view':          { template: '/views/teams.html',     tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
-  'knowledge-graph-view': { template: '/views/knowledge-graph.html', tier: 2 },
 };
 
 async function ensureView(viewId) {
@@ -283,7 +282,7 @@ async function ensureView(viewId) {
   div.id = viewId;
   div.className = 'hidden view';
   // Preserve extra styles for specific views
-  if (viewId === 'vault-view' || viewId === 'blog-view' || viewId === 'knowledge-graph-view') div.style.height = '100%';
+  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
@@ -352,7 +351,6 @@ const _wmViewMeta = {
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
   calendar:   { sidebarId: 'sb-dashboard',  label: 'Dashboard',  openFn() { openDashboard(); } },
-  graph:      { sidebarId: 'sb-graph',    label: 'Graph',      openFn() { openKnowledgeGraph(); } },
 };
 
 // Pre-populate all views (pill bar order)

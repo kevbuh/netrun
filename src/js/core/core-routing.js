@@ -20,7 +20,6 @@ var _ROUTE_TABLE = {
   '#terminal':    () => { openTerminal(); },
   '#neuralook':   () => wmOpen('neuralook'),
   '#dev':         () => wmOpen('dev'),
-  '#graph':       () => wmOpen('graph'),
   '#vibe':        () => wmOpen('vault'),
   '#feed':        () => wmOpen('feed'),
 };

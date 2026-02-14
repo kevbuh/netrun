@@ -1454,13 +1454,6 @@ export function registerToolIPC(): void {
     } catch { return { results: [] }; }
   });
 
-  ipcMain.handle('db:knowledge-graph-sims', async (_event, body: { links: string[]; threshold?: number }) => {
-    if (!body.links?.length) return { edges: [] };
-    try {
-      const edges = embeddingQueries.pairwiseSimilarities(body.links, body.threshold ?? 0.65);
-      return { edges };
-    } catch { return { edges: [] }; }
-  });
 
   // ═══════════════════════════════════════════════════════════════════════
   // Phase 4: Complex Ollama / Streaming

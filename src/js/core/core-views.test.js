@@ -19,7 +19,6 @@ const VIEW_REGISTRY = {
   'teams-view':          { template: '/views/teams.html',     tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
-  'knowledge-graph-view': { template: '/views/knowledge-graph.html', tier: 2 },
 };
 
 const _wmDefaultOrder = ['dashboard','feed','vault','browse','neuralook','dev','settings'];
@@ -34,7 +33,6 @@ const _wmViewMeta = {
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats' },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings' },
   calendar:   { sidebarId: 'sb-dashboard', label: 'Dashboard' },
-  graph:      { sidebarId: 'sb-graph',     label: 'Graph' },
 };
 
 // ── Replicate ensureView logic for testing ──
@@ -111,8 +109,8 @@ function wmOpen(key, wmWindows, state) {
 // ──────────────────────────────────────────────────────────
 
 describe('VIEW_REGISTRY', () => {
-  it('should have 15 registered views', () => {
-    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(15);
+  it('should have 14 registered views', () => {
+    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(14);
   });
 
   it('should have template paths for all views', () => {
@@ -151,13 +149,12 @@ describe('VIEW_REGISTRY', () => {
     expect(VIEW_REGISTRY).toHaveProperty('inbox-view');
     expect(VIEW_REGISTRY).toHaveProperty('dev-stats-view');
     expect(VIEW_REGISTRY).toHaveProperty('neuralook-view');
-    expect(VIEW_REGISTRY).toHaveProperty('knowledge-graph-view');
   });
 });
 
 describe('_wmViewMeta', () => {
-  it('should have 10 view meta entries', () => {
-    expect(Object.keys(_wmViewMeta)).toHaveLength(10);
+  it('should have 9 view meta entries', () => {
+    expect(Object.keys(_wmViewMeta)).toHaveLength(9);
   });
 
   it('should have sidebarId for all entries', () => {
@@ -265,12 +262,6 @@ describe('ensureView', () => {
     expect(result.style.height).toBe('100%');
   });
 
-  it('should set height 100% for knowledge-graph-view', async () => {
-    const fetchFn = vi.fn().mockResolvedValue('<p>Graph</p>');
-    const result = await ensureView('knowledge-graph-view', fetchFn);
-
-    expect(result.style.height).toBe('100%');
-  });
 
   it('should add overflow-x-hidden class for dashboard-view', async () => {
     const fetchFn = vi.fn().mockResolvedValue('<p>Dashboard</p>');

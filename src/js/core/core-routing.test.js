@@ -25,7 +25,6 @@ const ROUTE_TABLE_KEYS = [
   '#terminal',
   '#neuralook',
   '#dev',
-  '#graph',
   '#vibe',
   '#feed',
 ];
@@ -126,7 +125,7 @@ function parseExperimentRoute(hash) {
 
 describe('Route Table Coverage', () => {
   it('should have 20 exact routes', () => {
-    expect(ROUTE_TABLE_KEYS).toHaveLength(20);
+    expect(ROUTE_TABLE_KEYS).toHaveLength(19);
   });
 
   it('should include core routes', () => {
