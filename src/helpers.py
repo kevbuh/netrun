@@ -178,7 +178,7 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "navigate",
-            "description": "Navigate the app to a specific view. This ONLY changes which page is shown — it does NOT create, modify, or delete anything. To add a calendar event, use create_calendar_event instead.",
+            "description": "Switch to a different app section (home, browse, experiments, etc.). This ONLY switches the app panel — it does NOT open websites or URLs. To open a website like youtube.com, use open_tab instead. To add a calendar event, use create_calendar_event instead.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -224,7 +224,7 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "open_tab",
-            "description": "Open a new browser tab in the app. If the user says 'open a new tab' or 'new tab' without specifying a URL, call this with NO url parameter to open a blank new tab page. Only pass a url if the user explicitly mentions a specific website or link to open.",
+            "description": "Open a website or URL in a new browser tab. Use this when the user wants to go to a website (e.g. 'go to youtube', 'open google.com'). If the user says 'open a new tab' or 'new tab' without specifying a URL, call this with NO url parameter to open a blank new tab page.",
             "parameters": {
                 "type": "object",
                 "properties": {

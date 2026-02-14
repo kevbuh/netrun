@@ -649,8 +649,11 @@ function _renderPopupChat(popup, final) {
     el.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const url = el.getAttribute('data-href');
+      window.location.hash = '#browse';
       if (typeof browseNewTab === 'function') browseNewTab(url);
       else window.open(url, '_blank');
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (popup) { _aetherTrackMode = false; popup.remove(); }
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
@@ -659,8 +662,11 @@ function _renderPopupChat(popup, final) {
     el.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const url = el.getAttribute('data-href');
+      window.location.hash = '#browse';
       if (typeof browseNewTab === 'function') browseNewTab(url);
       else window.open(url, '_blank');
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (popup) { _aetherTrackMode = false; popup.remove(); }
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
