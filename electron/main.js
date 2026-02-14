@@ -124,6 +124,12 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
+// Suppress benign ERR_ABORTED from webview navigations (redirects, ad-blocker cancellations)
+process.on('uncaughtException', (err) => {
+  if (err && err.code === 'ERR_ABORTED') return;
+  console.error('Uncaught exception:', err);
+});
+
 app.on('second-instance', () => {
   // Someone tried to run a second instance, focus the first
   if (mainWindow) {

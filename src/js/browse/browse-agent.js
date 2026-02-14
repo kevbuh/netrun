@@ -7,8 +7,8 @@
 // ── DOM extraction: build compressed accessible tree ──
 
 async function agentGetAccessibleDOM(tab) {
-  if (!tab || !tab.webview) return { error: 'no active tab' };
-  const wc = tab.webview.getWebContentsId?.();
+  if (!tab || !tab.el) return { error: 'no active tab' };
+  const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
 
   const code = `(function() {
@@ -103,8 +103,8 @@ async function agentGetAccessibleDOM(tab) {
 // ── Click element by agent ID ──
 
 async function agentClick(tab, elementId) {
-  if (!tab || !tab.webview) return { error: 'no active tab' };
-  const wc = tab.webview.getWebContentsId?.();
+  if (!tab || !tab.el) return { error: 'no active tab' };
+  const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
 
   const code = `(function() {
@@ -130,8 +130,8 @@ async function agentClick(tab, elementId) {
 // ── Type into element by agent ID ──
 
 async function agentType(tab, elementId, text) {
-  if (!tab || !tab.webview) return { error: 'no active tab' };
-  const wc = tab.webview.getWebContentsId?.();
+  if (!tab || !tab.el) return { error: 'no active tab' };
+  const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
 
   const safeText = JSON.stringify(text);
@@ -163,8 +163,8 @@ async function agentType(tab, elementId, text) {
 // ── Scroll page up or down ──
 
 async function agentScroll(tab, direction) {
-  if (!tab || !tab.webview) return { error: 'no active tab' };
-  const wc = tab.webview.getWebContentsId?.();
+  if (!tab || !tab.el) return { error: 'no active tab' };
+  const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
 
   const dir = direction === 'up' ? -1 : 1;
@@ -185,8 +185,8 @@ async function agentScroll(tab, direction) {
 // ── Take screenshot of current tab ──
 
 async function agentScreenshot(tab) {
-  if (!tab || !tab.webview) return { error: 'no active tab' };
-  const wc = tab.webview.getWebContentsId?.();
+  if (!tab || !tab.el) return { error: 'no active tab' };
+  const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
 
   try {

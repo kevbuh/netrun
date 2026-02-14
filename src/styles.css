@@ -4127,6 +4127,34 @@
     .doc-msg-ai code { background: var(--aether-hover-subtle); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
     .doc-msg-ai pre { background: var(--aether-hover-subtle); padding: 0.6em; border-radius: 4px; overflow-x: auto; margin: 0.3em 0; }
     .doc-msg-ai pre code { background: none; padding: 0; }
+    .doc-ctx-details { margin-bottom: 4px; }
+    .doc-ctx-details summary { list-style: none; cursor: pointer; }
+    .doc-ctx-details summary::-webkit-details-marker { display: none; }
+    .doc-msg-context-sources { display: flex; flex-wrap: wrap; gap: 3px; }
+    .doc-ctx-pill {
+      font-size: 0.6rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: var(--aether-hover-subtle);
+      color: var(--aether-text-dimmer);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .doc-ctx-pill:hover { background: var(--aether-hover); color: var(--aether-text-dim); }
+    .doc-ctx-raw {
+      font-size: 0.58rem;
+      line-height: 1.35;
+      margin: 4px 0 0;
+      padding: 6px;
+      background: var(--aether-hover-subtle);
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--aether-text-dim);
+      scrollbar-width: thin;
+    }
     .doc-chat-thinking { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; }
     .doc-chat-thinking .dot {
       width: 6px; height: 6px; border-radius: 50%;
@@ -4138,11 +4166,11 @@
     .doc-thinking-label { font-size: 0.7rem; color: var(--text-dimmer); margin-left: 6px; font-style: italic; }
     .doc-thinking-preview { font-size: 0.7rem; color: var(--text-dimmer); margin-top: 4px; font-style: italic; white-space: pre-wrap; line-height: 1.4; max-height: 60px; overflow: hidden; mask-image: linear-gradient(to bottom, black 40%, transparent); -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent); }
 
-    /* Dark theme: chat messages should be gray/white instead of black/white */
+    /* Chat messages use aether theme colors */
     :root .doc-msg-user,
     :root .doc-msg-ai {
-      background: #2a2a2a;
-      color: #f5f5f5;
+      background: var(--aether-hover);
+      color: var(--aether-text);
     }
 
     /* Message action buttons (copy, speak, edit) */
@@ -5111,7 +5139,7 @@
     }
     .aether-model-label {
       font-size: 0.65rem;
-      color: var(--text-dim);
+      color: var(--aether-text-dim);
       opacity: 0.7;
       max-width: 120px;
       overflow: hidden;
@@ -5158,7 +5186,7 @@
     }
     .aether-button-row .aether-model-label {
       font-size: 0.7rem;
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--aether-text-dim);
       opacity: 1;
     }
     .aether-input-btn {

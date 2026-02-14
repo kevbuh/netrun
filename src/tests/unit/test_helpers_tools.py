@@ -64,9 +64,15 @@ class TestBrowserToolExecution:
         def cb(event, data):
             actions.append((event, data))
         result = execute_chat_tool('browser_read_page', {}, stream_callback=cb)
-        assert result['status'] == 'pending'
+        assert result['status'] == 'ok'
         assert len(actions) == 1
         assert actions[0][1]['type'] == 'agent_read_page'
+
+    def test_browser_read_page_returns_dom_from_context(self):
+        ctx = 'some text\n--- BROWSER TAB DOM (Test) [http://example.com] ---\n[1] <button> "Click"\n--- END DOM ---'
+        result = execute_chat_tool('browser_read_page', {}, context=ctx)
+        assert result['status'] == 'ok'
+        assert '[1] <button>' in result['dom']
 
     def test_browser_click_emits_action(self):
         actions = []
@@ -127,4 +133,4 @@ class TestBrowserToolExecution:
 
     def test_browser_read_page_no_callback(self):
         result = execute_chat_tool('browser_read_page', {})
-        assert result['status'] == 'pending'
+        assert result['status'] == 'ok'

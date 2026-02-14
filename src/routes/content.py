@@ -279,6 +279,24 @@ def doc_chat():
             page_title = body.get('pageTitle', '')
             if page_url:
                 page_ctx = f'\n\nThe user is currently viewing: "{page_title}" ({page_url}). Use this when they refer to "this page", "this paper", etc.'
+        _has_dom_ctx = context and '--- BROWSER TAB DOM' in context
+        # Browser tool instructions — omit browser_read_page when DOM is already in context
+        if _has_dom_ctx:
+            _browser_tools_desc = (
+                "You have browser automation tools: "
+                "browser_click(element_id), browser_type(element_id, text), browser_scroll(direction='down'|'up'), "
+                "browser_navigate(url). The BROWSER TAB DOM section below shows the page elements with [N] IDs. "
+                "Use these IDs directly with browser_click/browser_type. "
+                "When the user says 'scroll down' or 'scroll up', call browser_scroll. "
+                "Do NOT call browser_read_page — the DOM is already provided."
+            )
+        else:
+            _browser_tools_desc = (
+                "You have browser automation tools: browser_read_page (read current page DOM), "
+                "browser_click(element_id), browser_type(element_id, text), browser_scroll(direction='down'|'up'), "
+                "browser_navigate(url). Each page element has a numeric ID like [1], [2]. "
+                "When the user says 'scroll down' or 'scroll up', call browser_scroll."
+            )
         if truncated_ctx:
             system_msg = (
                 date_str +
@@ -288,12 +306,8 @@ def doc_chat():
                 "You have tools that perform real actions in the app. IMPORTANT: You MUST actually "
                 "call the tools to perform actions — never pretend you performed an action or describe "
                 "the result without calling the tool first. Never say you "
-                "cannot open tabs or navigate — you can, using your tools. "
-                "You also have browser automation tools: browser_read_page (see DOM elements with IDs), "
-                "browser_click(element_id), browser_type(element_id, text), browser_scroll(direction), "
-                "browser_navigate(url). When the user asks you to interact with a web page, use "
-                "browser_click/browser_type/browser_scroll to interact. Each element has a numeric ID "
-                "like [1], [2] — use these IDs in click/type calls." + page_ctx + "\n\n"
+                "cannot open tabs or navigate — you can, using your tools. " +
+                _browser_tools_desc + page_ctx + "\n\n"
                 "--- DOCUMENT TEXT ---\n" + truncated_ctx + "\n--- END ---"
             ) if tools_enabled else (
                 date_str +
@@ -312,12 +326,8 @@ def doc_chat():
                 "without calling the tool first. Never say you cannot open tabs or "
                 "navigate — you can, using your tools. Available tools: web_search, search_papers, "
                 "fetch_page, save_to_reading_list, navigate, create_experiment, "
-                "create_calendar_event, open_tab. "
-                "You also have browser automation tools: browser_read_page (see DOM elements with IDs), "
-                "browser_click(element_id), browser_type(element_id, text), browser_scroll(direction), "
-                "browser_navigate(url). When the user asks you to interact with a web page, use "
-                "browser_click/browser_type/browser_scroll to interact. Each element has a numeric ID "
-                "like [1], [2] — use these IDs in click/type calls." + page_ctx
+                "create_calendar_event, open_tab. " +
+                _browser_tools_desc + page_ctx
             ) if tools_enabled else (date_str + "You are a helpful assistant.")
         # Inject current date/time into the last user message so the model can't miss it
         if messages:
@@ -327,6 +337,9 @@ def doc_chat():
                     time_note = f'[Current date/time: {now.strftime("%Y-%m-%d %H:%M")}]'
                     messages[i]['content'] = time_note + '\n' + messages[i]['content']
                     break
+        # For qwen3: append /no_think to system prompt when thinking is disabled
+        if not think_enabled:
+            system_msg += " /no_think"
         ollama_messages = [{"role": "system", "content": system_msg}] + messages
 
     def generate():
@@ -334,11 +347,14 @@ def doc_chat():
             nonlocal tools_enabled, ollama_messages, model
             # Tool call loop (max 5 iterations)
             if tools_enabled:
+                # If DOM is already in context, exclude browser_read_page to avoid model confusion
+                _has_dom = context and '--- BROWSER TAB DOM' in context
+                _tools = [t for t in CHAT_TOOLS if not (_has_dom and t['function']['name'] == 'browser_read_page')] if _has_dom else CHAT_TOOLS
                 for _ in range(5):
                     tool_payload = {
                         "model": model,
                         "messages": ollama_messages,
-                        "tools": CHAT_TOOLS,
+                        "tools": _tools,
                         "stream": False
                     }
                     if not think_enabled:
@@ -353,6 +369,27 @@ def doc_chat():
                         result = json.loads(resp.read())
                     msg = result.get("message", {})
                     tool_calls = msg.get("tool_calls")
+                    # Fallback: some models emit tool calls as JSON text instead of structured tool_calls
+                    if not tool_calls and msg.get("content"):
+                        content = msg["content"].strip()
+                        # Strip <think>...</think> tags (qwen3 thinking mode)
+                        content = re.sub(r'<think>.*?</think>\s*', '', content, flags=re.DOTALL).strip()
+                        # Strip markdown code fences if present
+                        if content.startswith("```"):
+                            content = re.sub(r'^```\w*\n?', '', content)
+                            content = re.sub(r'\n?```$', '', content).strip()
+                        # Search for JSON tool call anywhere in content (model may prepend plain thinking text)
+                        # Regex handles one level of nesting (e.g. "arguments": {} or {"element_id": 5})
+                        json_match = re.search(r'\{(?:[^{}]|\{[^{}]*\})*\}', content)
+                        if json_match:
+                            try:
+                                parsed = json.loads(json_match.group())
+                                if "name" in parsed:
+                                    tool_calls = [{"function": {"name": parsed["name"], "arguments": parsed.get("arguments", parsed.get("parameters", {}))}}]
+                                    msg["tool_calls"] = tool_calls
+                                    msg["content"] = ""
+                            except (json.JSONDecodeError, KeyError):
+                                pass
                     if not tool_calls:
                         # No tool calls -- model produced text, break to stream
                         break
@@ -375,7 +412,7 @@ def doc_chat():
                         def stream_cb(event, data):
                             actions.append((event, data))
 
-                        tool_result = execute_chat_tool(tool_name, tool_args, stream_callback=stream_cb, google_id=_chat_google_id)
+                        tool_result = execute_chat_tool(tool_name, tool_args, stream_callback=stream_cb, google_id=_chat_google_id, context=context)
                         for ev, d in actions:
                             yield sse_event(ev, d)
                         # Surface web search URLs to frontend for sources pill

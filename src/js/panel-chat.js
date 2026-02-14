@@ -103,7 +103,10 @@ function _sendPopupChatMessage(popup, capturedText) {
           body.pageTitle = browseTab.title || '';
         }
       }
+      // Track context sources for transparency indicator
+      const _ctxSources = [];
       if (hasVision) {
+        _ctxSources.push('vision');
         body.vision = true;
         const vm = localStorage.getItem('visionModel');
         if (vm) body.model = vm;
@@ -112,19 +115,23 @@ function _sendPopupChatMessage(popup, capturedText) {
         body.think = localStorage.getItem('chatThinking') === 'on';
         // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
+        if (ctx) _ctxSources.push('doc');
         if (noteContexts.length) {
+          _ctxSources.push(noteContexts.length + ' note' + (noteContexts.length > 1 ? 's' : ''));
           const notesCtx = noteContexts.map(n =>
             `--- Note: ${n.title} ---\n${n.content}`
           ).join('\n\n');
           ctx = ctx ? ctx + '\n\n' + notesCtx : notesCtx;
         }
         if (tabContexts.length) {
+          _ctxSources.push(tabContexts.length + ' tab' + (tabContexts.length > 1 ? 's' : ''));
           const tabCtx = tabContexts.map(t =>
             `--- Tab: ${t.title} (${t.url}) ---\n${t.content}`
           ).join('\n\n');
           ctx = ctx ? ctx + '\n\n' + tabCtx : tabCtx;
         }
         if (fileContexts.length) {
+          _ctxSources.push(fileContexts.length + ' file' + (fileContexts.length > 1 ? 's' : ''));
           const fileCtx = fileContexts.map(f =>
             `--- File: ${f.name} ---\n${f.content}`
           ).join('\n\n');
@@ -141,18 +148,10 @@ function _sendPopupChatMessage(popup, capturedText) {
               if (memResp.ok) {
                 const memData = await memResp.json();
                 if (memData.memories && memData.memories.length) {
+                  _ctxSources.push(memData.memories.length + ' memor' + (memData.memories.length > 1 ? 'ies' : 'y'));
                   const memCtx = '\n\nRELEVANT PAST CONVERSATIONS:\n' +
                     memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
                   ctx = ctx ? ctx + memCtx : memCtx;
-                  // Show recall indicator
-                  const _chatContainer = document.querySelector('#doc-chat-ask-float .doc-chat-messages') || document.querySelector('.doc-chat-messages');
-                  if (_chatContainer) {
-                    const indicator = document.createElement('div');
-                    indicator.className = 'text-dimmer text-center py-1 italic';
-                    indicator.style.fontSize = '0.68rem';
-                    indicator.textContent = 'Recalled ' + memData.memories.length + ' past conversation' + (memData.memories.length > 1 ? 's' : '');
-                    _chatContainer.appendChild(indicator);
-                  }
                 }
               }
             }
@@ -162,17 +161,27 @@ function _sendPopupChatMessage(popup, capturedText) {
         if (toolsOn && typeof agentGetAccessibleDOM === 'function') {
           const _agentTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
             ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-          if (_agentTab && _agentTab.webview) {
+          if (_agentTab && _agentTab.el) {
             try {
               const domTree = await agentGetAccessibleDOM(_agentTab);
               if (domTree && domTree.elements) {
+                _ctxSources.push('page DOM (' + (domTree.elementCount || '?') + ')');
                 const domCtx = `\n\n--- BROWSER TAB DOM (${domTree.title}) [${domTree.url}] ---\n${domTree.elements}\n--- END DOM ---`;
                 ctx = ctx ? ctx + domCtx : domCtx;
+              } else if (domTree && domTree.error) {
+                console.warn('[agent] DOM extraction error:', domTree.error);
               }
-            } catch (_e) { /* DOM extraction is best-effort */ }
+            } catch (_e) { console.warn('[agent] DOM extraction failed:', _e); }
           }
         }
+        if (toolsOn) _ctxSources.push('tools');
         body.context = ctx;
+      }
+      // Store context sources + raw context on the AI message for display
+      const aiMsg = _popupChatMessages[_popupChatMessages.length - 1];
+      if (aiMsg && _ctxSources.length) {
+        aiMsg._ctxSources = _ctxSources;
+        aiMsg._ctxRaw = body.context || '';
       }
       _chatStreamStart = Date.now();
       const resp = await api('/api/doc-chat', {
@@ -199,6 +208,7 @@ function _sendPopupChatMessage(popup, capturedText) {
       let currentEvent = '';
 
       let streamDone = false;
+      let _inThinkTag = false; // Track <think>...</think> in content stream
       while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -223,10 +233,52 @@ function _sendPopupChatMessage(popup, capturedText) {
             } else if (currentEvent === 'token') {
               try {
                 const token = JSON.parse(line.slice(6));
-                _popupChatMessages[aiIdx]._thinking = false;
-                aiText += token;
-                _popupChatMessages[aiIdx].content = aiText;
-                _renderPopupChatLive(false);
+                // Handle <think>...</think> tags embedded in content stream
+                let _visibleToken = token;
+                if (_inThinkTag) {
+                  const endIdx = _visibleToken.indexOf('</think>');
+                  if (endIdx !== -1) {
+                    // Capture thinking text, resume visible output after tag
+                    const thinkPart = _visibleToken.slice(0, endIdx);
+                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                    _popupChatMessages[aiIdx]._thinkingText += thinkPart;
+                    _visibleToken = _visibleToken.slice(endIdx + 8);
+                    _inThinkTag = false;
+                  } else {
+                    // Still inside think tag — capture as thinking, don't display
+                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                    _popupChatMessages[aiIdx]._thinkingText += _visibleToken;
+                    _popupChatMessages[aiIdx]._thinking = true;
+                    _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+                    _renderPopupChatLive(false);
+                    _visibleToken = '';
+                  }
+                }
+                if (!_inThinkTag && _visibleToken.includes('<think>')) {
+                  const startIdx = _visibleToken.indexOf('<think>');
+                  const before = _visibleToken.slice(0, startIdx);
+                  const after = _visibleToken.slice(startIdx + 7);
+                  _inThinkTag = true;
+                  // Check if </think> is also in this token
+                  const endIdx2 = after.indexOf('</think>');
+                  if (endIdx2 !== -1) {
+                    const thinkPart = after.slice(0, endIdx2);
+                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                    _popupChatMessages[aiIdx]._thinkingText += thinkPart;
+                    _visibleToken = before + after.slice(endIdx2 + 8);
+                    _inThinkTag = false;
+                  } else {
+                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                    _popupChatMessages[aiIdx]._thinkingText += after;
+                    _visibleToken = before;
+                  }
+                }
+                if (_visibleToken) {
+                  _popupChatMessages[aiIdx]._thinking = false;
+                  aiText += _visibleToken;
+                  _popupChatMessages[aiIdx].content = aiText;
+                  _renderPopupChatLive(false);
+                }
               } catch (e) {}
             } else if (currentEvent === 'tool_call') {
               try {
@@ -292,6 +344,55 @@ function _sendPopupChatMessage(popup, capturedText) {
         }
       }
 
+      // Intercept: if streamed text contains a raw JSON tool call, execute it instead of displaying
+      let _intercepted = false;
+      if (aiText && aiText.includes('"name"')) {
+        // Extract JSON object from anywhere in the text (model may prepend thinking text)
+        // Regex handles one level of nesting (e.g. "arguments": {} or {"element_id": 5})
+        const _jsonMatch = aiText.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
+        if (_jsonMatch) try {
+          const _tc = JSON.parse(_jsonMatch[0]);
+          if (_tc.name && typeof _tc.name === 'string') {
+            _intercepted = true;
+            const _tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+              ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+            const _args = _tc.arguments || _tc.parameters || {};
+            if (_tc.name === 'browser_click' && _tab && _args.element_id != null) {
+              agentClick(_tab, _args.element_id);
+              aiText = `Clicked element ${_args.element_id}.`;
+            } else if (_tc.name === 'browser_type' && _tab && _args.element_id != null) {
+              agentType(_tab, _args.element_id, _args.text || '');
+              aiText = `Typed "${_args.text || ''}" into element ${_args.element_id}.`;
+            } else if (_tc.name === 'browser_scroll' && _tab) {
+              agentScroll(_tab, _args.direction || 'down');
+              aiText = `Scrolled ${_args.direction || 'down'}.`;
+            } else if (_tc.name === 'browser_navigate' && _args.url) {
+              if (typeof browseNavigate === 'function') {
+                location.hash = '#browse';
+                setTimeout(() => browseNavigate(_args.url), 100);
+              }
+              aiText = `Navigating to ${_args.url}`;
+            } else if (_tc.name === 'browser_read_page' && _tab) {
+              const domResult = await agentGetAccessibleDOM(_tab);
+              aiText = domResult && domResult.elements
+                ? `Page has ${domResult.elementCount} elements. Here's what I see:\n${domResult.elements}`
+                : 'Could not read the page DOM.';
+            } else if (_tc.name === 'navigate' && _args.view) {
+              const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+              location.hash = routes[_args.view] || '#';
+              aiText = `Navigated to ${_args.view}.`;
+            } else if (_tc.name === 'open_tab') {
+              if (typeof browseNewTab === 'function') {
+                location.hash = '#browse';
+                setTimeout(() => browseNewTab(_args.url || undefined), 100);
+              }
+              aiText = _args.url ? `Opened ${_args.url}` : 'Opened a new tab.';
+            } else {
+              _intercepted = false; // Unknown tool, show raw text
+            }
+          }
+        } catch (_e) { /* not valid JSON, show as normal text */ }
+      }
       _popupChatMessages[aiIdx]._thinking = false;
       _popupChatMessages[aiIdx].content = aiText;
       _renderPopupChatLive(true);
@@ -454,7 +555,10 @@ function _renderPopupChat(popup, final) {
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
       const preview = m._thinkingText ? `<div class="doc-thinking-preview">${escapeHtml(m._thinkingText.length > 200 ? '…' + m._thinkingText.slice(-200) : m._thinkingText)}</div>` : '';
-      return `<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}${preview}</div>`;
+      const ctxBlock = m._ctxSources && m._ctxSources.length
+        ? `<details class="doc-ctx-details"><summary class="doc-msg-context-sources">${m._ctxSources.map(s => '<span class="doc-ctx-pill">' + escapeHtml(s) + '</span>').join('')}</summary><pre class="doc-ctx-raw">${escapeHtml((m._ctxRaw || '').slice(0, 4000))}${(m._ctxRaw || '').length > 4000 ? '\n…truncated' : ''}</pre></details>`
+        : '';
+      return `<div class="doc-msg-ai">${ctxBlock}<span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}${preview}</div>`;
     }
     // Search results
     if (m._searchResults && m._searchResults.length) {
@@ -508,10 +612,13 @@ function _renderPopupChat(popup, final) {
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
+    const ctxBlock = m._ctxSources && m._ctxSources.length
+      ? `<details class="doc-ctx-details"><summary class="doc-msg-context-sources">${m._ctxSources.map(s => '<span class="doc-ctx-pill">' + escapeHtml(s) + '</span>').join('')}</summary><pre class="doc-ctx-raw">${escapeHtml((m._ctxRaw || '').slice(0, 4000))}${(m._ctxRaw || '').length > 4000 ? '\n…truncated' : ''}</pre></details>`
+      : '';
     const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message">${icon('copy', { size: 12 })}</button>`;
     const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud">${icon('speaker', { size: 12 })}</button>`;
     const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message">${icon('redo', { size: 12 })}</button>` : '';
-    return `<div class="doc-msg-ai">${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
+    return `<div class="doc-msg-ai">${ctxBlock}${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
   }).join('');
   // Render LaTeX in AI messages
   if (typeof katex !== 'undefined') {

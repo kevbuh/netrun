@@ -238,7 +238,7 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "browser_read_page",
-            "description": "Read the current browser tab's DOM as an accessible tree. Returns interactive elements (links, buttons, inputs) and visible text blocks, each with a numeric ID like [1], [2]. Use these IDs with browser_click and browser_type.",
+            "description": "Re-read the current page DOM after clicking, typing, or scrolling changed it. Do NOT call this if the DOM is already in your context. Returns elements with numeric IDs for browser_click/browser_type.",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -279,7 +279,7 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "browser_scroll",
-            "description": "Scroll the current page up or down by roughly one viewport height.",
+            "description": "Scroll the current page up or down. Use this when the user says 'scroll down', 'scroll up', or wants to see more of the page.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -469,9 +469,10 @@ def tool_create_calendar_event(title, date, time='', description='', google_id=N
     return {"status": "ok", "event": event, "message": f"Event '{title}' added to calendar on {date}{time_str}"}
 
 
-def execute_chat_tool(name, args, stream_callback=None, google_id=None):
+def execute_chat_tool(name, args, stream_callback=None, google_id=None, context=None):
     """Execute a chat tool and return the result dict.
-    stream_callback(event, data) is called for action-type tools (bookmark, navigate)."""
+    stream_callback(event, data) is called for action-type tools (bookmark, navigate).
+    context is the page context string (used by browser_read_page to return DOM)."""
     try:
         if name == 'web_search':
             return tool_web_search(args.get('query', ''))
@@ -499,7 +500,13 @@ def execute_chat_tool(name, args, stream_callback=None, google_id=None):
         elif name == 'browser_read_page':
             if stream_callback:
                 stream_callback('action', {"type": "agent_read_page"})
-            return {"status": "pending", "message": "Reading page DOM..."}
+            # Extract DOM section from context if available
+            if context and '--- BROWSER TAB DOM' in context:
+                import re as _re
+                dom_match = _re.search(r'--- BROWSER TAB DOM.*?---\n(.*?)\n--- END DOM ---', context, _re.DOTALL)
+                if dom_match:
+                    return {"status": "ok", "dom": dom_match.group(1)}
+            return {"status": "ok", "message": "DOM is included in your system context. Look for the BROWSER TAB DOM section."}
         elif name == 'browser_click':
             element_id = args.get('element_id')
             if stream_callback:
