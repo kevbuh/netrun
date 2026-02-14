@@ -5,7 +5,9 @@
   "main": "electron/main.js",
   "scripts": {
     "postinstall": "node scripts/rename-electron.js",
-    "start": "electron .",
+    "build:core": "npx tsc -p tsconfig.json",
+    "start": "npm run build:core && electron .",
+    "start:dev": "electron .",
     "server": "venv/bin/python3 src/app.py",
     "test": "npm run test:electron && npm run test:unit && npm run test:backend",
     "test:electron": "node --test 'tests/**/*.test.js'",
@@ -33,16 +35,28 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.2.3",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
-"electron": "^40.4.1",
+    "electron": "^40.4.1",
     "electron-builder": "^26.7.0",
+    "electron-vite": "^5.0.0",
     "eslint": "^10.0.0",
     "globals": "^17.3.0",
     "happy-dom": "^20.6.1",
+    "vite": "^7.3.1",
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "adblock-rs": "^0.12.1"
+    "@ai-sdk/openai": "^3.0.29",
+    "@anthropic-ai/sdk": "^0.74.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "adblock-rs": "^0.12.1",
+    "ai": "^6.0.86",
+    "better-sqlite3": "^12.6.2",
+    "ollama-ai-provider": "^1.2.0",
+    "typescript": "^5.9.3",
+    "zod": "^3.25.76"
   }
 }

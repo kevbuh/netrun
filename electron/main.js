@@ -8,6 +8,11 @@ const { FilterSet, Engine } = require('adblock-rs');
 
 app.setName('NetRun');
 
+// ── Core tool system (TypeScript) ──
+// Loaded after app is ready in the whenReady() block below.
+// The core system provides: tool registry, LLM providers, IPC handlers.
+let _coreInitialized = false;
+
 // ── Ad Blocker (adblock-rs / Brave adblock-rust) ──
 
 let _adblockEngine = null;
@@ -687,6 +692,16 @@ app.whenReady().then(() => {
     const { nativeImage } = require('electron');
     app.dock.setIcon(nativeImage.createFromPath(iconPath));
   }
+
+  // Initialize core tool system (tools, providers, IPC handlers)
+  try {
+    const { initCore } = require('../dist/main/init.js');
+    initCore();
+    _coreInitialized = true;
+  } catch (err) {
+    console.warn('[core] Could not initialize core system (build may be needed):', err.message);
+  }
+
   createMenu();
 
   // ── Ad block IPC handlers ──

@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
 
     // Test file patterns
-    include: ['src/**/*.{test,spec}.js'],
+    include: ['src/**/*.{test,spec}.{js,ts}'],
 
     // Files to exclude
     exclude: [
@@ -50,6 +50,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src/js',
+      '@core': '/src/core',
     },
   },
 });
