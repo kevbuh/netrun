@@ -24,6 +24,7 @@ const ADBLOCK_META_PATH = () => path.join(app.getPath('userData'), 'adblock_meta
 const ADBLOCK_FILTER_LISTS = [
   ['EasyList', 'https://easylist.to/easylist/easylist.txt'],
   ['EasyPrivacy', 'https://easylist.to/easylist/easyprivacy.txt'],
+  ['HideYTShorts', 'https://raw.githubusercontent.com/i5heu/ublock-hide-yt-shorts/master/list.txt'],
 ];
 
 function _mapResourceType(rt) {

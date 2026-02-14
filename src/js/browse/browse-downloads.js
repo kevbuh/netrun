@@ -1203,7 +1203,7 @@ function _browseBindFrame(tab) {
           var generic = 'ins.adsbygoogle, [id^="google_ads_"], [id^="div-gpt-ad"], [data-google-query-id], iframe[src*="doubleclick.net"], iframe[src*="googlesyndication.com"], iframe[id^="google_ads_"], [data-ad-slot], amp-ad, amp-embed[type="ad"]';
           var sel = extra ? (generic + ', ' + extra) : generic;
           function removeAds(){
-            document.querySelectorAll(sel).forEach(function(el){el.remove();});
+            try{document.querySelectorAll(sel).forEach(function(el){el.remove();});}catch(e){}
             // Also remove iframes that failed to load (blocked by network filter)
             document.querySelectorAll('iframe').forEach(function(f){
               try{
@@ -1224,13 +1224,74 @@ function _browseBindFrame(tab) {
         })();`).catch(() => {});
       }).catch(() => {});
     };
+
+    // JS-based YouTube Shorts hiding (implements uBlock :has-text / :matches-path rules)
+    const _hideYTShorts = (url) => {
+      if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+      if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) return;
+      el.executeJavaScript(`(function(){
+        if(window.__ytShortsHideInjected) return;
+        window.__ytShortsHideInjected=true;
+        var isHistory = location.pathname.startsWith('/feed/history');
+        function hideShorts(){
+          // Sidebar: hide Shorts button (desktop + tablet mini-guide)
+          document.querySelectorAll('ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer').forEach(function(el){
+            var txt = el.textContent.trim();
+            if(/^Shorts$/i.test(txt)) el.style.display='none';
+          });
+          // Shorts tab on channel pages
+          document.querySelectorAll('yt-tab-shape').forEach(function(el){
+            if(/^Shorts$/i.test(el.textContent.trim())) el.style.display='none';
+          });
+          // Shorts sections (not on history page)
+          if(!isHistory){
+            document.querySelectorAll('ytd-rich-section-renderer, ytd-reel-shelf-renderer').forEach(function(el){
+              var title = el.querySelector('#title');
+              if(title && /(^| )Shorts( |$)/i.test(title.textContent)) el.style.display='none';
+            });
+          }
+          // Short remixes in descriptions/suggestions
+          document.querySelectorAll('ytd-reel-shelf-renderer').forEach(function(el){
+            var title = el.querySelector('#title');
+            if(title && /(^| )Shorts.?Remix/i.test(title.textContent)) el.style.display='none';
+          });
+          // Mobile: bottom nav Shorts button
+          document.querySelectorAll('ytm-pivot-bar-item-renderer').forEach(function(el){
+            if(el.querySelector('.pivot-shorts')) el.style.display='none';
+          });
+          // Mobile: Shorts chip on homepage
+          document.querySelectorAll('ytm-chip-cloud-chip-renderer').forEach(function(el){
+            if(/^Shorts$/i.test(el.textContent.trim())) el.style.display='none';
+          });
+          // Mobile: shorts sections (not on history)
+          if(!isHistory){
+            document.querySelectorAll('ytm-rich-section-renderer, ytm-reel-shelf-renderer').forEach(function(el){
+              var str = el.querySelector('.yt-core-attributed-string');
+              if(str && /(^| )Shorts( |$)/i.test(str.textContent)) el.style.display='none';
+            });
+          }
+          // Mobile: shorts remixes
+          document.querySelectorAll('ytm-reel-shelf-renderer').forEach(function(el){
+            var str = el.querySelector('.reel-shelf-title-wrapper .yt-core-attributed-string');
+            if(str && /(^| )Shorts.?Remix/i.test(str.textContent)) el.style.display='none';
+          });
+        }
+        hideShorts();
+        var obs=new MutationObserver(function(){hideShorts();});
+        obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
+        setTimeout(function(){obs.disconnect();},60000);
+      })();`).catch(() => {});
+    };
+
     el.addEventListener('dom-ready', () => {
       _injectPlaceholderCSS(tab.url || '');
       _injectCosmetic(tab.url || '');
+      _hideYTShorts(tab.url || '');
     });
     el.addEventListener('did-navigate', (e) => {
       _injectPlaceholderCSS(e.url || '');
       _injectCosmetic(e.url || '');
+      _hideYTShorts(e.url || '');
     });
     el.addEventListener('did-finish-load', () => {
       // Update badge count after requests finish
