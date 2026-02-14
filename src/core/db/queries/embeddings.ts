@@ -170,3 +170,32 @@ export function deleteChatMemory(memoryId: number): void {
   const db = getDb();
   db.prepare('DELETE FROM chat_memories WHERE id = ?').run(memoryId);
 }
+
+export function pairwiseSimilarities(
+  links: string[],
+  threshold = 0.65
+): Array<{ source: string; target: string; score: number }> {
+  const capped = links.slice(0, 300);
+  const db = getDb();
+  const placeholders = capped.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT link, embedding, dim FROM embeddings WHERE link IN (${placeholders})`
+  ).all(...capped) as Array<{ link: string; embedding: Buffer; dim: number }>;
+
+  const vecs = new Map<string, number[]>();
+  for (const row of rows) {
+    vecs.set(row.link, unpackEmbedding(row.embedding, row.dim));
+  }
+
+  const keys = [...vecs.keys()];
+  const edges: Array<{ source: string; target: string; score: number }> = [];
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const score = cosineSimilarity(vecs.get(keys[i])!, vecs.get(keys[j])!);
+      if (score >= threshold) {
+        edges.push({ source: keys[i], target: keys[j], score: Math.round(score * 10000) / 10000 });
+      }
+    }
+  }
+  return edges;
+}

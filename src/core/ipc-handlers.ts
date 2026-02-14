@@ -1,9 +1,12 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
+import { createHash } from 'crypto';
 import { toolRegistry } from './tools/index.js';
 import type { ToolContext } from './tools/types.js';
 import { providerRegistry } from './providers/registry.js';
+import { OllamaProvider } from './providers/ollama.js';
 import { runAgent } from './agents/runtime.js';
 import { researchAssistant } from './agents/builtin/research-assistant.js';
 import type { AgentContext, AgentMessage, AgentEvent } from './agents/types.js';
@@ -14,6 +17,137 @@ import * as socialQueries from './db/queries/social.js';
 import * as embeddingQueries from './db/queries/embeddings.js';
 import * as contentQueries from './db/queries/content.js';
 import * as socialExtQueries from './db/queries/social-extended.js';
+import { getDb } from './db/connection.js';
+
+// ── Ollama provider (singleton) ──
+
+const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
+const ollamaProvider = new OllamaProvider({ baseURL: OLLAMA_HOST });
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+  ?? '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
+
+// ── In-memory fetch cache (TTL-based) ──
+
+const _fetchCache = new Map<string, { data: Buffer; ts: number }>();
+const FETCH_CACHE_TTL = 300_000; // 5 min
+
+async function cachedFetch(url: string, timeoutMs = 15_000): Promise<Buffer> {
+  const now = Date.now();
+  const cached = _fetchCache.get(url);
+  if (cached && now - cached.ts < FETCH_CACHE_TTL) return cached.data;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      signal: controller.signal,
+    });
+    const buf = Buffer.from(await resp.arrayBuffer());
+    _fetchCache.set(url, { data: buf, ts: now });
+    return buf;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ── Quote snapping (ported from Python _snap_quote_to_text) ──
+
+function _snapQuoteToText(quote: string, text: string): string | null {
+  if (!quote || !text) return null;
+  const textLower = text.toLowerCase();
+  const quoteLower = quote.toLowerCase();
+
+  // Exact match
+  const idx = textLower.indexOf(quoteLower);
+  if (idx !== -1) return text.slice(idx, idx + quote.length);
+
+  // Progressive prefix trimming
+  const quoteWords = quoteLower.split(/\s+/);
+  if (quoteWords.length < 3) return null;
+
+  for (let trim = 0; trim < Math.min(Math.floor(quoteWords.length / 2), 8); trim++) {
+    const end = quoteWords.length - trim;
+    const partial = quoteWords.slice(0, end).join(' ');
+    const pIdx = textLower.indexOf(partial);
+    if (pIdx !== -1) {
+      const grabLen = Math.min(quote.length + 20, text.length - pIdx);
+      const candidate = text.slice(pIdx, pIdx + grabLen);
+      const words = candidate.split(/\s+/);
+      const targetWords = quote.split(/\s+/).length;
+      const snapped = words.slice(0, targetWords).join(' ');
+      return snapped.length >= 15 ? snapped : null;
+    }
+  }
+
+  // Bigram sliding window
+  const bigrams = (s: string): Set<string> => {
+    const set = new Set<string>();
+    for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
+    return set;
+  };
+  const qBigrams = bigrams(quoteLower);
+  if (qBigrams.size === 0) return null;
+
+  let bestScore = 0;
+  let bestStart = -1;
+  const window = quote.length;
+  const step = Math.max(1, Math.floor(window / 4));
+
+  for (let start = 0; start <= textLower.length - window; start += step) {
+    const candidate = textLower.slice(start, start + window);
+    const cBigrams = bigrams(candidate);
+    const intersection = [...qBigrams].filter(b => cBigrams.has(b)).length;
+    const union = new Set([...qBigrams, ...cBigrams]).size;
+    const score = union > 0 ? intersection / union : 0;
+    if (score > bestScore) { bestScore = score; bestStart = start; }
+  }
+
+  // Refine
+  if (bestStart >= 0 && bestScore > 0.4) {
+    const searchStart = Math.max(0, bestStart - step);
+    const searchEnd = Math.min(textLower.length - window + 1, bestStart + step + 1);
+    for (let start = searchStart; start < searchEnd; start++) {
+      const candidate = textLower.slice(start, start + window);
+      const cBigrams = bigrams(candidate);
+      const intersection = [...qBigrams].filter(b => cBigrams.has(b)).length;
+      const union = new Set([...qBigrams, ...cBigrams]).size;
+      const score = union > 0 ? intersection / union : 0;
+      if (score > bestScore) { bestScore = score; bestStart = start; }
+    }
+  }
+
+  if (bestScore >= 0.55 && bestStart >= 0) {
+    while (bestStart > 0 && !' \t\n'.includes(text[bestStart - 1])) bestStart--;
+    let end = bestStart + window;
+    while (end < text.length && !' \t\n'.includes(text[end])) end++;
+    const snapped = text.slice(bestStart, end).trim();
+    return snapped.length >= 15 ? snapped : null;
+  }
+
+  return null;
+}
+
+// ── Saved content cache (disk) ──
+
+const CONTENT_CACHE_DIR = path.join(process.env.HOME ?? '/tmp', '.aether_cache', 'content');
+fs.mkdirSync(CONTENT_CACHE_DIR, { recursive: true });
+
+function _contentPath(url: string): string {
+  const h = createHash('sha256').update(url).digest('hex').slice(0, 16);
+  return path.join(CONTENT_CACHE_DIR, h + '.json');
+}
+
+// ── Annotation prompt file ──
+
+const DATA_DIR = path.join(process.env.HOME ?? '/tmp', '.aether_data');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const ANNOTATION_PROMPT_FILE = path.join(DATA_DIR, 'annotation_prompt.txt');
+
+// ── Active doc-chat / vault-chat sessions ──
+
+const activeDocChatSessions = new Map<string, AbortController>();
 
 // ── Experiment filesystem helpers ──
 
@@ -736,4 +870,1010 @@ export function registerToolIPC(): void {
     const data = fs.readFileSync(fpath).toString('base64');
     return { data, mime, size: Buffer.byteLength(data, 'base64') };
   });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Phase 1: External HTTP Calls
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── Auth: Google login ──
+  ipcMain.handle('db:auth-google', async (_event, credential: string) => {
+    if (!credential) return { error: 'Missing credential' };
+    try {
+      const verifyUrl = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential);
+      const resp = await fetch(verifyUrl, { signal: AbortSignal.timeout(10_000) });
+      const tokenInfo = await resp.json() as any;
+      if (tokenInfo.aud !== GOOGLE_CLIENT_ID) return { error: 'Invalid token audience' };
+      // Decode JWT payload
+      const parts = credential.split('.');
+      const padded = parts[1] + '='.repeat((4 - parts[1].length % 4) % 4);
+      const jwtPayload = JSON.parse(Buffer.from(padded, 'base64url').toString());
+      const googleId = tokenInfo.sub;
+      const email = tokenInfo.email ?? '';
+      const name = tokenInfo.name ?? jwtPayload.name ?? '';
+      const picture = tokenInfo.picture ?? jwtPayload.picture ?? '';
+      if (!googleId) return { error: 'Invalid token' };
+      userQueries.upsertUser({ google_id: googleId, email, name, picture });
+      const token = userQueries.createSession(googleId);
+      const info = userQueries.getUser(googleId);
+      const username = info?.username ?? null;
+      return { token, email, name, username, picture };
+    } catch (e: any) {
+      return { error: `Token verification failed: ${e.message ?? e}` };
+    }
+  });
+
+  // ── Semantic Scholar API ──
+  ipcMain.handle('db:author-details', async (_event, authorId: string) => {
+    if (!authorId) return { error: 'authorId required' };
+    try {
+      const s2Url = `https://api.semanticscholar.org/graph/v1/author/${encodeURIComponent(authorId)}?fields=name,affiliations,homepage,hIndex,citationCount,paperCount,url`;
+      const [authorResp, papersResp] = await Promise.all([
+        fetch(s2Url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000) }),
+        fetch(`https://api.semanticscholar.org/graph/v1/author/${encodeURIComponent(authorId)}/papers?fields=title,year,citationCount,url,venue&limit=10`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000) }),
+      ]);
+      const authorData = await authorResp.json() as any;
+      const papersData = await papersResp.json() as any;
+      const papers = (papersData.data ?? []).sort((a: any, b: any) => (b.citationCount ?? 0) - (a.citationCount ?? 0));
+      return {
+        name: authorData.name ?? '', affiliations: authorData.affiliations ?? [],
+        homepage: authorData.homepage, hIndex: authorData.hIndex,
+        citationCount: authorData.citationCount, paperCount: authorData.paperCount,
+        url: authorData.url, papers: papers.slice(0, 10),
+      };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:citation-lookup', async (_event, query: string) => {
+    if (!query) return { error: 'query required' };
+    try {
+      const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=1&fields=title,authors,year,abstract,citationCount,url,venue,externalIds`;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) });
+      const data = await resp.json() as any;
+      const papers = data.data ?? [];
+      if (!papers.length) return { error: 'not found' };
+      const p = papers[0];
+      return {
+        title: p.title ?? '', authors: (p.authors ?? []).slice(0, 5).map((a: any) => a.name ?? ''),
+        year: p.year, abstract: p.abstract?.slice(0, 500) ?? null,
+        citationCount: p.citationCount, venue: p.venue, url: p.url,
+        arxivId: p.externalIds?.ArXiv ?? null,
+      };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:paper-references', async (_event, arxivId: string, refNum?: number) => {
+    if (!arxivId) return { error: 'arxivId required' };
+    try {
+      let references = contentQueries.getCachedReferences(arxivId) as any[] | null;
+      if (references === null) {
+        const url = `https://api.semanticscholar.org/graph/v1/paper/arXiv:${encodeURIComponent(arxivId)}?fields=references.title,references.authors,references.year,references.abstract,references.citationCount,references.url,references.venue,references.externalIds`;
+        const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000) });
+        const data = await resp.json() as any;
+        references = data.references ?? [];
+        contentQueries.setCachedReferences(arxivId, references!);
+      }
+      if (!references || !references.length) return { error: 'no references found' };
+      if (refNum != null && refNum >= 1) {
+        const ref = references[refNum - 1];
+        if (!ref) return { error: `reference ${refNum} not found (paper has ${references.length} references)` };
+        return {
+          title: ref.title ?? '', authors: (ref.authors ?? []).slice(0, 5).map((a: any) => a.name ?? ''),
+          year: ref.year, abstract: ref.abstract?.slice(0, 500) ?? null,
+          citationCount: ref.citationCount, venue: ref.venue, url: ref.url,
+          arxivId: ref.externalIds?.ArXiv ?? null,
+        };
+      }
+      const result = references.filter(Boolean).map((ref: any, i: number) => ({
+        num: i + 1, title: ref.title ?? '',
+        authors: (ref.authors ?? []).slice(0, 3).map((a: any) => a.name ?? ''),
+        year: ref.year, citationCount: ref.citationCount,
+      }));
+      return { references: result, total: references.length };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:author-lookup', async (_event, query: string) => {
+    if (!query) return { error: 'query required' };
+    try {
+      const { data: cached, needsRefresh } = contentQueries.getCachedAuthor(query) as { data: any; needsRefresh: boolean };
+      if (cached && !needsRefresh) return cached;
+      try {
+        const url = `https://api.semanticscholar.org/graph/v1/author/search?query=${encodeURIComponent(query)}&limit=1&fields=name,affiliations,paperCount,citationCount,hIndex,url`;
+        const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) });
+        const data = await resp.json() as any;
+        const authors = data.data ?? [];
+        if (!authors.length) return cached ?? { error: 'not found' };
+        const author = authors[0];
+        let topPapers: any[] = [];
+        if (author.authorId) {
+          try {
+            const pUrl = `https://api.semanticscholar.org/graph/v1/author/${author.authorId}/papers?fields=title,year,citationCount&limit=3&sort=citationCount:desc`;
+            const pResp = await fetch(pUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) });
+            const pData = await pResp.json() as any;
+            topPapers = (pData.data ?? []).slice(0, 3).map((p: any) => ({ title: p.title ?? '', year: p.year, citationCount: p.citationCount ?? 0 }));
+          } catch {
+            if (cached?.topPapers) topPapers = cached.topPapers;
+          }
+        }
+        const result = {
+          authorId: author.authorId, name: author.name ?? '',
+          affiliations: author.affiliations ?? [], paperCount: author.paperCount,
+          citationCount: author.citationCount, hIndex: author.hIndex,
+          url: author.url, topPapers,
+        };
+        contentQueries.setCachedAuthor(query, result);
+        return result;
+      } catch {
+        if (cached) return cached;
+        throw new Error('API request failed');
+      }
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:citations-batch', async (_event, arxivIds: string[]) => {
+    if (!arxivIds?.length) return { error: 'ids required' };
+    try {
+      const paperIds = arxivIds.map(id => `ArXiv:${id}`);
+      const resp = await fetch('https://api.semanticscholar.org/graph/v1/paper/batch?fields=citationCount,externalIds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+        body: JSON.stringify({ ids: paperIds }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const data = await resp.json() as any[];
+      const result: Record<string, number> = {};
+      for (const item of data) {
+        if (item?.externalIds?.ArXiv) {
+          result[item.externalIds.ArXiv] = item.citationCount ?? 0;
+        }
+      }
+      return result;
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── Browse utilities ──
+  ipcMain.handle('db:check-embed', async (_event, url: string) => {
+    if (!url) return { embeddable: false };
+    try {
+      const resp = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) });
+      const xfo = (resp.headers.get('x-frame-options') ?? '').toUpperCase();
+      const csp = resp.headers.get('content-security-policy') ?? '';
+      return { embeddable: !xfo && !csp.includes('frame-ancestors') };
+    } catch { return { embeddable: false }; }
+  });
+
+  ipcMain.handle('db:link-preview', async (_event, url: string) => {
+    if (!url) return { error: 'url required' };
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(8_000),
+      });
+      const html = (await resp.text()).slice(0, 200_000);
+      const meta = (prop: string): string => {
+        for (const attr of ['property', 'name']) {
+          const m = html.match(new RegExp(`<meta\\s+${attr}="${prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s+content="([^"]*)"`, 'i'))
+            ?? html.match(new RegExp(`<meta\\s+content="([^"]*)"\\s+${attr}="${prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'i'));
+          if (m) return m[1];
+        }
+        return '';
+      };
+      let title = meta('og:title') || meta('twitter:title');
+      if (!title) {
+        const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        title = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+      }
+      const desc = meta('og:description') || meta('twitter:description') || meta('description');
+      let image = meta('og:image') || meta('twitter:image');
+      if (image && !image.startsWith('http')) {
+        const u = new URL(url);
+        if (image.startsWith('//')) image = u.protocol + image;
+        else if (image.startsWith('/')) image = u.origin + image;
+        else image = url.replace(/\/[^/]*$/, '/') + image;
+      }
+      const site = meta('og:site_name');
+      const u = new URL(url);
+      const domain = u.hostname.replace(/^www\./, '');
+      const favicon = u.origin + '/favicon.ico';
+      return { title: title.slice(0, 200), description: desc.slice(0, 300), image, site: site || domain, favicon, domain };
+    } catch (e: any) {
+      return { title: '', description: '', image: '', site: '', domain: '', error: e.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle('db:stock-quote', async (_event, symbol: string) => {
+    if (!symbol) return { error: 'symbol required' };
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol.toUpperCase())}?range=1d&interval=1d`;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5_000) });
+      const data = await resp.json() as any;
+      const result = data?.chart?.result?.[0] ?? {};
+      const m = result.meta ?? {};
+      const price = m.regularMarketPrice ?? 0;
+      const prev = m.chartPreviousClose ?? 0;
+      const change = prev ? Math.round((price - prev) * 100) / 100 : 0;
+      const changePct = prev ? Math.round(((price - prev) / prev) * 10000) / 100 : 0;
+      const name = m.shortName ?? m.longName ?? symbol;
+      return { price, change, changePercent: changePct, name };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:extract-links', async (_event, url: string) => {
+    if (!url) return { error: 'url required' };
+    try {
+      const buf = await cachedFetch(url, 30_000);
+      const html = buf.toString('utf-8');
+      const linkRegex = /<a\s+[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+      const seen = new Set<string>();
+      const links: Array<{ text: string; url: string }> = [];
+      let match;
+      while ((match = linkRegex.exec(html)) !== null) {
+        let href = match[1];
+        const text = match[2].replace(/<[^>]+>/g, '').trim();
+        if (!text || !href) continue;
+        try {
+          href = new URL(href, url).href;
+        } catch { continue; }
+        if (!href.startsWith('http')) continue;
+        if (seen.has(href)) continue;
+        seen.add(href);
+        links.push({ text, url: href });
+      }
+      return { links };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── Feed proxies ──
+  ipcMain.handle('db:feed-arxiv', async () => {
+    try {
+      const buf = await cachedFetch('https://rss.arxiv.org/rss/cs');
+      return { _proxy: true, data: buf.toString('base64'), mime: 'application/xml' };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:feed-hn', async () => {
+    try {
+      const resp = await fetch('https://hacker-news.firebaseio.com/v0/beststories.json', {
+        headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000),
+      });
+      const ids = ((await resp.json()) as number[]).slice(0, 30);
+      const items = await Promise.all(ids.map(async (id) => {
+        try {
+          const r = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000),
+          });
+          return await r.json();
+        } catch { return null; }
+      }));
+      return items.filter((it: any) => it && it.type === 'story');
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:feed-polymarket', async () => {
+    try {
+      const buf = await cachedFetch('https://polymarket.com/breaking', 15_000);
+      const html = buf.toString('utf-8');
+      const marker = '__NEXT_DATA__" type="application/json" crossorigin="anonymous">';
+      const idx = html.indexOf(marker);
+      if (idx === -1) return { error: 'Could not find data' };
+      const start = idx + marker.length;
+      const end = html.indexOf('</script>', start);
+      const nextData = JSON.parse(html.slice(start, end));
+      const queries = nextData.props.pageProps.dehydratedState.queries;
+      let markets: any[] = [];
+      for (const q of queries) {
+        if ((q.queryKey ?? []).includes('biggest-movers')) {
+          markets = q.state.data?.markets ?? [];
+          break;
+        }
+      }
+      return markets.map((m: any) => {
+        const prices = m.outcomePrices ?? ['0', '0'];
+        const yesPct = Math.round(parseFloat(prices[0]) * 100);
+        const changePct = Math.round((m.oneDayPriceChange ?? 0) * 100);
+        const volume = m.events?.[0] ? Math.round(m.events[0].volume ?? 0) : 0;
+        return {
+          question: m.question ?? '', slug: m.slug ?? '',
+          url: m.events?.[0] ? `https://polymarket.com/event/${m.events[0].slug}` : `https://polymarket.com/event/${m.slug ?? ''}`,
+          image: m.image ?? '', yesPct, changePct, volume,
+        };
+      });
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:rss-proxy', async (_event, feedUrl: string) => {
+    if (!feedUrl) return { error: 'url required' };
+    try {
+      const buf = await cachedFetch(feedUrl);
+      return { _proxy: true, data: buf.toString('base64'), mime: 'application/xml' };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:feed-items-custom', async (_event, feeds: Array<{ name?: string; url: string }>) => {
+    if (!feeds?.length) return [];
+    // Fetch each custom feed's RSS and parse items
+    const results: any[] = [];
+    for (const f of feeds) {
+      const name = f.name ?? f.url;
+      const sourceKey = `custom:${name}`;
+      // Check DB for fresh data
+      const existing = feedQueries.getFeedItems([sourceKey], 100);
+      if (existing.length > 0) {
+        results.push(...existing);
+        continue;
+      }
+      // Fetch and parse RSS
+      try {
+        const buf = await cachedFetch(f.url, 15_000);
+        const xml = buf.toString('utf-8');
+        const items: any[] = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+        let match;
+        while ((match = itemRegex.exec(xml)) !== null) {
+          const block = match[1];
+          const tag = (t: string) => { const m = block.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, 'i')); return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : ''; };
+          const title = tag('title');
+          const link = tag('link');
+          if (!title || !link) continue;
+          items.push({
+            source: sourceKey, title, link,
+            authors: tag('dc:creator') || tag('author'),
+            categories: '[]', description: tag('description').slice(0, 500),
+            display_date: tag('pubDate') || tag('dc:date'),
+            pub_date: tag('pubDate') || tag('dc:date'),
+            arxiv_id: null, extra: '{}',
+          });
+        }
+        if (items.length) {
+          feedQueries.upsertFeedItems(items);
+          results.push(...items.map(it => ({ ...it, categories: [], date: it.display_date, pubDate: it.pub_date })));
+        }
+      } catch { /* skip failed feeds */ }
+    }
+    return results;
+  });
+
+  // ── File proxies (return base64 for IPC) ──
+  ipcMain.handle('db:image-proxy', async (_event, url: string) => {
+    if (!url) return { error: 'Missing url' };
+    try {
+      const buf = await cachedFetch(url, 15_000);
+      const ext = url.split('.').pop()?.toLowerCase().split('?')[0] ?? '';
+      const ctMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon' };
+      return { _proxy: true, data: buf.toString('base64'), mime: ctMap[ext] ?? 'image/png' };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:arxiv-pdf', async (_event, arxivId: string) => {
+    if (!arxivId) return { error: 'id required' };
+    try {
+      const url = `https://arxiv.org/pdf/${encodeURIComponent(arxivId)}.pdf`;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(30_000) });
+      const buf = Buffer.from(await resp.arrayBuffer());
+      return { _proxy: true, data: buf.toString('base64'), mime: 'application/pdf' };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:pdf-proxy', async (_event, url: string) => {
+    if (!url?.startsWith('http')) return { error: 'url required' };
+    try {
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(30_000) });
+      const buf = Buffer.from(await resp.arrayBuffer());
+      return { _proxy: true, data: buf.toString('base64'), mime: 'application/pdf' };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Phase 2: Simple Ollama Calls
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:panel-suggest', async (_event, text: string) => {
+    if (!text || text.length < 3) return { suggestion: '' };
+    try {
+      const result = await ollamaProvider.chat({
+        model: 'qwen3:0.6b',
+        messages: [
+          { role: 'system', content: 'Given some text the user selected or is looking at, suggest ONE short question (under 12 words) they might want to ask about it. Return ONLY the question, nothing else. No quotes.' },
+          { role: 'user', content: text.slice(0, 300) },
+        ],
+        temperature: 0.7,
+        maxTokens: 40,
+      });
+      let suggestion = (result.message.content ?? '').trim().replace(/^["']|["']$/g, '');
+      suggestion = suggestion.split('\n')[0].trim();
+      if (suggestion.length > 80) suggestion = suggestion.slice(0, 77) + '\u2026';
+      return { suggestion };
+    } catch { return { suggestion: '' }; }
+  });
+
+  ipcMain.handle('db:search-suggest', async (_event, query: string) => {
+    if (!query || query.length < 2) return { suggestions: [] };
+    try {
+      const result = await ollamaProvider.chat({
+        model: 'qwen3:0.6b',
+        messages: [
+          { role: 'system', content: 'You are a search autocomplete engine. Given a partial search query, suggest 4 completions. Return ONLY a JSON array of strings, nothing else. Example: ["machine learning basics", "machine learning tutorial"]' },
+          { role: 'user', content: query },
+        ],
+        temperature: 0.7,
+        maxTokens: 120,
+      });
+      const raw = (result.message.content ?? '').trim();
+      const arrMatch = raw.match(/\[[\s\S]*\]/);
+      if (arrMatch) {
+        const parsed = JSON.parse(arrMatch[0]);
+        return { suggestions: parsed.filter((s: any) => typeof s === 'string' && s.trim()).slice(0, 4) };
+      }
+      return { suggestions: [] };
+    } catch { return { suggestions: [] }; }
+  });
+
+  ipcMain.handle('db:quality-filter', async (_event, body: { titles: string[]; mode?: string; prompt?: string; interest_context?: string }) => {
+    const { titles, mode = 'verdict', interest_context } = body;
+    if (!titles?.length) return { error: 'titles required' };
+    try {
+      if (mode === 'score') {
+        let scoreSystem = 'Rate the following paper/article title on a scale of 0-100 for quality, novelty, and interest. Return ONLY the number, nothing else.';
+        if (interest_context) {
+          scoreSystem += `\n\nThe reader's interests: ${interest_context.slice(0, 500)}\nBoost scores for content matching these interests, but still score objectively.`;
+        }
+        const promptHash = createHash('sha256').update(scoreSystem).digest('hex').slice(0, 16);
+        const results: Record<string, number> = {};
+        const uncached: string[] = [];
+        for (const t of titles) {
+          const cached = feedQueries.getQualityCache(createHash('sha256').update(t).digest('hex').slice(0, 16), promptHash);
+          if (cached?.score != null) results[t] = cached.score;
+          else uncached.push(t);
+        }
+        if (uncached.length) {
+          const scored = await Promise.all(uncached.map(async (t) => {
+            try {
+              const r = await ollamaProvider.chat({
+                model: 'qwen3:8b',
+                messages: [{ role: 'system', content: scoreSystem }, { role: 'user', content: t }],
+                temperature: 0,
+                maxTokens: 8,
+              });
+              const raw = (r.message.content ?? '').trim();
+              const m = raw.match(/\d+/);
+              return { title: t, score: Math.max(0, Math.min(100, m ? parseInt(m[0]) : 50)) };
+            } catch { return { title: t, score: 50 }; }
+          }));
+          for (const { title, score } of scored) {
+            results[title] = score;
+            feedQueries.setQualityCache(createHash('sha256').update(title).digest('hex').slice(0, 16), promptHash, 'score', score);
+          }
+        }
+        return results;
+      } else {
+        // verdict mode
+        const systemMsg = body.prompt?.trim() || 'You are a content quality filter. Given a paper/article title, respond with ONLY "keep" or "hide". Keep titles that are interesting, novel, or important. Hide clickbait, low-quality, or boring titles.';
+        const promptHash = createHash('sha256').update(systemMsg).digest('hex').slice(0, 16);
+        const results: Record<string, string> = {};
+        const uncached: string[] = [];
+        for (const t of titles) {
+          const cached = feedQueries.getQualityCache(createHash('sha256').update(t).digest('hex').slice(0, 16), promptHash);
+          if (cached?.verdict) results[t] = cached.verdict;
+          else uncached.push(t);
+        }
+        if (uncached.length) {
+          const classified = await Promise.all(uncached.map(async (t) => {
+            try {
+              const r = await ollamaProvider.chat({
+                model: 'qwen3:8b',
+                messages: [{ role: 'system', content: systemMsg }, { role: 'user', content: t }],
+                temperature: 0,
+                maxTokens: 8,
+              });
+              const raw = (r.message.content ?? '').trim().toLowerCase();
+              return { title: t, verdict: raw.includes('hide') ? 'hide' : 'keep' };
+            } catch { return { title: t, verdict: 'keep' }; }
+          }));
+          for (const { title, verdict } of classified) {
+            results[title] = verdict;
+            feedQueries.setQualityCache(createHash('sha256').update(title).digest('hex').slice(0, 16), promptHash, verdict, 0);
+          }
+        }
+        return results;
+      }
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Phase 3: Embedding + Vector Search
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:embed-content', async (_event, body: { title: string; link: string; source?: string; description?: string; type?: string }) => {
+    const { title, link, source = '', description = '', type: contentType = 'post' } = body;
+    if (!title || !link) return { ok: true };
+    // Fire-and-forget
+    (async () => {
+      try {
+        const text = description ? `${title}. ${description.slice(0, 500)}` : title;
+        const vec = await ollamaProvider.embed(text);
+        if (vec.length) embeddingQueries.storeEmbedding(text, title, link, source, contentType, vec);
+      } catch { /* ignore */ }
+    })();
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:semantic-search', async (_event, body: { query: string; type?: string; limit?: number }) => {
+    if (!body.query) return { error: 'query required' };
+    try {
+      const queryVec = await ollamaProvider.embed(body.query);
+      if (!queryVec.length) return { error: 'embedding failed' };
+      const limit = Math.min(body.limit ?? 20, 50);
+      const results = embeddingQueries.searchEmbeddings(queryVec, body.type, limit);
+      return { results };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:find-similar', async (_event, body: { title: string; link?: string; description?: string; limit?: number }) => {
+    if (!body.title) return { error: 'title required' };
+    try {
+      const text = body.description ? `${body.title}. ${body.description.slice(0, 500)}` : body.title;
+      const queryVec = await ollamaProvider.embed(text);
+      if (!queryVec.length) return { error: 'embedding failed' };
+      const limit = Math.min(body.limit ?? 20, 50);
+      const results = embeddingQueries.searchEmbeddings(queryVec, undefined, limit, body.link);
+      return { results };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:reading-connections', async (_event, body: { title: string; description?: string; readLinks: string[] }) => {
+    if (!body.title || !body.readLinks?.length) return { results: [] };
+    try {
+      const text = body.description ? `${body.title}. ${body.description.slice(0, 500)}` : body.title;
+      const queryVec = await ollamaProvider.embed(text);
+      if (!queryVec.length) return { results: [] };
+      const db = getDb();
+      const links = body.readLinks.slice(0, 200);
+      const placeholders = links.map(() => '?').join(',');
+      const rows = db.prepare(
+        `SELECT title, link, source, embedding, dim FROM embeddings WHERE link IN (${placeholders})`
+      ).all(...links) as Array<{ title: string; link: string; source: string; embedding: Buffer; dim: number }>;
+      const results = rows.map(row => {
+        const vec = embeddingQueries.unpackEmbedding(row.embedding, row.dim);
+        const score = embeddingQueries.cosineSimilarity(queryVec, vec);
+        return { title: row.title, link: row.link, source: row.source, score: Math.round(score * 10000) / 10000 };
+      }).filter(r => r.score > 0.4).sort((a, b) => b.score - a.score).slice(0, 10);
+      return { results };
+    } catch { return { results: [] }; }
+  });
+
+  ipcMain.handle('db:knowledge-graph-sims', async (_event, body: { links: string[]; threshold?: number }) => {
+    if (!body.links?.length) return { edges: [] };
+    try {
+      const edges = embeddingQueries.pairwiseSimilarities(body.links, body.threshold ?? 0.65);
+      return { edges };
+    } catch { return { edges: [] }; }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Phase 4: Complex Ollama / Streaming
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── Annotate ──
+  ipcMain.handle('db:annotate', async (_event, body: {
+    text: string; url?: string; otherTabs?: Array<{ title?: string; text?: string }>;
+    interest_context?: string; model?: string;
+  }) => {
+    const text = (body.text ?? '').trim();
+    if (!text) return { error: 'text required' };
+    try {
+      const mainText = text.slice(0, 12_000);
+      let tabContext = '';
+      for (const tab of (body.otherTabs ?? []).slice(0, 3)) {
+        const tTitle = (tab.title ?? '').slice(0, 100);
+        const tText = (tab.text ?? '').slice(0, 3000);
+        if (tText) tabContext += `\n\n--- OTHER TAB: "${tTitle}" ---\n${tText}\n--- END TAB ---`;
+      }
+
+      // Build prompt
+      let prompt = _getAnnotationPrompt();
+      // Append custom categories
+      const customCats = contentQueries.listAnnotationCategories();
+      if (customCats.length) {
+        prompt += 'Additional annotation types:\n';
+        for (const cat of customCats) prompt += `- ${cat.key} — ${cat.description}\n`;
+        prompt += '\n';
+      }
+      // Append feedback examples
+      const goodExamples = contentQueries.listAnnotationFeedback('good', 10);
+      const badExamples = contentQueries.listAnnotationFeedback('bad', 10);
+      if (goodExamples.length) {
+        prompt += 'EXAMPLES OF GOOD ANNOTATIONS (produce more like these):\n';
+        for (const ex of goodExamples) prompt += `- "${(ex.quote ?? '').slice(0, 200)}"${ex.ann_type ? ` [${ex.ann_type}]` : ''}\n`;
+        prompt += '\n';
+      }
+      if (badExamples.length) {
+        prompt += 'EXAMPLES OF BAD ANNOTATIONS (avoid these):\n';
+        for (const ex of badExamples) prompt += `- "${(ex.quote ?? '').slice(0, 200)}"${ex.ann_type ? ` [${ex.ann_type}]` : ''}\n`;
+        prompt += '\n';
+      }
+      if (body.interest_context) prompt += 'USER INTERESTS:\n' + body.interest_context + '\n\n';
+      prompt += '--- MAIN PAGE TEXT ---\n' + mainText + '\n--- END PAGE TEXT ---';
+      if (tabContext) prompt += tabContext;
+
+      const model = body.model ?? 'qwen2.5:3b';
+      const result = await ollamaProvider.chat({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        maxTokens: 6000,
+      });
+      let rawContent = (result.message.content ?? '').trim();
+      // Parse JSON
+      rawContent = rawContent.replace(/<think>[\s\S]*?<\/think>/g, '');
+      if (rawContent.includes('```')) {
+        rawContent = rawContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+      }
+      rawContent = rawContent.trim();
+      const arrMatch = rawContent.match(/\[[\s\S]*\]/);
+      if (arrMatch) rawContent = arrMatch[0];
+      const parsed = JSON.parse(rawContent);
+
+      const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'AD', ...customCats.map(c => c.key)]);
+      const annotations: any[] = [];
+      if (Array.isArray(parsed)) {
+        for (const item of parsed.slice(0, 15)) {
+          if (!item || typeof item !== 'object') continue;
+          const atype = item.type ?? '';
+          const quote = (item.quote ?? '').trim();
+          const explanation = (item.explanation ?? '').trim();
+          if (!validTypes.has(atype) || !quote) continue;
+          const snapped = _snapQuoteToText(quote, text);
+          if (!snapped) continue;
+          let confidence = 70;
+          try { confidence = Math.max(0, Math.min(100, parseInt(item.confidence ?? '70'))); } catch {}
+          const ann: any = { type: atype, quote: snapped.slice(0, 500), explanation: explanation.slice(0, 300), confidence };
+          if (atype === 'CONTRADICTION' && item.conflictsWith) ann.conflictsWith = item.conflictsWith.slice(0, 200);
+          annotations.push(ann);
+        }
+      }
+
+      // Cross-reference search
+      try {
+        const snippet = text.slice(0, 1500);
+        const xrefVec = await ollamaProvider.embed(snippet);
+        if (xrefVec.length) {
+          const connections: any[] = [];
+          const savedResults = embeddingQueries.searchEmbeddings(xrefVec, 'post', 3, body.url);
+          for (const r of savedResults) {
+            if (r.score > 0.75 && connections.length < 2) {
+              connections.push({
+                type: 'CONNECTION', explanation: `Related to saved post (similarity ${Math.round(r.score * 100)}%)`,
+                confidence: Math.round(r.score * 100), linkedTitle: (r.title ?? '').slice(0, 120), linkedUrl: r.link ?? '',
+              });
+            }
+          }
+          const memResults = embeddingQueries.searchChatMemories(xrefVec, 2);
+          for (const r of memResults) {
+            if (r.score > 0.75 && connections.length < 2) {
+              connections.push({
+                type: 'CONNECTION', explanation: `Related conversation: ${(r.topics ?? '').slice(0, 80)}`,
+                confidence: Math.round(r.score * 100),
+                linkedTitle: r.page_title || r.summary.slice(0, 60), linkedUrl: '',
+              });
+            }
+          }
+          annotations.push(...connections);
+        }
+      } catch { /* cross-ref failed, continue */ }
+
+      return { annotations };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── Annotation prompt get/set ──
+  ipcMain.handle('db:annotation-prompt-get', () => {
+    const custom = _readAnnotationPrompt();
+    const defaultPrompt = DEFAULT_ANNOTATION_PROMPT;
+    let mtime: number | null = null;
+    try { if (fs.existsSync(ANNOTATION_PROMPT_FILE)) mtime = fs.statSync(ANNOTATION_PROMPT_FILE).mtimeMs / 1000; } catch {}
+    return { prompt: custom ?? defaultPrompt, default: defaultPrompt, isCustom: custom !== null, updatedAt: mtime };
+  });
+
+  ipcMain.handle('db:annotation-prompt-set', (_event, prompt: string | null) => {
+    if (!prompt?.trim()) {
+      try { if (fs.existsSync(ANNOTATION_PROMPT_FILE)) fs.unlinkSync(ANNOTATION_PROMPT_FILE); } catch {}
+    } else {
+      fs.writeFileSync(ANNOTATION_PROMPT_FILE, prompt.trim());
+    }
+    return { ok: true };
+  });
+
+  // ── Doc-chat (streaming via IPC events) ──
+  ipcMain.handle('db:doc-chat-start', async (event, options: {
+    sessionId: string; context?: string; messages: any[]; vision?: boolean;
+    model?: string; tools?: boolean; think?: boolean;
+    pageUrl?: string; pageTitle?: string;
+  }) => {
+    const { sessionId, context = '', messages, vision = false, tools: toolsEnabled = false, think = true } = options;
+    if (!messages?.length) return { error: 'messages required' };
+
+    const abortController = new AbortController();
+    activeDocChatSessions.set(sessionId, abortController);
+    const webContents = event.sender;
+
+    const sendEvent = (ev: string, data: any) => {
+      if (!webContents.isDestroyed()) webContents.send('doc-chat:event', sessionId, { event: ev, data });
+    };
+
+    (async () => {
+      try {
+        let model = options.model ?? '';
+        let ollamaMessages: any[];
+
+        if (vision) {
+          model = model || 'qwen3-vl:8b';
+          ollamaMessages = [
+            { role: 'system', content: 'You are a helpful visual analysis assistant. The user has taken a screenshot and wants to ask about it. Describe what you see and answer their questions based on the visual content provided.' },
+            ...messages,
+          ];
+        } else {
+          model = model || (toolsEnabled ? 'qwen3:8b' : 'qwen2.5:3b');
+          const truncatedCtx = context.slice(0, 12_000);
+          const now = new Date();
+          const dateStr = `CURRENT DATE AND TIME: ${now.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (local time). Always use this date/time for any time-relative requests.\n\n`;
+          let systemMsg: string;
+          if (truncatedCtx) {
+            systemMsg = toolsEnabled
+              ? dateStr + 'You are the AI assistant inside Aether, a desktop research app. Answer based on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---'
+              : dateStr + 'You are a helpful research assistant. Answer based ONLY on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---';
+          } else {
+            systemMsg = toolsEnabled
+              ? dateStr + 'You are the AI assistant inside Aether, a desktop research app.'
+              : dateStr + 'You are a helpful assistant.';
+          }
+          if (!think) systemMsg += ' /no_think';
+          ollamaMessages = [{ role: 'system', content: systemMsg }, ...messages];
+        }
+
+        // Stream final response
+        for await (const ev of ollamaProvider.chatStream({
+          model,
+          messages: ollamaMessages,
+          signal: abortController.signal,
+        })) {
+          if (ev.type === 'token') sendEvent('token', ev.content);
+          else if (ev.type === 'done') {
+            if (ev.usage) sendEvent('usage', ev.usage);
+            sendEvent('done', {});
+          } else if (ev.type === 'error') sendEvent('error', ev.error);
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') sendEvent('error', err.message ?? String(err));
+      } finally {
+        activeDocChatSessions.delete(sessionId);
+      }
+    })();
+
+    return { sessionId };
+  });
+
+  ipcMain.handle('db:doc-chat-cancel', (_event, sessionId: string) => {
+    const controller = activeDocChatSessions.get(sessionId);
+    if (controller) {
+      controller.abort();
+      activeDocChatSessions.delete(sessionId);
+      return { cancelled: true };
+    }
+    return { cancelled: false };
+  });
+
+  // ── Vault-chat (streaming via IPC events) ──
+  ipcMain.handle('db:vault-chat-start', async (event, options: {
+    sessionId: string; googleId: string; messages: any[]; query?: string; min_similarity?: number;
+  }) => {
+    const { sessionId, googleId, messages, query = '', min_similarity = 0.7 } = options;
+    if (!messages?.length) return { error: 'messages required' };
+
+    const abortController = new AbortController();
+    activeDocChatSessions.set(sessionId, abortController);
+    const webContents = event.sender;
+
+    const sendEvent = (ev: string, data: any) => {
+      if (!webContents.isDestroyed()) webContents.send('vault-chat:event', sessionId, { event: ev, data });
+    };
+
+    (async () => {
+      try {
+        // Embed query and search notes
+        const sources: any[] = [];
+        const contextChunks: string[] = [];
+        if (query) {
+          const queryVec = await ollamaProvider.embed(query);
+          if (queryVec.length) {
+            const results = embeddingQueries.searchEmbeddings(queryVec, 'note', 5);
+            const userVault = _getUserVaultPath(googleId);
+            for (const r of results) {
+              if (r.score < min_similarity) continue;
+              if (!r.link.startsWith('vault://')) continue;
+              const noteId = r.link.slice('vault://'.length);
+              // Read note content
+              const notePath = path.join(userVault, noteId + '.md');
+              if (!fs.existsSync(notePath)) continue;
+              const content = fs.readFileSync(notePath, 'utf-8').slice(0, 4096);
+              sources.push({ id: noteId, title: r.title, score: r.score });
+              contextChunks.push(`--- Note: ${r.title} ---\n${content}`);
+            }
+          }
+        }
+
+        sendEvent('sources', sources);
+
+        let systemMsg: string;
+        if (contextChunks.length) {
+          const numbered = contextChunks.map((c, i) => `[${i + 1}] ${c}`).join('\n\n');
+          systemMsg = 'You are a helpful assistant with access to the user\'s personal notes. Answer based on the notes below. Cite sources inline using [1], [2], etc.\n\n--- NOTES ---\n' + numbered + '\n--- END NOTES ---';
+        } else {
+          systemMsg = 'You are a helpful assistant. No relevant notes were found. Answer as best you can.';
+        }
+
+        const ollamaMessages = [{ role: 'system', content: systemMsg }, ...messages];
+
+        for await (const ev of ollamaProvider.chatStream({
+          model: 'qwen2.5:3b',
+          messages: ollamaMessages,
+          signal: abortController.signal,
+        })) {
+          if (ev.type === 'token') sendEvent('token', ev.content);
+          else if (ev.type === 'done') sendEvent('done', {});
+          else if (ev.type === 'error') sendEvent('error', ev.error);
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') sendEvent('error', err.message ?? String(err));
+      } finally {
+        activeDocChatSessions.delete(sessionId);
+      }
+    })();
+
+    return { sessionId };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Phase 5: Filesystem Routes + Client Config
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:client-config', () => {
+    return { googleClientId: GOOGLE_CLIENT_ID, ollamaHost: OLLAMA_HOST };
+  });
+
+  ipcMain.handle('db:version', () => {
+    try {
+      const gitRoot = path.resolve(__dirname, '..', '..');
+      const count = execSync('git rev-list --count HEAD', { cwd: gitRoot, timeout: 5000 }).toString().trim();
+      const sha = execSync('git rev-parse --short HEAD', { cwd: gitRoot, timeout: 5000 }).toString().trim();
+      return { version: `0.${count}`, sha };
+    } catch { return { version: '0.0', sha: '' }; }
+  });
+
+  ipcMain.handle('db:reveal-in-finder', (_event, filePath: string) => {
+    if (filePath) shell.showItemInFolder(filePath);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:saved-content-get', (_event, url: string) => {
+    if (!url) return { error: 'url required' };
+    const p = _contentPath(url);
+    if (!fs.existsSync(p)) return null;
+    try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return null; }
+  });
+
+  ipcMain.handle('db:saved-content-set', (_event, url: string, data: { url: string; title: string; text: string; savedAt?: number }) => {
+    if (!url) return { error: 'url required' };
+    const p = _contentPath(url);
+    fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:blog-list', (_event, username: string) => {
+    const userInfo = socialExtQueries.getPublicUserInfo(username);
+    if (!userInfo) return { error: 'User not found' };
+    const userVault = _getUserVaultPath(userInfo.google_id as string);
+    const posts: any[] = [];
+    if (fs.existsSync(userVault)) {
+      for (const fname of fs.readdirSync(userVault)) {
+        if (!fname.endsWith('.md')) continue;
+        try {
+          const content = fs.readFileSync(path.join(userVault, fname), 'utf-8');
+          const frontmatter = _parseFrontmatter(content);
+          if (frontmatter?.published) {
+            posts.push({ title: frontmatter.title ?? 'Untitled', slug: frontmatter.slug, published_at: frontmatter.published_at });
+          }
+        } catch { /* skip */ }
+      }
+    }
+    posts.sort((a, b) => (b.published_at ?? 0) - (a.published_at ?? 0));
+    return { posts, author: username, picture: (userInfo as any).picture };
+  });
+
+  ipcMain.handle('db:blog-get', (_event, username: string, slug: string, viewerGoogleId?: string) => {
+    const userInfo = socialExtQueries.getPublicUserInfo(username);
+    if (!userInfo) return { error: 'User not found' };
+    const userVault = _getUserVaultPath(userInfo.google_id as string);
+    if (fs.existsSync(userVault)) {
+      for (const fname of fs.readdirSync(userVault)) {
+        if (!fname.endsWith('.md')) continue;
+        try {
+          const raw = fs.readFileSync(path.join(userVault, fname), 'utf-8');
+          const frontmatter = _parseFrontmatter(raw);
+          if (frontmatter?.published && frontmatter.slug === slug) {
+            const votes = socialExtQueries.getBlogVotes(username, slug, viewerGoogleId);
+            return {
+              title: frontmatter.title ?? 'Untitled', content: _stripFrontmatter(raw),
+              author: username, published_at: frontmatter.published_at,
+              picture: (userInfo as any).picture,
+              upvotes: votes.upvotes, downvotes: votes.downvotes, userVote: votes.userVote,
+            };
+          }
+        } catch { /* skip */ }
+      }
+    }
+    return { error: 'Post not found' };
+  });
+}
+
+// ── Helpers used by phase 4/5 handlers (outside registerToolIPC) ──
+
+const DEFAULT_ANNOTATION_PROMPT =
+  "You are a helpful assistant whose job it is twofold. First, you must point out AI slop and also point out redundant information to protect the user from potentially harmful, fearmongering, or biased sentences. At the same time, you are also in charge of highlighting IMPORTANT sentences and key ideas of the current article, book, paper, or general website page that the user is visiting. Read the page and return ONLY extremely high-signal annotations. Zero fluff. Do not point out anything that is obvious.\n\n" +
+  "Annotation types:\n" +
+  "- ALPHA — Something lowkey, an uncommon or surprising result or fact. The thing worth remembering. Only use for genuinely informative information.\n" +
+  "- CONTRADICTION — a sentence idea, or thought that shows a logical flaw. one that conflicts with previous sentences. You MUST explain the specific contradiction and why the two claims can't both be true.\n" +
+  "- AD — sponsored content, affiliate links, product placement, or advertorial disguised as editorial. Flag anything that looks like it's trying to sell you something while pretending to be informational. Do not flag pip installs.\n\n" +
+  "For each annotation provide a JSON object with:\n" +
+  '- "type": one of the types above\n' +
+  '- "quote": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n' +
+  '- "explanation": 1-2 sentences. For ALPHA: why this matters. For CONTRADICTION: what it contradicts and why. For AD: what\'s being sold.\n' +
+  '- "confidence": 0-100 how confident you are\n' +
+  '- "conflictsWith": (only for CONTRADICTION) the sentence of the conflicting claim\n\n' +
+  "Rules:\n" +
+  "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change ANY words. It must be verbatim from the text.\n" +
+  "- Only use CONTRADICTION if there is a real logical flaw.\n" +
+  "- Always use AD if the sentence seems to be trying to sell a product or service.\n" +
+  "- Return 1-3 annotations for a typical page. 5-8 for longer textbooks and articles.\n" +
+  "- If the page has no key results and no ads, return an empty array [].\n" +
+  "- Respond ONLY with a JSON array, no other text\n\n";
+
+function _readAnnotationPrompt(): string | null {
+  try {
+    if (fs.existsSync(ANNOTATION_PROMPT_FILE)) {
+      const text = fs.readFileSync(ANNOTATION_PROMPT_FILE, 'utf-8').trim();
+      return text || null;
+    }
+  } catch {}
+  return null;
+}
+
+function _getAnnotationPrompt(): string {
+  return _readAnnotationPrompt() ?? DEFAULT_ANNOTATION_PROMPT;
+}
+
+function _parseFrontmatter(content: string): Record<string, any> | null {
+  if (!content.startsWith('---')) return null;
+  const end = content.indexOf('---', 3);
+  if (end === -1) return null;
+  const fm = content.slice(3, end).trim();
+  const result: Record<string, any> = {};
+  for (const line of fm.split('\n')) {
+    const colon = line.indexOf(':');
+    if (colon === -1) continue;
+    const key = line.slice(0, colon).trim();
+    let val: any = line.slice(colon + 1).trim();
+    if (val === 'true') val = true;
+    else if (val === 'false') val = false;
+    else if (val === 'null') val = null;
+    else if (/^\d+$/.test(val)) val = parseInt(val);
+    result[key] = val;
+  }
+  return result;
+}
+
+function _stripFrontmatter(content: string): string {
+  if (!content.startsWith('---')) return content;
+  const end = content.indexOf('---', 3);
+  if (end === -1) return content;
+  return content.slice(end + 3).trim();
 }

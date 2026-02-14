@@ -701,6 +701,195 @@ async function ipcRoute(path, opts = {}) {
     return resp;
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 1: External HTTP calls
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── Auth: Google login ──
+  if (pathOnly === '/api/auth/google' && method === 'POST') {
+    return await window.electronAPI.dbQuery('auth-google', body.credential);
+  }
+
+  // ── Semantic Scholar ──
+  if (pathOnly === '/api/author-details' && method === 'POST') {
+    return await window.electronAPI.dbQuery('author-details', body.authorId);
+  }
+  if (pathOnly === '/api/citation-lookup' && method === 'POST') {
+    return await window.electronAPI.dbQuery('citation-lookup', body.query);
+  }
+  if (pathOnly === '/api/paper-references' && method === 'POST') {
+    return await window.electronAPI.dbQuery('paper-references', body.arxivId, body.refNum);
+  }
+  if (pathOnly === '/api/author-lookup' && method === 'POST') {
+    return await window.electronAPI.dbQuery('author-lookup', body.query);
+  }
+  if (pathOnly === '/api/citations' && method === 'POST') {
+    return await window.electronAPI.dbQuery('citations-batch', body.ids);
+  }
+
+  // ── Browse utilities ──
+  if (pathOnly === '/api/check-embed' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('check-embed', urlParams.get('url') || '');
+  }
+  if (pathOnly === '/api/link-preview' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('link-preview', urlParams.get('url') || '');
+  }
+  if (pathOnly === '/api/stock-quote' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('stock-quote', urlParams.get('symbol') || '');
+  }
+  if (pathOnly === '/api/extract-links' && method === 'POST') {
+    return await window.electronAPI.dbQuery('extract-links', body.url);
+  }
+
+  // ── Feed proxies ──
+  if (pathOnly === '/feed' && method === 'GET') {
+    const result = await window.electronAPI.dbQuery('feed-arxiv');
+    if (result && result._proxy) return { _proxy: true, data: result.data, mime: result.mime };
+    return result;
+  }
+  if (pathOnly === '/hn-feed' && method === 'GET') {
+    return await window.electronAPI.dbQuery('feed-hn');
+  }
+  if (pathOnly === '/polymarket-feed' && method === 'GET') {
+    return await window.electronAPI.dbQuery('feed-polymarket');
+  }
+  if (pathOnly === '/api/rss-proxy' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const result = await window.electronAPI.dbQuery('rss-proxy', urlParams.get('url') || '');
+    if (result && result._proxy) return { _proxy: true, data: result.data, mime: result.mime };
+    return result;
+  }
+  if (pathOnly === '/api/feed-items/custom' && method === 'POST') {
+    return await window.electronAPI.dbQuery('feed-items-custom', body.feeds || []);
+  }
+
+  // ── File proxies ──
+  if (pathOnly === '/api/image-proxy' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const result = await window.electronAPI.dbQuery('image-proxy', urlParams.get('url') || '');
+    if (result && result._proxy) return { _proxy: true, data: result.data, mime: result.mime };
+    return result;
+  }
+  if (pathOnly === '/api/arxiv-pdf' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const result = await window.electronAPI.dbQuery('arxiv-pdf', urlParams.get('id') || '');
+    if (result && result._proxy) return { _proxy: true, data: result.data, mime: result.mime };
+    return result;
+  }
+  if (pathOnly === '/api/pdf-proxy' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const result = await window.electronAPI.dbQuery('pdf-proxy', urlParams.get('url') || '');
+    if (result && result._proxy) return { _proxy: true, data: result.data, mime: result.mime };
+    return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 2: Simple Ollama calls
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (pathOnly === '/api/panel-suggest' && method === 'POST') {
+    return await window.electronAPI.dbQuery('panel-suggest', body.text || '');
+  }
+  if (pathOnly === '/api/search-suggest' && method === 'POST') {
+    return await window.electronAPI.dbQuery('search-suggest', body.query || '');
+  }
+  if (pathOnly === '/api/quality-filter' && method === 'POST') {
+    return await window.electronAPI.dbQuery('quality-filter', body);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 3: Embedding + Vector Search
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (pathOnly === '/api/embed-content' && method === 'POST') {
+    return await window.electronAPI.dbQuery('embed-content', body);
+  }
+  if (pathOnly === '/api/semantic-search' && method === 'POST') {
+    return await window.electronAPI.dbQuery('semantic-search', body);
+  }
+  if (pathOnly === '/api/find-similar' && method === 'POST') {
+    return await window.electronAPI.dbQuery('find-similar', body);
+  }
+  if (pathOnly === '/api/reading-connections' && method === 'POST') {
+    return await window.electronAPI.dbQuery('reading-connections', body);
+  }
+  if (pathOnly === '/api/knowledge-graph/similarities' && method === 'POST') {
+    return await window.electronAPI.dbQuery('knowledge-graph-sims', body);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 4: Complex Ollama / Streaming
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (pathOnly === '/api/annotate' && method === 'POST') {
+    return await window.electronAPI.dbQuery('annotate', body);
+  }
+  if (pathOnly === '/api/annotation-prompt' && method === 'GET') {
+    return await window.electronAPI.dbQuery('annotation-prompt-get');
+  }
+  if (pathOnly === '/api/annotation-prompt' && method === 'PUT') {
+    return await window.electronAPI.dbQuery('annotation-prompt-set', (body.prompt || '').trim() || null);
+  }
+  if (pathOnly === '/api/doc-chat' && method === 'POST') {
+    // Streaming: return a marker; caller subscribes to IPC events
+    const sessionId = 'dc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    await window.electronAPI.dbQuery('doc-chat-start', {
+      sessionId,
+      context: body.context || '',
+      messages: body.messages || [],
+      vision: body.vision || false,
+      model: body.model || '',
+      tools: body.tools || false,
+      think: body.think !== false,
+      pageUrl: body.pageUrl || '',
+      pageTitle: body.pageTitle || '',
+    });
+    return { _stream: true, sessionId };
+  }
+  if (pathOnly === '/api/vault-chat' && method === 'POST') {
+    if (!googleId) return null;
+    const sessionId = 'vc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    await window.electronAPI.dbQuery('vault-chat-start', {
+      sessionId,
+      googleId,
+      messages: body.messages || [],
+      query: body.query || '',
+      min_similarity: body.min_similarity || 0.7,
+    });
+    return { _stream: true, sessionId };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 5: Filesystem + Config
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (pathOnly === '/api/client-config' && method === 'GET') {
+    return await window.electronAPI.dbQuery('client-config');
+  }
+  if (pathOnly === '/api/version' && method === 'GET') {
+    return await window.electronAPI.dbQuery('version');
+  }
+  if (pathOnly === '/api/saved-content' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('saved-content-get', urlParams.get('url') || '');
+  }
+  if (pathOnly === '/api/saved-content' && method === 'POST') {
+    return await window.electronAPI.dbQuery('saved-content-set', body.url, body);
+  }
+  if (pathOnly.match(/^\/api\/blog\/[^/]+$/) && method === 'GET') {
+    const username = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('blog-list', username);
+  }
+  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+$/) && method === 'GET') {
+    const parts = pathOnly.split('/');
+    const username = decodeURIComponent(parts[3]);
+    const slug = decodeURIComponent(parts[4]);
+    return await window.electronAPI.dbQuery('blog-get', username, slug, googleId);
+  }
+
   // Not handled — return null to fall back to HTTP
   return null;
 }

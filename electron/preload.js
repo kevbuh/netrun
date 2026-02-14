@@ -67,6 +67,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onAgentEvent: (callback) => ipcRenderer.on('agent:event', callback),
   removeAgentEventListener: (callback) => ipcRenderer.removeListener('agent:event', callback),
 
+  // ── Doc-chat / Vault-chat streaming events ──
+  onDocChatEvent: (callback) => ipcRenderer.on('doc-chat:event', callback),
+  removeDocChatEventListener: (callback) => ipcRenderer.removeListener('doc-chat:event', callback),
+  onVaultChatEvent: (callback) => ipcRenderer.on('vault-chat:event', callback),
+  removeVaultChatEventListener: (callback) => ipcRenderer.removeListener('vault-chat:event', callback),
+
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),
 });
