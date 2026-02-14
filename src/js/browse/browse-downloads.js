@@ -1227,7 +1227,7 @@ function _browseBindFrame(tab) {
 
     // JS-based YouTube Shorts hiding (implements uBlock :has-text / :matches-path rules)
     const _hideYTShorts = (url) => {
-      if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+      if (localStorage.getItem('hideYTShorts') !== 'true') return;
       if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) return;
       el.executeJavaScript(`(function(){
         if(window.__ytShortsHideInjected) return;

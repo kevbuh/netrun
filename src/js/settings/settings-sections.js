@@ -593,6 +593,18 @@ function _renderBrowserSettings() {
       ${window.electronAPI ? '<button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>' : ''}
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Hide YouTube Shorts</h3>
+          <p class="text-dim text-[0.8rem]">Hides Shorts from the homepage, sidebar, search, and channel pages.</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="hide-yt-shorts-toggle" class="sr-only peer" ${localStorage.getItem('hideYTShorts') === 'true' ? 'checked' : ''} onchange="localStorage.setItem('hideYTShorts', this.checked ? 'true' : 'false')">
+          <div class="w-9 h-5 bg-gray-600 peer-checked:bg-accent rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+        </label>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Site Permissions</h3>
       <p class="text-dim text-[0.8rem] mb-3">Manage camera, microphone, location, notification, and pop-up permissions per site.</p>
       <div id="settings-site-permissions">${_renderSettingsSitePermissions()}</div>
