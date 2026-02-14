@@ -1,17 +1,14 @@
-flask
-flask-cors
-flask-sock
+# Python dependencies (Flask removed — all API routes handled by Electron IPC)
+# These are only needed for Python subprocesses (kernel bridge, neuralook, etc.)
 jupyter-client
 ipykernel
 PyMuPDF
 PyYAML
 kokoro
 soundfile
-pywhispercpp
 
 # Testing dependencies
 pytest>=7.4.0
-pytest-flask>=1.2.0
 pytest-cov>=4.1.0
 pytest-mock>=3.11.0
 pytest-watch>=4.2.0

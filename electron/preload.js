@@ -50,6 +50,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockUpdate: () => ipcRenderer.invoke('adblock-update'),
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
 
+  // ── Terminal (node-pty via IPC) ──
+  terminalStart: (cwd) => ipcRenderer.invoke('terminal:start', cwd),
+  terminalInput: (sessionId, data) => ipcRenderer.invoke('terminal:input', sessionId, data),
+  terminalResize: (sessionId, cols, rows) => ipcRenderer.invoke('terminal:resize', sessionId, cols, rows),
+  terminalKill: (sessionId) => ipcRenderer.invoke('terminal:kill', sessionId),
+  onTerminalOutput: (callback) => ipcRenderer.on('terminal:output', callback),
+  onTerminalExit: (callback) => ipcRenderer.on('terminal:exit', callback),
+  removeTerminalListeners: (sessionId) => {
+    // Note: removes ALL listeners; fine since each terminal re-registers on connect
+    ipcRenderer.removeAllListeners('terminal:output');
+    ipcRenderer.removeAllListeners('terminal:exit');
+  },
+
+  // ── Captions (whisper.cpp via IPC) ──
+  captionsTranscribe: (pcmBase64, sampleRate) => ipcRenderer.invoke('captions:transcribe', pcmBase64, sampleRate),
+
   // ── Core tool system (TypeScript backend) ──
   coreAvailable: true,
   toolExecute: (name, input, context) => ipcRenderer.invoke('tools:execute', name, input, context),

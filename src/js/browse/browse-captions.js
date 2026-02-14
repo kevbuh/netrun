@@ -76,30 +76,10 @@ async function toggleCaptions() {
     _ccStream = new MediaStream(audioTracks);
     rawStream.getVideoTracks().forEach(t => t.stop());
 
-    // Open WebSocket to Flask captions endpoint
-    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    _ccSocket = new WebSocket(`${wsProto}//${location.host}/ws/captions`);
-    _ccSocket.binaryType = 'arraybuffer';
+    // Mark socket as active for the AudioWorklet to check (use a simple flag object)
+    _ccSocket = { active: true };
 
-    _ccSocket.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.text) _showCaption(msg.text);
-      } catch {}
-    };
-    _ccSocket.onclose = () => { if (_ccActive) stopCaptions(); };
-    _ccSocket.onerror = () => { if (_ccActive) stopCaptions(); };
-
-    // Wait for socket to open, then send format handshake
-    await new Promise((resolve, reject) => {
-      _ccSocket.onopen = resolve;
-      setTimeout(() => reject(new Error('WebSocket timeout')), 5000);
-    });
-
-    // Tell the server we're sending raw float32 PCM at 16kHz
-    _ccSocket.send(JSON.stringify({ format: 'f32pcm', rate: 16000 }));
-
-    // Start AudioWorklet pipeline (raw PCM, no MediaRecorder/ffmpeg)
+    // Start AudioWorklet pipeline — sends PCM chunks via IPC instead of WebSocket
     await _ccStartAudioWorklet();
   } catch (err) {
     console.warn('CC start failed:', err);
@@ -142,10 +122,17 @@ async function _ccStartAudioWorklet() {
   URL.revokeObjectURL(url);
 
   _ccWorkletNode = new AudioWorkletNode(_ccAudioCtx, 'cc-processor');
-  _ccWorkletNode.port.onmessage = (e) => {
-    if (_ccSocket && _ccSocket.readyState === WebSocket.OPEN) {
-      _ccSocket.send(e.data); // raw Float32Array ArrayBuffer
-    }
+  _ccWorkletNode.port.onmessage = async (e) => {
+    if (!_ccSocket || !_ccSocket.active || !window.electronAPI) return;
+    try {
+      // Convert ArrayBuffer to base64 for IPC transport
+      const bytes = new Uint8Array(e.data);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+      const result = await window.electronAPI.captionsTranscribe(base64, 16000);
+      if (result && result.text) _showCaption(result.text);
+    } catch {}
   };
 
   const source = _ccAudioCtx.createMediaStreamSource(_ccStream);
@@ -170,7 +157,7 @@ function stopCaptions() {
     _ccStream = null;
   }
   if (_ccSocket) {
-    try { _ccSocket.close(); } catch {}
+    _ccSocket.active = false;
     _ccSocket = null;
   }
   if (_browseIsElectron && window.electronAPI) {

@@ -8,7 +8,7 @@
     "build:core": "npx tsc -p tsconfig.json",
     "start": "npm run build:core && electron .",
     "start:dev": "electron .",
-    "server": "venv/bin/python3 src/app.py",
+    "server": "echo 'Flask server removed — all routes handled by Electron IPC'",
     "test": "npm run test:electron && npm run test:unit && npm run test:backend",
     "test:electron": "node --test 'tests/**/*.test.js'",
     "test:unit": "vitest run",
@@ -55,6 +55,7 @@
     "adblock-rs": "^0.12.1",
     "ai": "^6.0.86",
     "better-sqlite3": "^12.6.2",
+    "node-pty": "^1.1.0",
     "ollama-ai-provider": "^1.2.0",
     "typescript": "^5.9.3",
     "zod": "^3.25.76"

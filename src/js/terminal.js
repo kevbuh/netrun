@@ -215,7 +215,13 @@ function destroyTerminal(id) {
 
   const t = _terminals[idx];
   if (t.ws) {
-    try { t.ws.close(); } catch (_) {}
+    if (typeof t.ws === 'string' && window.electronAPI && window.electronAPI.terminalKill) {
+      // IPC mode — t.ws is a session ID
+      try { window.electronAPI.terminalKill(t.ws); } catch (_) {}
+    } else if (t.ws.close) {
+      // WebSocket mode
+      try { t.ws.close(); } catch (_) {}
+    }
   }
   if (t.term) {
     t.term.dispose();
@@ -396,11 +402,9 @@ function _renderLayout() {
         });
         ro.observe(pane);
 
-        // Send resize to server
+        // Send resize to server (handled by _connectTerminalWs for IPC mode)
         t.term.onResize(({ cols, rows }) => {
-          if (t.ws && t.ws.readyState === WebSocket.OPEN) {
-            t.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-          }
+          _terminalSendResize(t, cols, rows);
         });
 
         // Focus on click
@@ -540,11 +544,98 @@ function splitTerminal(direction) {
   _saveTerminalState();
 }
 
+/** Send input data to terminal (IPC or WebSocket) */
+function _terminalSendInput(t, data) {
+  if (typeof t.ws === 'string' && window.electronAPI && window.electronAPI.terminalInput) {
+    window.electronAPI.terminalInput(t.ws, data);
+  } else if (t.ws && t.ws.readyState === WebSocket.OPEN) {
+    t.ws.send(data);
+  }
+}
+
+/** Send resize to terminal (IPC or WebSocket) */
+function _terminalSendResize(t, cols, rows) {
+  if (typeof t.ws === 'string' && window.electronAPI && window.electronAPI.terminalResize) {
+    window.electronAPI.terminalResize(t.ws, cols, rows);
+  } else if (t.ws && t.ws.readyState === WebSocket.OPEN) {
+    t.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+  }
+}
+
 function _connectTerminalWs(t, cwd) {
+  // Clean up previous session
   if (t.ws) {
-    try { t.ws.close(); } catch (_) {}
+    // t.ws is now the IPC session ID (string), not a WebSocket
+    try { window.electronAPI.terminalKill(t.ws); } catch (_) {}
+  }
+  if (t._onDataDisposable) {
+    try { t._onDataDisposable.dispose(); } catch (_) {}
   }
 
+  if (window.electronAPI && window.electronAPI.terminalStart) {
+    // IPC mode (Electron) — use node-pty via main process
+    _connectTerminalIpc(t, cwd);
+  } else {
+    // Fallback: WebSocket mode (should not be needed after migration)
+    _connectTerminalWsFallback(t, cwd);
+  }
+}
+
+async function _connectTerminalIpc(t, cwd) {
+  logger.debug(`terminal ${t.id} connecting via IPC, cwd=${cwd}`);
+
+  try {
+    const result = await window.electronAPI.terminalStart(cwd);
+    if (result.error) {
+      if (t.term) t.term.write(`\r\n\x1b[91m[error: ${result.error}]\x1b[0m\r\n`);
+      return;
+    }
+
+    const sessionId = result.sessionId;
+    t.ws = sessionId; // Store session ID in the ws field for compatibility
+
+    // Listen for output from main process
+    const onOutput = (_event, id, data) => {
+      if (id === sessionId && t.term) {
+        t.term.write(data);
+      }
+    };
+    const onExit = (_event, id, exitCode) => {
+      if (id === sessionId && t.term) {
+        t.term.write(`\r\n\x1b[90m[exited with code ${exitCode}]\x1b[0m\r\n`);
+      }
+      window.electronAPI.onTerminalOutput && ipcRenderer_removeListener('terminal:output', onOutput);
+      window.electronAPI.onTerminalExit && ipcRenderer_removeListener('terminal:exit', onExit);
+    };
+
+    window.electronAPI.onTerminalOutput(onOutput);
+    window.electronAPI.onTerminalExit(onExit);
+    t._ipcOutputListener = onOutput;
+    t._ipcExitListener = onExit;
+
+    // Send initial resize
+    t.fitAddon.fit();
+    const { cols, rows } = t.term;
+    window.electronAPI.terminalResize(sessionId, cols, rows);
+
+    // Forward user input to main process
+    t._onDataDisposable = t.term.onData((data) => {
+      window.electronAPI.terminalInput(sessionId, data);
+    });
+
+    // Forward resize events
+    t._onResizeDisposable = t.term.onResize(({ cols, rows }) => {
+      window.electronAPI.terminalResize(sessionId, cols, rows);
+    });
+
+    logger.debug(`terminal ${t.id} connected, session=${sessionId}`);
+  } catch (err) {
+    logger.error(`terminal ${t.id} IPC connect failed`, err);
+    if (t.term) t.term.write(`\r\n\x1b[91m[connection failed]\x1b[0m\r\n`);
+  }
+}
+
+function _connectTerminalWsFallback(t, cwd) {
   const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${wsProto}//${location.host}/ws/terminal` + (cwd ? '?cwd=' + encodeURIComponent(cwd) : '');
   logger.debug(`terminal ${t.id} connecting to`, wsUrl);
@@ -578,7 +669,7 @@ function _connectTerminalWs(t, cwd) {
     if (t.term) t.term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n');
   };
 
-  t.term.onData((data) => {
+  t._onDataDisposable = t.term.onData((data) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(data);
   });
 }
@@ -623,10 +714,10 @@ function copyTerminal() {
 
 async function pasteTerminal() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (t && t.ws && t.ws.readyState === WebSocket.OPEN) {
+  if (t && t.ws) {
     try {
       const text = await navigator.clipboard.readText();
-      t.ws.send(text);
+      _terminalSendInput(t, text);
     } catch (_) {}
   }
 }
@@ -899,9 +990,7 @@ function _renderBottomTerminalPane() {
     ro.observe(pane);
 
     t.term.onResize(({ cols, rows }) => {
-      if (t.ws && t.ws.readyState === WebSocket.OPEN) {
-        t.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-      }
+      _terminalSendResize(t, cols, rows);
     });
   } else {
     setTimeout(() => {

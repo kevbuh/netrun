@@ -111,7 +111,6 @@ async function initAdblock() {
   }
 }
 
-let pythonProcess = null;
 let mainWindow = null;
 let serverPort = null;
 let _ccTargetWcId = null;
@@ -175,80 +174,88 @@ function getStaticDir() {
   return path.join(process.resourcesPath, 'src');
 }
 
-function tryStartPythonServer(port) {
-  const dataDir = getDataDir();
-  const staticDir = getStaticDir();
+// MIME types for static file serving
+const MIME_TYPES = {
+  '.html': 'text/html', '.htm': 'text/html',
+  '.css': 'text/css', '.js': 'application/javascript', '.mjs': 'application/javascript',
+  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.eot': 'application/vnd.ms-fontobject',
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.webm': 'video/webm',
+  '.pdf': 'application/pdf', '.xml': 'application/xml', '.txt': 'text/plain',
+  '.map': 'application/json', '.webp': 'image/webp',
+};
 
-  let cmd, args;
-  if (isDev) {
-    cmd = path.join(__dirname, '..', 'venv', 'bin', 'python3');
-    args = [
-      path.join(__dirname, '..', 'src', 'app.py'),
-      '--port', String(port),
-      '--data-dir', dataDir,
-      '--static-dir', staticDir,
-    ];
-  } else {
-    cmd = path.join(process.resourcesPath, 'arxiv-server', 'arxiv-server');
-    args = [
-      '--port', String(port),
-      '--data-dir', dataDir,
-      '--static-dir', staticDir,
-    ];
-  }
+let _staticServer = null;
+
+function startStaticServer(port) {
+  const staticDir = getStaticDir();
+  const dataDir = getDataDir();
+  const uploadsDir = path.join(dataDir, 'uploads');
 
   return new Promise((resolve, reject) => {
-    console.log(`Starting server: ${cmd} ${args.join(' ')}`);
-    const proc = spawn(cmd, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ARXIV_DATA_DIR: dataDir },
-    });
+    _staticServer = http.createServer((req, res) => {
+      let urlPath = decodeURIComponent(req.url.split('?')[0]);
 
-    let stderr = '';
-    let settled = false;
-
-    proc.stdout.on('data', (data) => {
-      console.log(`[server] ${data.toString().trim()}`);
-    });
-    proc.stderr.on('data', (data) => {
-      const text = data.toString();
-      stderr += text;
-      console.error(`[server] ${text.trim()}`);
-    });
-
-    // If the process exits quickly, it failed to bind
-    proc.on('exit', (code) => {
-      if (!settled) {
-        settled = true;
-        reject(new Error(`Server exited with code ${code}: ${stderr}`));
+      // Serve uploaded files
+      if (urlPath.startsWith('/uploads/')) {
+        const filename = path.basename(urlPath);
+        const filePath = path.join(uploadsDir, filename);
+        if (fs.existsSync(filePath)) {
+          const ext = path.extname(filename).toLowerCase();
+          res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        }
+        res.writeHead(404);
+        res.end('Not found');
+        return;
       }
-      console.log(`Python server exited with code ${code}`);
-      pythonProcess = null;
+
+      // Static file serving
+      if (urlPath === '/') urlPath = '/index.html';
+      const filePath = path.join(staticDir, urlPath);
+
+      // Security: prevent path traversal
+      if (!filePath.startsWith(staticDir)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
+
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        const ext = path.extname(filePath).toLowerCase();
+        res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+        fs.createReadStream(filePath).pipe(res);
+      } else {
+        // SPA fallback — serve index.html for unknown paths
+        const indexPath = path.join(staticDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          fs.createReadStream(indexPath).pipe(res);
+        } else {
+          res.writeHead(404);
+          res.end('Not found');
+        }
+      }
     });
 
-    // Give it a moment — if it hasn't crashed, it started successfully
-    setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        pythonProcess = proc;
-        resolve(port);
-      }
-    }, 500);
+    _staticServer.on('error', (err) => {
+      reject(err);
+    });
+
+    _staticServer.listen(port, '127.0.0.1', () => {
+      console.log(`Static server listening on http://127.0.0.1:${port}`);
+      resolve(port);
+    });
   });
 }
 
-function killPython() {
-  if (!pythonProcess) return Promise.resolve();
-  return new Promise((resolve) => {
-    pythonProcess.on('exit', resolve);
-    pythonProcess.kill('SIGTERM');
-    setTimeout(() => {
-      if (pythonProcess) {
-        pythonProcess.kill('SIGKILL');
-      }
-      resolve();
-    }, 3000);
-  });
+function stopStaticServer() {
+  if (_staticServer) {
+    _staticServer.close();
+    _staticServer = null;
+  }
 }
 
 async function killProcessOnPort(port) {
@@ -355,13 +362,13 @@ async function createWindow() {
   // First, kill any existing process on port 8000
   await killProcessOnPort(PREFERRED_PORT);
 
-  // Keep retrying until port 8000 is available
+  // Start the static file server (replaces Flask)
   let retries = 0;
   const maxRetries = 30;
 
   while (retries < maxRetries) {
     try {
-      serverPort = await tryStartPythonServer(PREFERRED_PORT);
+      serverPort = await startStaticServer(PREFERRED_PORT);
       break;
     } catch (_e) {
       retries++;
@@ -373,8 +380,6 @@ async function createWindow() {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-
-  await waitForServer(serverPort);
 
   const windowState = loadWindowState();
   console.log('[window-state] Creating window with:', windowState);
@@ -694,7 +699,7 @@ app.whenReady().then(() => {
   }
 
   // Initialize core tool system (tools, providers, IPC handlers)
-  // Ensure TypeScript backend uses the same data dir as Flask
+  // Ensure TypeScript backend uses the correct data dir
   process.env.ARXIV_DATA_DIR = getDataDir();
   try {
     const { initCore } = require('../dist/main/init.js');
@@ -869,12 +874,12 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', async () => {
-  await killPython();
+  stopStaticServer();
   app.quit();
 });
 
 app.on('before-quit', () => {
-  killPython();
+  stopStaticServer();
 });
 
 app.on('activate', () => {

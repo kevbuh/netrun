@@ -1834,6 +1834,1271 @@ export function registerToolIPC(): void {
     }
     return { error: 'Post not found' };
   });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration: Vault path/tree
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:vault-path-get', (_event, googleId: string) => {
+    const customPath = userQueries.getUserData(googleId, 'vaultPath');
+    const defaultPath = path.join(VAULT_DIR, googleId);
+    return {
+      path: customPath || defaultPath,
+      isCustom: !!customPath,
+      default: defaultPath,
+    };
+  });
+
+  ipcMain.handle('db:vault-path-set', (_event, googleId: string, newPath: string | null) => {
+    if (!newPath) {
+      userQueries.setUserData(googleId, 'vaultPath', '');
+      return { ok: true, message: 'Vault path reset to default', path: _getUserVaultPath(googleId) };
+    }
+    const expanded = newPath.replace(/^~/, process.env.HOME ?? '/tmp');
+    if (!fs.existsSync(expanded)) {
+      try {
+        fs.mkdirSync(expanded, { recursive: true });
+      } catch (e: any) {
+        return { error: `Cannot create directory: ${e.message}` };
+      }
+    }
+    if (!fs.statSync(expanded).isDirectory()) {
+      return { error: 'Path is not a directory' };
+    }
+    // Test writability
+    const testFile = path.join(expanded, '.vault_test');
+    try {
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+    } catch (e: any) {
+      return { error: `Directory is not writable: ${e.message}` };
+    }
+    userQueries.setUserData(googleId, 'vaultPath', expanded);
+    return { ok: true, message: `Vault path set to ${expanded}`, path: expanded };
+  });
+
+  ipcMain.handle('db:vault-tree', (_event, googleId: string) => {
+    const userVault = _getUserVaultPath(googleId);
+    const walkDir = (dirpath: string, rel = ''): any[] => {
+      const items: any[] = [];
+      let entries: string[];
+      try { entries = fs.readdirSync(dirpath).sort(); } catch { return items; }
+      for (const name of entries) {
+        if (name.startsWith('.')) continue;
+        const full = path.join(dirpath, name);
+        const relPath = rel ? path.join(rel, name) : name;
+        try {
+          const stat = fs.statSync(full);
+          if (stat.isDirectory()) {
+            if (SKIP_DIRS.has(name)) continue;
+            const children = walkDir(full, relPath);
+            items.push({ name, path: relPath, type: 'dir', children });
+          } else if (stat.isFile()) {
+            if (SKIP_FILES.has(name)) continue;
+            items.push({ name, path: relPath, type: 'file', mtime: stat.mtimeMs / 1000 });
+          }
+        } catch { /* skip unreadable entries */ }
+      }
+      return items;
+    };
+    return walkDir(userVault);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration: Social uploads + blog unpublish
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const UPLOADS_DIR = path.join(DATA_DIR, '..', '.aether_data', 'uploads').replace('/.aether_data/../.aether_data/', '/.aether_data/');
+  // Use the same upload dir as Flask: DATA_DIR parent + uploads
+  const _uploadsDir = path.join(path.dirname(path.dirname(DATA_DIR)), '.aether_data', 'uploads');
+  // Simpler: just put uploads in DATA_DIR
+  const uploadsDir = path.join(DATA_DIR, 'uploads');
+  fs.mkdirSync(uploadsDir, { recursive: true });
+
+  ipcMain.handle('db:upload-profile-picture', (_event, googleId: string, imageData: string) => {
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      return { error: 'Invalid image data' };
+    }
+    const [header, b64] = imageData.split(',', 2);
+    let ext = 'jpg';
+    if (header.includes('png')) ext = 'png';
+    else if (header.includes('webp')) ext = 'webp';
+    const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
+    const fname = `${hash}_pic.${ext}`;
+    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    const pictureUrl = '/uploads/' + fname;
+    userQueries.updateUserPicture(googleId, pictureUrl);
+    return { ok: true, picture: pictureUrl };
+  });
+
+  ipcMain.handle('db:upload-profile-background', (_event, googleId: string, imageData: string) => {
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      return { error: 'Invalid image data' };
+    }
+    const [header, b64] = imageData.split(',', 2);
+    let ext = 'jpg';
+    if (header.includes('png')) ext = 'png';
+    else if (header.includes('webp')) ext = 'webp';
+    const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
+    const fname = `${hash}_bg.${ext}`;
+    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    const bgUrl = '/uploads/' + fname;
+    userQueries.updateUserProfileBg(googleId, bgUrl);
+    return { ok: true, profile_bg: bgUrl };
+  });
+
+  ipcMain.handle('db:blog-unpublish', (_event, googleId: string, username: string, slug: string) => {
+    const userInfo = userQueries.getUser(googleId) as any;
+    if (!userInfo || userInfo.username !== username) {
+      return { error: 'Not authorized' };
+    }
+    const userVault = _getUserVaultPath(googleId);
+    if (fs.existsSync(userVault)) {
+      for (const fname of fs.readdirSync(userVault)) {
+        if (!fname.endsWith('.md')) continue;
+        const fpath = path.join(userVault, fname);
+        try {
+          const content = fs.readFileSync(fpath, 'utf-8');
+          const frontmatter = _parseFrontmatter(content);
+          if (frontmatter?.published && frontmatter.slug === slug) {
+            // Rewrite frontmatter with published: false
+            const lines = content.split('\n');
+            const newLines: string[] = [];
+            let inFrontmatter = false;
+            let fmCount = 0;
+            for (const line of lines) {
+              if (line.trim() === '---') {
+                fmCount++;
+                inFrontmatter = fmCount === 1;
+                newLines.push(line);
+                if (fmCount === 2) {
+                  // Add updated timestamp before closing ---
+                  // Check if 'updated' line was already added
+                }
+                continue;
+              }
+              if (inFrontmatter) {
+                if (line.startsWith('published:')) {
+                  newLines.push('published: false');
+                } else if (line.startsWith('published_at:')) {
+                  newLines.push('published_at: null');
+                } else if (line.startsWith('updated:')) {
+                  newLines.push(`updated: ${Math.floor(Date.now() / 1000)}`);
+                } else {
+                  newLines.push(line);
+                }
+              } else {
+                newLines.push(line);
+              }
+            }
+            fs.writeFileSync(fpath, newLines.join('\n'));
+            return { ok: true };
+          }
+        } catch { /* skip */ }
+      }
+    }
+    return { error: 'Post not found' };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration: Dev simple routes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:settings', () => {
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:upload-image', (_event, imageB64: string) => {
+    if (!imageB64) return { error: 'image required' };
+    const { v4: uuidv4 } = require('uuid') as { v4: () => string };
+    let filename: string;
+    try {
+      filename = require('crypto').randomUUID() + '.png';
+    } catch {
+      filename = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
+    }
+    const filepath = path.join(uploadsDir, filename);
+    fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
+    return { url: '/api/images/' + filename };
+  });
+
+  ipcMain.handle('db:serve-image', (_event, filename: string) => {
+    const safeName = path.basename(filename);
+    const filepath = path.join(uploadsDir, safeName);
+    if (!fs.existsSync(filepath)) return { error: 'Not found' };
+    const data = fs.readFileSync(filepath).toString('base64');
+    return { _proxy: true, data, mime: 'image/png' };
+  });
+
+  ipcMain.handle('db:saved-posts', (_event, googleId: string, body: { url: string; title?: string; favicon?: string; hostname?: string }) => {
+    const url = (body.url ?? '').trim();
+    if (!url) return { error: 'url required' };
+    const title = body.title ?? url;
+    const favicon = body.favicon ?? '';
+    const hostname = body.hostname ?? '';
+    const allData = userQueries.getAllUserData(googleId);
+    let saved: Record<string, any> = {};
+    const savedRaw = allData.savedPosts;
+    if (savedRaw) {
+      const val = savedRaw.value;
+      if (typeof val === 'string') {
+        try { saved = JSON.parse(val); } catch { saved = {}; }
+      } else if (typeof val === 'object' && val !== null) {
+        saved = val as Record<string, any>;
+      }
+    }
+    if (url in saved) return { exists: true };
+    saved[url] = {
+      paper: { title, link: url, favicon, hostname },
+      savedAt: Date.now(),
+      read: false,
+    };
+    userQueries.setUserData(googleId, 'savedPosts', JSON.stringify(saved));
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:custom-feeds', (_event, googleId: string, body: { url: string; name?: string }) => {
+    const url = (body.url ?? '').trim();
+    const name = (body.name ?? '').trim();
+    if (!url) return { error: 'url required' };
+    const allData = userQueries.getAllUserData(googleId);
+    let feeds: any[] = [];
+    const feedsRaw = allData.customFeeds;
+    if (feedsRaw) {
+      const val = feedsRaw.value;
+      if (typeof val === 'string') {
+        try { feeds = JSON.parse(val); } catch { feeds = []; }
+      } else if (Array.isArray(val)) {
+        feeds = val;
+      }
+    }
+    if (!Array.isArray(feeds)) feeds = [];
+    if (feeds.some((f: any) => f.url === url)) return { exists: true };
+    feeds.push({ url, name: name || url, enabled: true });
+    userQueries.setUserData(googleId, 'customFeeds', JSON.stringify(feeds));
+    return { ok: true, name: name || url };
+  });
+
+  ipcMain.handle('db:local-file', (_event, filePath: string) => {
+    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      return { error: 'File not found' };
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.html': 'text/html', '.htm': 'text/html',
+      '.js': 'text/javascript', '.css': 'text/css',
+      '.json': 'application/json', '.xml': 'application/xml',
+      '.txt': 'text/plain', '.md': 'text/markdown',
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+      '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+      '.mp4': 'video/mp4', '.webm': 'video/webm',
+    };
+    const mime = mimeMap[ext] ?? 'application/octet-stream';
+    const data = fs.readFileSync(filePath).toString('base64');
+    return { _proxy: true, data, mime };
+  });
+
+  ipcMain.handle('db:tex-preview', () => {
+    return {
+      _proxy: true,
+      data: Buffer.from(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LaTeX Preview</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#1a1a1a;font-family:system-ui,sans-serif;color:#aaa}
+#pdf-frame{width:100%;height:100%;border:none;display:none}
+#placeholder{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px}
+#placeholder .spinner{width:24px;height:24px;border:2px solid #444;border-top-color:#b4451a;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body>
+<iframe id="pdf-frame"></iframe>
+<div id="placeholder"><div class="spinner"></div><span>Waiting for compilation...</span></div>
+<script>
+const ch = new BroadcastChannel('tex-pdf-preview');
+const frame = document.getElementById('pdf-frame');
+const ph = document.getElementById('placeholder');
+let currentUrl = null;
+ch.onmessage = function(e) {
+  if (e.data && e.data.type === 'pdf-update') {
+    const bytes = new Uint8Array(e.data.pdf);
+    const blob = new Blob([bytes], {type:'application/pdf'});
+    if (currentUrl) URL.revokeObjectURL(currentUrl);
+    currentUrl = URL.createObjectURL(blob);
+    frame.src = currentUrl;
+    frame.style.display = 'block';
+    ph.style.display = 'none';
+    document.title = 'LaTeX Preview' + (e.data.fname ? ' - ' + e.data.fname : '');
+  }
+};
+ch.postMessage({type:'preview-ready'});
+</script></body></html>`).toString('base64'),
+      mime: 'text/html',
+    };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration: Browse proxy (HTML rewriting)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:browse-proxy', async (_event, url: string) => {
+    if (!url) return { error: 'Missing url parameter' };
+    try {
+      const buf = await cachedFetch(url, 20_000);
+      const htmlStr = buf.toString('utf-8');
+      const rewritten = _rewriteProxyHtml(htmlStr, url);
+      return { _proxy: true, data: Buffer.from(rewritten).toString('base64'), mime: 'text/html' };
+    } catch (e: any) {
+      return { error: e.message ?? String(e) };
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 2: Subprocess routes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const { execFileSync, spawn: spawnChild } = require('child_process') as typeof import('child_process');
+  const gitRoot = path.resolve(__dirname, '..', '..');
+
+  ipcMain.handle('db:dev-git-log', (_event, offset = 0, limit = 20) => {
+    try {
+      limit = Math.min(limit, 100);
+      const sep = '\x1f';
+      const r = execFileSync('git', ['log', `--skip=${offset}`, `-${limit}`, `--format=COMMIT${sep}%H${sep}%an${sep}%ad${sep}%s`, '--date=iso', '--shortstat'], { cwd: gitRoot, timeout: 10_000, encoding: 'utf-8' });
+      const gitLog: any[] = [];
+      let current: any = null;
+      for (const line of r.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (trimmed.startsWith('COMMIT' + sep)) {
+          const parts = trimmed.split(sep, 5);
+          if (parts.length === 5) {
+            current = { sha: parts[1].slice(0, 8), author: parts[2], date: parts[3], message: parts[4], ins: 0, del: 0 };
+            gitLog.push(current);
+          }
+        } else if (current && trimmed.includes('changed')) {
+          const mIns = trimmed.match(/(\d+) insertion/);
+          const mDel = trimmed.match(/(\d+) deletion/);
+          current.ins = mIns ? parseInt(mIns[1]) : 0;
+          current.del = mDel ? parseInt(mDel[1]) : 0;
+          current = null;
+        }
+      }
+      return { git_log: gitLog, has_more: gitLog.length === limit };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:dev-stats', () => {
+    try {
+      const srcDir = path.resolve(gitRoot, 'src');
+      // DB stats
+      const db = getDb();
+      const users = (db.prepare('SELECT COUNT(*) as c FROM users').get() as any).c;
+      const activeSess = (db.prepare('SELECT COUNT(*) as c FROM sessions WHERE expires > ?').get(Date.now() / 1000) as any).c;
+
+      // LOC count
+      let totalLoc = 0, coreLoc = 0, testLoc = 0, fileCount = 0;
+      const walkLoc = (dir: string) => {
+        let entries: fs.Dirent[];
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const entry of entries) {
+          if (['node_modules', '.git', '__pycache__', 'experiments', 'uploads'].includes(entry.name)) continue;
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) { walkLoc(full); continue; }
+          if (!['.js', '.py', '.css', '.html'].some(e => entry.name.endsWith(e))) continue;
+          try {
+            const lines = fs.readFileSync(full, 'utf-8').split('\n').length;
+            totalLoc += lines; fileCount++;
+            const rel = path.relative(srcDir, full);
+            if (rel.startsWith('tests') || entry.name.includes('.test.') || entry.name.includes('.spec.') || entry.name.startsWith('test_')) {
+              testLoc += lines;
+            } else {
+              coreLoc += lines;
+            }
+          } catch { /* skip */ }
+        }
+      };
+      walkLoc(srcDir);
+
+      // Git stats
+      let commitsToday = 0, totalCommits = 0, projectAgeDays = 0, firstCommitDate = '';
+      try {
+        const today = new Date().toISOString().slice(0, 10) + 'T00:00:00';
+        commitsToday = parseInt(execFileSync('git', ['rev-list', '--count', `--since=${today}`, 'HEAD'], { cwd: gitRoot, timeout: 5000, encoding: 'utf-8' }).trim()) || 0;
+      } catch {}
+      try {
+        totalCommits = parseInt(execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: gitRoot, timeout: 5000, encoding: 'utf-8' }).trim()) || 0;
+      } catch {}
+      try {
+        const r = execFileSync('git', ['log', '--reverse', '--format=%ad', '--date=short'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
+        const lines = r.trim().split('\n');
+        if (lines[0]) {
+          firstCommitDate = lines[0];
+          const fd = new Date(firstCommitDate);
+          projectAgeDays = Math.max(1, Math.round((Date.now() - fd.getTime()) / 86400000));
+        }
+      } catch {}
+
+      // Git log (recent 20)
+      const gitLog: any[] = [];
+      try {
+        const sep = '\x1f';
+        const r = execFileSync('git', ['log', '-20', `--format=COMMIT${sep}%H${sep}%an${sep}%ad${sep}%s`, '--date=iso', '--shortstat'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
+        let current: any = null;
+        for (const line of r.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed.startsWith('COMMIT' + sep)) {
+            const parts = trimmed.split(sep, 5);
+            if (parts.length === 5) {
+              current = { sha: parts[1].slice(0, 8), author: parts[2], date: parts[3], message: parts[4], ins: 0, del: 0 };
+              gitLog.push(current);
+            }
+          } else if (current && trimmed.includes('changed')) {
+            const mIns = trimmed.match(/(\d+) insertion/);
+            const mDel = trimmed.match(/(\d+) deletion/);
+            current.ins = mIns ? parseInt(mIns[1]) : 0;
+            current.del = mDel ? parseInt(mDel[1]) : 0;
+            current = null;
+          }
+        }
+      } catch {}
+
+      // Commits per day (30 days)
+      const commitsPerDay: any[] = [];
+      try {
+        const r = execFileSync('git', ['log', '--format=%ad', '--date=short', '--since=30 days ago'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
+        const counts: Record<string, number> = {};
+        for (const d of r.trim().split('\n')) {
+          const date = d.trim();
+          if (date) counts[date] = (counts[date] || 0) + 1;
+        }
+        for (const date of Object.keys(counts).sort()) {
+          commitsPerDay.push({ date, count: counts[date] });
+        }
+      } catch {}
+
+      // RAM & disk
+      const ramMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024) * 10) / 10;
+      let diskTotalGb = 0, diskUsedGb = 0, diskFreeGb = 0;
+      try {
+        const stat = fs.statfsSync('/');
+        diskTotalGb = Math.round(stat.bsize * stat.blocks / (1024 ** 3) * 10) / 10;
+        diskFreeGb = Math.round(stat.bsize * stat.bavail / (1024 ** 3) * 10) / 10;
+        diskUsedGb = Math.round((diskTotalGb - diskFreeGb) * 10) / 10;
+      } catch {}
+
+      // Project size
+      let projectBytes = 0;
+      const walkSize = (dir: string) => {
+        let entries: fs.Dirent[];
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const entry of entries) {
+          if (['node_modules', '.git', '__pycache__', 'experiments', 'uploads'].includes(entry.name)) continue;
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) { walkSize(full); }
+          else { try { projectBytes += fs.statSync(full).size; } catch {} }
+        }
+      };
+      walkSize(srcDir);
+      const projectMb = Math.round(projectBytes / (1024 ** 2) * 10) / 10;
+
+      const avgCommitsDay = projectAgeDays ? Math.round(totalCommits / projectAgeDays * 10) / 10 : 0;
+
+      return {
+        users, active_sessions: activeSess,
+        total_loc: totalLoc, core_loc: coreLoc, test_loc: testLoc, files: fileCount,
+        commits_today: commitsToday, total_commits: totalCommits,
+        project_age_days: projectAgeDays, first_commit_date: firstCommitDate,
+        avg_commits_day: avgCommitsDay,
+        loc_history: [], // Simplified: skip expensive LOC history calculation
+        usage_history: {},
+        git_log: gitLog, commits_per_day: commitsPerDay,
+        ram_mb: ramMb, disk_total_gb: diskTotalGb, disk_used_gb: diskUsedGb, disk_free_gb: diskFreeGb,
+        project_mb: projectMb,
+      };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:function-registry', () => {
+    try {
+      execFileSync('node', ['scripts/function-registry.js'], { cwd: gitRoot, timeout: 30_000 });
+      const jsonPath = path.join(gitRoot, 'coverage', 'function-registry.json');
+      if (!fs.existsSync(jsonPath)) return { error: 'Report file not found' };
+      return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    } catch (e: any) {
+      if (e.killed) return { error: 'Analysis timed out' };
+      return { error: e.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle('db:validate-feeds', () => {
+    try {
+      const scriptPath = path.join(gitRoot, 'scripts', 'validate-feeds.js');
+      const result = execFileSync('node', [scriptPath, '--json'], { timeout: 10_000, encoding: 'utf-8' });
+      return JSON.parse(result);
+    } catch (e: any) {
+      if (e.killed) return { status: 'error', message: 'Validation timed out' };
+      // Try parsing stdout from the error (script may output JSON even on non-zero exit)
+      if (e.stdout) try { return JSON.parse(e.stdout); } catch {}
+      return { status: 'error', message: e.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle('db:validate-load-order', () => {
+    try {
+      const scriptPath = path.join(gitRoot, 'scripts', 'function-registry.js');
+      const result = execFileSync('node', [scriptPath, '--check-load-order', '--json'], { cwd: gitRoot, timeout: 30_000, encoding: 'utf-8' });
+      return JSON.parse(result);
+    } catch (e: any) {
+      if (e.killed) return { status: 'error', message: 'Analysis timed out' };
+      return { status: 'error', message: e.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle('db:dependency-graph', (_event, level = 'file') => {
+    try {
+      const scriptPath = path.join(gitRoot, 'scripts', 'function-registry.js');
+      // Run function registry analysis
+      execFileSync('node', [scriptPath], { cwd: gitRoot, timeout: 30_000 });
+      const jsonPath = path.join(gitRoot, 'coverage', 'function-registry.json');
+      if (!fs.existsSync(jsonPath)) return { status: 'error', message: 'Report file not found' };
+      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+
+      if (level === 'function') {
+        // Build function-level graph
+        const nodes: any[] = [];
+        const functions = data.functions ?? {};
+        for (const [funcName, funcData] of Object.entries(functions) as any) {
+          const defs = funcData.definitions ?? [];
+          if (!defs.length) continue;
+          const primaryDef = defs[0];
+          nodes.push({
+            id: funcName, file: primaryDef.file ?? '', line: primaryDef.line ?? 0,
+            callCount: funcData.callCount ?? 0, type: primaryDef.type ?? 'function',
+            isGlobal: primaryDef.isGlobal ?? false, definitionCount: defs.length,
+          });
+        }
+        const edgeMap: Record<string, number> = {};
+        for (const [funcName, funcData] of Object.entries(functions) as any) {
+          for (const site of (funcData.callSites ?? [])) {
+            // Find caller function
+            let callerFunc: string | null = null;
+            let bestDist = Infinity;
+            for (const [fn, fd] of Object.entries(functions) as any) {
+              for (const defn of (fd.definitions ?? [])) {
+                if (defn.file === site.file && defn.line <= site.line) {
+                  const dist = site.line - defn.line;
+                  if (dist < bestDist) { bestDist = dist; callerFunc = fn; }
+                }
+              }
+            }
+            if (callerFunc && callerFunc !== funcName) {
+              const key = `${callerFunc}|${funcName}`;
+              edgeMap[key] = (edgeMap[key] ?? 0) + 1;
+            }
+          }
+        }
+        const edges = Object.entries(edgeMap).map(([key, calls]) => {
+          const [source, target] = key.split('|');
+          return { source, target, calls };
+        });
+        return { status: 'ok', level: 'function', nodes, edges };
+      }
+
+      // File-level graph
+      let loadData: any = {};
+      try {
+        const loadResult = execFileSync('node', [scriptPath, '--check-load-order', '--json'], { cwd: gitRoot, timeout: 30_000, encoding: 'utf-8' });
+        loadData = JSON.parse(loadResult);
+      } catch {}
+
+      const nodes: any[] = [];
+      const fileStats = data.files ?? {};
+      const scriptOrder = loadData.scriptOrder ?? [];
+      for (const [filename, stats] of Object.entries(fileStats) as any) {
+        nodes.push({
+          id: filename, functions: stats.functionCount ?? 0, loc: stats.loc ?? 0,
+          order: scriptOrder.indexOf(filename) >= 0 ? scriptOrder.indexOf(filename) : 999,
+        });
+      }
+
+      const edgeMap2: Record<string, { calls: number; severity: string | null }> = {};
+      for (const ref of (loadData.forwardRefs ?? [])) {
+        const source = ref.callFile;
+        const target = ref.defFile;
+        const severity = ref.severity ?? 'INFO';
+        if (source && target && source !== target) {
+          const key = `${source}|${target}`;
+          if (!edgeMap2[key]) edgeMap2[key] = { calls: 0, severity };
+          edgeMap2[key].calls++;
+          if (severity === 'ERROR' || (severity === 'WARNING' && edgeMap2[key].severity === 'INFO')) {
+            edgeMap2[key].severity = severity;
+          }
+        }
+      }
+      const functions = data.functions ?? {};
+      for (const funcData of Object.values(functions) as any) {
+        const defs = funcData.definitions ?? [];
+        const callSites = funcData.callSites ?? [];
+        if (!defs.length || !callSites.length) continue;
+        const defFiles = new Set(defs.map((d: any) => d.file).filter(Boolean));
+        for (const site of callSites) {
+          if (!site.file) continue;
+          for (const target of defFiles) {
+            if (site.file !== target) {
+              const key = `${site.file}|${target}`;
+              if (!edgeMap2[key]) edgeMap2[key] = { calls: 0, severity: null };
+              edgeMap2[key].calls++;
+            }
+          }
+        }
+      }
+      const edges = Object.entries(edgeMap2).map(([key, d]) => {
+        const [source, target] = key.split('|');
+        return { source, target, calls: d.calls, severity: d.severity };
+      });
+      return { status: 'ok', level: 'file', nodes, edges };
+    } catch (e: any) {
+      if (e.killed) return { status: 'error', message: 'Analysis timed out' };
+      return { status: 'error', message: e.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle('db:vibe-git', (_event, googleId: string, cmd: string, body: Record<string, any>) => {
+    const ALLOWED = new Set(['status', 'files', 'branches', 'log', 'stash', 'diff', 'show', 'reflog']);
+    if (!ALLOWED.has(cmd)) return { error: 'Command not allowed' };
+    const userVault = _getUserVaultPath(googleId);
+
+    // Ensure git repo exists
+    if (!fs.existsSync(path.join(userVault, '.git'))) {
+      try {
+        execFileSync('git', ['init'], { cwd: userVault, timeout: 10_000 });
+        execFileSync('git', ['add', '.'], { cwd: userVault, timeout: 10_000 });
+        execFileSync('git', ['commit', '-m', 'Initial commit', '--allow-empty'], { cwd: userVault, timeout: 10_000 });
+      } catch { /* ignore init errors */ }
+    }
+
+    const run = (args: string[], maxOutput = 50000): string | { error: string } => {
+      try {
+        const out = execFileSync('git', args, { cwd: userVault, timeout: 10_000, encoding: 'utf-8', maxBuffer: maxOutput + 1000 });
+        return out.slice(0, maxOutput);
+      } catch (e: any) {
+        return { error: (e.stderr ?? e.message ?? String(e)).slice(0, 2000) };
+      }
+    };
+
+    if (cmd === 'status') {
+      const out = run(['status', '--porcelain', '-b']);
+      if (typeof out !== 'string') return out;
+      return { output: out };
+    }
+    if (cmd === 'files') {
+      const changedOut = run(['status', '--porcelain']);
+      const changed: Record<string, string> = {};
+      if (typeof changedOut === 'string') {
+        for (const line of changedOut.trim().split('\n')) {
+          if (!line) continue;
+          changed[line.slice(3)] = line.slice(0, 2).trim();
+        }
+      }
+      const trackedOut = run(['ls-files']);
+      if (typeof trackedOut !== 'string') return trackedOut;
+      const files: any[] = [];
+      const seen = new Set<string>();
+      for (const [p, status] of Object.entries(changed)) {
+        files.push({ status, path: p });
+        seen.add(p);
+      }
+      for (const line of trackedOut.trim().split('\n')) {
+        if (!line || seen.has(line)) continue;
+        files.push({ status: ' ', path: line });
+      }
+      return { files };
+    }
+    if (cmd === 'branches') {
+      const out = run(['branch', '-a', '--format=%(HEAD)%(refname:short)\t%(upstream:track)\t%(objectname:short)\t%(committerdate:relative)']);
+      if (typeof out !== 'string') return out;
+      const branches: any[] = [];
+      for (const line of out.trim().split('\n')) {
+        if (!line) continue;
+        const current = line.startsWith('*');
+        const parts = line.replace(/^\* ?/, '').split('\t');
+        branches.push({ name: parts[0] ?? '', current, track: parts[1] ?? '', hash: parts[2] ?? '', date: parts[3] ?? '' });
+      }
+      return { branches };
+    }
+    if (cmd === 'log') {
+      const branch = body.branch ?? '';
+      const args = ['log', '--oneline', '--graph', '-50', '--format=%h\t%s\t%an\t%ar'];
+      if (branch) args.push(branch);
+      const out = run(args);
+      if (typeof out !== 'string') return out;
+      const commits: any[] = [];
+      for (const line of out.trim().split('\n')) {
+        if (!line) continue;
+        const parts = line.split('\t');
+        if (parts.length >= 4) {
+          commits.push({ hash: parts[0].replace(/[* |/\\]/g, ''), subject: parts[1], author: parts[2], date: parts[3] });
+        }
+      }
+      return { commits };
+    }
+    if (cmd === 'stash') {
+      const out = run(['stash', 'list']);
+      if (typeof out !== 'string') return out;
+      return { entries: out.trim().split('\n').filter(Boolean) };
+    }
+    if (cmd === 'diff') {
+      const file = body.file ?? '';
+      const args = ['diff'];
+      if (file) { args.push('--'); args.push(file); }
+      const out = run(args);
+      if (typeof out !== 'string') return out;
+      let staged = run(['diff', '--cached', ...(file ? ['--', file] : [])]);
+      if (typeof staged !== 'string') staged = '';
+      let combined = '';
+      if (staged) combined += '=== Staged ===\n' + staged + '\n';
+      if (out) combined += '=== Unstaged ===\n' + out;
+      if (!combined) combined = 'No changes';
+      return { output: combined };
+    }
+    if (cmd === 'show') {
+      const ref = body.ref ?? 'HEAD';
+      if (!/^[a-zA-Z0-9_./@{}\-: ]+$/.test(ref)) return { error: 'Invalid ref' };
+      const out = run(['show', '--stat', '--patch', ref]);
+      if (typeof out !== 'string') return out;
+      return { output: out };
+    }
+    if (cmd === 'reflog') {
+      const out = run(['reflog', '--format=%h\t%gd\t%gs\t%ar', '-50']);
+      if (typeof out !== 'string') return out;
+      return { entries: out.trim().split('\n').filter(Boolean) };
+    }
+    return { error: 'Unknown command' };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 2: Marimo start/stop
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const _marimoServers = new Map<string, { proc: any; port: number; pyPath: string; notePath: string }>();
+
+  ipcMain.handle('db:marimo-start', (_event, googleId: string, noteId: string) => {
+    if (!noteId) return { error: 'note_id required' };
+    if (_marimoServers.has(noteId)) return { port: _marimoServers.get(noteId)!.port };
+    const userVault = _getUserVaultPath(googleId);
+    // Find note by ID
+    let notePath = '';
+    let noteContent = '';
+    let noteType = '';
+    for (const fname of fs.readdirSync(userVault).filter((f: string) => f.endsWith('.md'))) {
+      try {
+        const content = fs.readFileSync(path.join(userVault, fname), 'utf-8');
+        const fm = _parseFrontmatter(content);
+        if (fm?.id === noteId) {
+          notePath = path.join(userVault, fname);
+          noteContent = _stripFrontmatter(content);
+          noteType = fm.type ?? '';
+          break;
+        }
+      } catch { /* skip */ }
+    }
+    if (!notePath || noteType !== 'marimo') return { error: 'Marimo note not found' };
+
+    const pyPath = path.join(userVault, `.marimo_${noteId}.py`);
+    fs.writeFileSync(pyPath, noteContent);
+
+    // Find free port
+    const net = require('net');
+    const srv = net.createServer();
+    srv.listen(0);
+    const port = srv.address().port;
+    srv.close();
+
+    try {
+      const proc = spawnChild('marimo', ['edit', pyPath, '--headless', '--no-token', '-p', String(port)], {
+        stdio: ['ignore', 'ignore', 'ignore'],
+      });
+      _marimoServers.set(noteId, { proc, port, pyPath, notePath });
+      return { port };
+    } catch {
+      try { fs.unlinkSync(pyPath); } catch {}
+      return { error: 'marimo is not installed. Run: pip install marimo' };
+    }
+  });
+
+  ipcMain.handle('db:marimo-stop', (_event, googleId: string, noteId: string) => {
+    if (!noteId || !_marimoServers.has(noteId)) return { error: 'No marimo server running for this note' };
+    const info = _marimoServers.get(noteId)!;
+    _marimoServers.delete(noteId);
+    let updatedContent = '';
+    try { updatedContent = fs.readFileSync(info.pyPath, 'utf-8'); } catch {}
+    try { info.proc.kill('SIGTERM'); } catch {}
+    try { fs.unlinkSync(info.pyPath); } catch {}
+    // Update the vault note
+    const userVault = _getUserVaultPath(googleId);
+    for (const fname of fs.readdirSync(userVault).filter((f: string) => f.endsWith('.md'))) {
+      try {
+        const content = fs.readFileSync(path.join(userVault, fname), 'utf-8');
+        const fm = _parseFrontmatter(content);
+        if (fm?.id === noteId) {
+          const fmEnd = content.indexOf('---', 3);
+          if (fmEnd !== -1) {
+            const headerPart = content.slice(0, fmEnd + 3);
+            // Update the 'updated' field in frontmatter
+            const newHeader = headerPart.replace(/updated:.*/, `updated: ${Math.floor(Date.now() / 1000)}`);
+            fs.writeFileSync(path.join(userVault, fname), newHeader + '\n' + updatedContent);
+          }
+          break;
+        }
+      } catch {}
+    }
+    return { ok: true, content: updatedContent };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 2: Experiments (non-kernel)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:exp-packages', (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    // Find python path (venv or system)
+    const venvPython = path.join(expDir, 'venv', 'bin', 'python3');
+    const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3';
+    try {
+      const out = execFileSync(pythonPath, ['-m', 'pip', 'list', '--format=json'], { timeout: 15_000, encoding: 'utf-8' });
+      return JSON.parse(out);
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:exp-venv-info', (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    const venvDir = path.join(expDir, 'venv');
+    if (!fs.existsSync(venvDir)) return { error: 'No venv' };
+    const venvPython = path.join(venvDir, 'bin', 'python3');
+    let pythonVersion = '';
+    try { pythonVersion = execFileSync(venvPython, ['--version'], { timeout: 5000, encoding: 'utf-8' }).trim(); } catch {}
+    let packages: any[] = [];
+    try { packages = JSON.parse(execFileSync(venvPython, ['-m', 'pip', 'list', '--format=json'], { timeout: 15_000, encoding: 'utf-8' })); } catch {}
+    // Disk usage
+    let sizeBytes = 0;
+    const walkVenv = (dir: string) => {
+      try {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) walkVenv(full);
+          else try { sizeBytes += fs.statSync(full).size; } catch {}
+        }
+      } catch {}
+    };
+    walkVenv(venvDir);
+    return { python_version: pythonVersion, packages, size_mb: Math.round(sizeBytes / (1024 * 1024) * 10) / 10, package_count: packages.length };
+  });
+
+  ipcMain.handle('db:venvs', (_event, googleId: string) => {
+    const vault = _getUserVaultPath(googleId);
+    if (!fs.existsSync(vault)) return [];
+    const results: any[] = [];
+    for (const name of fs.readdirSync(vault)) {
+      const full = path.join(vault, name);
+      if (!fs.statSync(full).isDirectory()) continue;
+      if (fs.existsSync(path.join(full, 'venv', 'bin', 'python3'))) {
+        results.push({ id: name, title: name });
+      }
+    }
+    return results;
+  });
+
+  ipcMain.handle('db:exp-upload', (_event, googleId: string, expId: string, files: Array<{ name: string; data: string }>) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    const uploaded: string[] = [];
+    for (const file of files) {
+      if (!file.name || file.name.includes('..')) continue;
+      const fpath = path.join(expDir, file.name);
+      fs.mkdirSync(path.dirname(fpath), { recursive: true });
+      fs.writeFileSync(fpath, Buffer.from(file.data, 'base64'));
+      uploaded.push(file.name);
+    }
+    return { ok: true, uploaded };
+  });
+
+  ipcMain.handle('db:exp-create-venv', (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    const venvDir = path.join(expDir, 'venv');
+    if (fs.existsSync(venvDir)) return { error: 'venv already exists' };
+    try {
+      execFileSync('python3', ['-m', 'venv', venvDir], { timeout: 60_000 });
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:exp-install-packages', (_event, googleId: string, expId: string, packages: string[]) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    if (!packages?.length) return { error: 'No packages specified' };
+    // Validate package names
+    const validPkg = /^[a-zA-Z0-9._-]+([<>=!]+[a-zA-Z0-9._-]*)?$/;
+    for (const pkg of packages) {
+      if (!validPkg.test(pkg)) return { error: `Invalid package name: ${pkg}` };
+    }
+    const venvPython = path.join(expDir, 'venv', 'bin', 'python3');
+    const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3';
+    try {
+      execFileSync(pythonPath, ['-m', 'pip', 'install', ...packages], { timeout: 120_000, encoding: 'utf-8' });
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:exp-uninstall-package', (_event, googleId: string, expId: string, pkg: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    const venvPython = path.join(expDir, 'venv', 'bin', 'python3');
+    const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3';
+    try {
+      execFileSync(pythonPath, ['-m', 'pip', 'uninstall', '-y', pkg], { timeout: 30_000, encoding: 'utf-8' });
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:exp-clone-repo', (_event, googleId: string, expId: string, url: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    if (!url || !/^https?:\/\/.+/.test(url)) return { error: 'Invalid URL' };
+    try {
+      execFileSync('git', ['clone', '--depth', '1', url], { cwd: expDir, timeout: 60_000, encoding: 'utf-8' });
+      // Remove .git from cloned repo
+      const repoName = url.split('/').pop()?.replace('.git', '') ?? '';
+      const gitDir = path.join(expDir, repoName, '.git');
+      if (fs.existsSync(gitDir)) fs.rmSync(gitDir, { recursive: true });
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:exp-delete-venv', (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    const venvDir = path.join(expDir, 'venv');
+    if (!fs.existsSync(venvDir)) return { error: 'No venv found' };
+    fs.rmSync(venvDir, { recursive: true, force: true });
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:exp-update', (_event, googleId: string, expId: string, body: { title?: string; pythonPath?: string }) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    // Handle rename
+    if (body.title && body.title !== expId) {
+      const vault = _getUserVaultPath(googleId);
+      const newSlug = _uniqueSlug(vault, _slugify(body.title));
+      const newDir = path.join(vault, newSlug);
+      fs.renameSync(expDir, newDir);
+      return { ok: true, id: newSlug, title: newSlug };
+    }
+    return { ok: true, id: expId };
+  });
+
+  ipcMain.handle('db:exp-compile-tex', (_event, googleId: string, expId: string, fname: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir || !fname || fname.includes('..')) return { error: 'Invalid path' };
+    const fpath = path.join(expDir, fname);
+    if (!fs.existsSync(fpath)) return { error: 'File not found' };
+    const texDir = path.dirname(fpath);
+    const baseName = path.basename(fname, '.tex');
+    try {
+      // Run pdflatex twice (for references) + bibtex
+      execFileSync('pdflatex', ['-interaction=nonstopmode', '-output-directory=' + texDir, fpath], { cwd: texDir, timeout: 30_000 });
+      try { execFileSync('bibtex', [baseName], { cwd: texDir, timeout: 15_000 }); } catch {}
+      execFileSync('pdflatex', ['-interaction=nonstopmode', '-output-directory=' + texDir, fpath], { cwd: texDir, timeout: 30_000 });
+      const pdfPath = path.join(texDir, baseName + '.pdf');
+      if (!fs.existsSync(pdfPath)) return { error: 'PDF not generated' };
+      const pdfData = fs.readFileSync(pdfPath).toString('base64');
+      return { _proxy: true, data: pdfData, mime: 'application/pdf' };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 3: Jupyter Kernel operations
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const { kernelManager } = require('./kernel-manager.js') as typeof import('./kernel-manager.js');
+
+  ipcMain.handle('db:kernel-execute', async (event, googleId: string, expId: string, code: string, stream = false) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+
+    if (stream) {
+      // Streaming mode: forward kernel outputs to renderer via IPC events
+      const webContents = event.sender;
+      const sessionId = `ke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      const onOutput = (reqId: string, data: any) => {
+        if (!webContents.isDestroyed()) {
+          webContents.send('kernel:output', sessionId, data);
+        }
+      };
+
+      kernelManager.on('kernel:output', onOutput);
+
+      (async () => {
+        try {
+          await kernelManager.execute(expDir, code);
+          if (!webContents.isDestroyed()) {
+            webContents.send('kernel:done', sessionId);
+          }
+        } catch (err: any) {
+          if (!webContents.isDestroyed()) {
+            webContents.send('kernel:error', sessionId, err.message ?? String(err));
+          }
+        } finally {
+          kernelManager.removeListener('kernel:output', onOutput);
+        }
+      })();
+
+      return { _stream: true, sessionId };
+    }
+
+    // Synchronous mode: collect all outputs
+    const outputs: any[] = [];
+    const onOutput = (_reqId: string, data: any) => { outputs.push(data); };
+    kernelManager.on('kernel:output', onOutput);
+    try {
+      await kernelManager.execute(expDir, code);
+      return { outputs };
+    } catch (e: any) {
+      return { error: e.message ?? String(e) };
+    } finally {
+      kernelManager.removeListener('kernel:output', onOutput);
+    }
+  });
+
+  ipcMain.handle('db:kernel-restart', async (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    try {
+      await kernelManager.restart(expDir);
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:kernel-interrupt', async (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    try {
+      await kernelManager.interrupt(expDir);
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:kernel-kill', async (_event, googleId: string, expId: string) => {
+    const expDir = _resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    try {
+      await kernelManager.killKernel(expDir);
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // Serve uploaded files (replaces Flask's /uploads/ route)
+  ipcMain.handle('db:serve-upload', (_event, filename: string) => {
+    const safeName = path.basename(filename);
+    const filepath = path.join(uploadsDir, safeName);
+    if (!fs.existsSync(filepath)) return { error: 'Not found' };
+    const ext = path.extname(safeName).toLowerCase();
+    const mime = BINARY_MIME[ext] ?? 'application/octet-stream';
+    const data = fs.readFileSync(filepath).toString('base64');
+    return { _proxy: true, data, mime };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 4: Neuralook (gaze tracking)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // File I/O endpoints (no Python needed)
+
+  ipcMain.handle('db:neuralook-save-calibration', (_event, body: Record<string, any>) => {
+    try {
+      const calibPath = path.join(DATA_DIR, 'neuralook_calibration.json');
+      fs.writeFileSync(calibPath, JSON.stringify(body, null, 2));
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:neuralook-implicit-samples', (_event, method: string, body?: Record<string, any>) => {
+    const implPath = path.join(DATA_DIR, 'neuralook_implicit.json');
+    if (!body) {
+      // GET — read samples
+      try {
+        if (!fs.existsSync(implPath)) return [];
+        return JSON.parse(fs.readFileSync(implPath, 'utf-8'));
+      } catch { return []; }
+    }
+    // POST — append samples
+    try {
+      let existing: any[] = [];
+      if (fs.existsSync(implPath)) {
+        try { existing = JSON.parse(fs.readFileSync(implPath, 'utf-8')); } catch {}
+      }
+      const newSamples = body.samples ?? [];
+      existing.push(...newSamples);
+      fs.writeFileSync(implPath, JSON.stringify(existing));
+      return { ok: true, count: existing.length };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:neuralook-refine-history', (_event) => {
+    try {
+      const histPath = path.join(DATA_DIR, 'neuralook_refine_history.json');
+      if (!fs.existsSync(histPath)) return [];
+      return JSON.parse(fs.readFileSync(histPath, 'utf-8'));
+    } catch { return []; }
+  });
+
+  // Python subprocess endpoints (via neuralook-manager)
+
+  const { neuralookManager } = require('./neuralook-manager.js') as typeof import('./neuralook-manager.js');
+
+  ipcMain.handle('db:neuralook-train', async (event, body: Record<string, any>, stream = false) => {
+    try {
+      if (stream) {
+        const webContents = event.sender;
+        const sessionId = `nl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        const onProgress = (_reqId: string, data: any) => {
+          if (!webContents.isDestroyed()) {
+            webContents.send('neuralook:progress', sessionId, data);
+          }
+        };
+
+        neuralookManager.on('neuralook:progress', onProgress);
+
+        (async () => {
+          try {
+            const result = await neuralookManager.train(body);
+            if (!webContents.isDestroyed()) {
+              webContents.send('neuralook:done', sessionId, result);
+            }
+          } catch (err: any) {
+            if (!webContents.isDestroyed()) {
+              webContents.send('neuralook:error', sessionId, err.message ?? String(err));
+            }
+          } finally {
+            neuralookManager.removeListener('neuralook:progress', onProgress);
+          }
+        })();
+
+        return { _stream: true, sessionId };
+      }
+
+      return await neuralookManager.train(body);
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:neuralook-predict', async (_event, body: Record<string, any>) => {
+    try {
+      return await neuralookManager.predict(body);
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:neuralook-reset-hidden', async (_event, method: string) => {
+    try {
+      return await neuralookManager.resetHidden(method);
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('db:neuralook-auto-refine', async (event, body: Record<string, any>, stream = false) => {
+    try {
+      if (stream) {
+        const webContents = event.sender;
+        const sessionId = `nlr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        const onProgress = (_reqId: string, data: any) => {
+          if (!webContents.isDestroyed()) {
+            webContents.send('neuralook:progress', sessionId, data);
+          }
+        };
+
+        neuralookManager.on('neuralook:progress', onProgress);
+
+        (async () => {
+          try {
+            const result = await neuralookManager.autoRefine(body);
+            if (!webContents.isDestroyed()) {
+              webContents.send('neuralook:done', sessionId, result);
+            }
+          } catch (err: any) {
+            if (!webContents.isDestroyed()) {
+              webContents.send('neuralook:error', sessionId, err.message ?? String(err));
+            }
+          } finally {
+            neuralookManager.removeListener('neuralook:progress', onProgress);
+          }
+        })();
+
+        return { _stream: true, sessionId };
+      }
+
+      return await neuralookManager.autoRefine(body);
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 5: Terminal (node-pty) & Captions (whisper.cpp)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const { terminalManager } = require('./terminal-manager.js') as typeof import('./terminal-manager.js');
+  const { transcribeChunk } = require('./captions-manager.js') as typeof import('./captions-manager.js');
+
+  ipcMain.handle('terminal:start', (event, cwd?: string) => {
+    try {
+      const sessionId = terminalManager.start(cwd);
+      const webContents = event.sender;
+
+      const onOutput = (id: string, data: string) => {
+        if (id === sessionId && !webContents.isDestroyed()) {
+          webContents.send('terminal:output', sessionId, data);
+        }
+      };
+      const onExit = (id: string, exitCode: number) => {
+        if (id === sessionId && !webContents.isDestroyed()) {
+          webContents.send('terminal:exit', sessionId, exitCode);
+        }
+        terminalManager.removeListener('terminal:output', onOutput);
+        terminalManager.removeListener('terminal:exit', onExit);
+      };
+
+      terminalManager.on('terminal:output', onOutput);
+      terminalManager.on('terminal:exit', onExit);
+
+      return { sessionId };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  ipcMain.handle('terminal:input', (_event, sessionId: string, data: string) => {
+    terminalManager.write(sessionId, data);
+  });
+
+  ipcMain.handle('terminal:resize', (_event, sessionId: string, cols: number, rows: number) => {
+    terminalManager.resize(sessionId, cols, rows);
+  });
+
+  ipcMain.handle('terminal:kill', (_event, sessionId: string) => {
+    terminalManager.kill(sessionId);
+  });
+
+  ipcMain.handle('captions:transcribe', async (_event, pcmBase64: string, sampleRate: number) => {
+    try {
+      const pcmBuffer = Buffer.from(pcmBase64, 'base64');
+      const text = await transcribeChunk(pcmBuffer, sampleRate);
+      if (text) return { text };
+      return { text: null };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
 }
 
 // ── Helpers used by phase 4/5 handlers (outside registerToolIPC) ──
@@ -1897,4 +3162,76 @@ function _stripFrontmatter(content: string): string {
   const end = content.indexOf('---', 3);
   if (end === -1) return content;
   return content.slice(end + 3).trim();
+}
+
+/**
+ * Rewrite relative URLs in proxied HTML for non-Electron browser mode.
+ * Port of Python rewrite_proxy_html from utils_persistence.py.
+ */
+function _rewriteProxyHtml(htmlStr: string, baseUrl: string): string {
+  const { URL } = require('url');
+  let parsedBase: URL;
+  try { parsedBase = new URL(baseUrl); } catch { return htmlStr; }
+
+  function resolveUrl(val: string): string {
+    if (!val) return val;
+    if (/^(https?:|data:|javascript:|#|mailto:)/i.test(val)) return val;
+    try { return new URL(val, baseUrl).href; } catch { return val; }
+  }
+
+  // Rewrite src, href, action, poster attributes
+  let result = htmlStr.replace(/<((?:img|script|link|a|iframe|video|audio|source|form)[^>]*?)>/gi, (match, inner) => {
+    let tag = inner as string;
+    for (const attr of ['src', 'href', 'action', 'poster']) {
+      const re = new RegExp(`(${attr}\\s*=\\s*")([^"]*)(")`, 'i');
+      tag = tag.replace(re, (_m: string, pre: string, val: string, post: string) => {
+        const resolved = resolveUrl(val);
+        return pre + resolved + post;
+      });
+      const reSingle = new RegExp(`(${attr}\\s*=\\s*')([^']*)(')`, 'i');
+      tag = tag.replace(reSingle, (_m: string, pre: string, val: string, post: string) => {
+        const resolved = resolveUrl(val);
+        return pre + resolved + post;
+      });
+    }
+    return '<' + tag + '>';
+  });
+
+  // Rewrite <img> src through image proxy
+  result = result.replace(/<img([^>]*?)>/gi, (_match, attrs) => {
+    let tag = attrs as string;
+    tag = tag.replace(/src\s*=\s*"(https?:\/\/[^"]+)"/gi, (_m: string, url: string) => {
+      if (url.startsWith('http://localhost') || url.startsWith('https://localhost')) return `src="${url}"`;
+      return `src="/api/image-proxy?url=${encodeURIComponent(url)}"`;
+    });
+    // Rewrite srcset
+    tag = tag.replace(/srcset\s*=\s*"([^"]+)"/gi, (_m: string, srcset: string) => {
+      const rewritten = srcset.replace(/(\S+)(\s+[^,]*)/g, (_sm: string, surl: string, rest: string) => {
+        if (surl.startsWith('http://') || surl.startsWith('https://')) {
+          if (surl.startsWith('http://localhost') || surl.startsWith('https://localhost')) return surl + rest;
+          return '/api/image-proxy?url=' + encodeURIComponent(surl) + rest;
+        }
+        return surl + rest;
+      });
+      return `srcset="${rewritten}"`;
+    });
+    return '<img' + tag + '>';
+  });
+
+  // Rewrite same-origin <a> links through browse-proxy
+  result = result.replace(/<a([^>]*?)>/gi, (_match, attrs) => {
+    let tag = attrs as string;
+    tag = tag.replace(/href\s*=\s*"(https?:\/\/[^"]+)"/gi, (_m: string, href: string) => {
+      try {
+        const parsedHref = new URL(href);
+        if (parsedHref.hostname === parsedBase.hostname) {
+          return `href="/api/browse-proxy?url=${encodeURIComponent(href)}"`;
+        }
+      } catch {}
+      return `href="${href}"`;
+    });
+    return '<a' + tag + '>';
+  });
+
+  return result;
 }

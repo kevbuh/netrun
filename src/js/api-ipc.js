@@ -910,102 +910,248 @@ async function ipcRoute(path, opts = {}) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // Flask-only routes — explicit proxy (no silent fallback)
-  // These routes require the Python backend (PyTorch, Jupyter, venv,
-  // Marimo, dev tooling) and are proxied directly to Flask.
+  // Flask Migration: Routes now handled by IPC
   // ═══════════════════════════════════════════════════════════════════
 
-  if (_isFlaskRoute(pathOnly)) {
-    return _flaskProxy(path, opts);
+  // ── Vault path/tree ──
+  if (pathOnly === '/api/vault/path' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('vault-path-get', googleId);
+  }
+  if (pathOnly === '/api/vault/path' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('vault-path-set', googleId, body.path ?? null);
+  }
+  if (pathOnly === '/api/vault/tree' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('vault-tree', googleId);
+  }
+
+  // ── Social uploads + blog unpublish ──
+  if (pathOnly === '/api/users/me/picture' && method === 'PUT') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('upload-profile-picture', googleId, body.image);
+  }
+  if (pathOnly === '/api/users/me/background' && method === 'PUT') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('upload-profile-background', googleId, body.image);
+  }
+  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/unpublish$/) && method === 'POST') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const username = decodeURIComponent(parts[3]);
+    const slug = decodeURIComponent(parts[4]);
+    return await window.electronAPI.dbQuery('blog-unpublish', googleId, username, slug);
+  }
+
+  // ── Dev simple routes ──
+  if (pathOnly === '/api/settings' && method === 'GET') {
+    return await window.electronAPI.dbQuery('settings');
+  }
+  if (pathOnly === '/api/images' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('upload-image', body.image);
+  }
+  if (pathOnly.match(/^\/api\/images\/[^/]+$/) && method === 'GET') {
+    const filename = pathOnly.split('/').pop();
+    return await window.electronAPI.dbQuery('serve-image', filename);
+  }
+  if (pathOnly === '/api/saved-posts' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('saved-posts', googleId, body);
+  }
+  if (pathOnly === '/api/custom-feeds' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('custom-feeds', googleId, body);
+  }
+  if (pathOnly === '/api/local-file' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const filePath = decodeURIComponent(urlParams.get('path') || '');
+    return await window.electronAPI.dbQuery('local-file', filePath);
+  }
+
+  // ── Browse proxy ──
+  if (pathOnly === '/api/browse-proxy' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('browse-proxy', urlParams.get('url') || '');
+  }
+
+  // ── TeX preview ──
+  if (pathOnly === '/tex-preview' && method === 'GET') {
+    return await window.electronAPI.dbQuery('tex-preview');
+  }
+
+  // ── Dev git/stats ──
+  if (pathOnly === '/api/dev-git-log' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    const offset = parseInt(urlParams.get('offset') || '0');
+    const limit = parseInt(urlParams.get('limit') || '20');
+    return await window.electronAPI.dbQuery('dev-git-log', offset, limit);
+  }
+  if (pathOnly === '/api/dev-stats' && method === 'GET') {
+    return await window.electronAPI.dbQuery('dev-stats');
+  }
+  if (pathOnly === '/api/function-registry' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('function-registry');
+  }
+  if (pathOnly === '/api/validate-feeds' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('validate-feeds');
+  }
+  if (pathOnly === '/api/validate-load-order' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('validate-load-order');
+  }
+  if ((pathOnly === '/api/dependency-graph' && method === 'GET') || (pathOnly === '/api/dependency-graph' && method === 'POST')) {
+    if (!googleId) return null;
+    const urlParams = new URLSearchParams(queryStr || '');
+    const level = urlParams.get('level') || body.level || 'file';
+    return await window.electronAPI.dbQuery('dependency-graph', level);
+  }
+  if (pathOnly.startsWith('/api/vibe/') && method === 'POST') {
+    if (!googleId) return null;
+    const cmd = body.cmd || '';
+    return await window.electronAPI.dbQuery('vibe-git', googleId, cmd, body);
+  }
+
+  // ── Marimo ──
+  if (pathOnly === '/api/vault/marimo/start' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('marimo-start', googleId, body.note_id);
+  }
+  if (pathOnly === '/api/vault/marimo/stop' && method === 'POST') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('marimo-stop', googleId, body.note_id);
+  }
+
+  // ── Experiments (non-kernel) ──
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages$/) && method === 'GET') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-packages', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/venv-info$/) && method === 'GET') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-venv-info', googleId, expId);
+  }
+  if (pathOnly === '/api/venvs' && method === 'GET') {
+    if (!googleId) return null;
+    return await window.electronAPI.dbQuery('venvs', googleId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/upload$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-upload', googleId, expId, body.files || []);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/venv$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-create-venv', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-install-packages', googleId, expId, body.packages || []);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/clone-repo$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-clone-repo', googleId, expId, body.url);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+$/) && method === 'PUT') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-update', googleId, expId, body);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages\//) && method === 'DELETE') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const expId = decodeURIComponent(parts[3]);
+    const pkg = decodeURIComponent(parts.slice(5).join('/'));
+    return await window.electronAPI.dbQuery('exp-uninstall-package', googleId, expId, pkg);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/venv$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('exp-delete-venv', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/compile-tex\//) && method === 'GET') {
+    if (!googleId) return null;
+    const parts = pathOnly.split('/');
+    const expId = decodeURIComponent(parts[3]);
+    const fname = decodeURIComponent(parts.slice(5).join('/'));
+    return await window.electronAPI.dbQuery('exp-compile-tex', googleId, expId, fname);
+  }
+
+  // ── Upload file serving (replaces Flask's /uploads/ route) ──
+  if (pathOnly.startsWith('/uploads/') && method === 'GET') {
+    const filename = pathOnly.slice('/uploads/'.length);
+    return await window.electronAPI.dbQuery('serve-upload', filename);
+  }
+
+  // ── Spinners.json (static file) ──
+  if (pathOnly === '/spinners.json' && method === 'GET') {
+    // Return empty or fetch from local
+    return [];
+  }
+
+  // ── Kernel endpoints (Phase 3) ──
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/execute$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('kernel-execute', googleId, expId, body.code || '', body.stream || false);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/kernel\/restart$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('kernel-restart', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/kernel\/interrupt$/) && method === 'POST') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('kernel-interrupt', googleId, expId);
+  }
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/kernel$/) && method === 'DELETE') {
+    if (!googleId) return null;
+    const expId = decodeURIComponent(pathOnly.split('/')[3]);
+    return await window.electronAPI.dbQuery('kernel-kill', googleId, expId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Flask Migration Phase 4: Neuralook (gaze tracking)
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (pathOnly === '/api/neuralook/save-calibration' && method === 'POST') {
+    return await window.electronAPI.dbQuery('neuralook-save-calibration', body);
+  }
+  if (pathOnly === '/api/neuralook/implicit-samples' && method === 'GET') {
+    return await window.electronAPI.dbQuery('neuralook-implicit-samples', 'get');
+  }
+  if (pathOnly === '/api/neuralook/implicit-samples' && method === 'POST') {
+    return await window.electronAPI.dbQuery('neuralook-implicit-samples', 'post', body);
+  }
+  if (pathOnly === '/api/neuralook/refine-history' && method === 'GET') {
+    return await window.electronAPI.dbQuery('neuralook-refine-history');
+  }
+  if (pathOnly === '/api/neuralook/train' && method === 'POST') {
+    return await window.electronAPI.dbQuery('neuralook-train', body, true);
+  }
+  if (pathOnly === '/api/neuralook/predict' && method === 'POST') {
+    return await window.electronAPI.dbQuery('neuralook-predict', body);
+  }
+  if (pathOnly === '/api/neuralook/reset-hidden' && method === 'POST') {
+    const m = body.method || 'cnn';
+    return await window.electronAPI.dbQuery('neuralook-reset-hidden', m);
+  }
+  if (pathOnly === '/api/neuralook/auto-refine' && method === 'POST') {
+    return await window.electronAPI.dbQuery('neuralook-auto-refine', body, true);
   }
 
   // Unknown route — log and return null (should not happen in normal usage)
   console.warn('[api-ipc] Unhandled route:', method, path);
   return null;
-}
-
-/**
- * Check if a route must be handled by Flask (Python backend).
- * These are routes that require PyTorch, Jupyter kernels, venvs,
- * Marimo notebooks, dev introspection, or other Python-only features.
- */
-function _isFlaskRoute(pathOnly) {
-  // Neuralook (PyTorch/GPU)
-  if (pathOnly.startsWith('/api/neuralook/')) return true;
-  // Experiment: venv, kernel, execute, clone-repo, upload, compile-tex
-  if (pathOnly === '/api/venvs') return true;
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/(venv|venv-info|packages|kernel|execute|clone-repo|upload|compile-tex)/) ) return true;
-  // Vault: marimo, path, tree
-  if (pathOnly.startsWith('/api/vault/marimo/')) return true;
-  if (pathOnly === '/api/vault/path') return true;
-  if (pathOnly === '/api/vault/tree') return true;
-  // Dev tooling
-  if (pathOnly === '/api/dev-stats') return true;
-  if (pathOnly === '/api/dev-git-log') return true;
-  if (pathOnly === '/api/dependency-graph') return true;
-  if (pathOnly === '/api/function-registry') return true;
-  if (pathOnly === '/api/validate-feeds') return true;
-  if (pathOnly === '/api/validate-load-order') return true;
-  if (pathOnly === '/api/settings') return true;
-  if (pathOnly === '/tex-preview') return true;
-  // Vibe git UI
-  if (pathOnly.startsWith('/api/vibe/')) return true;
-  // Static files served by Flask
-  if (pathOnly === '/spinners.json') return true;
-  // Custom feeds POST (uses feed_poller on Python side)
-  if (pathOnly === '/api/custom-feeds') return true;
-  // Saved posts
-  if (pathOnly === '/api/saved-posts') return true;
-  // Local file serving
-  if (pathOnly === '/api/local-file') return true;
-  // Images API (dev.py disk storage)
-  if (pathOnly === '/api/images') return true;
-  // Profile picture/background upload (file save on Python side)
-  if (pathOnly === '/api/users/me/picture') return true;
-  if (pathOnly === '/api/users/me/background') return true;
-  // Blog unpublish
-  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/unpublish$/)) return true;
-  // Browse proxy (HTML rewriting on Python side)
-  if (pathOnly === '/api/browse-proxy') return true;
-
-  return false;
-}
-
-/**
- * Proxy a request directly to Flask (Python backend).
- * Used for routes that require Python-only features.
- */
-async function _flaskProxy(path, opts = {}) {
-  const method = (opts.method || 'GET').toUpperCase();
-  // Build headers: use global _authHeaders() but ensure token from localStorage as fallback
-  const headers = (typeof _authHeaders === 'function') ? _authHeaders() : { 'Content-Type': 'application/json' };
-  if (!headers['Authorization']) {
-    const token = _getAuthToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-  }
-  // Skip network request entirely if no auth token — avoids noisy 401s in console
-  if (!headers['Authorization']) {
-    throw new Error('Unauthorized');
-  }
-  const fetchOpts = {
-    method,
-    headers,
-  };
-  if (opts.body && method !== 'GET' && method !== 'HEAD') {
-    fetchOpts.body = opts.body;
-  }
-  const resp = await fetch(path, fetchOpts);
-  if (resp.status === 401) {
-    _showLoginGate();
-    throw new Error('Unauthorized');
-  }
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const ct = resp.headers.get('content-type') || '';
-  if (ct.includes('application/json')) {
-    return await resp.json();
-  }
-  // Non-JSON responses (XML, blobs, etc.)
-  return await resp.text();
 }
 
 /** Get the auth token from localStorage */
