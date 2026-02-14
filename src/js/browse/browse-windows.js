@@ -3,7 +3,6 @@
 
 // Window management
 function browseCreateWindow(name) {
-  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   const id = _browseNextWindowId++;
   if (!name) {
     const used = new Set(_browseWindows.map(w => w.name).filter(n => /^Window \d+$/.test(n)).map(n => parseInt(n.split(' ')[1])));
@@ -21,9 +20,6 @@ function browseCreateWindow(name) {
 function browseSelectWindow(id) {
   const win = _browseWindows.find(w => w.id === id);
   if (!win) return;
-
-  // Capture preview of outgoing window before switching (for overview cache)
-  _browseCaptureWindowPreview(_browseActiveWindow);
 
   // Hide all tabs from other windows
   _browseWindows.forEach(w => {
@@ -79,26 +75,6 @@ function _browseCollapseEmptyWindows() {
   }
 }
 
-// Update window count badge on the overview button
-function _browseUpdateWindowBadge() {
-  const badge = document.getElementById('global-overview-badge');
-  if (!badge) return;
-  let count = _browseWindows.length;
-  // Before browse is opened, peek at localStorage for the count
-  if (!count) {
-    try {
-      const raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
-      if (raw) { const d = JSON.parse(raw); count = (d.windows || []).length; }
-    } catch (e) {}
-  }
-  if (count > 1) {
-    badge.textContent = count;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
 // Helper: create window without auto-creating a tab (for session restore)
 function _createBrowseWindow(name) {
   const id = _browseNextWindowId++;
@@ -145,7 +121,6 @@ function _destroyTab(tab) {
 }
 
 function switchWindowUp() {
-  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
   if (idx > 0) {
     _animateWindowSwitch('up', () => {
@@ -155,7 +130,6 @@ function switchWindowUp() {
 }
 
 function switchWindowDown() {
-  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
   if (idx < _browseWindows.length - 1) {
     _animateWindowSwitch('down', () => {
@@ -249,7 +223,6 @@ function openBrowse(url) {
 }
 
 function browseNewTab(url) {
-  if (_browseTabOverviewVisible) hideBrowseTabOverview();
   // Intercept netrun:// URLs
   const trimUrl = (url || '').trim().toLowerCase();
   if (trimUrl === 'netrun://history' || trimUrl === 'netrun://history/') {

@@ -1122,7 +1122,6 @@ Type in the browser URL bar:
 | \`⌘T\` | New browser tab |
 | \`⌘W\` | Close browser tab |
 | \`⌘Y\` | History page |
-| \`⌘⇧\\\\\` | Tab overview |
 | \`⌘F\` | Find in page/PDF |
 | \`⌘+/-/0\` | Zoom in/out/reset |
 | \`Enter\` | Send chat message |

@@ -299,10 +299,9 @@ function _initBrowseDownloads() {
 
 // Initialize downloads on page load
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { _initBrowseDownloads(); _browseUpdateWindowBadge(); });
+  document.addEventListener('DOMContentLoaded', () => { _initBrowseDownloads(); });
 } else {
   _initBrowseDownloads();
-  _browseUpdateWindowBadge();
 }
 
 function _browseHandleNavigation(tab, frame) {

@@ -363,8 +363,6 @@ const _wmWindows = _wmDefaultOrder.map(key => ({
 function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
-  // Dismiss overview if open
-  if (typeof _browseTabOverviewVisible !== 'undefined' && _browseTabOverviewVisible && typeof hideBrowseTabOverview === 'function') hideBrowseTabOverview();
   const existIdx = _wmWindows.findIndex(w => w.key === key);
   if (existIdx >= 0 && existIdx === _wmFocusIndex && _wmMode === 'fullscreen') {
     // Skip if this is a re-entrant call from the hash router after a recent navigation
@@ -408,7 +406,6 @@ function _wmActivateWindow(index) {
 }
 
 function _wmToggleTiling() {
-  if (typeof toggleBrowseTabOverview === 'function') toggleBrowseTabOverview();
 }
 
 /* ── Drag pill — horizontal drag to switch windows ── */

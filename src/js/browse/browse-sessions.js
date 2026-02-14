@@ -125,8 +125,6 @@ function deleteTabSession(index) {
   _saveTabSessions(sessions);
   _renderTabStateDropdown();
   _renderToolbarSessions();
-  // Also update overview if visible
-  if (_browseTabOverviewVisible) _renderBrowseTabOverview();
 }
 
 // Save all windows as a session (for tab overview)
@@ -245,7 +243,6 @@ function _promptSaveSessionFromOverview() {
     if (!name) { input.focus(); return; }
     saveAllWindowsAsSession(name);
     _renderToolbarSessions();
-    _renderBrowseTabOverview();
   };
 
   const doCancel = () => inputRow.remove();
@@ -305,5 +302,4 @@ function _loadSessionFromOverview(index, addToExisting = false) {
 
   _browseSaveTabs();
   _browseRenderTabs();
-  _renderBrowseTabOverview();
 }

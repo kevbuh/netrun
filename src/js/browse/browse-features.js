@@ -265,8 +265,6 @@ function _browseInstallKeyGuard() {
     const browseView = document.getElementById('browse-view');
     if (!browseView || browseView.style.display === 'none') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
-    // Don't handle if tab overview is open (it has its own handler)
-    if (_browseTabOverviewVisible) return;
     // Option+Arrow switches tabs globally (no tab bar focus needed)
     if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       if (e.key === 'ArrowLeft') { e.preventDefault(); _switchTabLeft(); return; }

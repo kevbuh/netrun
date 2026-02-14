@@ -59,9 +59,6 @@ let _browseNextPaneId = 1;
 // Return view for "back" button
 let _browseReturnView = localStorage.getItem('_browseReturnView') || null;
 
-// Overview visibility flag
-let _browseTabOverviewVisible = false;
-
 // Convenience getters for current window's tabs (backward compatibility)
 function _getCurrentWindow() {
   return _browseWindows.find(w => w.id === _browseActiveWindow);

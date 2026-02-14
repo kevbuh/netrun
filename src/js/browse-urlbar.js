@@ -1209,7 +1209,6 @@ function _renderHelpPage(el) {
     ['⌘T', 'New browser tab'],
     ['⌘W', 'Close browser tab'],
     ['⌘Y', 'History page'],
-    ['⌘⇧\\\\', 'Tab overview'],
     ['⌘L', 'Focus URL bar'],
     ['⌘⇧T', 'Reopen closed tab'],
     ['Enter', 'Send chat message'],
