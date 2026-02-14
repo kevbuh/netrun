@@ -1,4 +1,4 @@
-import { createOllama } from 'ollama-ai-provider';
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, streamText, embed } from 'ai';
 import type {
   LLMProvider,
@@ -49,12 +49,21 @@ export class OllamaProvider implements LLMProvider {
     this.embeddingModel = options?.embeddingModel ?? 'nomic-embed-text';
   }
 
+  /** Create an OpenAI-compatible provider pointing at Ollama's /v1 endpoint */
+  private getProvider() {
+    return createOpenAI({
+      baseURL: this.baseURL + '/v1',
+      apiKey: 'ollama',
+      compatibility: 'compatible',
+    } as any);
+  }
+
   async chat(options: ChatOptions): Promise<ChatResponse> {
-    const ollama = createOllama({ baseURL: this.baseURL + '/api' });
-    const model = ollama(this.defaultModel);
+    const provider = this.getProvider();
+    const model = provider.chat(options.model ?? this.defaultModel);
 
     const result = await generateText({
-      model: model as any,
+      model,
       messages: toAIMessages(options.messages),
       tools: options.tools ? this.convertTools(options.tools) : undefined,
       temperature: options.temperature,
@@ -78,19 +87,19 @@ export class OllamaProvider implements LLMProvider {
       },
       usage: usage
         ? {
-            promptTokens: usage.promptTokens ?? usage.inputTokens ?? 0,
-            completionTokens: usage.completionTokens ?? usage.outputTokens ?? 0,
+            promptTokens: usage.inputTokens ?? usage.promptTokens ?? 0,
+            completionTokens: usage.outputTokens ?? usage.completionTokens ?? 0,
           }
         : undefined,
     };
   }
 
   async *chatStream(options: ChatOptions): AsyncIterable<StreamEvent> {
-    const ollama = createOllama({ baseURL: this.baseURL + '/api' });
-    const model = ollama(this.defaultModel);
+    const provider = this.getProvider();
+    const model = provider.chat(options.model ?? this.defaultModel);
 
     const result = streamText({
-      model: model as any,
+      model,
       messages: toAIMessages(options.messages),
       tools: options.tools ? this.convertTools(options.tools) : undefined,
       temperature: options.temperature,
@@ -101,7 +110,7 @@ export class OllamaProvider implements LLMProvider {
     for await (const part of result.fullStream) {
       const p = part as any;
       if (p.type === 'text-delta') {
-        yield { type: 'token', content: p.textDelta ?? p.text ?? '' };
+        yield { type: 'token', content: p.text ?? p.textDelta ?? '' };
       } else if (p.type === 'tool-call') {
         yield {
           type: 'tool_call',
@@ -110,13 +119,13 @@ export class OllamaProvider implements LLMProvider {
           arguments: JSON.stringify(p.args ?? p.input),
         };
       } else if (p.type === 'finish') {
-        const usage = p.usage ?? p.totalUsage;
+        const usage = p.totalUsage ?? p.usage;
         yield {
           type: 'done',
           usage: usage
             ? {
-                promptTokens: usage.promptTokens ?? usage.inputTokens ?? 0,
-                completionTokens: usage.completionTokens ?? usage.outputTokens ?? 0,
+                promptTokens: usage.inputTokens ?? usage.promptTokens ?? 0,
+                completionTokens: usage.outputTokens ?? usage.completionTokens ?? 0,
               }
             : undefined,
         };
@@ -127,15 +136,18 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async embed(text: string, model?: string): Promise<number[]> {
-    const ollama = createOllama({ baseURL: this.baseURL + '/api' });
-    const embModel = ollama.textEmbeddingModel(model ?? this.embeddingModel);
-
-    const result = await embed({
-      model: embModel as any,
-      value: text,
-    });
-
-    return Array.from(result.embedding);
+    // Use Ollama's native embedding endpoint
+    try {
+      const resp = await fetch(`${this.baseURL}/api/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: model ?? this.embeddingModel, input: text }),
+      });
+      const data = await resp.json() as any;
+      return data.embeddings?.[0] ?? [];
+    } catch {
+      return [];
+    }
   }
 
   async listModels(): Promise<string[]> {

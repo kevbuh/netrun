@@ -49,4 +49,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockCosmetic: (url) => ipcRenderer.invoke('adblock-cosmetic', url),
   adblockUpdate: () => ipcRenderer.invoke('adblock-update'),
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
+
+  // ── Core tool system (TypeScript backend) ──
+  coreAvailable: true,
+  toolExecute: (name, input, context) => ipcRenderer.invoke('tools:execute', name, input, context),
+  toolList: () => ipcRenderer.invoke('tools:list'),
+  toolDefinitions: (access) => ipcRenderer.invoke('tools:definitions', access),
+
+  // ── Provider system ──
+  providerList: () => ipcRenderer.invoke('providers:list'),
+  providerModels: (providerName) => ipcRenderer.invoke('providers:models', providerName),
+
+  // ── Agent system ──
+  agentStart: (options) => ipcRenderer.invoke('agent:start', options),
+  agentCancel: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
+  agentSessions: () => ipcRenderer.invoke('agent:sessions'),
+  onAgentEvent: (callback) => ipcRenderer.on('agent:event', callback),
+  removeAgentEventListener: (callback) => ipcRenderer.removeListener('agent:event', callback),
+
+  // ── DB query shortcuts (direct IPC, no Flask) ──
+  dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),
 });

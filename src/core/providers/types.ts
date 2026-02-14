@@ -33,6 +33,7 @@ export interface ChatOptions {
   tools?: ToolDefinition[];
   temperature?: number;
   maxTokens?: number;
+  model?: string;
   signal?: AbortSignal;
 }
 

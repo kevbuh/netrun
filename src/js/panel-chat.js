@@ -23,7 +23,112 @@ function _saveChatMemory() {
   apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(() => {});
 }
 
+/** Handle a single agent event from IPC streaming */
+function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
+  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…' };
 
+  if (agentEvent.type === 'thinking') {
+    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+    _popupChatMessages[aiIdx]._thinkingText += (agentEvent.content || agentEvent.text || agentEvent.token || '');
+    _popupChatMessages[aiIdx]._thinking = true;
+    _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+    _renderPopupChatLive(false);
+  } else if (agentEvent.type === 'token') {
+    let token = agentEvent.content || agentEvent.text || agentEvent.token || '';
+    let _visibleToken = token;
+    // Handle <think> tags in token stream
+    if (_inThinkTag) {
+      const endIdx = _visibleToken.indexOf('</think>');
+      if (endIdx !== -1) {
+        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+        _popupChatMessages[aiIdx]._thinkingText += _visibleToken.slice(0, endIdx);
+        _visibleToken = _visibleToken.slice(endIdx + 8);
+        setInThinkTag(false);
+      } else {
+        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+        _popupChatMessages[aiIdx]._thinkingText += _visibleToken;
+        _popupChatMessages[aiIdx]._thinking = true;
+        _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+        _renderPopupChatLive(false);
+        return;
+      }
+    }
+    if (!_inThinkTag && _visibleToken.includes('<think>')) {
+      const startIdx = _visibleToken.indexOf('<think>');
+      const before = _visibleToken.slice(0, startIdx);
+      const after = _visibleToken.slice(startIdx + 7);
+      setInThinkTag(true);
+      const endIdx2 = after.indexOf('</think>');
+      if (endIdx2 !== -1) {
+        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+        _popupChatMessages[aiIdx]._thinkingText += after.slice(0, endIdx2);
+        _visibleToken = before + after.slice(endIdx2 + 8);
+        setInThinkTag(false);
+      } else {
+        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+        _popupChatMessages[aiIdx]._thinkingText += after;
+        _visibleToken = before;
+      }
+    }
+    if (_visibleToken) {
+      _popupChatMessages[aiIdx]._thinking = false;
+      setAiText(aiText + _visibleToken);
+      _popupChatMessages[aiIdx].content = aiText + _visibleToken;
+      _renderPopupChatLive(false);
+    }
+  } else if (agentEvent.type === 'tool_call') {
+    if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
+    const tc = agentEvent;
+    const _tcLabel = tc.name + (tc.args ? '(' + Object.values(tc.args).map(v => JSON.stringify(v)).join(', ') + ')' : '()');
+    _popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
+    _popupChatMessages[aiIdx].content = '';
+    _popupChatMessages[aiIdx]._thinking = true;
+    _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
+    _renderPopupChatLive(false);
+  } else if (agentEvent.type === 'action') {
+    _handleAgentAction(agentEvent.action || agentEvent);
+  } else if (agentEvent.type === 'usage') {
+    _popupChatMessages[aiIdx]._usage = agentEvent.usage || agentEvent;
+  } else if (agentEvent.type === 'error') {
+    _popupChatMessages[aiIdx].content = aiText || ('Error: ' + (agentEvent.error || 'Unknown error'));
+    _popupChatMessages[aiIdx]._thinking = false;
+    _renderPopupChatLive(false);
+  }
+}
+
+/** Handle an agent action (bookmark, navigate, browser automation, etc.) */
+function _handleAgentAction(act) {
+  if (act.type === 'bookmark' && act.url) {
+    const paper = { link: act.url, title: act.title || act.url };
+    if (typeof toggleSavePost === 'function') {
+      const saved = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+      if (!saved[act.url]) toggleSavePost(paper);
+    }
+  } else if (act.type === 'navigate' && act.view) {
+    const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+    location.hash = routes[act.view] || '#';
+  } else if (act.type === 'open_tab') {
+    if (typeof browseNewTab === 'function') {
+      location.hash = '#browse';
+      if (act.url) setTimeout(() => browseNewTab(act.url), 100);
+      else setTimeout(() => browseNewTab(), 100);
+    }
+  } else if (act.type === 'agent_click') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab) agentClick(_tab, act.element_id);
+  } else if (act.type === 'agent_type') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab) agentType(_tab, act.element_id, act.text);
+  } else if (act.type === 'agent_scroll') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab) agentScroll(_tab, act.direction);
+  } else if (act.type === 'agent_navigate') {
+    if (typeof browseNavigate === 'function') {
+      location.hash = '#browse';
+      setTimeout(() => browseNavigate(act.url), 100);
+    }
+  }
+}
 
 function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
@@ -180,221 +285,242 @@ function _sendPopupChatMessage(popup, capturedText) {
       const aiMsg = _popupChatMessages[_popupChatMessages.length - 1];
       if (aiMsg && _ctxSources.length) aiMsg._ctxSources = _ctxSources;
       _chatStreamStart = Date.now();
-      const resp = await api('/api/doc-chat', {
-        method: 'POST',
-        body: JSON.stringify(body),
-        signal: _popupChatAbort.signal
-      });
-
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => '');
-        _popupChatMessages[_popupChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
-        _popupChatMessages[_popupChatMessages.length - 1]._thinking = false;
-        _renderPopupChatLive(true);
-        return;
-      }
 
       let aiText = '';
       const aiIdx = _popupChatMessages.length - 1;
-      _popupChatMessages[aiIdx]._thinking = false;
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let currentEvent = '';
+      // ── IPC Agent path (no Flask needed) ──
+      if (window.electronAPI && window.electronAPI.coreAvailable) {
+        _popupChatMessages[aiIdx]._thinking = false;
+        const sessionId = 'chat-' + Date.now();
+        let _inThinkTag = false;
 
-      let streamDone = false;
-      let _inThinkTag = false; // Track <think>...</think> in content stream
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        // Set up event listener for agent events
+        const eventHandler = (_ipcEvent, evtSessionId, agentEvent) => {
+          if (evtSessionId !== sessionId) return;
+          _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, (newAiText) => { aiText = newAiText; }, (v) => { _inThinkTag = v; });
+        };
+        window.electronAPI.onAgentEvent(eventHandler);
 
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+        // Build messages for agent
+        const agentMessages = filteredMsgs.map(m => ({ role: m.role, content: m.content }));
 
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7);
-          } else if (line.startsWith('data: ')) {
-            if (currentEvent === 'thinking') {
-              try {
-                const token = JSON.parse(line.slice(6));
-                if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-                _popupChatMessages[aiIdx]._thinkingText += token;
-                _popupChatMessages[aiIdx]._thinking = true;
-                _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
-                _renderPopupChatLive(false);
-              } catch (e) {}
-            } else if (currentEvent === 'token') {
-              try {
-                const token = JSON.parse(line.slice(6));
-                // Handle <think>...</think> tags embedded in content stream
-                let _visibleToken = token;
-                if (_inThinkTag) {
-                  const endIdx = _visibleToken.indexOf('</think>');
-                  if (endIdx !== -1) {
-                    // Capture thinking text, resume visible output after tag
-                    const thinkPart = _visibleToken.slice(0, endIdx);
-                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-                    _popupChatMessages[aiIdx]._thinkingText += thinkPart;
-                    _visibleToken = _visibleToken.slice(endIdx + 8);
-                    _inThinkTag = false;
-                  } else {
-                    // Still inside think tag — capture as thinking, don't display
-                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-                    _popupChatMessages[aiIdx]._thinkingText += _visibleToken;
-                    _popupChatMessages[aiIdx]._thinking = true;
-                    _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
-                    _renderPopupChatLive(false);
-                    _visibleToken = '';
-                  }
-                }
-                if (!_inThinkTag && _visibleToken.includes('<think>')) {
-                  const startIdx = _visibleToken.indexOf('<think>');
-                  const before = _visibleToken.slice(0, startIdx);
-                  const after = _visibleToken.slice(startIdx + 7);
-                  _inThinkTag = true;
-                  // Check if </think> is also in this token
-                  const endIdx2 = after.indexOf('</think>');
-                  if (endIdx2 !== -1) {
-                    const thinkPart = after.slice(0, endIdx2);
-                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-                    _popupChatMessages[aiIdx]._thinkingText += thinkPart;
-                    _visibleToken = before + after.slice(endIdx2 + 8);
-                    _inThinkTag = false;
-                  } else {
-                    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-                    _popupChatMessages[aiIdx]._thinkingText += after;
-                    _visibleToken = before;
-                  }
-                }
-                if (_visibleToken) {
-                  _popupChatMessages[aiIdx]._thinking = false;
-                  aiText += _visibleToken;
-                  _popupChatMessages[aiIdx].content = aiText;
-                  _renderPopupChatLive(false);
-                }
-              } catch (e) {}
-            } else if (currentEvent === 'tool_call') {
-              try {
-                const tc = JSON.parse(line.slice(6));
-                const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…', open_tab: 'Opening tab…', browser_read_page: 'Reading page…', browser_click: 'Clicking…', browser_type: 'Typing…', browser_scroll: 'Scrolling…', browser_navigate: 'Navigating…', browser_screenshot: 'Taking screenshot…' };
-                if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
-                const _tcLabel = tc.name + (tc.args ? '(' + Object.values(tc.args).map(v => JSON.stringify(v)).join(', ') + ')' : '()');
-                _popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
-                _popupChatMessages[aiIdx].content = '';
-                _popupChatMessages[aiIdx]._thinking = true;
-                _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
-                _renderPopupChatLive(false);
-              } catch (e) {}
-            } else if (currentEvent === 'action') {
-              try {
-                const act = JSON.parse(line.slice(6));
-                if (act.type === 'bookmark' && act.url) {
-                  const paper = { link: act.url, title: act.title || act.url };
-                  if (typeof toggleSavePost === 'function') {
-                    const saved = JSON.parse(localStorage.getItem('savedPosts') || '{}');
-                    if (!saved[act.url]) toggleSavePost(paper);
-                  }
-                } else if (act.type === 'navigate' && act.view) {
-                  const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
-                  location.hash = routes[act.view] || '#';
-                } else if (act.type === 'open_tab') {
-                  if (typeof browseNewTab === 'function') {
-                    location.hash = '#browse';
-                    if (act.url) setTimeout(() => browseNewTab(act.url), 100);
-                    else setTimeout(() => browseNewTab(), 100);
-                  }
-                } else if (act.type === 'agent_click') {
-                  const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-                  if (_tab) agentClick(_tab, act.element_id);
-                } else if (act.type === 'agent_type') {
-                  const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-                  if (_tab) agentType(_tab, act.element_id, act.text);
-                } else if (act.type === 'agent_scroll') {
-                  const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-                  if (_tab) agentScroll(_tab, act.direction);
-                } else if (act.type === 'agent_navigate') {
-                  if (typeof browseNavigate === 'function') {
-                    location.hash = '#browse';
-                    setTimeout(() => browseNavigate(act.url), 100);
-                  }
-                }
-              } catch (e) {}
-            } else if (currentEvent === 'usage') {
-              try {
-                const usage = JSON.parse(line.slice(6));
-                _popupChatMessages[aiIdx]._usage = usage;
-              } catch (e) {}
-            } else if (currentEvent === 'done') {
-              streamDone = true;
-            } else if (currentEvent === 'error') {
-              try {
-                const errMsg = JSON.parse(line.slice(6));
-                _popupChatMessages[aiIdx].content = aiText || ('Error: ' + errMsg);
-              } catch (e) {}
-              streamDone = true;
+        try {
+          await window.electronAPI.agentStart({
+            sessionId,
+            messages: agentMessages,
+            context: {
+              googleId: _getGoogleId(),
+              pageUrl: body.pageUrl,
+              pageTitle: body.pageTitle,
+              documentText: body.context,
+              model: body.model,
+              tools: body.tools,
+            },
+          });
+
+          // Wait for stream to complete
+          await new Promise((resolve) => {
+            const checkDone = (_ipcEvent, evtSessionId, agentEvent) => {
+              if (evtSessionId !== sessionId) return;
+              if (agentEvent.type === 'done' || agentEvent.type === 'error') {
+                window.electronAPI.removeAgentEventListener(checkDone);
+                resolve();
+              }
+            };
+            window.electronAPI.onAgentEvent(checkDone);
+            // Also handle abort
+            if (_popupChatAbort) {
+              _popupChatAbort.signal.addEventListener('abort', () => {
+                window.electronAPI.agentCancel(sessionId);
+                resolve();
+              });
             }
-            currentEvent = '';
-          } else if (line === '') {
-            currentEvent = '';
+          });
+        } finally {
+          window.electronAPI.removeAgentEventListener(eventHandler);
+        }
+      } else {
+        // ── Flask SSE path (fallback) ──
+        const resp = await api('/api/doc-chat', {
+          method: 'POST',
+          body: JSON.stringify(body),
+          signal: _popupChatAbort.signal
+        });
+
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => '');
+          _popupChatMessages[_popupChatMessages.length - 1].content = 'Error: server returned ' + resp.status;
+          _popupChatMessages[_popupChatMessages.length - 1]._thinking = false;
+          _renderPopupChatLive(true);
+          return;
+        }
+
+        _popupChatMessages[aiIdx]._thinking = false;
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = '';
+
+        let streamDone = false;
+        let _inThinkTag = false;
+        while (!streamDone) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7);
+            } else if (line.startsWith('data: ')) {
+              if (currentEvent === 'thinking') {
+                try {
+                  const token = JSON.parse(line.slice(6));
+                  if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                  _popupChatMessages[aiIdx]._thinkingText += token;
+                  _popupChatMessages[aiIdx]._thinking = true;
+                  _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+                  _renderPopupChatLive(false);
+                } catch (e) {}
+              } else if (currentEvent === 'token') {
+                try {
+                  const token = JSON.parse(line.slice(6));
+                  let _visibleToken = token;
+                  if (_inThinkTag) {
+                    const endIdx = _visibleToken.indexOf('</think>');
+                    if (endIdx !== -1) {
+                      const thinkPart = _visibleToken.slice(0, endIdx);
+                      if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                      _popupChatMessages[aiIdx]._thinkingText += thinkPart;
+                      _visibleToken = _visibleToken.slice(endIdx + 8);
+                      _inThinkTag = false;
+                    } else {
+                      if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                      _popupChatMessages[aiIdx]._thinkingText += _visibleToken;
+                      _popupChatMessages[aiIdx]._thinking = true;
+                      _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+                      _renderPopupChatLive(false);
+                      _visibleToken = '';
+                    }
+                  }
+                  if (!_inThinkTag && _visibleToken.includes('<think>')) {
+                    const startIdx = _visibleToken.indexOf('<think>');
+                    const before = _visibleToken.slice(0, startIdx);
+                    const after = _visibleToken.slice(startIdx + 7);
+                    _inThinkTag = true;
+                    const endIdx2 = after.indexOf('</think>');
+                    if (endIdx2 !== -1) {
+                      const thinkPart = after.slice(0, endIdx2);
+                      if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                      _popupChatMessages[aiIdx]._thinkingText += thinkPart;
+                      _visibleToken = before + after.slice(endIdx2 + 8);
+                      _inThinkTag = false;
+                    } else {
+                      if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
+                      _popupChatMessages[aiIdx]._thinkingText += after;
+                      _visibleToken = before;
+                    }
+                  }
+                  if (_visibleToken) {
+                    _popupChatMessages[aiIdx]._thinking = false;
+                    aiText += _visibleToken;
+                    _popupChatMessages[aiIdx].content = aiText;
+                    _renderPopupChatLive(false);
+                  }
+                } catch (e) {}
+              } else if (currentEvent === 'tool_call') {
+                try {
+                  const tc = JSON.parse(line.slice(6));
+                  const labels = { web_search: 'Searching web…', search_papers: 'Searching papers…', fetch_page: 'Fetching page…', save_to_reading_list: 'Bookmarking…', navigate: 'Navigating…', create_experiment: 'Creating experiment…', create_calendar_event: 'Adding to calendar…', open_tab: 'Opening tab…', browser_read_page: 'Reading page…', browser_click: 'Clicking…', browser_type: 'Typing…', browser_scroll: 'Scrolling…', browser_navigate: 'Navigating…', browser_screenshot: 'Taking screenshot…' };
+                  if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
+                  const _tcLabel = tc.name + (tc.args ? '(' + Object.values(tc.args).map(v => JSON.stringify(v)).join(', ') + ')' : '()');
+                  _popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
+                  _popupChatMessages[aiIdx].content = '';
+                  _popupChatMessages[aiIdx]._thinking = true;
+                  _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
+                  _renderPopupChatLive(false);
+                } catch (e) {}
+              } else if (currentEvent === 'action') {
+                try {
+                  const act = JSON.parse(line.slice(6));
+                  _handleAgentAction(act);
+                } catch (e) {}
+              } else if (currentEvent === 'usage') {
+                try {
+                  const usage = JSON.parse(line.slice(6));
+                  _popupChatMessages[aiIdx]._usage = usage;
+                } catch (e) {}
+              } else if (currentEvent === 'done') {
+                streamDone = true;
+              } else if (currentEvent === 'error') {
+                try {
+                  const errMsg = JSON.parse(line.slice(6));
+                  _popupChatMessages[aiIdx].content = aiText || ('Error: ' + errMsg);
+                } catch (e) {}
+                streamDone = true;
+              }
+              currentEvent = '';
+            } else if (line === '') {
+              currentEvent = '';
+            }
           }
         }
-      }
 
-      // Intercept: if streamed text contains a raw JSON tool call, execute it instead of displaying
-      let _intercepted = false;
-      if (aiText && aiText.includes('"name"')) {
-        // Extract JSON object from anywhere in the text (model may prepend thinking text)
-        // Regex handles one level of nesting (e.g. "arguments": {} or {"element_id": 5})
-        const _jsonMatch = aiText.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
-        if (_jsonMatch) try {
-          const _tc = JSON.parse(_jsonMatch[0]);
-          if (_tc.name && typeof _tc.name === 'string') {
-            _intercepted = true;
-            if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
-            const _iArgs = _tc.arguments || _tc.parameters || {};
-            const _iLabel = _tc.name + '(' + Object.values(_iArgs).map(v => JSON.stringify(v)).join(', ') + ')';
-            _popupChatMessages[aiIdx]._toolsCalled.push(_iLabel);
-            const _tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
-              ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-            const _args = _tc.arguments || _tc.parameters || {};
-            if (_tc.name === 'browser_click' && _tab && _args.element_id != null) {
-              agentClick(_tab, _args.element_id);
-              aiText = `Clicked element ${_args.element_id}.`;
-            } else if (_tc.name === 'browser_type' && _tab && _args.element_id != null) {
-              agentType(_tab, _args.element_id, _args.text || '');
-              aiText = `Typed "${_args.text || ''}" into element ${_args.element_id}.`;
-            } else if (_tc.name === 'browser_scroll' && _tab) {
-              agentScroll(_tab, _args.direction || 'down');
-              aiText = `Scrolled ${_args.direction || 'down'}.`;
-            } else if (_tc.name === 'browser_navigate' && _args.url) {
-              if (typeof browseNavigate === 'function') {
-                location.hash = '#browse';
-                setTimeout(() => browseNavigate(_args.url), 100);
+        // Intercept: if streamed text contains a raw JSON tool call, execute it instead of displaying
+        let _intercepted = false;
+        if (aiText && aiText.includes('"name"')) {
+          const _jsonMatch = aiText.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
+          if (_jsonMatch) try {
+            const _tc = JSON.parse(_jsonMatch[0]);
+            if (_tc.name && typeof _tc.name === 'string') {
+              _intercepted = true;
+              if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
+              const _iArgs = _tc.arguments || _tc.parameters || {};
+              const _iLabel = _tc.name + '(' + Object.values(_iArgs).map(v => JSON.stringify(v)).join(', ') + ')';
+              _popupChatMessages[aiIdx]._toolsCalled.push(_iLabel);
+              const _tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+                ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+              const _args = _tc.arguments || _tc.parameters || {};
+              if (_tc.name === 'browser_click' && _tab && _args.element_id != null) {
+                agentClick(_tab, _args.element_id);
+                aiText = `Clicked element ${_args.element_id}.`;
+              } else if (_tc.name === 'browser_type' && _tab && _args.element_id != null) {
+                agentType(_tab, _args.element_id, _args.text || '');
+                aiText = `Typed "${_args.text || ''}" into element ${_args.element_id}.`;
+              } else if (_tc.name === 'browser_scroll' && _tab) {
+                agentScroll(_tab, _args.direction || 'down');
+                aiText = `Scrolled ${_args.direction || 'down'}.`;
+              } else if (_tc.name === 'browser_navigate' && _args.url) {
+                if (typeof browseNavigate === 'function') {
+                  location.hash = '#browse';
+                  setTimeout(() => browseNavigate(_args.url), 100);
+                }
+                aiText = `Navigating to ${_args.url}`;
+              } else if (_tc.name === 'browser_read_page' && _tab) {
+                const domResult = await agentGetAccessibleDOM(_tab);
+                aiText = domResult && domResult.elements
+                  ? `Page has ${domResult.elementCount} elements. Here's what I see:\n${domResult.elements}`
+                  : 'Could not read the page DOM.';
+              } else if (_tc.name === 'navigate' && _args.view) {
+                const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+                location.hash = routes[_args.view] || '#';
+                aiText = `Navigated to ${_args.view}.`;
+              } else if (_tc.name === 'open_tab') {
+                if (typeof browseNewTab === 'function') {
+                  location.hash = '#browse';
+                  setTimeout(() => browseNewTab(_args.url || undefined), 100);
+                }
+                aiText = _args.url ? `Opened ${_args.url}` : 'Opened a new tab.';
+              } else {
+                _intercepted = false;
               }
-              aiText = `Navigating to ${_args.url}`;
-            } else if (_tc.name === 'browser_read_page' && _tab) {
-              const domResult = await agentGetAccessibleDOM(_tab);
-              aiText = domResult && domResult.elements
-                ? `Page has ${domResult.elementCount} elements. Here's what I see:\n${domResult.elements}`
-                : 'Could not read the page DOM.';
-            } else if (_tc.name === 'navigate' && _args.view) {
-              const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
-              location.hash = routes[_args.view] || '#';
-              aiText = `Navigated to ${_args.view}.`;
-            } else if (_tc.name === 'open_tab') {
-              if (typeof browseNewTab === 'function') {
-                location.hash = '#browse';
-                setTimeout(() => browseNewTab(_args.url || undefined), 100);
-              }
-              aiText = _args.url ? `Opened ${_args.url}` : 'Opened a new tab.';
-            } else {
-              _intercepted = false; // Unknown tool, show raw text
             }
-          }
-        } catch (_e) { /* not valid JSON, show as normal text */ }
+          } catch (_e) { /* not valid JSON, show as normal text */ }
+        }
       }
       _popupChatMessages[aiIdx]._thinking = false;
       _popupChatMessages[aiIdx].content = aiText;

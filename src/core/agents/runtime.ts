@@ -178,6 +178,7 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
       const response = await provider.chat({
         messages,
         tools: filteredDefs,
+        model,
         signal,
       });
 
@@ -273,7 +274,7 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
   }
 
   try {
-    for await (const event of provider.chatStream({ messages, signal })) {
+    for await (const event of provider.chatStream({ messages, model, signal })) {
       if (signal?.aborted) {
         yield { type: 'error', error: 'Cancelled' };
         return;
