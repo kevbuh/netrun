@@ -694,6 +694,8 @@ app.whenReady().then(() => {
   }
 
   // Initialize core tool system (tools, providers, IPC handlers)
+  // Ensure TypeScript backend uses the same data dir as Flask
+  process.env.ARXIV_DATA_DIR = getDataDir();
   try {
     const { initCore } = require('../dist/main/init.js');
     initCore();

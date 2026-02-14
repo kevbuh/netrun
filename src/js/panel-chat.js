@@ -25,6 +25,7 @@ function _saveChatMemory() {
 
 /** Handle a single agent event from IPC streaming */
 function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
+  if (!_popupChatMessages[aiIdx]) return; // guard: message was cleared
   const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…' };
 
   if (agentEvent.type === 'thinking') {
@@ -248,10 +249,8 @@ function _sendPopupChatMessage(popup, capturedText) {
           try {
             const userMsg = _popupChatMessages.find(m => m.role === 'user');
             if (userMsg) {
-              const memResp = await api('/api/chat-memories?query=' + encodeURIComponent(userMsg.content),
-                { signal: _popupChatAbort.signal });
-              if (memResp.ok) {
-                const memData = await memResp.json();
+              const memData = await apiGet('/api/chat-memories?query=' + encodeURIComponent(userMsg.content));
+              if (memData) {
                 if (memData.memories && memData.memories.length) {
                   const memCtx = memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
                   _ctxSources.push({ label: memData.memories.length + ' memor' + (memData.memories.length > 1 ? 'ies' : 'y'), content: memCtx });

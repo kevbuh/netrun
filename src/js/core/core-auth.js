@@ -133,7 +133,7 @@ async function _handleGoogleCredential(response) {
     const data = await apiPost('/api/auth/google', { credential: response.credential });
     _authToken = data.token;
     _authUser = (data.name || data.email || '').split(' ')[0];
-    _authUserInfo = { email: data.email, name: data.name, username: data.username || null, picture: data.picture || null };
+    _authUserInfo = { email: data.email, name: data.name, username: data.username || null, picture: data.picture || null, google_id: data.google_id || null };
     localStorage.setItem('authToken', _authToken);
     window.electronAPI?.saveAuthToken?.(_authToken);
     localStorage.setItem('authUser', _authUser);

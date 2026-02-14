@@ -890,8 +890,94 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('blog-get', username, slug, googleId);
   }
 
-  // Not handled — return null to fall back to HTTP
+  // ── Reveal in Finder (IPC) ──
+  if (pathOnly === '/api/reveal-in-finder' && method === 'POST') {
+    await window.electronAPI.dbQuery('reveal-in-finder', body.filename || body.path || '');
+    return { ok: true };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Flask-only routes — explicit proxy (no silent fallback)
+  // These routes require the Python backend (PyTorch, Jupyter, venv,
+  // Marimo, dev tooling) and are proxied directly to Flask.
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (_isFlaskRoute(pathOnly)) {
+    return _flaskProxy(path, opts);
+  }
+
+  // Unknown route — log and return null (should not happen in normal usage)
+  console.warn('[api-ipc] Unhandled route:', method, path);
   return null;
+}
+
+/**
+ * Check if a route must be handled by Flask (Python backend).
+ * These are routes that require PyTorch, Jupyter kernels, venvs,
+ * Marimo notebooks, dev introspection, or other Python-only features.
+ */
+function _isFlaskRoute(pathOnly) {
+  // Neuralook (PyTorch/GPU)
+  if (pathOnly.startsWith('/api/neuralook/')) return true;
+  // Experiment: venv, kernel, execute, clone-repo, upload, compile-tex
+  if (pathOnly === '/api/venvs') return true;
+  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/(venv|venv-info|packages|kernel|execute|clone-repo|upload|compile-tex)/) ) return true;
+  // Vault: marimo, path, tree
+  if (pathOnly.startsWith('/api/vault/marimo/')) return true;
+  if (pathOnly === '/api/vault/path') return true;
+  if (pathOnly === '/api/vault/tree') return true;
+  // Dev tooling
+  if (pathOnly === '/api/dev-stats') return true;
+  if (pathOnly === '/api/dev-git-log') return true;
+  if (pathOnly === '/api/dependency-graph') return true;
+  if (pathOnly === '/api/function-registry') return true;
+  if (pathOnly === '/api/validate-feeds') return true;
+  if (pathOnly === '/api/validate-load-order') return true;
+  if (pathOnly === '/api/settings') return true;
+  if (pathOnly === '/tex-preview') return true;
+  // Vibe git UI
+  if (pathOnly.startsWith('/api/vibe/')) return true;
+  // Static files served by Flask
+  if (pathOnly === '/spinners.json') return true;
+  // Custom feeds POST (uses feed_poller on Python side)
+  if (pathOnly === '/api/custom-feeds' && true) return true;
+  // Saved posts
+  if (pathOnly === '/api/saved-posts') return true;
+  // Local file serving
+  if (pathOnly === '/api/local-file') return true;
+  // Images API (dev.py disk storage)
+  if (pathOnly === '/api/images') return true;
+  // Blog unpublish
+  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/unpublish$/)) return true;
+
+  return false;
+}
+
+/**
+ * Proxy a request directly to Flask (Python backend).
+ * Used for routes that require Python-only features.
+ */
+async function _flaskProxy(path, opts = {}) {
+  const method = (opts.method || 'GET').toUpperCase();
+  const fetchOpts = {
+    method,
+    headers: _authHeaders(),
+  };
+  if (opts.body && method !== 'GET' && method !== 'HEAD') {
+    fetchOpts.body = opts.body;
+  }
+  const resp = await fetch(path, fetchOpts);
+  if (resp.status === 401) {
+    _showLoginGate();
+    throw new Error('Unauthorized');
+  }
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const ct = resp.headers.get('content-type') || '';
+  if (ct.includes('application/json')) {
+    return await resp.json();
+  }
+  // Non-JSON responses (XML, blobs, etc.)
+  return await resp.text();
 }
 
 /** Get the auth token from localStorage */
@@ -908,7 +994,13 @@ function _getGoogleId() {
     const userData = localStorage.getItem('user');
     if (userData) {
       const user = JSON.parse(userData);
-      return user.google_id || user.googleId || null;
+      if (user.google_id || user.googleId) return user.google_id || user.googleId;
+    }
+    // Fallback: check authUserInfo (set during login before 'user' key exists)
+    const authInfo = localStorage.getItem('authUserInfo');
+    if (authInfo) {
+      const info = JSON.parse(authInfo);
+      if (info.google_id) return info.google_id;
     }
   } catch (e) {}
   return null;

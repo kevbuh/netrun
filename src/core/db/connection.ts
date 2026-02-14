@@ -9,10 +9,10 @@ let db: Database.Database | null = null;
 export function getDb(): Database.Database {
   if (db) return db;
 
-  const dbPath = path.join(
-    app?.getPath('userData') ?? process.cwd(),
-    'netrun.db'
-  );
+  // Use ARXIV_DATA_DIR if set (matches Flask), otherwise fall back to userData
+  const dataDir = process.env.ARXIV_DATA_DIR
+    ?? (app?.getPath('userData') ?? process.cwd());
+  const dbPath = path.join(dataDir, 'netrun.db');
 
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');

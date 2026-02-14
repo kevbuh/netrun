@@ -896,7 +896,7 @@ export function registerToolIPC(): void {
       const token = userQueries.createSession(googleId);
       const info = userQueries.getUser(googleId);
       const username = info?.username ?? null;
-      return { token, email, name, username, picture };
+      return { token, email, name, username, picture, google_id: googleId };
     } catch (e: any) {
       return { error: `Token verification failed: ${e.message ?? e}` };
     }
