@@ -1807,7 +1807,7 @@ function _renderSitePermissionsDropdown(container) {
     html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--aether-border);">';
     for (const val of ['ask', 'allow', 'block']) {
       const active = current === val;
-      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-bg))' : 'color-mix(in srgb, var(--accent) 20%, var(--aether-bg))') : 'var(--aether-bg)';
+      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-dropdown-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-dropdown-bg))' : 'color-mix(in srgb, var(--accent) 20%, var(--aether-dropdown-bg))') : 'var(--aether-dropdown-bg)';
       const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--aether-text-dimmer)';
       const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
       const onclick = val === 'allow'
@@ -1820,7 +1820,7 @@ function _renderSitePermissionsDropdown(container) {
 
   const safeDomain2 = escapeHtml(domain).replace(/'/g, "\\'");
   html += '<div style="padding:4px 8px 6px;border-top:1px solid var(--aether-border);margin-top:2px;">';
-  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-bg);color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;">Reset all to default</button>';
+  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-dropdown-bg);color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;">Reset all to default</button>';
   html += '</div>';
 
   dd.innerHTML = html;

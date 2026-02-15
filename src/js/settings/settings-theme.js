@@ -4,7 +4,6 @@ const THEME_COLOR_SCHEME = {
   light: 'light',
   sepia: 'light',
   daylight: 'light',
-  thermal: 'dark',
   clear: 'dark',
 };
 
@@ -42,7 +41,7 @@ function setTheme(theme) {
   localStorage.setItem('theme', theme);
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   _applyResolvedTheme(resolved);
-  ['auto', 'dark', 'light', 'sepia', 'daylight', 'thermal', 'clear'].forEach(t => {
+  ['auto', 'dark', 'light', 'sepia', 'daylight', 'clear'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });

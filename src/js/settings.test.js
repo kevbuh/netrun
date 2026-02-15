@@ -13,7 +13,6 @@ const THEME_COLOR_SCHEME = {
   light: 'light',
   sepia: 'light',
   daylight: 'light',
-  thermal: 'dark',
 };
 
 /**
@@ -133,10 +132,6 @@ describe('Theme Color Scheme', () => {
 
   it('should return light for daylight theme', () => {
     expect(getThemeColorScheme('daylight')).toBe('light');
-  });
-
-  it('should return dark for thermal theme', () => {
-    expect(getThemeColorScheme('thermal')).toBe('dark');
   });
 
   it('should return system scheme for auto theme', () => {

@@ -1119,7 +1119,7 @@ function _panelBuildSelectionUI(popup, config) {
     if (dropdown) { dropdown.remove(); return; }
     dropdown = document.createElement('div');
     dropdown.className = 'ann-type-dropdown';
-    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--aether-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;';
+    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--aether-dropdown-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;';
     const types = [
       { key: 'ALPHA', name: 'Alpha', color: '#4caf50' },
       { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350' },

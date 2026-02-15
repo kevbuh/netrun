@@ -83,7 +83,7 @@ function toggleBrowseMoreMenu() {
   const menuPos = isIsland
     ? `right:${Math.round(window.innerWidth - btnRect.right)}px;top:${Math.round(btnRect.bottom + 4)}px`
     : `left:${Math.round(btnRect.left)}px;top:${Math.round(btnRect.bottom + 4)}px`;
-  dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--aether-bg);border:1px solid var(--aether-border);border-radius:10px;box-shadow:0 8px 32px var(--aether-shadow);z-index:10000;padding:4px 0;">
+  dd.innerHTML = `<div style="position:fixed;${menuPos};min-width:180px;background:var(--aether-dropdown-bg);border:1px solid var(--aether-border);border-radius:10px;box-shadow:0 8px 32px var(--aether-shadow);z-index:10000;padding:4px 0;">
     ${overflowRows}${fixedItems}
   </div>`;
   dd.style.display = '';

@@ -292,7 +292,6 @@ function loadWindowState() {
   try {
     const data = fs.readFileSync(getWindowStatePath(), 'utf8');
     const state = JSON.parse(data);
-    console.log('[window-state] Loaded:', state);
 
     // Validate that window is on screen
     const { screen } = require('electron');
@@ -306,7 +305,6 @@ function loadWindowState() {
     });
 
     if (!isVisible) {
-      console.log('[window-state] Window off-screen, using defaults');
       return {
         width: state.width || 1400,
         height: state.height || 900,
@@ -319,7 +317,6 @@ function loadWindowState() {
     lastSavedBounds = { ...state };
     return state;
   } catch (_e) {
-    console.log('[window-state] No saved state, using defaults');
     return {
       width: 1400,
       height: 900,
@@ -334,7 +331,6 @@ function saveWindowState() {
 
   // Don't save window state when in fullscreen mode (e.g., fullscreen videos)
   if (mainWindow.isFullScreen()) {
-    console.log('[window-state] Skipping save - window is in fullscreen mode');
     return;
   }
 
@@ -350,7 +346,6 @@ function saveWindowState() {
       return;
     }
 
-    console.log('[window-state] Saving:', bounds);
     fs.writeFileSync(getWindowStatePath(), JSON.stringify(bounds, null, 2));
     lastSavedBounds = { ...bounds };
   } catch (e) {
@@ -383,7 +378,6 @@ async function createWindow() {
   }
 
   const windowState = loadWindowState();
-  console.log('[window-state] Creating window with:', windowState);
 
   mainWindow = new BrowserWindow({
     width: windowState.width,
