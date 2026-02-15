@@ -1196,139 +1196,191 @@ function _renderHelpSettings() {
   `;
 }
 
-let _memoryListLoaded = [];
-let _memoryTotal = 0;
+let _contextFiles = [];
+let _contextDir = '';
+let _selectedContextFile = null;
 
-function _renderMemorySettings() {
-  return '<div id="memory-stats-banner" class="mb-4 p-3 rounded-lg border border-border-subtle bg-card/50">' +
-    '<div class="text-dimmer text-[0.75rem]">Loading memory stats...</div></div>' +
+function _renderContextSettings() {
+  return '<div id="context-info-bar" class="mb-4 p-3 rounded-lg border border-border-subtle bg-card/50">' +
+    '<div class="text-dimmer text-[0.75rem]">Loading context info...</div></div>' +
     '<div class="flex items-center justify-between mb-3">' +
-    '<span class="text-muted text-[0.75rem]" id="memory-count-label"></span>' +
-    '<button onclick="_clearAllMemories()" class="text-[0.7rem] text-red-400 hover:text-red-300 transition-colors">Clear All</button></div>' +
-    '<div id="memory-list" class="flex flex-col gap-2" style="max-height:60vh;overflow-y:auto;"></div>' +
-    '<div id="memory-load-more" class="mt-3 text-center" style="display:none;">' +
-    '<button onclick="_loadMemoryList(' + 0 + ')" class="text-[0.7rem] text-accent hover:underline">Load more</button></div>' +
-    '<div id="memory-empty" class="text-center py-8" style="display:none;">' +
-    '<div class="text-dimmer text-[0.8rem]">No memories yet. Chat with Aether and memories will be saved automatically.</div></div>';
-}
-
-function _renderMemoryCard(mem) {
-  const summary = mem.summary.length > 150 ? mem.summary.slice(0, 150) + '...' : mem.summary;
-  const topics = (mem.topics || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean);
-  const topicChips = topics.map(function(t) {
-    return '<span class="inline-block px-1.5 py-0.5 text-[0.6rem] rounded-full bg-accent/10 text-accent">' + escapeHtml(t) + '</span>';
-  }).join(' ');
-  const ago = typeof timeAgo === 'function' ? timeAgo(mem.created_at * 1000) : new Date(mem.created_at * 1000).toLocaleDateString();
-  const pageInfo = mem.page_title ? '<span class="text-dimmer text-[0.6rem]">' + escapeHtml(mem.page_title) + '</span>' : '';
-  return '<div class="p-3 rounded-lg border border-border-subtle bg-card/50 group" id="mem-card-' + mem.id + '">' +
-    '<div class="flex items-start justify-between gap-2">' +
-    '<div class="flex-1 min-w-0">' +
-    '<div class="text-[0.78rem] text-primary leading-snug mb-1">' + escapeHtml(summary) + '</div>' +
-    (topicChips ? '<div class="flex flex-wrap gap-1 mb-1">' + topicChips + '</div>' : '') +
-    '<div class="flex items-center gap-2">' +
-    '<span class="text-dimmer text-[0.6rem]">' + ago + '</span>' +
-    (mem.message_count ? '<span class="text-dimmer text-[0.6rem]">' + mem.message_count + ' msgs</span>' : '') +
-    pageInfo +
-    '</div></div>' +
-    '<button onclick="_deleteMemory(' + mem.id + ')" class="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all p-1" title="Delete memory">' +
-    icon('close', { size: 12 }) + '</button>' +
+    '<span class="text-muted text-[0.75rem]" id="context-count-label"></span>' +
+    '<button onclick="_createTaskContext()" class="text-[0.7rem] text-accent hover:text-accent/80 transition-colors">+ New Task Context</button></div>' +
+    '<div id="context-file-list" class="flex flex-col gap-2 mb-4"></div>' +
+    '<div id="context-empty" class="text-center py-8" style="display:none;">' +
+    '<div class="text-dimmer text-[0.8rem]">No context files yet. The agent will create them automatically during conversations.</div></div>' +
+    '<div id="context-editor" style="display:none;">' +
+    '<div class="flex items-center justify-between mb-2">' +
+    '<span class="text-primary text-[0.85rem] font-medium" id="context-editor-title"></span>' +
+    '<span class="text-dimmer text-[0.7rem]" id="context-editor-chars"></span></div>' +
+    '<textarea id="context-editor-textarea" class="w-full rounded-lg border border-border-subtle bg-card/50 text-primary text-[0.78rem] p-3 focus:outline-none focus:border-accent/50 transition-colors" style="font-family:var(--nr-font-mono);height:40vh;resize:vertical;"></textarea>' +
+    '<div class="flex items-center gap-2 mt-3">' +
+    '<button onclick="_saveContextFile()" class="px-3 py-1.5 text-[0.75rem] rounded-md bg-accent text-white hover:bg-accent/80 transition-colors">Save</button>' +
+    '<button id="context-compact-btn" onclick="_compactContextFile()" class="px-3 py-1.5 text-[0.75rem] rounded-md border border-border-subtle text-muted hover:text-primary hover:border-accent/50 transition-colors">Compact Now</button>' +
+    '<button onclick="_deleteContextFile()" class="px-3 py-1.5 text-[0.75rem] rounded-md text-red-400 hover:text-red-300 border border-transparent hover:border-red-400/30 transition-colors ml-auto">Delete</button>' +
     '</div></div>';
 }
 
-function _loadMemoryList(offset) {
-  apiGet('/api/chat-memories/list?limit=30&offset=' + offset)
+function _renderContextFileCard(f) {
+  const name = f.file_id || f.fileId || '';
+  const chars = (f.char_count || f.charCount || 0).toLocaleString();
+  const updatedTs = f.updated_at || f.updatedAt || 0;
+  const compactedTs = f.compacted_at || f.compactedAt || null;
+  const updatedAgo = typeof timeAgo === 'function' && updatedTs ? timeAgo(updatedTs * 1000) : 'unknown';
+  const compactedLabel = compactedTs && typeof timeAgo === 'function' ? timeAgo(compactedTs * 1000) : 'never';
+  const selected = _selectedContextFile === name;
+  return '<button onclick="_selectContextFile(\'' + escapeHtml(name) + '\')" class="w-full text-left p-3 rounded-lg border transition-colors ' +
+    (selected ? 'border-accent/50 bg-accent/5' : 'border-border-subtle bg-card/50 hover:border-accent/30') + '">' +
+    '<div class="flex items-center justify-between">' +
+    '<span class="text-[0.8rem] ' + (selected ? 'text-accent' : 'text-primary') + ' font-medium">' + escapeHtml(name) + '</span>' +
+    '<span class="text-dimmer text-[0.7rem]">' + chars + ' chars</span></div>' +
+    '<div class="flex items-center gap-3 mt-1">' +
+    '<span class="text-dimmer text-[0.65rem]">Updated ' + updatedAgo + '</span>' +
+    '<span class="text-dimmer text-[0.65rem]">Compacted ' + compactedLabel + '</span></div></button>';
+}
+
+function _loadContextFiles() {
+  apiGet('/api/context/list')
     .then(function(data) {
-      const list = document.getElementById('memory-list');
-      const empty = document.getElementById('memory-empty');
-      const countLabel = document.getElementById('memory-count-label');
-      const loadMore = document.getElementById('memory-load-more');
+      _contextFiles = data.files || [];
+      _contextDir = data.dir || '';
+      var list = document.getElementById('context-file-list');
+      var empty = document.getElementById('context-empty');
+      var countLabel = document.getElementById('context-count-label');
+      var infoBar = document.getElementById('context-info-bar');
       if (!list) return;
-      _memoryTotal = data.total || 0;
-      if (offset === 0) {
-        _memoryListLoaded = data.memories || [];
+      if (_contextFiles.length === 0) {
         list.innerHTML = '';
-      } else {
-        _memoryListLoaded = _memoryListLoaded.concat(data.memories || []);
-      }
-      if (_memoryListLoaded.length === 0) {
         if (empty) empty.style.display = '';
         if (countLabel) countLabel.textContent = '';
+        if (infoBar) infoBar.innerHTML = '<div class="text-dimmer text-[0.75rem]">No context files.</div>';
         return;
       }
       if (empty) empty.style.display = 'none';
-      if (countLabel) countLabel.textContent = _memoryTotal + ' memories';
-      let html = '';
-      for (let i = (offset === 0 ? 0 : _memoryListLoaded.length - (data.memories || []).length); i < _memoryListLoaded.length; i++) {
-        html += _renderMemoryCard(_memoryListLoaded[i]);
+      var totalChars = _contextFiles.reduce(function(sum, f) { return sum + (f.char_count || f.charCount || 0); }, 0);
+      if (countLabel) countLabel.textContent = _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '');
+      if (infoBar) {
+        infoBar.innerHTML = '<div class="flex items-center gap-3">' +
+          '<span class="text-primary text-[0.8rem] font-medium">' + _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '') + '</span>' +
+          '<span class="text-dimmer text-[0.7rem]">' + totalChars.toLocaleString() + ' total chars</span>' +
+          (_contextDir ? '<span class="text-dimmer text-[0.65rem] font-mono">' + escapeHtml(_contextDir) + '</span>' : '') + '</div>';
       }
-      if (offset === 0) list.innerHTML = html;
-      else list.insertAdjacentHTML('beforeend', html);
-      if (loadMore) {
-        if (_memoryListLoaded.length < _memoryTotal) {
-          loadMore.style.display = '';
-          loadMore.innerHTML = '<button onclick="_loadMemoryList(' + _memoryListLoaded.length + ')" class="text-[0.7rem] text-accent hover:underline">Load more</button>';
-        } else {
-          loadMore.style.display = 'none';
-        }
+      var html = '';
+      for (var i = 0; i < _contextFiles.length; i++) {
+        html += _renderContextFileCard(_contextFiles[i]);
       }
-    }).catch(function(e) { console.warn('loadMemoryList:', e); });
+      list.innerHTML = html;
+    }).catch(function(e) { console.warn('loadContextFiles:', e); });
+}
 
-  // Also load stats
-  if (offset === 0) {
-    apiGet('/api/chat-memories/stats')
-      .then(function(stats) {
-        const banner = document.getElementById('memory-stats-banner');
-        if (!banner) return;
-        if (!stats.total_count) {
-          banner.innerHTML = '<div class="text-dimmer text-[0.75rem]">No memories stored yet.</div>';
-          return;
-        }
-        const oldest = stats.oldest_ts ? new Date(stats.oldest_ts * 1000).toLocaleDateString() : '?';
-        const newest = stats.newest_ts ? new Date(stats.newest_ts * 1000).toLocaleDateString() : '?';
-        const topicChips = (stats.top_topics || []).map(function(t) {
-          return '<span class="inline-block px-1.5 py-0.5 text-[0.6rem] rounded-full bg-accent/10 text-accent">' + escapeHtml(t.topic) + ' <span class="text-dimmer">(' + t.count + ')</span></span>';
-        }).join(' ');
-        banner.innerHTML = '<div class="flex items-center gap-3 mb-2">' +
-          '<span class="text-primary text-[0.85rem] font-medium">' + stats.total_count + ' memories</span>' +
-          '<span class="text-dimmer text-[0.7rem]">' + oldest + ' — ' + newest + '</span></div>' +
-          (topicChips ? '<div class="flex flex-wrap gap-1">' + topicChips + '</div>' : '');
-      }).catch(function(e) { console.warn('loadMemoryStats:', e); });
+function _selectContextFile(fileId) {
+  _selectedContextFile = fileId;
+  // Re-render file list to update selected state
+  var list = document.getElementById('context-file-list');
+  if (list) {
+    var html = '';
+    for (var i = 0; i < _contextFiles.length; i++) {
+      html += _renderContextFileCard(_contextFiles[i]);
+    }
+    list.innerHTML = html;
   }
-}
-
-function _deleteMemory(id) {
-  apiDelete('/api/chat-memories/' + id)
-    .then(function() {
-      const card = document.getElementById('mem-card-' + id);
-      if (card) card.remove();
-      _memoryTotal--;
-      _memoryListLoaded = _memoryListLoaded.filter(function(m) { return m.id !== id; });
-      const countLabel = document.getElementById('memory-count-label');
-      if (countLabel) countLabel.textContent = _memoryTotal + ' memories';
-      if (_memoryListLoaded.length === 0) {
-        const empty = document.getElementById('memory-empty');
-        if (empty) empty.style.display = '';
+  // Fetch content and show editor
+  var editor = document.getElementById('context-editor');
+  var title = document.getElementById('context-editor-title');
+  var textarea = document.getElementById('context-editor-textarea');
+  var charsLabel = document.getElementById('context-editor-chars');
+  var compactBtn = document.getElementById('context-compact-btn');
+  if (editor) editor.style.display = '';
+  if (title) title.textContent = fileId;
+  if (textarea) textarea.value = 'Loading...';
+  apiGet('/api/context/read?file=' + encodeURIComponent(fileId))
+    .then(function(data) {
+      var content = data.content || '';
+      if (textarea) {
+        textarea.value = content;
+        textarea.oninput = function() {
+          if (charsLabel) {
+            var len = textarea.value.length;
+            charsLabel.textContent = len.toLocaleString() + ' chars' + (len > 8000 ? ' (over threshold)' : '');
+            charsLabel.className = 'text-[0.7rem] ' + (len > 8000 ? 'text-amber-400' : 'text-dimmer');
+          }
+        };
+        textarea.oninput();
       }
-    }).catch(function(e) { console.warn('deleteMemory:', e); });
+      if (compactBtn) {
+        compactBtn.disabled = content.length < 8000;
+        compactBtn.style.opacity = content.length < 8000 ? '0.4' : '1';
+      }
+    }).catch(function(e) {
+      console.warn('selectContextFile:', e);
+      if (textarea) textarea.value = 'Error loading file.';
+    });
 }
 
-function _clearAllMemories() {
-  if (!confirm('Delete all memories? This cannot be undone.')) return;
-  const promises = _memoryListLoaded.map(function(m) {
-    return apiDelete('/api/chat-memories/' + m.id);
-  });
-  Promise.all(promises).then(function() {
-    _memoryListLoaded = [];
-    _memoryTotal = 0;
-    const list = document.getElementById('memory-list');
-    if (list) list.innerHTML = '';
-    const empty = document.getElementById('memory-empty');
-    if (empty) empty.style.display = '';
-    const countLabel = document.getElementById('memory-count-label');
-    if (countLabel) countLabel.textContent = '';
-    const banner = document.getElementById('memory-stats-banner');
-    if (banner) banner.innerHTML = '<div class="text-dimmer text-[0.75rem]">No memories stored yet.</div>';
-  }).catch(function(e) { console.warn('clearAllMemories:', e); });
+function _saveContextFile() {
+  if (!_selectedContextFile) return;
+  var textarea = document.getElementById('context-editor-textarea');
+  if (!textarea) return;
+  apiPost('/api/context/update', { file: _selectedContextFile, content: textarea.value })
+    .then(function(data) {
+      if (typeof showToast === 'function') showToast('Saved');
+      // Update local char count
+      for (var i = 0; i < _contextFiles.length; i++) {
+        var fid = _contextFiles[i].file_id || _contextFiles[i].fileId;
+        if (fid === _selectedContextFile) {
+          _contextFiles[i].char_count = data.charCount || textarea.value.length;
+          break;
+        }
+      }
+      var list = document.getElementById('context-file-list');
+      if (list) {
+        var html = '';
+        for (var j = 0; j < _contextFiles.length; j++) {
+          html += _renderContextFileCard(_contextFiles[j]);
+        }
+        list.innerHTML = html;
+      }
+    }).catch(function(e) { console.warn('saveContextFile:', e); });
+}
+
+function _compactContextFile() {
+  if (!_selectedContextFile) return;
+  var compactBtn = document.getElementById('context-compact-btn');
+  if (compactBtn) { compactBtn.textContent = 'Compacting...'; compactBtn.disabled = true; }
+  apiPost('/api/context/compact', { file: _selectedContextFile })
+    .then(function() {
+      if (typeof showToast === 'function') showToast('Compacted');
+      _selectContextFile(_selectedContextFile);
+      _loadContextFiles();
+    }).catch(function(e) {
+      console.warn('compactContextFile:', e);
+      if (compactBtn) { compactBtn.textContent = 'Compact Now'; compactBtn.disabled = false; }
+    });
+}
+
+function _deleteContextFile() {
+  if (!_selectedContextFile) return;
+  if (!confirm('Delete ' + _selectedContextFile + '? This cannot be undone.')) return;
+  apiDelete('/api/context/' + encodeURIComponent(_selectedContextFile))
+    .then(function() {
+      _selectedContextFile = null;
+      var editor = document.getElementById('context-editor');
+      if (editor) editor.style.display = 'none';
+      _loadContextFiles();
+    }).catch(function(e) { console.warn('deleteContextFile:', e); });
+}
+
+function _createTaskContext() {
+  var taskId = prompt('Enter a task ID (e.g. "research-llm"):');
+  if (!taskId) return;
+  taskId = taskId.trim().replace(/[^a-zA-Z0-9_-]/g, '-');
+  if (!taskId) return;
+  var file = 'task-' + taskId + '.md';
+  apiPost('/api/context/create', { file: file })
+    .then(function() {
+      _loadContextFiles();
+      setTimeout(function() { _selectContextFile(file); }, 300);
+    }).catch(function(e) { console.warn('createTaskContext:', e); });
 }
 
 function renderSettingsView() {
@@ -1347,7 +1399,7 @@ function renderSettingsView() {
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', memory: 'Memory', help: 'Help' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', context: 'Context', help: 'Help' };
     let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
 
     if (_settingsSection === 'profile') {
@@ -1367,8 +1419,8 @@ function renderSettingsView() {
       content += _renderAgentSettings();
     } else if (_settingsSection === 'prompts') {
       content += _renderPromptsSettings();
-    } else if (_settingsSection === 'memory') {
-      content += _renderMemorySettings();
+    } else if (_settingsSection === 'context') {
+      content += _renderContextSettings();
     } else if (_settingsSection === 'help') {
       content += _renderHelpSettings();
     }
@@ -1419,8 +1471,8 @@ function renderSettingsView() {
     }
   } else if (_settingsSection === 'prompts') {
     _loadPromptsData();
-  } else if (_settingsSection === 'memory') {
-    _loadMemoryList(0);
+  } else if (_settingsSection === 'context') {
+    _loadContextFiles();
   }
 }
 

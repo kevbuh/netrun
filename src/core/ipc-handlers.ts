@@ -1309,31 +1309,41 @@ export function registerToolIPC(): void {
   // Living Context
   // ═══════════════════════════════════════════════════════════════════════
 
-  ipcMain.handle('context:read', (_event, file: string) => {
+  ipcMain.handle('db:context-read', (_event, file: string) => {
     return { content: contextManager.readContextFile(file || 'main.md') };
   });
 
-  ipcMain.handle('context:list', () => {
-    return { files: contextManager.listContextFiles() };
+  ipcMain.handle('db:context-list', () => {
+    return { files: contextManager.listContextFiles(), dir: contextManager.getContextDir() };
   });
 
-  ipcMain.handle('context:update', (_event, body: { file?: string; section: string; content: string; action?: 'append' | 'replace' }) => {
+  ipcMain.handle('db:context-update', (_event, body: { file?: string; section?: string; content: string; action?: 'append' | 'replace' }) => {
     const file = body.file || 'main.md';
-    if (body.action === 'replace') {
-      contextManager.replaceSection(file, body.section, body.content);
+    if (body.section) {
+      if (body.action === 'replace') {
+        contextManager.replaceSection(file, body.section, body.content);
+      } else {
+        contextManager.appendContext(file, body.section, body.content);
+      }
     } else {
-      contextManager.appendContext(file, body.section, body.content);
+      // Full file write (from settings editor)
+      contextManager.writeContextFile(file, body.content);
     }
     return { ok: true, charCount: contextManager.getContextSize(file) };
   });
 
-  ipcMain.handle('context:compact', async (_event, file?: string) => {
+  ipcMain.handle('db:context-compact', async (_event, file?: string) => {
     await runCompaction(file || 'main.md');
     return { ok: true, charCount: contextManager.getContextSize(file || 'main.md') };
   });
 
-  ipcMain.handle('context:delete', (_event, file: string) => {
+  ipcMain.handle('db:context-delete', (_event, file: string) => {
     contextManager.deleteContextFile(file);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:context-create', (_event, file: string) => {
+    contextManager.writeContextFile(file, `# ${file.replace('.md', '')}\n\n`);
     return { ok: true };
   });
 

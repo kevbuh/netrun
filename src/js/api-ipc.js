@@ -1109,6 +1109,28 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('neuralook-auto-refine', body, true);
   }
 
+  // ── Living Context ──
+  if (pathOnly === '/api/context/list' && method === 'GET') {
+    return await window.electronAPI.dbQuery('context-list');
+  }
+  if (pathOnly === '/api/context/read' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('context-read', urlParams.get('file') || 'main.md');
+  }
+  if (pathOnly === '/api/context/update' && method === 'POST') {
+    return await window.electronAPI.dbQuery('context-update', body);
+  }
+  if (pathOnly === '/api/context/compact' && method === 'POST') {
+    return await window.electronAPI.dbQuery('context-compact', body.file || 'main.md');
+  }
+  if (pathOnly === '/api/context/create' && method === 'POST') {
+    return await window.electronAPI.dbQuery('context-create', body.file);
+  }
+  if (pathOnly.match(/^\/api\/context\/[^/]+$/) && method === 'DELETE') {
+    const file = decodeURIComponent(pathOnly.split('/').pop());
+    return await window.electronAPI.dbQuery('context-delete', file);
+  }
+
   // Unknown route — log and return null (should not happen in normal usage)
   console.warn('[api-ipc] Unhandled route:', method, path);
   return null;

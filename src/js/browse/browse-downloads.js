@@ -475,6 +475,8 @@ function _browseHandleNavigation(tab, frame) {
     _updateAnnotateButtonState();
     // Offer to annotate the new page
     if (_browseActiveTab === tab.id) _triggerInsight(tab);
+    // Academic paper: re-inject on navigation
+    if (typeof _paperOnPageLoad === 'function') _paperOnPageLoad(tab, frame);
     // Adblock: reset count for this webview on navigation
     if (window.electronAPI && window.electronAPI.adblockResetCount && typeof frame.getWebContentsId === 'function') {
       try { window.electronAPI.adblockResetCount(frame.getWebContentsId()); } catch {}
@@ -596,6 +598,10 @@ function _browseHandleNavigation(tab, frame) {
       // Ambient AI: extract page text and send to main process
       if (typeof _triggerInsight === 'function') {
         _triggerInsight(tab);
+      }
+      // Academic paper detection & metadata extraction
+      if (typeof _paperOnPageLoad === 'function') {
+        _paperOnPageLoad(tab, frame);
       }
     });
   }
@@ -1065,26 +1071,23 @@ function _browseInjectContentScripts(tab, frame) {
       (function(){
         if(window.__aetherSwipeInjected)return;
         window.__aetherSwipeInjected=true;
-        var accum=0,dir=null,active=false,decay=null;
+        var accum=0,dir=null,decay=null,cooldown=0;
         var THRESHOLD=80;
-        function reset(){accum=0;dir=null;active=false;clearTimeout(decay);
-          console.log('__AETHER_SWIPE_RESET__');}
+        function reset(){accum=0;dir=null;clearTimeout(decay);}
         document.addEventListener('wheel',function(e){
-          if(e.ctrlKey)return;
+          if(e.ctrlKey||Date.now()<cooldown)return;
           var dx=e.deltaX,dy=e.deltaY;
           if(Math.abs(dx)<2||Math.abs(dy)>Math.abs(dx)*1.2){
-            if(active){clearTimeout(decay);decay=setTimeout(reset,200);}
+            if(dir){clearTimeout(decay);decay=setTimeout(reset,200);}
             return;
           }
           var d=dx<0?'back':'forward';
-          if(active&&dir&&dir!==d)reset();
-          active=true;dir=d;accum+=Math.abs(dx);
+          if(dir&&dir!==d)reset();
+          dir=d;accum+=Math.abs(dx);
           clearTimeout(decay);
-          var p=Math.min(1,accum/THRESHOLD);
-          console.log('__AETHER_SWIPE_PROGRESS__'+d+','+p.toFixed(3));
           if(accum>=THRESHOLD){
-            console.log('__AETHER_SWIPE_COMMIT__'+d);
-            accum=0;active=false;dir=null;
+            console.log('__AETHER_SWIPE__'+d);
+            reset();cooldown=Date.now()+500;
           }else{
             decay=setTimeout(reset,300);
           }
@@ -1271,18 +1274,9 @@ function _browseInjectContentScripts(tab, frame) {
       if (tab.id === _browseActiveTab) {
         _browseUpdateScrollPill(parseInt(e.message.slice('__AETHER_SCROLL__'.length)));
       }
-    } else if (e.message && e.message.startsWith('__AETHER_SWIPE_PROGRESS__')) {
-      if (tab.id === _browseActiveTab && typeof _swipeShowProgress === 'function') {
-        const parts = e.message.slice('__AETHER_SWIPE_PROGRESS__'.length).split(',');
-        _swipeShowProgress(parseFloat(parts[1]), parts[0]);
-      }
-    } else if (e.message && e.message.startsWith('__AETHER_SWIPE_COMMIT__')) {
+    } else if (e.message && e.message.startsWith('__AETHER_SWIPE__')) {
       if (tab.id === _browseActiveTab && typeof _swipeCommit === 'function') {
-        _swipeCommit(e.message.slice('__AETHER_SWIPE_COMMIT__'.length));
-      }
-    } else if (e.message === '__AETHER_SWIPE_RESET__') {
-      if (tab.id === _browseActiveTab && typeof _swipeDismiss === 'function') {
-        _swipeDismiss();
+        _swipeCommit(e.message.slice('__AETHER_SWIPE__'.length));
       }
     } else if (e.message && e.message.startsWith('__NEURALOOK_CLICK__')) {
       if (typeof _nlHandleIframeClick === 'function') {
@@ -1323,6 +1317,18 @@ function _browseInjectContentScripts(tab, frame) {
         _pwPendingPrompt = { tab, data, ts: Date.now() };
         _pwShowSavePrompt(tab, data);
       } catch (err) {}
+    } else if (e.message && e.message.startsWith('__AETHER_PAPER_META__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__AETHER_PAPER_META__'.length));
+        if (typeof _paperHandleMeta === 'function') _paperHandleMeta(tab, data);
+      } catch (err) {}
+    } else if (e.message && e.message.startsWith('__AETHER_REF_HOVER__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__AETHER_REF_HOVER__'.length));
+        if (typeof _paperShowRefTooltip === 'function') _paperShowRefTooltip(data, frame);
+      } catch (err) {}
+    } else if (e.message === '__AETHER_REF_LEAVE__') {
+      if (typeof _paperHideRefTooltip === 'function') _paperHideRefTooltip();
     }
   });
 }

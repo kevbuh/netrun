@@ -256,6 +256,11 @@ function _islandRenderPill(a) {
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
     }
+    // Paper mode — show paper icon + citation count
+    if (a._paper) {
+      const paperIcon = icon('fileText', { size: 14, stroke: '#8b5cf6' }) || icon('brain', { size: 14, stroke: '#8b5cf6' });
+      return paperIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || 'Paper') + '</span>';
+    }
     const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annColor = _annModeColors[a.modeType] || '#4caf50';
     const annIcon = a.insight ? icon('brain', { size: 14, stroke: annColor }) : icon('comment', { size: 14, stroke: annColor });
@@ -311,6 +316,54 @@ function _islandBuildTray(a, isBrowse) {
         + '<div class="island-dl-info"><div class="island-dl-name">' + escapeHtml(fname) + '</div><div class="island-dl-status">' + escapeHtml(dlStatus) + '</div>' + progressHtml + '</div>'
         + '<button class="island-dl-remove" data-island-dl-remove="' + escapeHtml(item.id) + '" title="Remove">&times;</button>'
         + '</div>';
+    }
+    return trayHtml;
+  } else if (a.type === 'insight' && a._paper && a._paperState) {
+    // Paper mode tray — show metadata from Semantic Scholar
+    var trayHtml = '';
+    var ps = a._paperState;
+    var s2 = ps.s2Data;
+    var meta = ps.meta || {};
+    // Paper title
+    var title = (s2 && s2.title) || meta.title || '';
+    if (title) {
+      trayHtml += '<div style="padding:8px 10px 4px;font-size:13px;font-weight:600;color:var(--nr-text-primary);line-height:1.4">' + escapeHtml(title) + '</div>';
+    }
+    // Citation count + year + venue
+    if (s2) {
+      var details = [];
+      if (s2.year) details.push(s2.year);
+      if (s2.venue) details.push(s2.venue);
+      if (s2.citationCount != null) details.push(s2.citationCount + ' citation' + (s2.citationCount !== 1 ? 's' : ''));
+      if (details.length) {
+        trayHtml += '<div style="padding:2px 10px 6px;font-size:11px;color:var(--nr-text-tertiary)">' + escapeHtml(details.join(' \u00b7 ')) + '</div>';
+      }
+    }
+    // Authors with h-index
+    var authors = (s2 && s2.authors) || [];
+    var authorDetails = ps.authorDetails || [];
+    if (authors.length || (meta.authors && meta.authors.length)) {
+      trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
+      var displayAuthors = authors.length ? authors.slice(0, 5) : meta.authors.slice(0, 5).map(function(n) { return { name: n }; });
+      for (var ai = 0; ai < displayAuthors.length; ai++) {
+        var author = displayAuthors[ai];
+        var name = author.name || '';
+        // Find matching author detail (h-index)
+        var detail = null;
+        for (var di = 0; di < authorDetails.length; di++) {
+          if (authorDetails[di] && authorDetails[di].name === name) { detail = authorDetails[di]; break; }
+        }
+        var hBadge = detail && detail.hIndex != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto">h-index: ' + detail.hIndex + '</span>' : '';
+        var citBadge = detail && detail.citationCount != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:6px">' + detail.citationCount.toLocaleString() + ' cit.</span>' : '';
+        trayHtml += '<div style="padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--nr-text-primary)">';
+        trayHtml += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(name) + '</span>';
+        trayHtml += hBadge + citBadge;
+        trayHtml += '</div>';
+      }
+      if ((authors.length > 5) || (meta.authors && meta.authors.length > 5)) {
+        var extra = (authors.length || meta.authors.length) - 5;
+        trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-quaternary)">+' + extra + ' more</div>';
+      }
     }
     return trayHtml;
   } else if (a.type === 'insight' && a.items && a.items.length) {
@@ -663,7 +716,7 @@ function _islandRender() {
       tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
     const hasItems = !!(a.items && a.items.length);
-    const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'insight')) || a.type === 'achievement' || a.type === 'pulse';
+    const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'insight')) || a.type === 'achievement' || a.type === 'pulse' || (a.type === 'insight' && a._paper && a._paperState);
     pill.classList.toggle('island-context', a.type === 'context');
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');

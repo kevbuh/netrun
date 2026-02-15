@@ -9,7 +9,7 @@ const _SETTINGS_SECTIONS = [
   { key: 'panel', label: 'Lookup Panel', icon: icon('chatBubble', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'agent', label: 'Agent', icon: icon('star', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'prompts', label: 'Prompts', icon: icon('prompts', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
-  { key: 'memory', label: 'Memory', icon: icon('memory', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
+  { key: 'context', label: 'Context', icon: icon('document', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'help', label: 'Help', icon: icon('help', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
 ];
 
@@ -52,7 +52,7 @@ function renderSettingsView() {
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', memory: 'Memory', help: 'Help' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', context: 'Context', help: 'Help' };
     let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
 
     if (_settingsSection === 'profile') {
@@ -72,8 +72,8 @@ function renderSettingsView() {
       content += _renderAgentSettings();
     } else if (_settingsSection === 'prompts') {
       content += _renderPromptsSettings();
-    } else if (_settingsSection === 'memory') {
-      content += _renderMemorySettings();
+    } else if (_settingsSection === 'context') {
+      content += _renderContextSettings();
     } else if (_settingsSection === 'help') {
       content += _renderHelpSettings();
     }
@@ -124,7 +124,7 @@ function renderSettingsView() {
     }
   } else if (_settingsSection === 'prompts') {
     _loadPromptsData();
-  } else if (_settingsSection === 'memory') {
-    _loadMemoryList(0);
+  } else if (_settingsSection === 'context') {
+    _loadContextFiles();
   }
 }

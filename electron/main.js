@@ -129,10 +129,14 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-// Suppress benign ERR_ABORTED from webview navigations (redirects, ad-blocker cancellations)
+// Suppress benign ERR_ABORTED from webview navigations (redirects, ad-blocker cancellations, swipe nav)
 process.on('uncaughtException', (err) => {
   if (err && err.code === 'ERR_ABORTED') return;
   console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  if (reason && (reason.code === 'ERR_ABORTED' || (reason.message && reason.message.includes('ERR_ABORTED')))) return;
+  console.error('Unhandled rejection:', reason);
 });
 
 app.on('second-instance', () => {
@@ -471,6 +475,7 @@ const sessionsWithAdblock = new WeakSet();
 app.on('web-contents-created', (event, contents) => {
   // Only handle webviews (they have a different type of webContents)
   if (contents.getType && contents.getType() === 'webview') {
+    contents.setMaxListeners(20);
     // ── Ad block request interceptor ──
     const ses = contents.session;
     if (!sessionsWithAdblock.has(ses)) {

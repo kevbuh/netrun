@@ -38,3 +38,60 @@
   border: 4px solid transparent;
   border-bottom-color: var(--nr-tooltip-border);
 }
+
+/* Reference tooltip — academic paper hover card */
+.nr-ref-tooltip {
+  position: fixed;
+  z-index: var(--nr-z-max, 10002);
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--nr-text-primary);
+  background: var(--nr-tooltip-bg);
+  border: 1px solid var(--nr-tooltip-border);
+  border-radius: var(--nr-radius-md, 8px);
+  box-shadow: 0 8px 24px var(--nr-shadow-card);
+  pointer-events: none;
+  max-width: 340px;
+  min-width: 200px;
+  white-space: normal;
+  display: none;
+}
+
+.nr-ref-tooltip-num {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--nr-text-quaternary);
+  margin-bottom: 4px;
+}
+
+.nr-ref-tooltip-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--nr-text-primary);
+  margin-bottom: 4px;
+}
+
+.nr-ref-tooltip-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--nr-text-secondary);
+  margin-bottom: 4px;
+}
+
+.nr-ref-tooltip-authors {
+  font-size: 11px;
+  color: var(--nr-text-tertiary);
+  margin-bottom: 2px;
+}
+
+.nr-ref-tooltip-details {
+  font-size: 11px;
+  color: var(--nr-text-quaternary);
+}
+
+.nr-ref-tooltip-loading {
+  font-size: 11px;
+  color: var(--nr-text-quaternary);
+  font-style: italic;
+}
