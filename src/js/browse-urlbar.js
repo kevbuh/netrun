@@ -139,8 +139,10 @@ function _getOmniInput() {
 }
 
 function _browseUrlKeydown(e) {
-  const { input, dd, ntp } = _getOmniInput();
-  const visible = dd && dd.style.display !== 'none' && !dd.classList.contains('hidden');
+  const { input, dd, ntp, island } = _getOmniInput();
+  const visible = island
+    ? !!(document.getElementById('pill-url-wrap') && document.getElementById('pill-url-wrap').classList.contains('pill-dropdown-open'))
+    : dd && dd.style.display !== 'none' && !dd.classList.contains('hidden');
 
   if (e.key === 'Enter') {
     if (visible && _browseUrlHistIdx >= 0) {
@@ -254,7 +256,12 @@ function _browseUrlShowHistory() {
   if (!filter && !ntp) {
     const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
     const tab = win?.tabs?.find(t => t.id === win.activeTab);
-    if (tab && tab.blank) { dd.style.display = 'none'; return; }
+    if (tab && tab.blank) {
+      const _pw = document.getElementById('pill-url-wrap');
+      if (_pw) _pw.classList.remove('pill-dropdown-open');
+      dd.style.display = 'none';
+      return;
+    }
   }
 
   // /history command — show browsing history in the dropdown
@@ -1028,17 +1035,23 @@ function _browseUrlHideHistory() {
   if (dd) dd.style.display = 'none';
   const ntpDd = document.getElementById('search-history-dropdown-view');
   if (ntpDd) { ntpDd.style.display = 'none'; ntpDd.classList.add('hidden'); }
-  const pillDd = document.getElementById('pill-url-dropdown');
-  if (pillDd) { pillDd.style.display = 'none'; pillDd.classList.add('hidden'); }
   const pillWrap = document.getElementById('pill-url-wrap');
   if (pillWrap) pillWrap.classList.remove('pill-dropdown-open');
   _browseUrlHistIdx = -1;
 }
 
 document.addEventListener('mousedown', (e) => {
-  const { input, dd } = _getOmniInput();
-  if (!dd || (dd.style.display === 'none' && dd.classList.contains('hidden'))) return;
-  if ((input && input.contains(e.target)) || dd.contains(e.target)) return;
+  const { input, dd, island } = _getOmniInput();
+  if (!dd) return;
+  // Check visibility: pill dropdown uses class, others use display
+  if (island) {
+    const pillWrap = document.getElementById('pill-url-wrap');
+    if (!pillWrap || !pillWrap.classList.contains('pill-dropdown-open')) return;
+    if ((input && input.contains(e.target)) || dd.contains(e.target) || (e.target.closest && e.target.closest('#pill-url-wrap'))) return;
+  } else {
+    if (dd.style.display === 'none' && dd.classList.contains('hidden')) return;
+    if ((input && input.contains(e.target)) || dd.contains(e.target)) return;
+  }
   _browseUrlHideHistory();
 });
 

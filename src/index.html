@@ -525,9 +525,6 @@
     <button id="pill-menu-btn" class="sidebar-icon" onclick="_togglePillMenu()" onmouseenter="_openPillMenuHover()" onmouseleave="_closePillMenuHover()" title="Menu">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="transform:rotate(90deg)"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
-    <button id="pill-browse-hamburger" class="sidebar-icon" onclick="_togglePillMenu()" onmouseenter="_openPillMenuHover()" onmouseleave="_closePillMenuHover()" title="Menu">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="transform:rotate(90deg)"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
-    </button>
     <button id="pill-browse-back" class="sidebar-icon pill-island-nav" onclick="browseBack()" title="Back" onmouseenter="_showHistoryDropdown('back',this)" onmouseleave="_scheduleHideHistoryDropdown()">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
     </button>
@@ -586,13 +583,16 @@
       <button id="pill-newtab-btn" class="sidebar-icon" onclick="browseNewTab()" title="New tab">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       </button>
-      <div id="pill-url-dropdown" style="display:none;" onmousedown="event.preventDefault();_browseUrlCancelHide()"></div>
+      <div id="pill-url-dropdown" onmousedown="event.preventDefault();_browseUrlCancelHide()"></div>
     </div>
     <div id="pill-island-right" class="pill-island-container"></div>
     <div id="pill-audio-unified"><span id="pill-scroll-pct"></span></div>
     <div id="pill-live-pulse"></div>
     <button id="pill-browse-more" class="sidebar-icon" onclick="toggleBrowseMoreMenu()" title="More options">
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+    </button>
+    <button id="pill-browse-hamburger" class="sidebar-icon" onclick="_togglePillMenu()" title="Menu">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
   </nav>
 

@@ -235,6 +235,40 @@ function _showTabsInPillDropdown() {
       return;
     }
   };
+
+  // Close when clicking outside or when webview steals focus
+  _pillTabsDropdownCleanup();
+  function _onOutsideClick(e) {
+    if (wrap.contains(e.target) || dd.contains(e.target)) return;
+    _browseUrlHideHistory();
+    _pillTabsDropdownCleanup();
+  }
+  function _onBlur() {
+    // Delay to distinguish real blur from transient focus shifts
+    _pillTabsBlurTimer = setTimeout(function() {
+      var w = document.getElementById('pill-url-wrap');
+      if (w && w.classList.contains('pill-dropdown-open')) {
+        _browseUrlHideHistory();
+        _pillTabsDropdownCleanup();
+      }
+    }, 150);
+  }
+  _pillTabsOutsideHandler = _onOutsideClick;
+  _pillTabsBlurHandler = _onBlur;
+  setTimeout(function() {
+    document.addEventListener('mousedown', _pillTabsOutsideHandler, true);
+  }, 0);
+  window.addEventListener('blur', _pillTabsBlurHandler);
+}
+
+var _pillTabsOutsideHandler = null;
+var _pillTabsBlurHandler = null;
+var _pillTabsBlurTimer = null;
+
+function _pillTabsDropdownCleanup() {
+  if (_pillTabsBlurTimer) { clearTimeout(_pillTabsBlurTimer); _pillTabsBlurTimer = null; }
+  if (_pillTabsOutsideHandler) { document.removeEventListener('mousedown', _pillTabsOutsideHandler, true); _pillTabsOutsideHandler = null; }
+  if (_pillTabsBlurHandler) { window.removeEventListener('blur', _pillTabsBlurHandler); _pillTabsBlurHandler = null; }
 }
 
 /* Pill mic button — record audio, live transcription in audio pill, final Whisper result */
