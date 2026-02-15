@@ -1998,7 +1998,7 @@
       width: 100%;
       max-height: 320px;
       overflow-y: auto;
-      border-top: 1px solid var(--aether-text-dimmest, rgba(255,255,255,0.1));
+      border-top: none;
       border-radius: 0 0 12px 12px;
       background: var(--pill-surface, var(--aether-hover));
       z-index: 10;
