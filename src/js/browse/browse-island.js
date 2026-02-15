@@ -165,6 +165,78 @@ function _pillUrlKeydown(e) {
   }
 }
 
+/* Show tabs inside the pill-url-dropdown */
+function _showTabsInPillDropdown() {
+  const dd = document.getElementById('pill-url-dropdown');
+  const wrap = document.getElementById('pill-url-wrap');
+  if (!dd || !wrap) return;
+
+  const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+  if (!win || !win.tabs || !win.tabs.length) return;
+
+  const tabs = win.tabs;
+  const activeTab = win.activeTab;
+  const pinnedItems = tabs.filter(function(t) { return t.pinned; });
+  const unpinnedItems = tabs.filter(function(t) { return !t.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
+
+  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
+
+  let html = '<div style="' + rowStyle + '" onmouseenter="this.style.background=\'var(--bg-hover)\'" onmouseleave="this.style.background=\'none\'" data-pill-tab-new="1">';
+  html += '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+  html += '<span>New tab</span></div>';
+
+  function renderTab(t) {
+    const isActive = t.id === activeTab;
+    const title = (t.title || 'New Tab').length > 40 ? (t.title || 'New Tab').slice(0, 38) + '\u2026' : (t.title || 'New Tab');
+    const fav = t.favicon ? '<img src="' + escapeHtml(t.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+    const bg = isActive ? 'background:var(--bg-hover);' : '';
+    html += '<div style="' + rowStyle + bg + '" onmouseenter="this.style.background=\'var(--bg-hover)\'" onmouseleave="this.style.background=\'' + (isActive ? 'var(--bg-hover)' : 'none') + '\'" data-pill-tab-switch="' + t.id + '">';
+    html += fav;
+    html += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(title) + '</span>';
+    html += '<button data-pill-tab-close="' + t.id + '" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);font-size:1rem;line-height:1;padding:0 2px;opacity:0.5" onmouseenter="this.style.opacity=\'1\'" onmouseleave="this.style.opacity=\'0.5\'">&times;</button>';
+    html += '</div>';
+  }
+
+  if (pinnedItems.length) {
+    pinnedItems.forEach(renderTab);
+    if (unpinnedItems.length) html += '<div style="height:1px;background:var(--aether-border, var(--border-card));margin:2px 12px"></div>';
+  }
+  unpinnedItems.forEach(renderTab);
+
+  dd.innerHTML = html;
+  dd.style.display = '';
+  dd.classList.remove('hidden');
+  wrap.classList.add('pill-dropdown-open');
+
+  // Attach click handlers via delegation
+  dd.onclick = function(e) {
+    const closeBtn = e.target.closest('[data-pill-tab-close]');
+    if (closeBtn) {
+      e.stopPropagation();
+      const id = +closeBtn.getAttribute('data-pill-tab-close');
+      if (typeof browseCloseTab === 'function') browseCloseTab(id);
+      // Re-render after close
+      setTimeout(_showTabsInPillDropdown, 50);
+      return;
+    }
+    const newBtn = e.target.closest('[data-pill-tab-new]');
+    if (newBtn) {
+      e.stopPropagation();
+      if (typeof browseNewTab === 'function') browseNewTab();
+      _browseUrlHideHistory();
+      return;
+    }
+    const switchBtn = e.target.closest('[data-pill-tab-switch]');
+    if (switchBtn) {
+      e.stopPropagation();
+      const id = +switchBtn.getAttribute('data-pill-tab-switch');
+      if (typeof browseSelectTab === 'function') browseSelectTab(id);
+      _browseUrlHideHistory();
+      return;
+    }
+  };
+}
+
 /* Pill mic button — record audio, live transcription in audio pill, final Whisper result */
 let _pillMicRecorder = null;
 let _pillMicRecognition = null;

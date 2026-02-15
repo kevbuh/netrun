@@ -474,12 +474,24 @@ function _islandAttachHandlers(pill, a, hasTray) {
   // Hover/click management for tray
   if (hasTray) {
     if (a.type === 'tabs') {
-      // Tabs/annotate uses click-to-toggle instead of hover
+      // Tabs uses click — in island mode, render into pill-url-dropdown
       if (!pill._islandClickBound) {
         pill._islandClickBound = true;
         pill.style.cursor = 'pointer';
         pill.addEventListener('click', function(e) {
           if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss]')) return;
+          // Island mode: use connected pill dropdown
+          if (typeof _showTabsInPillDropdown === 'function') {
+            var pillDd = document.getElementById('pill-url-dropdown');
+            var pillWrap = document.getElementById('pill-url-wrap');
+            if (pillDd && pillWrap && pillWrap.classList.contains('pill-dropdown-open') && pillDd.querySelector('[data-pill-tab-switch]')) {
+              // Already showing tabs — close it
+              if (typeof _browseUrlHideHistory === 'function') _browseUrlHideHistory();
+            } else {
+              _showTabsInPillDropdown();
+            }
+            return;
+          }
           pill.classList.toggle('island-tray-open');
         });
         // Close on outside click or focus loss (webview clicks don't bubble)
