@@ -578,6 +578,8 @@
     body.electron-app .pill-bar.browse-mode .browse-tab,
     body.electron-app .pill-bar.browse-mode .browse-split-pill,
     body.electron-app .pill-bar.browse-mode .browse-window-switcher,
+    body.electron-app .pill-bar.browse-mode #pill-window-list-btn,
+    body.electron-app .pill-bar.browse-mode .browse-window-list-btn,
     body.electron-app .pill-bar.browse-mode #pill-browse-url-input,
     body.electron-app .pill-bar.browse-mode #pill-island-tabs-anchor {
       -webkit-app-region: no-drag;
@@ -780,6 +782,7 @@
     /* NTP: hide all browse chrome, show only island + nav icons */
     .browse-mode.ntp-active #pill-menu-btn,
     .browse-mode.ntp-active #pill-browse-hamburger,
+    .browse-mode.ntp-active #pill-window-list-btn,
     .browse-mode.ntp-active #pill-browse-url,
     .browse-mode.ntp-active #pill-browse-url-input,
     .browse-mode.ntp-active #pill-browse-reload,
@@ -3153,6 +3156,138 @@
       color: var(--text-muted);
       padding: 0 2px;
       font-weight: 500;
+    }
+
+    /* Window list button */
+    .browse-window-list-btn {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      background: var(--bg-hover);
+      border: none;
+      border-radius: 6px;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: color 0.15s, background 0.15s;
+      -webkit-app-region: no-drag;
+      margin-left: auto;
+    }
+    .browse-window-list-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-card);
+    }
+    /* Pill bar window list button — hidden by default, shown in browse mode */
+    #pill-window-list-btn {
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      flex-shrink: 0;
+      margin: 0;
+    }
+    .browse-mode #pill-window-list-btn {
+      display: flex;
+      max-width: 50px;
+      opacity: 1;
+      padding: 2px 6px;
+      margin-left: 2px;
+    }
+    .browse-window-list-badge {
+      font-size: 0.58rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      min-width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+      line-height: 1;
+    }
+
+    /* Window list dropdown */
+    #browse-window-list-dd {
+      position: fixed;
+      min-width: 200px;
+      max-width: 300px;
+      background: var(--bg-popup);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      box-shadow: 0 8px 32px var(--shadow-popup);
+      z-index: 10001;
+      padding: 4px;
+      overflow-y: auto;
+      max-height: 360px;
+    }
+    .browse-window-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .browse-window-list-item:hover {
+      background: var(--bg-hover);
+    }
+    .browse-window-list-item.active .browse-window-list-name {
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .browse-window-list-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.78rem;
+      color: var(--text-primary);
+    }
+    .browse-window-list-count {
+      font-size: 0.68rem;
+      color: var(--text-dimmer);
+      flex-shrink: 0;
+    }
+    .browse-window-list-close {
+      background: none;
+      border: none;
+      color: var(--text-dimmer);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 2px;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .browse-window-list-item:hover .browse-window-list-close {
+      opacity: 0.6;
+    }
+    .browse-window-list-close:hover {
+      opacity: 1 !important;
+      color: var(--text-primary);
+    }
+    .browse-window-list-new {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: var(--text-dimmer);
+      border-top: 1px solid var(--border-card);
+      margin-top: 2px;
+      transition: background 0.1s, color 0.15s;
+    }
+    .browse-window-list-new:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
     }
 
     /* Save input row for windows */

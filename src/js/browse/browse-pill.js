@@ -119,20 +119,14 @@ function _pillSyncTabs() {
     }
   }
 
-  // Window switcher at the end
-  if (_browseWindows.length > 1) {
-    const winIdx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-    html += '<div class="browse-window-switcher" data-window-idx="' + winIdx + '">' +
-      '<button class="browse-window-arrow up ' + (winIdx === 0 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowUp()" title="Previous window">' +
-        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>' +
-      '</button>' +
-      '<button class="browse-window-arrow down ' + (winIdx === _browseWindows.length - 1 ? 'disabled' : '') + '" onclick="event.stopPropagation();switchWindowDown()" title="Next window">' +
-        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>' +
-      '</button>' +
-    '</div>';
-  }
+  // Window list button at the end
+  html += '<button class="browse-window-list-btn" onclick="event.stopPropagation();toggleWindowListDropdown(this)" title="All windows">' +
+    '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18M9 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<span class="browse-window-list-badge">' + _browseWindows.length + '</span>' +
+  '</button>';
 
   pillTabs.innerHTML = html;
+  _syncWindowListBadge();
 
   // Attach event listeners
   pillTabs.querySelectorAll('.browse-tab').forEach(tabEl => {
@@ -246,5 +240,72 @@ function _closePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.remove('menu-expanded');
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
+}
+
+// ── Window list dropdown ──
+
+function _syncWindowListBadge() {
+  const badge = document.getElementById('pill-window-list-badge');
+  if (badge) badge.textContent = _browseWindows.length;
+}
+
+let _windowListOutsideHandler = null;
+
+function toggleWindowListDropdown(btnEl) {
+  const dd = document.getElementById('browse-window-list-dd');
+  if (!dd) return;
+  if (dd.style.display !== 'none') {
+    _closeWindowListDropdown();
+    return;
+  }
+  _renderWindowListDropdown();
+  dd.style.display = '';
+  // Position below the button
+  const rect = btnEl.getBoundingClientRect();
+  dd.style.position = 'fixed';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.left = Math.max(4, rect.left - 80) + 'px';
+  // Ensure it doesn't overflow right edge
+  requestAnimationFrame(() => {
+    const ddRect = dd.getBoundingClientRect();
+    if (ddRect.right > window.innerWidth - 4) {
+      dd.style.left = (window.innerWidth - ddRect.width - 4) + 'px';
+    }
+  });
+  // Close on outside click
+  _windowListOutsideHandler = function(e) {
+    if (dd.contains(e.target) || e.target.closest('.browse-window-list-btn')) return;
+    _closeWindowListDropdown();
+  };
+  setTimeout(() => document.addEventListener('mousedown', _windowListOutsideHandler), 0);
+}
+
+function _closeWindowListDropdown() {
+  const dd = document.getElementById('browse-window-list-dd');
+  if (dd) dd.style.display = 'none';
+  if (_windowListOutsideHandler) {
+    document.removeEventListener('mousedown', _windowListOutsideHandler);
+    _windowListOutsideHandler = null;
+  }
+}
+
+function _renderWindowListDropdown() {
+  const dd = document.getElementById('browse-window-list-dd');
+  if (!dd) return;
+  let html = '';
+  for (const w of _browseWindows) {
+    const isActive = w.id === _browseActiveWindow;
+    const tabCount = w.tabs.length;
+    html += '<div class="browse-window-list-item' + (isActive ? ' active' : '') + '" data-win-id="' + w.id + '" onclick="browseSelectWindow(' + w.id + ');_closeWindowListDropdown()">' +
+      '<span class="browse-window-list-name">' + escapeHtml(w.name) + '</span>' +
+      '<span class="browse-window-list-count">' + tabCount + ' tab' + (tabCount !== 1 ? 's' : '') + '</span>' +
+      '<button class="browse-window-list-close" onclick="event.stopPropagation();browseCloseWindow(' + w.id + ');_renderWindowListDropdown()" title="Close window">&times;</button>' +
+    '</div>';
+  }
+  html += '<div class="browse-window-list-new" onclick="browseCreateWindow();_closeWindowListDropdown()">' +
+    '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>' +
+    '<span>New Window</span>' +
+  '</div>';
+  dd.innerHTML = html;
 }
 
