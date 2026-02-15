@@ -689,7 +689,7 @@
       flex-wrap: wrap;
       border-radius: 14px;
       gap: 2px;
-      width: 180px;
+      width: fit-content;
     }
     .browse-mode.island-mode #pill-browse-more {
       display: none;
@@ -758,6 +758,8 @@
       background: transparent;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      padding-left: 0;
+      padding-right: 0;
     }
     /* Pill container constrained dynamically via JS --island-pills-max-w */
     .browse-mode.island-mode .pill-island-container {
