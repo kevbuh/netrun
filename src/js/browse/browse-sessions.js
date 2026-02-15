@@ -157,7 +157,7 @@ function _toggleSessionsDropdown() {
     // Close on click outside
     setTimeout(() => {
       const handler = (e) => {
-        if (!e.target.closest('.browse-sessions-dropdown')) {
+        if (!e.target.closest('.browse-sessions-dropdown nr-menu')) {
           menu.style.display = 'none';
           if (toggle) toggle.classList.remove('open');
           document.removeEventListener('mousedown', handler);

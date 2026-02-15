@@ -109,7 +109,7 @@ document.addEventListener('mousedown', function(e) {
   if (e.target.isContentEditable) return;
   if (e.target.closest('#sidebar-nav')) return;
   if (e.target.closest('#browse-bar')) return;
-  if (e.target.closest('.doc-selection-popup')) return;
+  if (e.target.closest('.nr-toast')) return;
   if (e.target.closest('a[href]')) return;
   if (e.target.closest('[onclick]')) return;
   _selPopupDragging = true;
@@ -347,7 +347,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') {
     const popup = document.getElementById('doc-chat-ask-float');
     if (!popup) return;
-    const askInput = popup.querySelector('.doc-ask-inline-input');
+    const askInput = popup.querySelector('.nr-input');
     if (!askInput) return;
 
     const selection = window.getSelection();
@@ -396,7 +396,7 @@ document.addEventListener('keydown', function(e) {
 function _handleContextMenuChat(e) {
   if (localStorage.getItem('clickAether') === 'off') return;
   // Don't intercept on login or onboarding screens
-  const loginGate = document.getElementById('login-gate');
+  const loginGate = document.getElementById('nr-modal-backdrop');
   if (loginGate && loginGate.style.display !== 'none') return;
   const onboard = document.getElementById('onboard-view');
   if (onboard && onboard.style.display !== 'none') return;
@@ -611,7 +611,7 @@ function _pasteIntoElement(el, text) {
 
 function _flashCopyBtn(popup) {
   // Find the right copy button: selection copy or chat copy
-  const btn = popup.querySelector('.doc-selection-copy-btn')
+  const btn = popup.querySelector('.nr-btn nr-btn-icon')
     || (popup._copyChatBtn && popup._copyChatBtn.style.display !== 'none' ? popup._copyChatBtn : null);
   if (!btn) return;
   btn.textContent = 'Copied';
@@ -971,7 +971,7 @@ function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
           _pasteIntoElement(priorEditable, text);
           popup.remove();
         } else {
-          const input = popup.querySelector('.doc-ask-inline-input');
+          const input = popup.querySelector('.nr-input');
           if (input) { input.value = text; input.focus(); }
         }
       }).catch(() => {});
@@ -992,11 +992,11 @@ function _panelBuildSelectionUI(popup, config) {
   if (!(finalized && capturedText && !editableTarget)) return;
 
   const btnRow = document.createElement('div');
-  btnRow.className = 'doc-selection-popup-btns';
+  btnRow.className = 'nr-toast-btns';
 
   // Copy button
   const copyBtn = document.createElement('button');
-  copyBtn.className = 'doc-selection-copy-btn';
+  copyBtn.className = 'nr-btn nr-btn-icon';
   copyBtn.title = 'Copy';
   copyBtn.innerHTML = icon('copy', { size: 14 });
   copyBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
@@ -1011,7 +1011,7 @@ function _panelBuildSelectionUI(popup, config) {
 
   // Read Aloud button — uses existing Kokoro TTS system
   const readBtn = document.createElement('button');
-  readBtn.className = 'doc-selection-copy-btn';
+  readBtn.className = 'nr-btn nr-btn-icon';
   readBtn.title = 'Read aloud';
   readBtn.innerHTML = icon('speaker', { size: 14 });
   readBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
@@ -1051,7 +1051,7 @@ function _panelBuildSelectionUI(popup, config) {
   // "Read from here" button — reads from selection to end of page
   if (typeof _getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
     const fromHereBtn = document.createElement('button');
-    fromHereBtn.className = 'doc-selection-copy-btn';
+    fromHereBtn.className = 'nr-btn nr-btn-icon';
     fromHereBtn.innerHTML = icon('play', { size: 14 });
     fromHereBtn.title = 'Read from this point to the end of the page';
     fromHereBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
@@ -1108,7 +1108,7 @@ function _panelBuildSelectionUI(popup, config) {
 
   // Annotate "+" button — mark selected text as a specific annotation type
   const annotateBtn = document.createElement('button');
-  annotateBtn.className = 'doc-selection-copy-btn';
+  annotateBtn.className = 'nr-btn nr-btn-icon';
   annotateBtn.title = 'Mark as annotation';
   annotateBtn.innerHTML = icon('plus', { size: 14 });
   annotateBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
@@ -1163,7 +1163,7 @@ function _panelBuildSelectionUI(popup, config) {
 
   // Clear button — positioned on far right
   const clearBtnIcon = document.createElement('button');
-  clearBtnIcon.className = 'doc-selection-copy-btn';
+  clearBtnIcon.className = 'nr-btn nr-btn-icon';
   clearBtnIcon.title = 'Clear conversation';
   clearBtnIcon.style.marginLeft = 'auto';
   clearBtnIcon.innerHTML = icon('close', { size: 14 });
@@ -1231,7 +1231,7 @@ function _panelBuildTopBar(popup) {
 
   // Redo button — resend last user message
   const redoBtn = document.createElement('button');
-  redoBtn.className = 'aether-topbar-btn';
+  redoBtn.className = 'nr-btn nr-btn-icon';
   redoBtn.textContent = 'Redo';
   redoBtn.style.display = 'none';
   redoBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1248,7 +1248,7 @@ function _panelBuildTopBar(popup) {
     _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
     // Re-insert user message and re-send
-    const input = popup.querySelector('.doc-ask-inline-input');
+    const input = popup.querySelector('.nr-input');
     if (input) input.value = lastUserMsg._display || lastUserMsg.content;
     _sendPopupChatMessage(popup, popup._capturedText || '');
   });
@@ -1257,7 +1257,7 @@ function _panelBuildTopBar(popup) {
 
   // Copy chat button — copy last AI response
   const copyChatBtn = document.createElement('button');
-  copyChatBtn.className = 'aether-topbar-btn';
+  copyChatBtn.className = 'nr-btn nr-btn-icon';
   copyChatBtn.style.display = 'none';
   copyChatBtn.textContent = 'Copy';
   copyChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1388,10 +1388,10 @@ function _panelBuildChatInput(popup, config) {
   const askInput = document.createElement('input');
   askInput.type = 'text';
   askInput.placeholder = 'Ask anything…';
-  askInput.className = 'doc-ask-inline-input';
+  askInput.className = 'nr-input';
 
   const sendBtn = document.createElement('button');
-  sendBtn.className = 'aether-input-btn doc-ask-inline-send';
+  sendBtn.className = 'nr-btn nr-btn-icon doc-ask-inline-send';
   sendBtn.innerHTML = '↑';
   sendBtn.title = 'Send';
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -1406,8 +1406,8 @@ function _panelBuildChatInput(popup, config) {
     ev.stopPropagation();
     const val = askInput.value;
     const isCmd = val.startsWith('/');
-    const dropdown = popup.querySelector('.aether-cmd-dropdown');
-    const noteDropdown = popup.querySelector('.aether-note-dropdown:not(.aether-model-dropdown):not(.aether-history-dropdown)');
+    const dropdown = popup.querySelector('.aether-cmd-dropdown nr-menu');
+    const noteDropdown = popup.querySelector('.aether-note-dropdown nr-menu:not(.aether-model-dropdown):not(.aether-history-dropdown)');
     const modelDropdown = popup.querySelector('.aether-model-dropdown');
 
     // Arrow keys navigate model dropdown
@@ -1432,7 +1432,7 @@ function _panelBuildChatInput(popup, config) {
     }
 
     // Arrow keys navigate tab dropdown
-    const tabDropdown = popup.querySelector('.aether-tab-dropdown');
+    const tabDropdown = popup.querySelector('.aether-tab-dropdown nr-menu');
     if (tabDropdown && _aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
       if (ev.key === 'ArrowDown') _aetherTabIdx = Math.min(_aetherTabIdx + 1, _aetherTabList.length - 1);
@@ -1506,7 +1506,7 @@ function _panelBuildChatInput(popup, config) {
       if (ev.key === 'ArrowDown') _aetherCmdIdx = Math.min(_aetherCmdIdx + 1, items.length - 1);
       else _aetherCmdIdx = Math.max(_aetherCmdIdx - 1, 0);
       _aetherRenderCmdDropdown(popup, val.slice(1).trim());
-      const dd = popup.querySelector('.aether-cmd-dropdown');
+      const dd = popup.querySelector('.aether-cmd-dropdown nr-menu');
       const sel = dd && dd.querySelector('.aether-cmd-item.selected');
       if (sel) sel.scrollIntoView({ block: 'nearest' });
       return;
@@ -1622,7 +1622,7 @@ function _panelBuildChatInput(popup, config) {
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
   // Mic button for voice input (MediaRecorder + Whisper)
   const micBtn = document.createElement('button');
-  micBtn.className = 'aether-input-btn doc-ask-mic-btn';
+  micBtn.className = 'nr-btn nr-btn-icon doc-ask-mic-btn';
   micBtn.innerHTML = icon('microphone', { size: 14 });
   micBtn.title = 'Voice input';
   let micRecorder = null;
@@ -1702,7 +1702,7 @@ function _panelBuildCopyKeyHandler(popup) {
     if (!((e.metaKey || e.ctrlKey) && e.key === 'c')) return;
     if (!popup.isConnected) { document.removeEventListener('keydown', _onCopyKey, true); return; }
     // Only act when the input is empty (user hasn't typed anything)
-    const input = popup.querySelector('.doc-ask-inline-input');
+    const input = popup.querySelector('.nr-input');
     if (input && input.value) return;
     // Copy the captured selection text if available
     const text = popup._capturedText;
@@ -1766,7 +1766,7 @@ function _panelPositionAndFocus(popup, config) {
     popup._aetherAnchorX = x;
     popup._aetherAnchorY = y;
     const rect = popup.getBoundingClientRect();
-    const askInput = popup.querySelector('.doc-ask-inline-input');
+    const askInput = popup.querySelector('.nr-input');
     let inputOffsetX = 0, inputOffsetY = 0;
     if (askInput) {
       const inputRect = askInput.getBoundingClientRect();
@@ -1793,7 +1793,7 @@ function _panelPositionAndFocus(popup, config) {
 
   // Auto-focus input
   if (finalized) {
-    const askInput = popup.querySelector('.doc-ask-inline-input');
+    const askInput = popup.querySelector('.nr-input');
     if (askInput) {
       if (isSelectionAnchor) {
         setTimeout(() => askInput.focus(), 10);
@@ -1806,7 +1806,7 @@ function _panelPositionAndFocus(popup, config) {
 
   // Pre-fill input and trigger command dropdown if initialValue provided
   if (finalized && initialValue) {
-    const askInput = popup.querySelector('.doc-ask-inline-input');
+    const askInput = popup.querySelector('.nr-input');
     if (askInput) {
       askInput.value = initialValue;
       if (initialValue.startsWith('/')) {
@@ -1858,7 +1858,7 @@ function _showPanel(config) {
 
   const popup = document.createElement('div');
   popup.id = 'doc-chat-ask-float';
-  popup.className = 'doc-selection-popup';
+  popup.className = 'nr-toast';
   const _origRemove = popup.remove.bind(popup);
   popup.remove = function() { _origRemove(); };
 

@@ -770,7 +770,7 @@ function renderCustomFeedsList() {
     <div class="flex items-center justify-between gap-2 bg-input rounded-md px-3 py-2">
       <span class="text-primary text-[0.78rem] truncate flex-1" title="${escapeHtml(f.url)}">${escapeHtml(f.name || f.url)}</span>
       <div class="flex items-center gap-2 shrink-0">
-        <span class="toggle-switch">
+        <span class="nr-switch">
           <input type="checkbox" ${f.enabled !== false ? 'checked' : ''} onchange="toggleCustomFeed(${i}, this.checked)">
           <span class="slider"></span>
         </span>
@@ -878,7 +878,7 @@ function renderQualityPanel() {
       </div>
       <label class="flex items-center gap-1.5 cursor-pointer">
         <span class="text-dim text-[0.7rem]">${isQualityFilterOn() ? 'On' : 'Off'}</span>
-        <span class="toggle-switch" style="transform:scale(0.8)">
+        <span class="nr-switch" style="transform:scale(0.8)">
           <input type="checkbox" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked); renderQualityPanel()">
           <span class="slider"></span>
         </span>
@@ -1072,7 +1072,7 @@ function renderQualityView() {
       <span class="text-dimmer text-[0.68rem]">qwen3:8b</span>
       <label class="flex items-center gap-2 cursor-pointer ml-auto">
         <span class="text-primary text-sm">Enable</span>
-        <span class="toggle-switch">
+        <span class="nr-switch">
           <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
           <span class="slider"></span>
         </span>

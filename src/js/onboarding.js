@@ -41,7 +41,7 @@ function _renderOnboardingWizard() {
   const container = document.getElementById('onboarding-container');
   if (!container) return;
   // Build the wizard shell — a floating card
-  container.innerHTML = `<div id="onboarding-wizard" class="auth-modal wizard-mode" style="position:relative;"></div>`;
+  container.innerHTML = `<div id="onboarding-wizard" class="nr-modal wizard-mode" style="position:relative;"></div>`;
   _wizardStep = 0;
   _renderWizardStep(0, 'forward');
 }
@@ -55,7 +55,7 @@ function _wizardUpdateAccentGlow() {
   const g = parseInt(hex.slice(2,4), 16) || 0;
   const b = parseInt(hex.slice(4,6), 16) || 0;
   modal.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.15)`);
-  modal.classList.add('wizard-glow');
+  modal.classList.add('wizard-glow', 'nr-glow');
 }
 
 function _wizardAnimateHeight(wizard, step) {
@@ -139,7 +139,7 @@ function _wizardWelcomeHTML() {
       ${avatarHTML}
       <div style="font-size:22px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:6px;">Welcome, ${firstName}</div>
       <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:24px;">Let's get your workspace set up. This only takes a moment.</div>
-      <button class="wizard-btn wizard-btn-primary" onclick="_renderWizardStep(1, 'forward')">Get started</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(1, 'forward')">Get started</button>
     </div>
   `;
 }
@@ -155,7 +155,7 @@ function _wizardUsernameHTML() {
         style="width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;" />
       <div id="wiz-username-hint" style="font-size:11px;color:var(--nr-text-secondary,#999);margin-top:6px;">2-20 characters: letters, numbers, hyphens, underscores</div>
       <div id="wiz-username-error" style="font-size:12px;color:#e74c3c;margin-top:6px;min-height:18px;"></div>
-      <button id="wiz-username-btn" class="wizard-btn wizard-btn-primary" style="margin-top:4px;" disabled onclick="_wizardSubmitUsername()">Continue</button>
+      <button id="wiz-username-btn" class="nr-btn nr-btn nr-btn-primary nr-btn-lg" style="margin-top:4px;" disabled onclick="_wizardSubmitUsername()">Continue</button>
     </div>
   `;
 }
@@ -221,7 +221,7 @@ function _wizardAccentHTML() {
         `).join('')}
       </div>
       <div id="wiz-color-name" style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:16px;">${currentName}</div>
-      <button class="wizard-btn wizard-btn-primary" onclick="_wizardAccentContinue()">Continue</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardAccentContinue()">Continue</button>
     </div>
   `;
 }
@@ -280,7 +280,7 @@ function _wizardThemeHTML() {
           </button>
         `).join('')}
       </div>
-      <button class="wizard-btn wizard-btn-primary" onclick="_wizardThemeContinue()">Continue</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardThemeContinue()">Continue</button>
     </div>
   `;
 }
@@ -321,8 +321,8 @@ function _wizardNeuralookHTML() {
       <div style="margin-bottom:24px;">
         <svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
-      <button class="wizard-btn wizard-btn-primary" onclick="_wizardStartNeuralook()">Calibrate now</button>
-      <button class="wizard-btn wizard-btn-secondary" onclick="_renderWizardStep(5, 'forward')">Set up later</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardStartNeuralook()">Calibrate now</button>
+      <button class="nr-btn nr-btn nr-btn-ghost" onclick="_renderWizardStep(5, 'forward')">Set up later</button>
     </div>
   `;
 }
@@ -344,7 +344,7 @@ function _wizardFinaleHTML() {
       </div>
       <div style="font-size:22px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:6px;">You're all set, @${username}</div>
       <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:24px;">Neural link established. Jack in.</div>
-      <button class="wizard-btn wizard-btn-primary" onclick="_wizardFinish()">Enter the Net</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardFinish()">Enter the Net</button>
     </div>
   `;
 }

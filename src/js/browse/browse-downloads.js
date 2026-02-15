@@ -212,7 +212,7 @@ function _browseUpdateDownloadBadge() {
 }
 
 function _browseRenderDownloads() {
-  const dropdown = document.getElementById('browse-downloads-dropdown');
+  const dropdown = document.getElementById('browse-downloads-dropdown nr-menu');
   if (!dropdown) return;
 
   if (_browseDownloads.length === 0) {
@@ -248,8 +248,8 @@ function _browseRenderDownloads() {
         ${progressBar}
       </div>
       <div class="browse-download-item-actions">
-        ${dl.state === 'completed' ? `<button class="browse-download-item-btn" onclick="event.stopPropagation();showDownloadInFolder('${dl.id}')" title="Show in folder"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></button>` : ''}
-        <button class="browse-download-item-btn" onclick="event.stopPropagation();removeBrowseDownload('${dl.id}')" title="Remove"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        ${dl.state === 'completed' ? `<button class="nr-btn nr-btn-ghost nr-btn-sm" onclick="event.stopPropagation();showDownloadInFolder('${dl.id}')" title="Show in folder"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></button>` : ''}
+        <button class="nr-btn nr-btn-ghost nr-btn-sm" onclick="event.stopPropagation();removeBrowseDownload('${dl.id}')" title="Remove"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
     </div>`;
   }
@@ -268,7 +268,7 @@ function _formatBytes(bytes) {
 }
 
 function _closeBrowseDownloadsDropdown() {
-  const dropdown = document.getElementById('browse-downloads-dropdown');
+  const dropdown = document.getElementById('browse-downloads-dropdown nr-menu');
   if (dropdown) dropdown.style.display = 'none';
   document.removeEventListener('click', _closeBrowseDownloadsOnClick);
   window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
@@ -277,7 +277,7 @@ function _closeBrowseDownloadsDropdown() {
 function toggleBrowseDownloads(event) {
   if (event) event.stopPropagation();
 
-  const dropdown = document.getElementById('browse-downloads-dropdown');
+  const dropdown = document.getElementById('browse-downloads-dropdown nr-menu');
   if (!dropdown) return;
 
   if (dropdown.style.display === 'none') {

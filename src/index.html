@@ -232,7 +232,7 @@
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>
       </button>
       <div id="browse-tabs" class="flex items-end flex-1 overflow-x-auto"></div>
-      <div id="browse-toolbar-sessions" class="browse-sessions-dropdown browse-panel-btn shrink-0"></div>
+      <div id="browse-toolbar-sessions" class="browse-sessions-dropdown nr-menu browse-panel-btn shrink-0"></div>
       <button id="browse-toolbar-newwin" class="browse-toolbar-btn browse-panel-btn shrink-0 w-7 h-7" onclick="browseCreateWindow()" title="New Window">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       </button>
@@ -275,7 +275,7 @@
           <span id="browse-download-progress-ring" class="browse-download-ring" style="display:none"></span>
           <span id="browse-download-badge" class="absolute -top-0.5 -right-0.5 text-[0.55rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none" style="display:none;background:var(--nr-accent);color:#fff;"></span>
         </button>
-        <div id="browse-downloads-dropdown" class="browse-downloads-dropdown" style="display:none"></div>
+        <div id="browse-downloads-dropdown nr-menu" class="browse-downloads-dropdown nr-menu" style="display:none"></div>
       </div>
       <button id="browse-save-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseSaveToReadingList()" title="Save to Reading List">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
@@ -390,20 +390,20 @@
   </script>
 
   <!-- New Folder Modal -->
-  <div id="vault-folder-modal" class="vault-modal-overlay" style="display:none;">
-    <div class="vault-modal">
-      <div class="vault-modal-header">
+  <div id="vault-folder-modal" class="nr-modal-backdrop" style="display:none;">
+    <div class="nr-modal">
+      <div class="nr-modal-header">
         <span class="text-[0.9rem] font-semibold text-primary">New Folder</span>
-        <button onclick="hideVaultFolderModal()" class="vault-modal-close">
+        <button onclick="hideVaultFolderModal()" class="nr-modal-close">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="vault-modal-body">
-        <input type="text" id="vault-folder-name-input" class="vault-modal-input" placeholder="Folder name" autocomplete="off">
+      <div class="nr-modal-body">
+        <input type="text" id="vault-folder-name-input" class="nr-input" placeholder="Folder name" autocomplete="off">
       </div>
-      <div class="vault-modal-footer">
-        <button onclick="hideVaultFolderModal()" class="vault-modal-btn-cancel">Cancel</button>
-        <button onclick="confirmVaultNewFolder()" class="vault-modal-btn-confirm">Create</button>
+      <div class="nr-modal-footer">
+        <button onclick="hideVaultFolderModal()" class="nr-btn nr-btn-secondary">Cancel</button>
+        <button onclick="confirmVaultNewFolder()" class="nr-btn nr-btn-primary">Create</button>
       </div>
     </div>
   </div>

@@ -87,16 +87,18 @@
   position: absolute;
 }
 
-.nr-switch-track {
+.nr-switch-track,
+.nr-switch .slider {
   position: absolute;
   inset: 0;
-  background: var(--nr-border-strong);
+  background: color-mix(in srgb, var(--nr-accent) 30%, #999);
   border-radius: 10px;
   transition: background 0.2s ease;
   cursor: pointer;
 }
 
-.nr-switch-track::after {
+.nr-switch-track::before,
+.nr-switch .slider::before {
   content: '';
   position: absolute;
   top: 2px;
@@ -105,15 +107,19 @@
   height: 16px;
   border-radius: 50%;
   background: #fff;
-  transition: transform 0.2s ease;
+  opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.nr-switch input:checked + .nr-switch-track {
+.nr-switch input:checked + .nr-switch-track,
+.nr-switch input:checked + .slider {
   background: var(--nr-accent);
 }
 
-.nr-switch input:checked + .nr-switch-track::after {
+.nr-switch input:checked + .nr-switch-track::before,
+.nr-switch input:checked + .slider::before {
   transform: translateX(16px);
+  opacity: 1;
 }
 
 /* Label wrapper */

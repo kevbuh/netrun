@@ -918,8 +918,9 @@ function _nlShowTrainPill() {
     fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--nr-text-primary, #e5e5e5)',
     opacity: '0',
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
-    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'
   });
+  if (window.Aether && Aether.materials) Aether.materials.apply(pill, 'regular');
+  else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
   pill.innerHTML = `
     <div style="width:18px;height:18px;flex-shrink:0;" id="nl-pill-icon">
       <svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite">
@@ -1631,8 +1632,10 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
     fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--nr-text-primary, #e5e5e5)',
     opacity: '0',
     display: 'flex', alignItems: 'center', gap: '10px',
-    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
+    cursor: 'pointer'
   });
+  if (window.Aether && Aether.materials) Aether.materials.apply(pill, 'regular');
+  else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
   pill.innerHTML = `
     <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#60a5fa"/><path d="M9 5v4l3 2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div style="line-height:1.4;">

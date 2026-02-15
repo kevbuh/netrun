@@ -59,15 +59,15 @@ function _renderAudioPill() {
 
   if (micRecording) {
     indicator.innerHTML = icon('microphone', { size: 14, stroke: '#ef4444' });
-    indicator.classList.add('audio-pill-active');
+    indicator.classList.add('audio-pill-active', 'nr-breathe');
     indicator.classList.remove('audio-pill-idle');
   } else if (active) {
     indicator.innerHTML = _islandAudioBars;
     indicator.classList.add('audio-pill-active');
-    indicator.classList.remove('audio-pill-idle');
+    indicator.classList.remove('audio-pill-idle', 'nr-breathe');
   } else {
     indicator.innerHTML = '<span class="audio-pill-dot"></span>';
-    indicator.classList.remove('audio-pill-active');
+    indicator.classList.remove('audio-pill-active', 'nr-breathe');
     indicator.classList.add('audio-pill-idle');
   }
 
@@ -76,6 +76,7 @@ function _renderAudioPill() {
   if (!dropdown) {
     dropdown = document.createElement('div');
     dropdown.className = 'audio-pill-dropdown';
+    if (window.Aether && Aether.materials) Aether.materials.apply(dropdown, 'regular');
     el.appendChild(dropdown);
   }
 
@@ -173,7 +174,7 @@ function _renderAudioPill() {
     + icon('speaker', { size: 14 })
     + '<span class="audio-pill-row-label">Read aloud</span></div>';
 
-  dropdown.innerHTML = '<div class="audio-pill-dropdown-inner">' + rows + '</div>';
+  dropdown.innerHTML = '<div class="audio-pill-dropdown-inner nr-menu">' + rows + '</div>';
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
 else setTimeout(_renderAudioPill, 0);
@@ -667,6 +668,8 @@ function _islandRender() {
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');
     pill.classList.toggle('island-has-items', hasTray);
+    // Apply custom cssClass from activity data (e.g., nr-glow for achievements)
+    if (a.cssClass) pill.classList.add(a.cssClass);
 
     // Attach event handlers
     _islandAttachHandlers(pill, a, hasTray);

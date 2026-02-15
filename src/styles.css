@@ -94,23 +94,7 @@
       flex-direction: column;
       margin-top: 16px;
     }
-    .tweet-card {
-      position: relative;
-      padding: 16px 16px 16px 28px;
-      border: 1px solid var(--nr-border-default);
-      border-radius: 12px;
-      margin-bottom: 12px;
-      background: var(--nr-bg-surface);
-    }
-    .tweet-card--continued::after {
-      content: '';
-      position: absolute;
-      left: 13px;
-      bottom: -13px;
-      width: 2px;
-      height: 13px;
-      background: var(--nr-border-default);
-    }
+    /* tweet-card → migrated to nr-card (src/aether/css/components/cards.css) */
     .tweet-counter {
       position: absolute;
       top: 16px; left: -1px;
@@ -139,26 +123,13 @@
     * { scrollbar-width: thin; scrollbar-color: var(--nr-text-quaternary) transparent; }
     .nb-img-wrap:hover .nb-img-btns { opacity: 1; }
 
-    /* Markdown toolbar buttons */
-    .md-tb-btn {
-      display: flex; align-items: center; justify-content: center;
-      width: 26px; height: 26px; border-radius: 5px;
-      background: transparent; border: none;
-      color: var(--nr-text-quaternary); cursor: pointer;
-      transition: color 0.15s, background 0.15s;
-      flex-shrink: 0;
-    }
-    .md-tb-btn:hover { color: var(--nr-text-primary); background: var(--nr-bg-raised); }
+    /* md-tb-btn → migrated to nr-btn-icon (src/aether/css/components/buttons.css) */
     .dash-del, .dash-offline:not(.cached) { opacity: 0; transition: opacity 0.15s; }
     .dash-row:hover > .dash-del, .dash-row:hover > .dash-offline { opacity: 1; }
 
     /* Bento grid dashboard */
     .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-    .bento-card {
-      background: var(--nr-bg-surface); border: 1px solid var(--nr-border-default);
-      border-radius: 14px; padding: 16px; transition: border-color 0.15s;
-    }
-    .bento-card:hover { border-color: var(--nr-border-strong); }
+    /* bento-card → migrated to nr-card (src/aether/css/components/cards.css) */
     .bento-1x1 { grid-column: span 1; }
     .bento-2x1 { grid-column: span 2; }
     .bento-3x1 { grid-column: span 3; }
@@ -1460,20 +1431,7 @@
       animation: feedNewDot 10s ease-out forwards;
     }
 
-    /* ── Toggle switch ── */
-    .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .toggle-switch .slider {
-      position: absolute; inset: 0; background: color-mix(in srgb, var(--nr-accent) 30%, #999); border-radius: 20px;
-      cursor: pointer; transition: background 0.2s;
-    }
-    .toggle-switch .slider::before {
-      content: ''; position: absolute; left: 2px; top: 2px;
-      width: 16px; height: 16px; background: #fff; border-radius: 50%; opacity: 0.7;
-      transition: transform 0.2s, opacity 0.2s;
-    }
-    .toggle-switch input:checked + .slider { background: var(--nr-accent); }
-    .toggle-switch input:checked + .slider::before { transform: translateX(16px); opacity: 1; }
+    /* toggle-switch → migrated to nr-switch in aether/css/components/inputs.css */
 
     #rain-volume-slider { -webkit-appearance: none; appearance: none; background: transparent; }
     #rain-volume-slider::-webkit-slider-runnable-track { background: var(--nr-border-strong); height: 4px; border-radius: 2px; }
@@ -1601,43 +1559,7 @@
       background: var(--nr-accent);
       opacity: 0.5;
     }
-    .wizard-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 24px;
-      font-size: 14px;
-      font-weight: 500;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s;
-      outline: none;
-    }
-    .wizard-btn:active {
-      transform: scale(0.96);
-    }
-    .wizard-btn-primary {
-      background: var(--nr-accent);
-      color: #fff;
-      width: 100%;
-    }
-    .wizard-btn-primary:disabled {
-      opacity: 0.45;
-      cursor: default;
-    }
-    .wizard-btn-primary:disabled:active {
-      transform: none;
-    }
-    .wizard-btn-secondary {
-      background: transparent;
-      color: var(--nr-text-secondary, #999);
-      width: 100%;
-      margin-top: 8px;
-    }
-    .wizard-btn-secondary:hover {
-      color: var(--nr-text-primary, #e0e0e0);
-    }
+    /* wizard-btn → migrated to nr-btn (src/aether/css/components/buttons.css) */
     .onboard-swatch {
       width: 40px;
       height: 40px;
@@ -2832,63 +2754,7 @@
       gap: 8px;
       margin-top: 10px;
     }
-    .ntp-file-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      background: var(--nr-bg-surface);
-      border: 1px solid var(--nr-border-strong);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      max-width: 260px;
-      position: relative;
-      text-align: left;
-    }
-    .ntp-file-card:hover {
-      background: var(--nr-bg-raised);
-      border-color: color-mix(in srgb, var(--nr-accent) 30%, transparent);
-    }
-    .ntp-file-card-icon {
-      width: 28px;
-      height: 28px;
-      color: var(--nr-text-quaternary);
-      flex-shrink: 0;
-    }
-    .ntp-file-card-info {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-    .ntp-file-card-name {
-      font-size: 0.82rem;
-      color: var(--nr-text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .ntp-file-card-type {
-      font-size: 0.72rem;
-      color: var(--nr-text-quaternary);
-    }
-    .ntp-file-card-remove {
-      position: absolute;
-      top: 4px;
-      right: 6px;
-      font-size: 0.9rem;
-      line-height: 1;
-      color: var(--nr-text-quaternary);
-      opacity: 0;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .ntp-file-card:hover .ntp-file-card-remove {
-      opacity: 0.6;
-    }
-    .ntp-file-card-remove:hover {
-      opacity: 1 !important;
-    }
+    /* ntp-file-card → migrated to nr-card (src/aether/css/components/cards.css) */
 
     /* ── Download Indicator ── */
     .browse-download-ring {
@@ -7142,96 +7008,7 @@
       color: #ef4444;
     }
 
-    /* Vault Modal */
-    .vault-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-    }
-    .vault-modal {
-      background: var(--card);
-      border: 1px solid var(--nr-border-default);
-      border-radius: 8px;
-      width: 320px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    }
-    .vault-modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--nr-border-subtle);
-    }
-    .vault-modal-close {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .vault-modal-close:hover {
-      background: var(--hover);
-      color: var(--primary);
-    }
-    .vault-modal-body {
-      padding: 16px;
-    }
-    .vault-modal-input {
-      width: 100%;
-      padding: 8px 12px;
-      background: var(--bg);
-      border: 1px solid var(--nr-border-default);
-      border-radius: 6px;
-      color: var(--primary);
-      font-size: 0.85rem;
-      outline: none;
-    }
-    .vault-modal-input:focus {
-      border-color: var(--nr-accent);
-    }
-    .vault-modal-input::placeholder {
-      color: var(--dimmer);
-    }
-    .vault-modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding: 12px 16px;
-      border-top: 1px solid var(--nr-border-subtle);
-    }
-    .vault-modal-btn-cancel {
-      padding: 6px 14px;
-      background: transparent;
-      border: 1px solid var(--nr-border-default);
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .vault-modal-btn-cancel:hover {
-      background: var(--hover);
-      color: var(--primary);
-    }
-    .vault-modal-btn-confirm {
-      padding: 6px 14px;
-      background: var(--nr-accent);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .vault-modal-btn-confirm:hover {
-      filter: brightness(1.1);
-    }
+    /* Vault Modal → migrated to nr-modal (src/aether/css/components/modals.css) */
 
     .vault-editor-content, .vault-preview-content, .vault-graph-content, .vault-marimo-content {
       flex: 1;

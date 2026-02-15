@@ -117,14 +117,14 @@ function _showHistoryDropdown(direction, buttonEl) {
   if (!stack.length) return;
   _hideHistoryDropdownNow();
   const dd = document.createElement('div');
-  dd.className = 'browse-history-dropdown';
+  dd.className = 'browse-history-dropdown nr-menu';
   dd.onmouseenter = () => clearTimeout(_historyDropdownHideTimer);
   dd.onmouseleave = () => _scheduleHideHistoryDropdown();
   // Show most recent first
   const items = stack.slice().reverse().slice(0, 15);
   items.forEach((url, i) => {
     const row = document.createElement('div');
-    row.className = 'browse-history-dropdown-item';
+    row.className = 'browse-history-dropdown nr-menu-item';
     const fav = document.createElement('img');
     fav.src = _browseFaviconUrl(url);
     fav.width = 14; fav.height = 14;
@@ -758,9 +758,10 @@ function _browseShowGroupContextMenu(e, groupId) {
   ];
 
   const menu = document.createElement('div');
-  menu.className = 'browse-ctx-menu';
+  menu.className = 'browse-ctx-menu nr-menu';
   menu.innerHTML = items.join('');
   menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:10002;`;
+  if (window.Aether && Aether.materials) Aether.materials.apply(menu, 'thick');
   document.body.appendChild(menu);
 
   const rect = menu.getBoundingClientRect();

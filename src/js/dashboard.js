@@ -94,7 +94,7 @@ function _dashBuildQuickActions() {
     { label: 'Calendar', onclick: 'wmOpen(\'calendar\')', icon: icon('calendar', {size: 20, class: 'w-5 h-5'}) },
   ];
   return `<div class="grid grid-cols-2 gap-2 h-full">${actions.map(a =>
-    `<button class="bento-action-btn" onclick="${a.onclick}">${a.icon}<span>${a.label}</span></button>`
+    `<button class="nr-btn nr-btn-ghost" onclick="${a.onclick}">${a.icon}<span>${a.label}</span></button>`
   ).join('')}</div>`;
 }
 
@@ -693,7 +693,7 @@ async function renderDashboard() {
   const _pAccent = profile.accent_color || '#b4451a';
   const _pJoinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
   const profileHeaderHtml = `
-    <div class="relative rounded-xl overflow-hidden mb-6" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${_pAccent}33, ${_pAccent}11)`}">
+    <div class="relative rounded-xl overflow-hidden mb-6 ${profile.profile_bg ? '' : 'nr-living-gradient'}" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${_pAccent}33, ${_pAccent}11)`}">
       <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)"></div>
       <button onclick="_uploadProfileBg()" class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors" title="Change background">
         ${icon('camera', {class: 'w-3.5 h-3.5'})}
@@ -800,22 +800,22 @@ async function renderDashboard() {
     <div class="bento-grid">
 
       <!-- Daily Overview (3x1) -->
-      <div class="bento-card bento-3x1">
+      <div class="nr-card bento-3x1">
         ${overviewHtml}
       </div>
 
       <!-- Quick Actions (1x1) -->
-      <div class="bento-card bento-1x1" style="padding:10px">
+      <div class="nr-card bento-1x1" style="padding:10px">
         ${_dashBuildQuickActions()}
       </div>
 
       ${inboxHtml ? `<!-- Inbox -->
-      <div class="bento-card bento-2x1">
+      <div class="nr-card bento-2x1">
         ${inboxHtml}
       </div>` : ''}
 
       <!-- Activity Heatmap (4x1) -->
-      <div class="bento-card bento-4x1">
+      <div class="nr-card bento-4x1">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[0.82rem] font-semibold text-primary">Activity</h3>
           <span class="text-[0.68rem] text-dimmest">${now.getFullYear()}</span>
@@ -826,21 +826,21 @@ async function renderDashboard() {
 
       <!-- Tasks or Trending -->
       ${_taskCount ? `
-        <div class="bento-card bento-2x1">
+        <div class="nr-card bento-2x1">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.82rem] font-semibold text-primary">My Tasks</h3>
             <span class="text-[0.68rem] text-dimmest">${_taskCount} open</span>
           </div>
           ${_bentoTasksHtml}
         </div>
-        <div class="bento-card bento-2x1">
+        <div class="nr-card bento-2x1">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.82rem] font-semibold text-primary">Trending</h3>
           </div>
           ${_dashBuildTrendingCard(_trending)}
         </div>
       ` : `
-        <div class="bento-card bento-4x1">
+        <div class="nr-card bento-4x1">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-[0.82rem] font-semibold text-primary">Trending</h3>
           </div>
@@ -849,7 +849,7 @@ async function renderDashboard() {
       `}
 
       <!-- Reading List (2x2) -->
-      <div class="bento-card bento-2x2">
+      <div class="nr-card bento-2x2">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[0.82rem] font-semibold text-primary">Reading List</h3>
           <span class="text-[0.68rem] text-dimmest">${savedEntries.length}</span>
@@ -860,7 +860,7 @@ async function renderDashboard() {
       </div>
 
       <!-- Recent Projects (2x1) -->
-      <div class="bento-card bento-2x1">
+      <div class="nr-card bento-2x1">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[0.82rem] font-semibold text-primary">Recent Projects</h3>
           <button onclick="openExperiments()" class="text-[0.7rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
@@ -869,7 +869,7 @@ async function renderDashboard() {
       </div>
 
       <!-- Quotes (2x1) -->
-      <div class="bento-card bento-2x1">
+      <div class="nr-card bento-2x1">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[0.82rem] font-semibold text-primary">Quotes</h3>
           <span class="text-[0.68rem] text-dimmest">${userQuotes.length}</span>
@@ -881,7 +881,7 @@ async function renderDashboard() {
 
       ${_hasBottomRow ? `
         ${teams.length ? `
-          <div class="bento-card ${!myComments.length && !myReposts.length ? 'bento-4x1' : myComments.length && myReposts.length ? 'bento-1x1' : 'bento-2x1'}">
+          <div class="nr-card ${!myComments.length && !myReposts.length ? 'bento-4x1' : myComments.length && myReposts.length ? 'bento-1x1' : 'bento-2x1'}">
             <div class="flex items-center justify-between mb-2">
               <h3 class="text-[0.82rem] font-semibold text-primary">Teams</h3>
               <button onclick="openTeams()" class="text-[0.7rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer">View all</button>
@@ -890,7 +890,7 @@ async function renderDashboard() {
           </div>
         ` : ''}
         ${myComments.length ? `
-          <div class="bento-card ${!teams.length && !myReposts.length ? 'bento-4x1' : teams.length && myReposts.length ? 'bento-2x1' : !teams.length ? 'bento-2x1' : 'bento-2x1'}">
+          <div class="nr-card ${!teams.length && !myReposts.length ? 'bento-4x1' : teams.length && myReposts.length ? 'bento-2x1' : !teams.length ? 'bento-2x1' : 'bento-2x1'}">
             <div class="flex items-center justify-between mb-2">
               <h3 class="text-[0.82rem] font-semibold text-primary">Recent Comments</h3>
               <span class="text-[0.68rem] text-dimmest">${myComments.length}</span>
@@ -899,7 +899,7 @@ async function renderDashboard() {
           </div>
         ` : ''}
         ${myReposts.length ? `
-          <div class="bento-card ${!teams.length && !myComments.length ? 'bento-4x1' : teams.length && myComments.length ? 'bento-1x1' : 'bento-2x1'}">
+          <div class="nr-card ${!teams.length && !myComments.length ? 'bento-4x1' : teams.length && myComments.length ? 'bento-1x1' : 'bento-2x1'}">
             <div class="flex items-center justify-between mb-2">
               <h3 class="text-[0.82rem] font-semibold text-primary">Reposts</h3>
               <span class="text-[0.68rem] text-dimmest">${myReposts.length}</span>

@@ -81,7 +81,7 @@ function playClickSound() {
 // Global click listener for interactive elements
 document.addEventListener('click', function(e) {
   if (!_clickSoundOn) return;
-  const el = e.target.closest('button, a, .sidebar-icon, [onclick], input[type="checkbox"], input[type="radio"], .toggle-switch');
+  const el = e.target.closest('button, a, .sidebar-icon, [onclick], input[type="checkbox"], input[type="radio"], .nr-switch');
   if (el) playClickSound();
 }, { passive: true });
 

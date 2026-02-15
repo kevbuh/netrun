@@ -9,7 +9,7 @@ let _browseFindRequestId = 0;
 function _browseToggleFindBar() {
   if (_browseFindBarActive) {
     // If already open, focus and select the input
-    const input = document.getElementById('browse-find-input');
+    const input = document.getElementById('nr-input');
     if (input) { input.focus(); input.select(); }
     return;
   }
@@ -23,13 +23,13 @@ function _browseToggleFindBar() {
   bar.id = 'browse-find-bar';
   bar.className = 'browse-find-bar';
   bar.innerHTML =
-    `<input type="text" id="browse-find-input" class="browse-find-input" placeholder="Find…" autocomplete="off" spellcheck="false">` +
+    `<input type="text" id="nr-input" class="nr-input" placeholder="Find…" autocomplete="off" spellcheck="false">` +
     `<span id="browse-find-count" class="browse-find-count"></span>` +
-    `<button class="browse-find-btn" id="browse-find-prev" title="Previous">` +
+    `<button class="nr-btn nr-btn-icon" id="browse-find-prev" title="Previous">` +
     `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg></button>` +
-    `<button class="browse-find-btn" id="browse-find-next" title="Next">` +
+    `<button class="nr-btn nr-btn-icon" id="browse-find-next" title="Next">` +
     `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg></button>` +
-    `<button class="browse-find-btn" id="browse-find-close" title="Close">&times;</button>`;
+    `<button class="nr-btn nr-btn-icon" id="browse-find-close" title="Close">&times;</button>`;
 
   // Insert into browse-content so it floats over the page
   const content = document.getElementById('browse-content');
@@ -39,7 +39,7 @@ function _browseToggleFindBar() {
     browseView.appendChild(bar);
   }
 
-  const input = document.getElementById('browse-find-input');
+  const input = document.getElementById('nr-input');
   const countEl = document.getElementById('browse-find-count');
 
   const doFind = (forward) => {

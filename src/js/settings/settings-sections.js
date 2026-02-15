@@ -24,7 +24,7 @@ function _renderAccountSettings() {
           <span class="text-primary text-sm">Private profile</span>
           <p class="text-dimmer text-[0.72rem] mt-0.5">Hide your profile from search and browse. Only teammates can see your full profile.</p>
         </div>
-        <label class="toggle-switch">
+        <label class="nr-switch">
           <input type="checkbox" ${_authUserInfo?.profile_private ? 'checked' : ''} onchange="toggleProfilePrivacy(this.checked)">
           <span class="slider"></span>
         </label>
@@ -259,7 +259,7 @@ function _renderAppearanceSettings() {
           <p class="text-dimmer text-[0.72rem] mt-0.5">Highlight text in the page as it's being read aloud</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('ttsHighlight') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('ttsHighlight', this.checked)">
             <span class="slider"></span>
           </span>
@@ -294,7 +294,7 @@ function _renderAppearanceSettings() {
               '<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>' +
               '<span class="text-primary text-sm">' + label + '</span>' +
             '</div>' +
-            '<label class="flex items-center cursor-pointer"><span class="toggle-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + id + '\', this.checked)"><span class="slider"></span></span></label>' +
+            '<label class="flex items-center cursor-pointer"><span class="nr-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + id + '\', this.checked)"><span class="slider"></span></span></label>' +
           '</div>';
         }).join('');
       })()}
@@ -327,7 +327,7 @@ function _renderFeedInsightsTab() {
           <p class="text-dimmer text-[0.72rem] mt-0.5">Use regex/keyword matching for repos, hardware, and insight fallback</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('insightsAllowHeuristics') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('insightsAllowHeuristics', this.checked)">
             <span class="slider"></span>
           </span>
@@ -349,7 +349,7 @@ function _renderFeedQualityTab() {
       <span class="text-dimmer text-[0.62rem]">qwen3:8b</span>
       <label class="flex items-center gap-2 cursor-pointer ml-auto">
         <span class="text-primary text-sm">Enable</span>
-        <span class="toggle-switch">
+        <span class="nr-switch">
           <input type="checkbox" id="toggle-quality-filter" ${typeof isQualityFilterOn === 'function' && isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
           <span class="slider"></span>
         </span>
@@ -538,7 +538,7 @@ function _renderToolsSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Let the chat assistant use tools autonomously. Requires qwen3:8b.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('chatTools') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('chatTools', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -552,7 +552,7 @@ function _renderToolsSettings() {
           <p class="text-dimmer text-[0.72rem] mt-0.5">Right-click anywhere to open an aether panel with chat and web search</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('clickAether') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('clickAether', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -675,7 +675,7 @@ function _renderBrowserSettings() {
         <h3 class="text-white_ text-sm font-semibold">Simplify URLs</h3>
         <label class="flex items-center gap-2 cursor-pointer ml-auto">
           <span class="text-primary text-sm">Enable</span>
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" id="toggle-url-shorten" ${localStorage.getItem('urlShorten') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('urlShorten', this.checked); const inp = document.getElementById('browse-url-input'); if(inp && !this.checked && inp.dataset.fullUrl) inp.value = inp.dataset.fullUrl; else if(inp && this.checked) _browseUrlOnBlur(inp);">
             <span class="slider"></span>
           </span>
@@ -752,7 +752,7 @@ function _renderUrlBarSectionsSettings() {
     html += '<div class="urlbar-sec-row" data-seckey="' + safeKey + '" style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:4px;background:var(--nr-bg-surface);cursor:grab;user-select:none;">';
     html += '<span style="color:var(--nr-text-quaternary);font-size:0.9rem;cursor:grab;flex-shrink:0;" title="Drag to reorder">\u2847</span>';
     html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);">' + escapeHtml(s.label) + '</span>';
-    html += '<label class="toggle-switch" style="flex-shrink:0;">';
+    html += '<label class="nr-switch" style="flex-shrink:0;">';
     html += '<input type="checkbox" ' + (s.enabled !== false ? 'checked' : '') + ' onchange="_toggleUrlBarSection(\'' + safeKey + '\', this.checked)">';
     html += '<span class="slider"></span>';
     html += '</label>';
@@ -781,7 +781,7 @@ function _urlBarSectionDragSetup() {
     const row = e.target.closest('.urlbar-sec-row');
     if (!row) return;
     // Don't interfere with toggle clicks
-    if (e.target.closest('.toggle-switch')) return;
+    if (e.target.closest('.nr-switch')) return;
     dragEl = row;
     startY = e.clientY;
     dragStarted = false;
@@ -976,7 +976,7 @@ function _renderPanelSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Suggest a question when you open the panel or select text. Press Tab to accept. Uses qwen3:0.6b.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${tabComplete ? 'checked' : ''} onchange="localStorage.setItem('panelTabComplete', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -990,7 +990,7 @@ function _renderPanelSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Show related posts when you highlight text. Uses nomic-embed-text.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${semSearch ? 'checked' : ''} onchange="localStorage.setItem('panelSemanticSearch', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -1025,7 +1025,7 @@ function _renderAgentSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Allow the AI to take actions on your behalf during chat. When enabled, the model upgrades to one that supports function calling.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${toolsOn ? 'checked' : ''} onchange="localStorage.setItem('chatTools', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -1040,7 +1040,7 @@ function _renderAgentSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Let the model reason through problems step-by-step before responding. Uses more tokens but can improve answer quality.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('chatThinking') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('chatThinking', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -1054,7 +1054,7 @@ function _renderAgentSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Automatically send the message after voice transcription completes, without waiting for Enter.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('voiceAutoSend') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('voiceAutoSend', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>
@@ -1068,7 +1068,7 @@ function _renderAgentSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Analyze pages in the browser with a local LLM. Produces a short insight and highlights key findings, contradictions, and ads.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('insightEnabled') !== 'off' ? 'checked' : ''} onchange="var on = this.checked; localStorage.setItem('insightEnabled', on ? 'on' : 'off'); if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);">
             <span class="slider"></span>
           </span>
@@ -1081,7 +1081,7 @@ function _renderAgentSettings() {
           <p class="text-dim text-[0.8rem] mt-0.5">Automatically run insight on every page you navigate to.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
-          <span class="toggle-switch">
+          <span class="nr-switch">
             <input type="checkbox" ${localStorage.getItem('autoAnnotate') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('autoAnnotate', this.checked ? 'on' : 'off')">
             <span class="slider"></span>
           </span>

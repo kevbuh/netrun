@@ -494,7 +494,7 @@ async function vaultRenameNotePrompt(noteId) {
     renderVaultFileTree();
     // Update title input if this note is currently open
     if (_vaultCurrentNote?.id === noteId) {
-      const titleInput = document.getElementById('vault-title-input');
+      const titleInput = document.getElementById('nr-input');
       if (titleInput) titleInput.value = newName.trim();
     }
   } catch (e) {
@@ -744,7 +744,7 @@ async function saveCurrentNote() {
 
   try {
     await apiPut(`/api/vault/notes/${_vaultCurrentNote.id}`, { title, content });
-    renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+    renderVaultFileTree(document.getElementById('nr-input')?.value || '');
     // Embed note for semantic search (fire-and-forget)
     apiPost('/api/embed-content', { title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
       .catch((e) => { /* fire-and-forget */ });
@@ -770,14 +770,14 @@ async function vaultNewNote(folder = null) {
 
 // New note dropdown toggle
 function vaultToggleNewDropdown() {
-  const dd = document.getElementById('vault-new-dropdown');
+  const dd = document.getElementById('vault-new-dropdown nr-menu');
   if (!dd) return;
   const show = dd.style.display === 'none';
   dd.style.display = show ? '' : 'none';
   if (show) {
     // Close on outside click
     const close = (e) => {
-      if (!e.target.closest('.vault-new-dropdown-wrapper')) {
+      if (!e.target.closest('.vault-new-dropdown nr-menu-wrapper')) {
         dd.style.display = 'none';
         document.removeEventListener('click', close, true);
       }
@@ -787,7 +787,7 @@ function vaultToggleNewDropdown() {
 }
 
 function vaultHideNewDropdown() {
-  const dd = document.getElementById('vault-new-dropdown');
+  const dd = document.getElementById('vault-new-dropdown nr-menu');
   if (dd) dd.style.display = 'none';
 }
 
@@ -964,13 +964,13 @@ function vaultToggleProject(projectId) {
   } else {
     _vaultExpandedProjects.add(projectId);
   }
-  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+  renderVaultFileTree(document.getElementById('nr-input')?.value || '');
 }
 
 // Expand a specific project in the tree (e.g. from route)
 function vaultExpandProject(projectId) {
   _vaultExpandedProjects.add(projectId);
-  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+  renderVaultFileTree(document.getElementById('nr-input')?.value || '');
 }
 
 // Render children of a project folder
@@ -1517,7 +1517,7 @@ function updateVaultTags() {
 }
 
 function vaultFilterByTag(tag) {
-  document.getElementById('vault-search-input').value = '#' + tag;
+  document.getElementById('nr-input').value = '#' + tag;
   vaultFilterNotes('#' + tag);
 }
 
@@ -1928,18 +1928,20 @@ function updateVaultPublishButton() {
 // Show modal with public URL
 function vaultShowPublishModal(url) {
   const modal = document.createElement('div');
-  modal.className = 'vault-publish-modal';
+  modal.className = 'nr-modal-backdrop';
   modal.innerHTML = `
-    <div class="vault-publish-modal-content">
-      <h3>Published!</h3>
-      <p>Your post is now live at:</p>
-      <div class="vault-publish-url">
-        <input type="text" value="${escapeAttr(url)}" readonly onclick="this.select()">
-        <button onclick="navigator.clipboard.writeText('${escapeAttr(url)}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500)">Copy</button>
+    <div class="nr-modal" style="max-width:400px">
+      <div class="nr-modal-header"><span class="nr-modal-title">Published!</span></div>
+      <div class="nr-modal-body">
+        <p style="margin-bottom:var(--nr-space-3)">Your post is now live at:</p>
+        <div style="display:flex;gap:var(--nr-space-2)">
+          <input class="nr-input" type="text" value="${escapeAttr(url)}" readonly onclick="this.select()" style="flex:1">
+          <button class="nr-btn nr-btn-primary" onclick="navigator.clipboard.writeText('${escapeAttr(url)}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500)">Copy</button>
+        </div>
       </div>
-      <div class="vault-publish-actions">
-        <button onclick="location.hash='${escapeAttr(url.split('#')[1])}'; this.closest('.vault-publish-modal').remove()">View Post</button>
-        <button onclick="this.closest('.vault-publish-modal').remove()">Close</button>
+      <div class="nr-modal-footer">
+        <button class="nr-btn nr-btn-secondary" onclick="location.hash='${escapeAttr(url.split('#')[1])}'; this.closest('.nr-modal-backdrop').remove()">View Post</button>
+        <button class="nr-btn nr-btn-ghost" onclick="this.closest('.nr-modal-backdrop').remove()">Close</button>
       </div>
     </div>
   `;
@@ -2416,7 +2418,7 @@ function renderVaultChatPanel(container) {
   container.innerHTML = `
     <div class="doc-chat-messages vault-chat-messages" id="vault-chat-msgs"></div>
     <div style="padding:6px 8px; display:flex; gap:4px; border-top:1px solid var(--border-color);">
-      <input class="doc-ask-inline-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
+      <input class="nr-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
       <button id="vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
       <button id="vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
     </div>
@@ -2569,7 +2571,7 @@ async function renderNtpVaultPanel() {
     <div style="border-top:1px solid var(--border-color); padding-top:8px;">
       <div class="doc-chat-messages vault-chat-messages" id="ntp-vault-chat-msgs" style="max-height:200px; overflow-y:auto;"></div>
       <div style="display:flex; gap:4px; margin-top:6px;">
-        <input class="doc-ask-inline-input" id="ntp-vault-chat-input" type="text" placeholder="Ask about your notes…"
+        <input class="nr-input" id="ntp-vault-chat-input" type="text" placeholder="Ask about your notes…"
           style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
         <button id="ntp-vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
         <button id="ntp-vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
@@ -2766,7 +2768,7 @@ async function _vaultFetchGitStatus() {
       if (code && path) map[path] = code[0] === '?' ? '?' : code.replace(/\s/g, '');
     }
     _vaultGitStatus = map;
-    renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
+    renderVaultFileTree(document.getElementById('nr-input')?.value || '');
   } catch (e) { console.warn('vaultFetchGitStatus:', e); }
 }
 

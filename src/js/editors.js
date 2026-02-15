@@ -22,23 +22,23 @@ function renderMarkdownEditor(fname, content) {
       <span class="text-[0.75rem] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">md</span>
       <span class="text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors" onclick="startRenameFileInEditor('${escapedFname}')" title="Click to rename">${escapeHtml(fname)}</span>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdWrap('**','**')" class="md-tb-btn" title="Bold (⌘B)">${icon('bold', {size:14})}</button>
-      <button onclick="_mdWrap('*','*')" class="md-tb-btn" title="Italic (⌘I)">${icon('italic', {size:14})}</button>
-      <button onclick="_mdWrap('~~','~~')" class="md-tb-btn" title="Strikethrough">${icon('strikethrough', {size:14})}</button>
+      <button onclick="_mdWrap('**','**')" class="nr-btn nr-btn-icon" title="Bold (⌘B)">${icon('bold', {size:14})}</button>
+      <button onclick="_mdWrap('*','*')" class="nr-btn nr-btn-icon" title="Italic (⌘I)">${icon('italic', {size:14})}</button>
+      <button onclick="_mdWrap('~~','~~')" class="nr-btn nr-btn-icon" title="Strikethrough">${icon('strikethrough', {size:14})}</button>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdLinePrefix('# ')" class="md-tb-btn" title="Heading 1"><span class="text-[0.7rem] font-bold">H1</span></button>
-      <button onclick="_mdLinePrefix('## ')" class="md-tb-btn" title="Heading 2"><span class="text-[0.7rem] font-bold">H2</span></button>
-      <button onclick="_mdLinePrefix('### ')" class="md-tb-btn" title="Heading 3"><span class="text-[0.7rem] font-bold">H3</span></button>
+      <button onclick="_mdLinePrefix('# ')" class="nr-btn nr-btn-icon" title="Heading 1"><span class="text-[0.7rem] font-bold">H1</span></button>
+      <button onclick="_mdLinePrefix('## ')" class="nr-btn nr-btn-icon" title="Heading 2"><span class="text-[0.7rem] font-bold">H2</span></button>
+      <button onclick="_mdLinePrefix('### ')" class="nr-btn nr-btn-icon" title="Heading 3"><span class="text-[0.7rem] font-bold">H3</span></button>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdLinePrefix('- ')" class="md-tb-btn" title="Bullet list">${icon('bulletList', {size:14})}</button>
-      <button onclick="_mdLinePrefix('1. ')" class="md-tb-btn" title="Numbered list">${icon('numberedList', {size:14})}</button>
-      <button onclick="_mdLinePrefix('- [ ] ')" class="md-tb-btn" title="Todo item">${icon('todoCheck', {size:14})}</button>
+      <button onclick="_mdLinePrefix('- ')" class="nr-btn nr-btn-icon" title="Bullet list">${icon('bulletList', {size:14})}</button>
+      <button onclick="_mdLinePrefix('1. ')" class="nr-btn nr-btn-icon" title="Numbered list">${icon('numberedList', {size:14})}</button>
+      <button onclick="_mdLinePrefix('- [ ] ')" class="nr-btn nr-btn-icon" title="Todo item">${icon('todoCheck', {size:14})}</button>
       <div class="w-px h-4 bg-border-dim mx-1"></div>
-      <button onclick="_mdWrap('\`','\`')" class="md-tb-btn" title="Inline code (⌘E)">${icon('inlineCode', {size:14})}</button>
-      <button onclick="_mdInsertCodeBlock()" class="md-tb-btn" title="Code block"><span class="text-[0.65rem] font-mono">{}</span></button>
-      <button onclick="_mdLinePrefix('> ')" class="md-tb-btn" title="Blockquote">${icon('blockquote', {size:14})}</button>
-      <button onclick="_mdInsertLink()" class="md-tb-btn" title="Link (⌘K)">${icon('link', {size:14})}</button>
-      <button onclick="_mdInsertHr()" class="md-tb-btn" title="Horizontal rule">${icon('horizontalRule', {size:14})}</button>
+      <button onclick="_mdWrap('\`','\`')" class="nr-btn nr-btn-icon" title="Inline code (⌘E)">${icon('inlineCode', {size:14})}</button>
+      <button onclick="_mdInsertCodeBlock()" class="nr-btn nr-btn-icon" title="Code block"><span class="text-[0.65rem] font-mono">{}</span></button>
+      <button onclick="_mdLinePrefix('> ')" class="nr-btn nr-btn-icon" title="Blockquote">${icon('blockquote', {size:14})}</button>
+      <button onclick="_mdInsertLink()" class="nr-btn nr-btn-icon" title="Link (⌘K)">${icon('link', {size:14})}</button>
+      <button onclick="_mdInsertHr()" class="nr-btn nr-btn-icon" title="Horizontal rule">${icon('horizontalRule', {size:14})}</button>
       <span class="text-[0.75rem] text-emerald-400 opacity-0 transition-opacity ml-auto" id="md-save-ind">Saved</span>
       ${fileShareButton()}
     </div>
@@ -47,7 +47,7 @@ function renderMarkdownEditor(fname, content) {
   renderLatexIn('md-preview');
   _rewriteExpImages(document.getElementById('md-preview'));
   // Prevent toolbar buttons from stealing focus from textarea
-  editor.querySelectorAll('.md-tb-btn').forEach(btn => {
+  editor.querySelectorAll('.nr-btn nr-btn-icon').forEach(btn => {
     btn.addEventListener('mousedown', e => e.preventDefault());
   });
 }
@@ -73,7 +73,7 @@ function _mdOnBlur() {
     const ta = document.getElementById('md-editor-textarea');
     if (!ta || document.activeElement === ta) return;
     // If focus went to a toolbar button, refocus textarea
-    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.md-tb-btn')) {
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.nr-btn nr-btn-icon')) {
       ta.focus();
       return;
     }

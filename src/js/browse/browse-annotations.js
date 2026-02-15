@@ -384,7 +384,7 @@ function _showAnnotationTooltip(data, frame, pinned) {
   if (!tip) {
     tip = document.createElement('div');
     tip.id = 'aether-annotation-tooltip';
-    tip.className = 'doc-selection-popup aether-ann-tooltip';
+    tip.className = 'nr-toast aether-ann-tooltip';
     tip.style.zIndex = '999999';
     tip.style.pointerEvents = 'auto';
     tip.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });

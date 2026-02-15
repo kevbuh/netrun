@@ -123,9 +123,9 @@ function _renderTwitterThread(container, data) {
   thread.className = 'tweet-thread';
   tweets.forEach((text, i) => {
     const card = document.createElement('div');
-    card.className = 'tweet-card';
+    card.className = 'nr-card';
     // Thread line
-    if (i < tweets.length - 1) card.classList.add('tweet-card--continued');
+    if (i < tweets.length - 1) card.classList.add('nr-card--continued');
     const counter = document.createElement('div');
     counter.className = 'tweet-counter';
     counter.textContent = `${i + 1}/${tweets.length}`;

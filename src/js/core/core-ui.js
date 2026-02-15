@@ -121,7 +121,7 @@ window.addEventListener('resize', function() {
     let dot = el.querySelector('.live-pulse-dot');
     if (!dot) {
       dot = document.createElement('span');
-      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
+      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe';
       el.appendChild(dot);
     }
 
@@ -137,10 +137,10 @@ window.addEventListener('resize', function() {
         _pulseFlashTimer = null;
         dot.style.background = '';
         dot.style.boxShadow = '';
-        dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
+        dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe';
       }, 3000);
     } else if (!_pulseFlashTimer) {
-      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle';
+      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe';
       dot.style.background = '';
       dot.style.boxShadow = '';
     }
@@ -150,10 +150,11 @@ window.addEventListener('resize', function() {
     if (!dropdown) {
       dropdown = document.createElement('div');
       dropdown.className = 'pulse-dropdown';
+      if (window.Aether && Aether.materials) Aether.materials.apply(dropdown, 'regular');
       el.appendChild(dropdown);
     }
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-    let html = '<div class="pulse-dropdown-inner">';
+    let html = '<div class="pulse-dropdown-inner nr-menu">';
     html += '<div style="padding:6px 8px;font-size:0.6rem;color:var(--aether-text-muted);text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
     const start = Math.max(0, recent.length - 30);
     for (let ri = recent.length - 1; ri >= start; ri--) {
@@ -220,6 +221,7 @@ function showAchievement(name, description) {
     type: 'achievement',
     label: name || 'Unlocked!',
     detail: description || 'Achievement Unlocked!',
+    cssClass: 'nr-glow',
     action: function() { islandRemove('achievement'); }
   });
 }
