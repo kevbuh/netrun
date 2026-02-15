@@ -7,7 +7,7 @@ async function api(path, opts = {}) {
     ...opts,
     headers: { ..._authHeaders(), ...opts.headers },
   });
-  if (resp.status === 401) { _showLoginGate(); throw new Error('Unauthorized'); }
+  if (resp.status === 401) { if (typeof _showLoginGate === 'function') _showLoginGate(); else window.location.href = '/login.html'; throw new Error('Unauthorized'); }
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp;
 }

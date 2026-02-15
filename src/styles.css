@@ -218,6 +218,9 @@
       .bento-3x1, .bento-4x1 { grid-column: span 2; }
     }
 
+    html { background: #0a0a0a; }
+    body { background: var(--bg-body, #0a0a0a); }
+
     :root {
       --bg-body: #0a0a0a;
       --text-primary: #e0e0e0;
@@ -1601,12 +1604,9 @@
     /* ── Auth / login gate ── */
     .login-gate {
       position: fixed; inset: 0; z-index: 10000;
-      background: #080810 !important;
+      background: #080810;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
-    }
-    .circuit-bg {
-      position: absolute; inset: 0; width: 100%; height: 100%;
     }
     .auth-modal {
       background: rgba(12, 12, 20, 0.7);

@@ -1828,6 +1828,7 @@ function _panelPositionAndFocus(popup, config) {
 }
 
 function _showPanel(config) {
+  if (!_authReady) return;
   config = config || {};
   const anchor = config.anchor || {};
   const contextMenu = config.contextMenu || null;
