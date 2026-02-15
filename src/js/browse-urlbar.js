@@ -122,7 +122,14 @@ const _instantCache = {};
 
 // Returns the active omnibox input & dropdown elements (NTP search or URL bar)
 function _getOmniInput() {
-  // Island mode: always use pill input + pill dropdown (must check before NTP since browse-bar is hidden in island mode)
+  // NTP check first: if the NTP is visible, use its search input + dropdown
+  const ntpEl = document.getElementById('browse-content')?.querySelector('.browse-ntp');
+  if (ntpEl && ntpEl.style.display !== 'none') {
+    const input = document.getElementById('search-query');
+    const dd = document.getElementById('search-history-dropdown-view');
+    if (input && dd) return { input, dd, ntp: true };
+  }
+  // Island mode: use pill input + pill dropdown
   const nav = document.getElementById('sidebar-nav');
   if (nav && nav.classList.contains('island-mode') && nav.classList.contains('browse-mode')) {
     const pillInput = document.getElementById('pill-browse-url-input');

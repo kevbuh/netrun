@@ -2672,6 +2672,12 @@
     .ntp-search-input::placeholder {
       color: var(--text-dimmer);
     }
+    .ntp-dropdown {
+      margin-top: 8px;
+      padding: 4px 0;
+      max-height: 320px;
+      overflow-y: auto;
+    }
     .ntp-search-actions {
       display: flex;
       align-items: center;
