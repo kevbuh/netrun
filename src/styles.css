@@ -1117,6 +1117,17 @@
       white-space: nowrap;
     }
     #pill-scroll-pct.active { display: inline; margin-right: 6px; }
+    /* Focus timer inside audio pill */
+    #pill-focus-timer {
+      display: none;
+      font-size: 0.6rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary, #888);
+      opacity: 0.6;
+      white-space: nowrap;
+    }
+    #pill-focus-timer.active { display: inline; margin-right: 6px; }
+    #pill-focus-timer.warn { color: #e5883e; opacity: 1; }
 
     /* Phase 4: Idle breathing */
     @keyframes pill-breathe { 0%,100% { scale:1; } 50% { scale:1.015; } }
@@ -1960,6 +1971,7 @@
       top: 100%;
       left: 0;
       width: 100%;
+      min-width: 300px;
       max-height: 320px;
       overflow-y: auto;
       overflow-x: hidden;
@@ -1999,20 +2011,7 @@
       display: none;
     }
     /* NTP: tabs pill sits to the left of the centered nav icons */
-    .browse-mode.island-mode.ntp-active #pill-url-wrap {
-      position: relative;
-      transform: none;
-      display: flex;
-      align-items: center;
-      order: -1;
-      margin-right: 0;
-      gap: 0;
-      height: 24px;
-    }
-    .browse-mode.island-mode.ntp-active #pill-url-wrap #pill-url-dropdown {
-      min-width: 300px;
-    }
-    .browse-mode.island-mode.ntp-active #pill-url-wrap > * {
+    .browse-mode.island-mode #pill-url-wrap > * {
       margin: 0;
     }
     /* ── Unified Audio Pill ── */

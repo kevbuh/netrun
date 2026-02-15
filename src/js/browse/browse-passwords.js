@@ -342,6 +342,8 @@ function browseSelectTab(id) {
 
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
+  // Focus timer: start/stop based on new tab's URL
+  if (typeof _checkFocusTimer === 'function') _checkFocusTimer(tab ? (tab.url || '') : '');
   if (tab) tab.lastVisited = Date.now();
 
   // Auto-close blank new tabs when navigating away, keeping only the most recent one

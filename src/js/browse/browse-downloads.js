@@ -35,6 +35,59 @@ function _doomScrollMatch(url) {
   return null;
 }
 
+// ── Focus Timer (pill-bar timer for doom scroll sites) ──
+let _focusTimerInterval = null;
+let _focusTimerStart = 0;
+let _focusTimerDomain = '';
+let _focusTimerWarnMinutes = 0;
+
+function _formatFocusTime(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function _startFocusTimer(domain, warnMinutes) {
+  _stopFocusTimer();
+  _focusTimerDomain = domain;
+  _focusTimerStart = Date.now();
+  _focusTimerWarnMinutes = warnMinutes || 0;
+  _focusTimerInterval = setInterval(_updateFocusTimerPill, 1000);
+  _updateFocusTimerPill();
+}
+
+function _stopFocusTimer() {
+  if (_focusTimerInterval) { clearInterval(_focusTimerInterval); _focusTimerInterval = null; }
+  _focusTimerStart = 0;
+  _focusTimerDomain = '';
+  const el = document.getElementById('pill-focus-timer');
+  if (el) { el.classList.remove('active', 'warn'); el.textContent = ''; }
+}
+
+function _updateFocusTimerPill() {
+  const el = document.getElementById('pill-focus-timer');
+  if (!el || !_focusTimerStart) return;
+  const elapsed = Date.now() - _focusTimerStart;
+  el.textContent = _formatFocusTime(elapsed);
+  el.classList.add('active');
+  if (_focusTimerWarnMinutes > 0 && elapsed >= _focusTimerWarnMinutes * 60 * 1000) {
+    el.classList.add('warn');
+  } else {
+    el.classList.remove('warn');
+  }
+}
+
+function _checkFocusTimer(url) {
+  const match = _doomScrollMatch(url);
+  if (match && match.mode === 'nudge') {
+    // Only restart if domain changed
+    if (_focusTimerDomain !== match.domain) _startFocusTimer(match.domain, match.minutes);
+  } else {
+    _stopFocusTimer();
+  }
+}
+
 // ── Download Manager ──
 const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
 
@@ -376,6 +429,8 @@ function _browseHandleNavigation(tab, frame) {
     tab.rssFeeds = null;
     _browseUpdateRssPill(tab);
     if (tab.id === _browseActiveTab) _browseUpdateScrollPill(-1);
+    // Focus timer: start/stop based on current site
+    if (tab.id === _browseActiveTab) _checkFocusTimer(navUrl);
     // Clear any existing annotation state for this tab on navigation
     _annotationsEnabled.delete(tab.id);
     _updateAnnotateButtonState();
