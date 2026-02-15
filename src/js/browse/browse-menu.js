@@ -23,12 +23,12 @@ function toggleBrowseMoreMenu() {
     overflowRows += `<button onclick="browseForward();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg> Forward</button>`;
     overflowRows += `<button onclick="browseReload();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Reload</button>`;
     const isSaved = hasTab && isPostSaved(tab.url);
-    overflowRows += `<button onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
+    overflowRows += `<button onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--nr-accent)' : 'none'}" stroke="${isSaved ? 'var(--nr-accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
     overflowRows += `<button onclick="browseShare();document.getElementById('browse-more-menu').style.display='none';" style="${navBtnStyle}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg> Share</button>`;
     const _adOn = localStorage.getItem('adBlockEnabled') === 'true';
-    overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_adOn ? 'color:var(--accent);' : ''}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker <span style="margin-left:auto;font-size:0.7rem;color:var(--aether-text-dimmest)">${_adOn ? 'On' : 'Off'}</span></button>`;
+    overflowRows += `<button onclick="toggleAdBlock();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_adOn ? 'color:var(--nr-accent);' : ''}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg> Ad Blocker <span style="margin-left:auto;font-size:0.7rem;color:var(--aether-text-dimmest)">${_adOn ? 'On' : 'Off'}</span></button>`;
     const _annEnabled = tab && _annotationsEnabled.get(tab.id);
-    overflowRows += `<button onclick="toggleAnnotations();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_annEnabled ? 'color:var(--accent);' : ''}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg> ${_annEnabled ? 'Remove Annotations' : 'Annotate Page'}</button>`;
+    overflowRows += `<button onclick="toggleAnnotations();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}${_annEnabled ? 'color:var(--nr-accent);' : ''}" ${hasTab ? '' : 'disabled'} onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg> ${_annEnabled ? 'Remove Annotations' : 'Annotate Page'}</button>`;
     overflowRows += `<button onclick="openSearchHistoryPage();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg> Search History</button>`;
     overflowRows += `<button onclick="toggleBrowseSidebar();document.getElementById('browse-more-menu').style.display='none';" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg> Toggle Sidebar</button>`;
   } else {
@@ -43,7 +43,7 @@ function toggleBrowseMoreMenu() {
     // Bookmark button: toggle in-place instead of removing from overflow
     if (id === 'browse-save-btn') {
       const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
-      icon = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent)' : 'none'}" stroke="${isSaved ? 'var(--accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
+      icon = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="${isSaved ? 'var(--nr-accent)' : 'none'}" stroke="${isSaved ? 'var(--nr-accent)' : 'currentColor'}" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
       overflowRows += `<button data-overflow-id="${id}" onclick="browseSaveToReadingList();_refreshOverflowBookmark(this);" style="${btnStyle}" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">${icon} ${isSaved ? 'Saved' : 'Save to Reading List'}</button>`;
     } else {
       // Click executes the button's action; long-press drag restores to bar
@@ -119,8 +119,8 @@ function _refreshOverflowBookmark(btn) {
   const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
   const svg = btn.querySelector('svg');
   if (svg) {
-    svg.setAttribute('fill', isSaved ? 'var(--accent)' : 'none');
-    svg.setAttribute('stroke', isSaved ? 'var(--accent)' : 'currentColor');
+    svg.setAttribute('fill', isSaved ? 'var(--nr-accent)' : 'none');
+    svg.setAttribute('stroke', isSaved ? 'var(--nr-accent)' : 'currentColor');
   }
   // Update the label text
   const textNode = Array.from(btn.childNodes).find(n => n.nodeType === 3 && n.textContent.trim());
@@ -146,7 +146,7 @@ function _setupOverflowDrag(dd) {
       btn.style.opacity = '0.4';
       // Create floating ghost
       dragGhost = btn.cloneNode(true);
-      dragGhost.style.cssText = 'position:fixed;z-index:100000;pointer-events:none;padding:6px 12px;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);font-size:0.78rem;display:flex;align-items:center;gap:8px;opacity:0.9;color:var(--text-primary);white-space:nowrap;';
+      dragGhost.style.cssText = 'position:fixed;z-index:100000;pointer-events:none;padding:6px 12px;background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:8px;box-shadow:0 4px 16px var(--nr-shadow-popup);font-size:0.78rem;display:flex;align-items:center;gap:8px;opacity:0.9;color:var(--nr-text-primary);white-space:nowrap;';
       dragGhost.style.left = (e.clientX - 40) + 'px';
       dragGhost.style.top = (e.clientY - 14) + 'px';
       document.body.appendChild(dragGhost);
@@ -170,7 +170,7 @@ function _setupOverflowDrag(dd) {
     if (bar) {
       const r = bar.getBoundingClientRect();
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-        bar.style.outline = '2px solid var(--accent)';
+        bar.style.outline = '2px solid var(--nr-accent)';
         bar.style.outlineOffset = '-2px';
       } else {
         bar.style.outline = '';

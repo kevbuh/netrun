@@ -208,7 +208,7 @@ function _browseUrlKeydown(e) {
 function _browseUrlHighlight(items) {
   items.forEach((el, i) => {
     if (i === _browseUrlHistIdx) {
-      el.style.background = 'color-mix(in srgb, var(--accent) 18%, transparent)';
+      el.style.background = 'color-mix(in srgb, var(--nr-accent) 18%, transparent)';
       el.style.borderRadius = '6px';
     } else {
       el.style.background = 'none';
@@ -354,17 +354,17 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   }
 
   if (!hist.length) {
-    dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--text-dim);text-align:center;">No browsing history</div>';
+    dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--nr-text-tertiary);text-align:center;">No browsing history</div>';
     dd.style.display = '';
     dd.classList.remove('hidden');
     return;
   }
 
-  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
-  const hoverOn = "this.style.background='var(--bg-hover)'";
+  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;';
+  const hoverOn = "this.style.background='var(--nr-bg-raised)'";
   const hoverOff = "if(this.dataset.idx!=window._browseUrlHistIdx)this.style.background='none'";
 
-  let html = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+  let html = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
   html += hist.map((h, i) => {
     const favicon = _browseFaviconUrl(h.url);
     let domain = '';
@@ -374,8 +374,8 @@ function _browseUrlRenderHistoryCommand(dd, input) {
     return `<div data-idx="${i}" data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); var _i=_getOmniInput().input; if(_i)_i.value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
       <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</span>
-      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
-      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+      <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+      <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
     </div>`;
   }).join('');
 
@@ -431,9 +431,9 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   }
 
   const rowStyle = ntp
-    ? 'display:flex;align-items:center;gap:10px;padding:8px 4px;cursor:pointer;font-size:0.85rem;color:var(--text-primary);transition:background 0.12s;border-radius:8px;margin:0 -4px;'
-    : 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
-  const hoverBg = ntp ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--bg-hover)';
+    ? 'display:flex;align-items:center;gap:10px;padding:8px 4px;cursor:pointer;font-size:0.85rem;color:var(--nr-text-primary);transition:background 0.12s;border-radius:8px;margin:0 -4px;'
+    : 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;';
+  const hoverBg = ntp ? 'color-mix(in srgb, var(--nr-accent) 12%, transparent)' : 'var(--nr-bg-raised)';
   const hoverOn = "this.style.background='" + hoverBg + "'";
   const hoverOff = "this.style.background='none'";
 
@@ -444,32 +444,32 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const hasText = !!_feelingLuckyQuery;
       const waiting = _feelingLuckyLoading && !hasText;
       if (!_feelingLuckyQuery && !_feelingLuckyLoading) setTimeout(_browseUrlFeelingLucky, 0);
-      const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--text-dimmer);">Thinking\u2026</span>' : '');
-      return `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--border-card);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
-        <svg style="width:14px;height:14px;flex-shrink:0;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--nr-text-quaternary);">Thinking\u2026</span>' : '');
+      return `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--nr-border-default);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
+        <svg style="width:14px;height:14px;flex-shrink:0;color:var(--nr-text-quaternary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
-          <span style="font-weight:600;color:var(--text-primary);">Feeling Lucky</span>
-          <span class="browse-lucky-text" style="margin-left:6px;color:var(--text-dim);font-size:0.75rem;">${displayText}</span>
+          <span style="font-weight:600;color:var(--nr-text-primary);">Feeling Lucky</span>
+          <span class="browse-lucky-text" style="margin-left:6px;color:var(--nr-text-tertiary);font-size:0.75rem;">${displayText}</span>
         </span>
-        ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--text-dimmer);font-size:0.7rem;">\u21BB</span>' : ''}
+        ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--nr-text-quaternary);font-size:0.7rem;">\u21BB</span>' : ''}
       </div>`;
     },
     definition: () => {
       if (!hasDef) return '';
       const entry = _currentDef;
-      let h = '<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);">';
+      let h = '<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);">';
       h += '<div style="display:flex;align-items:baseline;gap:8px;">';
-      h += '<span style="font-size:1rem;font-weight:700;color:var(--text-primary);">' + escapeHtml(entry.word) + '</span>';
+      h += '<span style="font-size:1rem;font-weight:700;color:var(--nr-text-primary);">' + escapeHtml(entry.word) + '</span>';
       const phonetic = entry.phonetics?.find(p => p.text)?.text;
-      if (phonetic) h += '<span style="font-size:0.78rem;color:var(--text-dim);">' + escapeHtml(phonetic) + '</span>';
+      if (phonetic) h += '<span style="font-size:0.78rem;color:var(--nr-text-tertiary);">' + escapeHtml(phonetic) + '</span>';
       const audio = entry.phonetics?.find(p => p.audio);
-      if (audio) h += '<button onclick="event.stopPropagation();event.preventDefault();new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);padding:0;margin-left:2px;" title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
+      if (audio) h += '<button onclick="event.stopPropagation();event.preventDefault();new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:0;margin-left:2px;" title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
       h += '</div>';
       for (const meaning of (entry.meanings || []).slice(0, 2)) {
-        h += '<div style="margin-top:6px;"><span style="font-size:0.65rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span></div>';
+        h += '<div style="margin-top:6px;"><span style="font-size:0.65rem;font-weight:600;color:var(--nr-accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span></div>';
         for (const def of (meaning.definitions || []).slice(0, 1)) {
-          h += '<div style="font-size:0.8rem;color:var(--text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
-          if (def.example) h += '<div style="font-size:0.72rem;color:var(--text-dim);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
+          h += '<div style="font-size:0.8rem;color:var(--nr-text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--nr-accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
+          if (def.example) h += '<div style="font-size:0.72rem;color:var(--nr-text-tertiary);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
         }
       }
       h += '</div>';
@@ -485,7 +485,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const navFn = ntp
         ? (url) => `event.preventDefault(); _browseUrlHideHistory(); browseNavigate('${url}');`
         : (url) => `event.preventDefault(); document.getElementById('browse-url-input').value='${url}'; _browseUrlHideHistory(); browseNavigate('${url}');`;
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
       h += showBrowse.map(bh => {
         const favicon = _browseFaviconUrl(bh.url);
         let domain = '';
@@ -494,9 +494,9 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
         const displayTitle = escapeHtml(bh.title || domain);
         return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(escapeHtml(bh.url).replace(/'/g, "\\'"))}">
           <img src="${escapeHtml(favicon)}" style="width:${iconSize};height:${iconSize};flex-shrink:0;border-radius:3px;" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
-          <svg style="width:${iconSize};height:${iconSize};flex-shrink:0;color:var(--text-dimmer);display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};flex-shrink:0;color:var(--nr-text-quaternary);display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
-          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
         </div>`;
       }).join('');
       return h;
@@ -507,11 +507,11 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const navFn = ntp
         ? (q) => `event.preventDefault(); document.getElementById('search-query').value='${q}'; _browseUrlHideHistory(); submitSearch();`
         : (q) => `event.preventDefault(); document.getElementById('browse-url-input').value='${q}'; _browseUrlHideHistory(); browseNavigate('${q}');`;
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
       h += suggestions.map(s => {
         const safeS = escapeHtml(s);
         return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(safeS.replace(/'/g, "\\'"))}">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeS}</span>
         </div>`;
       }).join('');
@@ -520,14 +520,14 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     projects: () => {
       if (!projects.length) return '';
       const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
       h += projects.map(exp => {
         const safeId = escapeHtml(exp.id);
         const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
         return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); openExperimentDetail('${safeId}');">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
-          ${updated ? `<span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
+          ${updated ? `<span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
         </div>`;
       }).join('');
       return h;
@@ -541,11 +541,11 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const matched = unique.filter(u => u.toLowerCase().includes(filter)).slice(0, 5);
       if (!matched.length) return '';
       const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Users</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Users</div>';
       h += matched.map(username => {
         const safeU = escapeHtml(username);
         return `<div data-histq="user:${safeU}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openUserProfile==='function') openUserProfile('${safeU.replace(/'/g, "\\'")}');">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeU}</span>
         </div>`;
       }).join('');
@@ -557,13 +557,13 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const matched = teams.filter(t => t.name.toLowerCase().includes(filter)).slice(0, 5);
       if (!matched.length) return '';
       const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Teams</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Teams</div>';
       h += matched.map(t => {
         const memberCount = (t.members || []).length;
         return `<div data-histq="team:${t.id}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof showTeamDetailView==='function') showTeamDetailView(${t.id});">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(t.name)}</span>
-          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--text-dimmer);flex-shrink:0;">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
+          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--nr-text-quaternary);flex-shrink:0;">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
         </div>`;
       }).join('');
       return h;
@@ -574,10 +574,10 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const matched = notes.filter(n => (n.title || '').toLowerCase().includes(filter)).slice(0, 5);
       if (!matched.length) return '';
       const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Notes</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Notes</div>';
       h += matched.map(n => {
         return `<div data-histq="note:${n.id}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openVaultNote==='function') openVaultNote(${n.id});">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(n.title || 'Untitled')}</span>
         </div>`;
       }).join('');
@@ -589,14 +589,14 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       const navFn = ntp
         ? (q) => `event.preventDefault(); document.getElementById('search-query').value='${q}'; _browseUrlHideHistory(); submitSearch();`
         : (q) => `event.preventDefault(); document.getElementById('browse-url-input').value='${q}'; _browseUrlHideHistory(); browseNavigate('${q}');`;
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
       h += showHist.map(sh => {
         const time = _relativeTime(sh.ts);
         const safeQ = escapeHtml(sh.q);
         return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(safeQ.replace(/'/g, "\\'"))}">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
-          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
         </div>`;
       }).join('');
       return h;
@@ -642,8 +642,8 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
         ev.stopPropagation();
         _browseUrlFeelingLucky();
       });
-      redo.addEventListener('mouseenter', () => { redo.style.color = 'var(--accent)'; });
-      redo.addEventListener('mouseleave', () => { redo.style.color = 'var(--text-dimmer)'; });
+      redo.addEventListener('mouseenter', () => { redo.style.color = 'var(--nr-accent)'; });
+      redo.addEventListener('mouseleave', () => { redo.style.color = 'var(--nr-text-quaternary)'; });
     }
   }
 }
@@ -789,9 +789,9 @@ function _tryMathAnswer(q) {
     // Don't show if result equals input (e.g. just a number)
     if (String(result) === sanitized || String(result) === q.trim()) return null;
     const formatted = Number.isInteger(result) ? result.toLocaleString() : parseFloat(result.toPrecision(10)).toLocaleString(undefined, { maximumFractionDigits: 10 });
-    return { type: 'math', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;gap:10px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
-      <div><span style="font-size:0.8rem;color:var(--text-dim);">${escapeHtml(q)} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--text-primary);">${escapeHtml(formatted)}</span></div>
+    return { type: 'math', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+      <div><span style="font-size:0.8rem;color:var(--nr-text-tertiary);">${escapeHtml(q)} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)}</span></div>
     </div>` };
   } catch { return null; }
 }
@@ -817,10 +817,10 @@ function _tryColorAnswer(q) {
     label = color;
   }
   if (!color) return null;
-  return { type: 'color', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;gap:12px;">
-    <div style="width:36px;height:36px;border-radius:8px;background:${color};border:1px solid var(--border-card);flex-shrink:0;"></div>
-    <div><div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">${escapeHtml(label)}</div>
-    <div style="font-size:0.72rem;color:var(--text-dim);">Color preview</div></div>
+  return { type: 'color', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:12px;">
+    <div style="width:36px;height:36px;border-radius:8px;background:${color};border:1px solid var(--nr-border-default);flex-shrink:0;"></div>
+    <div><div style="font-size:0.95rem;font-weight:600;color:var(--nr-text-primary);">${escapeHtml(label)}</div>
+    <div style="font-size:0.72rem;color:var(--nr-text-tertiary);">Color preview</div></div>
   </div>` };
 }
 
@@ -856,9 +856,9 @@ function _tryConversionAnswer(q) {
   if (!fn) return null;
   const result = fn(val);
   const formatted = parseFloat(result.toPrecision(6)).toLocaleString(undefined, { maximumFractionDigits: 6 });
-  return { type: 'conversion', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;gap:10px;">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-    <div><span style="font-size:0.8rem;color:var(--text-dim);">${escapeHtml(m[1])} ${escapeHtml(m[2])} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--text-primary);">${escapeHtml(formatted)} ${escapeHtml(m[3])}</span></div>
+  return { type: 'conversion', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    <div><span style="font-size:0.8rem;color:var(--nr-text-tertiary);">${escapeHtml(m[1])} ${escapeHtml(m[2])} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)} ${escapeHtml(m[3])}</span></div>
   </div>` };
 }
 
@@ -906,10 +906,10 @@ function _tryTimezoneAnswer(q) {
     const time = now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true });
     const date = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' });
     const offset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
-    return { type: 'timezone', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;gap:10px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <div><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.05rem;font-weight:700;color:var(--text-primary);">${escapeHtml(time)}</span><span style="font-size:0.75rem;color:var(--text-dim);">${escapeHtml(date)}</span></div>
-      <div style="font-size:0.72rem;color:var(--text-dim);">${escapeHtml(m[1].trim())} · ${escapeHtml(offset)}</div></div>
+    return { type: 'timezone', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <div><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(time)}</span><span style="font-size:0.75rem;color:var(--nr-text-tertiary);">${escapeHtml(date)}</span></div>
+      <div style="font-size:0.72rem;color:var(--nr-text-tertiary);">${escapeHtml(m[1].trim())} · ${escapeHtml(offset)}</div></div>
     </div>` };
   } catch { return null; }
 }
@@ -929,14 +929,14 @@ async function _fetchWeatherAnswer(city) {
   const humidity = cur.humidity;
   const wind = cur.windspeedKmph;
   const emoji = _weatherEmoji(desc);
-  return { type: 'weather', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;gap:12px;">
+  return { type: 'weather', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:12px;">
     <span style="font-size:1.6rem;">${emoji}</span>
     <div style="flex:1;">
-      <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.1rem;font-weight:700;color:var(--text-primary);">${escapeHtml(temp)}°C</span><span style="font-size:0.82rem;color:var(--text-dim);">${escapeHtml(tempF)}°F</span></div>
-      <div style="font-size:0.78rem;color:var(--text-dim);">${escapeHtml(desc)}</div>
-      <div style="font-size:0.7rem;color:var(--text-dimmer);margin-top:2px;">Feels ${escapeHtml(feelsC)}°C · Humidity ${escapeHtml(humidity)}% · Wind ${escapeHtml(wind)} km/h</div>
+      <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.1rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(temp)}°C</span><span style="font-size:0.82rem;color:var(--nr-text-tertiary);">${escapeHtml(tempF)}°F</span></div>
+      <div style="font-size:0.78rem;color:var(--nr-text-tertiary);">${escapeHtml(desc)}</div>
+      <div style="font-size:0.7rem;color:var(--nr-text-quaternary);margin-top:2px;">Feels ${escapeHtml(feelsC)}°C · Humidity ${escapeHtml(humidity)}% · Wind ${escapeHtml(wind)} km/h</div>
     </div>
-    <div style="font-size:0.72rem;color:var(--text-dim);text-align:right;">${escapeHtml(city)}</div>
+    <div style="font-size:0.72rem;color:var(--nr-text-tertiary);text-align:right;">${escapeHtml(city)}</div>
   </div>` };
 }
 
@@ -1021,8 +1021,8 @@ async function _fetchSportsAnswer(match) {
 
   // Show up to 4 games
   const games = events.slice(0, 4);
-  let html = '<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);">';
-  html += '<div style="font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">' + escapeHtml(league.toUpperCase()) + ' Scores</div>';
+  let html = '<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);">';
+  html += '<div style="font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">' + escapeHtml(league.toUpperCase()) + ' Scores</div>';
   for (const ev of games) {
     const comp = ev.competitions?.[0];
     if (!comp) continue;
@@ -1035,19 +1035,19 @@ async function _fetchSportsAnswer(match) {
     html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:0.8rem;">`;
     html += `<div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">`;
     if (away.team?.logo) html += `<img src="${escapeHtml(away.team.logo)}" style="width:16px;height:16px;flex-shrink:0;" onerror="this.style.display='none'">`;
-    html += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);${away.winner ? 'font-weight:700;' : ''}">${escapeHtml(away.team?.abbreviation || away.team?.shortDisplayName || '?')}</span>`;
-    html += `<span style="font-weight:700;color:var(--text-primary);min-width:18px;text-align:center;">${escapeHtml(away.score || '-')}</span>`;
+    html += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--nr-text-primary);${away.winner ? 'font-weight:700;' : ''}">${escapeHtml(away.team?.abbreviation || away.team?.shortDisplayName || '?')}</span>`;
+    html += `<span style="font-weight:700;color:var(--nr-text-primary);min-width:18px;text-align:center;">${escapeHtml(away.score || '-')}</span>`;
     html += `</div>`;
-    html += `<span style="color:var(--text-dimmer);font-size:0.7rem;">@</span>`;
+    html += `<span style="color:var(--nr-text-quaternary);font-size:0.7rem;">@</span>`;
     html += `<div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">`;
-    html += `<span style="font-weight:700;color:var(--text-primary);min-width:18px;text-align:center;">${escapeHtml(home.score || '-')}</span>`;
+    html += `<span style="font-weight:700;color:var(--nr-text-primary);min-width:18px;text-align:center;">${escapeHtml(home.score || '-')}</span>`;
     if (home.team?.logo) html += `<img src="${escapeHtml(home.team.logo)}" style="width:16px;height:16px;flex-shrink:0;" onerror="this.style.display='none'">`;
-    html += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);${home.winner ? 'font-weight:700;' : ''}">${escapeHtml(home.team?.abbreviation || home.team?.shortDisplayName || '?')}</span>`;
+    html += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--nr-text-primary);${home.winner ? 'font-weight:700;' : ''}">${escapeHtml(home.team?.abbreviation || home.team?.shortDisplayName || '?')}</span>`;
     html += `</div>`;
-    html += `<span style="font-size:0.68rem;color:${isLive ? 'var(--accent)' : 'var(--text-dimmer)'};white-space:nowrap;flex-shrink:0;min-width:50px;text-align:right;${isLive ? 'font-weight:600;' : ''}">${escapeHtml(status)}</span>`;
+    html += `<span style="font-size:0.68rem;color:${isLive ? 'var(--nr-accent)' : 'var(--nr-text-quaternary)'};white-space:nowrap;flex-shrink:0;min-width:50px;text-align:right;${isLive ? 'font-weight:600;' : ''}">${escapeHtml(status)}</span>`;
     html += `</div>`;
   }
-  if (events.length > 4) html += `<div style="font-size:0.7rem;color:var(--text-dimmer);padding-top:4px;">+${events.length - 4} more games</div>`;
+  if (events.length > 4) html += `<div style="font-size:0.7rem;color:var(--nr-text-quaternary);padding-top:4px;">+${events.length - 4} more games</div>`;
   html += '</div>';
   return { type: 'sports', html };
 }
@@ -1063,15 +1063,15 @@ async function _fetchStockAnswer(ticker) {
   const isUp = change >= 0;
   const arrow = isUp ? '▲' : '▼';
   const color = isUp ? '#22c55e' : '#ef4444';
-  return { type: 'stock', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;gap:10px;">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+  return { type: 'stock', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
     <div style="flex:1;">
       <div style="display:flex;align-items:baseline;gap:8px;">
-        <span style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">${escapeHtml(ticker)}</span>
-        <span style="font-size:0.72rem;color:var(--text-dim);">${escapeHtml(name)}</span>
+        <span style="font-size:0.82rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(ticker)}</span>
+        <span style="font-size:0.72rem;color:var(--nr-text-tertiary);">${escapeHtml(name)}</span>
       </div>
       <div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;">
-        <span style="font-size:1.05rem;font-weight:700;color:var(--text-primary);">$${parseFloat(price).toFixed(2)}</span>
+        <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">$${parseFloat(price).toFixed(2)}</span>
         <span style="font-size:0.78rem;font-weight:600;color:${color};">${arrow} ${Math.abs(change).toFixed(2)} (${Math.abs(changePct).toFixed(2)}%)</span>
       </div>
     </div>
@@ -1176,7 +1176,7 @@ function openSearchHistoryPage() {
   const container = document.getElementById('browse-content');
   const el = document.createElement('div');
   el.id = 'browse-history-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
   container.appendChild(el);
   tab.el = el;
 
@@ -1218,7 +1218,7 @@ function openHelpPage() {
   const container = document.getElementById('browse-content');
   const el = document.createElement('div');
   el.id = 'browse-help-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
   container.appendChild(el);
   tab.el = el;
 
@@ -1235,20 +1235,20 @@ function _renderHelpPage(el) {
   if (!el) return;
   const s = 'style';
   const section = `${s}="margin-bottom:24px;"`;
-  const h2 = `${s}="font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:10px;"`;
+  const h2 = `${s}="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:10px;"`;
   const table = `${s}="width:100%;border-collapse:collapse;font-size:0.82rem;"`;
-  const th = `${s}="text-align:left;padding:6px 12px;font-size:0.7rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-card);"`;
-  const td = `${s}="padding:6px 12px;border-bottom:1px solid var(--border-subtle);"`;
-  const tdk = `${s}="padding:6px 12px;border-bottom:1px solid var(--border-subtle);color:var(--text-primary);font-weight:500;white-space:nowrap;"`;
-  const tdv = `${s}="padding:6px 12px;border-bottom:1px solid var(--border-subtle);color:var(--text-dim);"`;
+  const th = `${s}="text-align:left;padding:6px 12px;font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--nr-border-default);"`;
+  const td = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);"`;
+  const tdk = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-primary);font-weight:500;white-space:nowrap;"`;
+  const tdv = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-tertiary);"`;
 
   let html = '<div style="max-width:640px;margin:0 auto;padding:40px 24px;">';
-  html += '<h1 style="font-size:1.4rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Help</h1>';
-  html += '<p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:32px;">Everything you can do from the URL bar and aether panel.</p>';
+  html += '<h1 style="font-size:1.4rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:4px;">Help</h1>';
+  html += '<p style="font-size:0.82rem;color:var(--nr-text-tertiary);margin-bottom:32px;">Everything you can do from the URL bar and aether panel.</p>';
 
   // Instant Answers
   html += `<div ${section}><div ${h2}>Instant Answers</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Type</th><th ${th}>Try</th></tr>`;
   const answers = [
@@ -1268,7 +1268,7 @@ function _renderHelpPage(el) {
 
   // Search Syntax
   html += `<div ${section}><div ${h2}>Search Syntax</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Syntax</th><th ${th}>Effect</th></tr>`;
   const searchSyntax = [
@@ -1287,7 +1287,7 @@ function _renderHelpPage(el) {
 
   // Slash Commands
   html += `<div ${section}><div ${h2}>Slash Commands</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Command</th><th ${th}>Action</th></tr>`;
   const cmds = [
@@ -1321,7 +1321,7 @@ function _renderHelpPage(el) {
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Key</th><th ${th}>Action</th></tr>`;
   const shortcuts = [
-    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Global</strong>'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Global</strong>'],
     ['Esc', 'Close panel / Go home'],
     ['⌘T', 'New browser tab'],
     ['⌘W', 'Close browser tab'],
@@ -1330,24 +1330,24 @@ function _renderHelpPage(el) {
     ['⌘⇧T', 'Reopen closed tab'],
     ['Enter', 'Send chat message'],
     ['⇧Enter', 'Web search from panel'],
-    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Tab Overview</strong>'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Tab Overview</strong>'],
     ['←→', 'Switch windows'],
     ['↑↓', 'Switch tabs'],
     ['Enter', 'Select tab'],
     ['N', 'New window'],
     ['T', 'New tab'],
-    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Browser</strong>'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Browser</strong>'],
     ['⌘+', 'Zoom in'],
     ['⌘-', 'Zoom out'],
     ['⌘0', 'Reset zoom'],
     ['⌘F', 'Find in page'],
-    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">PDF Viewer</strong>'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">PDF Viewer</strong>'],
     ['←', 'Previous page'],
     ['→', 'Next page'],
     ['⌘F', 'Find in document'],
     ['H', 'Highlight mode'],
     ['P', 'Pen mode'],
-    ['', '<strong style="color:var(--text-dimmest);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Editors</strong>'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Editors</strong>'],
     ['⌘S', 'Save'],
     ['⌘Z', 'Undo'],
     ['⌘⇧Z', 'Redo'],
@@ -1357,23 +1357,23 @@ function _renderHelpPage(el) {
     if (!k) {
       html += `<tr><td colspan="2" style="padding:10px 12px 4px;">${v}</td></tr>`;
     } else {
-      html += `<tr><td ${tdk}><kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border-card);background:var(--bg-card);">${k}</kbd></td><td ${tdv}>${v}</td></tr>`;
+      html += `<tr><td ${tdk}><kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--nr-border-default);background:var(--nr-bg-surface);">${k}</kbd></td><td ${tdv}>${v}</td></tr>`;
     }
   });
   html += '</table></div>';
 
   // Aether Panel
   html += `<div ${section}><div ${h2}>Aether Panel</div>`;
-  html += '<div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;">';
-  html += '<strong style="color:var(--text-primary);">Right-click</strong> anywhere to open the panel.<br>';
-  html += 'Type to <strong style="color:var(--text-primary);">chat with AI</strong> about the current page.<br>';
-  html += '<strong style="color:var(--text-primary);">Select text</strong> → highlight, quote, or define.<br>';
-  html += '<strong style="color:var(--text-primary);">Drag</strong> while panel is open to capture a screenshot region.';
+  html += '<div style="font-size:0.82rem;color:var(--nr-text-tertiary);line-height:1.6;">';
+  html += '<strong style="color:var(--nr-text-primary);">Right-click</strong> anywhere to open the panel.<br>';
+  html += 'Type to <strong style="color:var(--nr-text-primary);">chat with AI</strong> about the current page.<br>';
+  html += '<strong style="color:var(--nr-text-primary);">Select text</strong> → highlight, quote, or define.<br>';
+  html += '<strong style="color:var(--nr-text-primary);">Drag</strong> while panel is open to capture a screenshot region.';
   html += '</div></div>';
 
   // Chat Tools
   html += `<div ${section}><div ${h2}>Chat Tools</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Tool</th><th ${th}>Description</th></tr>`;
   const tools = [
@@ -1414,29 +1414,29 @@ function _renderWebSearchHistoryPage(el) {
   // Header with tabs
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
   html += '<div style="display:flex;align-items:center;gap:10px;">';
-  html += '<svg style="width:20px;height:20px;color:var(--text-dimmer);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>';
-  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">History</span>';
+  html += '<svg style="width:20px;height:20px;color:var(--nr-text-quaternary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>';
+  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);">History</span>';
   html += '</div>';
   const clearFn = isBrowse
     ? '_clearBrowseHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));'
     : '_clearWebSearchHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));';
   const activeHist = isBrowse ? browseHist : searchHist;
   if (activeHist.length) {
-    html += '<button onclick="' + clearFn + '" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-muted);font-size:0.75rem;cursor:pointer;">Clear all</button>';
+    html += '<button onclick="' + clearFn + '" style="padding:4px 10px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.75rem;cursor:pointer;">Clear all</button>';
   }
   html += '</div>';
 
   // Tab switcher
-  const tabStyle = (active) => `padding:6px 14px;border:none;border-bottom:2px solid ${active ? 'var(--accent)' : 'transparent'};background:none;color:${active ? 'var(--text-primary)' : 'var(--text-dim)'};font-size:0.82rem;cursor:pointer;font-weight:${active ? '600' : '400'};`;
-  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--border-input);margin-bottom:16px;">';
-  html += `<button onclick="_historyPageTab='browse';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(isBrowse)}">Sites <span style="font-size:0.7rem;color:var(--text-dimmest);">${browseHist.length}</span></button>`;
-  html += `<button onclick="_historyPageTab='search';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(!isBrowse)}">Searches <span style="font-size:0.7rem;color:var(--text-dimmest);">${searchHist.length}</span></button>`;
+  const tabStyle = (active) => `padding:6px 14px;border:none;border-bottom:2px solid ${active ? 'var(--nr-accent)' : 'transparent'};background:none;color:${active ? 'var(--nr-text-primary)' : 'var(--nr-text-tertiary)'};font-size:0.82rem;cursor:pointer;font-weight:${active ? '600' : '400'};`;
+  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--nr-border-strong);margin-bottom:16px;">';
+  html += `<button onclick="_historyPageTab='browse';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(isBrowse)}">Sites <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">${browseHist.length}</span></button>`;
+  html += `<button onclick="_historyPageTab='search';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(!isBrowse)}">Searches <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">${searchHist.length}</span></button>`;
   html += '</div>';
 
   // Filter
   html += '<div style="position:relative;margin-bottom:16px;">';
-  html += '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-dimmer);pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
-  html += '<input type="text" id="history-page-filter" placeholder="Filter history..." oninput="_filterWebSearchHistory()" style="width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.82rem;outline:none;" />';
+  html += '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--nr-text-quaternary);pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
+  html += '<input type="text" id="history-page-filter" placeholder="Filter history..." oninput="_filterWebSearchHistory()" style="width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;outline:none;" />';
   html += '</div>';
 
   html += '<div id="history-page-list">';
@@ -1461,7 +1461,7 @@ function _filterWebSearchHistory() {
 }
 
 function _renderWebSearchHistoryList(hist) {
-  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--text-dim);font-size:0.85rem;">No searches found</div>';
+  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-tertiary);font-size:0.85rem;">No searches found</div>';
 
   // Group by date
   const groups = [];
@@ -1491,16 +1491,16 @@ function _renderWebSearchHistoryList(hist) {
   let html = '';
   for (const label of groups) {
     html += '<div style="margin-bottom:16px;">';
-    html += '<div style="font-size:0.7rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    html += '<div style="font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
     groupMap[label].forEach(h => {
       const origIdx = allHist.findIndex(a => a.q === h.q && a.ts === h.ts);
       const time = _relativeTime(h.ts);
       const safeQ = escapeHtml(h.q).replace(/'/g, '&#39;');
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeQ}')">
-        <svg style="width:14px;height:14px;color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-        <span style="font-size:0.82rem;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.q)}</span>
-        <span style="font-size:0.7rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
-        <button class="hist-del" onclick="event.stopPropagation(); _removeWebSearch(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-dimmer);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--nr-bg-raised)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeQ}')">
+        <svg style="width:14px;height:14px;color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+        <span style="font-size:0.82rem;color:var(--nr-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.q)}</span>
+        <span style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
+        <button class="hist-del" onclick="event.stopPropagation(); _removeWebSearch(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
           <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>`;
@@ -1511,7 +1511,7 @@ function _renderWebSearchHistoryList(hist) {
 }
 
 function _renderBrowseHistoryList(hist) {
-  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--text-dim);font-size:0.85rem;">No browsing history</div>';
+  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-tertiary);font-size:0.85rem;">No browsing history</div>';
 
   const groups = [];
   const groupMap = {};
@@ -1539,7 +1539,7 @@ function _renderBrowseHistoryList(hist) {
   let html = '';
   for (const label of groups) {
     html += '<div style="margin-bottom:16px;">';
-    html += '<div style="font-size:0.7rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    html += '<div style="font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
     groupMap[label].forEach(h => {
       const origIdx = allHist.findIndex(a => a.url === h.url && a.ts === h.ts);
       const time = _relativeTime(h.ts);
@@ -1547,14 +1547,14 @@ function _renderBrowseHistoryList(hist) {
       try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
       const favicon = _browseFaviconUrl(h.url);
       const safeUrl = escapeHtml(h.url).replace(/'/g, '&#39;');
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--bg-hover)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeUrl}')">
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--nr-bg-raised)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeUrl}')">
         <img src="${escapeHtml(favicon)}" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
         <div style="flex:1;overflow:hidden;min-width:0;">
-          <div style="font-size:0.82rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
-          <div style="font-size:0.7rem;color:var(--text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
+          <div style="font-size:0.82rem;color:var(--nr-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
+          <div style="font-size:0.7rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
         </div>
-        <span style="font-size:0.7rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
-        <button class="hist-del" onclick="event.stopPropagation(); _removeBrowseVisit(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-dimmer);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
+        <span style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
+        <button class="hist-del" onclick="event.stopPropagation(); _removeBrowseVisit(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
           <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>`;
@@ -1622,7 +1622,7 @@ function _browseUpdateAdBlockBtn() {
   const btn = document.getElementById('browse-adblock-btn');
   if (!btn) return;
   const on = localStorage.getItem('adBlockEnabled') === 'true';
-  btn.style.color = on ? 'var(--accent)' : '';
+  btn.style.color = on ? 'var(--nr-accent)' : '';
   btn.title = on ? 'Ad Blocker (on)' : 'Ad Blocker (off)';
   btn.classList.toggle('text-dimmer', !on);
 }
@@ -1759,35 +1759,35 @@ function _showPermissionPrompt(domain, permKey) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;background:rgba(0,0,0,0.45);';
 
   overlay.innerHTML = `
-    <div style="background:var(--bg-popup);border:1px solid var(--border-card);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;">
+    <div style="background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;">
       <div style="padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;">
         <div style="flex:1;">
-          <div style="font-size:0.92rem;font-weight:600;color:var(--text-primary);line-height:1.4;">
+          <div style="font-size:0.92rem;font-weight:600;color:var(--nr-text-primary);line-height:1.4;">
             <strong>${escapeHtml(domain)}</strong> wants to
           </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg-hover);">
-            <span style="color:var(--text-dimmer);flex-shrink:0;">${icon}</span>
-            <span style="font-size:0.84rem;color:var(--text-primary);">${escapeHtml(label)}</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--nr-bg-raised);">
+            <span style="color:var(--nr-text-quaternary);flex-shrink:0;">${icon}</span>
+            <span style="font-size:0.84rem;color:var(--nr-text-primary);">${escapeHtml(label)}</span>
           </div>
         </div>
-        <button id="perm-prompt-close" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);padding:2px;flex-shrink:0;" title="Dismiss">
+        <button id="perm-prompt-close" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:2px;flex-shrink:0;" title="Dismiss">
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
       <div style="padding:0 20px 16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-          <span style="font-size:0.75rem;color:var(--text-dim);">Remember my decision</span>
-          <select id="perm-prompt-remember" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.75rem;cursor:pointer;">
+          <span style="font-size:0.75rem;color:var(--nr-text-tertiary);">Remember my decision</span>
+          <select id="perm-prompt-remember" style="padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.75rem;cursor:pointer;">
             <option value="session">Until I close this site</option>
             <option value="always" selected>Always</option>
           </select>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button id="perm-prompt-block" style="padding:6px 20px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;">Block</button>
-          <button id="perm-prompt-allow" style="padding:6px 20px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;">Allow</button>
+          <button id="perm-prompt-block" style="padding:6px 20px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;">Block</button>
+          <button id="perm-prompt-allow" style="padding:6px 20px;border-radius:8px;border:1px solid var(--nr-accent);background:var(--nr-accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;">Allow</button>
         </div>
       </div>
-      <div style="padding:8px 20px;border-top:1px solid var(--border-subtle);font-size:0.68rem;color:var(--text-dimmer);">
+      <div style="padding:8px 20px;border-top:1px solid var(--nr-border-subtle);font-size:0.68rem;color:var(--nr-text-quaternary);">
         You can change your site permissions at any time from the more menu in the toolbar.
       </div>
     </div>
@@ -1868,8 +1868,8 @@ function _renderSitePermissionsDropdown(container) {
     html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--aether-border);">';
     for (const val of ['ask', 'allow', 'block']) {
       const active = current === val;
-      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-dropdown-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-dropdown-bg))' : 'color-mix(in srgb, var(--accent) 20%, var(--aether-dropdown-bg))') : 'var(--aether-dropdown-bg)';
-      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--aether-text-dimmer)';
+      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-dropdown-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-dropdown-bg))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--aether-dropdown-bg))') : 'var(--aether-dropdown-bg)';
+      const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--aether-text-dimmer)';
       const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
       const onclick = val === 'allow'
         ? '_showPermissionPrompt(\'' + safeDomain + '\',\'' + key + '\');'

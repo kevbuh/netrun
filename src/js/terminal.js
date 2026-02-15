@@ -344,7 +344,7 @@ function _startRenameTab(id) {
   input.type = 'text';
   input.value = t.name;
   input.className = 'term-tab-rename-input';
-  input.style.cssText = 'width:80px;background:var(--bg-input);border:1px solid var(--accent);border-radius:3px;padding:1px 4px;font-size:0.75rem;color:var(--text-primary);outline:none;';
+  input.style.cssText = 'width:80px;background:var(--nr-bg-input);border:1px solid var(--nr-accent);border-radius:3px;padding:1px 4px;font-size:0.75rem;color:var(--nr-text-primary);outline:none;';
 
   const finish = () => {
     const newName = input.value.trim() || t.name;

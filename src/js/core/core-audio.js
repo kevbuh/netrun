@@ -180,7 +180,7 @@ else setTimeout(_renderAudioPill, 0);
 
 function _islandRenderPill(a) {
   if (a.type === 'feed-notif') {
-    return icon('bell', { size: 14, stroke: 'var(--accent)' }) + '<span style="color:var(--accent)">' + escapeHtml(a.label || '') + '</span>';
+    return icon('bell', { size: 14, stroke: 'var(--nr-accent)' }) + '<span style="color:var(--nr-accent)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.done) {
     return '<span class="island-dot-done"></span><span style="color:#22c55e">' + escapeHtml(a.label || 'Done') + '</span>';
   } else if (a.type === 'download') {
@@ -262,7 +262,7 @@ function _islandRenderPill(a) {
   } else if (a.type === 'calendar') {
     return icon('calendar', { size: 14, stroke: '#3b82f6' }) + '<span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
-    return icon('bookmark', { size: 14, fill: 'var(--accent)', stroke: 'var(--accent)' });
+    return icon('bookmark', { size: 14, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)' });
   } else if (a.type === 'pulse') {
     const pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
     const pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
@@ -326,8 +326,8 @@ function _islandBuildTray(a, isBrowse) {
     var trayHtml = '';
     // Insight text at top of tray
     if (a.insight) {
-      trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--text-primary);line-height:1.5;opacity:0.9">' + escapeHtml(a.insight) + '</div>';
-      if (a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--border-card));margin:2px 0"></div>';
+      trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--nr-text-primary);line-height:1.5;opacity:0.9">' + escapeHtml(a.insight) + '</div>';
+      if (a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
     }
     for (let ai = 0; ai < a.items.length; ai++) {
       const ann = a.items[ai];
@@ -336,18 +336,18 @@ function _islandBuildTray(a, isBrowse) {
       const quote = ann.quote || '';
       const isConnection = ann.type === 'CONNECTION';
       const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : quote;
-      const confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--text-dimmer);margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
+      const confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
       trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + ' style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
       trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge;
       // Rating buttons
       trayHtml += '<span style="margin-left:auto;display:flex;gap:2px">';
       const thumbUpSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
       const thumbDownSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
-      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'">' + thumbUpSvg + '</button>';
-      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--text-primary)\'">' + thumbDownSvg + '</button>';
+      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--nr-text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--nr-text-primary)\'">' + thumbUpSvg + '</button>';
+      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--nr-text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--nr-text-primary)\'">' + thumbDownSvg + '</button>';
       trayHtml += '</span></div>';
-      trayHtml += '<div style="font-size:12px;color:var(--text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(displayText) + '</div>';
-      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--text-dimmer);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
+      trayHtml += '<div style="font-size:12px;color:var(--nr-text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(displayText) + '</div>';
+      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--nr-text-quaternary);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
       trayHtml += '</div>';
     }
     return trayHtml;

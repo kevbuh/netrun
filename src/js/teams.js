@@ -31,13 +31,13 @@ function _renderLinkCard(url) {
   const isArxiv = _isArxivUrl(url);
   const href = _paperViewHash(url);
   return `<a href="${href}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
-    <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px">
+    <div style="background:var(--nr-bg-body);border:1px solid var(--nr-border-default);border-radius:8px;padding:10px 12px;margin-top:4px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         ${favicon ? `<img src="${escapeAttr(favicon)}" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display='none'">` : ''}
-        <span style="font-size:0.65rem;color:var(--text-dimmest)">${escapeHtml(hostname)}</span>
-        ${isArxiv ? '<span style="font-size:0.6rem;color:var(--accent);font-weight:600">PDF</span>' : ''}
+        <span style="font-size:0.65rem;color:var(--nr-text-quaternary)">${escapeHtml(hostname)}</span>
+        ${isArxiv ? '<span style="font-size:0.6rem;color:var(--nr-accent);font-weight:600">PDF</span>' : ''}
       </div>
-      <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;line-height:1.35">${escapeHtml(title || url)}</div>
+      <div style="font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;line-height:1.35">${escapeHtml(title || url)}</div>
     </div>
   </a>`;
 }
@@ -52,30 +52,30 @@ function _renderAnnotatedCard(url, sections) {
 
   let annotHtml = '';
   if (sections.highlights.length) {
-    annotHtml += `<div style="margin-top:8px;border-top:1px solid var(--border-card);padding-top:6px">
-      <div style="font-size:0.65rem;color:var(--text-dimmest);margin-bottom:4px;font-weight:600">${sections.highlights.length} Highlight${sections.highlights.length > 1 ? 's' : ''}</div>
-      ${sections.highlights.slice(0, 3).map(h => `<div style="font-size:0.75rem;color:var(--text-muted);border-left:2px solid var(--accent);padding-left:6px;margin-bottom:4px;line-height:1.35">
+    annotHtml += `<div style="margin-top:8px;border-top:1px solid var(--nr-border-default);padding-top:6px">
+      <div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:4px;font-weight:600">${sections.highlights.length} Highlight${sections.highlights.length > 1 ? 's' : ''}</div>
+      ${sections.highlights.slice(0, 3).map(h => `<div style="font-size:0.75rem;color:var(--nr-text-secondary);border-left:2px solid var(--nr-accent);padding-left:6px;margin-bottom:4px;line-height:1.35">
         ${escapeHtml(h.text.length > 120 ? h.text.slice(0, 120) + '...' : h.text)}
-        ${h.note ? `<div style="font-size:0.7rem;color:var(--text-dimmer);margin-top:2px;font-style:italic">${escapeHtml(h.note)}</div>` : ''}
+        ${h.note ? `<div style="font-size:0.7rem;color:var(--nr-text-quaternary);margin-top:2px;font-style:italic">${escapeHtml(h.note)}</div>` : ''}
       </div>`).join('')}
-      ${sections.highlights.length > 3 ? `<div style="font-size:0.65rem;color:var(--text-dimmest)">+${sections.highlights.length - 3} more</div>` : ''}
+      ${sections.highlights.length > 3 ? `<div style="font-size:0.65rem;color:var(--nr-text-quaternary)">+${sections.highlights.length - 3} more</div>` : ''}
     </div>`;
   }
   if (sections.notes) {
-    annotHtml += `<div style="margin-top:6px;border-top:1px solid var(--border-card);padding-top:6px">
-      <div style="font-size:0.65rem;color:var(--text-dimmest);margin-bottom:3px;font-weight:600">Notes</div>
-      <div style="font-size:0.75rem;color:var(--text-muted);line-height:1.4;white-space:pre-wrap">${escapeHtml(sections.notes.length > 300 ? sections.notes.slice(0, 300) + '...' : sections.notes)}</div>
+    annotHtml += `<div style="margin-top:6px;border-top:1px solid var(--nr-border-default);padding-top:6px">
+      <div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:3px;font-weight:600">Notes</div>
+      <div style="font-size:0.75rem;color:var(--nr-text-secondary);line-height:1.4;white-space:pre-wrap">${escapeHtml(sections.notes.length > 300 ? sections.notes.slice(0, 300) + '...' : sections.notes)}</div>
     </div>`;
   }
 
   return `<a href="${href}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
-    <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px">
+    <div style="background:var(--nr-bg-body);border:1px solid var(--nr-border-default);border-radius:8px;padding:10px 12px;margin-top:4px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         ${favicon ? `<img src="${escapeAttr(favicon)}" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display='none'">` : ''}
-        <span style="font-size:0.65rem;color:var(--text-dimmest)">${escapeHtml(hostname)}</span>
-        ${isArxiv ? '<span style="font-size:0.6rem;color:var(--accent);font-weight:600">PDF</span>' : ''}
+        <span style="font-size:0.65rem;color:var(--nr-text-quaternary)">${escapeHtml(hostname)}</span>
+        ${isArxiv ? '<span style="font-size:0.6rem;color:var(--nr-accent);font-weight:600">PDF</span>' : ''}
       </div>
-      <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;line-height:1.35">${escapeHtml(title || url)}</div>
+      <div style="font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;line-height:1.35">${escapeHtml(title || url)}</div>
       ${annotHtml}
     </div>
   </a>`;
@@ -113,7 +113,7 @@ function _parseAnnotatedMessage(content) {
 function _renderFileRef(expId, filePath) {
   const ext = filePath.split('.').pop().toLowerCase();
   const langColors = { py: '#3572A5', js: '#f1e05a', ts: '#3178c6', md: '#083fa1', tex: '#3D6117', css: '#563d7c', html: '#e34c26', json: '#292929', ipynb: '#DA5B0B', sh: '#89e051' };
-  const color = langColors[ext] || 'var(--accent)';
+  const color = langColors[ext] || 'var(--nr-accent)';
   const uid = 'fref-' + Math.random().toString(36).slice(2, 10);
   // Lazy-load preview
   setTimeout(async () => {
@@ -128,14 +128,14 @@ function _renderFileRef(expId, filePath) {
   }, 50);
   const expLabel = expId.replace(/-/g, ' ');
   return `<a href="#experiment/${encodeURIComponent(expId)}?file=${encodeURIComponent(filePath)}" style="text-decoration:none;display:block" onclick="event.stopPropagation()">
-    <div style="background:var(--bg-body);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;margin-top:4px;overflow:hidden">
+    <div style="background:var(--nr-bg-body);border:1px solid var(--nr-border-default);border-radius:8px;padding:10px 12px;margin-top:4px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
-        <span style="font-size:0.8rem;color:var(--text-primary);font-weight:500">${escapeHtml(filePath)}</span>
-        <span style="font-size:0.6rem;color:var(--text-dimmest);text-transform:uppercase;font-weight:600">${escapeHtml(ext)}</span>
+        <span style="font-size:0.8rem;color:var(--nr-text-primary);font-weight:500">${escapeHtml(filePath)}</span>
+        <span style="font-size:0.6rem;color:var(--nr-text-quaternary);text-transform:uppercase;font-weight:600">${escapeHtml(ext)}</span>
       </div>
-      <div style="font-size:0.65rem;color:var(--text-dimmest);margin-bottom:6px">${escapeHtml(expLabel)}</div>
-      <pre id="${uid}" style="font-size:0.7rem;color:var(--text-muted);background:var(--bg-input);border-radius:6px;padding:8px;margin:0;overflow-x:auto;max-height:160px;line-height:1.4;white-space:pre-wrap;word-break:break-all"><span style="color:var(--text-dimmest)">loading…</span></pre>
+      <div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:6px">${escapeHtml(expLabel)}</div>
+      <pre id="${uid}" style="font-size:0.7rem;color:var(--nr-text-secondary);background:var(--nr-bg-input);border-radius:6px;padding:8px;margin:0;overflow-x:auto;max-height:160px;line-height:1.4;white-space:pre-wrap;word-break:break-all"><span style="color:var(--nr-text-quaternary)">loading…</span></pre>
     </div>
   </a>`;
 }
@@ -216,7 +216,7 @@ function showEmojiPicker(teamId, msgId, btn) {
   const rect = btn.getBoundingClientRect();
   const dd = document.createElement('div');
   dd.id = 'emoji-reaction-picker';
-  dd.style.cssText = `position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:180px`;
+  dd.style.cssText = `position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:180px`;
   // Position above button
   dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
   dd.style.left = Math.min(rect.left, window.innerWidth - 190) + 'px';
@@ -468,7 +468,7 @@ function showCreateTeamPopup(source) {
 
   const overlay = document.createElement('div');
   overlay.id = 'create-team-popup';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:var(--overlay-bg, rgba(0,0,0,0.4))';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:var(--nr-shadow-overlay, rgba(0,0,0,0.4))';
   overlay.innerHTML = `
     <div class="bg-card border border-border-card rounded-xl shadow-xl" style="width:380px;max-width:90vw;padding:24px" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between mb-4">
@@ -487,7 +487,7 @@ function showCreateTeamPopup(source) {
           </div>
           <div class="flex items-end pb-1">
             <label class="flex items-center gap-1.5 text-dimmer text-xs cursor-pointer whitespace-nowrap">
-              <input type="checkbox" id="create-team-popup-private" class="accent-[var(--accent)]"> Private
+              <input type="checkbox" id="create-team-popup-private" class="accent-[var(--nr-accent)]"> Private
             </label>
           </div>
         </div>
@@ -616,7 +616,7 @@ async function showTeamDetailView(teamId, e) {
         <div class="text-dimmer text-[0.72rem] mb-2 cursor-pointer hover:text-accent transition-colors" onclick="switchTeamTab('members')">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
         ${isOwner ? `<div class="flex items-center gap-2 mb-2">
           <label class="flex items-center gap-1.5 text-dimmer text-[0.7rem] cursor-pointer">
-            <input type="checkbox" ${team.private ? 'checked' : ''} onchange="toggleTeamPrivacy(${teamId}, this.checked)" class="accent-[var(--accent)]"> Private
+            <input type="checkbox" ${team.private ? 'checked' : ''} onchange="toggleTeamPrivacy(${teamId}, this.checked)" class="accent-[var(--nr-accent)]"> Private
           </label>
         </div>` : ''}
       `;
@@ -702,7 +702,7 @@ function cancelRenameTeam() {
     <div class="text-dimmer text-[0.72rem] mb-2 cursor-pointer hover:text-accent transition-colors" onclick="switchTeamTab('members')">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
     ${isOwner ? `<div class="flex items-center gap-2 mb-2">
       <label class="flex items-center gap-1.5 text-dimmer text-[0.7rem] cursor-pointer">
-        <input type="checkbox" ${team.private ? 'checked' : ''} onchange="toggleTeamPrivacy(${_teamDetailData.teamId}, this.checked)" class="accent-[var(--accent)]"> Private
+        <input type="checkbox" ${team.private ? 'checked' : ''} onchange="toggleTeamPrivacy(${_teamDetailData.teamId}, this.checked)" class="accent-[var(--nr-accent)]"> Private
       </label>
     </div>` : ''}
   `;
@@ -755,7 +755,7 @@ function switchTeamTab(tab) {
         <div id="team-todos-list-${teamId}">
           ${openTodos.length ? openTodos.map(todo => `
             <div class="flex items-start gap-2.5 p-3 bg-card border border-border-card rounded-lg mb-1.5 group">
-              <input type="checkbox" onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--accent)] cursor-pointer" />
+              <input type="checkbox" onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--nr-accent)] cursor-pointer" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-primary text-sm">${escapeHtml(todo.title)}</span>
@@ -780,7 +780,7 @@ function switchTeamTab(tab) {
               <div class="mt-1.5">
                 ${doneTodos.map(todo => `
                   <div class="flex items-start gap-2.5 p-2.5 bg-card/50 border border-border-card/50 rounded-lg mb-1 opacity-50">
-                    <input type="checkbox" checked onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--accent)] cursor-pointer" />
+                    <input type="checkbox" checked onchange="toggleTeamTodo(${teamId}, '${todo.id}', this.checked)" class="mt-0.5 accent-[var(--nr-accent)] cursor-pointer" />
                     <span class="text-primary text-sm line-through flex-1">${escapeHtml(todo.title)}</span>
                     <button onclick="deleteTeamTodo(${teamId}, '${todo.id}')" class="text-red-400/40 hover:text-red-400 text-xs cursor-pointer bg-transparent border-none">✕</button>
                   </div>
@@ -979,7 +979,7 @@ async function toggleFileRefPicker(teamId, btn) {
   const rect = btn.getBoundingClientRect();
   const dd = document.createElement('div');
   dd.id = 'file-ref-picker';
-  dd.style.cssText = `position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px;width:300px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
+  dd.style.cssText = `position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:8px;width:300px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
   dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
   dd.style.left = rect.left + 'px';
   dd.innerHTML = '<div class="text-center py-4 text-dim text-xs"><div class="spinner"></div></div>';
@@ -1031,7 +1031,7 @@ async function fileRefPickExp(expId, teamId) {
       </div>` +
       files.map(f => {
         const ext = f.split('.').pop().toLowerCase();
-        const dot = extColors[ext] || 'var(--text-dimmest)';
+        const dot = extColors[ext] || 'var(--nr-text-quaternary)';
         return `<div class="px-2 py-1.5 rounded cursor-pointer hover:bg-accent/10 text-sm text-primary truncate flex items-center gap-2" onclick="insertFileRef('${escapeAttr(expId)}', '${escapeAttr(f)}', ${teamId})">
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></span>
           ${escapeHtml(f)}
@@ -1112,13 +1112,13 @@ async function inviteToTeamView(teamId) {
   try {
     const data = await apiPost(`/api/teams/${teamId}/invite`, { username });
     if (data.error) {
-      if (msg) { msg.style.color = 'var(--text-muted)'; msg.textContent = data.error; }
+      if (msg) { msg.style.color = 'var(--nr-text-secondary)'; msg.textContent = data.error; }
     } else {
-      if (msg) { msg.style.color = 'var(--accent)'; msg.textContent = 'Invite sent!'; }
+      if (msg) { msg.style.color = 'var(--nr-accent)'; msg.textContent = 'Invite sent!'; }
       input.value = '';
     }
   } catch (err) {
-    if (msg) { msg.style.color = 'var(--text-muted)'; msg.textContent = 'Failed to send invite'; }
+    if (msg) { msg.style.color = 'var(--nr-text-secondary)'; msg.textContent = 'Failed to send invite'; }
   }
 }
 
@@ -1242,7 +1242,7 @@ async function inviteToTeam(teamId) {
     if (data.error) {
       if (msg) { msg.style.color = 'var(--text-red-400, #f87171)'; msg.textContent = data.error; }
     } else {
-      if (msg) { msg.style.color = 'var(--accent)'; msg.textContent = 'Invite sent!'; }
+      if (msg) { msg.style.color = 'var(--nr-accent)'; msg.textContent = 'Invite sent!'; }
       if (input) input.value = '';
     }
   } catch (err) {

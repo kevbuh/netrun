@@ -439,7 +439,7 @@
     el.textContent = text;
     el.style.cssText = 'position:fixed;pointer-events:none;z-index:10002;font-size:0.78rem;padding:6px 14px;'
       + (config.position === 'bottom'
-        ? 'bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);'
+        ? 'bottom:24px;left:50%;transform:translateX(-50%);background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);'
         : 'left:50%;top:20px;transform:translateX(-50%);');
     el.style.opacity = '0';
     document.body.appendChild(el);

@@ -717,7 +717,7 @@
   function _showSidebarDropHint(show) {
     const nav = document.getElementById('sidebar-nav');
     if (!nav) return;
-    if (show) nav.style.outline = '2px solid var(--accent)';
+    if (show) nav.style.outline = '2px solid var(--nr-accent)';
     else nav.style.outline = '';
   }
 

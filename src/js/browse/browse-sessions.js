@@ -39,18 +39,18 @@ function _renderTabStateDropdown() {
   const openTabs = _browseTabs.filter(t => !t.blank && t.url);
   const canSave = openTabs.length > 0;
 
-  let html = `<div style="position:absolute;right:0;top:calc(100% + 4px);min-width:260px;max-height:360px;overflow-y:auto;background:var(--bg-popup);border:1px solid var(--border-card);border-radius:8px;box-shadow:0 4px 16px var(--shadow-popup);z-index:10000;padding:4px 0;">`;
+  let html = `<div style="position:absolute;right:0;top:calc(100% + 4px);min-width:260px;max-height:360px;overflow-y:auto;background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:8px;box-shadow:0 4px 16px var(--nr-shadow-popup);z-index:10000;padding:4px 0;">`;
 
   // Save current tabs section
-  html += `<div style="padding:6px 12px;border-bottom:1px solid var(--border-subtle);">
+  html += `<div style="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);">
     <div id="tab-session-save-row" style="display:flex;align-items:center;gap:4px;">
-      <input id="tab-session-name-input" type="text" placeholder="Session name…" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--border-input);background:var(--bg-input);color:var(--text-primary);font-size:0.78rem;border-radius:6px;outline:none;" onkeydown="if(event.key==='Enter')confirmSaveTabSession()" ${canSave ? '' : 'disabled'}>
-      <button onclick="confirmSaveTabSession()" style="padding:5px 10px;border:none;background:${canSave ? 'var(--accent)' : 'var(--bg-hover)'};color:${canSave ? '#fff' : 'var(--text-dimmest)'};font-size:0.78rem;border-radius:6px;cursor:${canSave ? 'pointer' : 'default'};white-space:nowrap;" ${canSave ? '' : 'disabled'}>Save ${openTabs.length} tab${openTabs.length !== 1 ? 's' : ''}</button>
+      <input id="tab-session-name-input" type="text" placeholder="Session name…" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;" onkeydown="if(event.key==='Enter')confirmSaveTabSession()" ${canSave ? '' : 'disabled'}>
+      <button onclick="confirmSaveTabSession()" style="padding:5px 10px;border:none;background:${canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)'};color:${canSave ? '#fff' : 'var(--nr-text-quaternary)'};font-size:0.78rem;border-radius:6px;cursor:${canSave ? 'pointer' : 'default'};white-space:nowrap;" ${canSave ? '' : 'disabled'}>Save ${openTabs.length} tab${openTabs.length !== 1 ? 's' : ''}</button>
     </div>
   </div>`;
 
   if (!sessions.length) {
-    html += `<div style="padding:12px;font-size:0.75rem;color:var(--text-dimmest);text-align:center">No saved sessions</div>`;
+    html += `<div style="padding:12px;font-size:0.75rem;color:var(--nr-text-quaternary);text-align:center">No saved sessions</div>`;
   } else {
     for (let i = 0; i < sessions.length; i++) {
       const s = sessions[i];
@@ -60,10 +60,10 @@ function _renderTabStateDropdown() {
       const subtitle = winCount > 1 ? `${winCount} windows · ${count} tabs · ${date}` : `${count} tab${count !== 1 ? 's' : ''} · ${date}`;
       html += `<div class="tab-session-row" style="display:flex;align-items:center;gap:6px;padding:6px 12px;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
         <button onclick="loadTabSession(${i})" style="flex:1;min-width:0;text-align:left;border:none;background:none;cursor:pointer;padding:0;display:flex;flex-direction:column;gap:1px;">
-          <span style="font-size:0.8rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${escapeHtml(s.name)}</span>
-          <span style="font-size:0.68rem;color:var(--text-dimmer)">${subtitle}</span>
+          <span style="font-size:0.8rem;color:var(--nr-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${escapeHtml(s.name)}</span>
+          <span style="font-size:0.68rem;color:var(--nr-text-quaternary)">${subtitle}</span>
         </button>
-        <button onclick="event.stopPropagation();deleteTabSession(${i})" style="border:none;background:none;color:var(--text-dimmest);cursor:pointer;padding:2px;font-size:0.9rem;line-height:1;flex-shrink:0;" title="Delete session" onmouseenter="this.style.color='var(--text-primary)'" onmouseleave="this.style.color='var(--text-dimmest)'">&times;</button>
+        <button onclick="event.stopPropagation();deleteTabSession(${i})" style="border:none;background:none;color:var(--nr-text-quaternary);cursor:pointer;padding:2px;font-size:0.9rem;line-height:1;flex-shrink:0;" title="Delete session" onmouseenter="this.style.color='var(--nr-text-primary)'" onmouseleave="this.style.color='var(--nr-text-quaternary)'">&times;</button>
       </div>`;
     }
   }

@@ -498,8 +498,8 @@ function _browseUpdateSaveBtn() {
   if (btn) {
     const svg = btn.querySelector('svg');
     if (svg) {
-      svg.setAttribute('fill', saved ? 'var(--accent)' : 'none');
-      svg.setAttribute('stroke', saved ? 'var(--accent)' : 'currentColor');
+      svg.setAttribute('fill', saved ? 'var(--nr-accent)' : 'none');
+      svg.setAttribute('stroke', saved ? 'var(--nr-accent)' : 'currentColor');
     }
   }
   _islandSyncBookmark();

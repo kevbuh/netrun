@@ -128,7 +128,7 @@ function _updateAccountUI() {
       avatarSpan.innerHTML = `<img src="${_authUserInfo.picture.replace(/"/g, '&quot;')}" style="width:22px;height:22px;object-fit:cover;border-radius:50%;display:block;" referrerpolicy="no-referrer" />`;
     } else {
       const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
-      avatarSpan.innerHTML = `<span style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${letter}</span>`;
+      avatarSpan.innerHTML = `<span style="width:22px;height:22px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${letter}</span>`;
     }
     avatarSpan.style.display = '';
     if (avatarIcon) avatarIcon.style.display = 'none';

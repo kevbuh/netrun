@@ -14,7 +14,7 @@ function _updateCCButton() {
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) {
     ccBtn.style.display = (hasAudio && isOnBrowse) ? '' : 'none';
-    ccBtn.style.color = _ccActive ? 'var(--accent)' : '';
+    ccBtn.style.color = _ccActive ? 'var(--nr-accent)' : '';
   }
 
   // CC state in unified audio pill
@@ -58,7 +58,7 @@ async function toggleCaptions() {
   // Update island and highlight CC button
   if (typeof _updateAudioUnified === 'function') _updateAudioUnified('cc', { label: 'CC Live', detail: 'Listening…', active: true });
   const ccBtn = document.getElementById('browse-cc-btn');
-  if (ccBtn) ccBtn.style.color = 'var(--accent)';
+  if (ccBtn) ccBtn.style.color = 'var(--nr-accent)';
 
   try {
     // Tell main process to route this webview's audio

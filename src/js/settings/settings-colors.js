@@ -351,16 +351,35 @@ function _applyDaylightColors() {
     }
   }
 
+  // Mapping from legacy vars to --nr-* vars for dual-write
+  var _nrMap = {
+    '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
+    '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
+    '--bg-popup': '--nr-bg-overlay', '--bg-input': '--nr-bg-input',
+    '--bg-input-alt': '--nr-bg-surface',
+    '--text-primary': '--nr-text-primary', '--text-white': '--nr-text-inverse',
+    '--text-muted': '--nr-text-secondary', '--text-dim': '--nr-text-tertiary',
+    '--text-dimmer': '--nr-text-quaternary', '--text-link': '--nr-text-link',
+    '--border-card': '--nr-border-default', '--border-input': '--nr-border-strong',
+    '--border-subtle': '--nr-border-subtle', '--border-dim': '--nr-border-dim',
+    '--tree-edge': '--nr-border-strong', '--spinner-border': '--nr-border-strong',
+    '--tooltip-bg': '--nr-tooltip-bg', '--tooltip-border': '--nr-tooltip-border',
+    '--shadow-card': '--nr-shadow-card', '--shadow-popup': '--nr-shadow-popup',
+    '--overlay-bg': '--nr-shadow-overlay',
+  };
+
   // Apply
   for (const key of Object.keys(vA)) {
     if (key.endsWith('$a')) {
       const alpha = lerped[key];
       const cssVar = key.slice(0, -2);
-      if (cssVar === '--shadow-card') el.style.setProperty(cssVar, `rgba(0,0,0,${alpha.toFixed(3)})`);
-      else if (cssVar === '--shadow-popup') el.style.setProperty(cssVar, `rgba(0,0,0,${alpha.toFixed(3)})`);
-      else if (cssVar === '--overlay-bg') el.style.setProperty(cssVar, `rgba(0,0,0,${alpha.toFixed(3)})`);
+      const val = `rgba(0,0,0,${alpha.toFixed(3)})`;
+      el.style.setProperty(cssVar, val);
+      if (_nrMap[cssVar]) el.style.setProperty(_nrMap[cssVar], val);
     } else {
-      el.style.setProperty(key, _oklchToHex(lerped[key][0], lerped[key][1], lerped[key][2]));
+      const hex = _oklchToHex(lerped[key][0], lerped[key][1], lerped[key][2]);
+      el.style.setProperty(key, hex);
+      if (_nrMap[key]) el.style.setProperty(_nrMap[key], hex);
     }
   }
 }
@@ -375,12 +394,28 @@ function startDaylightTheme() {
 function stopDaylightTheme() {
   if (_daylightInterval) { clearInterval(_daylightInterval); _daylightInterval = null; }
   window._daylightStartReal = null;
-  // Remove all inline style properties set by daylight
+  // Remove all inline style properties set by daylight (both legacy + nr-*)
+  var _nrMap = {
+    '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
+    '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
+    '--bg-popup': '--nr-bg-overlay', '--bg-input': '--nr-bg-input',
+    '--bg-input-alt': '--nr-bg-surface',
+    '--text-primary': '--nr-text-primary', '--text-white': '--nr-text-inverse',
+    '--text-muted': '--nr-text-secondary', '--text-dim': '--nr-text-tertiary',
+    '--text-dimmer': '--nr-text-quaternary', '--text-link': '--nr-text-link',
+    '--border-card': '--nr-border-default', '--border-input': '--nr-border-strong',
+    '--border-subtle': '--nr-border-subtle', '--border-dim': '--nr-border-dim',
+    '--tree-edge': '--nr-border-strong', '--spinner-border': '--nr-border-strong',
+    '--tooltip-bg': '--nr-tooltip-bg', '--tooltip-border': '--nr-tooltip-border',
+    '--shadow-card': '--nr-shadow-card', '--shadow-popup': '--nr-shadow-popup',
+    '--overlay-bg': '--nr-shadow-overlay',
+  };
   const el = document.documentElement;
   const kf0 = _daylightKeyframes[0][1];
   for (const key of Object.keys(kf0)) {
     const cssVar = key.endsWith('$a') ? key.slice(0, -2) : key;
     el.style.removeProperty(cssVar);
+    if (_nrMap[cssVar]) el.style.removeProperty(_nrMap[cssVar]);
   }
 }
 
@@ -393,7 +428,7 @@ function setAccentColor(color) {
     btn.className = `w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${isActive ? 'scale-110 ring-2 ring-offset-2' : ''}`;
     if (isActive) {
       btn.style.setProperty('--tw-ring-color', color);
-      btn.style.setProperty('--tw-ring-offset-color', 'var(--bg-body)');
+      btn.style.setProperty('--tw-ring-offset-color', 'var(--nr-bg-body)');
     } else {
       btn.style.removeProperty('--tw-ring-color');
       btn.style.removeProperty('--tw-ring-offset-color');
@@ -436,6 +471,8 @@ function applyAccentColor(color) {
   const hover = '#' + [Math.min(255, r + 20), Math.min(255, g + 20), Math.min(255, b + 20)].map(v => v.toString(16).padStart(2, '0')).join('');
   document.documentElement.style.setProperty('--accent', color);
   document.documentElement.style.setProperty('--accent-hover', hover);
+  document.documentElement.style.setProperty('--nr-accent', color);
+  document.documentElement.style.setProperty('--nr-accent-hover', hover);
 }
 
 function setAetherColor(mode) {

@@ -62,10 +62,10 @@ function _pwShowAutofillPicker(tab, frame, entries) {
   bar.className = 'browse-pw-save-bar';
   bar.id = 'browse-pw-bar';
   const pills = entries.map(e =>
-    `<button onclick="_pwDoAutofill(_browseTabs.find(t=>t.id===${tab.id}), document.querySelector('#browse-content webview'), '${e.id}'); _pwHideSavePrompt();" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-primary);font-size:0.78rem;cursor:pointer;">${escapeHtml(e.username || 'No username')}</button>`
+    `<button onclick="_pwDoAutofill(_browseTabs.find(t=>t.id===${tab.id}), document.querySelector('#browse-content webview'), '${e.id}'); _pwHideSavePrompt();" style="padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;">${escapeHtml(e.username || 'No username')}</button>`
   ).join('');
-  bar.innerHTML = `<span style="font-size:0.8rem;color:var(--text-dim);">Choose account:</span> ${pills}
-    <button onclick="_pwHideSavePrompt()" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dimmer);font-size:0.72rem;cursor:pointer;">Dismiss</button>`;
+  bar.innerHTML = `<span style="font-size:0.8rem;color:var(--nr-text-tertiary);">Choose account:</span> ${pills}
+    <button onclick="_pwHideSavePrompt()" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;">Dismiss</button>`;
   container.prepend(bar);
 }
 
@@ -87,11 +87,11 @@ function _pwShowSavePrompt(tab, data) {
   bar.id = 'browse-pw-bar';
   const displayUser = data.username || 'this site';
   bar.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    <span style="font-size:0.8rem;color:var(--text-primary);">Save password for <strong>${escapeHtml(displayUser)}</strong>?</span>
-    <button id="pw-save-btn" style="padding:3px 12px;border-radius:4px;border:none;background:var(--accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;">Save</button>
-    <button id="pw-never-btn" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.78rem;cursor:pointer;">Never</button>
-    <button onclick="_pwHideSavePrompt(true)" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dimmer);font-size:0.72rem;cursor:pointer;">&times;</button>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--nr-accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>${escapeHtml(displayUser)}</strong>?</span>
+    <button id="pw-save-btn" style="padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;">Save</button>
+    <button id="pw-never-btn" style="padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.78rem;cursor:pointer;">Never</button>
+    <button onclick="_pwHideSavePrompt(true)" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;">&times;</button>
   `;
   container.prepend(bar);
   // Keep password in closure, not DOM
@@ -374,7 +374,7 @@ function browseSelectTab(id) {
     const container = document.getElementById('browse-content');
     const el = document.createElement('div');
     el.id = 'browse-history-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
+    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
     container.appendChild(el);
     tab.el = el;
     _renderWebSearchHistoryPage(el);
@@ -385,7 +385,7 @@ function browseSelectTab(id) {
     const container = document.getElementById('browse-content');
     const el = document.createElement('div');
     el.id = 'browse-help-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);z-index:3;';
+    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
     container.appendChild(el);
     tab.el = el;
     _renderHelpPage(el);
@@ -511,13 +511,13 @@ function _browseUpdateNewTabPage(tab) {
             </form>
           </div>
         </div>
-        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--text-dimmest);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">netrun</div>`;
+        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">netrun</div>`;
       container.appendChild(ntp);
       apiGet('/api/version').then(v => {
         const el = ntp.querySelector('.browse-ntp-version');
         if (el && v.version) el.textContent = 'netrun v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
       }).catch(() => {});
-      ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--accent)'; });
+      ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--nr-accent)'; });
       ntp.addEventListener('dragleave', function() { ntp.style.outline = ''; });
       ntp.addEventListener('drop', function(e) {
         e.preventDefault();

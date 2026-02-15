@@ -309,7 +309,7 @@ function _renderBulkActionBar() {
     sidebar.style.position = 'relative';
     sidebar.appendChild(bar);
   }
-  bar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-card);border-top:1px solid var(--border-dim);';
+  bar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--nr-bg-surface);border-top:1px solid var(--nr-border-dim);';
   sidebar.style.paddingBottom = '44px';
   bar.innerHTML = `
     <span class="text-[0.78rem] text-primary font-medium flex-1">${_selectedFiles.size} selected</span>
@@ -1115,8 +1115,8 @@ async function toggleFileShareDropdown(btn) {
 
   const dd = document.createElement('div');
   dd.id = 'file-share-dropdown';
-  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
-  dd.innerHTML = '<div style="padding:4px 12px;color:var(--text-dimmer);font-size:11px">Loading teams...</div>';
+  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
+  dd.innerHTML = '<div style="padding:4px 12px;color:var(--nr-text-quaternary);font-size:11px">Loading teams...</div>';
   document.body.appendChild(dd);
   const rect = btn.getBoundingClientRect();
   dd.style.top = (rect.bottom + 4) + 'px';
@@ -1127,14 +1127,14 @@ async function toggleFileShareDropdown(btn) {
 
   if (!_cachedTeams.length) await fetchTeams();
   if (!_cachedTeams.length) {
-    dd.innerHTML = '<div style="padding:8px 12px;color:var(--text-dimmer)">No teams yet</div>';
+    dd.innerHTML = '<div style="padding:8px 12px;color:var(--nr-text-quaternary)">No teams yet</div>';
     return;
   }
 
-  dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--text-dimmer);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
+  dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--nr-text-quaternary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
     _cachedTeams.map(t => `
-      <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--text-primary);display:flex;align-items:center;gap:8px" onclick="shareFileToTeam(${t.id}, this)">
-        <div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div>
+      <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--nr-text-primary);display:flex;align-items:center;gap:8px" onclick="shareFileToTeam(${t.id}, this)">
+        <div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--nr-accent) 20%, transparent);color:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div>
         <span>${escapeHtml(t.name)}</span>
       </div>
     `).join('');
@@ -1146,7 +1146,7 @@ async function shareFileToTeam(teamId, el) {
   const content = '[file:' + currentExpId + '/' + currentFile + ']';
   try {
     await apiPost(`/api/teams/${teamId}/messages`, { content });
-    if (el) { el.innerHTML = '<span style="color:var(--accent);font-size:11px">Shared ✓</span>'; }
+    if (el) { el.innerHTML = '<span style="color:var(--nr-accent);font-size:11px">Shared ✓</span>'; }
     setTimeout(() => { const dd = document.getElementById('file-share-dropdown'); if (dd) dd.remove(); }, 800);
   } catch {
     if (el) { el.innerHTML = '<span style="color:var(--text-red-400);font-size:11px">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = '1'; }

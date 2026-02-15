@@ -115,8 +115,8 @@ function renderStarRating(link, opts) {
   let html = `<span class="inline-flex items-center gap-px paper-rating" data-link="${escapeAttr(nLink)}">`;
   for (let i = 1; i <= 5; i++) {
     const filled = i <= rating;
-    const fill = filled ? 'var(--accent)' : 'none';
-    const stroke = filled ? 'var(--accent)' : 'currentColor';
+    const fill = filled ? 'var(--nr-accent)' : 'none';
+    const stroke = filled ? 'var(--nr-accent)' : 'currentColor';
     const opacity = filled ? '' : 'opacity:0.3;';
     const click = interactive ? ` onclick="event.stopPropagation();ratePaper('${escapeAttr(nLink)}',${i})" style="cursor:pointer;${opacity}"` : ` style="${opacity}"`;
     html += `<svg class="${cls}"${click} viewBox="0 0 24 24" fill="${fill}" stroke="${stroke}" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;

@@ -397,7 +397,7 @@ function renderNbCells() {
   if (!container || !nbData) return;
   cmInstances = [];
   const cellDivider = (idx) => `<div class="nb-cell-divider group/div flex items-center justify-center h-2 -my-0.5 relative z-10">
-      <div class="hidden group-hover/div:flex items-center gap-1 absolute bg-[var(--bg-body)] px-2 z-10">
+      <div class="hidden group-hover/div:flex items-center gap-1 absolute bg-[var(--nr-bg-body)] px-2 z-10">
         <button onclick="insertNbCell(${idx},'code')" class="px-2 py-0.5 rounded text-[0.65rem] border border-border-dim bg-card/50 text-dimmer cursor-pointer hover:text-emerald-400 hover:border-emerald-400/40 transition-colors">+ Code</button>
         <button onclick="insertNbCell(${idx},'markdown')" class="px-2 py-0.5 rounded text-[0.65rem] border border-border-dim bg-card/50 text-dimmer cursor-pointer hover:text-blue-400 hover:border-blue-400/40 transition-colors">+ Markdown</button>
       </div>
@@ -428,7 +428,7 @@ function renderNbCells() {
           <button class="w-6 h-6 rounded bg-transparent border-none text-dimmer cursor-pointer flex items-center justify-center hover:text-red-400 text-[0.8rem]" onclick="deleteNbCell(${i})" title="Delete">&times;</button>
         </div>
       </div>
-      <div data-cell-editor="${i}"><textarea data-cell-input="${i}" class="w-full bg-[var(--bg-body)] text-[var(--text-primary)] border-none outline-none resize-none p-3 font-mono text-[0.85rem]" rows="3">${escapeHtml(src)}</textarea></div>
+      <div data-cell-editor="${i}"><textarea data-cell-input="${i}" class="w-full bg-[var(--nr-bg-body)] text-[var(--nr-text-primary)] border-none outline-none resize-none p-3 font-mono text-[0.85rem]" rows="3">${escapeHtml(src)}</textarea></div>
       <div data-cell-rendered="${i}" class="hidden px-4 py-3 nb-rendered-md text-[0.85rem] cursor-pointer" onclick="editMdCell(${i})" title="Click to edit"></div>
       <div class="${hasOutput ? '' : 'hidden '}border-t border-border-dim" data-cell-output-wrap="${i}">
         <div class="cell-output-wrap" data-cell-output-scroll="${i}">

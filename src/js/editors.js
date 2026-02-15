@@ -262,7 +262,7 @@ function renderLatexEditor(fname, content) {
       '<div id="tex-cm-wrap" class="overflow-hidden" style="flex:1 1 0%;min-width:0">' +
         '<textarea id="tex-editor-textarea">' + escapeHtml(content) + '</textarea>' +
       '</div>' +
-      '<div id="tex-split-handle" class="hidden shrink-0" style="width:5px;cursor:col-resize;background:var(--border-input);transition:background 0.15s" onmouseenter="this.style.background=\'var(--accent)\'" onmouseleave="if(!this.dataset.dragging)this.style.background=\'var(--border-input)\'"></div>' +
+      '<div id="tex-split-handle" class="hidden shrink-0" style="width:5px;cursor:col-resize;background:var(--nr-border-strong);transition:background 0.15s" onmouseenter="this.style.background=\'var(--nr-accent)\'" onmouseleave="if(!this.dataset.dragging)this.style.background=\'var(--nr-border-strong)\'"></div>' +
       '<div id="tex-preview-pane" class="hidden bg-input items-center justify-center" style="flex:1 1 0%;min-width:0">' +
         '<span class="text-dimmer text-[0.85rem]">⌘S to compile</span>' +
       '</div>' +
@@ -458,7 +458,7 @@ function _initTexSplitDrag() {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     handle.dataset.dragging = '1';
-    handle.style.background = 'var(--accent)';
+    handle.style.background = 'var(--nr-accent)';
     const body = document.getElementById('tex-body');
     const wrap = document.getElementById('tex-cm-wrap');
     const pane = document.getElementById('tex-preview-pane');
@@ -489,7 +489,7 @@ function _initTexSplitDrag() {
     }
     function onUp() {
       delete handle.dataset.dragging;
-      handle.style.background = 'var(--border-input)';
+      handle.style.background = 'var(--nr-border-strong)';
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
     }
@@ -680,7 +680,7 @@ function renderMermaidEditor(fname, content) {
       '<div id="mermaid-cm-wrap" class="overflow-hidden" style="flex:1 1 0%;min-width:0">' +
         '<textarea id="mermaid-editor-textarea">' + escapeHtml(content) + '</textarea>' +
       '</div>' +
-      '<div id="mermaid-split-handle" class="shrink-0" style="width:5px;cursor:col-resize;background:var(--border-input);transition:background 0.15s" onmouseenter="this.style.background=\'var(--accent)\'" onmouseleave="if(!this.dataset.dragging)this.style.background=\'var(--border-input)\'"></div>' +
+      '<div id="mermaid-split-handle" class="shrink-0" style="width:5px;cursor:col-resize;background:var(--nr-border-strong);transition:background 0.15s" onmouseenter="this.style.background=\'var(--nr-accent)\'" onmouseleave="if(!this.dataset.dragging)this.style.background=\'var(--nr-border-strong)\'"></div>' +
       '<div id="mermaid-preview-pane" class="flex bg-input items-center justify-center overflow-auto" style="flex:1 1 0%;min-width:0">' +
         '<div id="mermaid-preview-content" class="p-4 flex items-center justify-center w-full h-full"></div>' +
       '</div>' +
@@ -766,7 +766,7 @@ function _initMermaidSplitDrag() {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     handle.dataset.dragging = '1';
-    handle.style.background = 'var(--accent)';
+    handle.style.background = 'var(--nr-accent)';
     const body = document.getElementById('mermaid-body');
     const wrap = document.getElementById('mermaid-cm-wrap');
     const pane = document.getElementById('mermaid-preview-pane');
@@ -795,7 +795,7 @@ function _initMermaidSplitDrag() {
     }
     function onUp() {
       delete handle.dataset.dragging;
-      handle.style.background = 'var(--border-input)';
+      handle.style.background = 'var(--nr-border-strong)';
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
     }

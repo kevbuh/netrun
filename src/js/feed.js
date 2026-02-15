@@ -378,7 +378,7 @@ function _showBookmarkFly(event) {
   const target = document.getElementById('pill-island') || document.getElementById('sb-dashboard');
   if (target) {
     const iconEl = document.createElement('div');
-    iconEl.innerHTML = window.icon('bookmark', {size: 24, fill: 'var(--accent)', stroke: 'var(--accent)'});
+    iconEl.innerHTML = window.icon('bookmark', {size: 24, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)'});
     iconEl.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;transition:all 0.5s cubic-bezier(0.4,0,0.2,1);';
     const startX = event.clientX - 12;
     const startY = event.clientY - 12;
@@ -998,17 +998,17 @@ function renderAlgorithmView() {
       <div class="space-y-2">
         <div class="flex items-center gap-3">
           <span class="text-dim text-[0.72rem] w-16 shrink-0">Base</span>
-          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
           <span id="algo-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wBase.toFixed(2)}</span>
         </div>
         <div class="flex items-center gap-3">
           <span class="text-dim text-[0.72rem] w-16 shrink-0">Affinity</span>
-          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
           <span id="algo-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wAff.toFixed(2)}</span>
         </div>
         <div class="flex items-center gap-3">
           <span class="text-dim text-[0.72rem] w-16 shrink-0">Recency</span>
-          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
           <span id="algo-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wRec.toFixed(2)}</span>
         </div>
       </div>
@@ -1019,7 +1019,7 @@ function renderAlgorithmView() {
       <p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">${maxRun}</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>
       <div class="flex items-center gap-3">
         <span class="text-dim text-[0.72rem] shrink-0">Max same-category run</span>
-        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="algo-div-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
       </div>
     </div>
@@ -1103,7 +1103,7 @@ function renderQualityView() {
       <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>
       <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>
       <div class="flex items-center gap-3">
-        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${getQualityThreshold()}%</span>
       </div>
       <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
@@ -1226,7 +1226,7 @@ function _renderPersonalizationPanel() {
     <div class="mb-4">
       <div class="flex items-center gap-3">
         <span class="text-dimmer text-[0.68rem]">Category diversity</span>
-        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('diversity-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('diversity-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="diversity-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
       </div>
       <p class="text-dimmer text-[0.62rem] mt-0.5">Max posts from same category in a row before mixing in others.</p>
@@ -1237,17 +1237,17 @@ function _renderPersonalizationPanel() {
       <p class="text-dimmer text-[0.62rem] mt-0.5 mb-2">score = LLM × (base + affinity × aff_weight) + recency_boost × recency_weight</p>
       <div class="flex items-center gap-3 mb-1.5">
         <span class="text-dim text-[0.68rem] w-16 shrink-0">Base</span>
-        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightBase') || '0.7') * 100)}" oninput="document.getElementById('fy-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightBase') || '0.7') * 100)}" oninput="document.getElementById('fy-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="fy-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightBase') || '0.7').toFixed(2)}</span>
       </div>
       <div class="flex items-center gap-3 mb-1.5">
         <span class="text-dim text-[0.68rem] w-16 shrink-0">Affinity</span>
-        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3') * 100)}" oninput="document.getElementById('fy-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3') * 100)}" oninput="document.getElementById('fy-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="fy-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3').toFixed(2)}</span>
       </div>
       <div class="flex items-center gap-3">
         <span class="text-dim text-[0.68rem] w-16 shrink-0">Recency</span>
-        <input type="range" min="0" max="200" value="${Math.round(parseFloat(localStorage.getItem('fyWeightRecency') || '1.0') * 100)}" oninput="document.getElementById('fy-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="0" max="200" value="${Math.round(parseFloat(localStorage.getItem('fyWeightRecency') || '1.0') * 100)}" oninput="document.getElementById('fy-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="fy-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightRecency') || '1.0').toFixed(2)}</span>
       </div>
     </div>
@@ -1832,7 +1832,7 @@ function _renderFeedEmptyState(container, qfOn) {
   const threshold = qfOn ? getQualityThreshold() : 0;
   const filledDots = Math.round(threshold / 10);
   const dots = Array.from({ length: 10 }, (_, i) =>
-    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px;background:${i < filledDots ? 'var(--accent)' : 'var(--border-card)'};transition:background 0.2s" title="${(i + 1) * 10}%"></span>`
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px;background:${i < filledDots ? 'var(--nr-accent)' : 'var(--nr-border-default)'};transition:background 0.2s" title="${(i + 1) * 10}%"></span>`
   ).join('');
   container.innerHTML = `<div style="column-span:all;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 0;gap:16px">
     <div class="text-dim" style="font-size:0.9rem">No papers match your filter</div>
@@ -1889,8 +1889,8 @@ function _renderPapersNow() {
       const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
       const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
       const isSaved = !!ctx.savedPosts[p.link];
-      const bmFill = isSaved ? 'var(--accent)' : 'none';
-      const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+      const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+      const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
       const isRead = readSet.has(p.link);
       const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
@@ -1918,8 +1918,8 @@ function _renderPapersNow() {
       const isPoly = p.source === 'polymarket';
       const snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
       const isSaved = !!ctx.savedPosts[p.link];
-      const bmFill = isSaved ? 'var(--accent)' : 'none';
-      const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+      const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+      const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
       const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
       const isRead = readSet.has(p.link);
       const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
@@ -1960,7 +1960,7 @@ function _renderPapersNow() {
                 ${icon('repost', {size: 16, class: 'w-4 h-4'})}
                 <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
               </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--text-dimmer)' : 'var(--accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)">
+              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)">
                 ${icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke})}
               </button>
               <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
@@ -2063,14 +2063,14 @@ function _renderTweetComments(container, comments, link, idx) {
 
   function renderThread(c, depth) {
     const replies = (byParent[c.id] || []).sort((a, b) => a.timestamp - b.timestamp);
-    const ml = depth > 0 ? `margin-left:${Math.min(depth, 4) * 16}px; border-left: 2px solid var(--border-card); padding-left: 8px;` : '';
+    const ml = depth > 0 ? `margin-left:${Math.min(depth, 4) * 16}px; border-left: 2px solid var(--nr-border-default); padding-left: 8px;` : '';
     const initial = (c.author || '?')[0].toUpperCase();
     const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
     const isOwn = c.author === currentUser;
     const delBtn = isOwn ? `<button onclick="event.stopPropagation(); _deleteTweetComment('${c.id}', '${escapeAttr(link)}', ${idx})" class="text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer">x</button>` : '';
     let html = `<div style="${ml}; margin-bottom: 6px;">
       <div class="flex items-start gap-1.5">
-        <div style="width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${escapeHtml(initial)}</div>
+        <div style="width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${escapeHtml(initial)}</div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5">
             <a href="#profile/${encodeURIComponent(c.author)}" onclick="event.stopPropagation()" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(c.author)}</a>
@@ -2213,8 +2213,8 @@ function _tweetRepost(idx, btn) {
 // Shared comment & repost action buttons for all card views
 function _cardActionRow(p, i, ctx) {
   const isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
-  const bmFill = isSaved ? 'var(--accent)' : 'none';
-  const bmStroke = isSaved ? 'var(--accent)' : 'currentColor';
+  const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+  const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
   const commentCount = _tweetCommentCounts[p.link] || '';
   const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
   return `<div class="flex items-center gap-3 shrink-0 ml-auto">
@@ -2225,7 +2225,7 @@ function _cardActionRow(p, i, ctx) {
     <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ${reposted ? '' : 'text-dimmer hover:text-green-400'}" style="${reposted ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)" title="Repost">
       ${icon('repost', {size: 14, class: 'w-3.5 h-3.5'})}
     </button>
-    <button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--text-dimmer)' : 'var(--accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}">
+    <button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}">
       ${icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke})}
     </button>
     <button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
@@ -2265,7 +2265,7 @@ let scrollTicking = false;
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
-    feed.style.outline = '2px dashed var(--accent)';
+    feed.style.outline = '2px dashed var(--nr-accent)';
   });
   feed.addEventListener('dragleave', function(e) {
     if (feed.contains(e.relatedTarget)) return;

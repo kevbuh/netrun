@@ -189,9 +189,9 @@ function _showTabsInPillDropdown() {
   const pinnedItems = tabs.filter(function(t) { return t.pinned; });
   const unpinnedItems = tabs.filter(function(t) { return !t.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
 
-  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:background 0.1s;';
+  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;';
 
-  let html = '<div style="' + rowStyle + '" onmouseenter="this.style.background=\'var(--bg-hover)\'" onmouseleave="this.style.background=\'none\'" data-pill-tab-new="1">';
+  let html = '<div style="' + rowStyle + '" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'" data-pill-tab-new="1">';
   html += '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
   html += '<span>New tab</span></div>';
 
@@ -199,17 +199,17 @@ function _showTabsInPillDropdown() {
     const isActive = t.id === activeTab;
     const title = (t.title || 'New Tab').length > 40 ? (t.title || 'New Tab').slice(0, 38) + '\u2026' : (t.title || 'New Tab');
     const fav = t.favicon ? '<img src="' + escapeHtml(t.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-    const bg = isActive ? 'background:var(--bg-hover);' : '';
-    html += '<div style="' + rowStyle + bg + '" onmouseenter="this.style.background=\'var(--bg-hover)\'" onmouseleave="this.style.background=\'' + (isActive ? 'var(--bg-hover)' : 'none') + '\'" data-pill-tab-switch="' + t.id + '">';
+    const bg = isActive ? 'background:var(--nr-bg-raised);' : '';
+    html += '<div style="' + rowStyle + bg + '" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'' + (isActive ? 'var(--nr-bg-raised)' : 'none') + '\'" data-pill-tab-switch="' + t.id + '">';
     html += fav;
     html += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(title) + '</span>';
-    html += '<button data-pill-tab-close="' + t.id + '" style="background:none;border:none;cursor:pointer;color:var(--text-dimmer);font-size:1rem;line-height:1;padding:0 2px;opacity:0.5" onmouseenter="this.style.opacity=\'1\'" onmouseleave="this.style.opacity=\'0.5\'">&times;</button>';
+    html += '<button data-pill-tab-close="' + t.id + '" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);font-size:1rem;line-height:1;padding:0 2px;opacity:0.5" onmouseenter="this.style.opacity=\'1\'" onmouseleave="this.style.opacity=\'0.5\'">&times;</button>';
     html += '</div>';
   }
 
   if (pinnedItems.length) {
     pinnedItems.forEach(renderTab);
-    if (unpinnedItems.length) html += '<div style="height:1px;background:var(--aether-border, var(--border-card));margin:2px 12px"></div>';
+    if (unpinnedItems.length) html += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 12px"></div>';
   }
   unpinnedItems.forEach(renderTab);
 
@@ -499,7 +499,7 @@ function _splitPillDragStart(e) {
         innerTabEl.classList.add('dragging-out');
         ghost = innerTabEl.cloneNode(true);
         ghost.className = 'browse-split-pill-tab browse-split-drag-ghost';
-        ghost.style.cssText = 'position:fixed;z-index:10001;pointer-events:none;opacity:0.85;background:var(--bg-card);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);padding:4px 8px;white-space:nowrap;font-size:0.75rem;';
+        ghost.style.cssText = 'position:fixed;z-index:10001;pointer-events:none;opacity:0.85;background:var(--nr-bg-surface);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);padding:4px 8px;white-space:nowrap;font-size:0.75rem;';
         ghost.style.width = innerTabEl.offsetWidth + 'px';
         document.body.appendChild(ghost);
       } else {
@@ -707,7 +707,7 @@ function _browseStartRenameGroup(groupId, nameEl) {
   input.type = 'text';
   input.className = 'browse-tab-group-rename';
   input.value = group.name;
-  input.style.cssText = 'width:60px;font-size:0.65rem;font-weight:600;background:transparent;border:1px solid var(--border-card);border-radius:3px;color:inherit;padding:0 3px;outline:none;';
+  input.style.cssText = 'width:60px;font-size:0.65rem;font-weight:600;background:transparent;border:1px solid var(--nr-border-default);border-radius:3px;color:inherit;padding:0 3px;outline:none;';
   nameEl.replaceWith(input);
   input.focus();
   input.select();

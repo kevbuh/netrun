@@ -136,7 +136,7 @@ async function renderUserProfile(username) {
 
     let html = `
       <div class="relative rounded-xl overflow-hidden mb-6" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${accentColor}33, ${accentColor}11)`}">
-        <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--bg-body),transparent)"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)"></div>
         ${isOwnProfile ? `<button onclick="_uploadProfileBg()" class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors" title="Change background">
           ${icon('camera', { size: 14 })}
         </button>` : ''}
@@ -144,8 +144,8 @@ async function renderUserProfile(username) {
       <div class="flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2">
         <div class="relative group">
           ${profile.picture
-            ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--bg-body)" referrerpolicy="no-referrer" />`
-            : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--bg-body);background:${accentColor}33;color:${accentColor}">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
+            ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--nr-bg-body)" referrerpolicy="no-referrer" />`
+            : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--nr-bg-body);background:${accentColor}33;color:${accentColor}">${escapeHtml((profile.username || '?')[0].toUpperCase())}</div>`
           }
           ${isOwnProfile ? `<button onclick="_uploadProfilePic()" class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">
             ${icon('camera', { size: 20, stroke: '#fff' })}
@@ -380,14 +380,14 @@ async function sendProfileMessage(username) {
   try {
     const data = await apiPost('/api/messages', { to_username: username, content });
     if (data.error) {
-      if (status) { status.style.color = 'var(--text-muted)'; status.textContent = data.error; }
+      if (status) { status.style.color = 'var(--nr-text-secondary)'; status.textContent = data.error; }
     } else {
-      if (status) { status.style.color = 'var(--accent)'; status.textContent = 'Message sent!'; }
+      if (status) { status.style.color = 'var(--nr-accent)'; status.textContent = 'Message sent!'; }
       textarea.value = '';
       setTimeout(() => document.getElementById('profile-message-form')?.classList.add('hidden'), 1500);
     }
   } catch (err) {
-    if (status) { status.style.color = 'var(--text-muted)'; status.textContent = 'Failed to send'; }
+    if (status) { status.style.color = 'var(--nr-text-secondary)'; status.textContent = 'Failed to send'; }
   }
 }
 

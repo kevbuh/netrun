@@ -452,13 +452,13 @@ async function renderDashboard() {
   const heatAccent = theme.accent, heatAccentAlt = theme.alt;
 
   const colorFn = (lvl, col) => {
-    if (lvl === 0) return 'var(--border-card)';
+    if (lvl === 0) return 'var(--nr-border-default)';
     if (heatAccentAlt) {
       const c = col % 2 === 0 ? heatAccent : heatAccentAlt;
       return `color-mix(in srgb, ${c} ${lvl * 10}%, transparent)`;
     }
     if (heatAccent) return `color-mix(in srgb, ${heatAccent} ${lvl * 10}%, transparent)`;
-    return `color-mix(in srgb, var(--accent) ${lvl * 10}%, transparent)`;
+    return `color-mix(in srgb, var(--nr-accent) ${lvl * 10}%, transparent)`;
   };
 
   const cellSize = 11;
@@ -471,19 +471,19 @@ async function renderDashboard() {
   let heatmapHtml = `<div class="overflow-x-auto scrollbar-hide" style="position:relative"><svg width="${gridW}" height="${gridH}" class="block heatmap-svg" style="min-width:${gridW}px">`;
   // Month labels along top
   monthLabels.forEach(m => {
-    heatmapHtml += `<text x="${labelW + m.col * (cellSize + cellGap)}" y="11" fill="var(--text-dimmer)" font-size="10" font-family="sans-serif">${m.label}</text>`;
+    heatmapHtml += `<text x="${labelW + m.col * (cellSize + cellGap)}" y="11" fill="var(--nr-text-quaternary)" font-size="10" font-family="sans-serif">${m.label}</text>`;
   });
   // Day labels (Mon, Wed, Fri)
   const dayLabelMap = { 1: 'Mon', 3: 'Wed', 5: 'Fri' };
   Object.entries(dayLabelMap).forEach(([row, label]) => {
-    heatmapHtml += `<text x="0" y="${monthLabelH + row * (cellSize + cellGap) + 9}" fill="var(--text-dimmest)" font-size="9" font-family="sans-serif">${label}</text>`;
+    heatmapHtml += `<text x="0" y="${monthLabelH + row * (cellSize + cellGap) + 9}" fill="var(--nr-text-quaternary)" font-size="9" font-family="sans-serif">${label}</text>`;
   });
   // Cells
   cells.forEach(c => {
     const x = labelW + c.col * (cellSize + cellGap);
     const y = monthLabelH + c.row * (cellSize + cellGap);
     const lvl = c.isFuture ? 0 : levelFn(c.count);
-    const stroke = c.isToday ? (theme.outline || 'var(--accent)') : 'none';
+    const stroke = c.isToday ? (theme.outline || 'var(--nr-accent)') : 'none';
     const sw = c.isToday ? '1.5' : '0';
     const prettyDate = new Date(heatYear, c.month, c.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const tooltipText = c.isFuture ? prettyDate : (c.count === 0 ? `No activity on ${prettyDate}` : `${c.count} activit${c.count === 1 ? 'y' : 'ies'} on ${prettyDate}`);
@@ -491,7 +491,7 @@ async function renderDashboard() {
   });
   heatmapHtml += '</svg></div>';
   // Tooltip and popover are fixed-position, appended to body via JS
-  heatmapHtml += '<div id="heatmap-tip" style="display:none;position:fixed;pointer-events:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text-primary);white-space:nowrap;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>';
+  heatmapHtml += '<div id="heatmap-tip" style="display:none;position:fixed;pointer-events:none;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--nr-text-primary);white-space:nowrap;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>';
   // Popover is rendered outside heatmapHtml so it exists in both year and month modes
 
   // Store activity items on window for click handler
@@ -551,38 +551,38 @@ async function renderDashboard() {
       const presetColors = ['#b4451a','#3b82f6','#22c55e','#a855f7','#eab308','#ef4444'];
       const colorLabels = ['Accent','Blue','Green','Purple','Yellow','Red'];
 
-      let html = `<div style="padding:4px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-card);margin-bottom:2px">
-        <span style="color:var(--text-dimmer);font-size:11px">${dateLabel}</span>
-        <button onclick="window._heatmapPopoverAddForm=!window._heatmapPopoverAddForm;window._renderHeatmapPopover('${key}')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px" title="Add event">+</button>
+      let html = `<div style="padding:4px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--nr-border-default);margin-bottom:2px">
+        <span style="color:var(--nr-text-quaternary);font-size:11px">${dateLabel}</span>
+        <button onclick="window._heatmapPopoverAddForm=!window._heatmapPopoverAddForm;window._renderHeatmapPopover('${key}')" style="background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px" title="Add event">+</button>
       </div>`;
 
       if (window._heatmapPopoverAddForm) {
         html += `<div style="padding:6px 12px 8px">
-          <input type="text" id="hm-ev-title" placeholder="Event title…" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-input);color:var(--text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box">
-          <textarea id="hm-ev-desc" placeholder="Description (optional)" rows="2" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--border-input);background:var(--bg-input);color:var(--text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box"></textarea>
+          <input type="text" id="hm-ev-title" placeholder="Event title…" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box">
+          <textarea id="hm-ev-desc" placeholder="Description (optional)" rows="2" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box"></textarea>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--text-dimmer)">Color:</span>
+            <span style="font-size:11px;color:var(--nr-text-quaternary)">Color:</span>
             ${presetColors.map((c,i) => `<label style="cursor:pointer"><input type="radio" name="hm-ev-color" value="${c}" ${i===0?'checked':''} style="display:none"><span style="width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent;background:${c}" title="${colorLabels[i]}" onclick="this.parentElement.querySelector('input').checked=true;this.closest('div').querySelectorAll('span').forEach(s=>s.style.borderColor='transparent');this.style.borderColor='white'"></span></label>`).join('')}
           </div>
           <div style="display:flex;gap:6px">
-            <button onclick="_heatmapAddEvent('${key}')" style="padding:3px 10px;border-radius:6px;background:var(--accent);color:white;border:none;font-size:12px;cursor:pointer">Save</button>
-            <button onclick="window._heatmapPopoverAddForm=false;window._renderHeatmapPopover('${key}')" style="padding:3px 10px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);font-size:12px;cursor:pointer">Cancel</button>
+            <button onclick="_heatmapAddEvent('${key}')" style="padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer">Save</button>
+            <button onclick="window._heatmapPopoverAddForm=false;window._renderHeatmapPopover('${key}')" style="padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer">Cancel</button>
           </div>
         </div>`;
       }
 
       if (!items.length && !window._heatmapPopoverAddForm) {
-        html += `<div style="padding:6px 12px;color:var(--text-dimmer)">No activity</div>`;
+        html += `<div style="padding:6px 12px;color:var(--nr-text-quaternary)">No activity</div>`;
       } else {
         items.forEach(item => {
           const icon = icons[item.type] || '';
-          const tag = `<span style="font-size:9px;color:var(--text-dimmest);margin-left:4px">${labels[item.type] || ''}</span>`;
+          const tag = `<span style="font-size:9px;color:var(--nr-text-quaternary);margin-left:4px">${labels[item.type] || ''}</span>`;
           let onclick = '';
           if (item.type === 'saved' && item.link) onclick = `onclick="openSavedPaper('${escapeAttr(item.link)}', event)"`;
           const cursor = onclick ? 'cursor:pointer;' : '';
-          const deleteBtn = item.type === 'event' && item.id ? `<button onclick="event.stopPropagation();_heatmapDeleteEvent('${item.id}','${key}')" style="background:none;border:none;color:var(--text-dimmer);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0" title="Delete event">&times;</button>` : '';
+          const deleteBtn = item.type === 'event' && item.id ? `<button onclick="event.stopPropagation();_heatmapDeleteEvent('${item.id}','${key}')" style="background:none;border:none;color:var(--nr-text-quaternary);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0" title="Delete event">&times;</button>` : '';
           const colorDot = item.type === 'event' && item.color ? `<span style="width:8px;height:8px;border-radius:50%;background:${item.color};flex-shrink:0"></span>` : `<span style="flex-shrink:0">${icon}</span>`;
-          html += `<div style="padding:4px 12px;${cursor}display:flex;align-items:center;gap:6px;color:var(--text-primary)" ${onclick} class="hover:bg-hover">
+          html += `<div style="padding:4px 12px;${cursor}display:flex;align-items:center;gap:6px;color:var(--nr-text-primary)" ${onclick} class="hover:bg-hover">
             ${colorDot}
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escapeHtml(item.title)}</span>${tag}${deleteBtn}
           </div>`;
@@ -635,7 +635,7 @@ async function renderDashboard() {
       ? `<img src="${escapeAttr(favicon)}" class="w-4 h-4 rounded-sm shrink-0" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
       : pixelFallback;
     const rp = entry.readProgress;
-    const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--border-card);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--accent);border-radius:1px"></div></div>` : '';
+    const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--nr-border-default);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--nr-accent);border-radius:1px"></div></div>` : '';
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
       <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}', event)">
@@ -645,7 +645,7 @@ async function renderDashboard() {
       </div>
       ${getPaperRating(p.link) > 0 ? `<span class="shrink-0">${renderStarRating(p.link, { size: 'sm', interactive: false })}</span>` : ''}
       <button class="dash-offline shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none${isPostCached(p.link) ? ' cached' : ''}" title="${isPostCached(p.link) ? 'Saved offline' : 'Save offline'}" onclick="event.stopPropagation(); if(!isPostCached('${escapeAttr(p.link)}')) cachePostOffline('${escapeAttr(p.link)}', ${escapeAttr(JSON.stringify(p))}, this)">${isPostCached(p.link) ? _offlineCachedIcon() : _offlineDownloadIcon()}</button>
-      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="dashRemoveSaved('${escapeAttr(p.link)}')" title="Remove">&times;</button>
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--nr-text-quaternary);font-size:1rem" onclick="dashRemoveSaved('${escapeAttr(p.link)}')" title="Remove">&times;</button>
     </div>`;
   };
   const readingHtml = displayedSaved.length ? displayedSaved.map(_renderSavedRow).join('') + (hasMoreSaved ? `<button onclick="openAllSaved()" class="text-[0.78rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer mt-2 px-2">View all ${savedEntries.length} saved posts</button>` : '') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
@@ -681,7 +681,7 @@ async function renderDashboard() {
           ${dateStr ? `<span class="text-[0.68rem] text-dimmest">${dateStr}</span>` : ''}
         </div>
       </div>
-      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="deleteUserQuote('${escapeAttr(q.id)}'); renderDashboard()" title="Remove">&times;</button>
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--nr-text-quaternary);font-size:1rem" onclick="deleteUserQuote('${escapeAttr(q.id)}'); renderDashboard()" title="Remove">&times;</button>
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No quotes yet. Open a page and use Post Quote in the sidebar.</div>';
 
@@ -694,7 +694,7 @@ async function renderDashboard() {
   const _pJoinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
   const profileHeaderHtml = `
     <div class="relative rounded-xl overflow-hidden mb-6" style="min-height:120px; ${profile.profile_bg ? `background:url('${escapeAttr(profile.profile_bg)}') center/cover no-repeat` : `background:linear-gradient(135deg, ${_pAccent}33, ${_pAccent}11)`}">
-      <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--bg-body),transparent)"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)"></div>
       <button onclick="_uploadProfileBg()" class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors" title="Change background">
         ${icon('camera', {class: 'w-3.5 h-3.5'})}
       </button>
@@ -702,8 +702,8 @@ async function renderDashboard() {
     <div class="flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2">
       <div class="relative group">
         ${profile.picture
-          ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--bg-body)" referrerpolicy="no-referrer" />`
-          : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--bg-body);background:${_pAccent}33;color:${_pAccent}">${escapeHtml((profile.username || _authUserInfo?.username || '?')[0].toUpperCase())}</div>`
+          ? `<img src="${escapeAttr(profile.picture)}" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--nr-bg-body)" referrerpolicy="no-referrer" />`
+          : `<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--nr-bg-body);background:${_pAccent}33;color:${_pAccent}">${escapeHtml((profile.username || _authUserInfo?.username || '?')[0].toUpperCase())}</div>`
         }
         <button onclick="_uploadProfilePic()" class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">
           ${icon('camera', {size: 20, class: 'w-5 h-5 text-white'})}
@@ -747,7 +747,7 @@ async function renderDashboard() {
   // Tasks card HTML
   const _bentoTasksHtml = myTasks.length ? myTasks.slice(0, 5).map(t => `
     <div class="flex items-center gap-2 px-1 py-1.5 rounded-md hover:bg-hover transition-colors">
-      <input type="checkbox" onchange="dashToggleTask(${t.team_id}, '${t.id}', this.checked)" class="accent-[var(--accent)] cursor-pointer shrink-0" />
+      <input type="checkbox" onchange="dashToggleTask(${t.team_id}, '${t.id}', this.checked)" class="accent-[var(--nr-accent)] cursor-pointer shrink-0" />
       <div class="flex-1 min-w-0 cursor-pointer" onclick="window.location.hash='teams'; setTimeout(()=>showTeamDetailView(${t.team_id}),100)">
         <div class="text-[0.78rem] text-primary truncate">${escapeHtml(t.title)}</div>
         <div class="text-[0.65rem] text-dimmest">${escapeHtml(t.team_name)}</div>
@@ -821,7 +821,7 @@ async function renderDashboard() {
           <span class="text-[0.68rem] text-dimmest">${now.getFullYear()}</span>
         </div>
         ${heatmapHtml}
-        <div id="heatmap-popover" style="display:none;position:fixed;z-index:10001;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div>
+        <div id="heatmap-popover" style="display:none;position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px"></div>
       </div>
 
       <!-- Tasks or Trending -->
@@ -1110,7 +1110,7 @@ async function openAllSaved() {
       : pixelFallback;
     const dateStr = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
     const rp = entry.readProgress;
-    const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--border-card);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--accent);border-radius:1px"></div></div>` : '';
+    const progressBar = rp ? `<div style="height:2px;margin-top:2px;background:var(--nr-border-default);border-radius:1px;overflow:hidden"><div style="width:${Math.round(rp * 100)}%;height:100%;background:var(--nr-accent);border-radius:1px"></div></div>` : '';
     return `<div class="dash-row flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-colors${entry.read ? ' opacity-50' : ''}">
       ${faviconImg}
       <div class="flex-1 min-w-0" onclick="openSavedPaper('${escapeAttr(p.link)}', event)">
@@ -1121,7 +1121,7 @@ async function openAllSaved() {
       ${getPaperRating(p.link) > 0 ? `<span class="shrink-0">${renderStarRating(p.link, { size: 'sm', interactive: false })}</span>` : ''}
       ${dateStr ? `<span class="text-[0.68rem] text-dimmest shrink-0">${dateStr}</span>` : ''}
       <button class="dash-offline shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none${isPostCached(p.link) ? ' cached' : ''}" title="${isPostCached(p.link) ? 'Saved offline' : 'Save offline'}" onclick="event.stopPropagation(); if(!isPostCached('${escapeAttr(p.link)}')) cachePostOffline('${escapeAttr(p.link)}', ${escapeAttr(JSON.stringify(p))}, this)">${isPostCached(p.link) ? _offlineCachedIcon() : _offlineDownloadIcon()}</button>
-      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--text-dimmer);font-size:1rem" onclick="event.stopPropagation(); dashRemoveSaved('${escapeAttr(p.link)}'); openAllSaved()" title="Remove">&times;</button>
+      <button class="dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" style="color:var(--nr-text-quaternary);font-size:1rem" onclick="event.stopPropagation(); dashRemoveSaved('${escapeAttr(p.link)}'); openAllSaved()" title="Remove">&times;</button>
     </div>`;
   }).join('') : '<div class="text-[0.8rem] text-dimmer px-2">No saved posts</div>';
   container.innerHTML = `${backBtn}<h2 class="text-[1.3rem] font-semibold text-white_ mb-4">Reading List <span class="text-dim font-normal text-[0.9rem]">(${entries.length})</span></h2>${rows}`;
@@ -1151,7 +1151,7 @@ var _devGraphLevel = 'file'; // 'file' or 'function'
 var _devGraphData = null;
 
 function _devLineChart(hist, yKey, label, color, tooltipFn) {
-  if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--text-dimmer)">Not enough data for ${label}</div>`;
+  if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--nr-text-quaternary)">Not enough data for ${label}</div>`;
   const id = '_dchart_' + (_devChartId++);
   const W = 400, H = 130, PAD = { t: 16, r: 12, b: 24, l: 42 };
   const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
@@ -1161,7 +1161,7 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
   function xp(i) { return PAD.l + (i / (hist.length - 1)) * cw; }
   function yp(v) { return PAD.t + ch - ((v - minV) / range) * ch; }
   const gridColor = 'rgba(255,255,255,0.06)';
-  const textColor = 'var(--text-dimmer)';
+  const textColor = 'var(--nr-text-quaternary)';
   let svg = `<text x="${PAD.l}" y="11" fill="${textColor}" font-size="9" font-weight="600">${label}</text>`;
   const yTicks = 3;
   for (let i = 0; i <= yTicks; i++) {
@@ -1273,15 +1273,15 @@ function renderDevPanel() {
       style="
         padding:12px 16px;
         cursor:pointer;
-        border-left:3px solid ${isActive ? 'var(--accent)' : 'transparent'};
-        background:${isActive ? 'var(--bg-hover)' : 'transparent'};
-        color:${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'};
+        border-left:3px solid ${isActive ? 'var(--nr-accent)' : 'transparent'};
+        background:${isActive ? 'var(--nr-bg-raised)' : 'transparent'};
+        color:${isActive ? 'var(--nr-text-primary)' : 'var(--text-secondary)'};
         font-size:0.8rem;
         font-weight:${isActive ? '600' : '400'};
         transition:all var(--motion-fast) var(--motion-smooth);
         border-radius:${isActive ? '0' : '0'};
       "
-      onmouseover="if ('${section.id}' !== '${_devActiveSection}') this.style.background='var(--bg-hover)'"
+      onmouseover="if ('${section.id}' !== '${_devActiveSection}') this.style.background='var(--nr-bg-raised)'"
       onmouseout="if ('${section.id}' !== '${_devActiveSection}') this.style.background='transparent'"
     >
       ${section.label}
@@ -1302,7 +1302,7 @@ function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  contentPane.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
+  contentPane.innerHTML = '<div class="text-sm" style="color:var(--nr-text-quaternary)">Loading…</div>';
 
   switch (sectionId) {
     case 'overview':
@@ -1327,7 +1327,7 @@ function renderDevSection(sectionId) {
       _renderDevTools();
       break;
     default:
-      contentPane.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Unknown section</div>';
+      contentPane.innerHTML = '<div class="text-sm" style="color:var(--nr-text-quaternary)">Unknown section</div>';
   }
 }
 
@@ -1338,8 +1338,8 @@ async function _renderDevOverview() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Project Health</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">Real-time metrics and performance monitoring</p>
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Project Health</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">Real-time metrics and performance monitoring</p>
     </div>
     <div class="dev-stats-cards" id="dev-stats-cards"></div>
     <div id="dev-loc-chart"></div>
@@ -1348,14 +1348,14 @@ async function _renderDevOverview() {
   const cards = document.getElementById('dev-stats-cards');
   const chart = document.getElementById('dev-loc-chart');
 
-  cards.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
+  cards.innerHTML = '<div class="text-sm" style="color:var(--nr-text-quaternary)">Loading…</div>';
 
   let data;
   try {
     data = await apiGet('/api/dev-stats');
     if (data.error) throw new Error(data.error);
   } catch (e) {
-    cards.innerHTML = `<div class="text-sm" style="color:var(--text-dimmer)">Error: ${e.message}</div>`;
+    cards.innerHTML = `<div class="text-sm" style="color:var(--nr-text-quaternary)">Error: ${e.message}</div>`;
     return;
   }
 
@@ -1437,15 +1437,15 @@ function _renderDevFunctionRegistry() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Function Registry</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Function Registry</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">
         Analyze global functions, duplicates, and unused code across all vanilla JS files.
       </p>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
       <button onclick="_devRunFunctionRegistry()" id="dev-fn-reg-btn" class="dev-btn-primary">Analyze Functions</button>
       <button onclick="_devOpenFunctionRegistryReport()" class="dev-btn-secondary">Open HTML Report</button>
-      <span id="dev-fn-reg-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+      <span id="dev-fn-reg-status" style="color:var(--nr-text-quaternary);font-size:0.7rem"></span>
     </div>
     <div id="dev-fn-reg-results"></div>
   `;
@@ -1458,14 +1458,14 @@ function _renderDevFeedValidator() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Feed Catalog Validator</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Feed Catalog Validator</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">
         Validate sync between JS (core.js) and Python (feed_catalog.py) feed catalogs.
       </p>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button onclick="_devRunFeedValidator()" id="dev-feed-val-btn" class="dev-btn-primary">Run Validation</button>
-      <span id="dev-feed-val-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+      <span id="dev-feed-val-status" style="color:var(--nr-text-quaternary);font-size:0.7rem"></span>
     </div>
     <div id="dev-feed-val-results"></div>
   `;
@@ -1478,14 +1478,14 @@ function _renderDevLoadOrder() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Script Load Order</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Script Load Order</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">
         Analyze script dependencies and detect forward references or circular dependencies.
       </p>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button onclick="_devRunLoadOrderAnalysis()" id="dev-load-ord-btn" class="dev-btn-primary">Run Analysis</button>
-      <span id="dev-load-ord-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+      <span id="dev-load-ord-status" style="color:var(--nr-text-quaternary);font-size:0.7rem"></span>
     </div>
     <div id="dev-load-ord-results"></div>
   `;
@@ -1498,8 +1498,8 @@ function _renderDevDependencyGraph() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Dependency Graph</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Dependency Graph</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">
         Interactive dependency visualization. Switch between file-level and function-level views.
       </p>
     </div>
@@ -1508,13 +1508,13 @@ function _renderDevDependencyGraph() {
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="_devLoadDependencyGraph()" id="dev-dep-graph-btn" class="dev-btn-primary">Load Graph</button>
 
-      <div style="display:flex;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;overflow:hidden">
-        <button onclick="_devSetGraphLevel('file')" id="dev-graph-level-file" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all var(--motion-fast) var(--motion-smooth)">Files</button>
-        <button onclick="_devSetGraphLevel('function')" id="dev-graph-level-function" style="background:transparent;color:var(--text-primary);border:none;padding:6px 14px;font-size:0.75rem;cursor:pointer;transition:all var(--motion-fast) var(--motion-smooth)">Functions</button>
+      <div style="display:flex;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;overflow:hidden">
+        <button onclick="_devSetGraphLevel('file')" id="dev-graph-level-file" style="background:var(--nr-accent);color:#fff;border:none;padding:6px 14px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all var(--motion-fast) var(--motion-smooth)">Files</button>
+        <button onclick="_devSetGraphLevel('function')" id="dev-graph-level-function" style="background:transparent;color:var(--nr-text-primary);border:none;padding:6px 14px;font-size:0.75rem;cursor:pointer;transition:all var(--motion-fast) var(--motion-smooth)">Functions</button>
       </div>
 
       <button onclick="_devResetGraphZoom()" id="dev-graph-reset-btn" class="dev-btn-secondary" style="display:none">Reset Zoom</button>
-      <span id="dev-dep-graph-status" style="color:var(--text-dimmer);font-size:0.7rem"></span>
+      <span id="dev-dep-graph-status" style="color:var(--nr-text-quaternary);font-size:0.7rem"></span>
     </div>
 
     <!-- Controls Row 2: Search & Filters (for function view) -->
@@ -1523,31 +1523,31 @@ function _renderDevDependencyGraph() {
       <select id="dev-graph-file-filter" onchange="_devGraphFilterByFile(this.value)" class="dev-input">
         <option value="">All Files</option>
       </select>
-      <label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--text-dimmer)">
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--nr-text-quaternary)">
         <input type="checkbox" id="dev-graph-show-unused" onchange="_devGraphToggleUnused(this.checked)">
         Show unused
       </label>
     </div>
 
     <!-- Legend -->
-    <div style="display:flex;gap:16px;margin-bottom:12px;font-size:0.65rem;color:var(--text-dimmer);flex-wrap:wrap">
+    <div style="display:flex;gap:16px;margin-bottom:12px;font-size:0.65rem;color:var(--nr-text-quaternary);flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:4px">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444"></span>
         Cross-file dependency
       </div>
       <div style="display:flex;align-items:center;gap:4px">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--text-dimmer)"></span>
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--nr-text-quaternary)"></span>
         Same-file dependency
       </div>
       <div style="display:flex;align-items:center;gap:4px">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--accent)"></span>
+        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--nr-accent)"></span>
         File group
       </div>
       <div style="margin-left:8px">Click to expand/collapse</div>
     </div>
 
-    <div id="dev-dep-graph-container" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:16px;max-height:600px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.6">
-      <div style="color:var(--text-dimmer)">Click "Load Graph" to start...</div>
+    <div id="dev-dep-graph-container" style="background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;padding:16px;max-height:600px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.6">
+      <div style="color:var(--nr-text-quaternary)">Click "Load Graph" to start...</div>
     </div>
   `;
 }
@@ -1561,15 +1561,15 @@ function _devSetGraphLevel(level) {
   const funcControls = document.getElementById('dev-graph-function-controls');
 
   if (level === 'file') {
-    fileBtn.style.background = 'var(--accent)';
+    fileBtn.style.background = 'var(--nr-accent)';
     fileBtn.style.color = '#fff';
     funcBtn.style.background = 'transparent';
-    funcBtn.style.color = 'var(--text-primary)';
+    funcBtn.style.color = 'var(--nr-text-primary)';
     funcControls.style.display = 'none';
   } else {
     fileBtn.style.background = 'transparent';
-    fileBtn.style.color = 'var(--text-primary)';
-    funcBtn.style.background = 'var(--accent)';
+    fileBtn.style.color = 'var(--nr-text-primary)';
+    funcBtn.style.background = 'var(--nr-accent)';
     funcBtn.style.color = '#fff';
     funcControls.style.display = 'flex';
   }
@@ -1646,10 +1646,10 @@ function _devRenderFileTree(nodes, edges) {
     deps.get(src).push({ target: tgt, calls: e.calls });
   });
 
-  let html = '<div style="color:var(--text-primary)">';
+  let html = '<div style="color:var(--nr-text-primary)">';
   html += `<div style="margin-bottom:12px;display:flex;gap:8px">`;
-  html += `<button onclick="_devExpandAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
-  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
+  html += `<button onclick="_devExpandAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
+  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
   html += `</div>`;
 
   nodes.forEach((node, i) => {
@@ -1659,14 +1659,14 @@ function _devRenderFileTree(nodes, edges) {
 
     html += `<div style="margin-bottom:4px">`;
     html += `<div onclick="_devToggleFileInFileView('${node.id}')" style="cursor:pointer">`;
-    html += `<span style="color:var(--accent)">${isCollapsed ? '▶' : '▼'}</span> `;
-    html += `<span style="color:var(--text-primary);font-weight:600">${node.id}</span>`;
-    html += `<span style="color:var(--text-dimmer);margin-left:12px;font-size:11px">${node.functions} funcs, ${node.loc} LOC</span>`;
+    html += `<span style="color:var(--nr-accent)">${isCollapsed ? '▶' : '▼'}</span> `;
+    html += `<span style="color:var(--nr-text-primary);font-weight:600">${node.id}</span>`;
+    html += `<span style="color:var(--nr-text-quaternary);margin-left:12px;font-size:11px">${node.functions} funcs, ${node.loc} LOC</span>`;
     html += `</div>`;
 
     if (!isCollapsed && nodeDeps.length > 0) {
       const topDeps = nodeDeps.slice(0, 5);
-      html += `<div style="margin-left:24px;color:var(--text-dimmer);font-size:11px;margin-top:2px">`;
+      html += `<div style="margin-left:24px;color:var(--nr-text-quaternary);font-size:11px;margin-top:2px">`;
       topDeps.forEach((dep, j) => {
         html += `<div>→ ${dep.target} <span style="opacity:0.7">(${dep.calls}× calls)</span></div>`;
       });
@@ -1675,7 +1675,7 @@ function _devRenderFileTree(nodes, edges) {
     }
     html += `</div>`;
 
-    if (!isLast) html += `<div style="color:var(--border-card);margin-left:5px">│</div>`;
+    if (!isLast) html += `<div style="color:var(--nr-border-default);margin-left:5px">│</div>`;
   });
   html += '</div>';
   container.innerHTML = html;
@@ -1751,10 +1751,10 @@ function _devRenderFunctionTree(allNodes, allEdges) {
     deps.get(e.source).push({ target: e.target, calls: e.calls });
   });
 
-  let html = '<div style="color:var(--text-primary)">';
+  let html = '<div style="color:var(--nr-text-primary)">';
   html += `<div style="margin-bottom:12px;display:flex;gap:8px">`;
-  html += `<button onclick="_devExpandAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
-  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-card);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
+  html += `<button onclick="_devExpandAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
+  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
   html += `</div>`;
 
   Object.keys(fileGroups).sort().forEach((file) => {
@@ -1762,8 +1762,8 @@ function _devRenderFunctionTree(allNodes, allEdges) {
     const funcs = fileGroups[file];
 
     html += `<div style="margin-bottom:8px">`;
-    html += `<div onclick="_devToggleFile('${file}')" style="cursor:pointer;color:var(--accent);font-weight:600;margin-bottom:4px">`;
-    html += `${isCollapsed ? '▶' : '▼'} 📁 ${file} <span style="font-weight:normal;color:var(--text-dimmer);font-size:11px">(${funcs.length} functions)</span>`;
+    html += `<div onclick="_devToggleFile('${file}')" style="cursor:pointer;color:var(--nr-accent);font-weight:600;margin-bottom:4px">`;
+    html += `${isCollapsed ? '▶' : '▼'} 📁 ${file} <span style="font-weight:normal;color:var(--nr-text-quaternary);font-size:11px">(${funcs.length} functions)</span>`;
     html += `</div>`;
 
     if (!isCollapsed) {
@@ -1777,9 +1777,9 @@ function _devRenderFunctionTree(allNodes, allEdges) {
         });
 
         html += `<div style="margin-left:16px;margin-bottom:2px">`;
-        html += `<span style="color:var(--border-card)">${prefix}</span> `;
-        html += `<span style="color:${func.callCount > 10 ? 'var(--accent)' : 'var(--text-primary)'}">${func.id}</span>`;
-        html += `<span style="color:var(--text-dimmer);margin-left:8px;font-size:10px">`;
+        html += `<span style="color:var(--nr-border-default)">${prefix}</span> `;
+        html += `<span style="color:${func.callCount > 10 ? 'var(--nr-accent)' : 'var(--nr-text-primary)'}">${func.id}</span>`;
+        html += `<span style="color:var(--nr-text-quaternary);margin-left:8px;font-size:10px">`;
         html += `${func.callCount}× called`;
         if (crossFileDeps.length > 0) {
           html += ` • ${crossFileDeps.length} cross-file`;
@@ -1788,7 +1788,7 @@ function _devRenderFunctionTree(allNodes, allEdges) {
 
         if (crossFileDeps.length > 0) {
           const topDeps = crossFileDeps.slice(0, 2);
-          html += `<div style="margin-left:32px;color:var(--text-dimmer);font-size:10px">`;
+          html += `<div style="margin-left:32px;color:var(--nr-text-quaternary);font-size:10px">`;
           topDeps.forEach(dep => {
             const target = allNodes.find(n => n.id === dep.target);
             html += `<span style="color:#ef4444">→</span> ${dep.target} <span style="opacity:0.7">(${target?.file})</span> `;
@@ -1799,7 +1799,7 @@ function _devRenderFunctionTree(allNodes, allEdges) {
         html += `</div>`;
 
         if (!isLast) {
-          html += `<div style="margin-left:16px;color:var(--border-card)">│</div>`;
+          html += `<div style="margin-left:16px;color:var(--nr-border-default)">│</div>`;
         }
       });
     }
@@ -1858,14 +1858,14 @@ async function _renderDevGitLog() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Git History</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">Recent commit activity</p>
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Git History</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">Recent commit activity</p>
     </div>
     <div id="dev-git-log-container"></div>
   `;
 
   const container = document.getElementById('dev-git-log-container');
-  container.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">Loading…</div>';
+  container.innerHTML = '<div class="text-sm" style="color:var(--nr-text-quaternary)">Loading…</div>';
 
   try {
     const data = await apiGet('/api/dev-stats');
@@ -1878,10 +1878,10 @@ async function _renderDevGitLog() {
       _devGitLogOffset = log.length;
       if (log.length >= 20) _devAppendLoadMoreBtn();
     } else {
-      container.innerHTML = '<div class="text-sm" style="color:var(--text-dimmer)">No commits found</div>';
+      container.innerHTML = '<div class="text-sm" style="color:var(--nr-text-quaternary)">No commits found</div>';
     }
   } catch (e) {
-    container.innerHTML = `<div class="text-sm" style="color:var(--text-dimmer)">Error: ${e.message}</div>`;
+    container.innerHTML = `<div class="text-sm" style="color:var(--nr-text-quaternary)">Error: ${e.message}</div>`;
   }
 }
 
@@ -1892,11 +1892,11 @@ function _renderDevTools() {
 
   contentPane.innerHTML = `
     <div style="margin-bottom:24px">
-      <h2 style="color:var(--text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Dev Tools</h2>
-      <p style="color:var(--text-dimmer);font-size:0.75rem;margin:0">Testing utilities and debugging tools</p>
+      <h2 style="color:var(--nr-text-primary);font-size:1.25rem;font-weight:700;margin:0 0 4px 0">Dev Tools</h2>
+      <p style="color:var(--nr-text-quaternary);font-size:0.75rem;margin:0">Testing utilities and debugging tools</p>
     </div>
-    <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:16px">
-      <div style="color:var(--text-primary);font-size:0.85rem;font-weight:600;margin-bottom:12px">Achievement Tester</div>
+    <div style="background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:16px">
+      <div style="color:var(--nr-text-primary);font-size:0.85rem;font-weight:600;margin-bottom:12px">Achievement Tester</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap" id="dev-ach-tester">
         <select id="dev-ach-select" class="dev-input" style="min-width:180px">
           <option value="bookworm">Bookworm</option>
@@ -1981,26 +1981,26 @@ async function _devRunFunctionRegistry() {
     results.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px">
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${summary.totalFunctions}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${summary.totalFunctions}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Functions</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${summary.duplicateFunctions > 0 ? '#f59e0b' : 'var(--text-primary)'}">${summary.duplicateFunctions}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:${summary.duplicateFunctions > 0 ? '#f59e0b' : 'var(--nr-text-primary)'}">${summary.duplicateFunctions}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Duplicates</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${summary.unusedFunctions > 0 ? '#ef4444' : 'var(--text-primary)'}">${summary.unusedFunctions}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:${summary.unusedFunctions > 0 ? '#ef4444' : 'var(--nr-text-primary)'}">${summary.unusedFunctions}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Unused</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--text-primary)">${summary.totalFiles}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-text-primary)">${summary.totalFiles}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Files</div>
         </div>
       </div>
 
       ${data.issues.duplicates.length > 0 ? `
-        <div style="margin-top:16px;padding:8px 12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
-          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600">
+        <div style="margin-top:16px;padding:8px 12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px">
+          <div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">
             Severity Breakdown:
             <span style="color:#ef4444;margin-left:12px">${errorCount} ERROR</span>
             <span style="color:#f59e0b;margin-left:8px">${warningCount} WARNING</span>
@@ -2010,72 +2010,72 @@ async function _devRunFunctionRegistry() {
       ` : ''}
 
       ${errorCount > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #ef4444">
+        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444">
           <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Global Naming Conflicts (${errorCount})</div>
           ${dupsBySeverity.ERROR.slice(0, 5).map(dup => `
             <div style="margin-bottom:8px;font-size:0.65rem">
-              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
-              <div style="color:var(--text-dimmer);margin-top:4px;margin-left:8px">
+              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
+              <div style="color:var(--nr-text-quaternary);margin-top:4px;margin-left:8px">
                 ${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}
               </div>
             </div>
           `).join('')}
-          ${errorCount > 5 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${errorCount - 5} more</div>` : ''}
+          ${errorCount > 5 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${errorCount - 5} more</div>` : ''}
         </div>
       ` : ''}
 
       ${warningCount > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
           <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Same-Scope Duplicates (${warningCount})</div>
           ${dupsBySeverity.WARNING.slice(0, 5).map(dup => `
             <div style="margin-bottom:8px;font-size:0.65rem">
-              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
-              <div style="color:var(--text-dimmer);margin-top:4px;margin-left:8px">
+              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
+              <div style="color:var(--nr-text-quaternary);margin-top:4px;margin-left:8px">
                 ${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}
               </div>
             </div>
           `).join('')}
-          ${warningCount > 5 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${warningCount - 5} more</div>` : ''}
+          ${warningCount > 5 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${warningCount - 5} more</div>` : ''}
         </div>
       ` : ''}
 
       ${infoCount > 0 ? `
         <details style="margin-top:12px">
-          <summary style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;border-left:3px solid #60a5fa;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600">
+          <summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;border-left:3px solid #60a5fa;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600">
             ℹ️ INFO: Nested Duplicates (${infoCount}) - Safe, intentional
           </summary>
-          <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px">
+          <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">
             ${dupsBySeverity.INFO.slice(0, 10).map(dup => `
               <div style="margin-bottom:8px;font-size:0.65rem">
-                <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
-                <span style="color:var(--text-dimmer);margin-left:8px">(${dup.definitions.length} definitions)</span>
+                <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
+                <span style="color:var(--nr-text-quaternary);margin-left:8px">(${dup.definitions.length} definitions)</span>
               </div>
             `).join('')}
-            ${infoCount > 10 ? `<div style="color:var(--text-dimmer);font-size:0.65rem;margin-top:8px">...and ${infoCount - 10} more</div>` : ''}
+            ${infoCount > 10 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${infoCount - 10} more</div>` : ''}
           </div>
         </details>
       ` : ''}
 
       ${data.issues.unused.length > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
-          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🗑️ Unused Functions (${data.issues.unused.length})</div>
-          <div style="color:var(--text-dimmer);font-size:0.65rem;max-height:150px;overflow-y:auto">
-            ${data.issues.unused.slice(0, 10).map(u => `<code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px;margin-right:8px;margin-bottom:4px;display:inline-block">${escapeHtml(u.name)}()</code>`).join('')}
+        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px">
+          <div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🗑️ Unused Functions (${data.issues.unused.length})</div>
+          <div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:150px;overflow-y:auto">
+            ${data.issues.unused.slice(0, 10).map(u => `<code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-right:8px;margin-bottom:4px;display:inline-block">${escapeHtml(u.name)}()</code>`).join('')}
             ${data.issues.unused.length > 10 ? `<div style="margin-top:8px">...and ${data.issues.unused.length - 10} more</div>` : ''}
           </div>
         </div>
       ` : ''}
 
       ${Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5).length > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px">
-          <div style="color:var(--text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🔥 Most Called Functions</div>
+        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px">
+          <div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🔥 Most Called Functions</div>
           ${Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5).map(([name, info], i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem">
               <span>
-                <span style="color:var(--accent);font-weight:600">#${i + 1}</span>
-                <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code>
+                <span style="color:var(--nr-accent);font-weight:600">#${i + 1}</span>
+                <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code>
               </span>
-              <span style="color:var(--text-dimmer)">${info.callCount} calls</span>
+              <span style="color:var(--nr-text-quaternary)">${info.callCount} calls</span>
             </div>
           `).join('')}
         </div>
@@ -2127,11 +2127,11 @@ async function _devRunFeedValidator() {
     results.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${data.jsCatalogSize}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${data.jsCatalogSize}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">JS Entries</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${data.pyCatalogSize}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${data.pyCatalogSize}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">PY Entries</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
@@ -2143,12 +2143,12 @@ async function _devRunFeedValidator() {
       ${data.errorCount > 0 ? `
         ${_devRenderFeedValidatorErrors(data.errors)}
       ` : `
-        <div style="padding:24px;text-align:center;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px">
+        <div style="padding:24px;text-align:center;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px">
           <div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">
             ${icon('check', {size: 24, stroke: 'white', strokeWidth: '3'})}
           </div>
-          <div style="color:var(--text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div>
-          <div style="color:var(--text-dimmer);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div>
+          <div style="color:var(--nr-text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div>
+          <div style="color:var(--nr-text-quaternary);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div>
         </div>
       `}
     `;
@@ -2167,12 +2167,12 @@ function _devRenderFeedValidatorErrors(errors) {
 
   return `
     ${byType.MISSING_IN_PY.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
         <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Missing in Python (${byType.MISSING_IN_PY.length})</div>
-        <div style="color:var(--text-dimmer);font-size:0.65rem">
+        <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
           ${byType.MISSING_IN_PY.map(e => `
             <div style="margin-bottom:6px">
-              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
+              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
               <span style="margin-left:8px">→ Add to feed_catalog.py</span>
             </div>
           `).join('')}
@@ -2181,12 +2181,12 @@ function _devRenderFeedValidatorErrors(errors) {
     ` : ''}
 
     ${byType.MISSING_IN_JS.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
         <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Missing in JavaScript (${byType.MISSING_IN_JS.length})</div>
-        <div style="color:var(--text-dimmer);font-size:0.65rem">
+        <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
           ${byType.MISSING_IN_JS.map(e => `
             <div style="margin-bottom:6px">
-              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
+              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
               <span style="margin-left:8px">→ Add to core.js</span>
             </div>
           `).join('')}
@@ -2195,23 +2195,23 @@ function _devRenderFeedValidatorErrors(errors) {
     ` : ''}
 
     ${byType.URL_MISMATCH.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #ef4444">
+      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444">
         <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: URL Mismatch (${byType.URL_MISMATCH.length})</div>
         <div style="overflow-x:auto">
           <table style="width:100%;font-size:0.65rem;border-collapse:collapse">
             <thead>
-              <tr style="border-bottom:1px solid var(--border-card)">
-                <th style="text-align:left;padding:4px;color:var(--text-primary)">Key</th>
-                <th style="text-align:left;padding:4px;color:var(--text-primary)">JS URL</th>
-                <th style="text-align:left;padding:4px;color:var(--text-primary)">PY URL</th>
+              <tr style="border-bottom:1px solid var(--nr-border-default)">
+                <th style="text-align:left;padding:4px;color:var(--nr-text-primary)">Key</th>
+                <th style="text-align:left;padding:4px;color:var(--nr-text-primary)">JS URL</th>
+                <th style="text-align:left;padding:4px;color:var(--nr-text-primary)">PY URL</th>
               </tr>
             </thead>
             <tbody>
               ${byType.URL_MISMATCH.map(e => `
-                <tr style="border-bottom:1px solid var(--border-card)">
-                  <td style="padding:4px"><code style="color:#60a5fa;background:var(--bg-hover);padding:2px 4px;border-radius:3px">${escapeHtml(e.key)}</code></td>
-                  <td style="padding:4px;color:var(--text-dimmer);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.js?.url || '(none)')}</td>
-                  <td style="padding:4px;color:var(--text-dimmer);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.py?.url || '(none)')}</td>
+                <tr style="border-bottom:1px solid var(--nr-border-default)">
+                  <td style="padding:4px"><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 4px;border-radius:3px">${escapeHtml(e.key)}</code></td>
+                  <td style="padding:4px;color:var(--nr-text-quaternary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.js?.url || '(none)')}</td>
+                  <td style="padding:4px;color:var(--nr-text-quaternary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.py?.url || '(none)')}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2221,12 +2221,12 @@ function _devRenderFeedValidatorErrors(errors) {
     ` : ''}
 
     ${byType.SPECIAL_MISMATCH.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #ef4444">
+      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444">
         <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Special Field Mismatch (${byType.SPECIAL_MISMATCH.length})</div>
-        <div style="color:var(--text-dimmer);font-size:0.65rem">
+        <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
           ${byType.SPECIAL_MISMATCH.map(e => `
             <div style="margin-bottom:6px">
-              <code style="color:#60a5fa;background:var(--bg-hover);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
+              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
               <span style="margin-left:8px">JS: ${e.js?.special || '(none)'} → PY: ${e.py?.special || '(none)'}</span>
             </div>
           `).join('')}
@@ -2263,31 +2263,31 @@ async function _devRunLoadOrderAnalysis() {
     results.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--accent)">${data.scriptCount}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${data.scriptCount}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Scripts</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${data.warnings.length > 0 ? '#f59e0b' : 'var(--text-primary)'}">${data.warnings.length}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:${data.warnings.length > 0 ? '#f59e0b' : 'var(--nr-text-primary)'}">${data.warnings.length}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Warnings</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--text-dimmer)">${data.infos.length}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-text-quaternary)">${data.infos.length}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Info</div>
         </div>
         <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--text-primary)">${data.cycles.length}</div>
+          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-text-primary)">${data.cycles.length}</div>
           <div class="dev-stat-label" style="font-size:0.65rem">Circular Deps</div>
         </div>
       </div>
 
       <details open style="margin-bottom:12px">
-        <summary style="padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.75rem;font-weight:600;transition:all var(--motion-fast) var(--motion-smooth)">
+        <summary style="padding:10px 14px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.75rem;font-weight:600;transition:all var(--motion-fast) var(--motion-smooth)">
           Script Load Order (${data.scriptCount} files)
         </summary>
-        <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">
+        <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">
           ${data.scriptOrder.map((script, i) => `
-            <div style="font-size:0.65rem;color:var(--text-dimmer);margin-bottom:2px;font-family:monospace">
-              <span style="color:var(--accent);font-weight:600">${i + 1}.</span>
+            <div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:2px;font-family:monospace">
+              <span style="color:var(--nr-accent);font-weight:600">${i + 1}.</span>
               <span style="margin-left:8px">${escapeHtml(script)}</span>
             </div>
           `).join('')}
@@ -2295,13 +2295,13 @@ async function _devRunLoadOrderAnalysis() {
       </details>
 
       ${data.warnings.length > 0 ? `
-        <div style="margin-bottom:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;border-left:3px solid #f59e0b">
+        <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
           <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Forward References (may cause issues)</div>
-          <div style="color:var(--text-dimmer);font-size:0.65rem;max-height:200px;overflow-y:auto">
+          <div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:200px;overflow-y:auto">
             ${data.warnings.slice(0, 10).map(ref => `
-              <div style="margin-bottom:8px;padding:8px;background:var(--bg-hover);border-radius:4px">
+              <div style="margin-bottom:8px;padding:8px;background:var(--nr-bg-raised);border-radius:4px">
                 <div><strong>${ref.callFile}</strong> (order ${ref.callOrder}) calls <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code></div>
-                <div style="margin-top:4px;color:var(--text-dimmer)">→ Defined in <strong>${ref.defFile}</strong> (order ${ref.defOrder})</div>
+                <div style="margin-top:4px;color:var(--nr-text-quaternary)">→ Defined in <strong>${ref.defFile}</strong> (order ${ref.defOrder})</div>
               </div>
             `).join('')}
             ${data.warnings.length > 10 ? `<div style="margin-top:8px">...and ${data.warnings.length - 10} more</div>` : ''}
@@ -2311,14 +2311,14 @@ async function _devRunLoadOrderAnalysis() {
 
       ${data.infos.length > 0 ? `
         <details style="margin-bottom:12px">
-          <summary style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600;border-left:3px solid #60a5fa">
+          <summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600;border-left:3px solid #60a5fa">
             ℹ️ Forward References (INFO - ${data.infos.length}) - Safe with defer
           </summary>
-          <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px">
-            <div style="color:var(--text-dimmer);font-size:0.65rem;margin-bottom:8px">
+          <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">
+            <div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-bottom:8px">
               These forward references are safe because scripts use defer attribute and functions are called inside other functions or event handlers.
             </div>
-            <div style="color:var(--text-dimmer);font-size:0.65rem">
+            <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
               ${data.infos.slice(0, 5).map(ref => `
                 <div style="margin-bottom:4px">
                   ${ref.callFile} → <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code> → ${ref.defFile}
@@ -2332,11 +2332,11 @@ async function _devRunLoadOrderAnalysis() {
 
       ${data.cycles.length > 0 ? `
         <details style="margin-bottom:12px">
-          <summary style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.7rem;font-weight:600">
+          <summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">
             🔄 Circular Dependencies (${data.cycles.length})
           </summary>
-          <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border-card);border-top:none;border-radius:0 0 6px 6px">
-            <div style="color:var(--text-dimmer);font-size:0.65rem">
+          <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">
+            <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
               ${data.cycles.slice(0, 10).map(cycle => `
                 <div style="margin-bottom:4px">${cycle.join(' → ')}</div>
               `).join('')}

@@ -45,7 +45,7 @@ function renderSettingsView() {
       const active = _settingsSection === s.key;
       sbHtml += '<button onclick="_setSettingsSection(\'' + s.key + '\')" class="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ' + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover') + '" style="width:calc(100% - 16px);margin:0 8px;">' + s.icon + ' ' + s.label + '</button>';
     }
-    sbHtml += '<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--text-dimmer);font-size:0.65rem;"></div></div>';
+    sbHtml += '<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>';
     sidebar.innerHTML = sbHtml;
   }
 
@@ -57,7 +57,7 @@ function renderSettingsView() {
 
     if (_settingsSection === 'profile') {
       content += _renderAccountSettings();
-      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
+      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--nr-accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
     } else if (_settingsSection === 'appearance') {
       content += _renderAppearanceSettings();
     } else if (_settingsSection === 'feed') {

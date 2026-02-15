@@ -65,7 +65,7 @@ function renderDrawEditor(fname, content) {
         <label class="text-[0.75rem] text-dimmer">Stroke</label>
         <input type="color" id="draw-stroke" value="#e0e0e0" class="w-6 h-6 border border-border-input rounded cursor-pointer bg-transparent p-0">
         <label class="text-[0.75rem] text-dimmer">Width</label>
-        <input type="range" id="draw-stroke-width" min="1" max="20" value="2" class="w-16" style="accent-color:var(--accent)">
+        <input type="range" id="draw-stroke-width" min="1" max="20" value="2" class="w-16" style="accent-color:var(--nr-accent)">
       </div>
       ${fileShareButton()}
       <button class="draw-tool" onclick="_drawExportPNG()" title="Export PNG">
@@ -124,7 +124,7 @@ function renderDrawEditor(fname, content) {
   // Canvas container
   const canvasWrap = document.createElement('div');
   canvasWrap.id = 'draw-canvas-wrap';
-  canvasWrap.style.cssText = 'flex:1;overflow:hidden;position:relative;background:var(--bg-canvas)';
+  canvasWrap.style.cssText = 'flex:1;overflow:hidden;position:relative;background:var(--nr-bg-sunken)';
   canvasWrap.innerHTML = '<canvas id="draw-canvas"></canvas>';
   editor.appendChild(canvasWrap);
 

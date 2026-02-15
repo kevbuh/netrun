@@ -389,7 +389,7 @@ function _aetherRenderHistoryDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:0.8rem;color:var(--text-dim);text-align:center;">No history found</div>';
+    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:0.8rem;color:var(--nr-text-tertiary);text-align:center;">No history found</div>';
     _repositionSelectionPopup();
     return;
   }
@@ -415,9 +415,9 @@ function _aetherRenderHistoryDropdown(popup, query) {
       <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0;overflow:hidden;">
         <div style="font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
-        <div style="font-size:0.68rem;color:var(--text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
+        <div style="font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
       </div>
-      <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(time)}</span>
+      <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
     </div>`;
   }).join('');
   dropdown.innerHTML = html;

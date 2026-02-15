@@ -7,7 +7,7 @@ function _renderAccountSettings() {
         <div class="relative group cursor-pointer" onclick="_uploadProfilePic()" title="Change profile picture" style="flex-shrink:0">
           ${_authUserInfo?.picture
             ? `<img src="${escapeAttr(_authUserInfo.picture)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
-            : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
+            : `<div style="width:56px;height:56px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
           }
           <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             ${icon('camera', { size: 20, class: 'w-5 h-5 text-white' })}
@@ -79,7 +79,7 @@ function _sbDragMove(e) {
     _sbDragStarted = true;
     _sbDragEl.style.opacity = '0.3';
     _sbDragGhost = _sbDragEl.cloneNode(true);
-    _sbDragGhost.style.cssText = 'position:fixed;pointer-events:none;z-index:999;opacity:0.9;background:var(--bg-hover);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4);width:' + _sbDragEl.offsetWidth + 'px;left:' + _sbDragEl.getBoundingClientRect().left + 'px';
+    _sbDragGhost.style.cssText = 'position:fixed;pointer-events:none;z-index:999;opacity:0.9;background:var(--nr-bg-raised);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4);width:' + _sbDragEl.offsetWidth + 'px;left:' + _sbDragEl.getBoundingClientRect().left + 'px';
     document.body.appendChild(_sbDragGhost);
   }
   _sbDragGhost.style.top = (e.clientY - _sbDragGhost.offsetHeight / 2) + 'px';
@@ -150,7 +150,7 @@ function _renderAppearanceSettings() {
         <span class="text-primary text-sm">Accent Color</span>
         <div class="flex gap-2">
           ${accentColors.map(a => `
-            <button onclick="setAccentColor('${a.color}')" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${currentAccent === a.color ? 'scale-110 ring-2 ring-offset-2' : ''}" style="background:${a.color}; ${currentAccent === a.color ? `--tw-ring-color:${a.color}; --tw-ring-offset-color: var(--bg-body)` : ''}" title="${a.name}"></button>
+            <button onclick="setAccentColor('${a.color}')" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${currentAccent === a.color ? 'scale-110 ring-2 ring-offset-2' : ''}" style="background:${a.color}; ${currentAccent === a.color ? `--tw-ring-color:${a.color}; --tw-ring-offset-color: var(--nr-bg-body)` : ''}" title="${a.name}"></button>
           `).join('')}
         </div>
       </div>
@@ -380,7 +380,7 @@ function _renderFeedQualityTab() {
       <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>
       <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>
       <div class="flex items-center gap-3">
-        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30}%</span>
       </div>
       <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
@@ -494,17 +494,17 @@ function _renderFeedAlgorithmTab() {
       <div class="space-y-2">
         <div class="flex items-center gap-3">
           <span class="text-dim text-[0.72rem] w-16 shrink-0">Base</span>
-          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--accent)]" />
+          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--nr-accent)]" />
           <span id="algo-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wBase.toFixed(2)}</span>
         </div>
         <div class="flex items-center gap-3">
           <span class="text-dim text-[0.72rem] w-16 shrink-0">Affinity</span>
-          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--accent)]" />
+          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--nr-accent)]" />
           <span id="algo-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wAff.toFixed(2)}</span>
         </div>
         <div class="flex items-center gap-3">
           <span class="text-dim text-[0.72rem] w-16 shrink-0">Recency</span>
-          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--accent)]" />
+          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--nr-accent)]" />
           <span id="algo-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wRec.toFixed(2)}</span>
         </div>
       </div>
@@ -515,7 +515,7 @@ function _renderFeedAlgorithmTab() {
       <p class="text-dim text-[0.75rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating. If more than <span class="text-primary">${maxRun}</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>
       <div class="flex items-center gap-3">
         <span class="text-dim text-[0.72rem] shrink-0">Max same-category run</span>
-        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);if(typeof renderPapers==='function')renderPapers()" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);if(typeof renderPapers==='function')renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="algo-div-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
       </div>
     </div>
@@ -590,12 +590,12 @@ function _renderDoomScrollSites() {
   // Add site row
   html += `<div class="flex items-center gap-2 mt-2 pt-2 border-t border-border-subtle">
     <input type="text" id="doom-scroll-new-domain" placeholder="domain.com" class="flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent" style="min-width:0" onkeydown="if(event.key==='Enter')_addDoomScrollSite()">
-    <select id="doom-scroll-new-mode" class="text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent" style="color:var(--text-primary);background:var(--bg-card)" onchange="document.getElementById('doom-scroll-new-minutes').style.display=this.value==='block'?'none':''">
+    <select id="doom-scroll-new-mode" class="text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent" style="color:var(--nr-text-primary);background:var(--nr-bg-surface)" onchange="document.getElementById('doom-scroll-new-minutes').style.display=this.value==='block'?'none':''">
       <option value="nudge">Nudge</option>
       <option value="block">Block</option>
     </select>
     <input type="number" id="doom-scroll-new-minutes" value="5" min="1" max="120" class="text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary focus:outline-none focus:border-accent" style="width:52px">
-    <button onclick="_addDoomScrollSite()" class="text-[0.78rem] px-3 py-1.5 rounded-md border border-border-input bg-card text-primary hover:border-accent hover:text-accent transition-colors cursor-pointer" style="background:var(--bg-card)">Add</button>
+    <button onclick="_addDoomScrollSite()" class="text-[0.78rem] px-3 py-1.5 rounded-md border border-border-input bg-card text-primary hover:border-accent hover:text-accent transition-colors cursor-pointer" style="background:var(--nr-bg-surface)">Add</button>
   </div>`;
   html += `<div class="mt-2"><a href="#" onclick="event.preventDefault();_resetDoomScrollSites()" class="text-dimmer text-[0.72rem] hover:text-dim transition-colors">Reset to defaults</a></div>`;
   return html;
@@ -710,27 +710,27 @@ function _renderSettingsSitePermissions() {
     const count = Object.keys(perms).length;
     const isExpanded = _expandedPermDomain === domain;
     const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
-    html += '<div style="border:1px solid var(--border-input);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
+    html += '<div style="border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
     html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPermDomain=(_expandedPermDomain===\'' + safeDomain + '\'?null:\'' + safeDomain + '\');document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();">';
-    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--text-dimmer)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
-    html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
-    html += '<span style="font-size:0.68rem;color:var(--text-dimmer);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
-    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.7rem;cursor:pointer;">Clear</button>';
+    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
+    html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
+    html += '<span style="font-size:0.68rem;color:var(--nr-text-quaternary);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
+    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.7rem;cursor:pointer;">Clear</button>';
     html += '</div>';
     if (isExpanded) {
-      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--border-subtle);">';
+      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--nr-border-subtle);">';
       for (const key of _SITE_PERM_KEYS) {
         const current = perms[key] || 'ask';
         const label = _SITE_PERM_LABELS[key];
         const icon = _SITE_PERM_ICONS[key];
         html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
-        html += '<span style="color:var(--text-dimmer);flex-shrink:0;">' + icon + '</span>';
-        html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + label + '</span>';
-        html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border-input);">';
+        html += '<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + icon + '</span>';
+        html += '<span style="flex:1;font-size:0.78rem;color:var(--nr-text-primary);">' + label + '</span>';
+        html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--nr-border-strong);">';
         for (const val of ['ask', 'allow', 'block']) {
           const active = current === val;
-          const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--bg-card))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--bg-card))' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))') : 'var(--bg-card)';
-          const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--accent)') : 'var(--text-dimmer)';
+          const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--nr-bg-surface))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--nr-bg-surface))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--nr-bg-surface))') : 'var(--nr-bg-surface)';
+          const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--nr-text-quaternary)';
           html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
         }
         html += '</div></div>';
@@ -749,9 +749,9 @@ function _renderUrlBarSectionsSettings() {
   for (let i = 0; i < sections.length; i++) {
     const s = sections[i];
     const safeKey = escapeHtml(s.key);
-    html += '<div class="urlbar-sec-row" data-seckey="' + safeKey + '" style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;margin-bottom:4px;background:var(--bg-card);cursor:grab;user-select:none;">';
-    html += '<span style="color:var(--text-dimmer);font-size:0.9rem;cursor:grab;flex-shrink:0;" title="Drag to reorder">\u2847</span>';
-    html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);">' + escapeHtml(s.label) + '</span>';
+    html += '<div class="urlbar-sec-row" data-seckey="' + safeKey + '" style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:4px;background:var(--nr-bg-surface);cursor:grab;user-select:none;">';
+    html += '<span style="color:var(--nr-text-quaternary);font-size:0.9rem;cursor:grab;flex-shrink:0;" title="Drag to reorder">\u2847</span>';
+    html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);">' + escapeHtml(s.label) + '</span>';
     html += '<label class="toggle-switch" style="flex-shrink:0;">';
     html += '<input type="checkbox" ' + (s.enabled !== false ? 'checked' : '') + ' onchange="_toggleUrlBarSection(\'' + safeKey + '\', this.checked)">';
     html += '<span class="slider"></span>';
@@ -871,22 +871,22 @@ function _renderPasswordsList(container, entries) {
     const items = grouped[origin];
     const isExpanded = _expandedPwDomain === origin;
     const safeOrigin = escapeHtml(origin).replace(/'/g, "\\'");
-    html += '<div style="border:1px solid var(--border-input);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
+    html += '<div style="border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
     html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPwDomain=(_expandedPwDomain===\'' + safeOrigin + '\'?null:\'' + safeOrigin + '\');_loadSettingsPasswords();">';
-    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--text-dimmer)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
-    html += '<span style="flex:1;font-size:0.8rem;color:var(--text-primary);font-weight:500;">' + escapeHtml(origin) + '</span>';
-    html += '<span style="font-size:0.68rem;color:var(--text-dimmer);">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>';
+    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
+    html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;">' + escapeHtml(origin) + '</span>';
+    html += '<span style="font-size:0.68rem;color:var(--nr-text-quaternary);">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>';
     html += '</div>';
     if (isExpanded) {
-      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--border-subtle);">';
+      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--nr-border-subtle);">';
       for (const entry of items) {
         html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
-        html += icon('users', { size: 14, stroke: 'var(--text-dimmer)', style: 'flex-shrink:0;' });
-        html += '<span style="flex:1;font-size:0.78rem;color:var(--text-primary);">' + escapeHtml(entry.username || '(no username)') + '</span>';
+        html += icon('users', { size: 14, stroke: 'var(--nr-text-quaternary)', style: 'flex-shrink:0;' });
+        html += '<span style="flex:1;font-size:0.78rem;color:var(--nr-text-primary);">' + escapeHtml(entry.username || '(no username)') + '</span>';
         if (entry.createdAt) {
-          html += '<span style="font-size:0.65rem;color:var(--text-dimmer);">' + new Date(entry.createdAt).toLocaleDateString() + '</span>';
+          html += '<span style="font-size:0.65rem;color:var(--nr-text-quaternary);">' + new Date(entry.createdAt).toLocaleDateString() + '</span>';
         }
-        html += '<button onclick="_pwDeleteEntry(\'' + entry.id + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border-input);background:var(--bg-card);color:var(--text-dim);font-size:0.7rem;cursor:pointer;">Delete</button>';
+        html += '<button onclick="_pwDeleteEntry(\'' + entry.id + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.7rem;cursor:pointer;">Delete</button>';
         html += '</div>';
       }
       html += '</div>';
@@ -998,7 +998,7 @@ function _renderPanelSettings() {
       </div>
       <div class="flex items-center gap-3 ${semSearch ? '' : 'opacity-40 pointer-events-none'}">
         <span class="text-primary text-[0.8rem] shrink-0">Min similarity</span>
-        <input type="range" min="10" max="80" value="${semMin}" oninput="document.getElementById('sem-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('panelSemanticMin', this.value)" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="10" max="80" value="${semMin}" oninput="document.getElementById('sem-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('panelSemanticMin', this.value)" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="sem-min-val" class="text-muted text-[0.78rem] w-10 text-right">${semMin}%</span>
       </div>
       <p class="text-dimmer text-[0.68rem] mt-1">Only results above this score appear in the highlight popup. Lower = more results, higher = stricter.</p>
@@ -1008,7 +1008,7 @@ function _renderPanelSettings() {
       <p class="text-dim text-[0.8rem] mb-3">Minimum similarity for vault notes to be included as context when chatting without a document.</p>
       <div class="flex items-center gap-3">
         <span class="text-primary text-[0.8rem] shrink-0">Min similarity</span>
-        <input type="range" min="10" max="80" value="${vaultMin}" oninput="document.getElementById('vault-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('vaultChatMinSimilarity', this.value)" class="flex-1 accent-[var(--accent)]" />
+        <input type="range" min="10" max="80" value="${vaultMin}" oninput="document.getElementById('vault-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('vaultChatMinSimilarity', this.value)" class="flex-1 accent-[var(--nr-accent)]" />
         <span id="vault-min-val" class="text-muted text-[0.78rem] w-10 text-right">${vaultMin}%</span>
       </div>
     </div>
@@ -1340,7 +1340,7 @@ function renderSettingsView() {
       const active = _settingsSection === s.key;
       sbHtml += '<button onclick="_setSettingsSection(\'' + s.key + '\')" class="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ' + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover') + '" style="width:calc(100% - 16px);margin:0 8px;">' + s.icon + ' ' + s.label + '</button>';
     }
-    sbHtml += '<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--text-dimmer);font-size:0.65rem;"></div></div>';
+    sbHtml += '<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>';
     sidebar.innerHTML = sbHtml;
   }
 
@@ -1352,7 +1352,7 @@ function renderSettingsView() {
 
     if (_settingsSection === 'profile') {
       content += _renderAccountSettings();
-      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
+      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--nr-accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
     } else if (_settingsSection === 'appearance') {
       content += _renderAppearanceSettings();
     } else if (_settingsSection === 'feed') {

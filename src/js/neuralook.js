@@ -189,8 +189,8 @@ function renderNeuralookView() {
       const loss = prog.val_loss != null ? ` · loss ${prog.val_loss.toFixed(4)}` : '';
       const eta = _nlTrainETA(epoch, maxEpochs);
       bannerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--bg-card,#23232a);border:1px solid var(--border,#333);margin-bottom:8px;">
-          <svg width="14" height="14" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite;flex-shrink:0;"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--nr-bg-surface,#23232a);border:1px solid var(--border,#333);margin-bottom:8px;">
+          <svg width="14" height="14" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite;flex-shrink:0;"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--nr-accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>
           <span class="text-[0.8rem] text-primary font-medium">Training</span>
           <span id="nl-banner-detail" class="text-[0.72rem] text-muted tabular-nums">Epoch ${epoch}/${maxEpochs} (${pct}%)${loss}${eta}</span>
           <span class="ml-auto"></span>
@@ -199,7 +199,7 @@ function renderNeuralookView() {
         </div>`;
     } else {
       bannerHTML = `
-        <div onclick="_nlShowTrainView=true;if(!_nlTrainPhase)_nlTrainPhase='done';renderNeuralookView();" style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--bg-card,#23232a);border:1px solid var(--border,#333);cursor:pointer;margin-bottom:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent,#b4451a)'" onmouseout="this.style.borderColor='var(--border,#333)'">
+        <div onclick="_nlShowTrainView=true;if(!_nlTrainPhase)_nlTrainPhase='done';renderNeuralookView();" style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--nr-bg-surface,#23232a);border:1px solid var(--border,#333);cursor:pointer;margin-bottom:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--nr-accent,#b4451a)'" onmouseout="this.style.borderColor='var(--border,#333)'">
           ${_nlTrainPhase === 'done' ? '<svg width="14" height="14" viewBox="0 0 18 18" class="flex-shrink-0"><circle cx="9" cy="9" r="8" fill="#4ade80"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
             : '<svg width="14" height="14" viewBox="0 0 18 18" class="flex-shrink-0"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>'}
           <span class="text-[0.8rem] text-primary font-medium">${_nlTrainPhase === 'done' ? 'Training complete' : 'Training failed'}</span>
@@ -230,7 +230,7 @@ function renderNeuralookView() {
           <div id="nl-error-msg" class="text-[0.75rem] text-red-400 mb-2" style="display:none"></div>
           <div class="flex rounded-lg border border-border-input overflow-hidden mb-2" style="height:30px;">
             <button onclick="_nlSetModelType('cnn')" class="flex-1 text-[0.72rem] font-medium cursor-pointer transition-colors ${_nlModelType === 'cnn' ? 'bg-accent text-white' : 'bg-card text-muted hover:text-primary'}">CNN</button>
-            <button onclick="_nlSetModelType('mobilenet')" class="flex-1 text-[0.72rem] font-medium cursor-pointer transition-colors ${_nlModelType === 'mobilenet' ? 'bg-accent text-white' : 'bg-card text-muted hover:text-primary'}" style="border-left:1px solid var(--border-input)">MobileNet</button>
+            <button onclick="_nlSetModelType('mobilenet')" class="flex-1 text-[0.72rem] font-medium cursor-pointer transition-colors ${_nlModelType === 'mobilenet' ? 'bg-accent text-white' : 'bg-card text-muted hover:text-primary'}" style="border-left:1px solid var(--nr-border-strong)">MobileNet</button>
           </div>
           <div class="flex flex-col gap-2">
             <button onclick="_nlStartCalibration()" class="px-4 py-2 rounded-lg border border-border-input bg-card text-primary text-[0.82rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full" ${_nlCalibrating ? 'disabled style="opacity:0.5"' : ''}>
@@ -240,7 +240,7 @@ function renderNeuralookView() {
               ${trackingLabel}
             </button>
             <label class="flex items-center gap-2 text-[0.75rem] text-muted cursor-pointer select-none mt-1" ${!_nlReady ? 'style="opacity:0.5;pointer-events:none"' : ''}>
-              <input type="checkbox" ${_nlAutoRefineEnabled ? 'checked' : ''} onchange="_nlAutoRefineEnabled=this.checked" style="accent-color:var(--accent,#b4451a)">
+              <input type="checkbox" ${_nlAutoRefineEnabled ? 'checked' : ''} onchange="_nlAutoRefineEnabled=this.checked" style="accent-color:var(--nr-accent,#b4451a)">
               Auto-refine
             </label>
           </div>
@@ -296,7 +296,7 @@ function _nlRenderTrainDetailView(container) {
   if (isError) { phaseLabel = 'Error'; phaseColor = '#f87171'; }
   else if (isDone) { phaseLabel = 'Complete'; phaseColor = '#4ade80'; }
   else if (_nlTrainPhase === 'evaluating') { phaseLabel = 'Evaluating'; phaseColor = '#60a5fa'; }
-  else { phaseLabel = 'Training'; phaseColor = 'var(--accent, #b4451a)'; }
+  else { phaseLabel = 'Training'; phaseColor = 'var(--nr-accent, #b4451a)'; }
 
   container.innerHTML = `
     <div style="display:flex;height:calc(100% - 60px);box-sizing:border-box;gap:0;">
@@ -379,7 +379,7 @@ function _nlRenderTrainDetailView(container) {
               <h3 class="text-[0.78rem] font-semibold text-primary">Training Log</h3>
               <span class="text-[0.65rem] text-dimmer tabular-nums" id="nl-log-count">${_nlTrainLogs.length} lines</span>
             </div>
-            <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 12px 10px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.75rem;line-height:1.65;color:var(--text-primary,#e5e5e5);white-space:pre;tab-size:2;"></div>
+            <div id="nl-train-log" style="flex:1;min-height:0;overflow-y:auto;padding:0 12px 10px;font-family:'SF Mono',Monaco,Consolas,'Liberation Mono',monospace;font-size:0.75rem;line-height:1.65;color:var(--nr-text-primary,#e5e5e5);white-space:pre;tab-size:2;"></div>
           </div>
         </div>
       </div>
@@ -912,10 +912,10 @@ function _nlShowTrainPill() {
   pill.id = 'nl-train-pill';
   Object.assign(pill.style, {
     position: 'fixed', right: '20px', zIndex: '99999',
-    background: 'var(--bg-card, #23232a)', border: '1px solid var(--border-card, #2a2a2f)',
+    background: 'var(--nr-bg-surface, #23232a)', border: '1px solid var(--nr-border-default, #2a2a2f)',
     borderRadius: '14px', padding: '10px 16px', minWidth: '220px', maxWidth: '360px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
-    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
+    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--nr-text-primary, #e5e5e5)',
     opacity: '0',
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'
@@ -923,7 +923,7 @@ function _nlShowTrainPill() {
   pill.innerHTML = `
     <div style="width:18px;height:18px;flex-shrink:0;" id="nl-pill-icon">
       <svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite">
-        <circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/>
+        <circle cx="9" cy="9" r="7" fill="none" stroke="var(--nr-accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/>
       </svg>
     </div>
     <div id="nl-pill-text" style="flex:1;line-height:1.4;">
@@ -1228,7 +1228,7 @@ function _nlShowCalibrationOverlay() {
   overlay.id = 'nl-calibration-overlay';
   Object.assign(overlay.style, {
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    background: 'var(--bg-body, #0a0a0a)', zIndex: '99999',
+    background: 'var(--nr-bg-body, #0a0a0a)', zIndex: '99999',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
   });
 
@@ -1265,7 +1265,7 @@ function _nlShowCalibrationOverlay() {
   const progFill = document.createElement('div');
   progFill.id = 'nl-cal-progfill';
   Object.assign(progFill.style, {
-    width: '0%', height: '100%', background: 'var(--accent, #b4451a)',
+    width: '0%', height: '100%', background: 'var(--nr-accent, #b4451a)',
     borderRadius: '2px', transition: 'width 0.3s'
   });
   progBar.appendChild(progFill);
@@ -1306,7 +1306,7 @@ function _nlShowNextCalibrationDot() {
   Object.assign(dot.style, {
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '20px', height: '20px', borderRadius: '50%',
-    background: 'var(--accent, #b4451a)',
+    background: 'var(--nr-accent, #b4451a)',
     border: '2px solid #fff',
     boxShadow: '0 0 8px rgba(0,0,0,0.5)',
     transform: 'translate(-50%, -50%)',
@@ -1319,7 +1319,7 @@ function _nlShowNextCalibrationDot() {
   Object.assign(ring.style, {
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '44px', height: '44px', borderRadius: '50%',
-    border: '2px solid var(--accent, #b4451a)',
+    border: '2px solid var(--nr-accent, #b4451a)',
     transform: 'translate(-50%, -50%) scale(1)',
     zIndex: '100001', opacity: '0',
     transition: `opacity 0.3s, transform ${_NL_STARE_MS}ms linear`
@@ -1625,10 +1625,10 @@ function _nlShowModelUpdatedPill(version, valErrorPx) {
   pill.id = 'nl-model-updated-pill';
   Object.assign(pill.style, {
     position: 'fixed', right: '20px', zIndex: '99999',
-    background: 'var(--bg-card, #23232a)', border: '1px solid #60a5fa',
+    background: 'var(--nr-bg-surface, #23232a)', border: '1px solid #60a5fa',
     borderRadius: '14px', padding: '10px 16px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(96,165,250,0.15)',
-    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--text-primary, #e5e5e5)',
+    fontFamily: 'inherit', fontSize: '0.78rem', color: 'var(--nr-text-primary, #e5e5e5)',
     opacity: '0',
     display: 'flex', alignItems: 'center', gap: '10px',
     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', cursor: 'pointer'
@@ -1932,7 +1932,7 @@ function _nlRefreshStats() {
 
   const refineCount = _nlRefinementHistory.filter(h => h.improved).length;
   const bestError = _nlBaselineValError !== null ? `${_nlBaselineValError}px` : '<span class="text-dimmer">—</span>';
-  const autoRefineStatus = _nlAutoRefineInProgress ? '<span style="color:var(--accent)">Refining...</span>'
+  const autoRefineStatus = _nlAutoRefineInProgress ? '<span style="color:var(--nr-accent)">Refining...</span>'
     : _nlAutoRefineEnabled ? '<span style="color:#4ade80">Active</span>'
     : '<span class="text-dimmer">Off</span>';
 

@@ -2416,9 +2416,9 @@ function renderVaultChatPanel(container) {
   container.innerHTML = `
     <div class="doc-chat-messages vault-chat-messages" id="vault-chat-msgs"></div>
     <div style="padding:6px 8px; display:flex; gap:4px; border-top:1px solid var(--border-color);">
-      <input class="doc-ask-inline-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
-      <button id="vault-chat-send" style="background:var(--accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
-      <button id="vault-chat-clear" style="background:transparent; color:var(--text-dimmer); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
+      <input class="doc-ask-inline-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
+      <button id="vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
+      <button id="vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
     </div>
   `;
   _renderVaultChatMessages(true);
@@ -2438,7 +2438,7 @@ function _renderVaultChatMessages(final) {
   const container = document.getElementById('vault-chat-msgs');
   if (!container) return;
   if (_vaultChatMessages.length === 0) {
-    container.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-dimmer); font-size:0.75rem;">Ask a question about your vault notes</div>';
+    container.innerHTML = '<div style="padding:16px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your vault notes</div>';
     return;
   }
   container.innerHTML = _vaultChatMessages.map((m, i) => {
@@ -2570,9 +2570,9 @@ async function renderNtpVaultPanel() {
       <div class="doc-chat-messages vault-chat-messages" id="ntp-vault-chat-msgs" style="max-height:200px; overflow-y:auto;"></div>
       <div style="display:flex; gap:4px; margin-top:6px;">
         <input class="doc-ask-inline-input" id="ntp-vault-chat-input" type="text" placeholder="Ask about your notes…"
-          style="flex:1; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
-        <button id="ntp-vault-chat-send" style="background:var(--accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
-        <button id="ntp-vault-chat-clear" style="background:transparent; color:var(--text-dimmer); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
+          style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
+        <button id="ntp-vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
+        <button id="ntp-vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
       </div>
     </div>
   `;
@@ -2607,7 +2607,7 @@ function _renderNtpVaultNotes(filter) {
   ) : _vaultNotes;
 
   if (!filtered.length) {
-    container.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-dimmer); font-size:0.75rem;">${lc ? 'No matching notes' : 'No notes yet'}</div>`;
+    container.innerHTML = `<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">${lc ? 'No matching notes' : 'No notes yet'}</div>`;
     return;
   }
 
@@ -2615,8 +2615,8 @@ function _renderNtpVaultNotes(filter) {
     const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
     const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
     return `<div class="ntp-vault-note-row" data-note-id="${escapeAttr(n.id)}">` +
-      `<div style="font-size:0.8rem; color:var(--text-primary); font-weight:500;">${escapeHtml(n.title || 'Untitled')}</div>` +
-      (snippet ? `<div style="font-size:0.7rem; color:var(--text-dimmer); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(snippet)}</div>` : '') +
+      `<div style="font-size:0.8rem; color:var(--nr-text-primary); font-weight:500;">${escapeHtml(n.title || 'Untitled')}</div>` +
+      (snippet ? `<div style="font-size:0.7rem; color:var(--nr-text-quaternary); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(snippet)}</div>` : '') +
       `</div>`;
   }).join('');
 
@@ -2633,7 +2633,7 @@ function _renderNtpVaultChatMessages(final) {
   const container = document.getElementById('ntp-vault-chat-msgs');
   if (!container) return;
   if (!_vaultChatMessages.length) {
-    container.innerHTML = '<div style="padding:12px; text-align:center; color:var(--text-dimmer); font-size:0.75rem;">Ask a question about your notes</div>';
+    container.innerHTML = '<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your notes</div>';
     return;
   }
   container.innerHTML = _vaultChatMessages.map((m, i) => {
@@ -2740,7 +2740,7 @@ async function _sendNtpVaultChat() {
 function _vaultGitBadge(status) {
   if (!status) return '';
   const colors = { M: 'color:#e5a50a', A: 'color:#22c55e', D: 'color:#ef4444', '?': 'color:#22c55e', R: 'color:#3b82f6', U: 'color:#ef4444' };
-  const c = colors[status] || 'color:var(--text-dimmer)';
+  const c = colors[status] || 'color:var(--nr-text-quaternary)';
   return `<span class="vault-git-badge" style="${c}">${escapeHtml(status)}</span>`;
 }
 

@@ -104,7 +104,7 @@ function _browseEnsureTabFrame(tab) {
   if (tab._historyPage) {
     const el = document.createElement('div');
     el.id = 'browse-history-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);';
     container.appendChild(el);
     tab.el = el;
     _renderWebSearchHistoryPage(el);
@@ -113,7 +113,7 @@ function _browseEnsureTabFrame(tab) {
   if (tab._helpPage) {
     const el = document.createElement('div');
     el.id = 'browse-help-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--bg-body);color:var(--text-primary);';
+    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);';
     container.appendChild(el);
     tab.el = el;
     _renderHelpPage(el);
