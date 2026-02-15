@@ -6,6 +6,8 @@ src/uploads/
 src/vault/
 src/netrun.db
 *.db
+*.db-wal
+*.db-shm
 __pycache__/
 *.pyc
 src/feed_cache/
