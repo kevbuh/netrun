@@ -91,7 +91,6 @@ function _dashBuildQuickActions() {
     { label: 'New Project', onclick: 'openExperiments()', icon: icon('folder', {size: 20, class: 'w-5 h-5'}) },
     { label: 'Search', onclick: 'openSearch()', icon: icon('search', {size: 20, class: 'w-5 h-5'}) },
     { label: 'Vault', onclick: 'openVault()', icon: icon('file', {size: 20, class: 'w-5 h-5'}) },
-    { label: 'Graph', onclick: 'wmOpen(\'graph\')', icon: icon('graph', {size: 20, class: 'w-5 h-5'}) },
     { label: 'Calendar', onclick: 'wmOpen(\'calendar\')', icon: icon('calendar', {size: 20, class: 'w-5 h-5'}) },
   ];
   return `<div class="grid grid-cols-2 gap-2 h-full">${actions.map(a =>

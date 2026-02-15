@@ -1627,11 +1627,16 @@
     /* ── Onboarding Wizard ── */
     .auth-modal.wizard-mode {
       width: 440px;
-      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .auth-modal.wizard-glow {
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 80px var(--accent-glow, transparent);
     }
     #onboarding-wizard {
       position: relative;
       overflow: hidden;
+      transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .wizard-step {
       opacity: 0;
@@ -1748,6 +1753,100 @@
     .wizard-theme-desc {
       font-size: 12px;
       color: var(--text-muted, #999);
+    }
+    .wizard-theme-preview {
+      width: 48px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .wizard-theme-preview-bar {
+      height: 6px;
+      width: 100%;
+    }
+    .wizard-theme-preview-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 2px;
+    }
+    .wizard-theme-preview-line {
+      height: 3px;
+      border-radius: 1px;
+      flex: 1;
+    }
+    .wizard-welcome-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin: 0 auto 16px auto;
+      display: block;
+      border: 3px solid var(--accent);
+      transition: border-color 0.3s;
+    }
+    .wizard-welcome-letter {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      margin: 0 auto 16px auto;
+      transition: background 0.3s;
+    }
+    .wizard-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted, #999);
+      cursor: pointer;
+      padding: 4px;
+      transition: color 0.15s;
+      z-index: 1;
+    }
+    .wizard-back:hover {
+      color: var(--text-primary, #e0e0e0);
+    }
+    .wizard-back svg {
+      width: 18px;
+      height: 18px;
+    }
+    .wizard-finale-check {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      animation: wizFinaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+    .wizard-finale-check svg {
+      opacity: 0;
+      animation: wizCheckDraw 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+    }
+    @keyframes wizFinaleIn {
+      0% { transform: scale(0); opacity: 0; }
+      70% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes wizCheckDraw {
+      0% { opacity: 0; transform: scale(0.5); }
+      100% { opacity: 1; transform: scale(1); }
     }
 
     /* ── SVG Tree ── */

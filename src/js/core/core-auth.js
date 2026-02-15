@@ -217,9 +217,10 @@ async function _submitUsername() {
 }
 
 // ── Onboarding Wizard ──
-// Steps: 0=Username, 1=Accent Color, 2=Theme, 3=Neuralook
+// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Neuralook, 5=Finale
 
 let _wizardStep = 0;
+const _wizardTotalSteps = 6;
 
 const _wizardAccentColors = [
   { color: '#b4451a', name: 'Orange' },
@@ -230,26 +231,67 @@ const _wizardAccentColors = [
   { color: '#805ad5', name: 'Purple' },
   { color: '#d53f8c', name: 'Pink' },
   { color: '#718096', name: 'Gray' },
-  { color: '#111111', name: 'Black' },
 ];
 
 const _wizardThemes = [
-  { id: 'dark', name: 'Dark', desc: 'Easy on the eyes' },
-  { id: 'light', name: 'Light', desc: 'Bright and clean' },
-  { id: 'daylight', name: 'Daylight', desc: 'Warm and natural' },
-  { id: 'clear', name: 'Clear', desc: 'Minimal dark' },
-  { id: 'auto', name: 'Auto', desc: 'Matches your system' },
+  { id: 'dark',     name: 'Dark',     desc: 'Easy on the eyes',     bg: '#0a0a0a', bar: '#151515', card: '#151515', text: '#e0e0e0' },
+  { id: 'light',    name: 'Light',    desc: 'Bright and clean',     bg: '#f5f5f5', bar: '#fff',    card: '#fff',    text: '#333'    },
+  { id: 'daylight', name: 'Daylight', desc: 'Warm and natural',     bg: '#f2f2f5', bar: '#eaeaef', card: '#eeeef2', text: '#151528' },
+  { id: 'clear',    name: 'Clear',    desc: 'Minimal dark',         bg: '#0a0a0a', bar: '#0a0a0a', card: '#181818', text: '#e0e0e0' },
+  { id: 'auto',     name: 'Auto',     desc: 'Matches your system',  bg: '#0a0a0a', bar: '#151515', card: '#151515', text: '#e0e0e0' },
 ];
 
 function _showOnboardingWizard() {
   const signInBtn = document.getElementById('google-signin-btn');
   const wizard = document.getElementById('onboarding-wizard');
   const modal = document.getElementById('auth-modal');
+  const logo = document.getElementById('auth-logo');
+  const authErr = document.getElementById('auth-error');
+  const nav = document.getElementById('sidebar-nav');
   if (signInBtn) signInBtn.style.display = 'none';
+  if (logo) logo.style.display = 'none';
+  if (authErr) authErr.style.display = 'none';
   if (wizard) wizard.style.display = '';
   if (modal) modal.classList.add('wizard-mode');
+  // Hide top nav bar during onboarding
+  if (nav) nav.style.display = 'none';
   _wizardStep = 0;
   _renderWizardStep(0, 'forward');
+}
+
+function _wizardUpdateAccentGlow() {
+  const modal = document.getElementById('auth-modal');
+  if (!modal) return;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const hex = accent.replace('#', '');
+  const r = parseInt(hex.slice(0,2), 16) || 0;
+  const g = parseInt(hex.slice(2,4), 16) || 0;
+  const b = parseInt(hex.slice(4,6), 16) || 0;
+  modal.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.15)`);
+  modal.classList.add('wizard-glow');
+}
+
+function _wizardAnimateHeight(wizard, step) {
+  // Measure the new step's natural height and animate to it
+  const prevHeight = wizard.offsetHeight;
+  wizard.style.height = 'auto';
+  const newHeight = step.scrollHeight;
+  wizard.style.height = prevHeight + 'px';
+  // Force reflow then animate
+  void wizard.offsetHeight;
+  wizard.style.height = newHeight + 'px';
+  // Clear after transition so content can grow naturally
+  const onEnd = () => { wizard.style.height = 'auto'; wizard.removeEventListener('transitionend', onEnd); };
+  wizard.addEventListener('transitionend', onEnd);
+}
+
+function _wizardBackHTML(stepIndex) {
+  if (stepIndex === 0) return '';
+  // Don't allow going back before username once it's been submitted (step 1 is the earliest backable-to after welcome)
+  const prevStep = stepIndex - 1;
+  return `<button class="wizard-back" onclick="_renderWizardStep(${prevStep}, 'back')" title="Back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+  </button>`;
 }
 
 function _renderWizardStep(stepIndex, direction) {
@@ -266,40 +308,62 @@ function _renderWizardStep(stepIndex, direction) {
   const delay = prev ? 350 : 0;
   setTimeout(() => {
     _wizardStep = stepIndex;
-    const totalSteps = 4;
     // Build dots
     let dotsHTML = '<div class="wizard-dots">';
-    for (let i = 0; i < totalSteps; i++) {
+    for (let i = 0; i < _wizardTotalSteps; i++) {
       const cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
       dotsHTML += `<div class="wizard-dot ${cls}"></div>`;
     }
     dotsHTML += '</div>';
 
     let contentHTML = '';
-    if (stepIndex === 0) contentHTML = _wizardUsernameHTML();
-    else if (stepIndex === 1) contentHTML = _wizardAccentHTML();
-    else if (stepIndex === 2) contentHTML = _wizardThemeHTML();
-    else if (stepIndex === 3) contentHTML = _wizardNeuralookHTML();
+    if (stepIndex === 0) contentHTML = _wizardWelcomeHTML();
+    else if (stepIndex === 1) contentHTML = _wizardUsernameHTML();
+    else if (stepIndex === 2) contentHTML = _wizardAccentHTML();
+    else if (stepIndex === 3) contentHTML = _wizardThemeHTML();
+    else if (stepIndex === 4) contentHTML = _wizardNeuralookHTML();
+    else if (stepIndex === 5) contentHTML = _wizardFinaleHTML();
 
     const step = document.createElement('div');
     step.className = 'wizard-step';
-    step.innerHTML = dotsHTML + contentHTML;
+    step.style.position = 'relative';
+    step.innerHTML = _wizardBackHTML(stepIndex) + dotsHTML + contentHTML;
     wizard.appendChild(step);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         step.classList.add('active');
+        _wizardAnimateHeight(wizard, step);
       });
     });
 
     // Init step-specific behavior
-    if (stepIndex === 0) _wizardUsernameInit();
-    else if (stepIndex === 1) _wizardAccentInit();
-    else if (stepIndex === 2) _wizardThemeInit();
+    if (stepIndex === 1) _wizardUsernameInit();
+    else if (stepIndex === 2) _wizardAccentInit();
+    else if (stepIndex === 3) _wizardThemeInit();
   }, delay);
 }
 
-// ── Step 0: Username ──
+// ── Step 0: Welcome ──
+
+function _wizardWelcomeHTML() {
+  const name = (_authUserInfo && (_authUserInfo.name || '')) || _authUser || '';
+  const firstName = name.split(' ')[0] || 'there';
+  const pic = _authUserInfo && _authUserInfo.picture;
+  const avatarHTML = pic
+    ? `<img class="wizard-welcome-avatar" src="${pic.replace(/"/g, '&quot;')}" referrerpolicy="no-referrer" />`
+    : `<div class="wizard-welcome-letter">${firstName[0].toUpperCase()}</div>`;
+  return `
+    <div style="text-align:center;">
+      ${avatarHTML}
+      <div style="font-size:22px;font-weight:600;color:var(--text-primary,#e0e0e0);margin-bottom:6px;">Welcome, ${firstName}</div>
+      <div style="font-size:13px;color:var(--text-muted,#999);margin-bottom:24px;">Let's get your workspace set up. This only takes a moment.</div>
+      <button class="wizard-btn wizard-btn-primary" onclick="_renderWizardStep(1, 'forward')">Get started</button>
+    </div>
+  `;
+}
+
+// ── Step 1: Username ──
 
 function _wizardUsernameHTML() {
   return `
@@ -352,7 +416,7 @@ async function _wizardSubmitUsername() {
     const data = await apiPost('/api/auth/username', { username });
     _authUserInfo.username = data.username;
     localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
-    _renderWizardStep(1, 'forward');
+    _renderWizardStep(2, 'forward');
   } catch (e) {
     errEl.textContent = e.message || 'Network error, please try again';
     btn.disabled = false;
@@ -360,7 +424,7 @@ async function _wizardSubmitUsername() {
   }
 }
 
-// ── Step 1: Accent Color ──
+// ── Step 2: Accent Color ──
 
 function _wizardAccentHTML() {
   const current = localStorage.getItem('accentColor') || '#b4451a';
@@ -384,12 +448,15 @@ function _wizardAccentInit() {
   const current = localStorage.getItem('accentColor') || '#b4451a';
   if (typeof applyAccentColor === 'function') applyAccentColor(current);
   if (typeof window._updateCircuitColors === 'function') window._updateCircuitColors();
+  _wizardUpdateAccentGlow();
 }
 
 function _wizardPickAccent(color, el) {
   if (typeof setAccentColor === 'function') setAccentColor(color);
   // Update circuit board background to match
   if (typeof window._updateCircuitColors === 'function') window._updateCircuitColors();
+  // Update modal glow
+  _wizardUpdateAccentGlow();
   // Update swatch selection visuals
   const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
@@ -403,10 +470,22 @@ function _wizardPickAccent(color, el) {
 }
 
 function _wizardAccentContinue() {
-  _renderWizardStep(2, 'forward');
+  _renderWizardStep(3, 'forward');
 }
 
-// ── Step 2: Theme ──
+// ── Step 3: Theme ──
+
+function _wizardThemePreview(t) {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  return `<div class="wizard-theme-preview" style="background:${t.bg};border-color:${t.id === 'dark' || t.id === 'clear' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'};">
+    <div class="wizard-theme-preview-bar" style="background:${t.bar};"></div>
+    <div class="wizard-theme-preview-body">
+      <div class="wizard-theme-preview-line" style="background:${t.text};opacity:0.5;"></div>
+      <div class="wizard-theme-preview-line" style="background:${accent};opacity:0.7;"></div>
+      <div class="wizard-theme-preview-line" style="background:${t.text};opacity:0.3;"></div>
+    </div>
+  </div>`;
+}
 
 function _wizardThemeHTML() {
   const current = localStorage.getItem('theme') || 'dark';
@@ -417,8 +496,11 @@ function _wizardThemeHTML() {
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
         ${_wizardThemes.map(t => `
           <button class="wizard-theme-option${t.id === current ? ' selected' : ''}" data-theme="${t.id}" onclick="_wizardPickTheme('${t.id}', this)">
-            <span class="wizard-theme-name">${t.name}</span>
-            <span class="wizard-theme-desc">${t.desc}</span>
+            ${_wizardThemePreview(t)}
+            <div style="flex:1;text-align:left;margin-left:12px;">
+              <span class="wizard-theme-name">${t.name}</span><br/>
+              <span class="wizard-theme-desc">${t.desc}</span>
+            </div>
           </button>
         `).join('')}
       </div>
@@ -434,6 +516,16 @@ function _wizardThemeInit() {
 
 function _wizardPickTheme(themeId, el) {
   if (typeof setTheme === 'function') setTheme(themeId);
+  // Update login-gate and auth-modal backgrounds to match theme
+  const gate = document.getElementById('login-gate');
+  const modal = document.getElementById('auth-modal');
+  const isLight = themeId === 'light' || themeId === 'daylight';
+  if (gate) gate.style.background = isLight ? '#f0f0f4' : '#080810';
+  if (modal) {
+    modal.style.background = isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(12, 12, 20, 0.7)';
+    modal.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+    modal.style.color = isLight ? '#333' : '#e0e0e0';
+  }
   const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-theme-option').forEach(b => b.classList.remove('selected'));
@@ -442,10 +534,10 @@ function _wizardPickTheme(themeId, el) {
 }
 
 function _wizardThemeContinue() {
-  _renderWizardStep(3, 'forward');
+  _renderWizardStep(4, 'forward');
 }
 
-// ── Step 3: Neuralook (optional) ──
+// ── Step 4: Neuralook (optional) ──
 
 function _wizardNeuralookHTML() {
   return `
@@ -456,19 +548,42 @@ function _wizardNeuralookHTML() {
         <svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
       <button class="wizard-btn wizard-btn-primary" onclick="_wizardStartNeuralook()">Calibrate now</button>
-      <button class="wizard-btn wizard-btn-secondary" onclick="_wizardFinish()">Set up later</button>
+      <button class="wizard-btn wizard-btn-secondary" onclick="_renderWizardStep(5, 'forward')">Set up later</button>
     </div>
   `;
 }
 
 function _wizardStartNeuralook() {
+  _wizardRestoreUI();
   _onLoginSuccess();
   if (typeof _nlStartCalibration === 'function') {
     _nlStartCalibration();
   }
 }
 
+// ── Step 5: Finale ──
+
+function _wizardFinaleHTML() {
+  const username = (_authUserInfo && _authUserInfo.username) || 'you';
+  return `
+    <div style="text-align:center;">
+      <div class="wizard-finale-check">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="font-size:22px;font-weight:600;color:var(--text-primary,#e0e0e0);margin-bottom:6px;">You're all set, @${username}</div>
+      <div style="font-size:13px;color:var(--text-muted,#999);margin-bottom:24px;">Neural link established. Jack in.</div>
+      <button class="wizard-btn wizard-btn-primary" onclick="_wizardFinish()">Enter the Net</button>
+    </div>
+  `;
+}
+
+function _wizardRestoreUI() {
+  const nav = document.getElementById('sidebar-nav');
+  if (nav) nav.style.display = '';
+}
+
 function _wizardFinish() {
+  _wizardRestoreUI();
   _onLoginSuccess();
 }
 
