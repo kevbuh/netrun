@@ -35,10 +35,7 @@ function _triggerInsight(tab) {
   // If we have a cached result for this URL, restore it directly
   if (_restoreInsightPill(tab)) return;
 
-  // Remove any existing insight pill
-  if (typeof islandRemove === 'function') islandRemove('insight');
-
-  // Extract text and send to pipeline
+  // Extract text and send to pipeline (will show "Analyzing…" pill when ready)
   _triggerInsightExtract(tab);
 }
 
@@ -227,9 +224,57 @@ function _initInsightListener() {
   });
 }
 
+// ── Insight partial (streaming) listener ──
+
+function _initInsightPartialListener() {
+  if (!window.electronAPI || !window.electronAPI.onInsightPartial) return;
+
+  window.electronAPI.onInsightPartial(function (_event, partial) {
+    if (!partial || !partial.tabId) return;
+    if (typeof _browseActiveTab !== 'undefined' && partial.tabId !== _browseActiveTab) return;
+
+    // Update pill with streamed insight text
+    if (partial.insight && typeof islandUpdate === 'function') {
+      const label = partial.insight.length > 60
+        ? partial.insight.slice(0, 57) + '\u2026'
+        : partial.insight;
+      islandUpdate('insight', {
+        type: 'insight',
+        label: label,
+        loading: true,
+        offer: false,
+      });
+    }
+
+    // Inject streamed annotation incrementally
+    if (partial.annotation) {
+      var tab = _browseTabs.find(function(t) { return t.id === partial.tabId; });
+      if (tab) {
+        _annotationsEnabled.set(tab.id, true);
+        injectSingleAnnotation(tab, partial.annotation);
+        _updateAnnotateButtonState();
+      }
+      // Update pill count
+      if (typeof islandUpdate === 'function') {
+        var count = partial.annotationCount || 0;
+        var currentLabel = partial.insight
+          ? (partial.insight.length > 60 ? partial.insight.slice(0, 57) + '\u2026' : partial.insight)
+          : (count + ' insight' + (count !== 1 ? 's' : ''));
+        islandUpdate('insight', {
+          type: 'insight',
+          label: currentLabel,
+          loading: true,
+          offer: false,
+        });
+      }
+    }
+  });
+}
+
 // Initialize when DOM is ready
 function _initInsightSystem() {
   _initInsightListener();
+  _initInsightPartialListener();
   // Sync enabled state with backend
   if (localStorage.getItem('insightEnabled') === 'off' && window.electronAPI && window.electronAPI.insightSetEnabled) {
     window.electronAPI.insightSetEnabled(false);
@@ -243,9 +288,26 @@ if (document.readyState === 'loading') {
 
 // ── Text extraction (unchanged) ──
 
+async function _waitForWebviewReady(frame, timeout) {
+  if (!frame || frame.tagName !== 'WEBVIEW') return false;
+  if (frame.isConnected && frame.getWebContentsId && frame.getWebContentsId()) return true;
+  return new Promise(function(resolve) {
+    var timer = setTimeout(function() { resolve(false); }, timeout || 5000);
+    frame.addEventListener('dom-ready', function onReady() {
+      frame.removeEventListener('dom-ready', onReady);
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
 async function _extractTextFromFrame(tab) {
   if (!tab || !tab.el) return '';
   const frame = tab.el;
+  if (frame.tagName === 'WEBVIEW') {
+    const ready = await _waitForWebviewReady(frame, 5000);
+    if (!ready) return '';
+  }
   const script = `(function() {
     const skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
     const block = new Set(['DIV','P','BR','H1','H2','H3','H4','H5','H6','LI','TR','BLOCKQUOTE','PRE','SECTION','ARTICLE','HEADER','FOOTER','ASIDE','DT','DD','FIGCAPTION','HR','BIG','DETAILS','SUMMARY','NAV','MAIN','TABLE','THEAD','TBODY','TFOOT','OL','UL']);
@@ -610,22 +672,29 @@ function injectSingleAnnotation(tab, ann) {
   if (!tab || !tab.el) return;
   const frame = tab.el;
   const colorMap = {
-    ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50' },
-    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350' },
-    AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800' },
-    CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3' }
+    ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Alpha', labelColor: '#4caf50' },
+    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
+    AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
+    CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
   if (typeof _customAnnotationCategories !== 'undefined') {
     for (const cc of _customAnnotationCategories) {
-      colorMap[cc.key] = { bg: cc.color + '40', border: cc.color };
+      colorMap[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
     }
   }
-  const c = colorMap[ann.type] || { bg: 'rgba(136,136,136,0.25)', border: '#888' };
+  const c = colorMap[ann.type] || { bg: 'rgba(136,136,136,0.25)', border: '#888', label: ann.type, labelColor: '#888' };
+  const annJSON = JSON.stringify({
+    type: ann.type, label: c.label, labelColor: c.labelColor,
+    explanation: ann.explanation || '', conflictsWith: ann.conflictsWith || '',
+    confidence: ann.confidence != null ? ann.confidence : null, quote: ann.quote || ''
+  }).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const quoteEsc = JSON.stringify(ann.quote).slice(1, -1).replace(/'/g, "\\'");
   const bgEsc = c.bg.replace(/'/g, "\\'");
   const borderEsc = c.border.replace(/'/g, "\\'");
+  var annOpacity = ann.confidence != null ? Math.max(0.4, ann.confidence / 100) : 1;
   const script = `(function(){
     var quote='${quoteEsc}';if(!quote)return;
+    var annData=JSON.parse('${annJSON}');
     var skip=new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
     function collect(el){var r=[];if(skip.has(el.tagName))return r;for(var ch of el.childNodes){if(ch.nodeType===3)r.push(ch);else if(ch.nodeType===1)r.push.apply(r,collect(ch));}return r;}
     var nodes=collect(document.body),full='';var map=[];
@@ -637,8 +706,13 @@ function injectSingleAnnotation(tab, ann) {
       var os=Math.max(mi,nm.start)-nm.start,oe=Math.min(me,nm.end)-nm.start;
       var nt=node.textContent,before=nt.substring(0,os),mt=nt.substring(os,oe),after=nt.substring(oe);
       var mark=document.createElement('mark');mark.className='aether-annotation';
-      mark.style.cssText='background:${bgEsc};border-bottom:2px solid ${borderEsc};padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;';
+      mark.style.cssText='background:${bgEsc};border-bottom:2px solid ${borderEsc};padding:1px 0;border-radius:2px;cursor:pointer;color:inherit;opacity:${annOpacity};';
       mark.textContent=mt;
+      var _hoveredAnn=null;
+      mark.addEventListener('mouseover',function(){_hoveredAnn=annData;});
+      mark.addEventListener('mouseout',function(){if(!mark._clicked){_hoveredAnn=null;console.log('__AETHER_ANN_LEAVE__');}});
+      mark.addEventListener('mousemove',function(e){if(_hoveredAnn&&!mark._clicked){console.log('__AETHER_ANN_MOVE__'+JSON.stringify({x:e.clientX,y:e.clientY,type:annData.type,label:annData.label,labelColor:annData.labelColor,explanation:annData.explanation,conflictsWith:annData.conflictsWith,confidence:annData.confidence,quote:annData.quote}));}});
+      mark.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();mark._clicked=true;mark.style.opacity='1';mark.style.outline='1.5px solid ${borderEsc}';mark.style.outlineOffset='1px';console.log('__AETHER_ANN_CLICK__'+JSON.stringify({x:e.clientX,y:e.clientY,type:annData.type,label:annData.label,labelColor:annData.labelColor,explanation:annData.explanation,conflictsWith:annData.conflictsWith,confidence:annData.confidence,quote:annData.quote}));});
       var p=node.parentNode;if(before)p.insertBefore(document.createTextNode(before),node);
       p.insertBefore(mark,node);if(after)p.insertBefore(document.createTextNode(after),node);
       p.removeChild(node);break;

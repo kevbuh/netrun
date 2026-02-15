@@ -95,6 +95,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   insightSetEnabled: (enabled) => ipcRenderer.invoke('insight:set-enabled', enabled),
   onInsightResult: (cb) => ipcRenderer.on('insight:result', cb),
   removeInsightResultListener: (cb) => ipcRenderer.removeListener('insight:result', cb),
+  onInsightPartial: (cb) => ipcRenderer.on('insight:partial', cb),
+  removeInsightPartialListener: (cb) => ipcRenderer.removeListener('insight:partial', cb),
 
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),

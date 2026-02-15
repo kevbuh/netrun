@@ -195,7 +195,17 @@ Respond ONLY with valid JSON in this exact format:
 No other text. No markdown. No explanation outside the JSON.`;
 
       const model = this._getModel();
-      const result = await this.ollama.chat({
+      const customCats = contentQueries.listAnnotationCategories();
+      const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'AD', ...customCats.map(c => c.key)]);
+      const annotations: Annotation[] = [];
+      let insight: string | null = null;
+
+      // Stream the LLM response and emit partial results
+      let rawContent = '';
+      let insightEmitted = false;
+      let emittedAnnotationCount = 0;
+
+      const stream = this.ollama.chatStream({
         model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -206,52 +216,118 @@ No other text. No markdown. No explanation outside the JSON.`;
         signal: controller.signal,
       });
 
+      for await (const event of stream) {
+        if (controller.signal.aborted) return;
+        if (event.type === 'token') {
+          rawContent += event.content;
+
+          // Try to extract insight as soon as the string value completes
+          if (!insightEmitted) {
+            const insightMatch = rawContent.match(/"insight"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (insightMatch) {
+              const rawInsight = insightMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').trim();
+              if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
+                insight = rawInsight;
+                if (!sender.isDestroyed()) {
+                  sender.send('insight:partial', { tabId: data.tabId, url: data.url, insight });
+                }
+              }
+              insightEmitted = true;
+            }
+          }
+
+          // Try to extract complete annotation objects from the annotations array
+          // Find the annotations array start
+          const arrStart = rawContent.indexOf('"annotations"');
+          if (arrStart !== -1) {
+            // Scan for complete annotation objects we haven't emitted yet
+            const afterArr = rawContent.indexOf('[', arrStart);
+            if (afterArr !== -1) {
+              let depth = 0, objStart = -1;
+              let objCount = 0;
+              for (let i = afterArr + 1; i < rawContent.length; i++) {
+                const ch = rawContent[i];
+                if (ch === '"') {
+                  // Skip string contents
+                  let j = i + 1;
+                  while (j < rawContent.length && rawContent[j] !== '"') {
+                    if (rawContent[j] === '\\') j++;
+                    j++;
+                  }
+                  i = j;
+                  continue;
+                }
+                if (ch === '{') {
+                  if (depth === 0) objStart = i;
+                  depth++;
+                } else if (ch === '}') {
+                  depth--;
+                  if (depth === 0 && objStart !== -1) {
+                    objCount++;
+                    if (objCount > emittedAnnotationCount) {
+                      // New complete annotation object
+                      const objStr = rawContent.slice(objStart, i + 1);
+                      try {
+                        const item = JSON.parse(objStr);
+                        const ann = this._validateAnnotation(item, validTypes, data.text);
+                        if (ann) {
+                          annotations.push(ann);
+                          emittedAnnotationCount = objCount;
+                          if (!sender.isDestroyed()) {
+                            sender.send('insight:partial', {
+                              tabId: data.tabId, url: data.url,
+                              annotation: ann,
+                              annotationCount: annotations.length,
+                            });
+                          }
+                        } else {
+                          emittedAnnotationCount = objCount;
+                        }
+                      } catch {
+                        emittedAnnotationCount = objCount;
+                      }
+                    }
+                    objStart = -1;
+                  }
+                }
+              }
+            }
+          }
+        } else if (event.type === 'error') {
+          console.debug('[insight] Stream error:', event.error);
+          return;
+        }
+      }
+
       if (controller.signal.aborted) return;
 
-      let rawContent = (result.message.content ?? '').trim();
-
-      // Parse JSON response
-      rawContent = rawContent.replace(/<think>[\s\S]*?<\/think>/g, '');
-      if (rawContent.includes('```')) {
-        rawContent = rawContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+      // Final parse pass — pick up anything the incremental parser missed
+      let cleanContent = rawContent.trim();
+      cleanContent = cleanContent.replace(/<think>[\s\S]*?<\/think>/g, '');
+      if (cleanContent.includes('```')) {
+        cleanContent = cleanContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
       }
-      rawContent = rawContent.trim();
-
-      // Try to extract JSON object
-      const objMatch = rawContent.match(/\{[\s\S]*\}/);
-      if (!objMatch) {
-        console.debug('[insight] Failed to parse JSON response');
-        return;
-      }
-
-      const parsed = JSON.parse(objMatch[0]);
-
-      // Extract insight
-      let insight: string | null = null;
-      const rawInsight = (parsed.insight ?? '').trim();
-      if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
-        insight = rawInsight;
-      }
-
-      // Extract and validate annotations
-      const customCats = contentQueries.listAnnotationCategories();
-      const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'AD', ...customCats.map(c => c.key)]);
-      const annotations: Annotation[] = [];
-
-      if (Array.isArray(parsed.annotations)) {
-        for (const item of parsed.annotations.slice(0, 15)) {
-          if (!item || typeof item !== 'object') continue;
-          const atype = item.type ?? '';
-          const quote = (item.quote ?? '').trim();
-          const explanation = (item.explanation ?? '').trim();
-          if (!validTypes.has(atype) || !quote) continue;
-          const snapped = snapQuoteToText(quote, data.text);
-          if (!snapped) continue;
-          let confidence = 70;
-          try { confidence = Math.max(0, Math.min(100, parseInt(item.confidence ?? '70'))); } catch {}
-          const ann: Annotation = { type: atype, quote: snapped.slice(0, 500), explanation: explanation.slice(0, 300), confidence };
-          if (atype === 'CONTRADICTION' && item.conflictsWith) ann.conflictsWith = item.conflictsWith.slice(0, 200);
-          annotations.push(ann);
+      cleanContent = cleanContent.trim();
+      const objMatch = cleanContent.match(/\{[\s\S]*\}/);
+      if (objMatch) {
+        try {
+          const parsed = JSON.parse(objMatch[0]);
+          // Pick up insight if we missed it during streaming
+          if (!insight) {
+            const rawInsight = (parsed.insight ?? '').trim();
+            if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
+              insight = rawInsight;
+            }
+          }
+          // Pick up any annotations we missed
+          if (Array.isArray(parsed.annotations)) {
+            for (const item of parsed.annotations.slice(emittedAnnotationCount, 15)) {
+              const ann = this._validateAnnotation(item, validTypes, data.text);
+              if (ann) annotations.push(ann);
+            }
+          }
+        } catch {
+          console.debug('[insight] Final JSON parse failed');
         }
       }
 
@@ -345,6 +421,21 @@ No other text. No markdown. No explanation outside the JSON.`;
 
   private _getAnnotationPrompt(): string {
     return this._readAnnotationPrompt() ?? DEFAULT_ANNOTATION_PROMPT;
+  }
+
+  private _validateAnnotation(item: any, validTypes: Set<string>, pageText: string): Annotation | null {
+    if (!item || typeof item !== 'object') return null;
+    const atype = item.type ?? '';
+    const quote = (item.quote ?? '').trim();
+    const explanation = (item.explanation ?? '').trim();
+    if (!validTypes.has(atype) || !quote) return null;
+    const snapped = snapQuoteToText(quote, pageText);
+    if (!snapped) return null;
+    let confidence = 70;
+    try { confidence = Math.max(0, Math.min(100, parseInt(item.confidence ?? '70'))); } catch {}
+    const ann: Annotation = { type: atype, quote: snapped.slice(0, 500), explanation: explanation.slice(0, 300), confidence };
+    if (atype === 'CONTRADICTION' && item.conflictsWith) ann.conflictsWith = item.conflictsWith.slice(0, 200);
+    return ann;
   }
 
   private _getModel(): string {
