@@ -95,51 +95,35 @@ function _ambientOnNavigate() {
   _ambientDismiss();
 }
 
-// ── Detail popover on click ──
+// ── Detail in pill dropdown ──
 
 function _ambientShowDetail(insight) {
-  // Remove existing popover if any
+  var dd = document.getElementById('pill-url-dropdown');
+  var wrap = document.getElementById('pill-url-wrap');
+  if (!dd || !wrap) return;
+
+  // Remove old popover if any
   var existing = document.getElementById('ambient-detail-popover');
   if (existing) existing.remove();
 
-  var input = document.getElementById('pill-browse-url-input');
-  if (!input) return;
-
-  // Get position from the URL input to place popover below it
-  var rect = input.getBoundingClientRect();
-
-  var popover = document.createElement('div');
-  popover.id = 'ambient-detail-popover';
-  popover.className = 'fixed z-50 bg-card border border-border-card rounded-lg shadow-lg p-4 max-w-md';
-  popover.style.minWidth = '280px';
-  popover.style.top = (rect.bottom + 8) + 'px';
-  popover.style.left = (rect.left + rect.width / 2) + 'px';
-  popover.style.transform = 'translateX(-50%)';
-
-  var detail = '<p class="text-sm text-primary mb-2">' + _escapeHtml(insight.detail) + '</p>';
+  var html = '<div style="padding:12px 14px;">';
+  html += '<p style="font-size:0.82rem;color:var(--text-primary);margin:0 0 8px 0;line-height:1.5;">' + _escapeHtml(insight.detail) + '</p>';
   if (insight.related && insight.related.length > 0) {
-    detail += '<div class="text-xs text-muted mt-2 border-t border-border-card pt-2">';
-    detail += '<span class="font-medium">Related:</span>';
+    html += '<div style="font-size:0.72rem;color:var(--text-dim);border-top:1px solid var(--aether-border, var(--border-card));padding-top:8px;margin-top:8px;">';
+    html += '<span style="font-weight:600;">Related:</span>';
     for (var i = 0; i < insight.related.length; i++) {
       var r = insight.related[i];
-      detail += '<div class="mt-1 truncate">' + _escapeHtml(r.title) + '</div>';
+      html += '<div style="margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _escapeHtml(r.title) + '</div>';
     }
-    detail += '</div>';
+    html += '</div>';
   }
-  popover.innerHTML = detail;
+  html += '</div>';
 
-  document.body.appendChild(popover);
-
-  // Close on click outside
-  function closeHandler(e) {
-    if (!popover.contains(e.target)) {
-      popover.remove();
-      document.removeEventListener('click', closeHandler, true);
-    }
-  }
-  setTimeout(function () {
-    document.addEventListener('click', closeHandler, true);
-  }, 100);
+  dd.innerHTML = html;
+  dd.style.display = '';
+  dd.classList.remove('hidden');
+  wrap.classList.add('pill-dropdown-open');
+  dd.onclick = null;
 }
 
 function _escapeHtml(str) {
