@@ -1023,31 +1023,6 @@ function _browseInjectContentScripts(tab, frame) {
             }
           }
         },true);
-        // Two-finger horizontal swipe detection
-        var _swAccX=0,_swAccY=0,_swLocked=false,_swTimer=null,_swLastSend=0;
-        document.addEventListener('wheel',function(ev){
-          if(ev.ctrlKey||ev.metaKey)return;
-          if(!_swLocked){
-            _swAccX+=ev.deltaX;
-            _swAccY+=ev.deltaY;
-            if(Math.abs(_swAccY)>30){_swAccX=0;_swAccY=0;return;}
-          }
-          clearTimeout(_swTimer);
-          _swTimer=setTimeout(function(){
-            if(_swLocked)console.log('__AETHER_SWIPE_END__'+Math.round(_swAccX));
-            _swAccX=0;_swAccY=0;_swLocked=false;
-          },150);
-          if(!_swLocked&&Math.abs(_swAccX)>=10){
-            _swLocked=true;
-          }
-          if(_swLocked){
-            var now=Date.now();
-            if(now-_swLastSend>30){
-              _swLastSend=now;
-              console.log('__AETHER_SWIPE_PROGRESS__'+Math.round(_swAccX));
-            }
-          }
-        },{passive:true,capture:true});
       })();
     `).catch(()=>{});
 
@@ -1140,19 +1115,7 @@ function _browseInjectContentScripts(tab, frame) {
 
   // Listen for context menu via console message
   frame.addEventListener('console-message', (e) => {
-    if (e.message && e.message.startsWith('__AETHER_SWIPE_')) {
-      try {
-        const isEnd = e.message.startsWith('__AETHER_SWIPE_END__');
-        const prefix = isEnd ? '__AETHER_SWIPE_END__' : '__AETHER_SWIPE_PROGRESS__';
-        const dx = parseInt(e.message.slice(prefix.length));
-        if (isEnd) {
-          if (typeof _browseSwipeEnd === 'function') _browseSwipeEnd(dx);
-        } else {
-          if (typeof _browseSwipeProgress === 'function') _browseSwipeProgress(dx);
-        }
-      } catch (err) { console.warn('[swipe]', err); }
-      return;
-    } else if (e.message === '__AETHER_CLOSE_TAB__') {
+    if (e.message === '__AETHER_CLOSE_TAB__') {
       if (typeof browseCloseTab === 'function') browseCloseTab(tab.id);
       return;
     } else if (e.message && e.message.startsWith('__AETHER_BYPASS_BLOCK__')) {
