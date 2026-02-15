@@ -1,3 +1,21 @@
+/* ── Tweet thread (used by reader view) ── */
+    .tweet-counter {
+      position: absolute;
+      top: 16px; left: -1px;
+      transform: translateX(-100%);
+      padding-right: 10px;
+      font-size: 11px;
+      color: var(--nr-text-quaternary);
+      white-space: nowrap;
+    }
+    .tweet-body p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--nr-text-primary);
+      margin: 0 0 4px 0;
+    }
+    .tweet-body p:last-child { margin-bottom: 0; }
+
 /* ── Reader view ── */
     .reader-view {
       max-width: 720px;

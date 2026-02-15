@@ -21,3 +21,14 @@
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
+
+/* Vibrancy overrides for island/pill elements */
+[data-theme="clear"] .browse-mode #pill-nav-icons,
+[data-theme="clear"] .island-ctx-tray,
+[data-theme="clear"] .goo-tray-shape,
+[data-theme="clear"] .goo-pill-shape,
+[data-theme="clear"] .pulse-dropdown-inner,
+[data-theme="clear"] .audio-pill-dropdown-inner {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}

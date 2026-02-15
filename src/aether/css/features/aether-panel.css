@@ -1,3 +1,50 @@
+/* ── Aether panel theme vars ── */
+:root {
+  --aether-bg: #000;
+  --aether-dropdown-bg: var(--aether-bg);
+  --aether-text: #fff;
+  --aether-text-secondary: #ccc;
+  --aether-text-dim: rgba(255,255,255,0.55);
+  --aether-text-dimmer: rgba(255,255,255,0.4);
+  --aether-text-dimmest: rgba(255,255,255,0.3);
+  --aether-border: rgba(255,255,255,0.06);
+  --aether-hover: rgba(255,255,255,0.08);
+  --aether-hover-subtle: rgba(255,255,255,0.06);
+  --aether-scrollbar: rgba(255,255,255,0.12);
+  --aether-shadow: rgba(0,0,0,0.5);
+  --aether-placeholder: rgba(255,255,255,0.35);
+}
+
+[data-aether-theme="aether"] {
+  --aether-bg: #fff;
+  --aether-text: #111;
+  --aether-text-secondary: #444;
+  --aether-text-dim: rgba(0,0,0,0.55);
+  --aether-text-dimmer: rgba(0,0,0,0.4);
+  --aether-text-dimmest: rgba(0,0,0,0.3);
+  --aether-border: rgba(0,0,0,0.1);
+  --aether-hover: rgba(0,0,0,0.05);
+  --aether-hover-subtle: rgba(0,0,0,0.04);
+  --aether-scrollbar: rgba(0,0,0,0.12);
+  --aether-shadow: rgba(0,0,0,0.15);
+  --aether-placeholder: rgba(0,0,0,0.35);
+}
+
+[data-aether-theme="match"] {
+  --aether-bg: var(--nr-bg-body);
+  --aether-text: var(--nr-text-primary);
+  --aether-text-secondary: var(--nr-text-secondary);
+  --aether-text-dim: var(--nr-text-tertiary);
+  --aether-text-dimmer: var(--nr-text-quaternary);
+  --aether-text-dimmest: var(--nr-text-quaternary);
+  --aether-border: var(--nr-border-subtle);
+  --aether-hover: var(--nr-bg-raised);
+  --aether-hover-subtle: var(--nr-bg-raised);
+  --aether-scrollbar: var(--nr-border-subtle);
+  --aether-shadow: var(--nr-shadow-popup);
+  --aether-placeholder: var(--nr-text-quaternary);
+}
+
 /* ── Aether chat panel ── */
     /* ── Document Chat Panel ── */
     .doc-chat-bar {
