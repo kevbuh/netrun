@@ -12,13 +12,31 @@ __pycache__/
 *.pyc
 src/feed_cache/
 wandb/
-src/neuralook_calibration.json
-src/neuralook_implicit.json
-src/neuralook_model_gazenet.pt
-src/neuralook_model_gazenet_meta.json
 .coverage
 coverage/
 .DS_Store
 .env
 htmlcov/
 src/saved_content/
+
+# Binary/model files
+*.pt
+*.dat
+src/adblock_meta.json
+
+# Runtime/user data
+src/neuralook_*_meta.json
+src/neuralook_refine_history.json
+src/neuralook_calibration.json
+src/neuralook_implicit.json
+src/.pdf-cache/
+src/saved_posts.json
+src/todos.json
+src/settings.json
+src/annotation_prompt.txt
+src/quality_prompt.txt
+src/blocked_titles.json
+
+# Misc
+src/templates/
+*.pdf
