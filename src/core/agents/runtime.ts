@@ -9,6 +9,7 @@ import type {
   AgentAction,
 } from './types.js';
 import { MAX_TOOL_ITERATIONS, STUCK_THRESHOLD } from './types.js';
+import { getContextBudget, trimMessages } from './context.js';
 
 /**
  * Try to extract a tool call from plain text content.
@@ -263,6 +264,7 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
   ];
 
   const toolsEnabled = context.toolsEnabled !== false;
+  const contextBudget = getContextBudget(model ?? 'default');
 
   if (toolsEnabled) {
     // Get tool definitions filtered to this agent's whitelist
@@ -288,11 +290,13 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
       }
 
       // Non-streaming call for tool resolution
+      const trimmedMessages = trimMessages(messages, contextBudget);
       let response;
       try {
         response = await provider.chat({
-          messages,
+          messages: trimmedMessages,
           tools: filteredDefs,
+          toolChoice: 'auto',
           model,
           signal,
         });
@@ -395,7 +399,7 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
   }
 
   // Flatten tool call/result messages into plain text for models that don't support them
-  const streamMessages = flattenToolMessages(messages);
+  const streamMessages = trimMessages(flattenToolMessages(messages), contextBudget);
 
   try {
     for await (const event of provider.chatStream({ messages: streamMessages, model, signal })) {

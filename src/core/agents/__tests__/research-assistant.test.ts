@@ -81,16 +81,18 @@ describe('research-assistant agent', () => {
   });
 
   it('truncates long document text', () => {
+    // Use a small-context model to test truncation
     const longDoc = 'x'.repeat(20000);
     const prompt = researchAssistant.buildSystemPrompt({
       documentText: longDoc,
       toolsEnabled: true,
+      model: 'llama3:8b', // 8000 token context → ~10666 char doc limit
     });
 
-    // Should be truncated to 12000 chars (plus surrounding newlines)
+    // Should be truncated based on model context budget (~40% of 8000 tokens / 0.3 ≈ 10666 chars)
     const docSection = prompt.split('--- DOCUMENT TEXT ---')[1]?.split('--- END ---')[0] ?? '';
-    // The section includes \n before and after the doc text
     const trimmed = docSection.trim();
-    expect(trimmed.length).toBeLessThanOrEqual(12000);
+    expect(trimmed.length).toBeLessThanOrEqual(11000);
+    expect(trimmed.length).toBeLessThan(20000);
   });
 });

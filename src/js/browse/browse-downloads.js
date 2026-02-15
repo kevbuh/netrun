@@ -1026,6 +1026,32 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // Two-finger horizontal swipe detection
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherSwipeInjected)return;
+        window.__aetherSwipeInjected=true;
+        var accX=0,accY=0,locked=false,timer=null;
+        var THRESHOLD=80;
+        window.addEventListener('wheel',function(e){
+          if(e.ctrlKey||e.metaKey)return;
+          if(!locked){
+            accX+=e.deltaX;
+            accY+=e.deltaY;
+            if(Math.abs(accY)>30){accX=0;accY=0;return;}
+          }
+          clearTimeout(timer);
+          timer=setTimeout(function(){accX=0;accY=0;locked=false;},300);
+          if(Math.abs(accX)>=THRESHOLD&&!locked){
+            locked=true;
+            if(accX<0)console.log('__AETHER_SWIPE_BACK__');
+            else console.log('__AETHER_SWIPE_FORWARD__');
+            accX=0;accY=0;
+          }
+        },{passive:true});
+      })();
+    `).catch(()=>{});
+
     // RSS feed detection
     frame.executeJavaScript(`
       (function(){
@@ -1115,7 +1141,13 @@ function _browseInjectContentScripts(tab, frame) {
 
   // Listen for context menu via console message
   frame.addEventListener('console-message', (e) => {
-    if (e.message === '__AETHER_CLOSE_TAB__') {
+    if (e.message === '__AETHER_SWIPE_BACK__') {
+      browseBack();
+      return;
+    } else if (e.message === '__AETHER_SWIPE_FORWARD__') {
+      browseForward();
+      return;
+    } else if (e.message === '__AETHER_CLOSE_TAB__') {
       if (typeof browseCloseTab === 'function') browseCloseTab(tab.id);
       return;
     } else if (e.message && e.message.startsWith('__AETHER_BYPASS_BLOCK__')) {

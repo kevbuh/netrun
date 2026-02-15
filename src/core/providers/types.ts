@@ -35,6 +35,8 @@ export interface ChatOptions {
   maxTokens?: number;
   model?: string;
   signal?: AbortSignal;
+  /** Hint to the model about tool usage */
+  toolChoice?: 'auto' | 'none' | 'required';
 }
 
 /** Non-streaming chat response */

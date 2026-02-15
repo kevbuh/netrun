@@ -84,6 +84,7 @@ export class OllamaProvider implements LLMProvider {
       model,
       messages: aiMsgs,
       tools: convertedTools,
+      toolChoice: convertedTools ? (options.toolChoice ?? 'auto') : undefined,
       temperature: options.temperature,
       maxOutputTokens: options.maxTokens,
       abortSignal: options.signal,
@@ -116,10 +117,12 @@ export class OllamaProvider implements LLMProvider {
     const provider = this.getProvider();
     const model = provider.chat(options.model ?? this.defaultModel);
 
+    const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
     const result = streamText({
       model,
       messages: toAIMessages(options.messages),
-      tools: options.tools ? this.convertTools(options.tools) : undefined,
+      tools: convertedTools,
+      toolChoice: convertedTools ? (options.toolChoice ?? 'auto') : undefined,
       temperature: options.temperature,
       maxOutputTokens: options.maxTokens,
       abortSignal: options.signal,

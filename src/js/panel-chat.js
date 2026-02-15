@@ -1,13 +1,5 @@
 // panel-chat.js — Chat system, context attachments, and screenshots
-
-// Model context sizes for different AI models
-const _modelContextSizes = {
-  'claude-sonnet-4': 200000, 'claude-opus-4': 200000, 'claude-3.5-sonnet': 200000,
-  'gpt-4o': 128000, 'gpt-4-turbo': 128000, 'gpt-4': 8192, 'gpt-3.5-turbo': 16384,
-  'qwen2.5:1.5b': 32000, 'qwen2.5:3b': 32000, 'qwen2.5:7b': 32000,
-  'qwen3:8b': 32000, 'qwen3-vl:8b': 32000, 'llama3:8b': 8000,
-  'gemma2:9b': 8000, 'mistral:7b': 32000, 'deepseek-r1:8b': 64000
-};
+// Model context sizes are defined in src/core/agents/context.ts
 
 function _saveChatMemory() {
   if (_popupChatMessages.length < 2) return;
@@ -856,7 +848,6 @@ function _renderPopupChat(popup, final) {
   if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
 }
 
-// Merged into main _modelContextSizes at top of file
 
 function _updateContextUsage(popup) {
   // Removed — context usage no longer shown

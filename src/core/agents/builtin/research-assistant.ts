@@ -1,4 +1,5 @@
 import type { AgentDefinition, AgentContext } from '../types.js';
+import { getContextBudget } from '../context.js';
 
 function getCurrentDateString(): string {
   const now = new Date();
@@ -90,9 +91,11 @@ export const researchAssistant: AgentDefinition = {
       pageCtx = `\n\nThe user is currently viewing: "${context.pageTitle ?? ''}" (${context.pageUrl}). Use this when they refer to "this page", "this paper", etc.`;
     }
 
-    // Build document context section
+    // Build document context section — use ~40% of model context for doc text
+    const model = context.model ?? this.model ?? 'default';
+    const docCharLimit = Math.floor(getContextBudget(model) * 0.4 / 0.3);
     const truncatedDoc = context.documentText
-      ? context.documentText.slice(0, 12000)
+      ? context.documentText.slice(0, docCharLimit)
       : '';
 
     if (truncatedDoc && context.toolsEnabled !== false) {
