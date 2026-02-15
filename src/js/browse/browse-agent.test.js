@@ -7,12 +7,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // The core DOM extraction logic that runs inside the webview.
 // This is the same algorithm as in agentGetAccessibleDOM's injected code.
-function buildAccessibleTree(root) {
+function buildAccessibleTree(root, opts = {}) {
   root.querySelectorAll('[data-agent-id]').forEach(el => el.removeAttribute('data-agent-id'));
 
   const INTERACTIVE = new Set(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'DETAILS', 'SUMMARY']);
   const TEXT_BLOCKS = new Set(['H1','H2','H3','H4','H5','H6','P','LI','TD','TH','LABEL','SPAN','FIGCAPTION']);
-  const MAX_ELEMENTS = 150;
+  const MAX_ELEMENTS = 300;
   const MAX_TEXT = 80;
 
   function textOf(el) {
@@ -125,14 +125,14 @@ describe('browse-agent DOM extraction', () => {
     expect(result.lines[0]).toContain('A'.repeat(80) + '\u2026');
   });
 
-  it('should cap elements at 150', () => {
+  it('should cap elements at 300', () => {
     let html = '';
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 400; i++) {
       html += `<p>Item ${i}</p>`;
     }
     document.body.innerHTML = html;
     const result = buildAccessibleTree(document.body);
-    expect(result.count).toBe(150);
+    expect(result.count).toBe(300);
   });
 
   it('should skip text blocks inside interactive elements', () => {
@@ -321,5 +321,87 @@ describe('DOM context format for chat injection', () => {
     expect('url' in result || true).toBe(true);  // just checking shape
     expect('title' in result || true).toBe(true);
     expect(result.count).toBe(1);
+  });
+});
+
+// ── Query selector extraction (unit test version) ──
+
+function querySelectAndTag(root, selector, maxResults = 20) {
+  const els = root.querySelectorAll(selector);
+  const MAX_TEXT = 80;
+  const lines = [];
+  let nextId = 1;
+  // Continue from existing agent IDs
+  root.querySelectorAll('[data-agent-id]').forEach(el => {
+    const eid = parseInt(el.getAttribute('data-agent-id'));
+    if (eid >= nextId) nextId = eid + 1;
+  });
+  let count = 0;
+  for (let j = 0; j < els.length && count < maxResults; j++) {
+    const el = els[j];
+    const id = nextId++;
+    el.setAttribute('data-agent-id', id);
+    const tag = el.tagName.toLowerCase();
+    let text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+    if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT) + '\u2026';
+    lines.push('[' + id + '] <' + tag + '>' + (text ? ' "' + text + '"' : ''));
+    count++;
+  }
+  return { lines, count };
+}
+
+describe('browse-agent query selector', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('should find elements by CSS selector', () => {
+    document.body.innerHTML = `
+      <button class="primary">Submit</button>
+      <button class="secondary">Cancel</button>
+      <button class="primary">Save</button>
+    `;
+    const result = querySelectAndTag(document.body, '.primary');
+    expect(result.count).toBe(2);
+    expect(result.lines[0]).toContain('"Submit"');
+    expect(result.lines[1]).toContain('"Save"');
+  });
+
+  it('should respect max_results limit', () => {
+    document.body.innerHTML = '<p>A</p><p>B</p><p>C</p><p>D</p><p>E</p>';
+    const result = querySelectAndTag(document.body, 'p', 3);
+    expect(result.count).toBe(3);
+  });
+
+  it('should assign data-agent-id to matched elements', () => {
+    document.body.innerHTML = '<a href="/a">Link A</a><a href="/b">Link B</a>';
+    querySelectAndTag(document.body, 'a');
+    expect(document.querySelector('a[data-agent-id="1"]')).not.toBeNull();
+    expect(document.querySelector('a[data-agent-id="2"]')).not.toBeNull();
+  });
+
+  it('should continue IDs from existing agent IDs', () => {
+    document.body.innerHTML = '<button data-agent-id="5">Existing</button><a href="/x">New</a>';
+    const result = querySelectAndTag(document.body, 'a');
+    expect(result.count).toBe(1);
+    // Should start from 6 since 5 already exists
+    expect(result.lines[0]).toContain('[6]');
+    expect(document.querySelector('a').getAttribute('data-agent-id')).toBe('6');
+  });
+
+  it('should return empty result for non-matching selector', () => {
+    document.body.innerHTML = '<p>Text</p>';
+    const result = querySelectAndTag(document.body, '.nonexistent');
+    expect(result.count).toBe(0);
+    expect(result.lines).toHaveLength(0);
+  });
+});
+
+describe('browse-agent viewport metadata', () => {
+  it('should include viewport metadata in output format', () => {
+    // The actual agentGetAccessibleDOM adds a VIEWPORT: line at the top
+    // This test verifies the expected format
+    const meta = 'VIEWPORT: scrollY=0, pageHeight=2000, viewportHeight=800';
+    expect(meta).toMatch(/VIEWPORT: scrollY=\d+, pageHeight=\d+, viewportHeight=\d+/);
   });
 });

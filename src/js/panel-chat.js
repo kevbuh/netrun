@@ -26,7 +26,7 @@ function _saveChatMemory() {
 /** Handle a single agent event from IPC streaming */
 function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
   if (!_popupChatMessages[aiIdx]) return; // guard: message was cleared
-  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…' };
+  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…' };
 
   if (agentEvent.type === 'thinking') {
     if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
@@ -85,6 +85,13 @@ function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, se
       'browser-type': 'Typed.',
       'browser-navigate': 'Navigating…',
       'browser-screenshot': 'Took screenshot.',
+      'browser-query-selector': 'Found elements.',
+      'browser-wait-for': 'Wait complete.',
+      'browser-get-url': 'Got URL.',
+      'browser-get-tabs': 'Listed tabs.',
+      'browser-switch-tab': 'Switched tab.',
+      'browser-back': 'Went back.',
+      'browser-forward': 'Went forward.',
     };
     if (confirmations[agentEvent.name]) {
       _popupChatMessages[aiIdx].content = confirmations[agentEvent.name];
@@ -142,6 +149,53 @@ function _handleAgentAction(act) {
     if (typeof browseNavigate === 'function') {
       location.hash = '#browse';
       setTimeout(() => browseNavigate(act.url), 100);
+    }
+  } else if (act.type === 'agent_query_selector') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab && act.requestId) {
+      agentQuerySelector(_tab, act.selector, act.max_results).then(result => {
+        if (window.electronAPI && window.electronAPI.agentActionResult) {
+          window.electronAPI.agentActionResult(act.requestId, result);
+        }
+      });
+    }
+  } else if (act.type === 'agent_wait_for') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab && act.requestId) {
+      agentWaitFor(_tab, act.selector, act.timeout_ms).then(result => {
+        if (window.electronAPI && window.electronAPI.agentActionResult) {
+          window.electronAPI.agentActionResult(act.requestId, result);
+        }
+      });
+    }
+  } else if (act.type === 'agent_get_url') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab && act.requestId) {
+      agentGetUrl(_tab).then(result => {
+        if (window.electronAPI && window.electronAPI.agentActionResult) {
+          window.electronAPI.agentActionResult(act.requestId, result);
+        }
+      });
+    }
+  } else if (act.type === 'agent_get_tabs') {
+    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
+      const result = agentGetTabs();
+      window.electronAPI.agentActionResult(act.requestId, result);
+    }
+  } else if (act.type === 'agent_switch_tab') {
+    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
+      const result = agentSwitchTab(act.tab_id);
+      window.electronAPI.agentActionResult(act.requestId, result);
+    }
+  } else if (act.type === 'agent_back') {
+    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
+      const result = agentBack();
+      window.electronAPI.agentActionResult(act.requestId, result);
+    }
+  } else if (act.type === 'agent_forward') {
+    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
+      const result = agentForward();
+      window.electronAPI.agentActionResult(act.requestId, result);
     }
   }
 }

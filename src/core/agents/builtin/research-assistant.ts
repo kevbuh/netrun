@@ -15,12 +15,22 @@ function getCurrentDateString(): string {
 }
 
 function buildBrowserToolsDescription(hasDom: boolean): string {
+  const commonTools =
+    'browser-query-selector(selector) to find elements by CSS selector, ' +
+    'browser-wait-for(selector, timeout_ms) to wait for an element to appear, ' +
+    'browser-get-url() to check current URL/title, ' +
+    'browser-get-tabs() to list open tabs, browser-switch-tab(tab_id) to switch tabs, ' +
+    'browser-back() and browser-forward() for history navigation. ';
+
   if (hasDom) {
     return (
       'You have browser automation tools: ' +
       'browser-click(element_id), browser-type(element_id, text), browser-scroll(direction), ' +
-      'browser-navigate(url). The BROWSER TAB DOM section below shows the page elements with [N] IDs. ' +
+      'browser-navigate(url), ' + commonTools +
+      'The BROWSER TAB DOM section below shows the viewport-scoped page elements with [N] IDs. ' +
+      'The first line shows VIEWPORT metadata (scrollY, pageHeight, viewportHeight). ' +
       'Use these IDs directly with browser-click/browser-type. ' +
+      'Use browser-query-selector to find specific elements by CSS selector. ' +
       'When the user says "scroll down" or "scroll up", call browser-scroll. ' +
       'Do NOT call browser-read-page — the DOM is already provided.'
     );
@@ -28,7 +38,9 @@ function buildBrowserToolsDescription(hasDom: boolean): string {
   return (
     'You have browser automation tools: browser-read-page (read current page DOM), ' +
     'browser-click(element_id), browser-type(element_id, text), browser-scroll(direction), ' +
-    'browser-navigate(url). Each page element has a numeric ID like [1], [2]. ' +
+    'browser-navigate(url), ' + commonTools +
+    'Each page element has a numeric ID like [1], [2]. ' +
+    'Use browser-query-selector to find specific elements by CSS selector. ' +
     'When the user says "scroll down" or "scroll up", call browser-scroll.'
   );
 }
@@ -57,6 +69,13 @@ export const researchAssistant: AgentDefinition = {
     'browser-scroll',
     'browser-navigate',
     'browser-screenshot',
+    'browser-query-selector',
+    'browser-wait-for',
+    'browser-get-url',
+    'browser-get-tabs',
+    'browser-switch-tab',
+    'browser-back',
+    'browser-forward',
   ],
 
   model: 'qwen3:8b',

@@ -18,7 +18,7 @@ export const browserReadPage: Tool<z.infer<typeof emptyParams>, { status: string
 };
 
 const clickParams = z.object({
-  element_id: z.number().describe('The numeric element ID from the DOM tree'),
+  element_id: z.coerce.number().describe('The numeric element ID from the DOM tree'),
 });
 
 export const browserClick: Tool<z.infer<typeof clickParams>, { status: string; message: string }> = {
@@ -33,7 +33,7 @@ export const browserClick: Tool<z.infer<typeof clickParams>, { status: string; m
 };
 
 const typeParams = z.object({
-  element_id: z.number().describe('The numeric element ID from the DOM tree'),
+  element_id: z.coerce.number().describe('The numeric element ID from the DOM tree'),
   text: z.string().describe('The text to type into the field'),
 });
 
@@ -86,5 +86,98 @@ export const browserScreenshot: Tool<z.infer<typeof emptyParams>, { status: stri
   parameters: emptyParams,
   async execute(): Promise<ToolResult<{ status: string; message: string }>> {
     return { success: true, data: { status: 'pending', message: 'Taking screenshot...' } };
+  },
+};
+
+// ── New tools: query selector, wait, observe, tabs ──
+
+const querySelectorParams = z.object({
+  selector: z.string().describe('CSS selector to query for elements'),
+  max_results: z.coerce.number().optional().describe('Maximum elements to return (default 20)'),
+});
+
+export const browserQuerySelector: Tool<z.infer<typeof querySelectorParams>, { status: string; message: string }> = {
+  name: 'browser-query-selector',
+  description: 'Query the current page with a CSS selector and get matching elements with numeric IDs for browser-click/browser-type.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: querySelectorParams,
+  async execute(input): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'ok', message: `Queried selector: ${input.selector}` } };
+  },
+};
+
+const waitForParams = z.object({
+  selector: z.string().describe('CSS selector to wait for'),
+  timeout_ms: z.coerce.number().optional().describe('Timeout in milliseconds (default 5000)'),
+});
+
+export const browserWaitFor: Tool<z.infer<typeof waitForParams>, { status: string; message: string }> = {
+  name: 'browser-wait-for',
+  description: 'Wait for a CSS selector to appear on the page. Returns when the element is found or timeout expires.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: waitForParams,
+  async execute(input): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'pending', message: `Waiting for ${input.selector}...` } };
+  },
+};
+
+export const browserGetUrl: Tool<z.infer<typeof emptyParams>, { status: string; message: string }> = {
+  name: 'browser-get-url',
+  description: 'Get the current page URL and title without reading the full DOM.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: emptyParams,
+  async execute(): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'ok', message: 'URL retrieved' } };
+  },
+};
+
+export const browserGetTabs: Tool<z.infer<typeof emptyParams>, { status: string; message: string }> = {
+  name: 'browser-get-tabs',
+  description: 'List all open browser tabs with their URL, title, and active status.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: emptyParams,
+  async execute(): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'ok', message: 'Tabs listed' } };
+  },
+};
+
+const switchTabParams = z.object({
+  tab_id: z.coerce.number().describe('The tab ID to switch to (from browser-get-tabs)'),
+});
+
+export const browserSwitchTab: Tool<z.infer<typeof switchTabParams>, { status: string; message: string }> = {
+  name: 'browser-switch-tab',
+  description: 'Switch to a different browser tab by its ID.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: switchTabParams,
+  async execute(input): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'ok', message: `Switched to tab ${input.tab_id}` } };
+  },
+};
+
+export const browserBack: Tool<z.infer<typeof emptyParams>, { status: string; message: string }> = {
+  name: 'browser-back',
+  description: 'Navigate back in the current tab\'s history.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: emptyParams,
+  async execute(): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'ok', message: 'Navigated back' } };
+  },
+};
+
+export const browserForward: Tool<z.infer<typeof emptyParams>, { status: string; message: string }> = {
+  name: 'browser-forward',
+  description: 'Navigate forward in the current tab\'s history.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: emptyParams,
+  async execute(): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'ok', message: 'Navigated forward' } };
   },
 };

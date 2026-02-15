@@ -7,7 +7,7 @@ import { toolRegistry } from './tools/index.js';
 import type { ToolContext } from './tools/types.js';
 import { providerRegistry } from './providers/registry.js';
 import { OllamaProvider } from './providers/ollama.js';
-import { runAgent } from './agents/runtime.js';
+import { runAgent, resolveActionResult } from './agents/runtime.js';
 import { researchAssistant } from './agents/builtin/research-assistant.js';
 import type { AgentContext, AgentMessage, AgentEvent } from './agents/types.js';
 import * as calendarQueries from './db/queries/calendar.js';
@@ -241,6 +241,12 @@ export function registerToolIPC(): void {
   /** List active agent sessions */
   ipcMain.handle('agent:sessions', () => {
     return [...activeSessions.keys()];
+  });
+
+  /** Receive async action results from the renderer */
+  ipcMain.handle('agent:action-result', (_event, requestId: string, result: unknown) => {
+    resolveActionResult(requestId, result);
+    return { ok: true };
   });
 
   // ── DB query handlers (direct data access, no Flask) ──

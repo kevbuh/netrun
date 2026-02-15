@@ -74,6 +74,39 @@ function flattenToolMessages(messages: ChatMessage[]): ChatMessage[] {
   return result;
 }
 
+/** Pending async action results, keyed by requestId */
+const pendingActionResults = new Map<string, {
+  resolve: (result: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
+}>();
+
+/** Called by IPC when the frontend sends back an action result */
+export function resolveActionResult(requestId: string, result: unknown): void {
+  const pending = pendingActionResults.get(requestId);
+  if (pending) {
+    clearTimeout(pending.timer);
+    pendingActionResults.delete(requestId);
+    pending.resolve(result);
+  }
+}
+
+/** Wait for a frontend action result with timeout */
+function waitForActionResult(requestId: string, timeoutMs = 15000): Promise<unknown> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingActionResults.delete(requestId);
+      resolve({ error: 'timeout', message: 'Action timed out' });
+    }, timeoutMs);
+    pendingActionResults.set(requestId, { resolve, timer });
+  });
+}
+
+/** Tools that need to wait for async frontend results */
+const ASYNC_ACTION_TOOLS = new Set([
+  'browser-query-selector', 'browser-wait-for', 'browser-get-url',
+  'browser-get-tabs', 'browser-switch-tab', 'browser-back', 'browser-forward',
+]);
+
 /**
  * Execute a single tool and return the result along with any actions.
  */
@@ -128,6 +161,41 @@ async function executeTool(
       actions.push({ type: 'agent_screenshot' });
       return { success: true, data: { status: 'pending', message: 'Taking screenshot...' } };
     },
+    'browser-query-selector': (a) => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_query_selector', selector: a.selector, max_results: a.max_results, requestId });
+      return { success: true, data: { status: 'pending', message: `Querying selector: ${a.selector}` } };
+    },
+    'browser-wait-for': (a) => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_wait_for', selector: a.selector, timeout_ms: a.timeout_ms, requestId });
+      return { success: true, data: { status: 'pending', message: `Waiting for ${a.selector}...` } };
+    },
+    'browser-get-url': () => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_get_url', requestId });
+      return { success: true, data: { status: 'pending', message: 'Getting URL...' } };
+    },
+    'browser-get-tabs': () => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_get_tabs', requestId });
+      return { success: true, data: { status: 'pending', message: 'Listing tabs...' } };
+    },
+    'browser-switch-tab': (a) => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_switch_tab', tab_id: a.tab_id, requestId });
+      return { success: true, data: { status: 'pending', message: `Switching to tab ${a.tab_id}...` } };
+    },
+    'browser-back': () => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_back', requestId });
+      return { success: true, data: { status: 'pending', message: 'Going back...' } };
+    },
+    'browser-forward': () => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_forward', requestId });
+      return { success: true, data: { status: 'pending', message: 'Going forward...' } };
+    },
   };
 
   let result: ToolResult;
@@ -143,6 +211,19 @@ async function executeTool(
   if (onAction) {
     for (const action of actions) {
       onAction(action);
+    }
+  }
+
+  // For async action tools, wait for the frontend result and use it as the tool result
+  if (ASYNC_ACTION_TOOLS.has(name) && actions.length > 0) {
+    const action = actions[actions.length - 1];
+    const requestId = action.requestId as string;
+    if (requestId) {
+      const timeoutMs = name === 'browser-wait-for'
+        ? ((args.timeout_ms as number) || 5000) + 5000
+        : 15000;
+      const asyncResult = await waitForActionResult(requestId, timeoutMs);
+      result = { success: true, data: asyncResult };
     }
   }
 

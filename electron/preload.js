@@ -82,6 +82,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   agentSessions: () => ipcRenderer.invoke('agent:sessions'),
   onAgentEvent: (callback) => ipcRenderer.on('agent:event', callback),
   removeAgentEventListener: (callback) => ipcRenderer.removeListener('agent:event', callback),
+  agentActionResult: (requestId, result) => ipcRenderer.invoke('agent:action-result', requestId, result),
 
   // ── Doc-chat / Vault-chat streaming events ──
   onDocChatEvent: (callback) => ipcRenderer.on('doc-chat:event', callback),

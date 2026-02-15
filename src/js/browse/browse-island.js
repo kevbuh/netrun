@@ -1118,11 +1118,14 @@ function _browseActiveEl() {
   return tab ? tab.el : null;
 }
 
+// Direction flag read by did-navigate handler to distinguish back/forward from normal nav
+let _browseNavDirection = null;
+
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
 
 function browseBack() {
   const el = _browseActiveEl();
-  if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { el.goBack(); return; }
+  if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }
   // Use our own history stack for non-Electron (cross-origin iframes block history.back())
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.backStack && tab.backStack.length) {
@@ -1153,7 +1156,7 @@ function browseBack() {
 function browseForward() {
   const el = _browseActiveEl();
   if (!el) return;
-  if (_browseIsElectron && el.canGoForward && el.canGoForward()) { el.goForward(); return; }
+  if (_browseIsElectron && el.canGoForward && el.canGoForward()) { _browseNavDirection = 'forward'; el.goForward(); return; }
   // Use our own history stack for non-Electron
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab.forwardStack || !tab.forwardStack.length) return;

@@ -422,6 +422,25 @@ function _browseHandleNavigation(tab, frame) {
       _browseShowBlockedPage(tab, frame, navUrl, _dsMatch.domain);
       return;
     }
+    // Track history stacks for back/forward dropdown
+    const _prevUrl = tab.url;
+    if (_prevUrl && _prevUrl !== navUrl && _prevUrl !== 'about:blank') {
+      if (!tab.backStack) tab.backStack = [];
+      if (!tab.forwardStack) tab.forwardStack = [];
+      const dir = typeof _browseNavDirection !== 'undefined' ? _browseNavDirection : null;
+      if (dir === 'back') {
+        tab.forwardStack.push(_prevUrl);
+        // backStack already popped by webview.goBack()
+      } else if (dir === 'forward') {
+        tab.backStack.push(_prevUrl);
+        // forwardStack already popped by webview.goForward()
+      } else {
+        tab.backStack.push(_prevUrl);
+        tab.forwardStack.length = 0;
+      }
+    }
+    if (typeof _browseNavDirection !== 'undefined') _browseNavDirection = null;
+
     tab.url = navUrl;
     tab.title = _browseTitleFromUrl(navUrl);
     tab.favicon = _browseFaviconUrl(navUrl);
@@ -464,10 +483,29 @@ function _browseHandleNavigation(tab, frame) {
     _browseInjectYouTubeCSS(frame, navUrl);
     // Clear insight pill on navigation
     if (typeof islandRemove === 'function') islandRemove('insight');
+    // Update nav buttons so back/forward reflect history stacks
+    if (typeof _updateIslandNavButtons === 'function') _updateIslandNavButtons();
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
     const sameOrigin = tab.url && e.url && _browseUrlDomain(tab.url) === _browseUrlDomain(e.url);
+    // Track history for in-page (SPA) navigations
+    const _prevUrl = tab.url;
+    if (_prevUrl && _prevUrl !== e.url && _prevUrl !== 'about:blank') {
+      if (!tab.backStack) tab.backStack = [];
+      if (!tab.forwardStack) tab.forwardStack = [];
+      const dir = typeof _browseNavDirection !== 'undefined' ? _browseNavDirection : null;
+      if (dir === 'back') {
+        tab.forwardStack.push(_prevUrl);
+      } else if (dir === 'forward') {
+        tab.backStack.push(_prevUrl);
+      } else {
+        tab.backStack.push(_prevUrl);
+        tab.forwardStack.length = 0;
+      }
+    }
+    if (typeof _browseNavDirection !== 'undefined') _browseNavDirection = null;
+
     tab.url = e.url;
     // Keep real title for same-origin in-page navigations (hash/pushState)
     if (!sameOrigin || !tab.title || tab.title === _browseTitleFromUrl(tab.url)) {
@@ -486,6 +524,8 @@ function _browseHandleNavigation(tab, frame) {
     _browseInjectYouTubeCSS(frame, e.url);
     // Focus timer: check on SPA navigation (don't reset for same domain)
     if (tab.id === _browseActiveTab) _checkFocusTimer(e.url);
+    // Update nav buttons so back/forward reflect history stacks
+    if (typeof _updateIslandNavButtons === 'function') _updateIslandNavButtons();
   });
   frame.addEventListener('page-title-updated', (e) => {
     tab.title = e.title || _browseTitleFromUrl(tab.url);
