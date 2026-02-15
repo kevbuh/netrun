@@ -1,10 +1,16 @@
 // browse-features.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 
-// ── Two-finger swipe navigation (macOS native swipe via main process) ──
+// ── Two-finger swipe navigation ──
+// Horizontal wheel events inside the webview are intercepted by an injected
+// script (see browse-downloads.js dom-ready injection). That script accumulates
+// deltaX and sends __AETHER_SWIPE_PROGRESS__ / __AETHER_SWIPE_COMMIT__ messages
+// back to the parent via console.log. This file handles the affordance indicator
+// and the actual navigation.
 
 let _swipeIndicator = null;
 let _swipeChevronPill = null;
+let _swipeFadeTimer = null;
 
 function _swipeCanGo(direction) {
   try {
@@ -23,12 +29,12 @@ function _swipeCanGo(direction) {
 function _swipeEnsureIndicator() {
   if (_swipeIndicator) return;
   const el = document.createElement('div');
-  el.style.cssText = 'position:absolute;top:0;width:36px;height:100%;z-index:99;pointer-events:none;' +
+  el.style.cssText = 'position:absolute;top:0;width:40px;height:100%;z-index:99;pointer-events:none;' +
     'display:flex;align-items:center;justify-content:center;opacity:0;';
   const pill = document.createElement('div');
   pill.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;' +
-    'background:rgba(255,255,255,0.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
-    'box-shadow:0 2px 8px rgba(0,0,0,0.25);';
+    'background:rgba(255,255,255,0.15);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.25);transform:scale(0.5);';
   pill.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>';
   el.appendChild(pill);
   const container = document.getElementById('browse-content');
@@ -37,44 +43,54 @@ function _swipeEnsureIndicator() {
   _swipeChevronPill = pill;
 }
 
-function _browseHandleSwipe(direction) {
-  const browseView = document.getElementById('browse-view');
-  if (!browseView || browseView.style.display === 'none') return;
-  if (!_swipeCanGo(direction)) return;
-
+// Called from console-message handler with progress 0→1
+function _swipeShowProgress(progress, direction) {
   _swipeEnsureIndicator();
-
-  // Position chevron on correct edge
+  if (!_swipeIndicator) return;
+  clearTimeout(_swipeFadeTimer);
   const isBack = direction === 'back';
   _swipeIndicator.style.left = isBack ? '0' : '';
   _swipeIndicator.style.right = isBack ? '' : '0';
   _swipeChevronPill.querySelector('svg').style.transform = isBack ? '' : 'rotate(180deg)';
-
-  // Flash in
+  const p = Math.min(1, Math.max(0, progress));
   _swipeIndicator.style.transition = 'none';
   _swipeChevronPill.style.transition = 'none';
-  _swipeIndicator.style.opacity = '1';
-  _swipeChevronPill.style.transform = 'scale(1)';
-
-  // Navigate after brief flash
-  setTimeout(() => {
-    if (isBack) browseBack();
-    else browseForward();
-  }, 80);
-
-  // Fade out
-  setTimeout(() => {
-    _swipeIndicator.style.transition = 'opacity 0.25s ease-out';
-    _swipeChevronPill.style.transition = 'transform 0.25s ease-out';
-    _swipeIndicator.style.opacity = '0';
-    _swipeChevronPill.style.transform = 'scale(0.5)';
-  }, 200);
+  _swipeIndicator.style.opacity = String(Math.min(1, p * 1.5));
+  _swipeChevronPill.style.transform = 'scale(' + (0.5 + p * 0.5) + ')';
+  _swipeChevronPill.style.background = p > 0.85 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)';
+  // Auto-fade if no updates
+  _swipeFadeTimer = setTimeout(_swipeDismiss, 350);
 }
 
-// Listen for swipe events from main process
+function _swipeDismiss() {
+  clearTimeout(_swipeFadeTimer);
+  if (!_swipeIndicator) return;
+  _swipeIndicator.style.transition = 'opacity 0.25s ease-out';
+  _swipeChevronPill.style.transition = 'transform 0.25s ease-out, background 0.25s ease-out';
+  _swipeIndicator.style.opacity = '0';
+  _swipeChevronPill.style.transform = 'scale(0.5)';
+}
+
+// Called when swipe threshold is crossed — navigate and flash
+function _swipeCommit(direction) {
+  if (!_swipeCanGo(direction)) return;
+  _swipeEnsureIndicator();
+  if (_swipeChevronPill) _swipeChevronPill.style.background = 'rgba(255,255,255,0.5)';
+  setTimeout(() => {
+    if (direction === 'back') browseBack();
+    else browseForward();
+  }, 60);
+  setTimeout(_swipeDismiss, 250);
+}
+
+// Listen for native three-finger swipe events from main process (fallback)
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.onBrowseSwipe) {
   window.electronAPI.onBrowseSwipe((_event, direction) => {
-    _browseHandleSwipe(direction);
+    const browseView = document.getElementById('browse-view');
+    if (!browseView || browseView.style.display === 'none') return;
+    if (!_swipeCanGo(direction)) return;
+    _swipeShowProgress(1, direction);
+    _swipeCommit(direction);
   });
 }
 

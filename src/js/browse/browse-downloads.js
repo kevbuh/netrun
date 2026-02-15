@@ -1060,6 +1060,38 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // Two-finger horizontal swipe detection — relay to parent for back/forward nav
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherSwipeInjected)return;
+        window.__aetherSwipeInjected=true;
+        var accum=0,dir=null,active=false,decay=null;
+        var THRESHOLD=80;
+        function reset(){accum=0;dir=null;active=false;clearTimeout(decay);
+          console.log('__AETHER_SWIPE_RESET__');}
+        document.addEventListener('wheel',function(e){
+          if(e.ctrlKey)return;
+          var dx=e.deltaX,dy=e.deltaY;
+          if(Math.abs(dx)<2||Math.abs(dy)>Math.abs(dx)*1.2){
+            if(active){clearTimeout(decay);decay=setTimeout(reset,200);}
+            return;
+          }
+          var d=dx<0?'back':'forward';
+          if(active&&dir&&dir!==d)reset();
+          active=true;dir=d;accum+=Math.abs(dx);
+          clearTimeout(decay);
+          var p=Math.min(1,accum/THRESHOLD);
+          console.log('__AETHER_SWIPE_PROGRESS__'+d+','+p.toFixed(3));
+          if(accum>=THRESHOLD){
+            console.log('__AETHER_SWIPE_COMMIT__'+d);
+            accum=0;active=false;dir=null;
+          }else{
+            decay=setTimeout(reset,300);
+          }
+        },{passive:true});
+      })();
+    `).catch(()=>{});
+
     // Password field detection + form submit interception
     frame.executeJavaScript(`
       (function(){
@@ -1238,6 +1270,19 @@ function _browseInjectContentScripts(tab, frame) {
     } else if (e.message && e.message.startsWith('__AETHER_SCROLL__')) {
       if (tab.id === _browseActiveTab) {
         _browseUpdateScrollPill(parseInt(e.message.slice('__AETHER_SCROLL__'.length)));
+      }
+    } else if (e.message && e.message.startsWith('__AETHER_SWIPE_PROGRESS__')) {
+      if (tab.id === _browseActiveTab && typeof _swipeShowProgress === 'function') {
+        const parts = e.message.slice('__AETHER_SWIPE_PROGRESS__'.length).split(',');
+        _swipeShowProgress(parseFloat(parts[1]), parts[0]);
+      }
+    } else if (e.message && e.message.startsWith('__AETHER_SWIPE_COMMIT__')) {
+      if (tab.id === _browseActiveTab && typeof _swipeCommit === 'function') {
+        _swipeCommit(e.message.slice('__AETHER_SWIPE_COMMIT__'.length));
+      }
+    } else if (e.message === '__AETHER_SWIPE_RESET__') {
+      if (tab.id === _browseActiveTab && typeof _swipeDismiss === 'function') {
+        _swipeDismiss();
       }
     } else if (e.message && e.message.startsWith('__NEURALOOK_CLICK__')) {
       if (typeof _nlHandleIframeClick === 'function') {
